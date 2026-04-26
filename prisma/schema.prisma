@@ -1,0 +1,350 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MODELO DE USUARIOS Y AUTENTICACIÓN
+// ============================================
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  password      String
+  name          String
+  phone         String?
+  image         String?
+  role          Role      @default(CLIENT)
+  emailVerified DateTime?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Password Reset
+  resetToken       String?
+  resetTokenExpiry DateTime?
+
+  // Relaciones
+  appointments Appointment[]
+  reviews      Review[]
+  barber       Barber?
+  loyaltyPoints Int         @default(0)
+  
+  // Para NextAuth
+  accounts Account[]
+  sessions Session[]
+
+  @@index([email])
+  @@index([resetToken])
+  @@map("users")
+}
+
+enum Role {
+  CLIENT
+  BARBER
+  ADMIN
+}
+
+// ============================================
+// NEXTAUTH MODELS
+// ============================================
+
+model Account {
+  id                Int     @id @default(autoincrement())
+  userId            Int
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           Int      @id @default(autoincrement())
+  sessionToken String   @unique
+  userId       Int
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// MODELO DE BARBEROS
+// ============================================
+
+model Barber {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio         String?  @db.Text
+  specialties String[]
+  yearsExp    Int      @default(0)
+  rating      Float    @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  appointments Appointment[]
+  services     BarberService[]
+  availability Availability[]
+  portfolio    Portfolio[]
+  reviews      Review[]
+  blockedSlots BlockedSlot[]
+
+  @@index([userId])
+  @@map("barbers")
+}
+
+// ============================================
+// MODELO DE SERVICIOS
+// ============================================
+
+model Service {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String    @db.Text
+  price       Float
+  duration    Int // en minutos
+  category    String
+  image       String?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relaciones
+  appointments AppointmentService[]
+  barbers      BarberService[]
+
+  @@index([category, active])
+  @@map("services")
+}
+
+// Tabla intermedia para relación muchos a muchos
+model BarberService {
+  id        Int      @id @default(autoincrement())
+  barberId  Int
+  serviceId Int
+  barber    Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([barberId, serviceId])
+  @@index([barberId])
+  @@index([serviceId])
+  @@map("barber_services")
+}
+
+// ============================================
+// MODELO DE CITAS/RESERVAS
+// ============================================
+
+model Appointment {
+  id           Int               @id @default(autoincrement())
+  clientId     Int
+  client       User              @relation(fields: [clientId], references: [id])
+  barberId     Int
+  barber       Barber            @relation(fields: [barberId], references: [id])
+  date         DateTime
+  startTime    String // "09:00"
+  endTime      String // "10:00"
+  status       AppointmentStatus @default(PENDING)
+  notes        String?           @db.Text
+  cancelReason String?           @db.Text
+  pointsEarned Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  // Relaciones
+  services AppointmentService[]
+  review   Review?
+
+  @@index([clientId, status])
+  @@index([barberId, date])
+  @@index([date, status])
+  @@map("appointments")
+}
+
+// Tabla intermedia para servicios en una cita
+model AppointmentService {
+  id            Int         @id @default(autoincrement())
+  appointmentId Int
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  serviceId     Int
+  service       Service     @relation(fields: [serviceId], references: [id])
+  createdAt     DateTime    @default(now())
+
+  @@unique([appointmentId, serviceId])
+  @@index([appointmentId])
+  @@index([serviceId])
+  @@map("appointment_services")
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// ============================================
+// MODELO DE DISPONIBILIDAD
+// ============================================
+
+model Availability {
+  id        Int      @id @default(autoincrement())
+  barberId  Int
+  barber    Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  dayOfWeek Int // 0-6 (domingo-sábado)
+  startTime String // "09:00"
+  endTime   String // "18:00"
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([barberId, dayOfWeek])
+  @@map("availabilities")
+}
+
+// Bloques de tiempo específicos no disponibles (vacaciones, días libres, etc.)
+model BlockedSlot {
+  id        Int      @id @default(autoincrement())
+  barberId  Int
+  barber    Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  date      DateTime
+  startTime String
+  endTime   String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([barberId, date])
+  @@map("blocked_slots")
+}
+
+// ============================================
+// MODELO DE RESEÑAS
+// ============================================
+
+model Review {
+  id            Int         @id @default(autoincrement())
+  appointmentId Int         @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  clientId      Int
+  client        User        @relation(fields: [clientId], references: [id])
+  barberId      Int
+  barber        Barber      @relation(fields: [barberId], references: [id])
+  rating        Int // 1-5
+  comment       String?     @db.Text
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([barberId])
+  @@index([rating])
+  @@map("reviews")
+}
+
+// ============================================
+// PORTAFOLIO DE BARBEROS
+// ============================================
+
+model Portfolio {
+  id          Int      @id @default(autoincrement())
+  barberId    Int
+  barber      Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  image       String
+  title       String?
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  @@index([barberId])
+  @@map("portfolio")
+}
+
+// ============================================
+// SISTEMA DE NOTIFICACIONES
+// ============================================
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  type      NotificationType
+  title     String
+  message   String           @db.Text
+  read      Boolean          @default(false)
+  data      Json? // Para datos adicionales
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  APPOINTMENT_CONFIRMED
+  APPOINTMENT_REMINDER
+  APPOINTMENT_CANCELLED
+  APPOINTMENT_RESCHEDULED
+  REVIEW_RECEIVED
+  PROMOTION
+}
+
+// ============================================
+// SISTEMA DE PROMOCIONES Y DESCUENTOS
+// ============================================
+
+model Promotion {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  description String   @db.Text
+  discount    Float // Porcentaje o monto fijo
+  type        String // "PERCENTAGE" o "FIXED"
+  minPoints   Int      @default(0) // Puntos mínimos para canjear
+  active      Boolean  @default(true)
+  validFrom   DateTime
+  validUntil  DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([code, active])
+  @@map("promotions")
+}
+
+// ============================================
+// CONFIGURACIÓN DEL SISTEMA
+// ============================================
+
+model SystemConfig {
+  id                    Int      @id @default(autoincrement())
+  key                   String   @unique
+  value                 String   @db.Text
+  description           String?
+  updatedAt             DateTime @updatedAt
+
+  @@map("system_config")
+}
