@@ -11,6 +11,43 @@
 
 ---
 
+## 0. Instalacion Rapida (todos los comandos en orden)
+
+```powershell
+# 1. Clonar el proyecto
+cd C:\
+git clone https://github.com/Yeistyle11/EliteBarbershop.git barbershop
+cd C:\barbershop
+
+# 2. Copiar y editar las variables de entorno
+Copy-Item .env.example .env
+notepad .env    # Editar con los valores reales
+
+# 3. Instalar dependencias del proyecto
+npm install --legacy-peer-deps
+
+# 4. Generar el cliente de Prisma
+npx prisma generate
+
+# 5. Levantar la base de datos con Docker
+docker-compose up -d
+
+# 6. Crear las tablas y cargar datos de prueba
+npx prisma db push
+npm run db:seed
+
+# 7. Construir la aplicacion para produccion
+npm run build
+
+# 8. Iniciar la aplicacion con PM2
+pm2 start npm --name "barbershop" -- start
+pm2 save
+```
+
+La app queda corriendo en `http://localhost:3000`.
+
+---
+
 ## 1. Preparar el Servidor
 
 ### Instalar Node.js
