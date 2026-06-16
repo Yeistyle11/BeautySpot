@@ -1,0 +1,55 @@
+{
+  "projectKey": "beautyspot",
+  "projectName": "BeautySpot",
+  "version": "1.0.0",
+  "sources": "services",
+  "sourceEncoding": "UTF-8",
+  "exclusions": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/*.spec.ts",
+    "**/*.test.ts",
+    "**/dto/**",
+    "**/entities/**",
+    "**/main.ts",
+    "**/common/**",
+    "**/interfaces/**"
+  ],
+  "coverage": {
+    "exclusions": [
+      "**/dto/**",
+      "**/entities/**",
+      "**/main.ts",
+      "**/common/**",
+      "**/interfaces/**"
+    ],
+    "js": {
+      "reportPaths": ["coverage/lcov.info"]
+    }
+  },
+  "typescript": {
+    "tsconfigPath": "tsconfig.json"
+  },
+  "test": {
+    "inclusions": ["**/*.spec.ts", "**/*.test.ts"]
+  },
+  "sonar.coverage.exclusions": [
+    "**/dto/**",
+    "**/entities/**",
+    "**/main.ts",
+    "**/common/**",
+    "**/interfaces/**"
+  ],
+  "sonar.javascript.lcov.reportPaths": "coverage/lcov.info",
+  "sonar.test.inclusions": "**/*.spec.ts,**/*.test.ts",
+  "sonar.test.exclusions": "**/node_modules/**,**/dist/**",
+  "sonar.qualitygate.wait": true,
+  "sonar.qualitygate.timeout": 300,
+  "sonar.coverage.minimums": {
+    "overall": 90,
+    "lines": 90,
+    "branches": 90,
+    "functions": 90
+  }
+}
