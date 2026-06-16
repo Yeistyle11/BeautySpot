@@ -1,0 +1,69 @@
+version: "3.9"
+
+services:
+  # ─── PostgreSQL para Tests ───────────────────────────────────────────
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: beautyspot-postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_test
+      POSTGRES_DB: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init-test.sql:/docker-entrypoint-initdb.d/init-test.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis para Tests ───────────────────────────────────────────────
+  redis-test:
+    image: redis:7-alpine
+    container_name: beautyspot-redis-test
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    command: redis-server --requirepass redis_test --save ""
+    volumes:
+      - redis_test_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── RabbitMQ para Tests ────────────────────────────────────────────
+  rabbitmq-test:
+    image: rabbitmq:3-management-alpine
+    container_name: beautyspot-rabbitmq-test
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: beautyspot_test
+      RABBITMQ_DEFAULT_PASS: test123
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    volumes:
+      - rabbitmq_test_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_test_data:
+    driver: local
+  redis_test_data:
+    driver: local
+  rabbitmq_test_data:
+    driver: local
+
+networks:
+  default:
+    name: beautyspot-test
