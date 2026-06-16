@@ -51,3 +51,13 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
+
+# Turborepo
+.turbo/
+
+# Agents
+.agents/
+skills-lock.json
+
+# Sonar
+sonar-scanner-cli/
