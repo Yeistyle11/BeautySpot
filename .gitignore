@@ -58,6 +58,7 @@ docker-compose.override.yml
 # Agents
 .agents/
 skills-lock.json
+CLAUDE.md
 
 # Sonar
 sonar-scanner-cli/
