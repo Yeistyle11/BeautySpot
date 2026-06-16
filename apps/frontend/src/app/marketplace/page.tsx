@@ -1,0 +1,368 @@
+"use client";
+import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Scissors, MapPin, Search, Star, Sparkles, TrendingUp, Clock,
+} from "lucide-react";
+import { apiPublic } from "@/lib/api";
+
+interface Profile {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  logo: string | null;
+  coverImage: string | null;
+  city: string | null;
+  address: string | null;
+  businessType: string | null;
+  rating: number;
+  totalReviews: number;
+  tagline: string | null;
+  profileCompleteness: number;
+  galleryImages: { url: string; title?: string; featured?: boolean }[] | null;
+  verified: boolean;
+}
+
+interface FeedSection {
+  id: string;
+  title: string;
+  type: "carousel" | "grid";
+  items: Profile[];
+}
+
+interface FeedCategory {
+  id: string;
+  name: string;
+  icon: string;
+  count: number;
+}
+
+interface FeedResponse {
+  categories: FeedCategory[];
+  sections: FeedSection[];
+}
+
+interface SearchResult {
+  items: Profile[];
+  total: number;
+}
+
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  scissors: <Scissors className="h-5 w-5" />,
+  mirror: <Sparkles className="h-5 w-5" />,
+  spa: <Sparkles className="h-5 w-5" />,
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  BARBERIA: "Barberia",
+  SALON: " Salon de Belleza",
+  SPA: "Spa",
+};
+
+export default function MarketplacePage() {
+  const [feed, setFeed] = useState<FeedResponse | null>(null);
+  const [searchResults, setSearchResults] = useState<SearchResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiPublic
+      .get<FeedResponse>("/marketplace-service/feed")
+      .then(setFeed)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const doSearch = useCallback(
+    (q: string, businessType?: string) => {
+      if (!q && !businessType) {
+        setSearchResults(null);
+        setSearching(false);
+        return;
+      }
+      setSearching(true);
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      if (businessType) params.set("businessType", businessType);
+      apiPublic
+        .get<SearchResult>(`/marketplace-service/search?${params.toString()}`)
+        .then(setSearchResults)
+        .catch(console.error)
+        .finally(() => setSearching(false));
+    },
+    []
+  );
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      doSearch(search, activeCategory || undefined);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search, activeCategory, doSearch]);
+
+  const isSearching = search !== "" || activeCategory !== null;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+      {/* Hero */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-primary/5">
+        <div className="mx-auto max-w-6xl px-4 py-16 pb-10">
+          <div className="text-center">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+              <Sparkles className="h-4 w-4" />
+              Descubre tu proximo lugar favorito
+            </div>
+            <h1 className="text-5xl font-bold tracking-tight">
+              Beauty<span className="text-primary">Spot</span>
+            </h1>
+            <p className="mx-auto mt-3 max-w-lg text-lg text-muted-foreground">
+              Explora las mejores barberias, salones y spas. Encuentra, compara y agenda tu cita en segundos.
+            </p>
+          </div>
+
+          {/* Search bar */}
+          <div className="mx-auto mt-8 max-w-xl">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nombre, ciudad o tipo..."
+                className="h-12 pl-12 text-base shadow-lg border-muted bg-background/80 backdrop-blur"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Categories */}
+          {feed && feed.categories.length > 0 && (
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+              <button
+                onClick={() => setActiveCategory(null)}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                  !activeCategory
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                Todos
+              </button>
+              {feed.categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() =>
+                    setActiveCategory(activeCategory === cat.id ? null : cat.id)
+                  }
+                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                    activeCategory === cat.id
+                      ? "bg-primary text-primary-foreground shadow-md"
+                      : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {CATEGORY_ICONS[cat.icon]}
+                  {cat.name}
+                  <span className="text-xs opacity-70">({cat.count})</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-6xl px-4 py-8">
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </div>
+        ) : isSearching ? (
+          /* Search results */
+          <div>
+            <div className="mb-6 flex items-center gap-3">
+              <h2 className="text-2xl font-bold">Resultados</h2>
+              {searchResults && (
+                <Badge variant="secondary">
+                  {searchResults.total} encontrados
+                </Badge>
+              )}
+            </div>
+            {searching ? (
+              <div className="flex justify-center py-20">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            ) : searchResults && searchResults.items.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {searchResults.items.map((p) => (
+                  <ProfileCard key={p.id} profile={p} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState />
+            )}
+          </div>
+        ) : feed && feed.sections.length > 0 ? (
+          /* Feed sections */
+          <div className="space-y-12">
+            {feed.sections.map((section) => (
+              <FeedSection key={section.id} section={section} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FeedSection({ section }: { section: FeedSection }) {
+  const sectionIcon =
+    section.id === "popular_nearby" ? (
+      <TrendingUp className="h-5 w-5 text-primary" />
+    ) : section.id === "top_rated" ? (
+      <Star className="h-5 w-5 text-primary" />
+    ) : (
+      <Clock className="h-5 w-5 text-primary" />
+    );
+
+  return (
+    <div>
+      <div className="mb-5 flex items-center gap-2">
+        {sectionIcon}
+        <h2 className="text-2xl font-bold">{section.title}</h2>
+      </div>
+      {section.type === "carousel" ? (
+        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+          {section.items.map((p) => (
+            <div key={p.id} className="w-72 shrink-0">
+              <ProfileCard profile={p} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {section.items.map((p) => (
+            <ProfileCard key={p.id} profile={p} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProfileCard({ profile: p }: { profile: Profile }) {
+  const featuredImage =
+    p.galleryImages?.find((img) => img.featured)?.url ||
+    p.galleryImages?.[0]?.url ||
+    p.coverImage;
+
+  return (
+    <Link href={`/marketplace/business/${p.slug}`} className="group block">
+      <Card className="h-full overflow-hidden border-0 shadow-sm transition-all hover:shadow-xl hover:-translate-y-0.5">
+        {/* Cover image */}
+        <div className="relative h-40 bg-gradient-to-br from-primary/20 to-primary/5">
+          {featuredImage ? (
+            <img
+              src={featuredImage}
+              alt={p.name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <Scissors className="h-10 w-10 text-primary/30" />
+            </div>
+          )}
+          {/* Overlay gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+
+          {/* Rating badge */}
+          {Number(p.rating) > 0 && (
+            <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-xs font-bold shadow-sm backdrop-blur">
+              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+              {Number(p.rating).toFixed(1)}
+            </div>
+          )}
+
+          {/* Business type badge */}
+          {p.businessType && (
+            <div className="absolute left-3 bottom-3">
+              <Badge className="bg-white/90 text-foreground backdrop-blur hover:bg-white/90">
+                {TYPE_LABELS[p.businessType] || p.businessType}
+              </Badge>
+            </div>
+          )}
+
+          {/* Verified */}
+          {p.verified && (
+            <div className="absolute left-3 top-3 rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+              Verificado
+            </div>
+          )}
+        </div>
+
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            {p.logo ? (
+              <img
+                src={p.logo}
+                alt={p.name}
+                className="h-11 w-11 shrink-0 rounded-lg object-cover"
+              />
+            ) : (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold text-lg">
+                {p.name.charAt(0)}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
+                {p.name}
+              </h3>
+              {p.tagline && (
+                <p className="text-sm text-muted-foreground truncate">
+                  {p.tagline}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {p.description && (
+            <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
+              {p.description}
+            </p>
+          )}
+
+          <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+            {p.city && (
+              <span className="flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                {p.city}
+              </span>
+            )}
+            {p.totalReviews > 0 && (
+              <span>
+                {p.totalReviews}{" "}
+                {p.totalReviews === 1 ? "resena" : "resenas"}
+              </span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="py-20 text-center text-muted-foreground">
+      <Scissors className="mx-auto h-16 w-16 opacity-20" />
+      <p className="mt-4 text-lg font-medium">
+        No encontramos negocios
+      </p>
+      <p className="text-sm">Intenta con otra busqueda</p>
+    </div>
+  );
+}

@@ -1,0 +1,901 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Scissors,
+  MapPin,
+  Phone,
+  Star,
+  Calendar,
+  ArrowLeft,
+  Instagram,
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  Users,
+  Camera,
+  MessageSquare,
+  Clock,
+  Heart,
+  Quote,
+} from "lucide-react";
+import { apiPublic } from "@/lib/api";
+
+interface SectionConfig {
+  id: string;
+  enabled: boolean;
+  order: number;
+  customTitle?: string;
+}
+
+interface GalleryImage {
+  url: string;
+  title?: string;
+  category?: string;
+  featured?: boolean;
+}
+
+interface SocialLinks {
+  instagram?: string;
+  facebook?: string;
+  tiktok?: string;
+  website?: string;
+}
+
+interface Profile {
+  id: string;
+  businessId: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  logo: string | null;
+  coverImage: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  lat: number | null;
+  lng: number | null;
+  rating: number;
+  totalReviews: number;
+  businessType: string | null;
+  verified: boolean;
+  tagline: string | null;
+  storyTitle: string | null;
+  storyText: string | null;
+  storyImage: string | null;
+  foundedYear: number | null;
+  founders: string | null;
+  socialLinks: SocialLinks | null;
+  sectionConfig: { sections: SectionConfig[] } | null;
+  galleryImages: GalleryImage[] | null;
+  isPublished: boolean;
+  profileCompleteness: number;
+}
+
+interface Professional {
+  id: string;
+  name: string;
+  photo: string | null;
+  bio: string | null;
+  specialties: string[];
+  yearsExp: number;
+  tagline: string | null;
+  rating: number;
+  totalReviews: number;
+  socialInstagram: string | null;
+  portfolio: { url: string; title?: string; category?: string }[] | null;
+}
+
+interface Review {
+  id: string;
+  clientId: string;
+  rating: number;
+  comment: string | null;
+  response: string | null;
+  respondedAt: string | null;
+  serviceName: string | null;
+  professionalName: string | null;
+  photos: string[] | null;
+  isVerified: boolean;
+  helpfulCount: number;
+  createdAt: string;
+}
+
+interface RatingDistribution {
+  5: number;
+  4: number;
+  3: number;
+  2: number;
+  1: number;
+  average: number;
+  total: number;
+}
+
+const SECTION_TITLES: Record<string, string> = {
+  story: "Nuestra Historia",
+  services: "Servicios",
+  team: "Nuestro Equipo",
+  gallery: "Galeria",
+  reviews: "Resenas",
+  location: "Ubicacion",
+};
+
+export default function BusinessProfilePage() {
+  const { slug } = useParams<{ slug: string }>();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [ratingDist, setRatingDist] = useState<RatingDistribution | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [galleryIdx, setGalleryIdx] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  useEffect(() => {
+    apiPublic
+      .get<Profile>(`/marketplace/profiles/${slug}`)
+      .then((p) => {
+        setProfile(p);
+        const bid = p.businessId;
+        return Promise.all([
+          apiPublic
+            .get<Professional[]>(
+              `/marketplace/professional-profiles/business/${bid}`
+            )
+            .catch(() => []),
+          apiPublic
+            .get<{ items: Review[]; total: number }>(
+              `/marketplace/reviews/business/${bid}?limit=10`
+            )
+            .catch(() => ({ items: [], total: 0 })),
+          apiPublic
+            .get<RatingDistribution>(
+              `/marketplace/reviews/business/${bid}/summary`
+            )
+            .catch(() => null),
+        ]);
+      })
+      .then((results) => {
+        if (results) {
+          setProfessionals(results[0] as Professional[]);
+          setReviews((results[1] as { items: Review[] }).items);
+          setRatingDist(results[2] as RatingDistribution);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 text-muted-foreground">
+        <Scissors className="h-16 w-16 opacity-20" />
+        <p className="text-lg font-medium">Negocio no encontrado</p>
+        <Link
+          href="/marketplace"
+          className="text-primary hover:underline"
+        >
+          Volver al marketplace
+        </Link>
+      </div>
+    );
+  }
+
+  const sections = profile.sectionConfig?.sections
+    ?.filter((s) => s.enabled)
+    .sort((a, b) => a.order - b.order) || [
+    { id: "story", enabled: true, order: 1 },
+    { id: "team", enabled: true, order: 2 },
+    { id: "gallery", enabled: true, order: 3 },
+    { id: "reviews", enabled: true, order: 4 },
+    { id: "location", enabled: true, order: 5 },
+  ];
+
+  const gallery = profile.galleryImages || [];
+  const coverImg = profile.coverImage || gallery[0]?.url;
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Hero Banner */}
+      <div className="relative h-72 sm:h-80 bg-gradient-to-br from-primary/30 to-primary/10">
+        {coverImg && (
+          <img
+            src={coverImg}
+            alt={profile.name}
+            className="h-full w-full object-cover"
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+
+        {/* Back button */}
+        <div className="absolute left-4 top-4 z-10">
+          <Link href="/marketplace">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="bg-white/20 text-white backdrop-blur hover:bg-white/30"
+            >
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              Volver
+            </Button>
+          </Link>
+        </div>
+
+        {/* Business info overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-6">
+          <div className="mx-auto max-w-4xl">
+            <div className="flex items-end gap-4">
+              {profile.logo ? (
+                <img
+                  src={profile.logo}
+                  alt={profile.name}
+                  className="h-20 w-20 shrink-0 rounded-2xl border-4 border-white shadow-lg object-cover"
+                />
+              ) : (
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border-4 border-white bg-primary text-3xl font-bold text-primary-foreground shadow-lg">
+                  {profile.name.charAt(0)}
+                </div>
+              )}
+              <div className="min-w-0 flex-1 text-white">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-3xl font-bold drop-shadow-lg">
+                    {profile.name}
+                  </h1>
+                  {profile.verified && (
+                    <Badge className="bg-primary text-primary-foreground">
+                      Verificado
+                    </Badge>
+                  )}
+                </div>
+                {profile.tagline && (
+                  <p className="mt-1 text-lg text-white/90 drop-shadow">
+                    {profile.tagline}
+                  </p>
+                )}
+                <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-white/80">
+                  {Number(profile.rating) > 0 && (
+                    <span className="flex items-center gap-1">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span className="font-semibold text-white">
+                        {Number(profile.rating).toFixed(1)}
+                      </span>
+                      ({profile.totalReviews} resenas)
+                    </span>
+                  )}
+                  {profile.city && (
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-4 w-4" />
+                      {profile.city}
+                    </span>
+                  )}
+                  {profile.phone && (
+                    <span className="flex items-center gap-1">
+                      <Phone className="h-4 w-4" />
+                      {profile.phone}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <Link href={`/marketplace/business/${slug}/book`}>
+                <Button
+                  size="lg"
+                  className="hidden sm:flex bg-white text-primary hover:bg-white/90 shadow-lg"
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Agendar cita
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        {/* Mobile CTA */}
+        <div className="mb-6 sm:hidden">
+          <Link href={`/marketplace/business/${slug}/book`} className="block">
+            <Button size="lg" className="w-full">
+              <Calendar className="mr-2 h-4 w-4" />
+              Agendar cita
+            </Button>
+          </Link>
+        </div>
+
+        {/* Dynamic sections */}
+        {sections.map((section) => {
+          const title =
+            section.customTitle || SECTION_TITLES[section.id] || section.id;
+          switch (section.id) {
+            case "story":
+              return (
+                profile.storyText && (
+                  <StorySection
+                    key={section.id}
+                    title={title}
+                    storyTitle={profile.storyTitle}
+                    storyText={profile.storyText}
+                    storyImage={profile.storyImage}
+                    foundedYear={profile.foundedYear}
+                    founders={profile.founders}
+                  />
+                )
+              );
+            case "team":
+              return (
+                professionals.length > 0 && (
+                  <TeamSection
+                    key={section.id}
+                    title={title}
+                    professionals={professionals}
+                    slug={slug}
+                  />
+                )
+              );
+            case "gallery":
+              return (
+                gallery.length > 0 && (
+                  <GallerySection
+                    key={section.id}
+                    title={title}
+                    images={gallery}
+                    galleryIdx={galleryIdx}
+                    setGalleryIdx={setGalleryIdx}
+                    lightboxOpen={lightboxOpen}
+                    setLightboxOpen={setLightboxOpen}
+                  />
+                )
+              );
+            case "reviews":
+              return (
+                <ReviewsSection
+                  key={section.id}
+                  title={title}
+                  reviews={reviews}
+                  ratingDist={ratingDist}
+                  rating={profile.rating}
+                  totalReviews={profile.totalReviews}
+                />
+              );
+            case "location":
+              return (
+                (profile.address || profile.city) && (
+                  <LocationSection
+                    key={section.id}
+                    title={title}
+                    address={profile.address}
+                    city={profile.city}
+                    state={profile.state}
+                    country={profile.country}
+                  />
+                )
+              );
+            default:
+              return null;
+          }
+        })}
+
+        {/* Social links */}
+        {profile.socialLinks &&
+          Object.values(profile.socialLinks).some(Boolean) && (
+            <div className="mb-8 flex items-center gap-3">
+              {profile.socialLinks.instagram && (
+                <a
+                  href={profile.socialLinks.instagram}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 rounded-full bg-muted px-4 py-2 text-sm hover:bg-muted/80 transition-colors"
+                >
+                  <Instagram className="h-4 w-4" />
+                  Instagram
+                </a>
+              )}
+              {profile.socialLinks.website && (
+                <a
+                  href={profile.socialLinks.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 rounded-full bg-muted px-4 py-2 text-sm hover:bg-muted/80 transition-colors"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Sitio web
+                </a>
+              )}
+            </div>
+          )}
+
+        {/* Final CTA */}
+        <div className="mb-8 rounded-2xl bg-gradient-to-r from-primary to-primary/80 p-8 text-center text-primary-foreground">
+          <h3 className="text-2xl font-bold">Listo para tu proxima cita?</h3>
+          <p className="mt-2 text-primary-foreground/80">
+            Agenda en segundos, sin necesidad de crear una cuenta
+          </p>
+          <Link href={`/marketplace/business/${slug}/book`}>
+            <Button
+              size="lg"
+              className="mt-4 bg-white text-primary hover:bg-white/90"
+            >
+              <Calendar className="mr-2 h-4 w-4" />
+              Agendar cita ahora
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Lightbox */}
+      {lightboxOpen && gallery.length > 0 && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            onClick={() => setGalleryIdx((galleryIdx - 1 + gallery.length) % gallery.length)}
+            className="absolute left-4 text-white/70 hover:text-white"
+          >
+            <ChevronLeft className="h-8 w-8" />
+          </button>
+          <img
+            src={gallery[galleryIdx].url}
+            alt={gallery[galleryIdx].title || ""}
+            className="max-h-[85vh] max-w-full rounded-lg object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setGalleryIdx((galleryIdx + 1) % gallery.length)}
+            className="absolute right-4 text-white/70 hover:text-white"
+          >
+            <ChevronRight className="h-8 w-8" />
+          </button>
+          <button
+            onClick={() => setLightboxOpen(false)}
+            className="absolute right-4 top-4 text-white/70 hover:text-white text-2xl"
+          >
+            &times;
+          </button>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm">
+            {galleryIdx + 1} / {gallery.length}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StorySection({
+  title,
+  storyTitle,
+  storyText,
+  storyImage,
+  foundedYear,
+  founders,
+}: {
+  title: string;
+  storyTitle: string | null;
+  storyText: string;
+  storyImage: string | null;
+  foundedYear: number | null;
+  founders: string | null;
+}) {
+  return (
+    <section className="mb-12">
+      <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold">
+        <Quote className="h-5 w-5 text-primary" />
+        {title}
+      </h2>
+      <div className="flex flex-col gap-6 sm:flex-row">
+        {storyImage && (
+          <div className="sm:w-1/3 shrink-0">
+            <img
+              src={storyImage}
+              alt={storyTitle || "Historia"}
+              className="rounded-xl object-cover w-full h-48 sm:h-full"
+            />
+          </div>
+        )}
+        <div className="flex-1">
+          {storyTitle && (
+            <h3 className="mb-3 text-xl font-semibold text-primary">
+              {storyTitle}
+            </h3>
+          )}
+          <p className="whitespace-pre-line text-muted-foreground leading-relaxed">
+            {storyText}
+          </p>
+          {(foundedYear || founders) && (
+            <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted-foreground">
+              {foundedYear && (
+                <span className="flex items-center gap-1">
+                  <Clock className="h-4 w-4" />
+                  Fundado en {foundedYear}
+                </span>
+              )}
+              {founders && <span>Fundadores: {founders}</span>}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TeamSection({
+  title,
+  professionals,
+  slug,
+}: {
+  title: string;
+  professionals: Professional[];
+  slug: string;
+}) {
+  return (
+    <section className="mb-12">
+      <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold">
+        <Users className="h-5 w-5 text-primary" />
+        {title}
+      </h2>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {professionals.map((p) => (
+          <Card key={p.id} className="border-0 shadow-sm">
+            <CardContent className="p-5">
+              <div className="flex items-start gap-4">
+                {p.photo ? (
+                  <img
+                    src={p.photo}
+                    alt={p.name}
+                    className="h-16 w-16 shrink-0 rounded-xl object-cover"
+                  />
+                ) : (
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-2xl">
+                    {p.name.charAt(0)}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-lg">{p.name}</h3>
+                  {p.tagline && (
+                    <p className="text-sm text-primary font-medium">
+                      {p.tagline}
+                    </p>
+                  )}
+                  {p.specialties && p.specialties.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {p.specialties.map((s) => (
+                        <Badge key={s} variant="secondary" className="text-xs">
+                          {s}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-2 flex items-center gap-3 text-sm text-muted-foreground">
+                    {p.yearsExp > 0 && <span>{p.yearsExp} anos de exp.</span>}
+                    {Number(p.rating) > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                        {Number(p.rating).toFixed(1)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {p.bio && (
+                <p className="mt-3 text-sm text-muted-foreground line-clamp-2">
+                  {p.bio}
+                </p>
+              )}
+              <Link href={`/marketplace/business/${slug}/book?professionalId=${p.id}`} className="mt-3 block">
+                <Button variant="outline" size="sm" className="w-full gap-2">
+                  <Calendar className="h-3 w-3" />
+                  Agendar con {p.name.split(" ")[0]}
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function GallerySection({
+  title,
+  images,
+  galleryIdx,
+  setGalleryIdx,
+  lightboxOpen,
+  setLightboxOpen,
+}: {
+  title: string;
+  images: GalleryImage[];
+  galleryIdx: number;
+  setGalleryIdx: (v: number | ((prev: number) => number)) => void;
+  lightboxOpen: boolean;
+  setLightboxOpen: (v: boolean) => void;
+}) {
+  return (
+    <section className="mb-12">
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-2xl font-bold">
+          <Camera className="h-5 w-5 text-primary" />
+          {title}
+        </h2>
+        <Badge variant="secondary">{images.length} fotos</Badge>
+      </div>
+
+      {/* Featured image */}
+      {images.length > 0 && (
+        <div
+          className="relative mb-4 cursor-pointer overflow-hidden rounded-xl"
+          onClick={() => {
+            setGalleryIdx(0);
+            setLightboxOpen(true);
+          }}
+        >
+          <img
+            src={images[0].url}
+            alt={images[0].title || "Galeria"}
+            className="h-64 w-full object-cover sm:h-80"
+          />
+          <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center">
+            <Camera className="h-8 w-8 text-white opacity-0 hover:opacity-100 transition-opacity" />
+          </div>
+        </div>
+      )}
+
+      {/* Thumbnails grid */}
+      {images.length > 1 && (
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {images.slice(1, 9).map((img, i) => (
+            <div
+              key={i}
+              className="cursor-pointer overflow-hidden rounded-lg"
+              onClick={() => {
+                setGalleryIdx(i + 1);
+                setLightboxOpen(true);
+              }}
+            >
+              <img
+                src={img.url}
+                alt={img.title || `Foto ${i + 2}`}
+                className="aspect-square w-full object-cover hover:scale-105 transition-transform"
+              />
+            </div>
+          ))}
+          {images.length > 9 && (
+            <div
+              className="flex cursor-pointer items-center justify-center rounded-lg bg-muted"
+              onClick={() => {
+                setGalleryIdx(9);
+                setLightboxOpen(true);
+              }}
+            >
+              <span className="text-sm font-medium text-muted-foreground">
+                +{images.length - 9} mas
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ReviewsSection({
+  title,
+  reviews,
+  ratingDist,
+  rating,
+  totalReviews,
+}: {
+  title: string;
+  reviews: Review[];
+  ratingDist: RatingDistribution | null;
+  rating: number;
+  totalReviews: number;
+}) {
+  return (
+    <section className="mb-12">
+      <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold">
+        <MessageSquare className="h-5 w-5 text-primary" />
+        {title}
+      </h2>
+
+      {/* Rating summary */}
+      <div className="mb-6 flex flex-col gap-6 sm:flex-row">
+        <div className="flex flex-col items-center justify-center rounded-xl bg-muted/50 px-8 py-6">
+          <div className="text-5xl font-bold">{Number(rating).toFixed(1)}</div>
+          <div className="mt-1 flex gap-0.5">
+            {[1, 2, 3, 4, 5].map((s) => (
+              <Star
+                key={s}
+                className={`h-5 w-5 ${
+                  s <= Math.round(rating)
+                    ? "fill-yellow-400 text-yellow-400"
+                    : "text-muted-foreground/30"
+                }`}
+              />
+            ))}
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {totalReviews}{" "}
+            {totalReviews === 1 ? "resena" : "resenas"}
+          </p>
+        </div>
+
+        {/* Rating distribution */}
+        {ratingDist && (
+          <div className="flex-1 space-y-2">
+            {[5, 4, 3, 2, 1].map((star) => {
+              const count =
+                ratingDist[star as keyof RatingDistribution] as number;
+              const pct =
+                ratingDist.total > 0
+                  ? (count / ratingDist.total) * 100
+                  : 0;
+              return (
+                <div key={star} className="flex items-center gap-3 text-sm">
+                  <span className="w-8 text-right">{star}</span>
+                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                  <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-yellow-400"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="w-8 text-muted-foreground">{count}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Reviews list */}
+      <div className="space-y-4">
+        {reviews.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">
+            Aun no hay resenas
+          </p>
+        ) : (
+          reviews.map((r) => (
+            <Card key={r.id} className="border-0 shadow-sm">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            className={`h-4 w-4 ${
+                              s <= r.rating
+                                ? "fill-yellow-400 text-yellow-400"
+                                : "text-muted-foreground/30"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      {r.isVerified && (
+                        <Badge
+                          variant="secondary"
+                          className="text-xs bg-primary/10 text-primary"
+                        >
+                          Verificada
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      {r.serviceName && <span>{r.serviceName}</span>}
+                      {r.professionalName && (
+                        <span>con {r.professionalName}</span>
+                      )}
+                      <span>
+                        {new Date(r.createdAt).toLocaleDateString("es-CO", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                  {r.helpfulCount > 0 && (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Heart className="h-3 w-3" />
+                      {r.helpfulCount}
+                    </span>
+                  )}
+                </div>
+
+                {r.comment && (
+                  <p className="mt-3 text-sm leading-relaxed">{r.comment}</p>
+                )}
+
+                {r.photos && r.photos.length > 0 && (
+                  <div className="mt-3 flex gap-2">
+                    {r.photos.map((photo, i) => (
+                      <img
+                        key={i}
+                        src={photo}
+                        alt=""
+                        className="h-16 w-16 rounded-lg object-cover"
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Business response */}
+                {r.response && (
+                  <div className="mt-3 rounded-lg bg-muted/50 p-3">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      Respuesta del negocio
+                    </p>
+                    <p className="text-sm">{r.response}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function LocationSection({
+  title,
+  address,
+  city,
+  state,
+  country,
+}: {
+  title: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+}) {
+  const parts = [address, city, state, country].filter(Boolean);
+  const mapQuery = parts.join(", ");
+
+  return (
+    <section className="mb-12">
+      <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold">
+        <MapPin className="h-5 w-5 text-primary" />
+        {title}
+      </h2>
+      <Card className="border-0 shadow-sm">
+        <CardContent className="p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <MapPin className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-medium">{parts.join(", ")}</p>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Ver en Google Maps
+              </a>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
