@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recordatorio - Cita en 1 Hora - {{businessName}}</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+      color: white;
+      padding: 30px 40px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+      color: #333;
+    }
+    .header p {
+      margin: 10px 0 0;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .content {
+      padding: 30px 40px;
+    }
+    .info-box {
+      background-color: #fff3cd;
+      border-left: 4px solid #fa709a;
+      padding: 15px;
+      margin: 20px 0;
+    }
+    .info-box h3 {
+      margin: 0 0 10px 0;
+      color: #fa709a;
+      font-size: 16px;
+    }
+    .info-row {
+      display: flex;
+      margin: 8px 0;
+      font-size: 14px;
+    }
+    .info-label {
+      font-weight: 600;
+      color: #6c757d;
+      width: 120px;
+    }
+    .info-value {
+      color: #495057;
+      flex: 1;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 20px 40px;
+      text-align: center;
+      font-size: 12px;
+      color: #6c757d;
+    }
+    .footer a {
+      color: #fa709a;
+      text-decoration: none;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>⚡ Cita en 1 Hora</h1>
+      <p>Sé puntual</p>
+    </div>
+    
+    <div class="content">
+      <p style="font-size: 16px; color: #212529;">Hola <strong>{{clientName}}</strong>,</p>
+      <p style="font-size: 14px; color: #6c757d; line-height: 1.6;">
+        Tu cita con <strong>{{professionalName}}</strong> en <strong>{{businessName}}</strong> es en 1 hora.
+      </p>
+
+      <div class="info-box">
+        <h3>📅 Detalles de tu Cita</h3>
+        <div class="info-row">
+          <span class="info-label">Servicio:</span>
+          <span class="info-value"><strong>{{serviceName}}</strong></span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Hora:</span>
+          <span class="info-value"><strong>{{appointmentTime}}</strong></span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Profesional:</span>
+          <span class="info-value">{{professionalName}}</span>
+        </div>
+      </div>
+
+      <p style="font-size: 14px; color: #6c757d; line-height: 1.6;">
+        Por favor llega a tiempo. ¡Te esperamos!
+      </p>
+    </div>
+
+    <div class="footer">
+      <p>© {{year}} {{businessName}}. Todos los derechos reservados.</p>
+      <p>
+        Powered by <a href="https://beautyspot.co" target="_blank">BeautySpot</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>
