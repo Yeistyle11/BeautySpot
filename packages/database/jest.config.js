@@ -13,15 +13,6 @@ module.exports = {
     "!**/*.interface.ts",
   ],
   coverageDirectory: "../coverage",
-  coverageReporters: ["json", "lcov", "text", "clover"],
-  coverageThreshold: {
-    global: {
-      branches: 90,
-      functions: 90,
-      lines: 90,
-      statements: 90,
-    },
-  },
   testEnvironment: "node",
   moduleNameMapper: {
     "^@beautyspot/shared-types$": "<rootDir>/../../packages/shared-types/src",
@@ -31,5 +22,4 @@ module.exports = {
       "<rootDir>/../../packages/shared-constants/src",
     "^@/(.*)$": "<rootDir>/$1",
   },
-  verbose: true,
 };

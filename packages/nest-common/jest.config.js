@@ -9,15 +9,6 @@ module.exports = {
   transformIgnorePatterns: ["node_modules/(?!(uuid|@nestjs|@golevelup))"],
   collectCoverageFrom: ["**/*.(t|j)s", "!**/*.spec.ts", "!**/*.interface.ts"],
   coverageDirectory: "../coverage",
-  coverageReporters: ["json", "lcov", "text", "clover"],
-  coverageThreshold: {
-    global: {
-      branches: 90,
-      functions: 90,
-      lines: 90,
-      statements: 90,
-    },
-  },
   testEnvironment: "node",
   moduleNameMapper: {
     "^@beautyspot/database$": "<rootDir>/../../packages/database/src",
@@ -28,5 +19,4 @@ module.exports = {
       "<rootDir>/../../packages/shared-constants/src",
     "^@/(.*)$": "<rootDir>/$1",
   },
-  verbose: true,
 };

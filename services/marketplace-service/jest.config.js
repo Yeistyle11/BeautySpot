@@ -15,7 +15,6 @@ module.exports = {
     "!**/common/**",
   ],
   coverageDirectory: "../coverage",
-  coverageReporters: ["json", "lcov", "text", "clover"],
   testEnvironment: "node",
   moduleNameMapper: {
     "^@beautyspot/database$": "<rootDir>/../../../packages/database/src",
@@ -30,6 +29,4 @@ module.exports = {
     "^@/(.*)$": "<rootDir>/$1",
   },
   setupFilesAfterEnv: ["<rootDir>/test/setup.ts"],
-  testTimeout: 10000,
-  verbose: true,
 };
