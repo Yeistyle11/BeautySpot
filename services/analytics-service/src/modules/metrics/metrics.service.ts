@@ -6,12 +6,11 @@ import { ProfessionalMetricEntity } from "../../entities/professional-metric.ent
 
 @Injectable()
 export class MetricsService {
-
   constructor(
     @InjectRepository(DailyMetricEntity)
     private readonly dailyRepo: Repository<DailyMetricEntity>,
     @InjectRepository(ProfessionalMetricEntity)
-    private readonly profRepo: Repository<ProfessionalMetricEntity>,
+    private readonly profRepo: Repository<ProfessionalMetricEntity>
   ) {}
 
   async upsertDailyMetric(data: {
@@ -30,13 +29,19 @@ export class MetricsService {
     });
 
     if (existing) {
-      if (data.totalAppointments !== undefined) existing.totalAppointments = data.totalAppointments;
-      if (data.completedAppointments !== undefined) existing.completedAppointments = data.completedAppointments;
-      if (data.cancelledAppointments !== undefined) existing.cancelledAppointments = data.cancelledAppointments;
-      if (data.noShowAppointments !== undefined) existing.noShowAppointments = data.noShowAppointments;
-      if (data.totalRevenue !== undefined) existing.totalRevenue = data.totalRevenue;
+      if (data.totalAppointments !== undefined)
+        existing.totalAppointments = data.totalAppointments;
+      if (data.completedAppointments !== undefined)
+        existing.completedAppointments = data.completedAppointments;
+      if (data.cancelledAppointments !== undefined)
+        existing.cancelledAppointments = data.cancelledAppointments;
+      if (data.noShowAppointments !== undefined)
+        existing.noShowAppointments = data.noShowAppointments;
+      if (data.totalRevenue !== undefined)
+        existing.totalRevenue = data.totalRevenue;
       if (data.newClients !== undefined) existing.newClients = data.newClients;
-      if (data.returningClients !== undefined) existing.returningClients = data.returningClients;
+      if (data.returningClients !== undefined)
+        existing.returningClients = data.returningClients;
       return this.dailyRepo.save(existing);
     }
 
@@ -61,10 +66,12 @@ export class MetricsService {
     });
 
     if (existing) {
-      if (data.appointments !== undefined) existing.appointments = data.appointments;
+      if (data.appointments !== undefined)
+        existing.appointments = data.appointments;
       if (data.revenue !== undefined) existing.revenue = data.revenue;
       if (data.rating !== undefined) existing.rating = data.rating;
-      if (data.avgServiceTime !== undefined) existing.avgServiceTime = data.avgServiceTime;
+      if (data.avgServiceTime !== undefined)
+        existing.avgServiceTime = data.avgServiceTime;
       return this.profRepo.save(existing);
     }
 
@@ -74,11 +81,17 @@ export class MetricsService {
   async getMetrics(businessId: string, from: string, to: string) {
     const [daily, professional] = await Promise.all([
       this.dailyRepo.find({
-        where: { businessId, date: Between(from, to) },
+        where: {
+          businessId: businessId as any,
+          date: Between(from, to),
+        } as any,
         order: { date: "DESC" },
       }),
       this.profRepo.find({
-        where: { businessId, date: Between(from, to) },
+        where: {
+          businessId: businessId as any,
+          date: Between(from, to),
+        } as any,
         order: { date: "DESC", professionalId: "ASC" },
         take: 100,
       }),
