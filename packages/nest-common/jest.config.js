@@ -1,22 +1,25 @@
 module.exports = {
-  setupFiles: ["<rootDir>/../../packages/nest-common/test-setup.ts"],
+  setupFiles: ["<rootDir>/test-setup.ts"],
   moduleFileExtensions: ["js", "json", "ts"],
-  rootDir: "src",
+  rootDir: ".",
   testRegex: ".*\\.spec\\.ts$",
   transform: {
     "^.+\\.(t|j)s$": "ts-jest",
   },
   transformIgnorePatterns: ["node_modules/(?!(uuid|@nestjs|@golevelup))"],
-  collectCoverageFrom: ["**/*.(t|j)s", "!**/*.spec.ts", "!**/*.interface.ts"],
-  coverageDirectory: "../coverage",
+  collectCoverageFrom: [
+    "src/**/*.(t|j)s",
+    "!src/**/*.spec.ts",
+    "!src/**/*.interface.ts",
+  ],
+  coverageDirectory: "coverage",
   testEnvironment: "node",
   moduleNameMapper: {
-    "^@beautyspot/database$": "<rootDir>/../../packages/database/src",
-    "^@beautyspot/shared-types$": "<rootDir>/../../packages/shared-types/src",
-    "^@beautyspot/shared-utils$": "<rootDir>/../../packages/shared-utils/src",
-    "^@beautyspot/event-types$": "<rootDir>/../../packages/event-types/src",
-    "^@beautyspot/shared-constants$":
-      "<rootDir>/../../packages/shared-constants/src",
+    "^@beautyspot/database$": "<rootDir>/../database/src",
+    "^@beautyspot/shared-types$": "<rootDir>/../shared-types/src",
+    "^@beautyspot/shared-utils$": "<rootDir>/../shared-utils/src",
+    "^@beautyspot/event-types$": "<rootDir>/../event-types/src",
+    "^@beautyspot/shared-constants$": "<rootDir>/../shared-constants/src",
     "^@/(.*)$": "<rootDir>/$1",
   },
 };
