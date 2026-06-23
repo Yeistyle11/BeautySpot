@@ -20,8 +20,10 @@ module.exports = {
   transform: {
     "^.+\\.(t|j)s$": "ts-jest",
   },
-  transformIgnorePatterns: ["node_modules/(?!(uuid|@nestjs|@golevelup))"],
-  moduleFileExtensions: ["js", "json", "ts"],
+  transformIgnorePatterns: [
+    "node_modules/(?!(uuid|@nestjs|@golevelup|@beautyspot))",
+  ],
+  moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
   moduleDirectories: ["node_modules", "packages", "services"],
   testEnvironment: "node",
   testRegex: ".*\\.spec\\.ts$",
