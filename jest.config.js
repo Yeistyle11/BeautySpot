@@ -21,10 +21,15 @@ module.exports = {
     "^.+\\.(t|j)s$": "ts-jest",
   },
   transformIgnorePatterns: [
-    "node_modules/(?!(uuid|@nestjs|@golevelup|@beautyspot))",
+    "node_modules/(?!(uuid|glob|path-scurry|lru-cache|minipass|rimraf|brace-expansion|@nestjs|@nestjs|@golevelup|@beautyspot))",
   ],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
-  moduleDirectories: ["node_modules", "packages", "services"],
+  moduleDirectories: [
+    "node_modules",
+    "<rootDir>/../../node_modules",
+    "packages",
+    "services",
+  ],
   testEnvironment: "node",
   testRegex: ".*\\.spec\\.ts$",
   collectCoverageFrom: [
