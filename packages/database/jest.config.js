@@ -1,29 +1,34 @@
 module.exports = {
-  moduleFileExtensions: ['js', 'json', 'ts'],
-  rootDir: 'src',
-  testRegex: '.*\\.spec\\.ts$',
+  setupFiles: ["<rootDir>/../../test-setup.ts"],
+  moduleFileExtensions: ["js", "json", "ts"],
+  rootDir: "src",
+  testRegex: ".*\\.spec\\.ts$",
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    "^.+\\.(t|j)s$": "ts-jest",
   },
   collectCoverageFrom: [
-    '**/*.(t|j)s',
-    '!**/*.spec.ts',
-    '!**/*.entity.ts',
-    '!**/*.interface.ts',
+    "**/*.(t|j)s",
+    "!**/*.spec.ts",
+    "!**/*.entity.ts",
+    "!**/*.interface.ts",
   ],
-  coverageDirectory: '../coverage',
-  coverageReporters: ['json', 'lcov', 'text', 'clover'],
+  coverageDirectory: "../coverage",
+  coverageReporters: ["json", "lcov", "text", "clover"],
   coverageThreshold: {
     global: {
       branches: 90,
       functions: 90,
       lines: 90,
-      statements: 90
-    }
+      statements: 90,
+    },
   },
-  testEnvironment: 'node',
+  testEnvironment: "node",
   moduleNameMapper: {
-    '^@beautyspot/shared-types$': '<rootDir>/../../shared-types/src',
+    "^@beautyspot/shared-types$": "<rootDir>/../../shared-types/src",
+    "^@beautyspot/shared-utils$": "<rootDir>/../../shared-utils/src",
+    "^@beautyspot/event-types$": "<rootDir>/../../event-types/src",
+    "^@beautyspot/shared-constants$": "<rootDir>/../../shared-constants/src",
+    "^@/(.*)$": "<rootDir>/$1",
   },
   verbose: true,
 };

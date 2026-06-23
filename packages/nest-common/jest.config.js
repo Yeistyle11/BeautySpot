@@ -1,14 +1,12 @@
-const path = require("path");
-
 module.exports = {
-  setupFiles: ["<rootDir>/../test-setup.ts"],
+  setupFiles: ["<rootDir>/../../test-setup.ts"],
   moduleFileExtensions: ["js", "json", "ts"],
   rootDir: "src",
   testRegex: ".*\\.spec\\.ts$",
   transform: {
     "^.+\\.(t|j)s$": "ts-jest",
   },
-  transformIgnorePatterns: ["node_modules/(?!(uuid|@nestjs))"],
+  transformIgnorePatterns: ["node_modules/(?!(uuid|@nestjs|@golevelup))"],
   collectCoverageFrom: ["**/*.(t|j)s", "!**/*.spec.ts", "!**/*.interface.ts"],
   coverageDirectory: "../coverage",
   coverageReporters: ["json", "lcov", "text", "clover"],
@@ -22,7 +20,6 @@ module.exports = {
   },
   testEnvironment: "node",
   moduleNameMapper: {
-    "^uuid$": "uuid",
     "^@beautyspot/database$": "<rootDir>/../../database/src",
     "^@beautyspot/shared-types$": "<rootDir>/../../shared-types/src",
     "^@beautyspot/shared-utils$": "<rootDir>/../../shared-utils/src",
