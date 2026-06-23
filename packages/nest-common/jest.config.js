@@ -8,7 +8,7 @@ module.exports = {
   transform: {
     "^.+\\.(t|j)s$": "ts-jest",
   },
-  transformIgnorePatterns: ["node_modules/(?!(uuid))"],
+  transformIgnorePatterns: ["node_modules/(?!(uuid|@nestjs))"],
   collectCoverageFrom: ["**/*.(t|j)s", "!**/*.spec.ts", "!**/*.interface.ts"],
   coverageDirectory: "../coverage",
   coverageReporters: ["json", "lcov", "text", "clover"],
