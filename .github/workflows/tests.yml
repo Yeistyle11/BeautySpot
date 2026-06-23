@@ -2,6 +2,10 @@ name: Tests
 
 on:
   pull_request:
+<<<<<<< HEAD
+=======
+    branches: [main, develop]
+>>>>>>> main
   workflow_dispatch:
 
 jobs:
