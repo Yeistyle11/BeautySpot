@@ -1,11 +1,9 @@
 name: Tests
 
+# Workflow para validar ejecución de tests en GitHub Actions
 on:
   pull_request:
-<<<<<<< HEAD
-=======
-    branches: [main, develop]
->>>>>>> main
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 jobs:
