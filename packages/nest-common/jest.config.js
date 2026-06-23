@@ -1,3 +1,5 @@
+const path = require('path');
+
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: 'src',
@@ -26,7 +28,12 @@ module.exports = {
   testEnvironment: 'node',
   moduleNameMapper: {
     '^uuid$': 'uuid',
-    '^@beautyspot/(.*)$': '<rootDir>/../../packages/$1/src',
+    '^@beautyspot/database$': '<rootDir>/../../database/src',
+    '^@beautyspot/shared-types$': '<rootDir>/../../shared-types/src',
+    '^@beautyspot/shared-utils$': '<rootDir>/../../shared-utils/src',
+    '^@beautyspot/event-types$': '<rootDir>/../../event-types/src',
+    '^@beautyspot/shared-constants$': '<rootDir>/../../shared-constants/src',
+    '^@/(.*)$': '<rootDir>/$1',
   },
   verbose: true,
 };

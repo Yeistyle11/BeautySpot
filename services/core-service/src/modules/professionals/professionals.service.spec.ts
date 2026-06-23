@@ -5,6 +5,7 @@ import { ProfessionalsService } from './professionals.service';
 import { Professional } from '../../entities/professional.entity';
 import { ProfessionalService } from '../../entities/professional-service.entity';
 import { NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 describe('ProfessionalsService', () => {
   let service: ProfessionalsService;
@@ -75,6 +76,12 @@ describe('ProfessionalsService', () => {
         {
           provide: getRepositoryToken(ProfessionalService),
           useValue: mockPsRepo,
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn(),
+          },
         },
       ],
     }).compile();

@@ -1,0 +1,32 @@
+module.exports = {
+  projects: [
+    '<rootDir>/packages/shared-utils',
+    '<rootDir>/packages/database',
+    '<rootDir>/packages/nest-common',
+    '<rootDir>/services/core-service',
+    '<rootDir>/services/auth-service',
+    '<rootDir>/services/booking-service',
+    '<rootDir>/services/payment-service',
+    '<rootDir>/services/marketplace-service',
+    '<rootDir>/services/notification-service',
+    '<rootDir>/services/analytics-service',
+    '<rootDir>/services/api-gateway',
+  ],
+  transform: {
+    '^.+\\.(t|j)s$': 'ts-jest',
+  },
+  moduleFileExtensions: ['js', 'json', 'ts'],
+  testEnvironment: 'node',
+  testRegex: '.*\\.spec\\.ts$',
+  collectCoverageFrom: [
+    '**/*.(t|j)s',
+    '!**/*.spec.ts',
+    '!**/*.dto.ts',
+    '!**/*.entity.ts',
+    '!**/*.interface.ts',
+    '!**/main.ts',
+  ],
+  coverageDirectory: 'coverage',
+  coverageReporters: ['json', 'lcov', 'text', 'clover'],
+  verbose: true,
+};

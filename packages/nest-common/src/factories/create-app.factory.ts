@@ -7,7 +7,7 @@ import { RolesGuard } from "../guards/roles.guard";
 import { HttpExceptionFilter } from "../filters/http-exception.filter";
 import { TransformInterceptor } from "../interceptors/transform.interceptor";
 import { InternalSecretGuard } from "../guards/internal-secret.guard";
-import { EventBusModule } from "../modules/event-bus/event-bus.module";
+// import { EventBusModule } from "../modules/event-bus/event-bus.module";
 
 export async function createMicroserviceApp(AppModule: unknown): Promise<void> {
   const app = await NestFactory.create(AppModule as any);
@@ -53,6 +53,6 @@ export async function createMicroserviceApp(AppModule: unknown): Promise<void> {
   await app.init();
 
   const port = process.env.PORT || 3000;
-  await app.listen(port);
+  await app.listen(Number(port));
   console.log(`Servicio corriendo en puerto ${port}`);
 }

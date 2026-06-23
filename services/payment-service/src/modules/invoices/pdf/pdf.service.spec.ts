@@ -3,6 +3,30 @@ import { ConfigService } from '@nestjs/config';
 import { PdfService } from './pdf.service';
 import { InvoiceData } from './pdf.service';
 
+// Mock de PDFKit completo antes de importar el servicio
+jest.mock('pdfkit', () => {
+  const mockDoc = {
+    on: jest.fn(),
+    fontSize: jest.fn().mockReturnThis(),
+    text: jest.fn().mockReturnThis(),
+    fillColor: jest.fn().mockReturnThis(),
+    moveTo: jest.fn().mockReturnThis(),
+    lineTo: jest.fn().mockReturnThis(),
+    stroke: jest.fn().mockReturnThis(),
+    end: jest.fn(),
+    page: { height: 842 },
+    rect: jest.fn().mockReturnThis(),
+    fill: jest.fn().mockReturnThis(),
+  };
+
+  const PDFDocumentMock = jest.fn().mockReturnValue(mockDoc);
+
+  return {
+    __esModule: true,
+    default: PDFDocumentMock,
+  };
+});
+
 // Mock de fs y path
 jest.mock('fs', () => ({
   existsSync: jest.fn(),
@@ -23,7 +47,10 @@ describe('PdfService', () => {
   beforeEach(async () => {
     // Mock de PDFKit dentro de beforeEach
     mockDoc = {
-      on: jest.fn(),
+      on: jest.fn((event: string, callback: Function) => {
+        if (event === 'data') callback(Buffer.from('pdf-data'));
+        if (event === 'end') callback();
+      }),
       fontSize: jest.fn().mockReturnThis(),
       text: jest.fn().mockReturnThis(),
       fillColor: jest.fn().mockReturnThis(),
@@ -32,13 +59,12 @@ describe('PdfService', () => {
       stroke: jest.fn().mockReturnThis(),
       end: jest.fn(),
       page: { height: 842 },
+      rect: jest.fn().mockReturnThis(),
+      fill: jest.fn().mockReturnThis(),
     };
 
-    const PDFKitMock = jest.fn().mockReturnValue(mockDoc);
-    jest.doMock('pdfkit', () => ({
-      __esModule: true,
-      default: PDFKitMock,
-    }));
+    const PDFDocumentMock = require('pdfkit').default;
+    PDFDocumentMock.mockReturnValue(mockDoc);
 
     mockConfigService = {
       get: jest.fn((key: string, defaultValue?: string) => {
@@ -119,50 +145,34 @@ describe('PdfService', () => {
     });
 
     it('debería manejar factura sin logo', async () => {
-      const invoiceData: InvoiceData = {
+      const invoiceDataWithoutLogo: InvoiceData = {
         invoiceNumber: 'INV-2023-002',
-        invoiceDate: new Date('2023-11-16'),
-        dueDate: new Date('2023-12-16'),
+        invoiceDate: new Date('2023-11-20'),
+        dueDate: new Date('2023-12-20'),
         business: {
-          name: 'Style Studio',
-          nit: '900987654-2',
-          address: 'Calle 456 #78-90',
-          phone: '+57 320 456 7890',
-          email: 'info@stylestudio.co',
+          name: 'Beauty Bar',
+          nit: '900123456-1',
+          address: 'Calle 123 #45-67',
+          phone: '+57 300 123 4567',
+          email: 'contact@beautybar.co',
         },
         client: {
-          name: 'María González',
+          name: 'María García',
           document: '987654321',
+          phone: '+57 310 123 4567',
+          email: 'maria@example.com',
+          address: 'Av. 456 #78-90',
         },
-        items: [{ name: 'Manicura', quantity: 1, price: 20000 }],
-        subtotal: 20000,
-        tax: 3800,
-        total: 23800,
+        items: [{ name: 'Manicura', quantity: 1, price: 25000 }],
+        subtotal: 25000,
+        tax: 4750,
+        total: 29750,
         paymentMethod: 'Tarjeta',
       };
 
-      const PDFDocumentMock = jest.fn().mockImplementation(() => ({
-        on: jest.fn((event: string, callback: Function) => {
-          if (event === 'data') callback(Buffer.from('pdf-data'));
-          if (event === 'end') callback(Buffer.from('pdf-data'));
-        }),
-        end: jest.fn(),
-        fontSize: jest.fn().mockReturnThis(),
-        text: jest.fn().mockReturnThis(),
-        fillColor: jest.fn().mockReturnThis(),
-        moveTo: jest.fn().mockReturnThis(),
-        lineTo: jest.fn().mockReturnThis(),
-        stroke: jest.fn().mockReturnThis(),
-        page: { height: 842 },
-      }));
+      const result = await service.generateInvoicePdf(invoiceDataWithoutLogo);
 
-      const pdfkit = require('pdfkit');
-      pdfkit.default = PDFDocumentMock;
-
-      await service.generateInvoicePdf(invoiceData);
-
-      const pdfkitInstance = new (pdfkit.default)();
-      expect(pdfkitInstance.fontSize).toHaveBeenCalled();
+      expect(Buffer.isBuffer(result)).toBe(true);
     });
   });
 

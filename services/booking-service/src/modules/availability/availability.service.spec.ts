@@ -93,7 +93,7 @@ describe('AvailabilityService', () => {
 
     it('debería manejar reemplazo vacío', async () => {
       mockRepo.delete.mockResolvedValue({ affected: 5 } as any);
-      mockRepo.save.mockResolvedValue({} as any);
+      mockRepo.save.mockResolvedValue([] as any);
 
       const result = await service.replaceWeekly('business-123', 'prof-123', []);
 

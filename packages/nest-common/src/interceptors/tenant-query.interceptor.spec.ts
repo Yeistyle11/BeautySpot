@@ -7,20 +7,22 @@ describe('TenantQueryInterceptor', () => {
   let mockExecutionContext: Partial<ExecutionContext>;
   let mockCallHandler: Partial<CallHandler>;
 
-  beforeEach(() => {
-    interceptor = new TenantQueryInterceptor();
-    mockCallHandler = {
-      handle: jest.fn(),
-    };
-
-    mockExecutionContext = {
-      switchToHttp: jest.fn().mockReturnValue({
-        getRequest: jest.fn().mockReturnValue({
-          businessId: 'business-123',
-        }),
-      }),
-    };
-  });
+   beforeEach(() => {
+     interceptor = new TenantQueryInterceptor();
+     mockCallHandler = {
+       handle: jest.fn(),
+     };
+ 
+     mockExecutionContext = {
+       switchToHttp: jest.fn().mockReturnValue({
+         getRequest: jest.fn().mockReturnValue({
+           headers: {
+             'x-business-id': 'business-123',
+           },
+         }),
+       }),
+     };
+   });
 
   describe('intercept', () => {
     it('debería interceptar llamadas correctamente', async () => {
@@ -35,39 +37,43 @@ describe('TenantQueryInterceptor', () => {
       expect(response).toEqual(result);
     });
 
-    it('debería obtener businessId del request', () => {
-      const mockRequest = {
-        businessId: 'business-123',
-      };
+     it('debería obtener businessId del request', () => {
+       const mockRequest = {
+         headers: {
+           'x-business-id': 'business-123',
+         },
+       };
+ 
+       mockExecutionContext.switchToHttp = jest.fn().mockReturnValue({
+         getRequest: jest.fn().mockReturnValue(mockRequest),
+       });
+ 
+       interceptor.intercept(
+         mockExecutionContext as ExecutionContext,
+         mockCallHandler as CallHandler,
+       );
+ 
+       expect(mockExecutionContext.switchToHttp).toHaveBeenCalled();
+     });
 
-      mockExecutionContext.switchToHttp = jest.fn().mockReturnValue({
-        getRequest: jest.fn().mockReturnValue(mockRequest),
-      });
-
-      interceptor.intercept(
-        mockExecutionContext as ExecutionContext,
-        mockCallHandler as CallHandler,
-      );
-
-      expect(mockExecutionContext.switchToHttp).toHaveBeenCalled();
-    });
-
-    it('debería manejar requests sin businessId', async () => {
-      const mockRequest = {};
-      const result = { data: 'test' };
-
-      mockExecutionContext.switchToHttp = jest.fn().mockReturnValue({
-        getRequest: jest.fn().mockReturnValue(mockRequest),
-      });
-      (mockCallHandler.handle as jest.Mock).mockReturnValue(of(result));
-
-      const response = await interceptor.intercept(
-        mockExecutionContext as ExecutionContext,
-        mockCallHandler as CallHandler,
-      ).toPromise();
-
-      expect(response).toEqual(result);
-    });
+     it('debería manejar requests sin businessId', async () => {
+       const mockRequest = {
+         headers: {},
+       };
+       const result = { data: 'test' };
+ 
+       mockExecutionContext.switchToHttp = jest.fn().mockReturnValue({
+         getRequest: jest.fn().mockReturnValue(mockRequest),
+       });
+       (mockCallHandler.handle as jest.Mock).mockReturnValue(of(result));
+ 
+       const response = await interceptor.intercept(
+         mockExecutionContext as ExecutionContext,
+         mockCallHandler as CallHandler,
+       ).toPromise();
+ 
+       expect(response).toEqual(result);
+     });
 
     it('debería preservar el comportamiento original del handler', async () => {
       const result = { data: 'test' };
@@ -103,18 +109,20 @@ describe('TenantQueryInterceptor', () => {
     it('debería manejar diferentes tipos de ExecutionContext', async () => {
       const result = { data: 'test' };
       (mockCallHandler.handle as jest.Mock).mockReturnValue(of(result));
-
+ 
       mockExecutionContext.switchToHttp = jest.fn().mockReturnValue({
         getRequest: jest.fn().mockReturnValue({
-          businessId: 'business-456',
+          headers: {
+            'x-business-id': 'business-456',
+          },
         }),
       });
-
+ 
       const response = await interceptor.intercept(
         mockExecutionContext as ExecutionContext,
         mockCallHandler as CallHandler,
       ).toPromise();
-
+ 
       expect(response).toEqual(result);
     });
 
@@ -158,23 +166,25 @@ describe('TenantQueryInterceptor', () => {
       expect(response3).toEqual(results[2]);
     });
 
-    it('debería mantener inmutabilidad del request', () => {
-      const mockRequest = {
-        businessId: 'business-123',
-        otherData: 'preserve',
-      };
-
-      mockExecutionContext.switchToHttp = jest.fn().mockReturnValue({
-        getRequest: jest.fn().mockReturnValue(mockRequest),
-      });
-
-      interceptor.intercept(
-        mockExecutionContext as ExecutionContext,
-        mockCallHandler as CallHandler,
-      );
-
-      expect(mockRequest.otherData).toBe('preserve');
-    });
+     it('debería mantener inmutabilidad del request', () => {
+       const mockRequest = {
+         headers: {
+           'x-business-id': 'business-123',
+         },
+         otherData: 'preserve',
+       };
+ 
+       mockExecutionContext.switchToHttp = jest.fn().mockReturnValue({
+         getRequest: jest.fn().mockReturnValue(mockRequest),
+       });
+ 
+       interceptor.intercept(
+         mockExecutionContext as ExecutionContext,
+         mockCallHandler as CallHandler,
+       );
+ 
+       expect(mockRequest.otherData).toBe('preserve');
+     });
   });
 
   describe('interceptor configuration', () => {
@@ -192,59 +202,65 @@ describe('TenantQueryInterceptor', () => {
   });
 
   describe('edge cases', () => {
-    it('debería manejar businessId null', async () => {
-      const result = { data: 'test' };
-      
-      mockExecutionContext.switchToHttp = jest.fn().mockReturnValue({
-        getRequest: jest.fn().mockReturnValue({
-          businessId: null,
-        }),
-      });
-      (mockCallHandler.handle as jest.Mock).mockReturnValue(of(result));
+     it('debería manejar businessId null', async () => {
+       const result = { data: 'test' };
+       
+       mockExecutionContext.switchToHttp = jest.fn().mockReturnValue({
+         getRequest: jest.fn().mockReturnValue({
+           headers: {
+             'x-business-id': null,
+           },
+         }),
+       });
+       (mockCallHandler.handle as jest.Mock).mockReturnValue(of(result));
+ 
+       const response = await interceptor.intercept(
+         mockExecutionContext as ExecutionContext,
+         mockCallHandler as CallHandler,
+       ).toPromise();
+ 
+       expect(response).toEqual(result);
+     });
 
-      const response = await interceptor.intercept(
-        mockExecutionContext as ExecutionContext,
-        mockCallHandler as CallHandler,
-      ).toPromise();
+     it('debería manejar businessId undefined', async () => {
+       const result = { data: 'test' };
+       
+       mockExecutionContext.switchToHttp = jest.fn().mockReturnValue({
+         getRequest: jest.fn().mockReturnValue({
+           headers: {
+             'x-business-id': undefined,
+           },
+         }),
+       });
+       (mockCallHandler.handle as jest.Mock).mockReturnValue(of(result));
+ 
+       const response = await interceptor.intercept(
+         mockExecutionContext as ExecutionContext,
+         mockCallHandler as CallHandler,
+       ).toPromise();
+ 
+       expect(response).toEqual(result);
+     });
 
-      expect(response).toEqual(result);
-    });
-
-    it('debería manejar businessId undefined', async () => {
-      const result = { data: 'test' };
-      
-      mockExecutionContext.switchToHttp = jest.fn().mockReturnValue({
-        getRequest: jest.fn().mockReturnValue({
-          businessId: undefined,
-        }),
-      });
-      (mockCallHandler.handle as jest.Mock).mockReturnValue(of(result));
-
-      const response = await interceptor.intercept(
-        mockExecutionContext as ExecutionContext,
-        mockCallHandler as CallHandler,
-      ).toPromise();
-
-      expect(response).toEqual(result);
-    });
-
-    it('debería manejar businessId string vacía', async () => {
-      const result = { data: 'test' };
-      
-      mockExecutionContext.switchToHttp = jest.fn().mockReturnValue({
-        getRequest: jest.fn().mockReturnValue({
-          businessId: '',
-        }),
-      });
-      (mockCallHandler.handle as jest.Mock).mockReturnValue(of(result));
-
-      const response = await interceptor.intercept(
-        mockExecutionContext as ExecutionContext,
-        mockCallHandler as CallHandler,
-      ).toPromise();
-
-      expect(response).toEqual(result);
-    });
+     it('debería manejar businessId string vacía', async () => {
+       const result = { data: 'test' };
+       
+       mockExecutionContext.switchToHttp = jest.fn().mockReturnValue({
+         getRequest: jest.fn().mockReturnValue({
+           headers: {
+             'x-business-id': '',
+           },
+         }),
+       });
+       (mockCallHandler.handle as jest.Mock).mockReturnValue(of(result));
+       
+       const response = await interceptor.intercept(
+         mockExecutionContext as ExecutionContext,
+         mockCallHandler as CallHandler,
+       ).toPromise();
+  
+       expect(response).toEqual(result);
+     });
   });
 
   describe('performance', () => {

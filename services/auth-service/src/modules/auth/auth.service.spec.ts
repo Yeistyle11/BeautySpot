@@ -318,6 +318,7 @@ describe('AuthService', () => {
       );
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({
         where: { id: mockUser.id },
+        relations: ['memberships'],
       });
       expect(mockJwtService.sign).toHaveBeenCalledTimes(2);
       expect(result.accessToken).toBe('new-mock-token');

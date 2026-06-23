@@ -58,11 +58,15 @@ jest.mock('amqplib', () => ({
 }));
 
 // Mock de EventBusService
-jest.mock('@beautyspot/nest-common', () => ({
-  EventBusService: jest.fn().mockImplementation(() => ({
-    emit: jest.fn().mockResolvedValue(undefined),
-  })),
-}));
+jest.mock('@beautyspot/nest-common', () => {
+  const originalModule = jest.requireActual('@beautyspot/nest-common');
+  return {
+    ...originalModule,
+    EventBusService: jest.fn().mockImplementation(() => ({
+      emit: jest.fn().mockResolvedValue(undefined),
+    })),
+  };
+});
 
 // Configuración global de timeouts
 jest.setTimeout(10000);

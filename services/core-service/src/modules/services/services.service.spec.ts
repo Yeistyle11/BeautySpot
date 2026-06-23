@@ -19,9 +19,11 @@ describe('ServicesService', () => {
     price: 45000,
     active: true,
     image: '',
+    categoryId: 'category-123',
     createdAt: new Date(),
     updatedAt: new Date(),
     business: {} as any,
+    categoryRef: {} as any,
     generateId: () => {},
   };
 
