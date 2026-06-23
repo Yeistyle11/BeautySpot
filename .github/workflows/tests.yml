@@ -64,6 +64,9 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
+      - name: Install PostgreSQL driver
+        run: npm install pg --legacy-peer-deps
+
       - name: Run tests
         run: npm run test:coverage
 

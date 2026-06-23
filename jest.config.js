@@ -4,6 +4,9 @@ module.exports = {
     "<rootDir>/packages/shared-utils",
     "<rootDir>/packages/database",
     "<rootDir>/packages/nest-common",
+    "<rootDir>/packages/shared-types",
+    "<rootDir>/packages/event-types",
+    "<rootDir>/packages/shared-constants",
     "<rootDir>/services/core-service",
     "<rootDir>/services/auth-service",
     "<rootDir>/services/booking-service",
@@ -31,5 +34,13 @@ module.exports = {
     "!**/main.ts",
   ],
   coverageDirectory: "coverage",
+  moduleNameMapper: {
+    "^@beautyspot/database$": "<rootDir>/packages/database/src",
+    "^@beautyspot/shared-types$": "<rootDir>/packages/shared-types/src",
+    "^@beautyspot/shared-utils$": "<rootDir>/packages/shared-utils/src",
+    "^@beautyspot/event-types$": "<rootDir>/packages/event-types/src",
+    "^@beautyspot/shared-constants$": "<rootDir>/packages/shared-constants/src",
+    "^@beautyspot/nest-common$": "<rootDir>/packages/nest-common/src",
+    "^@/(.*)$": "<rootDir>/$1",
+  },
 };
-// Trigger commit Tue Jun 23 17:45:29 HPS 2026
