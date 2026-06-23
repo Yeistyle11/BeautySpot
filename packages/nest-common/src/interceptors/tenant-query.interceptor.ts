@@ -6,7 +6,7 @@ import {
   Logger
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { Repository, FindOptionsWhere, EntityTarget } from 'typeorm';
+import { Repository, FindOptionsWhere } from 'typeorm';
 import { TenantEntity } from '@beautyspot/database';
 
 @Injectable()

@@ -14,6 +14,7 @@ de una navegación rica en contenido visual y social (reseñas, calificaciones, 
 ### Problema Actual
 
 El marketplace existe como un servicio backend basico (`marketplace-service`) con:
+
 - Busqueda por texto, ciudad, tipo y geolocalizacion
 - Un perfil de negocio plano (`BusinessProfileEntity`) con datos basicos
 - Reseñas simples con rating y comentario
@@ -98,12 +99,14 @@ La primera impresion. Ocupa 100vh en movil y 70vh en desktop.
 ```
 
 **Elementos configurables por el negocio:**
+
 - Cover image (obligatoria, min 1200x600px) o video corto (max 15s)
 - Logo (superpuesto, circular)
 - Tagline: frase corta configurable (max 80 chars)
 - Badge de verificado (si aplica)
 
 **Informacion automatica (del core-service):**
+
 - Tipo de negocio + ciudad
 - Rating promedio + total de reseñas
 - Estado actual: "Abierto ahora" / "Cierra a las 8:00 PM"
@@ -138,6 +141,7 @@ Contenido editorial que el negocio redacta. Es el corazon emocional del perfil.
 ```
 
 **Campos configurables:**
+
 - Titulo de la seccion (default: "Nuestra Historia")
 - Texto completo (rich text, max 2000 caracteres)
 - Foto principal (imagen del local, equipo, fundador)
@@ -176,6 +180,7 @@ No es una lista plana sino un catalogo con imagenes, categorias y precios.
 ```
 
 **Campos por servicio (del core-service + extensiones):**
+
 - Nombre, precio (COP), duracion
 - Imagen del servicio (nuevo campo configurable)
 - Descripcion corta (max 150 chars)
@@ -211,6 +216,7 @@ Cada profesional como una tarjeta con personalidad.
 ```
 
 **Campos del profesional (existentes + nuevos):**
+
 - Nombre, foto, bio corta (tagline personal, max 60 chars)
 - Especialidades (tags visuales)
 - Calificacion promedio + total de reseñas
@@ -246,6 +252,7 @@ Galeria visual del negocio con distintas categorias.
 ```
 
 **Categorias configurables por el negocio:**
+
 - Local (fotos del espacio)
 - Trabajos realizados (antes/despues, resultados)
 - Ambiente (decoracion, detalles)
@@ -253,6 +260,7 @@ Galeria visual del negocio con distintas categorias.
 - El negocio puede crear categorias personalizadas
 
 **Campos por imagen:**
+
 - URL de imagen (optimizada, max 5MB original)
 - Titulo (opcional)
 - Categoria (tag)
@@ -305,6 +313,7 @@ Sistema de reseñas enriquecido con respuestas del negocio y metricas desglosada
 ```
 
 **Campos de resena enriquecida:**
+
 - Rating (1-5 estrellas, obligatorio)
 - Comentario (texto, max 1000 caracteres)
 - Fotos adjuntas (max 3)
@@ -1014,12 +1023,12 @@ El owner/admin accede desde su dashboard para configurar el perfil publico.
 
 ### 9.1 Visibilidad
 
-| Condicion | Visible en Marketplace |
-|-----------|----------------------|
-| Perfil publicado + activo | Si, en busqueda y feed |
-| Perfil no publicado | No visible |
-| Negocio desactivado | No visible |
-| Negocio suspendido (admin) | No visible |
+| Condicion                    | Visible en Marketplace      |
+| ---------------------------- | --------------------------- |
+| Perfil publicado + activo    | Si, en busqueda y feed      |
+| Perfil no publicado          | No visible                  |
+| Negocio desactivado          | No visible                  |
+| Negocio suspendido (admin)   | No visible                  |
 | Perfil con < 30% completitud | Visible pero sin destacarse |
 
 ### 9.2 Destacados en el Feed
@@ -1027,6 +1036,7 @@ El owner/admin accede desde su dashboard para configurar el perfil publico.
 Los negocios se ordenan en los carousels segun:
 
 **"Populares cerca de ti"**: basado en un score compuesto:
+
 ```
 score = (rating * 0.30) + (totalReviews_normalizado * 0.20) +
         (completitud_perfil * 0.15) + (reservas_ultimo_mes * 0.20) +
@@ -1041,16 +1051,16 @@ score = (rating * 0.30) + (totalReviews_normalizado * 0.20) +
 
 ### 9.3 Reseñas
 
-| Regla | Detalle |
-|-------|---------|
-| Solo clientes con cita completada | Pueden dejar resena verificada |
-| Una resena por cita | Max 1 resena por appointment |
-| Rating obligatorio | 1-5 estrellas, sin decimales |
-| Comentario opcional | Pero obligatorio si rating < 4 |
-| Fotos max 3 | Max 5MB cada una |
-| Respuesta del negocio | Max 1 respuesta por resena |
-| Edicion | El cliente puede editar su resena dentro de 48h |
-| Reporte | Cualquier usuario puede reportar una resena |
+| Regla                             | Detalle                                         |
+| --------------------------------- | ----------------------------------------------- |
+| Solo clientes con cita completada | Pueden dejar resena verificada                  |
+| Una resena por cita               | Max 1 resena por appointment                    |
+| Rating obligatorio                | 1-5 estrellas, sin decimales                    |
+| Comentario opcional               | Pero obligatorio si rating < 4                  |
+| Fotos max 3                       | Max 5MB cada una                                |
+| Respuesta del negocio             | Max 1 respuesta por resena                      |
+| Edicion                           | El cliente puede editar su resena dentro de 48h |
+| Reporte                           | Cualquier usuario puede reportar una resena     |
 
 ---
 
@@ -1069,24 +1079,24 @@ Cada perfil publico genera automaticamente:
 
 ### 10.2 Performance Targets
 
-| Metrica | Objetivo |
-|---------|----------|
-| LCP (Largest Contentful Paint) | < 2.5s |
-| FID (First Input Delay) | < 100ms |
-| CLS (Cumulative Layout Shift) | < 0.1 |
-| TTFB (Time to First Byte) | < 600ms |
-| Lighthouse Performance | > 85 |
+| Metrica                        | Objetivo |
+| ------------------------------ | -------- |
+| LCP (Largest Contentful Paint) | < 2.5s   |
+| FID (First Input Delay)        | < 100ms  |
+| CLS (Cumulative Layout Shift)  | < 0.1    |
+| TTFB (Time to First Byte)      | < 600ms  |
+| Lighthouse Performance         | > 85     |
 
 ### 10.3 Estrategia de Caché
 
-| Recurso | TTL | Estrategia |
-|---------|-----|------------|
-| Feed del marketplace | 5 min | Redis, invalidar al publicar perfil |
-| Perfil publico completo | 15 min | Redis + CDN, invalidar al editar |
-| Imagenes de galeria | 24h | CDN (CloudFront/Fastly) |
-| Busqueda con filtros | 2 min | Redis, cache por query hash |
-| Reseñas | 10 min | Redis, invalidar al nueva resena |
-| Rating promedio | 30 min | Redis, recalculo en background |
+| Recurso                 | TTL    | Estrategia                          |
+| ----------------------- | ------ | ----------------------------------- |
+| Feed del marketplace    | 5 min  | Redis, invalidar al publicar perfil |
+| Perfil publico completo | 15 min | Redis + CDN, invalidar al editar    |
+| Imagenes de galeria     | 24h    | CDN (CloudFront/Fastly)             |
+| Busqueda con filtros    | 2 min  | Redis, cache por query hash         |
+| Reseñas                 | 10 min | Redis, invalidar al nueva resena    |
+| Rating promedio         | 30 min | Redis, recalculo en background      |
 
 ---
 
@@ -1095,6 +1105,7 @@ Cada perfil publico genera automaticamente:
 ### Fase 1: Perfil Enriquecido (Sprint 5 MVP)
 
 **Entregables:**
+
 - Extension de `BusinessProfileEntity` con campos de historia, galeria, config
 - API de configuracion del perfil (PUT /profiles/{slug}/config)
 - API publica del perfil completo (GET /profiles/{slug})
@@ -1105,6 +1116,7 @@ Cada perfil publico genera automaticamente:
 ### Fase 2: Feed Curado + Busqueda Mejorada
 
 **Entregables:**
+
 - API de feed con secciones curadas
 - Cards de preview enriquecidas (con tagline, precio desde, disponibilidad)
 - Landing del marketplace con carousels
@@ -1114,6 +1126,7 @@ Cada perfil publico genera automaticamente:
 ### Fase 3: Profesional Profiles + Reseñas Enriquecidas
 
 **Entregables:**
+
 - Nueva entidad `ProfessionalProfileEntity`
 - Cards de profesionales con portfolio y tagline
 - Extension de `ReviewEntity` con fotos, servicio, profesional
@@ -1124,6 +1137,7 @@ Cada perfil publico genera automaticamente:
 ### Fase 4: Pulido Visual y Engagement
 
 **Entregables:**
+
 - Reordenamiento de secciones via drag-and-drop
 - Preview en vivo del perfil (WYSIWYG)
 - Banner/video en hero
@@ -1136,13 +1150,13 @@ Cada perfil publico genera automaticamente:
 
 ## 12. Dependencias con Otros Servicios
 
-| Servicio | Dependencia |
-|----------|------------|
-| core-service | Datos maestros del negocio, servicios, profesionales, horarios |
-| booking-service | Disponibilidad en tiempo real, proximo slot disponible |
-| auth-service | Identidad del cliente para reseñas, permisos del negocio |
-| notification-service | Notificar al negocio de nuevas reseñas |
-| api-gateway | Enrutamiento publico del marketplace (sin auth para perfiles) |
+| Servicio             | Dependencia                                                    |
+| -------------------- | -------------------------------------------------------------- |
+| core-service         | Datos maestros del negocio, servicios, profesionales, horarios |
+| booking-service      | Disponibilidad en tiempo real, proximo slot disponible         |
+| auth-service         | Identidad del cliente para reseñas, permisos del negocio       |
+| notification-service | Notificar al negocio de nuevas reseñas                         |
+| api-gateway          | Enrutamiento publico del marketplace (sin auth para perfiles)  |
 
 ### Sincronizacion de Datos
 

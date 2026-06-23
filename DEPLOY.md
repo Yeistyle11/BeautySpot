@@ -143,7 +143,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 Editar `docker-compose.yml` y cambiar la password por una segura:
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   postgres:
@@ -404,11 +404,11 @@ Get-Content "C:\inetpub\logs\LogFiles\W3SVC1\*.log" -Tail 50
 
 ## Estructura de Puertos
 
-| Servicio | Puerto | Acceso |
-|----------|--------|--------|
-| IIS | 80, 443 | Publico (internet) |
-| Next.js | 3000 | Solo localhost |
-| PostgreSQL | 5432 | Solo localhost |
+| Servicio   | Puerto  | Acceso             |
+| ---------- | ------- | ------------------ |
+| IIS        | 80, 443 | Publico (internet) |
+| Next.js    | 3000    | Solo localhost     |
+| PostgreSQL | 5432    | Solo localhost     |
 
 ---
 

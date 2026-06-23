@@ -1,9 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { UsersService } from './users.service';
 import { User } from '../../entities/user.entity';
 import { Membership } from '../../entities/membership.entity';
+import { AuditLog } from '../../entities/audit-log.entity';
 import { NotFoundException } from '@nestjs/common';
 import { Role } from '@beautyspot/shared-types';
 
@@ -11,6 +13,7 @@ describe('UsersService', () => {
   let service: UsersService;
   let mockUserRepository: jest.Mocked<Repository<User>>;
   let mockMembershipRepository: jest.Mocked<Repository<Membership>>;
+  let mockAuditLogRepository: jest.Mocked<Repository<any>>;
 
   const mockUser: User = {
     id: 'user-123',
@@ -55,6 +58,11 @@ describe('UsersService', () => {
       find: jest.fn(),
     } as any;
 
+    mockAuditLogRepository = {
+      create: jest.fn(),
+      save: jest.fn(),
+    } as any;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
@@ -65,6 +73,19 @@ describe('UsersService', () => {
         {
           provide: getRepositoryToken(Membership),
           useValue: mockMembershipRepository,
+        },
+        {
+          provide: getRepositoryToken(AuditLog),
+          useValue: mockAuditLogRepository,
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) => {
+              if (key === 'BCRYPT_SALT_ROUNDS') return '12';
+              return undefined;
+            }),
+          },
         },
       ],
     }).compile();

@@ -112,13 +112,13 @@ divide en 5 fases distribuidas en 22 semanas de desarrollo iterativo e increment
 
 ### Milestones
 
-| Milestone | Semana | Criterio de Aceptación |
-|-----------|--------|----------------------|
-| M1.1 Infraestructura levantada | 1 | `docker-compose up` levanta todos los servicios sin errores |
-| M1.2 Auth funcional | 2 | Un usuario puede registrarse, loguearse y acceder a rutas protegidas |
-| M1.3 Multi-tenancy operativo | 3 | Dos tenants en subdominios diferentes tienen datos aislados |
-| M1.4 Core CRUD completo | 4 | Se puede crear, leer, actualizar y eliminar negocios y sucursales |
-| M1.5 Integración continua | 5 | Pipeline CI ejecuta lint, tests y build en cada PR |
+| Milestone                      | Semana | Criterio de Aceptación                                               |
+| ------------------------------ | ------ | -------------------------------------------------------------------- |
+| M1.1 Infraestructura levantada | 1      | `docker-compose up` levanta todos los servicios sin errores          |
+| M1.2 Auth funcional            | 2      | Un usuario puede registrarse, loguearse y acceder a rutas protegidas |
+| M1.3 Multi-tenancy operativo   | 3      | Dos tenants en subdominios diferentes tienen datos aislados          |
+| M1.4 Core CRUD completo        | 4      | Se puede crear, leer, actualizar y eliminar negocios y sucursales    |
+| M1.5 Integración continua      | 5      | Pipeline CI ejecuta lint, tests y build en cada PR                   |
 
 ### Dependencias
 
@@ -128,12 +128,12 @@ divide en 5 fases distribuidas en 22 semanas de desarrollo iterativo e increment
 
 ### Riesgos
 
-| Riesgo | Probabilidad | Impacto | Mitigación |
-|--------|-------------|---------|------------|
-| Complejidad del multi-tenancy por subdominio | Media | Alto | Proof of concept en semana 1 antes de construir todo |
-| Sobrecarga del monorepo con Turborepo | Baja | Medio | Benchmark de build times; simplificar si es necesario |
-| Modelado incorrecto de roles/permisos | Media | Alto | Revisión de diseño con el equipo antes de implementar |
-| Retraso en configuración de Docker | Baja | Medio | Usar imágenes oficiales preconfiguradas |
+| Riesgo                                       | Probabilidad | Impacto | Mitigación                                            |
+| -------------------------------------------- | ------------ | ------- | ----------------------------------------------------- |
+| Complejidad del multi-tenancy por subdominio | Media        | Alto    | Proof of concept en semana 1 antes de construir todo  |
+| Sobrecarga del monorepo con Turborepo        | Baja         | Medio   | Benchmark de build times; simplificar si es necesario |
+| Modelado incorrecto de roles/permisos        | Media        | Alto    | Revisión de diseño con el equipo antes de implementar |
+| Retraso en configuración de Docker           | Baja         | Medio   | Usar imágenes oficiales preconfiguradas               |
 
 ---
 
@@ -201,13 +201,13 @@ divide en 5 fases distribuidas en 22 semanas de desarrollo iterativo e increment
 
 ### Milestones
 
-| Milestone | Semana | Criterio de Aceptación |
-|-----------|--------|----------------------|
-| M2.1 Catálogo de servicios funcional | 6 | Un negocio puede crear, editar y eliminar servicios con categorías |
-| M2.2 Profesionales con agenda | 7 | Un profesional puede configurar su disponibilidad semanal |
-| M2.3 Motor de reservas básico | 8 | Un cliente puede reservar una cita y ver disponibilidad en tiempo real |
-| M2.4 Ciclo de vida de citas | 9 | Las citas pasan por todos los estados con las reglas correctas |
-| M2.5 Notificaciones operativas | 10 | Se envían correos y push en cada transición de estado de cita |
+| Milestone                            | Semana | Criterio de Aceptación                                                 |
+| ------------------------------------ | ------ | ---------------------------------------------------------------------- |
+| M2.1 Catálogo de servicios funcional | 6      | Un negocio puede crear, editar y eliminar servicios con categorías     |
+| M2.2 Profesionales con agenda        | 7      | Un profesional puede configurar su disponibilidad semanal              |
+| M2.3 Motor de reservas básico        | 8      | Un cliente puede reservar una cita y ver disponibilidad en tiempo real |
+| M2.4 Ciclo de vida de citas          | 9      | Las citas pasan por todos los estados con las reglas correctas         |
+| M2.5 Notificaciones operativas       | 10     | Se envían correos y push en cada transición de estado de cita          |
 
 ### Dependencias
 
@@ -217,12 +217,12 @@ divide en 5 fases distribuidas en 22 semanas de desarrollo iterativo e increment
 
 ### Riesgos
 
-| Riesgo | Probabilidad | Impacto | Mitigación |
-|--------|-------------|---------|------------|
-| Concurrencia en reservas (doble booking) | Alta | Alto | Implementar optimistic locking y pruebas de concurrencia |
-| Complejidad del motor de disponibilidad | Media | Alto | Diseñar algoritmo con tests exhaustivos antes de integrar |
-| Retrasos en proveedores de email | Media | Medio | Cola con reintentos; no bloquear el flujo de reserva |
-| Sobrecarga de notificaciones | Baja | Medio | Rate limiting por usuario y canal |
+| Riesgo                                   | Probabilidad | Impacto | Mitigación                                                |
+| ---------------------------------------- | ------------ | ------- | --------------------------------------------------------- |
+| Concurrencia en reservas (doble booking) | Alta         | Alto    | Implementar optimistic locking y pruebas de concurrencia  |
+| Complejidad del motor de disponibilidad  | Media        | Alto    | Diseñar algoritmo con tests exhaustivos antes de integrar |
+| Retrasos en proveedores de email         | Media        | Medio   | Cola con reintentos; no bloquear el flujo de reserva      |
+| Sobrecarga de notificaciones             | Baja         | Medio   | Rate limiting por usuario y canal                         |
 
 ---
 
@@ -317,13 +317,13 @@ divide en 5 fases distribuidas en 22 semanas de desarrollo iterativo e increment
 
 ### Milestones
 
-| Milestone | Semana | Criterio de Aceptación |
-|-----------|--------|----------------------|
-| M3.1 Registro de pagos funcional | 11 | Un admin puede registrar un pago y generar un recibo PDF |
-| M3.2 Caja registradora completa | 12 | Se puede abrir/cajar caja con conciliación automática |
-| M3.3 Marketplace con SEO | 13 | Un negocio tiene perfil público indexable por Google |
-| M3.4 Reseñas operativas | 13 | Un cliente puede dejar reseña tras cita completada |
-| M3.5 Dashboard completo | 14 | Un owner puede gestionar todo su negocio desde el dashboard |
+| Milestone                        | Semana | Criterio de Aceptación                                      |
+| -------------------------------- | ------ | ----------------------------------------------------------- |
+| M3.1 Registro de pagos funcional | 11     | Un admin puede registrar un pago y generar un recibo PDF    |
+| M3.2 Caja registradora completa  | 12     | Se puede abrir/cajar caja con conciliación automática       |
+| M3.3 Marketplace con SEO         | 13     | Un negocio tiene perfil público indexable por Google        |
+| M3.4 Reseñas operativas          | 13     | Un cliente puede dejar reseña tras cita completada          |
+| M3.5 Dashboard completo          | 14     | Un owner puede gestionar todo su negocio desde el dashboard |
 
 ### Dependencias
 
@@ -334,12 +334,12 @@ divide en 5 fases distribuidas en 22 semanas de desarrollo iterativo e increment
 
 ### Riesgos
 
-| Riesgo | Probabilidad | Impacto | Mitigación |
-|--------|-------------|---------|------------|
-| SEO insuficiente para posicionamiento | Media | Alto | SSR obligatorio para perfiles; validar con Lighthouse |
-| Generación de PDF lenta | Baja | Medio | Usar templates precompilados; cachear recibos |
-| UX compleja en el dashboard | Media | Alto | Prototipar antes de desarrollar; pruebas de usabilidad |
-| Inconsistencia entre servicios | Media | Alto | Contratos de API bien definidos; tests de integración |
+| Riesgo                                | Probabilidad | Impacto | Mitigación                                             |
+| ------------------------------------- | ------------ | ------- | ------------------------------------------------------ |
+| SEO insuficiente para posicionamiento | Media        | Alto    | SSR obligatorio para perfiles; validar con Lighthouse  |
+| Generación de PDF lenta               | Baja         | Medio   | Usar templates precompilados; cachear recibos          |
+| UX compleja en el dashboard           | Media        | Alto    | Prototipar antes de desarrollar; pruebas de usabilidad |
+| Inconsistencia entre servicios        | Media        | Alto    | Contratos de API bien definidos; tests de integración  |
 
 ---
 
@@ -432,14 +432,14 @@ divide en 5 fases distribuidas en 22 semanas de desarrollo iterativo e increment
 
 ### Milestones
 
-| Milestone | Semana | Criterio de Aceptación |
-|-----------|--------|----------------------|
-| M4.1 Dashboard de analíticas | 15 | Un owner ve métricas clave y reportes de su negocio |
-| M4.2 Predicciones funcionales | 16 | El sistema predice demanda y no-shows con >70% precisión |
-| M4.3 Geolocalización activa | 16 | Un cliente encuentra negocios en un radio de 5km |
-| M4.4 WhatsApp integrado | 17 | Las notificaciones de reserva llegan por WhatsApp |
-| M4.5 Fidelización completa | 17 | Un cliente acumula puntos y los canjea por descuentos |
-| M4.6 Recordatorios inteligentes | 18 | Los recordatorios se envían en el momento óptimo por canal |
+| Milestone                       | Semana | Criterio de Aceptación                                     |
+| ------------------------------- | ------ | ---------------------------------------------------------- |
+| M4.1 Dashboard de analíticas    | 15     | Un owner ve métricas clave y reportes de su negocio        |
+| M4.2 Predicciones funcionales   | 16     | El sistema predice demanda y no-shows con >70% precisión   |
+| M4.3 Geolocalización activa     | 16     | Un cliente encuentra negocios en un radio de 5km           |
+| M4.4 WhatsApp integrado         | 17     | Las notificaciones de reserva llegan por WhatsApp          |
+| M4.5 Fidelización completa      | 17     | Un cliente acumula puntos y los canjea por descuentos      |
+| M4.6 Recordatorios inteligentes | 18     | Los recordatorios se envían en el momento óptimo por canal |
 
 ### Dependencias
 
@@ -450,12 +450,12 @@ divide en 5 fases distribuidas en 22 semanas de desarrollo iterativo e increment
 
 ### Riesgos
 
-| Riesgo | Probabilidad | Impacto | Mitigación |
-|--------|-------------|---------|------------|
-| Aprobación lenta de WhatsApp Business | Alta | Medio | Iniciar proceso de aprobación en Fase 1; tener email como fallback |
-| Precisión de predicciones insuficiente | Media | Medio | Empezar con heurísticas simples; mejorar con datos reales |
-| Costo de APIs de mapas | Media | Bajo | Implementar caché agresivo; evaluar alternativas gratuitas |
-| Complejidad de gamificación | Media | Medio | Empezar con puntos simples; iterar basado en feedback |
+| Riesgo                                 | Probabilidad | Impacto | Mitigación                                                         |
+| -------------------------------------- | ------------ | ------- | ------------------------------------------------------------------ |
+| Aprobación lenta de WhatsApp Business  | Alta         | Medio   | Iniciar proceso de aprobación en Fase 1; tener email como fallback |
+| Precisión de predicciones insuficiente | Media        | Medio   | Empezar con heurísticas simples; mejorar con datos reales          |
+| Costo de APIs de mapas                 | Media        | Bajo    | Implementar caché agresivo; evaluar alternativas gratuitas         |
+| Complejidad de gamificación            | Media        | Medio   | Empezar con puntos simples; iterar basado en feedback              |
 
 ---
 
@@ -573,12 +573,12 @@ divide en 5 fases distribuidas en 22 semanas de desarrollo iterativo e increment
 
 ### Milestones
 
-| Milestone | Semana | Criterio de Aceptación |
-|-----------|--------|----------------------|
-| M5.1 CI/CD operativo | 19 | Cada PR ejecuta lint, tests y build automáticamente |
-| M5.2 Testing >80% core | 20 | Auth, Booking y Payment tienen cobertura >80% |
-| M5.3 Monitoreo activo | 21 | Dashboards de Grafana muestran métricas en tiempo real |
-| M5.4 Beta lanzada | 22 | Al menos 5 negocios activos usando la plataforma |
+| Milestone              | Semana | Criterio de Aceptación                                 |
+| ---------------------- | ------ | ------------------------------------------------------ |
+| M5.1 CI/CD operativo   | 19     | Cada PR ejecuta lint, tests y build automáticamente    |
+| M5.2 Testing >80% core | 20     | Auth, Booking y Payment tienen cobertura >80%          |
+| M5.3 Monitoreo activo  | 21     | Dashboards de Grafana muestran métricas en tiempo real |
+| M5.4 Beta lanzada      | 22     | Al menos 5 negocios activos usando la plataforma       |
 
 ### Dependencias
 
@@ -589,12 +589,12 @@ divide en 5 fases distribuidas en 22 semanas de desarrollo iterativo e increment
 
 ### Riesgos
 
-| Riesgo | Probabilidad | Impacto | Mitigación |
-|--------|-------------|---------|------------|
-| Bugs críticos en beta | Alta | Alto | Proceso de hotfix definido; rollback rápido |
-| Problemas de rendimiento | Media | Alto | Pruebas de carga tempranas; optimización proactiva |
-| Adopción lenta de beta | Media | Medio | Onboarding personalizado; soporte dedicado |
-| Costos de infraestructura altos | Media | Medio | Monitoreo de costos; optimización de recursos |
+| Riesgo                          | Probabilidad | Impacto | Mitigación                                         |
+| ------------------------------- | ------------ | ------- | -------------------------------------------------- |
+| Bugs críticos en beta           | Alta         | Alto    | Proceso de hotfix definido; rollback rápido        |
+| Problemas de rendimiento        | Media        | Alto    | Pruebas de carga tempranas; optimización proactiva |
+| Adopción lenta de beta          | Media        | Medio   | Onboarding personalizado; soporte dedicado         |
+| Costos de infraestructura altos | Media        | Medio   | Monitoreo de costos; optimización de recursos      |
 
 ---
 
@@ -643,16 +643,16 @@ Semanas  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20 21 22
 
 ## Resumen de Microservicios por Fase
 
-| Servicio | Puerto | Fase Implementación | Fase Compleción |
-|----------|--------|---------------------|-----------------|
-| API Gateway | 3000 | Fase 1 | Fase 2 |
-| Auth Service | 3001 | Fase 1 | Fase 1 |
-| Core Service | 3002 | Fase 1 | Fase 2 |
-| Booking Service | 3003 | Fase 2 | Fase 2 |
-| Payment Service | 3004 | Fase 3 | Fase 3 |
-| Notification Service | 3005 | Fase 2 | Fase 4 |
-| Marketplace Service | 3006 | Fase 3 | Fase 4 |
-| Analytics Service | 3007 | Fase 4 | Fase 4 |
+| Servicio             | Puerto | Fase Implementación | Fase Compleción |
+| -------------------- | ------ | ------------------- | --------------- |
+| API Gateway          | 3000   | Fase 1              | Fase 2          |
+| Auth Service         | 3001   | Fase 1              | Fase 1          |
+| Core Service         | 3002   | Fase 1              | Fase 2          |
+| Booking Service      | 3003   | Fase 2              | Fase 2          |
+| Payment Service      | 3004   | Fase 3              | Fase 3          |
+| Notification Service | 3005   | Fase 2              | Fase 4          |
+| Marketplace Service  | 3006   | Fase 3              | Fase 4          |
+| Analytics Service    | 3007   | Fase 4              | Fase 4          |
 
 ---
 

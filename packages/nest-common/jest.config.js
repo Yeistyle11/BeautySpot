@@ -1,32 +1,22 @@
 module.exports = {
-  moduleFileExtensions: ['js', 'json', 'ts'],
-  rootDir: 'src',
-  testRegex: '.*\\.spec\\.ts$',
+  setupFiles: ["<rootDir>/../../packages/nest-common/test-setup.ts"],
+  moduleFileExtensions: ["js", "json", "ts"],
+  rootDir: "src",
+  testRegex: ".*\\.spec\\.ts$",
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    "^.+\\.(t|j)s$": "ts-jest",
   },
-  transformIgnorePatterns: [
-    'node_modules/(?!(uuid))',
-  ],
-  collectCoverageFrom: [
-    '**/*.(t|j)s',
-    '!**/*.spec.ts',
-    '!**/*.interface.ts',
-  ],
-  coverageDirectory: '../coverage',
-  coverageReporters: ['json', 'lcov', 'text', 'clover'],
-  coverageThreshold: {
-    global: {
-      branches: 90,
-      functions: 90,
-      lines: 90,
-      statements: 90
-    }
-  },
-  testEnvironment: 'node',
+  transformIgnorePatterns: ["node_modules/(?!(uuid|@nestjs|@golevelup))"],
+  collectCoverageFrom: ["**/*.(t|j)s", "!**/*.spec.ts", "!**/*.interface.ts"],
+  coverageDirectory: "../coverage",
+  testEnvironment: "node",
   moduleNameMapper: {
-    '^uuid$': 'uuid',
-    '^@beautyspot/(.*)$': '<rootDir>/../../packages/$1/src',
+    "^@beautyspot/database$": "<rootDir>/../../packages/database/src",
+    "^@beautyspot/shared-types$": "<rootDir>/../../packages/shared-types/src",
+    "^@beautyspot/shared-utils$": "<rootDir>/../../packages/shared-utils/src",
+    "^@beautyspot/event-types$": "<rootDir>/../../packages/event-types/src",
+    "^@beautyspot/shared-constants$":
+      "<rootDir>/../../packages/shared-constants/src",
+    "^@/(.*)$": "<rootDir>/$1",
   },
-  verbose: true,
 };

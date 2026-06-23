@@ -3,12 +3,6 @@ import { ConfigService } from "@nestjs/config";
 import { IBaseEvent } from "@beautyspot/event-types";
 import { v4 as uuidv4 } from "uuid";
 
-interface RetryContext {
-  message: IBaseEvent<any>;
-  retryCount: number;
-  lastError?: string;
-}
-
 @Injectable()
 export class EventBusService implements OnModuleDestroy {
   private readonly logger = new Logger(EventBusService.name);

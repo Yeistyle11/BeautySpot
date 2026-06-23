@@ -805,6 +805,7 @@ npm run typeorm migration:revert
 Formato: `{timestamp}-{descripcion_kebab_case}.ts`
 
 Ejemplos:
+
 - `1700000000000-create-auth-tables.ts`
 - `1700000000001-add-business-config-table.ts`
 - `1700000000002-add-cash-movements-index.ts`

@@ -33,28 +33,28 @@ Gestionar la identidad de los usuarios, la autenticacion (login, registro, recup
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Notification | Obligatoria | Envio de emails de verificacion y recuperacion de contrasena |
-| Core - Businesses | Obligatoria | Resolucion del negocio (tenant) al que pertenece el usuario |
-| API Gateway | Obligatoria | Validacion de tokens en cada request entrante |
+| Modulo            | Tipo de dependencia | Descripcion                                                  |
+| ----------------- | ------------------- | ------------------------------------------------------------ |
+| Notification      | Obligatoria         | Envio de emails de verificacion y recuperacion de contrasena |
+| Core - Businesses | Obligatoria         | Resolucion del negocio (tenant) al que pertenece el usuario  |
+| API Gateway       | Obligatoria         | Validacion de tokens en cada request entrante                |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Fuga de tokens JWT | Alto | Baja | TTL corto (15 min), rotacion de refresh tokens, lista negra en Redis |
-| Ataque de fuerza bruta | Alto | Media | Rate limiting por IP + por usuario, CAPTCHA despues de 3 intentos |
-| Compromiso de secretos | Critico | Baja | Variables de entorno encriptadas, rotacion periodica, no hardcodear |
+| Riesgo                 | Impacto | Probabilidad | Mitigacion                                                           |
+| ---------------------- | ------- | ------------ | -------------------------------------------------------------------- |
+| Fuga de tokens JWT     | Alto    | Baja         | TTL corto (15 min), rotacion de refresh tokens, lista negra en Redis |
+| Ataque de fuerza bruta | Alto    | Media        | Rate limiting por IP + por usuario, CAPTCHA despues de 3 intentos    |
+| Compromiso de secretos | Critico | Baja         | Variables de entorno encriptadas, rotacion periodica, no hardcodear  |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Alta |
-| Prioridad | P0 |
-| Servicio | Auth Service (Puerto 3002) |
-| Base de datos | auth_db |
+| Atributo      | Valor                      |
+| ------------- | -------------------------- |
+| Complejidad   | Alta                       |
+| Prioridad     | P0                         |
+| Servicio      | Auth Service (Puerto 3002) |
+| Base de datos | auth_db                    |
 
 ---
 
@@ -79,28 +79,28 @@ Gestionar el ciclo de vida completo de los negocios registrados en la plataforma
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Auth | Obligatoria | El OWNER debe estar autenticado para crear/administrar el negocio |
-| Core - Branches | Opcional | Las sucursales dependen de un negocio existente |
-| Marketplace - Business Profiles | Obligatoria | Generacion automatica del perfil publico al crear el negocio |
+| Modulo                          | Tipo de dependencia | Descripcion                                                       |
+| ------------------------------- | ------------------- | ----------------------------------------------------------------- |
+| Auth                            | Obligatoria         | El OWNER debe estar autenticado para crear/administrar el negocio |
+| Core - Branches                 | Opcional            | Las sucursales dependen de un negocio existente                   |
+| Marketplace - Business Profiles | Obligatoria         | Generacion automatica del perfil publico al crear el negocio      |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Slugs duplicados | Medio | Media | Validacion unica en BD + generacion automatica con sufijo numerico |
-| Datos incompletos en onboarding | Medio | Alta | Wizard con validacion por pasos, indicador de completitud |
-| Perdida de datos al desactivar | Alto | Baja | Soft delete con periodo de gracia (30 dias) antes de eliminacion real |
+| Riesgo                          | Impacto | Probabilidad | Mitigacion                                                            |
+| ------------------------------- | ------- | ------------ | --------------------------------------------------------------------- |
+| Slugs duplicados                | Medio   | Media        | Validacion unica en BD + generacion automatica con sufijo numerico    |
+| Datos incompletos en onboarding | Medio   | Alta         | Wizard con validacion por pasos, indicador de completitud             |
+| Perdida de datos al desactivar  | Alto    | Baja         | Soft delete con periodo de gracia (30 dias) antes de eliminacion real |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Media |
-| Prioridad | P0 |
-| Servicio | Core Service (Puerto 3003) |
-| Base de datos | core_db |
+| Atributo      | Valor                      |
+| ------------- | -------------------------- |
+| Complejidad   | Media                      |
+| Prioridad     | P0                         |
+| Servicio      | Core Service (Puerto 3003) |
+| Base de datos | core_db                    |
 
 ---
 
@@ -122,26 +122,26 @@ Permitir la gestion de multiples sucursales para un mismo negocio, cada una con 
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Businesses | Obligatoria | Cada sucursal pertenece a un negocio |
-| Professionals | Obligatoria | Asignacion de profesionales a sucursales |
+| Modulo        | Tipo de dependencia | Descripcion                              |
+| ------------- | ------------------- | ---------------------------------------- |
+| Businesses    | Obligatoria         | Cada sucursal pertenece a un negocio     |
+| Professionals | Obligatoria         | Asignacion de profesionales a sucursales |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Configuracion inconsistente entre sucursales | Medio | Media | Herencia de configuracion del negocio con override local |
-| Confusion de datos entre sucursales | Alto | Baja | Filtro estricto de branchId en todas las consultas |
+| Riesgo                                       | Impacto | Probabilidad | Mitigacion                                               |
+| -------------------------------------------- | ------- | ------------ | -------------------------------------------------------- |
+| Configuracion inconsistente entre sucursales | Medio   | Media        | Herencia de configuracion del negocio con override local |
+| Confusion de datos entre sucursales          | Alto    | Baja         | Filtro estricto de branchId en todas las consultas       |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Baja |
-| Prioridad | P1 |
-| Servicio | Core Service (Puerto 3003) |
-| Base de datos | core_db |
+| Atributo      | Valor                      |
+| ------------- | -------------------------- |
+| Complejidad   | Baja                       |
+| Prioridad     | P1                         |
+| Servicio      | Core Service (Puerto 3003) |
+| Base de datos | core_db                    |
 
 ---
 
@@ -166,29 +166,29 @@ Gestionar los perfiles de los profesionales que prestan servicios dentro de un n
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Businesses | Obligatoria | El profesional pertenece a un negocio |
-| Services | Obligatoria | Asignacion de servicios que el profesional puede realizar |
-| Auth | Opcional | Vinculacion con cuenta de usuario para login del profesional |
-| Marketplace - Reviews | Opcional | Calculo de rating desde resenas |
+| Modulo                | Tipo de dependencia | Descripcion                                                  |
+| --------------------- | ------------------- | ------------------------------------------------------------ |
+| Businesses            | Obligatoria         | El profesional pertenece a un negocio                        |
+| Services              | Obligatoria         | Asignacion de servicios que el profesional puede realizar    |
+| Auth                  | Opcional            | Vinculacion con cuenta de usuario para login del profesional |
+| Marketplace - Reviews | Opcional            | Calculo de rating desde resenas                              |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Profesional sin disponibilidad configurada | Alto | Alta | Wizard post-creacion, recordatorios, no aparecer en busquedas sin disponibilidad |
-| Datos de contacto del profesional visibles | Medio | Media | Control de privacidad configurado por el negocio |
-| Reasignacion de citas al desactivar profesional | Alto | Media | Alerta de citas pendientes antes de desactivar, reasignacion sugerida |
+| Riesgo                                          | Impacto | Probabilidad | Mitigacion                                                                       |
+| ----------------------------------------------- | ------- | ------------ | -------------------------------------------------------------------------------- |
+| Profesional sin disponibilidad configurada      | Alto    | Alta         | Wizard post-creacion, recordatorios, no aparecer en busquedas sin disponibilidad |
+| Datos de contacto del profesional visibles      | Medio   | Media        | Control de privacidad configurado por el negocio                                 |
+| Reasignacion de citas al desactivar profesional | Alto    | Media        | Alerta de citas pendientes antes de desactivar, reasignacion sugerida            |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Media |
-| Prioridad | P0 |
-| Servicio | Core Service (Puerto 3003) |
-| Base de datos | core_db |
+| Atributo      | Valor                      |
+| ------------- | -------------------------- |
+| Complejidad   | Media                      |
+| Prioridad     | P0                         |
+| Servicio      | Core Service (Puerto 3003) |
+| Base de datos | core_db                    |
 
 ---
 
@@ -213,26 +213,26 @@ Administrar el catalogo de servicios que ofrece un negocio, incluyendo categoria
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Businesses | Obligatoria | Los servicios pertenecen a un negocio |
-| Professionals | Obligatoria | Asignacion a profesionales que pueden realizar el servicio |
+| Modulo        | Tipo de dependencia | Descripcion                                                |
+| ------------- | ------------------- | ---------------------------------------------------------- |
+| Businesses    | Obligatoria         | Los servicios pertenecen a un negocio                      |
+| Professionals | Obligatoria         | Asignacion a profesionales que pueden realizar el servicio |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Eliminar servicio con citas pendientes | Alto | Media | Prevenir eliminacion si hay citas futuras, solo desactivar |
-| Precios inconsistentes entre profesionales | Bajo | Alta | Mostrar precio base como referencia, permitir personalizacion |
+| Riesgo                                     | Impacto | Probabilidad | Mitigacion                                                    |
+| ------------------------------------------ | ------- | ------------ | ------------------------------------------------------------- |
+| Eliminar servicio con citas pendientes     | Alto    | Media        | Prevenir eliminacion si hay citas futuras, solo desactivar    |
+| Precios inconsistentes entre profesionales | Bajo    | Alta         | Mostrar precio base como referencia, permitir personalizacion |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Baja |
-| Prioridad | P0 |
-| Servicio | Core Service (Puerto 3003) |
-| Base de datos | core_db |
+| Atributo      | Valor                      |
+| ------------- | -------------------------- |
+| Complejidad   | Baja                       |
+| Prioridad     | P0                         |
+| Servicio      | Core Service (Puerto 3003) |
+| Base de datos | core_db                    |
 
 ---
 
@@ -257,28 +257,28 @@ Gestionar la informacion de los clientes de cada negocio, incluyendo datos de co
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Businesses | Obligatoria | Los clientes pertenecen a un negocio |
-| Booking - Appointments | Opcional | Historial de citas |
-| Payment - Payments | Opcional | Historial de pagos |
+| Modulo                 | Tipo de dependencia | Descripcion                          |
+| ---------------------- | ------------------- | ------------------------------------ |
+| Businesses             | Obligatoria         | Los clientes pertenecen a un negocio |
+| Booking - Appointments | Opcional            | Historial de citas                   |
+| Payment - Payments     | Opcional            | Historial de pagos                   |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Clientes duplicados | Medio | Alta | Validacion de email/telefono unico por negocio, merge manual |
-| Datos personales sensibles | Alto | Media | Encriptacion de datos PII, cumplimiento de privacidad |
-| Confusion cliente global vs cliente por negocio | Alto | Media | Modelo de cliente por negocio (no global), un usuario puede ser cliente de varios negocios |
+| Riesgo                                          | Impacto | Probabilidad | Mitigacion                                                                                 |
+| ----------------------------------------------- | ------- | ------------ | ------------------------------------------------------------------------------------------ |
+| Clientes duplicados                             | Medio   | Alta         | Validacion de email/telefono unico por negocio, merge manual                               |
+| Datos personales sensibles                      | Alto    | Media        | Encriptacion de datos PII, cumplimiento de privacidad                                      |
+| Confusion cliente global vs cliente por negocio | Alto    | Media        | Modelo de cliente por negocio (no global), un usuario puede ser cliente de varios negocios |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Media |
-| Prioridad | P0 |
-| Servicio | Core Service (Puerto 3003) |
-| Base de datos | core_db |
+| Atributo      | Valor                      |
+| ------------- | -------------------------- |
+| Complejidad   | Media                      |
+| Prioridad     | P0                         |
+| Servicio      | Core Service (Puerto 3003) |
+| Base de datos | core_db                    |
 
 ---
 
@@ -308,33 +308,33 @@ Gestionar el ciclo de vida completo de las citas: creacion, confirmacion, reagen
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Businesses | Obligatoria | Las citas pertenecen a un negocio, usan su configuracion |
-| Professionals | Obligatoria | La cita se asigna a un profesional |
-| Services | Obligatoria | La cita incluye uno o mas servicios |
-| Clients | Obligatoria | La cita se asocia a un cliente |
-| Availability | Obligatoria | Verificacion de slots disponibles |
-| Notifications | Obligatoria | Envio de alertas por cambios de estado |
-| Payment | Opcional | Registro de pago asociado a la cita |
+| Modulo        | Tipo de dependencia | Descripcion                                              |
+| ------------- | ------------------- | -------------------------------------------------------- |
+| Businesses    | Obligatoria         | Las citas pertenecen a un negocio, usan su configuracion |
+| Professionals | Obligatoria         | La cita se asigna a un profesional                       |
+| Services      | Obligatoria         | La cita incluye uno o mas servicios                      |
+| Clients       | Obligatoria         | La cita se asocia a un cliente                           |
+| Availability  | Obligatoria         | Verificacion de slots disponibles                        |
+| Notifications | Obligatoria         | Envio de alertas por cambios de estado                   |
+| Payment       | Opcional            | Registro de pago asociado a la cita                      |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Condiciones de carrera en creacion simultanea | Critico | Media | Lock optimista o pessimista a nivel de slot, transacciones atomicas |
-| Solapamiento por concurrencia | Critico | Media | Validacion en transaccion, unique constraint en BD |
-| Citas huerfanas al desactivar profesional | Alto | Baja | Alertas y reasignacion antes de desactivar |
-| Perdida de datos de zona horaria | Alto | Media | Almacenar en UTC, convertir al mostrar segun zona del negocio |
+| Riesgo                                        | Impacto | Probabilidad | Mitigacion                                                          |
+| --------------------------------------------- | ------- | ------------ | ------------------------------------------------------------------- |
+| Condiciones de carrera en creacion simultanea | Critico | Media        | Lock optimista o pessimista a nivel de slot, transacciones atomicas |
+| Solapamiento por concurrencia                 | Critico | Media        | Validacion en transaccion, unique constraint en BD                  |
+| Citas huerfanas al desactivar profesional     | Alto    | Baja         | Alertas y reasignacion antes de desactivar                          |
+| Perdida de datos de zona horaria              | Alto    | Media        | Almacenar en UTC, convertir al mostrar segun zona del negocio       |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Alta |
-| Prioridad | P0 |
-| Servicio | Booking Service (Puerto 3004) |
-| Base de datos | booking_db |
+| Atributo      | Valor                         |
+| ------------- | ----------------------------- |
+| Complejidad   | Alta                          |
+| Prioridad     | P0                            |
+| Servicio      | Booking Service (Puerto 3004) |
+| Base de datos | booking_db                    |
 
 ---
 
@@ -359,28 +359,28 @@ Gestionar la disponibilidad de los profesionales: horarios regulares, excepcione
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Professionals | Obligatoria | La disponibilidad pertenece a un profesional |
-| Businesses | Obligatoria | Configuracion de intervalos y horarios del negocio |
-| Appointments | Obligatoria | Las citas existentes reducen la disponibilidad |
+| Modulo        | Tipo de dependencia | Descripcion                                        |
+| ------------- | ------------------- | -------------------------------------------------- |
+| Professionals | Obligatoria         | La disponibilidad pertenece a un profesional       |
+| Businesses    | Obligatoria         | Configuracion de intervalos y horarios del negocio |
+| Appointments  | Obligatoria         | Las citas existentes reducen la disponibilidad     |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Disponibilidad no configurada | Alto | Alta | Valores por defecto, wizard de configuracion inicial |
-| Conflictos con zona horaria | Alto | Media | Almacenar en UTC, convertir al mostrar |
-| Performance en calculo de slots | Medio | Media | Cache en Redis, pre-calculo para fechas cercanas |
+| Riesgo                          | Impacto | Probabilidad | Mitigacion                                           |
+| ------------------------------- | ------- | ------------ | ---------------------------------------------------- |
+| Disponibilidad no configurada   | Alto    | Alta         | Valores por defecto, wizard de configuracion inicial |
+| Conflictos con zona horaria     | Alto    | Media        | Almacenar en UTC, convertir al mostrar               |
+| Performance en calculo de slots | Medio   | Media        | Cache en Redis, pre-calculo para fechas cercanas     |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Alta |
-| Prioridad | P0 |
-| Servicio | Booking Service (Puerto 3004) |
-| Base de datos | booking_db |
+| Atributo      | Valor                         |
+| ------------- | ----------------------------- |
+| Complejidad   | Alta                          |
+| Prioridad     | P0                            |
+| Servicio      | Booking Service (Puerto 3004) |
+| Base de datos | booking_db                    |
 
 ---
 
@@ -405,29 +405,29 @@ Registrar y gestionar los pagos realizados por los clientes, incluyendo pagos en
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Appointments | Obligatoria | El pago se asocia a una cita |
-| Clients | Obligatoria | El pago se asocia a un cliente |
-| Businesses | Obligatoria | Configuracion de metodos de pago aceptados |
-| Invoices | Opcional | Generacion de factura/recibo |
+| Modulo       | Tipo de dependencia | Descripcion                                |
+| ------------ | ------------------- | ------------------------------------------ |
+| Appointments | Obligatoria         | El pago se asocia a una cita               |
+| Clients      | Obligatoria         | El pago se asocia a un cliente             |
+| Businesses   | Obligatoria         | Configuracion de metodos de pago aceptados |
+| Invoices     | Opcional            | Generacion de factura/recibo               |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Registro incorrecto de montos | Alto | Media | Validacion contra total de la cita, alertas de discrepancia |
-| Pagos duplicados | Medio | Media | Validacion de unicidad por cita + metodo + fecha |
-| Falta de trazabilidad | Alto | Baja | Audit log en cada operacion de pago |
+| Riesgo                        | Impacto | Probabilidad | Mitigacion                                                  |
+| ----------------------------- | ------- | ------------ | ----------------------------------------------------------- |
+| Registro incorrecto de montos | Alto    | Media        | Validacion contra total de la cita, alertas de discrepancia |
+| Pagos duplicados              | Medio   | Media        | Validacion de unicidad por cita + metodo + fecha            |
+| Falta de trazabilidad         | Alto    | Baja         | Audit log en cada operacion de pago                         |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Media |
-| Prioridad | P0 |
-| Servicio | Payment Service (Puerto 3005) |
-| Base de datos | payment_db |
+| Atributo      | Valor                         |
+| ------------- | ----------------------------- |
+| Complejidad   | Media                         |
+| Prioridad     | P0                            |
+| Servicio      | Payment Service (Puerto 3005) |
+| Base de datos | payment_db                    |
 
 ---
 
@@ -449,28 +449,28 @@ Generar y gestionar comprobantes de pago (recibos simplificados y facturas) para
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Payments | Obligatoria | El recibo se genera a partir de un pago |
-| Businesses | Obligatoria | Datos del negocio en el recibo |
-| Clients | Obligatoria | Datos del cliente en el recibo |
-| Notification | Opcional | Envio de recibo por email |
+| Modulo       | Tipo de dependencia | Descripcion                             |
+| ------------ | ------------------- | --------------------------------------- |
+| Payments     | Obligatoria         | El recibo se genera a partir de un pago |
+| Businesses   | Obligatoria         | Datos del negocio en el recibo          |
+| Clients      | Obligatoria         | Datos del cliente en el recibo          |
+| Notification | Opcional            | Envio de recibo por email               |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Numeracion duplicada | Medio | Baja | Secuencia auto-incremental por negocio con unique constraint |
-| Formato no valido para facturacion legal | Medio | Baja | MVP como recibo no fiscal; preparar para facturacion electronica |
+| Riesgo                                   | Impacto | Probabilidad | Mitigacion                                                       |
+| ---------------------------------------- | ------- | ------------ | ---------------------------------------------------------------- |
+| Numeracion duplicada                     | Medio   | Baja         | Secuencia auto-incremental por negocio con unique constraint     |
+| Formato no valido para facturacion legal | Medio   | Baja         | MVP como recibo no fiscal; preparar para facturacion electronica |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Media |
-| Prioridad | P1 |
-| Servicio | Payment Service (Puerto 3005) |
-| Base de datos | payment_db |
+| Atributo      | Valor                         |
+| ------------- | ----------------------------- |
+| Complejidad   | Media                         |
+| Prioridad     | P1                            |
+| Servicio      | Payment Service (Puerto 3005) |
+| Base de datos | payment_db                    |
 
 ---
 
@@ -494,27 +494,27 @@ Gestionar las sesiones de caja (apertura y cierre) de cada sucursal, permitiendo
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Payments | Obligatoria | Los pagos en efectivo alimentan la caja |
-| Businesses/Branches | Obligatoria | La caja pertenece a una sucursal |
+| Modulo              | Tipo de dependencia | Descripcion                             |
+| ------------------- | ------------------- | --------------------------------------- |
+| Payments            | Obligatoria         | Los pagos en efectivo alimentan la caja |
+| Businesses/Branches | Obligatoria         | La caja pertenece a una sucursal        |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Caja sin cerrar al final del dia | Medio | Alta | Notificacion automatica de caja abierta, cierre forzado por admin |
-| Diferencias frecuentes entre esperado y real | Medio | Media | Alertas de descuadre, historial de diferencias |
-| Concurrencia en apertura de caja | Bajo | Baja | Unique constraint: solo una caja abierta por sucursal |
+| Riesgo                                       | Impacto | Probabilidad | Mitigacion                                                        |
+| -------------------------------------------- | ------- | ------------ | ----------------------------------------------------------------- |
+| Caja sin cerrar al final del dia             | Medio   | Alta         | Notificacion automatica de caja abierta, cierre forzado por admin |
+| Diferencias frecuentes entre esperado y real | Medio   | Media        | Alertas de descuadre, historial de diferencias                    |
+| Concurrencia en apertura de caja             | Bajo    | Baja         | Unique constraint: solo una caja abierta por sucursal             |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Media |
-| Prioridad | P0 |
-| Servicio | Payment Service (Puerto 3005) |
-| Base de datos | payment_db |
+| Atributo      | Valor                         |
+| ------------- | ----------------------------- |
+| Complejidad   | Media                         |
+| Prioridad     | P0                            |
+| Servicio      | Payment Service (Puerto 3005) |
+| Base de datos | payment_db                    |
 
 ---
 
@@ -539,29 +539,29 @@ Gestionar el envio de notificaciones a los usuarios del sistema a traves de mult
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Auth | Obligatoria | Identificar al usuario destinatario |
-| Core - Businesses | Obligatoria | Contexto del negocio para las notificaciones |
-| Booking - Appointments | Obligatoria | Eventos de citas que disparan notificaciones |
-| Payment | Opcional | Notificaciones de pagos registrados |
+| Modulo                 | Tipo de dependencia | Descripcion                                  |
+| ---------------------- | ------------------- | -------------------------------------------- |
+| Auth                   | Obligatoria         | Identificar al usuario destinatario          |
+| Core - Businesses      | Obligatoria         | Contexto del negocio para las notificaciones |
+| Booking - Appointments | Obligatoria         | Eventos de citas que disparan notificaciones |
+| Payment                | Opcional            | Notificaciones de pagos registrados          |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Emails marcados como spam | Alto | Media | DKIM/SPF configurados, reputacion del dominio, throttle de envio |
-| Retraso en notificaciones criticas | Alto | Baja | Cola prioritaria para notificaciones de citas, monitoreo de cola |
-| Sobrecarga de notificaciones | Medio | Alta | Preferencias granulares, digest diario (post-MVP) |
+| Riesgo                             | Impacto | Probabilidad | Mitigacion                                                       |
+| ---------------------------------- | ------- | ------------ | ---------------------------------------------------------------- |
+| Emails marcados como spam          | Alto    | Media        | DKIM/SPF configurados, reputacion del dominio, throttle de envio |
+| Retraso en notificaciones criticas | Alto    | Baja         | Cola prioritaria para notificaciones de citas, monitoreo de cola |
+| Sobrecarga de notificaciones       | Medio   | Alta         | Preferencias granulares, digest diario (post-MVP)                |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Media |
-| Prioridad | P0 |
-| Servicio | Notification Service (Puerto 3006) |
-| Base de datos | notification_db |
+| Atributo      | Valor                              |
+| ------------- | ---------------------------------- |
+| Complejidad   | Media                              |
+| Prioridad     | P0                                 |
+| Servicio      | Notification Service (Puerto 3006) |
+| Base de datos | notification_db                    |
 
 ---
 
@@ -582,26 +582,26 @@ Permitir a cada usuario configurar que tipos de notificaciones desea recibir y p
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Auth | Obligatoria | Identificar al usuario |
-| Notifications | Obligatoria | Consultar preferencias antes de enviar |
+| Modulo        | Tipo de dependencia | Descripcion                            |
+| ------------- | ------------------- | -------------------------------------- |
+| Auth          | Obligatoria         | Identificar al usuario                 |
+| Notifications | Obligatoria         | Consultar preferencias antes de enviar |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Preferencias muy restrictivas | Medio | Media | Notificaciones criticas (seguridad) no son desactivables |
-| Configuracion confusa | Bajo | Media | UI simple con toggles, defaults sensatos |
+| Riesgo                        | Impacto | Probabilidad | Mitigacion                                               |
+| ----------------------------- | ------- | ------------ | -------------------------------------------------------- |
+| Preferencias muy restrictivas | Medio   | Media        | Notificaciones criticas (seguridad) no son desactivables |
+| Configuracion confusa         | Bajo    | Media        | UI simple con toggles, defaults sensatos                 |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Baja |
-| Prioridad | P1 |
-| Servicio | Notification Service (Puerto 3006) |
-| Base de datos | notification_db |
+| Atributo      | Valor                              |
+| ------------- | ---------------------------------- |
+| Complejidad   | Baja                               |
+| Prioridad     | P1                                 |
+| Servicio      | Notification Service (Puerto 3006) |
+| Base de datos | notification_db                    |
 
 ---
 
@@ -625,26 +625,26 @@ Proveer funcionalidad de busqueda en el marketplace para que los clientes encuen
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Marketplace - Business Profiles | Obligatoria | Datos indexados de los negocios |
-| Core - Services | Obligatoria | Datos de servicios para busqueda |
+| Modulo                          | Tipo de dependencia | Descripcion                      |
+| ------------------------------- | ------------------- | -------------------------------- |
+| Marketplace - Business Profiles | Obligatoria         | Datos indexados de los negocios  |
+| Core - Services                 | Obligatoria         | Datos de servicios para busqueda |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Performance con muchos negocios | Medio | Baja | Indice full-text en PostgreSQL, cache de resultados frecuentes |
-| Resultados irrelevantes | Medio | Media | Ranking por calificacion y actividad, relevancia tunable |
+| Riesgo                          | Impacto | Probabilidad | Mitigacion                                                     |
+| ------------------------------- | ------- | ------------ | -------------------------------------------------------------- |
+| Performance con muchos negocios | Medio   | Baja         | Indice full-text en PostgreSQL, cache de resultados frecuentes |
+| Resultados irrelevantes         | Medio   | Media        | Ranking por calificacion y actividad, relevancia tunable       |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Media |
-| Prioridad | P1 |
-| Servicio | Marketplace Service (Puerto 3007) |
-| Base de datos | marketplace_db |
+| Atributo      | Valor                             |
+| ------------- | --------------------------------- |
+| Complejidad   | Media                             |
+| Prioridad     | P1                                |
+| Servicio      | Marketplace Service (Puerto 3007) |
+| Base de datos | marketplace_db                    |
 
 ---
 
@@ -669,31 +669,31 @@ Generar y mantener las paginas publicas de cada negocio accesibles via subdomini
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Core - Businesses | Obligatoria | Datos del negocio |
-| Core - Services | Obligatoria | Catalogo de servicios |
-| Core - Professionals | Obligatoria | Datos de profesionales |
-| Booking - Appointments | Obligatoria | Flujo de reserva |
-| Booking - Availability | Obligatoria | Slots disponibles para reserva |
-| Marketplace - Reviews | Opcional | Calificaciones y resenas |
+| Modulo                 | Tipo de dependencia | Descripcion                    |
+| ---------------------- | ------------------- | ------------------------------ |
+| Core - Businesses      | Obligatoria         | Datos del negocio              |
+| Core - Services        | Obligatoria         | Catalogo de servicios          |
+| Core - Professionals   | Obligatoria         | Datos de profesionales         |
+| Booking - Appointments | Obligatoria         | Flujo de reserva               |
+| Booking - Availability | Obligatoria         | Slots disponibles para reserva |
+| Marketplace - Reviews  | Opcional            | Calificaciones y resenas       |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Subdominio no resuelve | Critico | Baja | Wildcard DNS configurado, health check de resolucion |
-| Contenido desactualizado | Medio | Media | Cache con TTL corto (5 min), invalidacion en edicion |
-| Performance de la pagina publica | Medio | Media | CDN, cache agresivo, SSR con revalidacion |
+| Riesgo                           | Impacto | Probabilidad | Mitigacion                                           |
+| -------------------------------- | ------- | ------------ | ---------------------------------------------------- |
+| Subdominio no resuelve           | Critico | Baja         | Wildcard DNS configurado, health check de resolucion |
+| Contenido desactualizado         | Medio   | Media        | Cache con TTL corto (5 min), invalidacion en edicion |
+| Performance de la pagina publica | Medio   | Media        | CDN, cache agresivo, SSR con revalidacion            |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Alta |
-| Prioridad | P0 |
-| Servicio | Marketplace Service (Puerto 3007) |
-| Base de datos | marketplace_db |
+| Atributo      | Valor                             |
+| ------------- | --------------------------------- |
+| Complejidad   | Alta                              |
+| Prioridad     | P0                                |
+| Servicio      | Marketplace Service (Puerto 3007) |
+| Base de datos | marketplace_db                    |
 
 ---
 
@@ -718,29 +718,29 @@ Permitir que los clientes califiquen y dejen resenas sobre los negocios y profes
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Booking - Appointments | Obligatoria | La resena esta vinculada a una cita completada |
-| Core - Businesses | Obligatoria | Calificacion del negocio |
-| Core - Professionals | Obligatoria | Calificacion del profesional |
-| Notifications | Opcional | Alerta de nueva resena |
+| Modulo                 | Tipo de dependencia | Descripcion                                    |
+| ---------------------- | ------------------- | ---------------------------------------------- |
+| Booking - Appointments | Obligatoria         | La resena esta vinculada a una cita completada |
+| Core - Businesses      | Obligatoria         | Calificacion del negocio                       |
+| Core - Professionals   | Obligatoria         | Calificacion del profesional                   |
+| Notifications          | Opcional            | Alerta de nueva resena                         |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Resenas falsas o abusivas | Alto | Media | Moderacion, verificacion de cita completada, reporte |
-| Manipulacion de calificaciones | Alto | Baja | Una resena por cita, verificacion de identidad |
-| Clientes que no dejan resenas | Medio | Alta | Recordatorio automatico post-cita (24h despues) |
+| Riesgo                         | Impacto | Probabilidad | Mitigacion                                           |
+| ------------------------------ | ------- | ------------ | ---------------------------------------------------- |
+| Resenas falsas o abusivas      | Alto    | Media        | Moderacion, verificacion de cita completada, reporte |
+| Manipulacion de calificaciones | Alto    | Baja         | Una resena por cita, verificacion de identidad       |
+| Clientes que no dejan resenas  | Medio   | Alta         | Recordatorio automatico post-cita (24h despues)      |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Media |
-| Prioridad | P1 |
-| Servicio | Marketplace Service (Puerto 3007) |
-| Base de datos | marketplace_db |
+| Atributo      | Valor                             |
+| ------------- | --------------------------------- |
+| Complejidad   | Media                             |
+| Prioridad     | P1                                |
+| Servicio      | Marketplace Service (Puerto 3007) |
+| Base de datos | marketplace_db                    |
 
 ---
 
@@ -765,29 +765,29 @@ Proveer una vista consolidada con los indicadores clave del negocio para la toma
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Analytics - Metrics | Obligatoria | Datos de metricas calculadas |
-| Booking - Appointments | Obligatoria | Citas de hoy y pendientes |
-| Payment - Payments | Obligatoria | Ingresos del dia |
-| Notifications | Opcional | Alertas recientes |
-| Core - Businesses | Obligatoria | Contexto del negocio |
+| Modulo                 | Tipo de dependencia | Descripcion                  |
+| ---------------------- | ------------------- | ---------------------------- |
+| Analytics - Metrics    | Obligatoria         | Datos de metricas calculadas |
+| Booking - Appointments | Obligatoria         | Citas de hoy y pendientes    |
+| Payment - Payments     | Obligatoria         | Ingresos del dia             |
+| Notifications          | Opcional            | Alertas recientes            |
+| Core - Businesses      | Obligatoria         | Contexto del negocio         |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Dashboard lento por queries pesadas | Alto | Media | Cache de metricas, pre-calculo de agregaciones, loading states |
-| Datos inconsistentes entre servicios | Medio | Baja | Eventual consistency aceptable para dashboard, refresh periodico |
+| Riesgo                               | Impacto | Probabilidad | Mitigacion                                                       |
+| ------------------------------------ | ------- | ------------ | ---------------------------------------------------------------- |
+| Dashboard lento por queries pesadas  | Alto    | Media        | Cache de metricas, pre-calculo de agregaciones, loading states   |
+| Datos inconsistentes entre servicios | Medio   | Baja         | Eventual consistency aceptable para dashboard, refresh periodico |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Media |
-| Prioridad | P0 |
-| Servicio | Analytics Service (Puerto 3008) + frontend |
-| Base de datos | analytics_db |
+| Atributo      | Valor                                      |
+| ------------- | ------------------------------------------ |
+| Complejidad   | Media                                      |
+| Prioridad     | P0                                         |
+| Servicio      | Analytics Service (Puerto 3008) + frontend |
+| Base de datos | analytics_db                               |
 
 ---
 
@@ -812,29 +812,29 @@ Generar reportes detallados y exportables sobre la operacion del negocio: ingres
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Analytics - Metrics | Obligatoria | Datos agregados |
-| Payment - Payments | Obligatoria | Datos de ingresos |
-| Booking - Appointments | Obligatoria | Datos de citas |
-| Core - Professionals | Obligatoria | Datos de profesionales |
-| Core - Clients | Obligatoria | Datos de clientes |
+| Modulo                 | Tipo de dependencia | Descripcion            |
+| ---------------------- | ------------------- | ---------------------- |
+| Analytics - Metrics    | Obligatoria         | Datos agregados        |
+| Payment - Payments     | Obligatoria         | Datos de ingresos      |
+| Booking - Appointments | Obligatoria         | Datos de citas         |
+| Core - Professionals   | Obligatoria         | Datos de profesionales |
+| Core - Clients         | Obligatoria         | Datos de clientes      |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Reportes lentos en periodos largos | Medio | Media | Pre-agregacion diaria, limitar rango maximo a 12 meses |
-| Datos inconsistentes entre reportes | Medio | Baja | Usar misma fuente de datos (analytics_db) |
+| Riesgo                              | Impacto | Probabilidad | Mitigacion                                             |
+| ----------------------------------- | ------- | ------------ | ------------------------------------------------------ |
+| Reportes lentos en periodos largos  | Medio   | Media        | Pre-agregacion diaria, limitar rango maximo a 12 meses |
+| Datos inconsistentes entre reportes | Medio   | Baja         | Usar misma fuente de datos (analytics_db)              |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Media |
-| Prioridad | P1 |
-| Servicio | Analytics Service (Puerto 3008) |
-| Base de datos | analytics_db |
+| Atributo      | Valor                           |
+| ------------- | ------------------------------- |
+| Complejidad   | Media                           |
+| Prioridad     | P1                              |
+| Servicio      | Analytics Service (Puerto 3008) |
+| Base de datos | analytics_db                    |
 
 ---
 
@@ -859,28 +859,28 @@ Calcular, almacenar y exponer las metricas del negocio y de la plataforma, sirvi
 
 ### Dependencias
 
-| Modulo | Tipo de dependencia | Descripcion |
-|--------|-------------------|-------------|
-| Booking - Appointments | Obligatoria | Datos de citas para calculo |
-| Payment - Payments | Obligatoria | Datos de pagos para calculo de ingresos |
-| Core - Businesses | Obligatoria | Contexto del negocio |
-| Core - Professionals | Obligatoria | Metricas por profesional |
+| Modulo                 | Tipo de dependencia | Descripcion                             |
+| ---------------------- | ------------------- | --------------------------------------- |
+| Booking - Appointments | Obligatoria         | Datos de citas para calculo             |
+| Payment - Payments     | Obligatoria         | Datos de pagos para calculo de ingresos |
+| Core - Businesses      | Obligatoria         | Contexto del negocio                    |
+| Core - Professionals   | Obligatoria         | Metricas por profesional                |
 
 ### Riesgos y Mitigacion
 
-| Riesgo | Impacto | Probabilidad | Mitigacion |
-|--------|---------|-------------|------------|
-| Job de calculo falla | Alto | Baja | Retry automatico, alerta de fallo, calculo manual bajo demanda |
-| Datos incompletos en metricas | Medio | Media | Validacion de completitud antes de guardar, gap detection |
+| Riesgo                        | Impacto | Probabilidad | Mitigacion                                                     |
+| ----------------------------- | ------- | ------------ | -------------------------------------------------------------- |
+| Job de calculo falla          | Alto    | Baja         | Retry automatico, alerta de fallo, calculo manual bajo demanda |
+| Datos incompletos en metricas | Medio   | Media        | Validacion de completitud antes de guardar, gap detection      |
 
 ### Atributos
 
-| Atributo | Valor |
-|----------|-------|
-| Complejidad | Alta |
-| Prioridad | P1 |
-| Servicio | Analytics Service (Puerto 3008) |
-| Base de datos | analytics_db |
+| Atributo      | Valor                           |
+| ------------- | ------------------------------- |
+| Complejidad   | Alta                            |
+| Prioridad     | P1                              |
+| Servicio      | Analytics Service (Puerto 3008) |
+| Base de datos | analytics_db                    |
 
 ---
 
@@ -888,32 +888,32 @@ Calcular, almacenar y exponer las metricas del negocio y de la plataforma, sirvi
 
 ### P0 - MVP Esencial
 
-| Modulo | Complejidad | Servicio |
-|--------|------------|----------|
-| Auth | Alta | Auth Service |
-| Businesses | Media | Core Service |
-| Professionals | Media | Core Service |
-| Services | Baja | Core Service |
-| Clients | Media | Core Service |
-| Appointments | Alta | Booking Service |
-| Availability | Alta | Booking Service |
-| Payments | Media | Payment Service |
-| Cash Register | Media | Payment Service |
-| Notifications | Media | Notification Service |
-| Business Profiles | Alta | Marketplace Service |
-| Dashboard | Media | Analytics Service |
+| Modulo            | Complejidad | Servicio             |
+| ----------------- | ----------- | -------------------- |
+| Auth              | Alta        | Auth Service         |
+| Businesses        | Media       | Core Service         |
+| Professionals     | Media       | Core Service         |
+| Services          | Baja        | Core Service         |
+| Clients           | Media       | Core Service         |
+| Appointments      | Alta        | Booking Service      |
+| Availability      | Alta        | Booking Service      |
+| Payments          | Media       | Payment Service      |
+| Cash Register     | Media       | Payment Service      |
+| Notifications     | Media       | Notification Service |
+| Business Profiles | Alta        | Marketplace Service  |
+| Dashboard         | Media       | Analytics Service    |
 
 ### P1 - MVP Deseable
 
-| Modulo | Complejidad | Servicio |
-|--------|------------|----------|
-| Branches | Baja | Core Service |
-| Invoices | Media | Payment Service |
-| Notification Preferences | Baja | Notification Service |
-| Search | Media | Marketplace Service |
-| Reviews | Media | Marketplace Service |
-| Reports | Media | Analytics Service |
-| Metrics | Alta | Analytics Service |
+| Modulo                   | Complejidad | Servicio             |
+| ------------------------ | ----------- | -------------------- |
+| Branches                 | Baja        | Core Service         |
+| Invoices                 | Media       | Payment Service      |
+| Notification Preferences | Baja        | Notification Service |
+| Search                   | Media       | Marketplace Service  |
+| Reviews                  | Media       | Marketplace Service  |
+| Reports                  | Media       | Analytics Service    |
+| Metrics                  | Alta        | Analytics Service    |
 
 ### P2 - Post-MVP
 
