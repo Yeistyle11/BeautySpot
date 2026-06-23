@@ -1,5 +1,5 @@
 module.exports = {
-  setupFiles: ["<rootDir>/../../../test-setup.ts"],
+  setupFiles: ["<rootDir>/../../../packages/nest-common/test-setup.ts"],
   moduleFileExtensions: ["js", "json", "ts"],
   rootDir: "src",
   testRegex: ".*\\.spec\\.ts$",

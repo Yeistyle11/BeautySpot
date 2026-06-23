@@ -1,5 +1,5 @@
 module.exports = {
-  setupFiles: ["<rootDir>/../../test-setup.ts"],
+  setupFiles: ["<rootDir>/../../packages/nest-common/test-setup.ts"],
   moduleFileExtensions: ["js", "json", "ts"],
   rootDir: "src",
   testRegex: ".*\\.spec\\.ts$",
@@ -20,11 +20,12 @@ module.exports = {
   },
   testEnvironment: "node",
   moduleNameMapper: {
-    "^@beautyspot/database$": "<rootDir>/../../database/src",
-    "^@beautyspot/shared-types$": "<rootDir>/../../shared-types/src",
-    "^@beautyspot/shared-utils$": "<rootDir>/../../shared-utils/src",
-    "^@beautyspot/event-types$": "<rootDir>/../../event-types/src",
-    "^@beautyspot/shared-constants$": "<rootDir>/../../shared-constants/src",
+    "^@beautyspot/database$": "<rootDir>/../../packages/database/src",
+    "^@beautyspot/shared-types$": "<rootDir>/../../packages/shared-types/src",
+    "^@beautyspot/shared-utils$": "<rootDir>/../../packages/shared-utils/src",
+    "^@beautyspot/event-types$": "<rootDir>/../../packages/event-types/src",
+    "^@beautyspot/shared-constants$":
+      "<rootDir>/../../packages/shared-constants/src",
     "^@/(.*)$": "<rootDir>/$1",
   },
   verbose: true,
