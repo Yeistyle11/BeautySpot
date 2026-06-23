@@ -1,4 +1,5 @@
 module.exports = {
+  rootDir: ".",
   projects: [
     "<rootDir>/packages/shared-utils",
     "<rootDir>/packages/database",
@@ -18,6 +19,7 @@ module.exports = {
   },
   transformIgnorePatterns: ["node_modules/(?!(uuid|@nestjs|@golevelup))"],
   moduleFileExtensions: ["js", "json", "ts"],
+  moduleDirectories: ["node_modules", "packages", "services"],
   testEnvironment: "node",
   testRegex: ".*\\.spec\\.ts$",
   collectCoverageFrom: [
