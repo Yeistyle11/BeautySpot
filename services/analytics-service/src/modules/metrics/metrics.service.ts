@@ -54,10 +54,10 @@ export class MetricsService {
   }): Promise<ProfessionalMetricEntity> {
     const existing = await this.profRepo.findOne({
       where: {
-        businessId: data.businessId,
-        professionalId: data.professionalId,
-        date: data.date,
-      },
+        businessId: data.businessId as any,
+        professionalId: data.professionalId as any,
+        date: data.date as any,
+      } as any,
     });
 
     if (existing) {
