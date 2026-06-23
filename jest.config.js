@@ -29,6 +29,4 @@ module.exports = {
     "!**/main.ts",
   ],
   coverageDirectory: "coverage",
-  coverageReporters: ["json", "lcov", "text", "clover"],
-  verbose: true,
 };
