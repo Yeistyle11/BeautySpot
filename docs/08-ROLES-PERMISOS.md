@@ -39,6 +39,7 @@ SUPER_ADMIN
 
 **Regla de jerarquía**: Un rol superior hereda implícitamente los permisos de los roles
 inferiores dentro de su propio negocio, con las siguientes excepciones:
+
 - PROFESSIONAL y RECEPTIONIST son roles hermanos (no hay herencia entre ellos)
 - CLIENT es un rol transversal que no pertenece a la jerarquía de gestión del negocio
 - SUPER_ADMIN no pertenece a ningún negocio específico; gestiona la plataforma entera
@@ -56,6 +57,7 @@ negocio específico.
 de la plataforma para administración, soporte y monitoreo.
 
 **Casos de uso tipicos**:
+
 - Aprobar o suspender negocios en la plataforma
 - Gestionar suscripciones y facturación de la plataforma
 - Monitorear la salud del sistema y resolver incidentes
@@ -65,6 +67,7 @@ de la plataforma para administración, soporte y monitoreo.
 - Acceder a métricas agregadas de la plataforma
 
 **Restricciones**:
+
 - No realiza reservas ni gestiona citas directamente
 - No interactúa con clientes finales excepto para soporte
 - Sus acciones son auditadas con mayor granularidad
@@ -78,6 +81,7 @@ negocio dentro de la plataforma.
 del contexto de un negocio.
 
 **Casos de uso tipicos**:
+
 - Crear y configurar su negocio (onboarding inicial)
 - Gestionar sucursales del negocio
 - Contratar y dar de baja a profesionales y recepcionistas
@@ -89,6 +93,7 @@ del contexto de un negocio.
 - Delegar funciones administrativas a un ADMIN
 
 **Restricciones**:
+
 - Solo puede gestionar sus propios negocios
 - No puede gestionar otros negocios ni datos de la plataforma
 - No puede cambiar su propio rol (siempre es OWNER de su negocio)
@@ -102,6 +107,7 @@ acceso completo a la gestión operativa del negocio.
 el OWNER.
 
 **Casos de uso tipicos**:
+
 - Gestionar citas (crear, confirmar, cancelar, editar, reagendar)
 - Gestionar servicios (CRUD completo)
 - Gestionar profesionales y recepcionistas
@@ -112,6 +118,7 @@ el OWNER.
 - Gestionar clientes del negocio
 
 **Restricciones**:
+
 - No puede eliminar el negocio ni cambiar su configuración fundamental
 - No puede cambiar el rol del OWNER
 - No puede gestionar sucursales (crear, eliminar)
@@ -127,6 +134,7 @@ y disponibilidad.
 servicios que ofrece.
 
 **Casos de uso tipicos**:
+
 - Ver su agenda personal (citas asignadas)
 - Confirmar, completar y marcar no-show en sus citas
 - Gestionar su disponibilidad (horarios, bloqueos, vacaciones)
@@ -136,6 +144,7 @@ servicios que ofrece.
 - Ver sus estadísticas personales (citas, calificación, ingresos generados)
 
 **Restricciones**:
+
 - Solo puede ver y actuar sobre sus propias citas
 - No puede crear citas (eso lo hace el cliente o recepcionista)
 - No puede ver citas de otros profesionales
@@ -152,6 +161,7 @@ la caja registradora.
 sucursal específica.
 
 **Casos de uso tipicos**:
+
 - Crear citas para clientes (walk-in o agendadas)
 - Ver la agenda general del negocio (todos los profesionales)
 - Registrar pagos (efectivo, tarjeta presencial, transferencia)
@@ -161,6 +171,7 @@ sucursal específica.
 - Confirmar citas telefónicas
 
 **Restricciones**:
+
 - No puede editar servicios ni precios
 - No puede gestionar profesionales ni equipos
 - No puede acceder a reportes financieros detallados
@@ -177,6 +188,7 @@ la plataforma.
 interactuar con múltiples negocios.
 
 **Casos de uso tipicos**:
+
 - Buscar negocios en el marketplace
 - Ver perfiles públicos de negocios
 - Reservar citas en cualquier negocio
@@ -188,6 +200,7 @@ interactuar con múltiples negocios.
 - Configurar sus preferencias de notificación
 
 **Restricciones**:
+
 - Solo puede ver y gestionar sus propias citas
 - Solo puede dejar reseñas en citas que completó
 - No puede acceder a ningún dato administrativo de los negocios
@@ -209,88 +222,88 @@ interactuar con múltiples negocios.
 
 ### Permisos sobre Recursos
 
-| Recurso | SUPER_ADMIN | OWNER | ADMIN | PROFESSIONAL | RECEPTIONIST | CLIENT |
-|---------|------------|-------|-------|--------------|--------------|--------|
-| **Users** | CRUD (global) | R (negocio) | R (negocio) | R (O: perfil propio) | R (clientes del negocio) | R (O: perfil propio) |
-| **Businesses** | CRUD (global) | CRUD (O: propios) | RU (asignado) | R (asignado) | - | R (perfil público) |
-| **Branches** | R (global) | CRUD (negocio) | R (negocio) | - | - | - |
-| **Professionals** | R (global) | CRUD (negocio) | CRUD (negocio) | RU (O: perfil propio) | R (negocio) | R (perfil público) |
-| **Services** | R (global) | CRUD (negocio) | CRUD (negocio) | R (asignados) | R (negocio) | R (públicos) |
-| **Clients** | R (global) | R (negocio) | R (negocio) | R (O: propios) | R (negocio) | R (O: datos propios) |
-| **Appointments** | R (global) | CRUD (negocio) | CRUD (negocio) | RU (O: propias) | CRU (negocio) | CRU (O: propias) |
-| **Payments** | R (global) | R (negocio) | CR (negocio) | - | CR (negocio) | R (O: propios) |
-| **Invoices** | R (global) | R (negocio) | CR (negocio) | - | R (negocio) | R (O: propias) |
-| **Cash Register** | R (global) | R (negocio) | CRU (negocio) | - | CRU (negocio) | - |
-| **Notifications** | R (global) | R (negocio) | R (negocio) | R (O: propias) | - | R (O: propias) |
-| **Reviews** | RUD (global) | RUD (negocio) | RUD (negocio) | R (negocio) | R (negocio) | CR (O: propias) |
-| **Analytics** | R (global) | R (negocio) | R (negocio) | R (O: propias) | - | - |
-| **Configuration** | RU (global) | RU (negocio) | R (negocio) | - | - | R (O: preferencias) |
+| Recurso           | SUPER_ADMIN   | OWNER             | ADMIN          | PROFESSIONAL          | RECEPTIONIST             | CLIENT               |
+| ----------------- | ------------- | ----------------- | -------------- | --------------------- | ------------------------ | -------------------- |
+| **Users**         | CRUD (global) | R (negocio)       | R (negocio)    | R (O: perfil propio)  | R (clientes del negocio) | R (O: perfil propio) |
+| **Businesses**    | CRUD (global) | CRUD (O: propios) | RU (asignado)  | R (asignado)          | -                        | R (perfil público)   |
+| **Branches**      | R (global)    | CRUD (negocio)    | R (negocio)    | -                     | -                        | -                    |
+| **Professionals** | R (global)    | CRUD (negocio)    | CRUD (negocio) | RU (O: perfil propio) | R (negocio)              | R (perfil público)   |
+| **Services**      | R (global)    | CRUD (negocio)    | CRUD (negocio) | R (asignados)         | R (negocio)              | R (públicos)         |
+| **Clients**       | R (global)    | R (negocio)       | R (negocio)    | R (O: propios)        | R (negocio)              | R (O: datos propios) |
+| **Appointments**  | R (global)    | CRUD (negocio)    | CRUD (negocio) | RU (O: propias)       | CRU (negocio)            | CRU (O: propias)     |
+| **Payments**      | R (global)    | R (negocio)       | CR (negocio)   | -                     | CR (negocio)             | R (O: propios)       |
+| **Invoices**      | R (global)    | R (negocio)       | CR (negocio)   | -                     | R (negocio)              | R (O: propias)       |
+| **Cash Register** | R (global)    | R (negocio)       | CRU (negocio)  | -                     | CRU (negocio)            | -                    |
+| **Notifications** | R (global)    | R (negocio)       | R (negocio)    | R (O: propias)        | -                        | R (O: propias)       |
+| **Reviews**       | RUD (global)  | RUD (negocio)     | RUD (negocio)  | R (negocio)           | R (negocio)              | CR (O: propias)      |
+| **Analytics**     | R (global)    | R (negocio)       | R (negocio)    | R (O: propias)        | -                        | -                    |
+| **Configuration** | RU (global)   | RU (negocio)      | R (negocio)    | -                     | -                        | R (O: preferencias)  |
 
 ### Detalle de Permisos por Recurso
 
 #### Users
 
-| Operación | SUPER_ADMIN | OWNER | ADMIN | PROFESSIONAL | RECEPTIONIST | CLIENT |
-|-----------|------------|-------|-------|--------------|--------------|--------|
-| Crear usuario | Cualquier rol | Invitar a negocio | Invitar a negocio | - | - | Auto-registro |
-| Ver perfil | Todos | Usuarios de su negocio | Usuarios de su negocio | Solo el propio | Clientes del negocio | Solo el propio |
-| Editar perfil | Todos | - | - | Solo el propio | - | Solo el propio |
-| Eliminar usuario | Todos | Desvincular del negocio | Desvincular del negocio | - | - | Desactivar propia cuenta |
-| Bloquear usuario | Si | No | No | No | No | No |
+| Operación        | SUPER_ADMIN   | OWNER                   | ADMIN                   | PROFESSIONAL   | RECEPTIONIST         | CLIENT                   |
+| ---------------- | ------------- | ----------------------- | ----------------------- | -------------- | -------------------- | ------------------------ |
+| Crear usuario    | Cualquier rol | Invitar a negocio       | Invitar a negocio       | -              | -                    | Auto-registro            |
+| Ver perfil       | Todos         | Usuarios de su negocio  | Usuarios de su negocio  | Solo el propio | Clientes del negocio | Solo el propio           |
+| Editar perfil    | Todos         | -                       | -                       | Solo el propio | -                    | Solo el propio           |
+| Eliminar usuario | Todos         | Desvincular del negocio | Desvincular del negocio | -              | -                    | Desactivar propia cuenta |
+| Bloquear usuario | Si            | No                      | No                      | No             | No                   | No                       |
 
 #### Businesses
 
-| Operación | SUPER_ADMIN | OWNER | ADMIN | PROFESSIONAL | RECEPTIONIST | CLIENT |
-|-----------|------------|-------|-------|--------------|--------------|--------|
-| Crear negocio | No (auto-registro) | Si (propios) | No | No | No | No |
-| Ver negocio | Todos | Propios | Asignado | Asignado | - | Perfil público |
-| Editar negocio | Datos básicos | Propios completo | Limitado | No | No | No |
-| Eliminar negocio | Suspender | Propios | No | No | No | No |
-| Gestionar suscripción | Si | Propios | No | No | No | No |
+| Operación             | SUPER_ADMIN        | OWNER            | ADMIN    | PROFESSIONAL | RECEPTIONIST | CLIENT         |
+| --------------------- | ------------------ | ---------------- | -------- | ------------ | ------------ | -------------- |
+| Crear negocio         | No (auto-registro) | Si (propios)     | No       | No           | No           | No             |
+| Ver negocio           | Todos              | Propios          | Asignado | Asignado     | -            | Perfil público |
+| Editar negocio        | Datos básicos      | Propios completo | Limitado | No           | No           | No             |
+| Eliminar negocio      | Suspender          | Propios          | No       | No           | No           | No             |
+| Gestionar suscripción | Si                 | Propios          | No       | No           | No           | No             |
 
 #### Appointments
 
-| Operación | SUPER_ADMIN | OWNER | ADMIN | PROFESSIONAL | RECEPTIONIST | CLIENT |
-|-----------|------------|-------|-------|--------------|--------------|--------|
-| Crear cita | No | Si | Si | No | Si | Si (propias) |
-| Ver cita | Todas | Negocio completo | Negocio completo | Solo propias | Negocio completo | Solo propias |
-| Confirmar cita | No | Si | Si | Solo propias | No | No |
-| Completar cita | No | Si | Si | Solo propias | No | No |
-| Marcar no-show | No | Si | Si | Solo propias | No | No |
-| Cancelar cita | No | Si | Si | Solo propias | Si (con reglas) | Solo propias (2h aviso) |
-| Reagendar cita | No | Si | Si | No | Si (con reglas) | Solo propias (2h aviso) |
-| Editar cita completa | No | Si | Si | No | No | No |
+| Operación            | SUPER_ADMIN | OWNER            | ADMIN            | PROFESSIONAL | RECEPTIONIST     | CLIENT                  |
+| -------------------- | ----------- | ---------------- | ---------------- | ------------ | ---------------- | ----------------------- |
+| Crear cita           | No          | Si               | Si               | No           | Si               | Si (propias)            |
+| Ver cita             | Todas       | Negocio completo | Negocio completo | Solo propias | Negocio completo | Solo propias            |
+| Confirmar cita       | No          | Si               | Si               | Solo propias | No               | No                      |
+| Completar cita       | No          | Si               | Si               | Solo propias | No               | No                      |
+| Marcar no-show       | No          | Si               | Si               | Solo propias | No               | No                      |
+| Cancelar cita        | No          | Si               | Si               | Solo propias | Si (con reglas)  | Solo propias (2h aviso) |
+| Reagendar cita       | No          | Si               | Si               | No           | Si (con reglas)  | Solo propias (2h aviso) |
+| Editar cita completa | No          | Si               | Si               | No           | No               | No                      |
 
 #### Payments
 
-| Operación | SUPER_ADMIN | OWNER | ADMIN | PROFESSIONAL | RECEPTIONIST | CLIENT |
-|-----------|------------|-------|-------|--------------|--------------|--------|
-| Registrar pago | No | No | Si | No | Si | No |
-| Ver pagos | Todos | Negocio | Negocio | No | Negocio | Solo propios |
-| Editar pago | No | No | Limitado | No | No | No |
-| Anular pago | No | Si | Si | No | No | No |
-| Generar factura | No | Si | Si | No | Si | Ver propias |
+| Operación       | SUPER_ADMIN | OWNER   | ADMIN    | PROFESSIONAL | RECEPTIONIST | CLIENT       |
+| --------------- | ----------- | ------- | -------- | ------------ | ------------ | ------------ |
+| Registrar pago  | No          | No      | Si       | No           | Si           | No           |
+| Ver pagos       | Todos       | Negocio | Negocio  | No           | Negocio      | Solo propios |
+| Editar pago     | No          | No      | Limitado | No           | No           | No           |
+| Anular pago     | No          | Si      | Si       | No           | No           | No           |
+| Generar factura | No          | Si      | Si       | No           | Si           | Ver propias  |
 
 #### Reviews
 
-| Operación | SUPER_ADMIN | OWNER | ADMIN | PROFESSIONAL | RECEPTIONIST | CLIENT |
-|-----------|------------|-------|-------|--------------|--------------|--------|
-| Crear reseña | No | No | No | No | No | Solo en citas completadas propias |
-| Ver reseñas | Todas | Negocio | Negocio | Negocio | Negocio | Públicas + propias |
-| Responder reseña | No | Si | Si | No | No | No |
-| Reportar reseña | No | Si | Si | No | No | No |
-| Eliminar reseña | Si (moderación) | No | No | No | No | Solo propias |
-| Moderar reseña | Si | No | No | No | No | No |
+| Operación        | SUPER_ADMIN     | OWNER   | ADMIN   | PROFESSIONAL | RECEPTIONIST | CLIENT                            |
+| ---------------- | --------------- | ------- | ------- | ------------ | ------------ | --------------------------------- |
+| Crear reseña     | No              | No      | No      | No           | No           | Solo en citas completadas propias |
+| Ver reseñas      | Todas           | Negocio | Negocio | Negocio      | Negocio      | Públicas + propias                |
+| Responder reseña | No              | Si      | Si      | No           | No           | No                                |
+| Reportar reseña  | No              | Si      | Si      | No           | No           | No                                |
+| Eliminar reseña  | Si (moderación) | No      | No      | No           | No           | Solo propias                      |
+| Moderar reseña   | Si              | No      | No      | No           | No           | No                                |
 
 #### Analytics
 
-| Operación | SUPER_ADMIN | OWNER | ADMIN | PROFESSIONAL | RECEPTIONIST | CLIENT |
-|-----------|------------|-------|-------|--------------|--------------|--------|
-| Ver métricas globales | Si | No | No | No | No | No |
-| Ver métricas de negocio | Si | Si | Si | No | No | No |
-| Ver métricas personales | No | No | No | Si | No | No |
-| Exportar reportes | Si | Si | Si | No | No | No |
-| Ver predicciones | Si | Si | Si | No | No | No |
+| Operación               | SUPER_ADMIN | OWNER | ADMIN | PROFESSIONAL | RECEPTIONIST | CLIENT |
+| ----------------------- | ----------- | ----- | ----- | ------------ | ------------ | ------ |
+| Ver métricas globales   | Si          | No    | No    | No           | No           | No     |
+| Ver métricas de negocio | Si          | Si    | Si    | No           | No           | No     |
+| Ver métricas personales | No          | No    | No    | Si           | No           | No     |
+| Exportar reportes       | Si          | Si    | Si    | No           | No           | No     |
+| Ver predicciones        | Si          | Si    | Si    | No           | No           | No     |
 
 ---
 
@@ -327,12 +340,12 @@ model Membership {
 
 ### Ejemplos de Membresía Multi-Rol
 
-| Usuario | Negocio A | Negocio B | Marketplace |
-|---------|-----------|-----------|-------------|
-| Juan | OWNER | CLIENT | Siempre cliente |
-| Maria | PROFESSIONAL | PROFESSIONAL | Siempre cliente |
-| Carlos | ADMIN | - | Siempre cliente |
-| Ana | RECEPTIONIST en Sucursal 1 | - | Siempre cliente |
+| Usuario | Negocio A                  | Negocio B    | Marketplace     |
+| ------- | -------------------------- | ------------ | --------------- |
+| Juan    | OWNER                      | CLIENT       | Siempre cliente |
+| Maria   | PROFESSIONAL               | PROFESSIONAL | Siempre cliente |
+| Carlos  | ADMIN                      | -            | Siempre cliente |
+| Ana     | RECEPTIONIST en Sucursal 1 | -            | Siempre cliente |
 
 ### Reglas de Membresía
 
@@ -564,6 +577,7 @@ prisma.$use(async (params, next) => {
 **Regla**: Un profesional solo puede ver y actuar sobre las citas que le están asignadas.
 
 **Implementación**:
+
 ```typescript
 // En el servicio de citas
 async getAppointments(user: RequestUser, filters: AppointmentFilters) {
@@ -578,6 +592,7 @@ async getAppointments(user: RequestUser, filters: AppointmentFilters) {
 ```
 
 **Transiciones de estado permitidas al profesional**:
+
 - `PENDING` -> `CONFIRMED` (confirmar cita)
 - `CONFIRMED` -> `COMPLETED` (completar cita)
 - `CONFIRMED` -> `NO_SHOW` (marcar inasistencia)
@@ -588,6 +603,7 @@ async getAppointments(user: RequestUser, filters: AppointmentFilters) {
 **Regla**: Un cliente solo puede ver sus propias citas, pagos y reseñas.
 
 **Implementación**:
+
 ```typescript
 // En el servicio de citas
 async getClientAppointments(user: RequestUser) {
@@ -604,6 +620,7 @@ async getClientAppointments(user: RequestUser) {
 ```
 
 **Acciones permitidas al cliente sobre sus citas**:
+
 - Cancelar (mínimo 2 horas antes de la cita)
 - Reagendar (mínimo 2 horas antes de la cita)
 - Ver detalle completo de su cita
@@ -615,6 +632,7 @@ async getClientAppointments(user: RequestUser) {
 pero no puede editar servicios ni configuraciones.
 
 **Implementación**:
+
 ```typescript
 @Roles('RECEPTIONIST', 'ADMIN', 'OWNER')
 @UseGuards(AuthGuard, BusinessScopeGuard, RolesGuard)
@@ -636,6 +654,7 @@ async createAppointment(
 **Regla**: SUPER_ADMIN puede leer cualquier dato pero no crear citas ni registrar pagos.
 
 **Implementación**:
+
 ```typescript
 // El SUPER_ADMIN no tiene businessId en su JWT
 // Para acceder a datos de un negocio específico, debe especificarlo
@@ -659,6 +678,7 @@ async getBusinessAppointments(
 **Regla**: Las acciones destructivas requieren confirmación explícita del usuario.
 
 **Acciones que requieren confirmación**:
+
 - Cancelar cita (CLIENT, PROFESSIONAL, RECEPTIONIST, ADMIN, OWNER)
 - Eliminar servicio (ADMIN, OWNER)
 - Desvincular profesional (ADMIN, OWNER)
@@ -666,6 +686,7 @@ async getBusinessAppointments(
 - Suspender negocio (SUPER_ADMIN)
 
 **Implementación**:
+
 ```typescript
 @Delete('/appointments/:id')
 async cancelAppointment(
@@ -765,15 +786,15 @@ model AuditLog {
 
 ### Acciones Auditadas
 
-| Recurso | Acciones Auditadas | Nivel |
-|---------|-------------------|-------|
-| Users | Crear, editar rol, bloquear, desbloquear | Negocio |
-| Businesses | Crear, editar, suspender, eliminar | Plataforma |
-| Appointments | Cancelar, reagendar, cambiar estado | Negocio |
-| Payments | Registrar, anular | Negocio |
-| Reviews | Eliminar (moderación), reportar | Negocio/Plataforma |
-| Configuration | Cambios en configuración | Negocio/Plataforma |
-| Memberships | Crear, cambiar rol, desactivar | Negocio |
+| Recurso       | Acciones Auditadas                       | Nivel              |
+| ------------- | ---------------------------------------- | ------------------ |
+| Users         | Crear, editar rol, bloquear, desbloquear | Negocio            |
+| Businesses    | Crear, editar, suspender, eliminar       | Plataforma         |
+| Appointments  | Cancelar, reagendar, cambiar estado      | Negocio            |
+| Payments      | Registrar, anular                        | Negocio            |
+| Reviews       | Eliminar (moderación), reportar          | Negocio/Plataforma |
+| Configuration | Cambios en configuración                 | Negocio/Plataforma |
+| Memberships   | Crear, cambiar rol, desactivar           | Negocio            |
 
 ### Consultas de Auditoría
 
@@ -808,6 +829,7 @@ Usuarios              FULL      READ    READ   OWN   READ  OWN
 ```
 
 **Leyenda**:
+
 - FULL: CRUD completo dentro del scope
 - OWN: Solo datos propios
 - READ: Solo lectura dentro del scope

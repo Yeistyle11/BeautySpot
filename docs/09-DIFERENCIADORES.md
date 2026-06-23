@@ -13,12 +13,12 @@ de implementación y el alcance definido para el MVP versus funcionalidades futu
 
 ### Alternativas Actuales
 
-| Solución | Fortalezas | Debilidades en LATAM |
-|----------|-----------|---------------------|
-| Booksy | App madura, gran base de usuarios | Costoso, poco personalizable, sin WhatsApp nativo |
-| Fresha | Gratuito, buena UI | Sin soporte regional, sin fidelización, sin geolocalización |
-| Agenda Excel/Papel | Sin costo, familiar | Sin analytics, sin marketplace, sin recordatorios |
-| Sistemas locales genéricos | Baratos | Sin marketplace, sin mobile, sin integración WhatsApp |
+| Solución                   | Fortalezas                        | Debilidades en LATAM                                        |
+| -------------------------- | --------------------------------- | ----------------------------------------------------------- |
+| Booksy                     | App madura, gran base de usuarios | Costoso, poco personalizable, sin WhatsApp nativo           |
+| Fresha                     | Gratuito, buena UI                | Sin soporte regional, sin fidelización, sin geolocalización |
+| Agenda Excel/Papel         | Sin costo, familiar               | Sin analytics, sin marketplace, sin recordatorios           |
+| Sistemas locales genéricos | Baratos                           | Sin marketplace, sin mobile, sin integración WhatsApp       |
 
 ### Propuesta de Valor de BeautySpot
 
@@ -135,16 +135,16 @@ Response:
 
 ### Alcance MVP vs Futuro
 
-| Funcionalidad | MVP | Post-MVP |
-|--------------|-----|----------|
-| Recomendación de slots al cliente | Si (heurística) | Si (ML) |
-| Sugerencia de bloqueos al profesional | No | Si |
-| Recomendación de horarios óptimos | No | Si |
-| Detección de cuellos de botella | No | Si |
-| Feature store en Redis | Si | Si |
-| Modelo ML (scikit-learn) | No | Si |
-| A/B testing de recomendaciones | No | Si |
-| Explicabilidad de recomendaciones | Si (razones básicas) | Si (detallado) |
+| Funcionalidad                         | MVP                  | Post-MVP       |
+| ------------------------------------- | -------------------- | -------------- |
+| Recomendación de slots al cliente     | Si (heurística)      | Si (ML)        |
+| Sugerencia de bloqueos al profesional | No                   | Si             |
+| Recomendación de horarios óptimos     | No                   | Si             |
+| Detección de cuellos de botella       | No                   | Si             |
+| Feature store en Redis                | Si                   | Si             |
+| Modelo ML (scikit-learn)              | No                   | Si             |
+| A/B testing de recomendaciones        | No                   | Si             |
+| Explicabilidad de recomendaciones     | Si (razones básicas) | Si (detallado) |
 
 ---
 
@@ -270,19 +270,19 @@ Response:
 
 ### Alcance MVP vs Futuro
 
-| Funcionalidad | MVP | Post-MVP |
-|--------------|-----|----------|
-| Búsqueda por GPS | Si | Si |
-| Búsqueda por dirección | Si | Si |
-| Filtro por radio | Si (predefinidos) | Si (personalizado) |
-| Vista de lista con distancia | Si | Si |
-| Vista de mapa interactivo | No (solo lista) | Si |
-| Ruta al negocio (Maps/Waze) | Si (link externo) | Si (in-app) |
-| SEO local | Si | Si |
-| Geofencing (notificación al pasar cerca) | No | Si |
-| Heatmap de demanda por zona | No | Si |
-| Clustering de resultados en mapa | No | Si |
-| Búsqueda por zona/barrio sin coordenadas | No | Si |
+| Funcionalidad                            | MVP               | Post-MVP           |
+| ---------------------------------------- | ----------------- | ------------------ |
+| Búsqueda por GPS                         | Si                | Si                 |
+| Búsqueda por dirección                   | Si                | Si                 |
+| Filtro por radio                         | Si (predefinidos) | Si (personalizado) |
+| Vista de lista con distancia             | Si                | Si                 |
+| Vista de mapa interactivo                | No (solo lista)   | Si                 |
+| Ruta al negocio (Maps/Waze)              | Si (link externo) | Si (in-app)        |
+| SEO local                                | Si                | Si                 |
+| Geofencing (notificación al pasar cerca) | No                | Si                 |
+| Heatmap de demanda por zona              | No                | Si                 |
+| Clustering de resultados en mapa         | No                | Si                 |
+| Búsqueda por zona/barrio sin coordenadas | No                | Si                 |
 
 ---
 
@@ -441,21 +441,21 @@ async handleWhatsAppResponse(@Body() payload: WhatsAppWebhookPayload) {
 
 ### Alcance MVP vs Futuro
 
-| Funcionalidad | MVP | Post-MVP |
-|--------------|-----|----------|
-| Confirmación de reserva | Si | Si |
-| Recordatorio 24h | Si | Si |
-| Recordatorio 2h | Si | Si |
-| Botones de respuesta rápida | Si | Si |
-| Cancelación automática por inacción | No | Si |
-| Reagendamiento desde WhatsApp | No (solo link) | Si (flujo completo) |
-| Chat directo negocio-cliente | No | Si |
-| Catálogo de servicios en WhatsApp | No | Si |
-| Mensajes promocionales | No | Si |
-| Templates personalizados por negocio | No (estándar) | Si |
-| Multi-idioma (ES/PT/EN) | No (solo ES) | Si |
-| Métricas de entrega y lectura | Si (básico) | Si (detallado) |
-| Webhook de respuestas bidireccionales | Si (básico) | Si (completo) |
+| Funcionalidad                         | MVP            | Post-MVP            |
+| ------------------------------------- | -------------- | ------------------- |
+| Confirmación de reserva               | Si             | Si                  |
+| Recordatorio 24h                      | Si             | Si                  |
+| Recordatorio 2h                       | Si             | Si                  |
+| Botones de respuesta rápida           | Si             | Si                  |
+| Cancelación automática por inacción   | No             | Si                  |
+| Reagendamiento desde WhatsApp         | No (solo link) | Si (flujo completo) |
+| Chat directo negocio-cliente          | No             | Si                  |
+| Catálogo de servicios en WhatsApp     | No             | Si                  |
+| Mensajes promocionales                | No             | Si                  |
+| Templates personalizados por negocio  | No (estándar)  | Si                  |
+| Multi-idioma (ES/PT/EN)               | No (solo ES)   | Si                  |
+| Métricas de entrega y lectura         | Si (básico)    | Si (detallado)      |
+| Webhook de respuestas bidireccionales | Si (básico)    | Si (completo)       |
 
 ---
 
@@ -480,12 +480,12 @@ de clientes es un desafío clave para negocios de belleza.
 
 #### Niveles de Membresía
 
-| Nivel | Puntos requeridos | Multiplicador | Beneficios |
-|-------|------------------|---------------|------------|
-| Bronce | 0 - 499 | 1.0x | Acumulación básica, recordatorios |
-| Plata | 500 - 1,499 | 1.5x | Reserva prioritaria, descuentos del 5% |
-| Oro | 1,500 - 4,999 | 2.0x | Descuentos del 10%, promociones anticipadas |
-| Diamante | 5,000+ | 3.0x | Descuentos del 15%, servicio VIP, beneficios exclusivos |
+| Nivel    | Puntos requeridos | Multiplicador | Beneficios                                              |
+| -------- | ----------------- | ------------- | ------------------------------------------------------- |
+| Bronce   | 0 - 499           | 1.0x          | Acumulación básica, recordatorios                       |
+| Plata    | 500 - 1,499       | 1.5x          | Reserva prioritaria, descuentos del 5%                  |
+| Oro      | 1,500 - 4,999     | 2.0x          | Descuentos del 10%, promociones anticipadas             |
+| Diamante | 5,000+            | 3.0x          | Descuentos del 15%, servicio VIP, beneficios exclusivos |
 
 #### Canje de Puntos
 
@@ -631,23 +631,23 @@ async completeAppointment(appointmentId: string, paymentAmount: number) {
 
 ### Alcance MVP vs Futuro
 
-| Funcionalidad | MVP | Post-MVP |
-|--------------|-----|----------|
-| Acumulación por visita (10%) | Si | Si |
-| Niveles Bronce/Plata/Oro/Diamante | Si | Si |
-| Bonus por reseña | Si | Si |
-| Bonus por referido | No | Si |
-| Bonus de cumpleaños | No | Si |
-| Canje por descuento en cita | Si | Si |
-| Canje por servicio gratuito | No | Si |
-| Canje por productos | No | Si |
-| Leaderboard de clientes | No | Si |
-| Misiones y desafíos | No | Si |
-| Streak de visitas | No | Si |
-| Notificación de nivel alcanzado | Si | Si |
-| Historial de puntos | Si | Si |
-| Dashboard de fidelización (owner) | Si (básico) | Si (completo) |
-| Expiración de puntos | No | Si (configurable) |
+| Funcionalidad                     | MVP         | Post-MVP          |
+| --------------------------------- | ----------- | ----------------- |
+| Acumulación por visita (10%)      | Si          | Si                |
+| Niveles Bronce/Plata/Oro/Diamante | Si          | Si                |
+| Bonus por reseña                  | Si          | Si                |
+| Bonus por referido                | No          | Si                |
+| Bonus de cumpleaños               | No          | Si                |
+| Canje por descuento en cita       | Si          | Si                |
+| Canje por servicio gratuito       | No          | Si                |
+| Canje por productos               | No          | Si                |
+| Leaderboard de clientes           | No          | Si                |
+| Misiones y desafíos               | No          | Si                |
+| Streak de visitas                 | No          | Si                |
+| Notificación de nivel alcanzado   | Si          | Si                |
+| Historial de puntos               | Si          | Si                |
+| Dashboard de fidelización (owner) | Si (básico) | Si (completo)     |
+| Expiración de puntos              | No          | Si (configurable) |
 
 ---
 
@@ -831,21 +831,21 @@ class PredictionEngine {
 
 ### Alcance MVP vs Futuro
 
-| Funcionalidad | MVP | Post-MVP |
-|--------------|-----|----------|
-| Métricas operativas básicas | Si | Si |
-| Gráficos de tendencias | Si | Si |
-| Comparativa entre períodos | Si | Si |
-| Predicción de demanda | Si (heurística) | Si (ML) |
-| Pronóstico de ingresos | Si (lineal) | Si (ARIMA/Prophet) |
-| Predicción de no-show | Si (scoring) | Si (clasificador ML) |
-| Predicción de abandono | No | Si |
-| Benchmarking anónimo | Si (básico) | Si (avanzado) |
-| Reportes PDF exportables | Si | Si |
-| Reportes programados por email | No | Si |
-| Sugerencias accionables | No | Si |
-| Modelo ML (scikit-learn/tensorflow) | No | Si |
-| Dashboard en tiempo real | No | Si (websockets) |
+| Funcionalidad                       | MVP             | Post-MVP             |
+| ----------------------------------- | --------------- | -------------------- |
+| Métricas operativas básicas         | Si              | Si                   |
+| Gráficos de tendencias              | Si              | Si                   |
+| Comparativa entre períodos          | Si              | Si                   |
+| Predicción de demanda               | Si (heurística) | Si (ML)              |
+| Pronóstico de ingresos              | Si (lineal)     | Si (ARIMA/Prophet)   |
+| Predicción de no-show               | Si (scoring)    | Si (clasificador ML) |
+| Predicción de abandono              | No              | Si                   |
+| Benchmarking anónimo                | Si (básico)     | Si (avanzado)        |
+| Reportes PDF exportables            | Si              | Si                   |
+| Reportes programados por email      | No              | Si                   |
+| Sugerencias accionables             | No              | Si                   |
+| Modelo ML (scikit-learn/tensorflow) | No              | Si                   |
+| Dashboard en tiempo real            | No              | Si (websockets)      |
 
 ---
 
@@ -1007,21 +1007,21 @@ const URGENT_ESCALATION_FLOW = [
 
 ### Alcance MVP vs Futuro
 
-| Funcionalidad | MVP | Post-MVP |
-|--------------|-----|----------|
-| Recordatorio 24h por email | Si | Si |
-| Recordatorio 2h por email | Si | Si |
-| Recordatorio por push | Si | Si |
-| Recordatorio por WhatsApp | Si | Si |
-| Timing fijo (24h, 2h) | Si | Si |
-| Timing personalizado | No | Si |
-| Escalamiento automático de canal | No | Si |
-| Confirmación en un clic | Si (WhatsApp) | Si (todos los canales) |
-| Reagendamiento desde recordatorio | Si (link) | Si (flujo in-app) |
-| Perfil de engagement por cliente | No | Si |
-| A/B testing de mensajes | No | Si |
-| Métricas de efectividad | Si (básico) | Si (detallado) |
-| Recordatorio SMS | No | Si |
+| Funcionalidad                     | MVP           | Post-MVP               |
+| --------------------------------- | ------------- | ---------------------- |
+| Recordatorio 24h por email        | Si            | Si                     |
+| Recordatorio 2h por email         | Si            | Si                     |
+| Recordatorio por push             | Si            | Si                     |
+| Recordatorio por WhatsApp         | Si            | Si                     |
+| Timing fijo (24h, 2h)             | Si            | Si                     |
+| Timing personalizado              | No            | Si                     |
+| Escalamiento automático de canal  | No            | Si                     |
+| Confirmación en un clic           | Si (WhatsApp) | Si (todos los canales) |
+| Reagendamiento desde recordatorio | Si (link)     | Si (flujo in-app)      |
+| Perfil de engagement por cliente  | No            | Si                     |
+| A/B testing de mensajes           | No            | Si                     |
+| Métricas de efectividad           | Si (básico)   | Si (detallado)         |
+| Recordatorio SMS                  | No            | Si                     |
 
 ---
 
@@ -1067,7 +1067,7 @@ sostenible para los negocios.
   },
   "geo": {
     "@type": "GeoCoordinates",
-    "latitude": 4.7110,
+    "latitude": 4.711,
     "longitude": -74.0721
   },
   "openingHoursSpecification": [
@@ -1152,22 +1152,22 @@ async generateSitemap(): Promise<string> {
 
 ### Alcance MVP vs Futuro
 
-| Funcionalidad | MVP | Post-MVP |
-|--------------|-----|----------|
-| Perfil público con SSR | Si | Si |
-| Meta tags dinámicos | Si | Si |
-| URLs semánticas con slug | Si | Si |
-| Schema.org LocalBusiness | Si | Si |
-| Sitemap XML automático | Si | Si |
-| Open Graph / Twitter Cards | Si | Si |
-| Optimización de imágenes | Si (básico) | Si (avanzado) |
-| Google Business Profile sync | No | Si |
-| Blog/contenido por negocio | No | Si |
-| Landing pages por servicio | No | Si |
-| AMP pages | No | Si |
-| Canonical URLs | Si | Si |
-| Robots.txt dinámico | Si | Si |
-| Google Analytics por negocio | No | Si |
+| Funcionalidad                | MVP         | Post-MVP      |
+| ---------------------------- | ----------- | ------------- |
+| Perfil público con SSR       | Si          | Si            |
+| Meta tags dinámicos          | Si          | Si            |
+| URLs semánticas con slug     | Si          | Si            |
+| Schema.org LocalBusiness     | Si          | Si            |
+| Sitemap XML automático       | Si          | Si            |
+| Open Graph / Twitter Cards   | Si          | Si            |
+| Optimización de imágenes     | Si (básico) | Si (avanzado) |
+| Google Business Profile sync | No          | Si            |
+| Blog/contenido por negocio   | No          | Si            |
+| Landing pages por servicio   | No          | Si            |
+| AMP pages                    | No          | Si            |
+| Canonical URLs               | Si          | Si            |
+| Robots.txt dinámico          | Si          | Si            |
+| Google Analytics por negocio | No          | Si            |
 
 ---
 
@@ -1316,33 +1316,33 @@ class AvailabilityService {
 
 ### Alcance MVP vs Futuro
 
-| Funcionalidad | MVP | Post-MVP |
-|--------------|-----|----------|
-| Bloqueo temporal de slot (Redis SETNX) | Si | Si |
-| Prevención de doble reserva | Si | Si |
-| Actualización via polling (cada 30s) | Si | No |
-| Actualización via WebSocket en tiempo real | No | Si |
-| Indicador de demanda ("X personas viendo") | No | Si |
-| Sincronización multi-dispositivo | Si (polling) | Si (WebSocket) |
-| Notificación push de nuevo slot disponible | No | Si |
-| Reconnect automático | Si (polling) | Si (WebSocket) |
-| Queue de espera para slots populares | No | Si |
-| Overbooking controlado con predicción de no-show | No | Si |
+| Funcionalidad                                    | MVP          | Post-MVP       |
+| ------------------------------------------------ | ------------ | -------------- |
+| Bloqueo temporal de slot (Redis SETNX)           | Si           | Si             |
+| Prevención de doble reserva                      | Si           | Si             |
+| Actualización via polling (cada 30s)             | Si           | No             |
+| Actualización via WebSocket en tiempo real       | No           | Si             |
+| Indicador de demanda ("X personas viendo")       | No           | Si             |
+| Sincronización multi-dispositivo                 | Si (polling) | Si (WebSocket) |
+| Notificación push de nuevo slot disponible       | No           | Si             |
+| Reconnect automático                             | Si (polling) | Si (WebSocket) |
+| Queue de espera para slots populares             | No           | Si             |
+| Overbooking controlado con predicción de no-show | No           | Si             |
 
 ---
 
 ## Resumen de Priorización por Fase
 
-| Diferenciador | Fase MVP | Complejidad | Impacto |
-|---------------|----------|-------------|---------|
-| Geolocalización | Fase 4 | Media | Alto (descubrimiento) |
-| WhatsApp | Fase 4 | Media | Alto (engagement LATAM) |
-| Fidelización | Fase 4 | Media | Alto (retención) |
-| Analíticas + Predicciones | Fase 4 | Alta | Alto (valor para negocio) |
-| Recordatorios Inteligentes | Fase 4 | Media | Medio (reducción no-show) |
-| Marketplace SEO | Fase 3 | Media | Alto (adquisición orgánica) |
-| Disponibilidad en Tiempo Real | Fase 2 | Alta | Medio (experiencia) |
-| Sugerencias IA | Fase 4 | Alta | Medio (diferenciación) |
+| Diferenciador                 | Fase MVP | Complejidad | Impacto                     |
+| ----------------------------- | -------- | ----------- | --------------------------- |
+| Geolocalización               | Fase 4   | Media       | Alto (descubrimiento)       |
+| WhatsApp                      | Fase 4   | Media       | Alto (engagement LATAM)     |
+| Fidelización                  | Fase 4   | Media       | Alto (retención)            |
+| Analíticas + Predicciones     | Fase 4   | Alta        | Alto (valor para negocio)   |
+| Recordatorios Inteligentes    | Fase 4   | Media       | Medio (reducción no-show)   |
+| Marketplace SEO               | Fase 3   | Media       | Alto (adquisición orgánica) |
+| Disponibilidad en Tiempo Real | Fase 2   | Alta        | Medio (experiencia)         |
+| Sugerencias IA                | Fase 4   | Alta        | Medio (diferenciación)      |
 
 ### Enfoque MVP: Máximo impacto, complejidad razonable
 

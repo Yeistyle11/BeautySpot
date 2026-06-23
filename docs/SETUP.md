@@ -1,6 +1,6 @@
 # Documentación del Proyecto Barbershop
 
-Este directorio contiene archivos base del proyecto. 
+Este directorio contiene archivos base del proyecto.
 
 ## Próximos Pasos
 

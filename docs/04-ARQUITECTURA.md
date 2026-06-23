@@ -106,30 +106,30 @@ El API Gateway es el unico punto de entrada para todas las solicitudes del front
 
 ### Tabla de Enrutamiento
 
-| Patron de Ruta | Servicio Destino | Autenticacion | Roles Permitidos |
-|-----------------|-----------------|---------------|------------------|
-| `POST /api/v1/auth/login` | Auth | No | Publico |
-| `POST /api/v1/auth/register` | Auth | No | Publico |
-| `POST /api/v1/auth/refresh` | Auth | No (refresh token) | Publico |
-| `POST /api/v1/auth/forgot-password` | Auth | No | Publico |
-| `POST /api/v1/auth/reset-password` | Auth | No (token) | Publico |
-| `POST /api/v1/auth/logout` | Auth | Si | Todos |
-| `GET /api/v1/auth/me` | Auth | Si | Todos |
-| `* /api/v1/businesses/*` | Core | Si | SUPER_ADMIN |
-| `* /api/v1/branches/*` | Core | Si | OWNER, ADMIN |
-| `* /api/v1/professionals/*` | Core | Si | OWNER, ADMIN, PROFESSIONAL |
-| `* /api/v1/services/*` | Core | Si | OWNER, ADMIN |
-| `* /api/v1/clients/*` | Core | Si | OWNER, ADMIN, RECEPTIONIST |
-| `* /api/v1/appointments/*` | Booking | Si | OWNER, ADMIN, PROFESSIONAL, RECEPTIONIST, CLIENT |
-| `* /api/v1/availability/*` | Booking | Si | OWNER, ADMIN, PROFESSIONAL |
-| `* /api/v1/payments/*` | Payment | Si | OWNER, ADMIN, RECEPTIONIST |
-| `* /api/v1/invoices/*` | Payment | Si | OWNER, ADMIN |
-| `* /api/v1/cash-sessions/*` | Payment | Si | OWNER, ADMIN, RECEPTIONIST |
-| `* /api/v1/notifications/*` | Notification | Si | Todos |
-| `* /api/v1/marketplace/*` | Marketplace | No | Publico |
-| `* /api/v1/profiles/*` | Marketplace | No | Publico |
-| `* /api/v1/reviews/*` | Marketplace | Si (escritura) / No (lectura) | CLIENT |
-| `* /api/v1/analytics/*` | Analytics | Si | OWNER, ADMIN, SUPER_ADMIN |
+| Patron de Ruta                      | Servicio Destino | Autenticacion                 | Roles Permitidos                                 |
+| ----------------------------------- | ---------------- | ----------------------------- | ------------------------------------------------ |
+| `POST /api/v1/auth/login`           | Auth             | No                            | Publico                                          |
+| `POST /api/v1/auth/register`        | Auth             | No                            | Publico                                          |
+| `POST /api/v1/auth/refresh`         | Auth             | No (refresh token)            | Publico                                          |
+| `POST /api/v1/auth/forgot-password` | Auth             | No                            | Publico                                          |
+| `POST /api/v1/auth/reset-password`  | Auth             | No (token)                    | Publico                                          |
+| `POST /api/v1/auth/logout`          | Auth             | Si                            | Todos                                            |
+| `GET /api/v1/auth/me`               | Auth             | Si                            | Todos                                            |
+| `* /api/v1/businesses/*`            | Core             | Si                            | SUPER_ADMIN                                      |
+| `* /api/v1/branches/*`              | Core             | Si                            | OWNER, ADMIN                                     |
+| `* /api/v1/professionals/*`         | Core             | Si                            | OWNER, ADMIN, PROFESSIONAL                       |
+| `* /api/v1/services/*`              | Core             | Si                            | OWNER, ADMIN                                     |
+| `* /api/v1/clients/*`               | Core             | Si                            | OWNER, ADMIN, RECEPTIONIST                       |
+| `* /api/v1/appointments/*`          | Booking          | Si                            | OWNER, ADMIN, PROFESSIONAL, RECEPTIONIST, CLIENT |
+| `* /api/v1/availability/*`          | Booking          | Si                            | OWNER, ADMIN, PROFESSIONAL                       |
+| `* /api/v1/payments/*`              | Payment          | Si                            | OWNER, ADMIN, RECEPTIONIST                       |
+| `* /api/v1/invoices/*`              | Payment          | Si                            | OWNER, ADMIN                                     |
+| `* /api/v1/cash-sessions/*`         | Payment          | Si                            | OWNER, ADMIN, RECEPTIONIST                       |
+| `* /api/v1/notifications/*`         | Notification     | Si                            | Todos                                            |
+| `* /api/v1/marketplace/*`           | Marketplace      | No                            | Publico                                          |
+| `* /api/v1/profiles/*`              | Marketplace      | No                            | Publico                                          |
+| `* /api/v1/reviews/*`               | Marketplace      | Si (escritura) / No (lectura) | CLIENT                                           |
+| `* /api/v1/analytics/*`             | Analytics        | Si                            | OWNER, ADMIN, SUPER_ADMIN                        |
 
 ### Flujo de una Solicitud
 
@@ -160,6 +160,7 @@ Se utiliza para operaciones donde se necesita una respuesta inmediata del servic
 **Patron**: Request-Response via HTTP/REST interno
 
 **Caracteristicas**:
+
 - Timeout: 5 segundos por defecto, 10 segundos para consultas complejas
 - Retry: 2 reintentos con backoff exponencial para errores transitorios (5xx)
 - Circuit Breaker: Se abre despues de 5 fallos consecutivos, se cierra tras 30 segundos
@@ -182,6 +183,7 @@ Se utiliza para eventos de dominio que no requieren respuesta inmediata y para d
 **Patron**: Event-Driven con Exchange tipo Topic
 
 **Caracteristicas**:
+
 - Los mensajes son persistentes (durable queues)
 - Confirmacion de recepcion (ack/nack)
 - Dead Letter Queue para mensajes fallidos
@@ -204,7 +206,12 @@ Se utiliza para eventos de dominio que no requieren respuesta inmediata y para d
     "clientId": "uuid",
     "professionalId": "uuid",
     "services": [
-      { "serviceId": "uuid", "name": "Corte clasico", "price": 25000, "duration": 30 }
+      {
+        "serviceId": "uuid",
+        "name": "Corte clasico",
+        "price": 25000,
+        "duration": 30
+      }
     ],
     "startTime": "2025-01-20T14:00:00Z",
     "status": "PENDING"
@@ -323,6 +330,7 @@ Se utiliza para eventos de dominio que no requieren respuesta inmediata y para d
 BeautySpot utiliza **multi-tenancy logico** (base de datos compartida con aislamiento por columna `businessId`) dentro de cada servicio. Cada servicio tiene su propia base de datos, pero dentro de cada base de datos, los datos de diferentes negocios coexisten y se separan mediante la columna `businessId`.
 
 **Por que no una base de datos por negocio?**
+
 - El overhead de gestionar miles de bases de datos es prohibitivo en MVP
 - Las migraciones se simplifican (una por servicio, no una por negocio)
 - Los costos de infraestructura se reducen drasticamente
@@ -393,11 +401,11 @@ export class TenantGuard implements CanActivate {
 
 ### 6.4 Entidades Globales vs de Negocio
 
-| Tipo | Ejemplos | businessId | Aislamiento |
-|------|----------|------------|-------------|
-| Global | users, memberships | No aplica | Solo SUPER_ADMIN |
-| De negocio | businesses, professionals, services, appointments, payments, clients | Obligatorio | Filtrado por businessId |
-| Hibrida | notifications | Opcional | Filtrado por userId o businessId |
+| Tipo       | Ejemplos                                                             | businessId  | Aislamiento                      |
+| ---------- | -------------------------------------------------------------------- | ----------- | -------------------------------- |
+| Global     | users, memberships                                                   | No aplica   | Solo SUPER_ADMIN                 |
+| De negocio | businesses, professionals, services, appointments, payments, clients | Obligatorio | Filtrado por businessId          |
+| Hibrida    | notifications                                                        | Opcional    | Filtrado por userId o businessId |
 
 ---
 
@@ -407,65 +415,65 @@ export class TenantGuard implements CanActivate {
 
 #### Auth Events (Exchange: `auth.events`)
 
-| Evento | Routing Key | Publicado por | Consumido por | Descripcion |
-|--------|-------------|--------------|---------------|-------------|
-| user.registered | `auth.user.registered` | Auth | Notification, Analytics | Nuevo usuario registrado |
-| user.loggedIn | `auth.user.loggedIn` | Auth | Analytics | Inicio de sesion |
-| user.passwordReset | `auth.user.passwordReset` | Auth | Notification | Contrasena restablecida |
-| user.emailVerified | `auth.user.emailVerified` | Auth | Analytics | Email verificado |
+| Evento             | Routing Key               | Publicado por | Consumido por           | Descripcion              |
+| ------------------ | ------------------------- | ------------- | ----------------------- | ------------------------ |
+| user.registered    | `auth.user.registered`    | Auth          | Notification, Analytics | Nuevo usuario registrado |
+| user.loggedIn      | `auth.user.loggedIn`      | Auth          | Analytics               | Inicio de sesion         |
+| user.passwordReset | `auth.user.passwordReset` | Auth          | Notification            | Contrasena restablecida  |
+| user.emailVerified | `auth.user.emailVerified` | Auth          | Analytics               | Email verificado         |
 
 #### Core Events (Exchange: `core.events`)
 
-| Evento | Routing Key | Publicado por | Consumido por | Descripcion |
-|--------|-------------|--------------|---------------|-------------|
-| business.created | `core.business.created` | Core | Notification, Marketplace, Analytics | Nuevo negocio registrado |
-| business.updated | `core.business.updated` | Core | Marketplace, Notification | Datos del negocio actualizados |
-| business.deactivated | `core.business.deactivated` | Core | Notification, Marketplace | Negocio desactivado |
-| professional.created | `core.professional.created` | Core | Notification, Analytics | Nuevo profesional registrado |
-| professional.updated | `core.professional.updated` | Core | Marketplace | Datos del profesional actualizados |
-| professional.deactivated | `core.professional.deactivated` | Core | Booking, Marketplace | Profesional desactivado |
-| service.created | `core.service.created` | Core | Marketplace | Nuevo servicio creado |
-| service.updated | `core.service.updated` | Core | Marketplace | Servicio actualizado |
-| service.deactivated | `core.service.deactivated` | Core | Marketplace | Servicio desactivado |
-| client.created | `core.client.created` | Core | Analytics | Nuevo cliente registrado |
+| Evento                   | Routing Key                     | Publicado por | Consumido por                        | Descripcion                        |
+| ------------------------ | ------------------------------- | ------------- | ------------------------------------ | ---------------------------------- |
+| business.created         | `core.business.created`         | Core          | Notification, Marketplace, Analytics | Nuevo negocio registrado           |
+| business.updated         | `core.business.updated`         | Core          | Marketplace, Notification            | Datos del negocio actualizados     |
+| business.deactivated     | `core.business.deactivated`     | Core          | Notification, Marketplace            | Negocio desactivado                |
+| professional.created     | `core.professional.created`     | Core          | Notification, Analytics              | Nuevo profesional registrado       |
+| professional.updated     | `core.professional.updated`     | Core          | Marketplace                          | Datos del profesional actualizados |
+| professional.deactivated | `core.professional.deactivated` | Core          | Booking, Marketplace                 | Profesional desactivado            |
+| service.created          | `core.service.created`          | Core          | Marketplace                          | Nuevo servicio creado              |
+| service.updated          | `core.service.updated`          | Core          | Marketplace                          | Servicio actualizado               |
+| service.deactivated      | `core.service.deactivated`      | Core          | Marketplace                          | Servicio desactivado               |
+| client.created           | `core.client.created`           | Core          | Analytics                            | Nuevo cliente registrado           |
 
 #### Booking Events (Exchange: `booking.events`)
 
-| Evento | Routing Key | Publicado por | Consumido por | Descripcion |
-|--------|-------------|--------------|---------------|-------------|
-| appointment.created | `booking.appointment.created` | Booking | Notification, Analytics | Nueva cita creada |
-| appointment.confirmed | `booking.appointment.confirmed` | Booking | Notification, Analytics | Cita confirmada |
-| appointment.cancelled | `booking.appointment.cancelled` | Booking | Notification, Analytics | Cita cancelada |
-| appointment.completed | `booking.appointment.completed` | Booking | Notification, Analytics, Payment | Cita completada |
-| appointment.noShow | `booking.appointment.noShow` | Booking | Notification, Analytics | Cliente no asistio |
-| appointment.rescheduled | `booking.appointment.rescheduled` | Booking | Notification, Analytics | Cita reagendada |
-| availability.updated | `booking.availability.updated` | Booking | Analytics | Disponibilidad actualizada |
-| reminder.24h | `booking.reminder.24h` | Booking (cron) | Notification | Recordatorio 24h antes |
-| reminder.1h | `booking.reminder.1h` | Booking (cron) | Notification | Recordatorio 1h antes |
+| Evento                  | Routing Key                       | Publicado por  | Consumido por                    | Descripcion                |
+| ----------------------- | --------------------------------- | -------------- | -------------------------------- | -------------------------- |
+| appointment.created     | `booking.appointment.created`     | Booking        | Notification, Analytics          | Nueva cita creada          |
+| appointment.confirmed   | `booking.appointment.confirmed`   | Booking        | Notification, Analytics          | Cita confirmada            |
+| appointment.cancelled   | `booking.appointment.cancelled`   | Booking        | Notification, Analytics          | Cita cancelada             |
+| appointment.completed   | `booking.appointment.completed`   | Booking        | Notification, Analytics, Payment | Cita completada            |
+| appointment.noShow      | `booking.appointment.noShow`      | Booking        | Notification, Analytics          | Cliente no asistio         |
+| appointment.rescheduled | `booking.appointment.rescheduled` | Booking        | Notification, Analytics          | Cita reagendada            |
+| availability.updated    | `booking.availability.updated`    | Booking        | Analytics                        | Disponibilidad actualizada |
+| reminder.24h            | `booking.reminder.24h`            | Booking (cron) | Notification                     | Recordatorio 24h antes     |
+| reminder.1h             | `booking.reminder.1h`             | Booking (cron) | Notification                     | Recordatorio 1h antes      |
 
 #### Payment Events (Exchange: `payment.events`)
 
-| Evento | Routing Key | Publicado por | Consumido por | Descripcion |
-|--------|-------------|--------------|---------------|-------------|
-| payment.registered | `payment.payment.registered` | Payment | Notification, Analytics | Pago registrado |
-| invoice.generated | `payment.invoice.generated` | Payment | Notification | Factura/recibo generado |
-| cashSession.opened | `payment.cashSession.opened` | Payment | Analytics | Caja abierta |
-| cashSession.closed | `payment.cashSession.closed` | Payment | Analytics | Caja cerrada |
+| Evento             | Routing Key                  | Publicado por | Consumido por           | Descripcion             |
+| ------------------ | ---------------------------- | ------------- | ----------------------- | ----------------------- |
+| payment.registered | `payment.payment.registered` | Payment       | Notification, Analytics | Pago registrado         |
+| invoice.generated  | `payment.invoice.generated`  | Payment       | Notification            | Factura/recibo generado |
+| cashSession.opened | `payment.cashSession.opened` | Payment       | Analytics               | Caja abierta            |
+| cashSession.closed | `payment.cashSession.closed` | Payment       | Analytics               | Caja cerrada            |
 
 #### Notification Commands (Exchange: `notif.commands`)
 
-| Comando | Routing Key | Publicado por | Consumido por | Descripcion |
-|---------|-------------|--------------|---------------|-------------|
-| send.email | `notif.send.email` | Cualquier servicio | Notification | Enviar email |
-| send.push | `notif.send.push` | Cualquier servicio | Notification | Enviar push (post-MVP) |
-| send.inApp | `notif.send.inApp` | Cualquier servicio | Notification | Crear notificacion in-app |
+| Comando    | Routing Key        | Publicado por      | Consumido por | Descripcion               |
+| ---------- | ------------------ | ------------------ | ------------- | ------------------------- |
+| send.email | `notif.send.email` | Cualquier servicio | Notification  | Enviar email              |
+| send.push  | `notif.send.push`  | Cualquier servicio | Notification  | Enviar push (post-MVP)    |
+| send.inApp | `notif.send.inApp` | Cualquier servicio | Notification  | Crear notificacion in-app |
 
 #### Marketplace Events (Exchange: `marketplace.events`)
 
-| Evento | Routing Key | Publicado por | Consumido por | Descripcion |
-|--------|-------------|--------------|---------------|-------------|
-| review.created | `marketplace.review.created` | Marketplace | Notification, Core, Analytics | Nueva resena creada |
-| review.moderated | `marketplace.review.moderated` | Marketplace | Notification | Resena moderada |
+| Evento           | Routing Key                    | Publicado por | Consumido por                 | Descripcion         |
+| ---------------- | ------------------------------ | ------------- | ----------------------------- | ------------------- |
+| review.created   | `marketplace.review.created`   | Marketplace   | Notification, Core, Analytics | Nueva resena creada |
+| review.moderated | `marketplace.review.moderated` | Marketplace   | Notification                  | Resena moderada     |
 
 ### 7.2 Topologia de RabbitMQ
 
@@ -552,15 +560,15 @@ export class TenantGuard implements CanActivate {
 
 ### 8.2 Reglas de Propiedad de Datos
 
-| Servicio | Es dueno de | Lee de otros servicios via |
-|----------|------------|--------------------------|
-| Auth | users, memberships, password_resets, audit_logs | API interna de Core (para validar negocio) |
-| Core | businesses, branches, professionals, services, clients | API interna de Auth (para datos basicos de usuario) |
-| Booking | appointments, appointment_services, availabilities, blocked_slots | API interna de Core (profesionales, servicios), API de Auth (usuarios) |
-| Payment | payments, invoices, invoice_items, cash_sessions, cash_movements | Eventos de Booking (cita completada), API de Core (negocio, cliente) |
-| Notification | notifications, notification_preferences | Eventos de todos los servicios |
-| Marketplace | business_profiles, reviews | API interna de Core (negocio, servicios, profesionales), API de Booking (disponibilidad) |
-| Analytics | daily_metrics, professional_metrics | Eventos de todos los servicios, API de Payment/Core/Booking |
+| Servicio     | Es dueno de                                                       | Lee de otros servicios via                                                               |
+| ------------ | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Auth         | users, memberships, password_resets, audit_logs                   | API interna de Core (para validar negocio)                                               |
+| Core         | businesses, branches, professionals, services, clients            | API interna de Auth (para datos basicos de usuario)                                      |
+| Booking      | appointments, appointment_services, availabilities, blocked_slots | API interna de Core (profesionales, servicios), API de Auth (usuarios)                   |
+| Payment      | payments, invoices, invoice_items, cash_sessions, cash_movements  | Eventos de Booking (cita completada), API de Core (negocio, cliente)                     |
+| Notification | notifications, notification_preferences                           | Eventos de todos los servicios                                                           |
+| Marketplace  | business_profiles, reviews                                        | API interna de Core (negocio, servicios, profesionales), API de Booking (disponibilidad) |
+| Analytics    | daily_metrics, professional_metrics                               | Eventos de todos los servicios, API de Payment/Core/Booking                              |
 
 ### 8.3 Principio de No-Compartir Base de Datos
 
@@ -599,39 +607,39 @@ Todas las respuestas de error siguen el mismo formato, independientemente del se
 
 ### 9.2 Codigos de Error HTTP
 
-| Codigo | Uso | Ejemplo |
-|--------|-----|---------|
-| 400 | Error de validacion de datos | Email con formato invalido |
-| 401 | No autenticado | Token expirado o ausente |
-| 403 | No autorizado (sin permisos) | Recepcionista intentando acceder a configuracion global |
-| 404 | Recurso no encontrado | Profesional con ID no existente |
-| 409 | Conflicto de estado | Crear cita en slot ya ocupado |
-| 422 | Error de negocio | Cancelar cita dentro del tiempo minimo |
-| 429 | Rate limit excedido | Mas de 100 solicitudes por minuto |
-| 500 | Error interno del servidor | Error inesperado en la base de datos |
-| 503 | Servicio no disponible | Servicio dependiente no responde |
+| Codigo | Uso                          | Ejemplo                                                 |
+| ------ | ---------------------------- | ------------------------------------------------------- |
+| 400    | Error de validacion de datos | Email con formato invalido                              |
+| 401    | No autenticado               | Token expirado o ausente                                |
+| 403    | No autorizado (sin permisos) | Recepcionista intentando acceder a configuracion global |
+| 404    | Recurso no encontrado        | Profesional con ID no existente                         |
+| 409    | Conflicto de estado          | Crear cita en slot ya ocupado                           |
+| 422    | Error de negocio             | Cancelar cita dentro del tiempo minimo                  |
+| 429    | Rate limit excedido          | Mas de 100 solicitudes por minuto                       |
+| 500    | Error interno del servidor   | Error inesperado en la base de datos                    |
+| 503    | Servicio no disponible       | Servicio dependiente no responde                        |
 
 ### 9.3 Codigos de Error de Negocio
 
-| Dominio | Codigo | Descripcion |
-|---------|--------|-------------|
-| Auth | `AUTH_INVALID_CREDENTIALS` | Email o contrasena incorrectos |
-| Auth | `AUTH_ACCOUNT_LOCKED` | Cuenta bloqueada por intentos fallidos |
-| Auth | `AUTH_TOKEN_EXPIRED` | Token JWT expirado |
-| Auth | `AUTH_TOKEN_INVALID` | Token JWT invalido o malformado |
-| Auth | `AUTH_EMAIL_TAKEN` | Email ya registrado |
-| Booking | `BOOKING_SLOT_UNAVAILABLE` | Slot no disponible |
-| Booking | `BOOKING_SLOT_CONFLICT` | Conflicto con cita existente |
-| Booking | `BOOKING_INVALID_TRANSITION` | Transicion de estado no permitida |
-| Booking | `BOOKING_CANCEL_TOO_LATE` | Tiempo minimo de cancelacion excedido |
-| Payment | `PAYMENT_EXCEEDS_BALANCE` | Monto excede saldo pendiente |
-| Payment | `PAYMENT_INVALID_METHOD` | Metodo de pago no aceptado |
-| Payment | `CASH_SESSION_ALREADY_OPEN` | Ya existe caja abierta para la sucursal |
-| Core | `BUSINESS_SLUG_TAKEN` | Slug ya en uso por otro negocio |
-| Core | `DUPLICATE_RESOURCE` | Recurso duplicado (email, telefono) |
-| Tenant | `TENANT_NOT_FOUND` | Negocio no encontrado para el subdominio |
-| Tenant | `TENANT_SUSPENDED` | Negocio suspendido |
-| Tenant | `TENANT_ACCESS_DENIED` | Usuario sin acceso al negocio |
+| Dominio | Codigo                       | Descripcion                              |
+| ------- | ---------------------------- | ---------------------------------------- |
+| Auth    | `AUTH_INVALID_CREDENTIALS`   | Email o contrasena incorrectos           |
+| Auth    | `AUTH_ACCOUNT_LOCKED`        | Cuenta bloqueada por intentos fallidos   |
+| Auth    | `AUTH_TOKEN_EXPIRED`         | Token JWT expirado                       |
+| Auth    | `AUTH_TOKEN_INVALID`         | Token JWT invalido o malformado          |
+| Auth    | `AUTH_EMAIL_TAKEN`           | Email ya registrado                      |
+| Booking | `BOOKING_SLOT_UNAVAILABLE`   | Slot no disponible                       |
+| Booking | `BOOKING_SLOT_CONFLICT`      | Conflicto con cita existente             |
+| Booking | `BOOKING_INVALID_TRANSITION` | Transicion de estado no permitida        |
+| Booking | `BOOKING_CANCEL_TOO_LATE`    | Tiempo minimo de cancelacion excedido    |
+| Payment | `PAYMENT_EXCEEDS_BALANCE`    | Monto excede saldo pendiente             |
+| Payment | `PAYMENT_INVALID_METHOD`     | Metodo de pago no aceptado               |
+| Payment | `CASH_SESSION_ALREADY_OPEN`  | Ya existe caja abierta para la sucursal  |
+| Core    | `BUSINESS_SLUG_TAKEN`        | Slug ya en uso por otro negocio          |
+| Core    | `DUPLICATE_RESOURCE`         | Recurso duplicado (email, telefono)      |
+| Tenant  | `TENANT_NOT_FOUND`           | Negocio no encontrado para el subdominio |
+| Tenant  | `TENANT_SUSPENDED`           | Negocio suspendido                       |
+| Tenant  | `TENANT_ACCESS_DENIED`       | Usuario sin acceso al negocio            |
 
 ### 9.4 Circuit Breaker
 
@@ -673,11 +681,13 @@ Estado: HALF_OPEN (prueba)
 Se utiliza paginacion basada en cursor para colecciones grandes:
 
 **Request**:
+
 ```
 GET /api/v1/appointments?limit=20&cursor=eyJpZCI6IjEyMyJ9
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -699,6 +709,7 @@ GET /api/v1/appointments?status=CONFIRMED&professionalId=uuid&date=2025-01-20&so
 ```
 
 **Filtros soportados**:
+
 - Igualdad: `?status=CONFIRMED`
 - Rango: `?dateFrom=2025-01-01&dateTo=2025-01-31`
 - Inclusion: `?status=CONFIRMED,PENDING`
@@ -707,6 +718,7 @@ GET /api/v1/appointments?status=CONFIRMED&professionalId=uuid&date=2025-01-20&so
 ### 10.5 Formato de Respuesta Exitosa
 
 **Coleccion**:
+
 ```json
 {
   "success": true,
@@ -720,6 +732,7 @@ GET /api/v1/appointments?status=CONFIRMED&professionalId=uuid&date=2025-01-20&so
 ```
 
 **Recurso unico**:
+
 ```json
 {
   "success": true,

@@ -80,7 +80,9 @@ docker exec -i barbershop-postgres psql -U postgres barbershop < backup.sql
 ## Solución de Problemas
 
 ### Error: "port is already allocated"
+
 El puerto 5432 ya está en uso. Opciones:
+
 ```powershell
 # Ver qué está usando el puerto
 netstat -ano | findstr :5432
@@ -94,11 +96,13 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5433/barbershop?schema=pu
 ```
 
 ### Docker Desktop no inicia
+
 - Reinicia tu computadora
 - Asegúrate de tener WSL 2 instalado
 - Verifica que la virtualización esté habilitada en BIOS
 
 ### Error de conexión a la base de datos
+
 ```powershell
 # Verificar que el contenedor está corriendo
 docker ps

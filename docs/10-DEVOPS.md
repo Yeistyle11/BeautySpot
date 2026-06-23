@@ -104,8 +104,8 @@ services:
       RABBITMQ_DEFAULT_USER: beautyspot
       RABBITMQ_DEFAULT_PASS: beautyspot123
     ports:
-      - "5672:5672"    # AMQP
-      - "15672:15672"  # Management UI
+      - "5672:5672" # AMQP
+      - "15672:15672" # Management UI
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -454,7 +454,7 @@ version: "3.9"
 services:
   api-gateway:
     build:
-      target: deps  # Usa la etapa de dependencias, no la de produccion
+      target: deps # Usa la etapa de dependencias, no la de produccion
     volumes:
       - ./services/api-gateway/src:/app/services/api-gateway/src
       - ./packages:/app/packages
@@ -488,12 +488,12 @@ name: BeautySpot CI/CD
 
 on:
   push:
-    branches: [main, develop, 'feature/**']
+    branches: [main, develop, "feature/**"]
   pull_request:
     branches: [main, develop]
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: "20"
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository }}
 
@@ -509,7 +509,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Instalar dependencias
         run: npm ci --legacy-peer-deps
@@ -555,7 +555,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Instalar dependencias
         run: npm ci --legacy-peer-deps
@@ -876,7 +876,7 @@ on:
   push:
     branches: [main, develop]
   schedule:
-    - cron: '0 6 * * 1'  # Lunes a las 6 AM
+    - cron: "0 6 * * 1" # Lunes a las 6 AM
 
 jobs:
   container-scanning:
@@ -888,18 +888,18 @@ jobs:
       - name: Escanear vulnerabilidades con Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '1'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+          scan-type: "fs"
+          scan-ref: "."
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"
+          format: "sarif"
+          output: "trivy-results.sarif"
 
       - name: Subir resultados a GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif_file: 'trivy-results.sarif'
+          sarif_file: "trivy-results.sarif"
 
   dependency-audit:
     name: Auditoria de Dependencias
@@ -910,7 +910,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Auditoria npm
         run: npm audit --audit-level=high
@@ -944,18 +944,18 @@ JWT_SECRET=${SM_JWT_SECRET}
 
 ### Checklist de Seguridad
 
-| Aspecto | Implementacion | Prioridad |
-|---------|---------------|-----------|
-| HTTPS en todos los endpoints | Reverse proxy (Nginx/Traefik) con certificados Let's Encrypt | Alta |
-| JWT con rotacion | Tokens de acceso 15 min, refresh 7 dias | Alta |
-| Rate limiting | Redis-based rate limiter por IP y por usuario | Alta |
-| Validacion de entrada | class-validator + Pipes globales en NestJS | Alta |
-| SQL Injection | TypeORM parametrizado, sin queries raw | Alta |
-| CORS configurado | Whitelist de dominios permitidos | Media |
-| Headers de seguridad | Helmet middleware | Media |
-| Secrets en variables | Nunca en codigo, usar Vault/Secrets Manager | Alta |
-| Rotacion de credenciales | Cada 90 dias para production DB passwords | Media |
-| Escaneo de imagenes | Trivy en CI, renovacion semanal | Media |
+| Aspecto                      | Implementacion                                               | Prioridad |
+| ---------------------------- | ------------------------------------------------------------ | --------- |
+| HTTPS en todos los endpoints | Reverse proxy (Nginx/Traefik) con certificados Let's Encrypt | Alta      |
+| JWT con rotacion             | Tokens de acceso 15 min, refresh 7 dias                      | Alta      |
+| Rate limiting                | Redis-based rate limiter por IP y por usuario                | Alta      |
+| Validacion de entrada        | class-validator + Pipes globales en NestJS                   | Alta      |
+| SQL Injection                | TypeORM parametrizado, sin queries raw                       | Alta      |
+| CORS configurado             | Whitelist de dominios permitidos                             | Media     |
+| Headers de seguridad         | Helmet middleware                                            | Media     |
+| Secrets en variables         | Nunca en codigo, usar Vault/Secrets Manager                  | Alta      |
+| Rotacion de credenciales     | Cada 90 dias para production DB passwords                    | Media     |
+| Escaneo de imagenes          | Trivy en CI, renovacion semanal                              | Media     |
 
 ---
 
@@ -1075,14 +1075,14 @@ export class MetricsModule {}
 
 Dashboards predefinidos:
 
-| Dashboard | Metricas Clave |
-|-----------|---------------|
+| Dashboard      | Metricas Clave                                             |
+| -------------- | ---------------------------------------------------------- |
 | Visión General | Requests/s, latencia P50/P95/P99, tasa de errores, CPU/RAM |
-| API Gateway | Requests por servicio, rate limiting, errores 4xx/5xx |
-| Base de Datos | Conexiones activas, queries lentas, lock waits |
-| Redis | Hit rate, memoria usada, conexiones, evictions |
-| RabbitMQ | Mensajes encolados, consumo rate, dead letters |
-| Negocio | Citas creadas, usuarios registrados, revenue diario |
+| API Gateway    | Requests por servicio, rate limiting, errores 4xx/5xx      |
+| Base de Datos  | Conexiones activas, queries lentas, lock waits             |
+| Redis          | Hit rate, memoria usada, conexiones, evictions             |
+| RabbitMQ       | Mensajes encolados, consumo rate, dead letters             |
+| Negocio        | Citas creadas, usuarios registrados, revenue diario        |
 
 ---
 
@@ -1090,17 +1090,17 @@ Dashboards predefinidos:
 
 ### Comparativa AWS vs GCP
 
-| Criterio | AWS | GCP |
-|----------|-----|-----|
-| Contenedores | ECS Fargate / EKS | Cloud Run / GKE |
-| Base de datos | RDS PostgreSQL | Cloud SQL PostgreSQL |
-| Cache | ElastiCache Redis | Memorystore Redis |
-| Mensajeria | Amazon MQ (RabbitMQ) | Cloud Pub/Sub (alternativa) |
-| CDN | CloudFront | Cloud CDN |
-| Secrets | Secrets Manager | Secret Manager |
-| CI/CD | CodePipeline / GitHub Actions | Cloud Build / GitHub Actions |
-| Costo estimado (dev) | ~$150 USD/mes | ~$130 USD/mes |
-| Costo estimado (prod) | ~$500-800 USD/mes | ~$450-700 USD/mes |
+| Criterio              | AWS                           | GCP                          |
+| --------------------- | ----------------------------- | ---------------------------- |
+| Contenedores          | ECS Fargate / EKS             | Cloud Run / GKE              |
+| Base de datos         | RDS PostgreSQL                | Cloud SQL PostgreSQL         |
+| Cache                 | ElastiCache Redis             | Memorystore Redis            |
+| Mensajeria            | Amazon MQ (RabbitMQ)          | Cloud Pub/Sub (alternativa)  |
+| CDN                   | CloudFront                    | Cloud CDN                    |
+| Secrets               | Secrets Manager               | Secret Manager               |
+| CI/CD                 | CodePipeline / GitHub Actions | Cloud Build / GitHub Actions |
+| Costo estimado (dev)  | ~$150 USD/mes                 | ~$130 USD/mes                |
+| Costo estimado (prod) | ~$500-800 USD/mes             | ~$450-700 USD/mes            |
 
 **Recomendacion para MVP**: GCP Cloud Run por simplicidad y menor costo inicial.
 
@@ -1209,14 +1209,14 @@ Produccion      main            app.beautyspot.co            Servicios para clie
 
 ### Variables por Entorno
 
-| Variable | Desarrollo | Staging | Produccion |
-|----------|-----------|---------|------------|
-| `NODE_ENV` | development | staging | production |
-| `DATABASE_URL` | localhost:5432 | stg-db.internal:5432 | prod-db.internal:5432 |
-| `JWT_SECRET` | valor dev | GitHub Secret | Vault/Secret Manager |
-| `LOG_LEVEL` | debug | info | warn |
-| `CORS_ORIGIN` | localhost:* | *.staging.beautyspot.co | *.beautyspot.co |
-| `RATE_LIMIT_MAX` | 1000 | 500 | 100 |
+| Variable         | Desarrollo     | Staging                  | Produccion            |
+| ---------------- | -------------- | ------------------------ | --------------------- |
+| `NODE_ENV`       | development    | staging                  | production            |
+| `DATABASE_URL`   | localhost:5432 | stg-db.internal:5432     | prod-db.internal:5432 |
+| `JWT_SECRET`     | valor dev      | GitHub Secret            | Vault/Secret Manager  |
+| `LOG_LEVEL`      | debug          | info                     | warn                  |
+| `CORS_ORIGIN`    | localhost:\*   | \*.staging.beautyspot.co | \*.beautyspot.co      |
+| `RATE_LIMIT_MAX` | 1000           | 500                      | 100                   |
 
 ---
 
@@ -1302,13 +1302,13 @@ export class InicialCrearTablas1700000000000 implements MigrationInterface {
 
 ### Estrategia de Backup
 
-| Componente | Frecuencia | Retencion | Herramienta |
-|------------|-----------|-----------|-------------|
-| PostgreSQL (7 DBs) | Cada 6 horas | 30 dias | pg_dump + S3/GCS |
-| Redis | Snapshot diario | 7 dias | BGSAVE nativo |
-| RabbitMQ | No aplica (mensajes transitorios) | - | - |
-| Configuracion K8s | En cada deploy | Git (versionado) | GitOps |
-| Secrets | En cada rotacion | Vault audit log | Vault |
+| Componente         | Frecuencia                        | Retencion        | Herramienta      |
+| ------------------ | --------------------------------- | ---------------- | ---------------- |
+| PostgreSQL (7 DBs) | Cada 6 horas                      | 30 dias          | pg_dump + S3/GCS |
+| Redis              | Snapshot diario                   | 7 dias           | BGSAVE nativo    |
+| RabbitMQ           | No aplica (mensajes transitorios) | -                | -                |
+| Configuracion K8s  | En cada deploy                    | Git (versionado) | GitOps           |
+| Secrets            | En cada rotacion                  | Vault audit log  | Vault            |
 
 ### Script de Backup
 
@@ -1358,14 +1358,14 @@ echo "Backup completado: $TIMESTAMP"
 
 ### Plan de Recuperacion ante Desastres
 
-| Escenario | RTO | RPO | Procedimiento |
-|-----------|-----|-----|---------------|
-| Caida de un servicio | 5 min | 0 | Reiniciar contenedor/pod, health check automatico |
-| Caida de base de datos | 15 min | 6 horas | Promover replica, restaurar ultimo backup si necesario |
-| Caida de Redis | 2 min | 1 dia | Reiniciar, datos se reconstruyen desde DB |
-| Caida de zona completa | 30 min | 6 horas | Activar DR en zona secundaria, restaurar backups |
-| Perdida de datos (error humano) | 1 hora | Variable | Restaurar backup punto-en-tiempo (PITR) |
-| Caida total de la region | 2 horas | 6 horas | Desplegar infraestructura en region alternativa |
+| Escenario                       | RTO     | RPO      | Procedimiento                                          |
+| ------------------------------- | ------- | -------- | ------------------------------------------------------ |
+| Caida de un servicio            | 5 min   | 0        | Reiniciar contenedor/pod, health check automatico      |
+| Caida de base de datos          | 15 min  | 6 horas  | Promover replica, restaurar ultimo backup si necesario |
+| Caida de Redis                  | 2 min   | 1 dia    | Reiniciar, datos se reconstruyen desde DB              |
+| Caida de zona completa          | 30 min  | 6 horas  | Activar DR en zona secundaria, restaurar backups       |
+| Perdida de datos (error humano) | 1 hora  | Variable | Restaurar backup punto-en-tiempo (PITR)                |
+| Caida total de la region        | 2 horas | 6 horas  | Desplegar infraestructura en region alternativa        |
 
 **RTO** (Recovery Time Objective): Tiempo maximo para restaurar el servicio.
 **RPO** (Recovery Point Objective): Maxima perdida de datos aceptable.
