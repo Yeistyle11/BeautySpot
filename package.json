@@ -2,6 +2,10 @@
   "name": "barbershop",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/*",
+    "services/*"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -42,9 +46,11 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "glob": "^8.1.0",
     "lucide-react": "^0.454.0",
     "next": "14.2.15",
     "next-auth": "^4.24.10",
+    "path-scurry": "^1.11.1",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
@@ -54,9 +60,6 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@golevelup/nestjs-rabbitmq": "^9.0.2",
-    "@nestjs/testing": "^11.1.27",
-    "@nestjs/typeorm": "^11.0.2",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.1",
     "@types/bcryptjs": "^2.4.6",

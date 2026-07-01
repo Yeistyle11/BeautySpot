@@ -1,4 +1,5 @@
 module.exports = {
+  rootDir: ".",
   projects: [
     "<rootDir>/packages/shared-utils",
     "<rootDir>/packages/database",
@@ -12,21 +13,6 @@ module.exports = {
     "<rootDir>/services/analytics-service",
     "<rootDir>/services/api-gateway",
   ],
-  preset: "ts-jest",
-  transform: {
-    "^.+\\.(t|j)s$": "ts-jest",
-  },
-  transformIgnorePatterns: ["node_modules/(?!(uuid|@nestjs|@golevelup))"],
-  moduleFileExtensions: ["js", "json", "ts"],
-  testEnvironment: "node",
-  testRegex: ".*\\.spec\\.ts$",
-  collectCoverageFrom: [
-    "**/*.(t|j)s",
-    "!**/*.spec.ts",
-    "!**/*.dto.ts",
-    "!**/*.entity.ts",
-    "!**/*.interface.ts",
-    "!**/main.ts",
-  ],
-  coverageDirectory: "coverage",
+  coverageDirectory: "<rootDir>/coverage",
+  coverageReporters: ["json", "lcov", "text", "clover"],
 };

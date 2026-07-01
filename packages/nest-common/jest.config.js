@@ -1,4 +1,5 @@
 module.exports = {
+  preset: "ts-jest",
   setupFiles: ["<rootDir>/test-setup.ts"],
   moduleFileExtensions: ["js", "json", "ts"],
   rootDir: ".",
@@ -6,7 +7,9 @@ module.exports = {
   transform: {
     "^.+\\.(t|j)s$": "ts-jest",
   },
-  transformIgnorePatterns: ["node_modules/(?!(uuid|@nestjs|@golevelup))"],
+  transformIgnorePatterns: [
+    "node_modules/(?!(uuid|glob|path-scurry|lru-cache|minipass|rimraf|brace-expansion|@nestjs|@nestjs|@golevelup))",
+  ],
   collectCoverageFrom: [
     "src/**/*.(t|j)s",
     "!src/**/*.spec.ts",

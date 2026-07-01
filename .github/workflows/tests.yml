@@ -1,15 +1,15 @@
 name: Tests
 
 on:
-  push:
-    branches: [main, develop]
   pull_request:
-    branches: [main, develop]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      TZ: America/Bogota
 
     strategy:
       matrix:
@@ -55,22 +55,28 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: "npm"
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
+
+      - name: Build shared packages
+        run: npm run build --workspace packages/shared-types --workspace packages/shared-utils --workspace packages/event-types --workspace packages/shared-constants --workspace packages/database --workspace packages/nest-common
 
       - name: Run tests
         run: npm run test:coverage
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
+        if: always()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/lcov.info
+          files: ./coverage/lcov.info,./packages/*/coverage/lcov.info,./services/*/coverage/lcov.info
           fail_ci_if_error: false
