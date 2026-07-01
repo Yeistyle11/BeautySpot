@@ -60,9 +60,6 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@golevelup/nestjs-rabbitmq": "^9.0.2",
-    "@nestjs/testing": "^11.1.27",
-    "@nestjs/typeorm": "^11.0.2",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.1",
     "@types/bcryptjs": "^2.4.6",

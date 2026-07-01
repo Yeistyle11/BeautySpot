@@ -9,6 +9,7 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "typescript": "^5.6.3",
     "uuid": "^9.0.1"
   }
