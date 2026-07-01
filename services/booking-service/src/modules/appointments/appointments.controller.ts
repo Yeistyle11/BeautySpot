@@ -1,8 +1,21 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, Req } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Body,
+  Query,
+  Req,
+} from "@nestjs/common";
 import { AppointmentsService } from "./appointments.service";
 import { AppointmentStatus, Role } from "@beautyspot/shared-types";
 import { Roles, Public } from "@beautyspot/nest-common";
-import { CreateAppointmentDto, CancelDto, RescheduleDto } from "./dto/appointment.dto";
+import {
+  CreateAppointmentDto,
+  CancelDto,
+  RescheduleDto,
+} from "./dto/appointment.dto";
 
 @Controller("appointments")
 export class AppointmentsController {
@@ -11,7 +24,10 @@ export class AppointmentsController {
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Post()
   async create(@Req() req: any, @Body() dto: CreateAppointmentDto) {
-    return this.service.create(req.businessId, { ...dto, createdBy: req.user?.userId });
+    return this.service.create(req.businessId, {
+      ...dto,
+      createdBy: req.user?.userId,
+    });
   }
 
   @Get("availability")
@@ -19,9 +35,14 @@ export class AppointmentsController {
     @Req() req: any,
     @Query("professionalId") professionalId: string,
     @Query("date") date: string,
-    @Query("duration") duration: string,
+    @Query("duration") duration: string
   ) {
-    return this.service.findAvailableSlots(req.businessId, professionalId, date, Number(duration));
+    return this.service.findAvailableSlots(
+      req.businessId,
+      professionalId,
+      date,
+      Number(duration)
+    );
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
@@ -31,9 +52,14 @@ export class AppointmentsController {
     @Query("status") status?: AppointmentStatus,
     @Query("date") date?: string,
     @Query("professionalId") professionalId?: string,
-    @Query("clientId") clientId?: string,
+    @Query("clientId") clientId?: string
   ) {
-    return this.service.findByBusiness(req.businessId, { status, date, professionalId, clientId });
+    return this.service.findByBusiness(req.businessId, {
+      status,
+      date,
+      professionalId,
+      clientId,
+    });
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
@@ -62,8 +88,17 @@ export class AppointmentsController {
 
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Post(":id/cancel")
-  async cancel(@Param("id") id: string, @Req() req: any, @Body() dto: CancelDto) {
-    return this.service.cancel(id, req.businessId, dto.reason, req.user?.userId);
+  async cancel(
+    @Param("id") id: string,
+    @Req() req: any,
+    @Body() dto: CancelDto
+  ) {
+    return this.service.cancel(
+      id,
+      req.businessId,
+      dto.reason,
+      req.user?.userId
+    );
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL)
@@ -74,18 +109,30 @@ export class AppointmentsController {
 
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Patch(":id/reschedule")
-  async reschedule(@Param("id") id: string, @Req() req: any, @Body() dto: RescheduleDto) {
-    return this.service.reschedule(id, req.businessId, dto.date, dto.startTime, 30);
+  async reschedule(
+    @Param("id") id: string,
+    @Req() req: any,
+    @Body() dto: RescheduleDto
+  ) {
+    return this.service.reschedule(
+      id,
+      req.businessId,
+      dto.date,
+      dto.startTime,
+      30
+    );
   }
+}
 
-  /**
-   * Endpoint interno: verifica si un profesional tiene historial de citas.
-   * Usado por core-service antes de eliminar un profesional.
-   * Protegido por x-internal-secret (InternalSecretGuard).
-   */
-  @Public()
-  @Get("internal/professional/:professionalId/has-history")
-  async professionalHasHistory(@Param("professionalId") professionalId: string) {
+@Controller("internal/appointments")
+@Public()
+export class InternalAppointmentsController {
+  constructor(private readonly service: AppointmentsService) {}
+
+  @Get("professional/:professionalId/has-history")
+  async professionalHasHistory(
+    @Param("professionalId") professionalId: string
+  ) {
     return this.service.professionalHasHistory(professionalId);
   }
 }

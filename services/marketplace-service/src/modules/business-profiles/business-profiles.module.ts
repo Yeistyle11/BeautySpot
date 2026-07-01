@@ -2,7 +2,11 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
 import { BusinessProfilesService } from "./business-profiles.service";
-import { BusinessProfilesController, PublicProfilesController } from "./business-profiles.controller";
+import {
+  BusinessProfilesController,
+  PublicProfilesController,
+  InternalBusinessProfilesController,
+} from "./business-profiles.controller";
 import { ProfessionalProfilesModule } from "../professional-profiles/professional-profiles.module";
 
 @Module({
@@ -10,7 +14,11 @@ import { ProfessionalProfilesModule } from "../professional-profiles/professiona
     TypeOrmModule.forFeature([BusinessProfileEntity]),
     ProfessionalProfilesModule,
   ],
-  controllers: [BusinessProfilesController, PublicProfilesController],
+  controllers: [
+    BusinessProfilesController,
+    PublicProfilesController,
+    InternalBusinessProfilesController,
+  ],
   providers: [BusinessProfilesService],
   exports: [BusinessProfilesService],
 })
