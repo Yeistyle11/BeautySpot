@@ -65,8 +65,8 @@ describe("Shared Utils", () => {
     });
 
     it("debería manejar diferentes días de la semana", () => {
-      // 2024-01-07 UTC se interpreta en zona local (ej. UTC-5 = sábado 6 en la tarde)
-      const date = new Date(Date.UTC(2024, 0, 7));
+      // 2024-01-06 es sábado en cualquier zona horaria razonable
+      const date = new Date(2024, 0, 6);
       expect(formatDate(date)).toMatch(/sábado/);
     });
 

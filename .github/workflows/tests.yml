@@ -8,6 +8,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      TZ: America/Bogota
 
     strategy:
       matrix:
