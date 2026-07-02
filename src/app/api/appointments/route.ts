@@ -187,9 +187,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calcular puntos de fidelidad (10% del precio total)
-    const pointsEarned = Math.floor(totalPrice * 0.1);
-
+    // Los puntos de fidelidad NO se otorgan aqui. Se otorgan unicamente
+    // al completar la cita (api/appointments/[id]/complete). Otorgarlos en
+    // la creacion provocaba doble otorgamiento (create + complete).
     const appointment = await prisma.appointment.create({
       data: {
         clientId: parseInt(session.user.id),
@@ -198,7 +198,6 @@ export async function POST(request: NextRequest) {
         startTime,
         endTime,
         notes: notes || null,
-        pointsEarned,
         status: "PENDING",
         services: {
           create: serviceIds.map((serviceId) => ({
@@ -222,16 +221,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Actualizar puntos del usuario
-    await prisma.user.update({
-      where: { id: parseInt(session.user.id) },
-      data: {
-        loyaltyPoints: {
-          increment: pointsEarned,
-        },
-      },
-    });
-
     // Revalidar las páginas que muestran citas
     revalidatePath("/barbero");
     revalidatePath("/cliente/citas");
@@ -243,7 +232,6 @@ export async function POST(request: NextRequest) {
         appointment,
         totalPrice,
         totalDuration,
-        pointsEarned,
       },
       { status: 201 }
     );
