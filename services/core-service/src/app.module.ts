@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { APP_INTERCEPTOR } from "@nestjs/core";
+
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
 import { Business } from "./entities/business.entity";
@@ -25,13 +25,26 @@ import { ImagesModule } from "./modules/images/images.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
 import { ServiceCategoriesModule } from "./modules/service-categories/service-categories.module";
 import { CoreEventListenersModule } from "./modules/event-listeners/core-event-listeners.module";
-import { TenantQueryInterceptor } from "@beautyspot/nest-common"; 
 
-const entities = [Business, Branch, Professional, ProfessionalService, Service, Client, BusinessHours, BusinessConfig, ProfessionalCategoryEntity, ServiceCategoryEntity];
- 
+const entities = [
+  Business,
+  Branch,
+  Professional,
+  ProfessionalService,
+  Service,
+  Client,
+  BusinessHours,
+  BusinessConfig,
+  ProfessionalCategoryEntity,
+  ServiceCategoryEntity,
+];
+
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: path.join(__dirname, "..", ".env") }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: path.join(__dirname, "..", ".env"),
+    }),
     TypeOrmModule.forRootAsync({
       useFactory: () => createTypeOrmModuleOptions(entities),
     }),
@@ -46,12 +59,6 @@ const entities = [Business, Branch, Professional, ProfessionalService, Service, 
     CategoriesModule,
     ServiceCategoriesModule,
     CoreEventListenersModule,
-  ],
-  providers: [
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: TenantQueryInterceptor,
-    },
   ],
 })
 export class AppModule {}
