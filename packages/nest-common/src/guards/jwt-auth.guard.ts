@@ -43,7 +43,9 @@ export class JwtAuthGuard implements CanActivate {
     );
 
     try {
-      const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
+      const decoded = jwt.verify(token, secret, {
+        algorithms: ["HS256"],
+      }) as jwt.JwtPayload;
       request.user = {
         userId: decoded.sub,
         email: decoded.email,

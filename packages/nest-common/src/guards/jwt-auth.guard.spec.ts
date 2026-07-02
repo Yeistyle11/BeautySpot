@@ -199,8 +199,20 @@ describe("JwtAuthGuard", () => {
 
       expect(jwt.verify).toHaveBeenCalledWith(
         "my-jwt-token",
-        "test-secret-with-sufficient-length-32!!"
+        "test-secret-with-sufficient-length-32!!",
+        { algorithms: ["HS256"] }
       );
+    });
+
+    it("debería pinear el algoritmo HS256 para prevenir alg-confusion", () => {
+      (jwt.verify as jest.Mock).mockReturnValue(mockDecoded as any);
+
+      const context = mockExecutionContext("/api/test", "Bearer token");
+
+      guard.canActivate(context);
+
+      const callArgs = (jwt.verify as jest.Mock).mock.calls.at(-1);
+      expect(callArgs?.[2]).toEqual({ algorithms: ["HS256"] });
     });
   });
 

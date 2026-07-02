@@ -2,12 +2,13 @@ import "express";
 
 declare module "express-serve-static-core" {
   interface Request {
-    businessId: string;
+    businessId?: string;
     user?: {
       userId: string;
       email: string;
       role: string;
       businessId?: string;
+      businessIds?: string[];
     };
   }
 }

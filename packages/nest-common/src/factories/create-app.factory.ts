@@ -7,18 +7,25 @@ import { RolesGuard } from "../guards/roles.guard";
 import { HttpExceptionFilter } from "../filters/http-exception.filter";
 import { TransformInterceptor } from "../interceptors/transform.interceptor";
 import { InternalSecretGuard } from "../guards/internal-secret.guard";
-// import { EventBusModule } from "../modules/event-bus/event-bus.module";
 
 export async function createMicroserviceApp(AppModule: unknown): Promise<void> {
   const app = await NestFactory.create(AppModule as any);
 
   const configService = app.get(ConfigService);
 
-  const allowedOrigins = configService.get("CORS_ORIGINS")?.split(",").filter(Boolean) || [];
+  const allowedOrigins =
+    configService.get("CORS_ORIGINS")?.split(",").filter(Boolean) || [];
   app.enableCors({
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void
+    ) => {
       // En desarrollo permitir cualquier origen de localhost
-      if (!origin || allowedOrigins.includes(origin) || origin?.startsWith("http://localhost")) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        origin?.startsWith("http://localhost")
+      ) {
         callback(null, true);
       } else if (configService.get("NODE_ENV") !== "production") {
         callback(null, true);
@@ -34,7 +41,7 @@ export async function createMicroserviceApp(AppModule: unknown): Promise<void> {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-    }),
+    })
   );
 
   const reflector = app.get(Reflector);
@@ -43,13 +50,12 @@ export async function createMicroserviceApp(AppModule: unknown): Promise<void> {
     new InternalSecretGuard(configService),
     new JwtAuthGuard(configService, reflector),
     new BusinessScopeGuard(reflector),
-    new RolesGuard(reflector),
+    new RolesGuard(reflector)
   );
 
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor());
 
-  // Registrar EventBusModule global
   await app.init();
 
   const port = process.env.PORT || 3000;
