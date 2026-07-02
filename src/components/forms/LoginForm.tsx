@@ -138,16 +138,18 @@ export default function LoginForm() {
         </div>
       </form>
 
-      <div className="mt-6 border-t pt-6">
-        <p className="text-center text-xs text-gray-500">
-          Credenciales de prueba:
-        </p>
-        <div className="mt-2 space-y-1 text-xs text-gray-600">
-          <p>Admin: admin@barbershop.com / password123</p>
-          <p>Barbero: carlos.barbero@barbershop.com / password123</p>
-          <p>Cliente: juan.perez@email.com / password123</p>
+      {process.env.NODE_ENV !== "production" && (
+        <div className="mt-6 border-t pt-6">
+          <p className="text-center text-xs text-gray-500">
+            Credenciales de prueba:
+          </p>
+          <div className="mt-2 space-y-1 text-xs text-gray-600">
+            <p>Admin: admin@barbershop.com / password123</p>
+            <p>Barbero: carlos.barbero@barbershop.com / password123</p>
+            <p>Cliente: juan.perez@email.com / password123</p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

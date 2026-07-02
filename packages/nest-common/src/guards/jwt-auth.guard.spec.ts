@@ -1,22 +1,26 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
-import { Reflector } from '@nestjs/core';
-import { UnauthorizedException } from '@nestjs/common';
-import { JwtAuthGuard } from './jwt-auth.guard';
-import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { Test, TestingModule } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
+import { Reflector } from "@nestjs/core";
+import { UnauthorizedException } from "@nestjs/common";
+import { JwtAuthGuard } from "./jwt-auth.guard";
+import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 
-jest.mock('jsonwebtoken', () => ({
+jest.mock("jsonwebtoken", () => ({
   verify: jest.fn(),
 }));
 
-import * as jwt from 'jsonwebtoken';
+import * as jwt from "jsonwebtoken";
 
-describe('JwtAuthGuard', () => {
+describe("JwtAuthGuard", () => {
   let guard: JwtAuthGuard;
   let mockConfigService: jest.Mocked<ConfigService>;
   let mockReflector: jest.Mocked<Reflector>;
 
-  const mockExecutionContext = (url: string, authHeader?: string, user?: any) => {
+  const mockExecutionContext = (
+    url: string,
+    authHeader?: string,
+    user?: any
+  ) => {
     const context = {
       getHandler: jest.fn(),
       getClass: jest.fn(),
@@ -34,7 +38,8 @@ describe('JwtAuthGuard', () => {
   beforeEach(async () => {
     mockConfigService = {
       get: jest.fn((key: string) => {
-        if (key === 'JWT_SECRET') return 'test-secret';
+        if (key === "JWT_SECRET")
+          return "test-secret-with-sufficient-length-32!!";
         return key;
       }),
     } as any;
@@ -60,123 +65,150 @@ describe('JwtAuthGuard', () => {
     guard = module.get<JwtAuthGuard>(JwtAuthGuard);
   });
 
-  describe('constructor', () => {
-    it('debería crear instancia correctamente', () => {
+  describe("constructor", () => {
+    it("debería crear instancia correctamente", () => {
       expect(guard).toBeInstanceOf(JwtAuthGuard);
     });
   });
 
-  describe('canActivate - endpoints públicos', () => {
-    it('debería permitir acceso a rutas públicas', () => {
+  describe("canActivate - endpoints públicos", () => {
+    it("debería permitir acceso a rutas públicas", () => {
       mockReflector.getAllAndOverride.mockReturnValue(true);
 
-      const context = mockExecutionContext('/public/route');
+      const context = mockExecutionContext("/public/route");
 
       expect(guard.canActivate(context)).toBe(true);
     });
 
-    it('debería permitir acceso a /health', () => {
+    it("debería permitir acceso a /health", () => {
       mockReflector.getAllAndOverride.mockReturnValue(false);
 
-      const context = mockExecutionContext('/health');
+      const context = mockExecutionContext("/health");
 
       expect(guard.canActivate(context)).toBe(true);
     });
 
-    it('debería permitir acceso a rutas /internal', () => {
+    it("debería permitir acceso a rutas /internal", () => {
       mockReflector.getAllAndOverride.mockReturnValue(false);
 
-      const context = mockExecutionContext('/internal/test');
+      const context = mockExecutionContext("/internal/test");
 
       expect(guard.canActivate(context)).toBe(true);
     });
   });
 
-  describe('canActivate - autenticación', () => {
-    const validToken = 'valid.jwt.token';
+  describe("canActivate - autenticación", () => {
+    const validToken = "valid.jwt.token";
     const mockDecoded = {
-      sub: 'user-123',
-      email: 'test@example.com',
-      role: 'CLIENT',
-      businessId: 'business-123',
-      businessIds: ['business-123', 'business-456'],
+      sub: "user-123",
+      email: "test@example.com",
+      role: "CLIENT",
+      businessId: "business-123",
+      businessIds: ["business-123", "business-456"],
     };
 
     beforeEach(() => {
       mockConfigService.get.mockImplementation((key) => {
-        if (key === 'JWT_SECRET') return 'test-secret';
+        if (key === "JWT_SECRET")
+          return "test-secret-with-sufficient-length-32!!";
         return key;
       });
     });
 
-    it('debería permitir acceso con token Bearer válido', () => {
+    it("debería permitir acceso con token Bearer válido", () => {
       (jwt.verify as jest.Mock).mockReturnValue(mockDecoded as any);
-      
-      const context = mockExecutionContext(
-        '/api/test',
-        `Bearer ${validToken}`
-      );
+
+      const context = mockExecutionContext("/api/test", `Bearer ${validToken}`);
 
       expect(guard.canActivate(context)).toBe(true);
       expect(context.switchToHttp().getRequest().user).toEqual({
-        userId: 'user-123',
-        email: 'test@example.com',
-        role: 'CLIENT',
-        businessId: 'business-123',
-        businessIds: ['business-123', 'business-456'],
+        userId: "user-123",
+        email: "test@example.com",
+        role: "CLIENT",
+        businessId: "business-123",
+        businessIds: ["business-123", "business-456"],
       });
     });
 
-    it('debería permitir acceso con token sin prefijo Bearer', () => {
+    it("debería permitir acceso con token sin prefijo Bearer", () => {
       (jwt.verify as jest.Mock).mockReturnValue(mockDecoded as any);
-      
-      const context = mockExecutionContext('/api/test', validToken);
+
+      const context = mockExecutionContext("/api/test", validToken);
 
       expect(guard.canActivate(context)).toBe(true);
     });
 
-    it('debería lanzar UnauthorizedException cuando no hay header de autorización', () => {
-      const context = mockExecutionContext('/api/test');
+    it("debería lanzar UnauthorizedException cuando no hay header de autorización", () => {
+      const context = mockExecutionContext("/api/test");
 
       expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
-      expect(() => guard.canActivate(context)).toThrow('Token no proporcionado');
+      expect(() => guard.canActivate(context)).toThrow(
+        "Token no proporcionado"
+      );
     });
 
-    it('debería lanzar UnauthorizedException con token inválido', () => {
+    it("debería lanzar UnauthorizedException con token inválido", () => {
       (jwt.verify as jest.Mock).mockImplementation(() => {
-        throw new Error('Invalid token');
+        throw new Error("Invalid token");
       });
 
-      const context = mockExecutionContext('/api/test', 'Bearer invalid-token');
+      const context = mockExecutionContext("/api/test", "Bearer invalid-token");
 
       expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
-      expect(() => guard.canActivate(context)).toThrow('Token inválido o expirado');
+      expect(() => guard.canActivate(context)).toThrow(
+        "Token inválido o expirado"
+      );
     });
 
-    it('debería lanzar Error cuando JWT_SECRET no está configurado', () => {
+    it("debería lanzar InternalServerErrorException cuando JWT_SECRET no está configurado", () => {
       mockConfigService.get.mockReturnValue(undefined);
 
-      const context = mockExecutionContext('/api/test', 'Bearer token');
+      const context = mockExecutionContext("/api/test", "Bearer token");
 
-      expect(() => guard.canActivate(context)).toThrow('JWT_SECRET no está configurado');
+      expect(() => guard.canActivate(context)).toThrow(
+        "JWT_SECRET no está configurado"
+      );
     });
 
-    it('debería extraer correctamente el token del header Bearer', () => {
+    it("debería rechazar JWT_SECRET con valor por defecto débil (dev-jwt-secret-change-in-production)", () => {
+      mockConfigService.get.mockReturnValue(
+        "dev-jwt-secret-change-in-production"
+      );
+
+      const context = mockExecutionContext("/api/test", "Bearer token");
+
+      expect(() => guard.canActivate(context)).toThrow(
+        "tiene un valor por defecto inseguro"
+      );
+    });
+
+    it("debería rechazar JWT_SECRET demasiado corto (< 16 caracteres)", () => {
+      mockConfigService.get.mockReturnValue("short");
+
+      const context = mockExecutionContext("/api/test", "Bearer token");
+
+      expect(() => guard.canActivate(context)).toThrow("es demasiado corto");
+    });
+
+    it("debería extraer correctamente el token del header Bearer", () => {
       (jwt.verify as jest.Mock).mockReturnValue(mockDecoded as any);
-      
-      const context = mockExecutionContext('/api/test', 'Bearer my-jwt-token');
+
+      const context = mockExecutionContext("/api/test", "Bearer my-jwt-token");
 
       guard.canActivate(context);
 
-      expect(jwt.verify).toHaveBeenCalledWith('my-jwt-token', 'test-secret');
+      expect(jwt.verify).toHaveBeenCalledWith(
+        "my-jwt-token",
+        "test-secret-with-sufficient-length-32!!"
+      );
     });
   });
 
-  describe('canActivate - integración con reflector', () => {
-    it('debería leer metadatos IS_PUBLIC_KEY del handler', () => {
+  describe("canActivate - integración con reflector", () => {
+    it("debería leer metadatos IS_PUBLIC_KEY del handler", () => {
       mockReflector.getAllAndOverride.mockReturnValue(true);
 
-      const context = mockExecutionContext('/public/route');
+      const context = mockExecutionContext("/public/route");
 
       guard.canActivate(context);
 
@@ -186,10 +218,10 @@ describe('JwtAuthGuard', () => {
       );
     });
 
-    it('debería leer metadatos IS_PUBLIC_KEY de la clase si no está en el handler', () => {
+    it("debería leer metadatos IS_PUBLIC_KEY de la clase si no está en el handler", () => {
       mockReflector.getAllAndOverride.mockReturnValue(true);
 
-      const context = mockExecutionContext('/public/route');
+      const context = mockExecutionContext("/public/route");
 
       const result = guard.canActivate(context);
 
