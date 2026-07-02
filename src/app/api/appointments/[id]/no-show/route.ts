@@ -59,13 +59,29 @@ export async function POST(
       );
     }
 
-    // Marcar como NO_SHOW
-    const updatedAppointment = await prisma.appointment.update({
-      where: { id: parseInt(params.id) },
-      data: {
-        status: "NO_SHOW",
-      },
-    });
+    // Marcar como NO_SHOW y revertir puntos de fidelidad en una transaccion.
+    // Si la cita tenia puntos otorgados (p.ej. citas creadas antes del fix
+    // de doble otorgamiento), se descuentan para mantener el balance correcto.
+    const [updatedAppointment] = await prisma.$transaction([
+      prisma.appointment.update({
+        where: { id: parseInt(params.id) },
+        data: {
+          status: "NO_SHOW",
+        },
+      }),
+      ...(appointment.pointsEarned > 0
+        ? [
+            prisma.user.update({
+              where: { id: appointment.clientId },
+              data: {
+                loyaltyPoints: {
+                  decrement: appointment.pointsEarned,
+                },
+              },
+            }),
+          ]
+        : []),
+    ]);
 
     // TODO: Enviar notificación al cliente
 

@@ -71,8 +71,9 @@ export async function POST(
       0
     );
 
-    // Calcular puntos de lealtad (10% del precio total)
-    const pointsEarned = Math.floor(totalPrice * 0.1);
+    // Calcular puntos de lealtad (10% del precio total).
+    // Math.round para alinear con el backend (booking-service usa Math.round).
+    const pointsEarned = Math.round(totalPrice * 0.1);
 
     // Marcar como completada y asignar puntos
     const updatedAppointment = await prisma.$transaction([

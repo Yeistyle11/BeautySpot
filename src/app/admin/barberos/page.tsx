@@ -45,22 +45,30 @@ export default async function BarbersManagementPage() {
   // Calcular estadísticas para cada barbero
   const barbersWithStats = await Promise.all(
     barbers.map(async (barber) => {
-      const completedAppointments = await prisma.appointment.count({
+      const completedAppointments = await prisma.appointment.findMany({
         where: {
           barberId: barber.id,
           status: "COMPLETED",
+        },
+        select: {
+          services: {
+            select: {
+              service: {
+                select: { price: true },
+              },
+            },
+          },
         },
       });
 
-      const totalRevenue = await prisma.appointment.aggregate({
-        where: {
-          barberId: barber.id,
-          status: "COMPLETED",
-        },
-        _sum: {
-          pointsEarned: true,
-        },
-      });
+      // Revenue real: suma de Service.price de los servicios de cada cita.
+      // Antes esto agregaba pointsEarned (puntos de fidelidad) como si fuera
+      // revenue, lo que subreportaba los ingresos reales.
+      const totalRevenue = completedAppointments.reduce(
+        (sum, apt) =>
+          sum + apt.services.reduce((s, as) => s + as.service.price, 0),
+        0
+      );
 
       // Citas del mes actual
       const startOfMonth = new Date(
@@ -90,8 +98,8 @@ export default async function BarbersManagementPage() {
       return {
         ...barber,
         stats: {
-          completed: completedAppointments,
-          totalRevenue: totalRevenue._sum.pointsEarned || 0,
+          completed: completedAppointments.length,
+          totalRevenue,
           monthlyAppointments,
         },
       };
