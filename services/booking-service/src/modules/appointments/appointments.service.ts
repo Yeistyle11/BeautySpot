@@ -1,8 +1,11 @@
 import {
-  Injectable, NotFoundException, BadRequestException, ForbiddenException,
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
-import { Repository, DataSource, In } from "typeorm";
+import { Repository, DataSource, EntityManager, In } from "typeorm";
 import { Appointment } from "../../entities/appointment.entity";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 import { Availability } from "../../entities/availability.entity";
@@ -10,48 +13,99 @@ import { BlockedSlot } from "../../entities/blocked-slot.entity";
 import { AppointmentStatus } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
 import { EventBusService } from "@beautyspot/nest-common";
-import { getTimeSlots, calculateEndTime, timeToMinutes, timesOverlap } from "@beautyspot/shared-utils";
+import {
+  getTimeSlots,
+  calculateEndTime,
+  timeToMinutes,
+  timesOverlap,
+} from "@beautyspot/shared-utils";
 
 @Injectable()
 export class AppointmentsService {
   constructor(
-    @InjectRepository(Appointment) private readonly apptRepo: Repository<Appointment>,
-    @InjectRepository(Availability) private readonly availRepo: Repository<Availability>,
-    @InjectRepository(BlockedSlot) private readonly blockRepo: Repository<BlockedSlot>,
+    @InjectRepository(Appointment)
+    private readonly apptRepo: Repository<Appointment>,
+    @InjectRepository(Availability)
+    private readonly availRepo: Repository<Availability>,
+    @InjectRepository(BlockedSlot)
+    private readonly blockRepo: Repository<BlockedSlot>,
     @InjectDataSource() private dataSource: DataSource,
-    private readonly eventBus: EventBusService,
+    private readonly eventBus: EventBusService
   ) {}
 
   /** Crear cita verificando disponibilidad (transacción) */
-  async create(businessId: string, data: {
-    professionalId: string;
-    clientId: string;
-    serviceIds: { id: string; name: string; price: number; duration: number }[];
-    date: string;
-    startTime: string;
-    notes?: string;
-    branchId?: string;
-    createdBy?: string;
-  }): Promise<Appointment> {
-    const totalDuration = data.serviceIds.reduce((sum, s) => sum + s.duration, 0);
+  async create(
+    businessId: string,
+    data: {
+      professionalId: string;
+      clientId: string;
+      serviceIds: {
+        id: string;
+        name: string;
+        price: number;
+        duration: number;
+      }[];
+      date: string;
+      startTime: string;
+      notes?: string;
+      branchId?: string;
+      createdBy?: string;
+    }
+  ): Promise<Appointment> {
+    const totalDuration = data.serviceIds.reduce(
+      (sum, s) => sum + s.duration,
+      0
+    );
     const totalAmount = data.serviceIds.reduce((sum, s) => sum + s.price, 0);
     const endTime = calculateEndTime(data.startTime, totalDuration);
 
-    // Verificar disponibilidad
+    // Pre-check rapido (UX): fast-fail en slots obviamente invalidos fuera
+    // de transaccion. El check autoritativo corre DENTRO de la tx SERIALIZABLE.
     const dayOfWeek = new Date(data.date + "T12:00:00").getDay();
-    const available = await this.isSlotAvailable(businessId, data.professionalId, data.date, data.startTime, endTime, dayOfWeek);
+    const available = await this.isSlotAvailable(
+      businessId,
+      data.professionalId,
+      data.date,
+      data.startTime,
+      endTime,
+      dayOfWeek
+    );
     if (!available) {
-      throw new BadRequestException("El horario seleccionado no esta disponible");
+      throw new BadRequestException(
+        "El horario seleccionado no esta disponible"
+      );
     }
 
-    // Verificar conflictos con citas existentes
-    const hasConflict = await this.hasTimeConflict(businessId, data.professionalId, data.date, data.startTime, endTime);
-    if (hasConflict) {
+    // Pre-check de conflicto (UX) fuera de la tx
+    if (
+      await this.hasTimeConflict(
+        businessId,
+        data.professionalId,
+        data.date,
+        data.startTime,
+        endTime
+      )
+    ) {
       throw new BadRequestException("Ya existe una cita en ese horario");
     }
 
-    // Ejecutar dentro de transacción
-    return this.dataSource.transaction(async (manager) => {
+    // Ejecutar dentro de transaccion SERIALIZABLE: el re-check del conflicto
+    // dentro de la tx aislada es el que previene el doble-booking (race). Una
+    // tx concurrente sobre el mismo slot recibe error de serializacion (40001).
+    return this.dataSource.transaction("SERIALIZABLE", async (manager) => {
+      // Re-check autoritativo dentro de la transaccion aislada
+      const conflictInTx = await this.hasTimeConflictWith(
+        manager,
+        businessId,
+        data.professionalId,
+        data.date,
+        data.startTime,
+        endTime
+      );
+      if (conflictInTx) {
+        throw new BadRequestException("Ya existe una cita en ese horario");
+      }
+
       const appointment = manager.create(Appointment, {
         businessId,
         branchId: data.branchId,
@@ -73,7 +127,7 @@ export class AppointmentsService {
           serviceName: s.name,
           price: s.price,
           duration: s.duration,
-        }),
+        })
       );
       await manager.save(AppointmentServiceEntity, apptServices);
 
@@ -101,9 +155,14 @@ export class AppointmentsService {
   async confirm(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
     if (appt.status !== AppointmentStatus.PENDING) {
-      throw new BadRequestException(`No se puede confirmar una cita en estado ${appt.status}`);
+      throw new BadRequestException(
+        `No se puede confirmar una cita en estado ${appt.status}`
+      );
     }
-    await this.apptRepo.update({ id, businessId }, { status: AppointmentStatus.CONFIRMED });
+    await this.apptRepo.update(
+      { id, businessId },
+      { status: AppointmentStatus.CONFIRMED }
+    );
     return this.findById(id, businessId);
   }
 
@@ -111,20 +170,33 @@ export class AppointmentsService {
   async startService(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
     if (appt.status !== AppointmentStatus.CONFIRMED) {
-      throw new BadRequestException("Solo se puede iniciar una cita confirmada");
+      throw new BadRequestException(
+        "Solo se puede iniciar una cita confirmada"
+      );
     }
-    await this.apptRepo.update({ id, businessId }, { status: AppointmentStatus.IN_PROGRESS });
+    await this.apptRepo.update(
+      { id, businessId },
+      { status: AppointmentStatus.IN_PROGRESS }
+    );
     return this.findById(id, businessId);
   }
 
   /** Completar cita y otorgar puntos */
   async complete(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
-    if (appt.status !== AppointmentStatus.CONFIRMED && appt.status !== AppointmentStatus.IN_PROGRESS) {
-      throw new BadRequestException("Solo se puede completar una cita confirmada o en progreso");
+    if (
+      appt.status !== AppointmentStatus.CONFIRMED &&
+      appt.status !== AppointmentStatus.IN_PROGRESS
+    ) {
+      throw new BadRequestException(
+        "Solo se puede completar una cita confirmada o en progreso"
+      );
     }
-    const pointsEarned = Math.round(appt.totalAmount * 0.10);
-    await this.apptRepo.update({ id, businessId }, { status: AppointmentStatus.COMPLETED, pointsEarned });
+    const pointsEarned = Math.round(appt.totalAmount * 0.1);
+    await this.apptRepo.update(
+      { id, businessId },
+      { status: AppointmentStatus.COMPLETED, pointsEarned }
+    );
 
     this.eventBus.emit(EventNames.BOOKING_APPOINTMENT_COMPLETED, {
       appointmentId: id,
@@ -142,21 +214,37 @@ export class AppointmentsService {
   }
 
   /** Cancelar cita con politica de 2 horas */
-  async cancel(id: string, businessId: string, reason: string, _userId: string): Promise<Appointment> {
+  async cancel(
+    id: string,
+    businessId: string,
+    reason: string,
+    _userId: string
+  ): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
-    if (appt.status === AppointmentStatus.COMPLETED || appt.status === AppointmentStatus.CANCELLED) {
-      throw new BadRequestException(`No se puede cancelar una cita en estado ${appt.status}`);
+    if (
+      appt.status === AppointmentStatus.COMPLETED ||
+      appt.status === AppointmentStatus.CANCELLED
+    ) {
+      throw new BadRequestException(
+        `No se puede cancelar una cita en estado ${appt.status}`
+      );
     }
 
     // Verificar politica de cancelacion (2 horas antes)
     const appointmentDate = new Date(`${appt.date}T${appt.startTime}:00`);
     const now = new Date();
-    const hoursDiff = (appointmentDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const hoursDiff =
+      (appointmentDate.getTime() - now.getTime()) / (1000 * 60 * 60);
     if (hoursDiff < 2) {
-      throw new ForbiddenException("No se puede cancelar con menos de 2 horas de anticipacion");
+      throw new ForbiddenException(
+        "No se puede cancelar con menos de 2 horas de anticipacion"
+      );
     }
 
-    await this.apptRepo.update({ id, businessId }, { status: AppointmentStatus.CANCELLED, cancelReason: reason });
+    await this.apptRepo.update(
+      { id, businessId },
+      { status: AppointmentStatus.CANCELLED, cancelReason: reason }
+    );
 
     this.eventBus.emit(EventNames.BOOKING_APPOINTMENT_CANCELLED, {
       appointmentId: id,
@@ -176,40 +264,103 @@ export class AppointmentsService {
   /** Marcar como no asistio */
   async markNoShow(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
-    if (appt.status !== AppointmentStatus.PENDING && appt.status !== AppointmentStatus.CONFIRMED) {
-      throw new BadRequestException("Solo se puede marcar no-show en citas pendientes o confirmadas");
+    if (
+      appt.status !== AppointmentStatus.PENDING &&
+      appt.status !== AppointmentStatus.CONFIRMED
+    ) {
+      throw new BadRequestException(
+        "Solo se puede marcar no-show en citas pendientes o confirmadas"
+      );
     }
-    await this.apptRepo.update({ id, businessId }, { status: AppointmentStatus.NO_SHOW });
+    await this.apptRepo.update(
+      { id, businessId },
+      { status: AppointmentStatus.NO_SHOW }
+    );
     return this.findById(id, businessId);
   }
 
   /** Reagendar cita */
-  async reschedule(id: string, businessId: string, newDate: string, newStartTime: string, serviceDuration: number): Promise<Appointment> {
+  async reschedule(
+    id: string,
+    businessId: string,
+    newDate: string,
+    newStartTime: string,
+    serviceDuration: number
+  ): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
 
     const appointmentDate = new Date(`${appt.date}T${appt.startTime}:00`);
-    const hoursDiff = (appointmentDate.getTime() - Date.now()) / (1000 * 60 * 60);
+    const hoursDiff =
+      (appointmentDate.getTime() - Date.now()) / (1000 * 60 * 60);
     if (hoursDiff < 2) {
-      throw new ForbiddenException("No se puede reagendar con menos de 2 horas de anticipacion");
+      throw new ForbiddenException(
+        "No se puede reagendar con menos de 2 horas de anticipacion"
+      );
     }
 
     const newEndTime = calculateEndTime(newStartTime, serviceDuration);
     const dayOfWeek = new Date(newDate + "T12:00:00").getDay();
-    const available = await this.isSlotAvailable(businessId, appt.professionalId, newDate, newStartTime, newEndTime, dayOfWeek);
-    if (!available) throw new BadRequestException("El nuevo horario no esta disponible");
+    const available = await this.isSlotAvailable(
+      businessId,
+      appt.professionalId,
+      newDate,
+      newStartTime,
+      newEndTime,
+      dayOfWeek
+    );
+    if (!available)
+      throw new BadRequestException("El nuevo horario no esta disponible");
 
-    const hasConflict = await this.hasTimeConflict(businessId, appt.professionalId, newDate, newStartTime, newEndTime, id);
-    if (hasConflict) throw new BadRequestException("Ya existe una cita en el nuevo horario");
+    // Pre-check de conflicto (UX) excluyendo la propia cita
+    if (
+      await this.hasTimeConflict(
+        businessId,
+        appt.professionalId,
+        newDate,
+        newStartTime,
+        newEndTime,
+        id
+      )
+    )
+      throw new BadRequestException("Ya existe una cita en el nuevo horario");
 
-    await this.apptRepo.update({ id, businessId }, {
-      date: newDate, startTime: newStartTime, endTime: newEndTime,
-      status: AppointmentStatus.PENDING, cancelReason: undefined,
+    // Actualizar dentro de tx SERIALIZABLE con re-check autoritativo para
+    // prevenir doble-booking en el nuevo horario (race condition).
+    await this.dataSource.transaction("SERIALIZABLE", async (manager) => {
+      const conflictInTx = await this.hasTimeConflictWith(
+        manager,
+        businessId,
+        appt.professionalId,
+        newDate,
+        newStartTime,
+        newEndTime,
+        id
+      );
+      if (conflictInTx)
+        throw new BadRequestException("Ya existe una cita en el nuevo horario");
+
+      await manager.update(
+        Appointment,
+        { id, businessId },
+        {
+          date: newDate,
+          startTime: newStartTime,
+          endTime: newEndTime,
+          status: AppointmentStatus.PENDING,
+          cancelReason: undefined,
+        }
+      );
     });
     return this.findById(id, businessId);
   }
 
   /** Obtener slots disponibles */
-  async findAvailableSlots(businessId: string, professionalId: string, date: string, duration: number): Promise<{ startTime: string; endTime: string; available: boolean }[]> {
+  async findAvailableSlots(
+    businessId: string,
+    professionalId: string,
+    date: string,
+    duration: number
+  ): Promise<{ startTime: string; endTime: string; available: boolean }[]> {
     const dayOfWeek = new Date(date + "T12:00:00").getDay();
 
     // Horario de trabajo del profesional
@@ -226,14 +377,20 @@ export class AppointmentsService {
     // Citas existentes del dia (una sola query en vez de dos)
     const allAppointments = await this.apptRepo.find({
       where: {
-        businessId, professionalId, date,
+        businessId,
+        professionalId,
+        date,
         status: In([AppointmentStatus.CONFIRMED, AppointmentStatus.PENDING]),
       },
     });
 
     // Generar slots de 30 minutos
     const slotDuration = 30;
-    const slots = getTimeSlots(workHours.startTime, workHours.endTime, slotDuration);
+    const slots = getTimeSlots(
+      workHours.startTime,
+      workHours.endTime,
+      slotDuration
+    );
 
     return slots.map((slotStart) => {
       const slotEnd = calculateEndTime(slotStart, duration);
@@ -246,7 +403,7 @@ export class AppointmentsService {
 
       // Verificar bloqueos
       const isBlocked = blocks.some((b) =>
-        timesOverlap(slotStart, slotEnd, b.startTime, b.endTime),
+        timesOverlap(slotStart, slotEnd, b.startTime, b.endTime)
       );
       if (isBlocked) {
         return { startTime: slotStart, endTime: slotEnd, available: false };
@@ -254,7 +411,7 @@ export class AppointmentsService {
 
       // Verificar conflictos con citas
       const hasAppt = allAppointments.some((a) =>
-        timesOverlap(slotStart, slotEnd, a.startTime, a.endTime),
+        timesOverlap(slotStart, slotEnd, a.startTime, a.endTime)
       );
 
       return { startTime: slotStart, endTime: slotEnd, available: !hasAppt };
@@ -272,7 +429,15 @@ export class AppointmentsService {
     return appt;
   }
 
-  async findByBusiness(businessId: string, filters?: { status?: AppointmentStatus; date?: string; professionalId?: string; clientId?: string }) {
+  async findByBusiness(
+    businessId: string,
+    filters?: {
+      status?: AppointmentStatus;
+      date?: string;
+      professionalId?: string;
+      clientId?: string;
+    }
+  ) {
     const where: Record<string, unknown> = { businessId };
     if (filters?.status) where.status = filters.status;
     if (filters?.date) where.date = filters.date;
@@ -291,7 +456,11 @@ export class AppointmentsService {
    * Usado por core-service antes de permitir la eliminacion de un profesional.
    * Un profesional con citas solo puede ser inactivado, no eliminado.
    */
-  async professionalHasHistory(professionalId: string): Promise<{ hasHistory: boolean; totalAppointments: number; completedAppointments: number }> {
+  async professionalHasHistory(professionalId: string): Promise<{
+    hasHistory: boolean;
+    totalAppointments: number;
+    completedAppointments: number;
+  }> {
     const totalAppointments = await this.apptRepo.count({
       where: { professionalId },
     });
@@ -309,34 +478,97 @@ export class AppointmentsService {
 
   // ─── Helpers privados ──────────────────────────────────────
 
-  private async isSlotAvailable(businessId: string, professionalId: string, date: string, start: string, end: string, dayOfWeek: number): Promise<boolean> {
+  private async isSlotAvailable(
+    businessId: string,
+    professionalId: string,
+    date: string,
+    start: string,
+    end: string,
+    dayOfWeek: number
+  ): Promise<boolean> {
     const workHours = await this.availRepo.findOne({
       where: { businessId, professionalId, dayOfWeek, active: true },
     });
     if (!workHours) return false;
 
     // Verificar que el slot esta dentro del horario de trabajo
-    if (timeToMinutes(start) < timeToMinutes(workHours.startTime) ||
-        timeToMinutes(end) > timeToMinutes(workHours.endTime)) {
+    if (
+      timeToMinutes(start) < timeToMinutes(workHours.startTime) ||
+      timeToMinutes(end) > timeToMinutes(workHours.endTime)
+    ) {
       return false;
     }
 
     // Verificar bloqueos
-    const blocks = await this.blockRepo.find({ where: { businessId, professionalId, date } });
-    const isBlocked = blocks.some((b) => timesOverlap(start, end, b.startTime, b.endTime));
+    const blocks = await this.blockRepo.find({
+      where: { businessId, professionalId, date },
+    });
+    const isBlocked = blocks.some((b) =>
+      timesOverlap(start, end, b.startTime, b.endTime)
+    );
     return !isBlocked;
   }
 
-  private async hasTimeConflict(businessId: string, professionalId: string, date: string, start: string, end: string, excludeId?: string): Promise<boolean> {
+  private async hasTimeConflict(
+    businessId: string,
+    professionalId: string,
+    date: string,
+    start: string,
+    end: string,
+    excludeId?: string
+  ): Promise<boolean> {
     const appointments = await this.apptRepo.find({
       where: {
         businessId,
         professionalId,
         date,
-        status: In([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS]),
+        status: In([
+          AppointmentStatus.PENDING,
+          AppointmentStatus.CONFIRMED,
+          AppointmentStatus.IN_PROGRESS,
+        ]),
       },
     });
 
+    return this.appointmentsConflict(appointments, start, end, excludeId);
+  }
+
+  /**
+   * Re-check de conflicto usando un EntityManager (dentro de una tx
+   * SERIALIZABLE). Es el check autoritativo que previene el doble-booking.
+   */
+  private async hasTimeConflictWith(
+    manager: EntityManager,
+    businessId: string,
+    professionalId: string,
+    date: string,
+    start: string,
+    end: string,
+    excludeId?: string
+  ): Promise<boolean> {
+    const appointments = await manager.find(Appointment, {
+      where: {
+        businessId,
+        professionalId,
+        date,
+        status: In([
+          AppointmentStatus.PENDING,
+          AppointmentStatus.CONFIRMED,
+          AppointmentStatus.IN_PROGRESS,
+        ]),
+      },
+    });
+
+    return this.appointmentsConflict(appointments, start, end, excludeId);
+  }
+
+  /** Logica pura de solapamiento, compartida por ambos checks. */
+  private appointmentsConflict(
+    appointments: Pick<Appointment, "id" | "startTime" | "endTime">[],
+    start: string,
+    end: string,
+    excludeId?: string
+  ): boolean {
     return appointments
       .filter((a) => a.id !== excludeId)
       .some((a) => timesOverlap(start, end, a.startTime, a.endTime));
