@@ -3,6 +3,8 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ServiceUnavailableException,
+  InternalServerErrorException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -154,23 +156,29 @@ export class ProfessionalsService {
   /**
    * Consulta al booking-service si el profesional tiene historial de citas.
    * Usa el endpoint interno del booking-service via HTTP.
+   *
+   * Fail-closed: si el booking-service no esta disponible o responde con
+   * error, la accion se BLOQUEA (no se permite inactivar al profesional).
+   * Esto evita inactivar profesionales con citas activas cuando no se puede
+   * verificar su historial de forma segura.
    */
   private async checkProfessionalHistory(professionalId: string): Promise<{
     hasHistory: boolean;
     hasActiveAppointments: boolean;
     totalAppointments: number;
   }> {
-    try {
-      const bookingUrl = this.configService.get<string>(
-        "BOOKING_SERVICE_URL",
-        "http://localhost:3003"
-      );
-      const internalSecret = this.configService.get<string>(
-        "INTERNAL_API_SECRET",
-        ""
-      );
+    const bookingUrl = this.configService.get<string>(
+      "BOOKING_SERVICE_URL",
+      "http://localhost:3003"
+    );
+    const internalSecret = this.configService.get<string>(
+      "INTERNAL_API_SECRET",
+      ""
+    );
 
-      const response = await fetch(
+    let response: Response;
+    try {
+      response = await fetch(
         `${bookingUrl}/internal/appointments/professional/${professionalId}/has-history`,
         {
           headers: {
@@ -179,44 +187,48 @@ export class ProfessionalsService {
           },
         }
       );
-
-      if (!response.ok) {
-        // Si no se puede verificar, permitir la accion pero loguear
-        console.warn(
-          `No se pudo verificar historial del profesional ${professionalId}`
-        );
-        return {
-          hasHistory: false,
-          hasActiveAppointments: false,
-          totalAppointments: 0,
-        };
-      }
-
-      const data = (await response.json()) as {
-        hasHistory: boolean;
-        totalAppointments: number;
-        completedAppointments: number;
-      };
-      const result =
-        typeof data === "object" && "data" in data ? (data as any).data : data;
-
-      return {
-        hasHistory: result.hasHistory || false,
-        hasActiveAppointments:
-          result.totalAppointments - result.completedAppointments > 0,
-        totalAppointments: result.totalAppointments || 0,
-      };
     } catch (error) {
-      // Si el booking-service no esta disponible, permitir la accion
-      console.warn(
-        `Error verificando historial del profesional ${professionalId}:`,
-        error
+      // Fail-closed: error de red/DNS/timeout bloquea la accion
+      throw new ServiceUnavailableException(
+        `No se pudo verificar el historial del profesional (booking-service no disponible). ` +
+          `Reintenta mas tarde. Error: ${
+            error instanceof Error ? error.message : String(error)
+          }`
       );
-      return {
-        hasHistory: false,
-        hasActiveAppointments: false,
-        totalAppointments: 0,
-      };
     }
+
+    if (!response.ok) {
+      // Fail-closed: respuesta no-2xx bloquea la accion
+      throw new ServiceUnavailableException(
+        `No se pudo verificar el historial del profesional (booking-service respondio ${response.status}). ` +
+          `Reintenta mas tarde.`
+      );
+    }
+
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Respuesta invalida del booking-service al verificar historial: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+
+    const result =
+      typeof data === "object" && data !== null && "data" in data
+        ? (data as any).data
+        : data;
+
+    // Coercion segura: valores faltantes/no-numericos se tratan como 0
+    const totalAppointments = Number(result?.totalAppointments) || 0;
+    const completedAppointments = Number(result?.completedAppointments) || 0;
+
+    return {
+      hasHistory: Boolean(result?.hasHistory) || totalAppointments > 0,
+      hasActiveAppointments: totalAppointments - completedAppointments > 0,
+      totalAppointments,
+    };
   }
 }

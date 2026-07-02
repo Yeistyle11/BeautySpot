@@ -31,14 +31,19 @@ export class EventBusService implements OnModuleDestroy {
       const amqp = await import("amqplib");
       this.connection = await (amqp as any).default.connect(url);
       this.channel = await this.connection.createChannel();
-      
+
       await this.setupExchangesAndQueues();
-      
+
       this.connecting = false;
       this.logger.log("RabbitMQ conectado exitosamente");
     } catch (error: any) {
       this.connecting = false;
-      this.logger.error(`Error conectando a RabbitMQ: ${error.message}`, error.stack);
+      this.channel = null;
+      this.deadLetterChannel = null;
+      this.logger.error(
+        `Error conectando a RabbitMQ: ${error.message}`,
+        error.stack
+      );
     }
   }
 
@@ -46,21 +51,30 @@ export class EventBusService implements OnModuleDestroy {
     const { DLX_EXCHANGE, RETRY_EXCHANGE } = this;
 
     await this.channel.assertExchange(DLX_EXCHANGE, "topic", { durable: true });
-    await this.channel.assertExchange(RETRY_EXCHANGE, "topic", { durable: true });
-
-    await this.channel.assertQueue("beautyspot.dlx.retry", {
+    await this.channel.assertExchange(RETRY_EXCHANGE, "topic", {
       durable: true,
-      arguments: {
-        "x-dead-letter-exchange": RETRY_EXCHANGE,
-      },
     });
 
-    await this.channel.bindQueue("beautyspot.dlx.retry", RETRY_EXCHANGE, "#");
+    // Cola terminal de Dead Letter: los mensajes aqui NO se reenvian al
+    // exchange de retries (eso crearia un loop infinito). Se quedan para
+    // inspeccion/reprocesamiento manual.
+    await this.channel.assertQueue("beautyspot.dlx.dead", {
+      durable: true,
+    });
+    await this.channel.bindQueue("beautyspot.dlx.dead", DLX_EXCHANGE, "#");
 
-    this.deadLetterChannel = this.channel;
+    // Canal dedicado para publicar a la DLQ, independiente del canal principal.
+    // Si el canal principal muere, este canal sigue operativo para enrutar
+    // el evento fallido a la DLQ.
+    this.deadLetterChannel = await this.connection.createChannel();
   }
 
-  async emit<T>(eventType: string, payload: T, correlationId?: string, retryCount = 0): Promise<void> {
+  async emit<T>(
+    eventType: string,
+    payload: T,
+    correlationId?: string,
+    retryCount = 0
+  ): Promise<void> {
     if (!this.channel && !this.connecting) {
       await this.connect();
     }
@@ -88,35 +102,42 @@ export class EventBusService implements OnModuleDestroy {
           expiration: "300000",
           timestamp: Date.now(),
           messageId: message.correlationId,
-        },
+        }
       );
-      
+
       if (retryCount > 0) {
-        this.logger.log(`Evento ${eventType} reenviado exitosamente (intento ${retryCount + 1})`);
+        this.logger.log(
+          `Evento ${eventType} reenviado exitosamente (intento ${retryCount + 1})`
+        );
       }
     } catch (error: any) {
-      if (retryCount < this.MAX_RETRIES) {
-        this.logger.warn(`Error publicando evento ${eventType}, reintentando (${retryCount + 1}/${this.MAX_RETRIES})...`);
-        
+      // retryCount + 1 < MAX_RETRIES => reintenta (el intento inicial cuenta).
+      // Total de intentos antes de DLQ = MAX_RETRIES.
+      if (retryCount + 1 < this.MAX_RETRIES) {
+        this.logger.warn(
+          `Error publicando evento ${eventType}, reintentando (${retryCount + 1}/${this.MAX_RETRIES})...`
+        );
+
         await this.delay(this.RETRY_DELAY_MS * Math.pow(2, retryCount));
         return this.emit(eventType, payload, correlationId, retryCount + 1);
       }
-      
-      this.logger.error(`Evento ${eventType} falló después de ${this.MAX_RETRIES} intentos, enviando a DLQ`, error.stack);
-      
+
+      this.logger.error(
+        `Evento ${eventType} falló después de ${this.MAX_RETRIES} intentos, enviando a DLQ`,
+        error.stack
+      );
+
       await this.publishToDLQ(message, error);
-      
+
+      // Invalida solo el canal principal; el canal DLQ dedicado se mantiene.
       this.channel = null;
-      this.connection = null;
     }
   }
 
-  private async publishToDLQ(message: IBaseEvent<any>, error: unknown): Promise<void> {
-    if (!this.deadLetterChannel) {
-      this.logger.error("Dead letter channel no disponible, evento perdido permanentemente");
-      return;
-    }
-
+  private async publishToDLQ(
+    message: IBaseEvent<any>,
+    error: unknown
+  ): Promise<void> {
     const dlqMessage = {
       ...message,
       error: error instanceof Error ? error.message : String(error),
@@ -124,21 +145,82 @@ export class EventBusService implements OnModuleDestroy {
       stackTrace: error instanceof Error ? error.stack : undefined,
     };
 
+    const published = await this.tryPublishToDLQ(dlqMessage, message.eventType);
+
+    if (!published) {
+      // El canal DLQ dedicado fallo (p.ej. conexion muerta): abrir una
+      // conexion y canal frescos SOLO para salvar este evento en la DLQ.
+      this.logger.warn(
+        "Canal DLQ no disponible, abriendo conexion de emergencia..."
+      );
+      await this.tryPublishToDLQWithFreshConnection(
+        dlqMessage,
+        message.eventType
+      );
+    }
+  }
+
+  private async tryPublishToDLQ(
+    dlqMessage: any,
+    eventType: string
+  ): Promise<boolean> {
+    if (!this.deadLetterChannel) {
+      return false;
+    }
     try {
       await this.deadLetterChannel.publish(
         this.DLX_EXCHANGE,
-        message.eventType,
+        eventType,
         Buffer.from(JSON.stringify(dlqMessage)),
         {
           persistent: true,
           deliveryMode: 2,
           timestamp: Date.now(),
-        },
+        }
       );
-      
-      this.logger.log(`Evento ${message.eventType} enviado a Dead Letter Queue`);
-    } catch (error: any) {
-      this.logger.error(`Error publicando evento a Dead Letter Queue: ${error.message}`, error.stack);
+      this.logger.log(`Evento ${eventType} enviado a Dead Letter Queue`);
+      return true;
+    } catch (err: any) {
+      this.logger.error(
+        `Error publicando evento a Dead Letter Queue: ${err.message}`,
+        err.stack
+      );
+      return false;
+    }
+  }
+
+  private async tryPublishToDLQWithFreshConnection(
+    dlqMessage: any,
+    eventType: string
+  ): Promise<void> {
+    const url = this.configService.get("RABBITMQ_URL");
+    if (!url) {
+      this.logger.error(
+        "No se pudo salvar evento en DLQ: RABBITMQ_URL no configurado, evento perdido permanentemente"
+      );
+      return;
+    }
+    try {
+      const amqp = await import("amqplib");
+      const conn = await (amqp as any).default.connect(url);
+      const ch = await conn.createChannel();
+      await ch.assertExchange(this.DLX_EXCHANGE, "topic", { durable: true });
+      await ch.publish(
+        this.DLX_EXCHANGE,
+        eventType,
+        Buffer.from(JSON.stringify(dlqMessage)),
+        { persistent: true, deliveryMode: 2, timestamp: Date.now() }
+      );
+      this.logger.log(
+        `Evento ${eventType} salvado en DLQ via conexion de emergencia`
+      );
+      await ch.close();
+      await conn.close();
+    } catch (err: any) {
+      this.logger.error(
+        `No se pudo salvar evento en DLQ (conexion de emergencia fallo): ${err.message}. Evento perdido permanentemente`,
+        err.stack
+      );
     }
   }
 
