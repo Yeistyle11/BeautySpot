@@ -12,3 +12,4 @@ export { EventBusService } from "./modules/event-bus/event-bus.service";
 export { EventBusModule } from "./modules/event-bus/event-bus.module";
 export { createMicroserviceApp } from "./factories/create-app.factory";
 export { TenantQueryInterceptor } from "./interceptors/tenant-query.interceptor";
+export { assertJwtSecret } from "./security/assert-jwt-secret";

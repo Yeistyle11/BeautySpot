@@ -8,12 +8,13 @@ import { ConfigService } from "@nestjs/config";
 import { Reflector } from "@nestjs/core";
 import * as jwt from "jsonwebtoken";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
+import { assertJwtSecret } from "../security/assert-jwt-secret";
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
     private configService: ConfigService,
-    private reflector: Reflector,
+    private reflector: Reflector
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
@@ -24,7 +25,8 @@ export class JwtAuthGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest();
-    if (request.url === "/health" || request.url.startsWith("/internal")) return true;
+    if (request.url === "/health" || request.url.startsWith("/internal"))
+      return true;
 
     const authHeader = request.headers["authorization"];
     if (!authHeader) {
@@ -35,10 +37,10 @@ export class JwtAuthGuard implements CanActivate {
       ? authHeader.slice(7)
       : authHeader;
 
-    const secret = this.configService.get<string>("JWT_SECRET");
-    if (!secret) {
-      throw new Error("JWT_SECRET no está configurado");
-    }
+    const secret = assertJwtSecret(
+      this.configService.get<string>("JWT_SECRET"),
+      "JWT_SECRET"
+    );
 
     try {
       const decoded = jwt.verify(token, secret) as jwt.JwtPayload;

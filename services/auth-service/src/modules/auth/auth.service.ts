@@ -20,7 +20,7 @@ import { ChangePasswordDto } from "./dto/change-password.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { Role, IJwtPayload } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
-import { EventBusService } from "@beautyspot/nest-common";
+import { EventBusService, assertJwtSecret } from "@beautyspot/nest-common";
 
 @Injectable()
 export class AuthService {
@@ -33,16 +33,22 @@ export class AuthService {
     private readonly auditLogRepository: Repository<AuditLog>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly eventBus: EventBusService,
+    private readonly eventBus: EventBusService
   ) {}
 
-  async register(dto: RegisterDto): Promise<{ user: User; accessToken: string; refreshToken: string }> {
-    const existing = await this.userRepository.findOne({ where: { email: dto.email } });
+  async register(
+    dto: RegisterDto
+  ): Promise<{ user: User; accessToken: string; refreshToken: string }> {
+    const existing = await this.userRepository.findOne({
+      where: { email: dto.email },
+    });
     if (existing) {
       throw new ConflictException("El email ya está registrado");
     }
 
-    const saltRounds = Number(this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12"));
+    const saltRounds = Number(
+      this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12")
+    );
     const hashedPassword = await bcrypt.hash(dto.password, saltRounds);
 
     const user = this.userRepository.create({
@@ -66,7 +72,11 @@ export class AuthService {
     return { user: safeUser as User, accessToken, refreshToken };
   }
 
-  async login(dto: LoginDto): Promise<{ user: Partial<User>; accessToken: string; refreshToken: string }> {
+  async login(dto: LoginDto): Promise<{
+    user: Partial<User>;
+    accessToken: string;
+    refreshToken: string;
+  }> {
     const user = await this.validateUser(dto.email, dto.password);
     await this.logAction(user.id, "USER_LOGGED_IN", "users", user.id);
 
@@ -84,7 +94,9 @@ export class AuthService {
     return { user: safeUser, accessToken, refreshToken };
   }
 
-  async refreshToken(token: string): Promise<{ accessToken: string; refreshToken: string }> {
+  async refreshToken(
+    token: string
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     try {
       const payload = this.jwtService.verify<IJwtPayload>(token, {
         secret: this.configService.get<string>("JWT_REFRESH_SECRET"),
@@ -134,28 +146,45 @@ export class AuthService {
       throw new BadRequestException("Token inválido o expirado");
     }
 
-    const saltRounds = Number(this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12"));
+    const saltRounds = Number(
+      this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12")
+    );
     const hashedPassword = await bcrypt.hash(dto.newPassword, saltRounds);
 
-    await this.userRepository.update(reset.userId, { password: hashedPassword });
+    await this.userRepository.update(reset.userId, {
+      password: hashedPassword,
+    });
     await this.passwordResetRepository.update(reset.id, { usedAt: new Date() });
 
-    await this.logAction(reset.userId, "PASSWORD_RESET_COMPLETED", "users", reset.userId);
+    await this.logAction(
+      reset.userId,
+      "PASSWORD_RESET_COMPLETED",
+      "users",
+      reset.userId
+    );
     return { message: "Contraseña actualizada correctamente" };
   }
 
-  async changePassword(userId: string, dto: ChangePasswordDto): Promise<{ message: string }> {
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto
+  ): Promise<{ message: string }> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException("Usuario no encontrado");
     }
 
-    const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.password
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException("Contraseña actual incorrecta");
     }
 
-    const saltRounds = Number(this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12"));
+    const saltRounds = Number(
+      this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12")
+    );
     const hashedPassword = await bcrypt.hash(dto.newPassword, saltRounds);
 
     await this.userRepository.update(userId, { password: hashedPassword });
@@ -197,7 +226,11 @@ export class AuthService {
       | Array<{ businessId: string; role: string; active: boolean }>
       | undefined;
     if (!memberships || memberships.length === 0) {
-      return { role: Role.CLIENT, businessId: undefined, businessIds: [] as string[] };
+      return {
+        role: Role.CLIENT,
+        businessId: undefined,
+        businessIds: [] as string[],
+      };
     }
     const active = memberships.filter((m) => m.active);
     const primary = active[0];
@@ -209,7 +242,10 @@ export class AuthService {
     };
   }
 
-  private generateTokens(user: User): { accessToken: string; refreshToken: string } {
+  private generateTokens(user: User): {
+    accessToken: string;
+    refreshToken: string;
+  } {
     const { role, businessId, businessIds } = this.getMembershipsData(user);
     const payload: Omit<IJwtPayload, "iat" | "exp"> = {
       sub: user.id,
@@ -220,23 +256,42 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>("JWT_SECRET"),
+      secret: assertJwtSecret(
+        this.configService.get<string>("JWT_SECRET"),
+        "JWT_SECRET"
+      ),
       expiresIn: this.configService.get<string>("JWT_EXPIRES_IN", "15m"),
     });
 
     const refreshToken = this.jwtService.sign(
       { sub: user.id, email: user.email },
       {
-        secret: this.configService.get<string>("JWT_REFRESH_SECRET"),
-        expiresIn: this.configService.get<string>("JWT_REFRESH_EXPIRES_IN", "7d"),
-      },
+        secret: assertJwtSecret(
+          this.configService.get<string>("JWT_REFRESH_SECRET"),
+          "JWT_REFRESH_SECRET"
+        ),
+        expiresIn: this.configService.get<string>(
+          "JWT_REFRESH_EXPIRES_IN",
+          "7d"
+        ),
+      }
     );
 
     return { accessToken, refreshToken };
   }
 
-  private async logAction(userId: string, action: string, entity: string, entityId: string): Promise<void> {
-    const log = this.auditLogRepository.create({ userId, action, entity, entityId });
+  private async logAction(
+    userId: string,
+    action: string,
+    entity: string,
+    entityId: string
+  ): Promise<void> {
+    const log = this.auditLogRepository.create({
+      userId,
+      action,
+      entity,
+      entityId,
+    });
     await this.auditLogRepository.save(log);
   }
 }
