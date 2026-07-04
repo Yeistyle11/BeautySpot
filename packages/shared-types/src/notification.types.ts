@@ -1,5 +1,3 @@
-import { IAuditFields } from "./common.types";
-
 export enum NotificationType {
   APPOINTMENT_CONFIRMED = "APPOINTMENT_CONFIRMED",
   APPOINTMENT_REMINDER = "APPOINTMENT_REMINDER",
@@ -17,26 +15,4 @@ export enum NotificationChannel {
   PUSH = "PUSH",
   WHATSAPP = "WHATSAPP",
   SMS = "SMS",
-}
-
-export interface INotification extends IAuditFields {
-  id: string;
-  businessId: string;
-  userId: string;
-  type: NotificationType;
-  channel: NotificationChannel;
-  title: string;
-  message: string;
-  data?: Record<string, unknown>;
-  read: boolean;
-  sentAt?: Date;
-}
-
-export interface INotificationPreference {
-  id: string;
-  businessId: string;
-  userId: string;
-  type: NotificationType;
-  channel: NotificationChannel;
-  enabled: boolean;
 }
