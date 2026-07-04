@@ -1,4 +1,5 @@
 import "express";
+import { Role } from "@beautyspot/shared-types";
 
 declare module "express-serve-static-core" {
   interface Request {
@@ -6,7 +7,7 @@ declare module "express-serve-static-core" {
     user?: {
       userId: string;
       email: string;
-      role: string;
+      role: Role;
       businessId?: string;
       businessIds?: string[];
     };
