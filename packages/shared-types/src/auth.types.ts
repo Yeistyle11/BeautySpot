@@ -14,6 +14,8 @@ export interface IJwtPayload {
   businessId?: string;
   /** Lista de businessIds donde el usuario tiene membresía activa */
   businessIds?: string[];
+  /** Versión del token para invalidación (ver TokenVersionStore en nest-common) */
+  tokenVersion?: number;
   iat?: number;
   exp?: number;
 }

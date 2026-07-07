@@ -7,6 +7,8 @@ import { RolesGuard } from "../guards/roles.guard";
 import { HttpExceptionFilter } from "../filters/http-exception.filter";
 import { TransformInterceptor } from "../interceptors/transform.interceptor";
 import { InternalSecretGuard } from "../guards/internal-secret.guard";
+import { RedisCacheService } from "../cache/redis-cache.service";
+import { TokenVersionStore } from "../security/token-version.store";
 
 export async function createMicroserviceApp(AppModule: unknown): Promise<void> {
   const app = await NestFactory.create(AppModule as any);
@@ -20,7 +22,6 @@ export async function createMicroserviceApp(AppModule: unknown): Promise<void> {
       origin: string | undefined,
       callback: (err: Error | null, allow?: boolean) => void
     ) => {
-      // En desarrollo permitir cualquier origen de localhost
       if (
         !origin ||
         allowedOrigins.includes(origin) ||
@@ -46,9 +47,12 @@ export async function createMicroserviceApp(AppModule: unknown): Promise<void> {
 
   const reflector = app.get(Reflector);
 
+  const redisCache = new RedisCacheService(configService);
+  const tokenVersionStore = new TokenVersionStore(redisCache);
+
   app.useGlobalGuards(
     new InternalSecretGuard(configService),
-    new JwtAuthGuard(configService, reflector),
+    new JwtAuthGuard(configService, reflector, tokenVersionStore),
     new BusinessScopeGuard(reflector),
     new RolesGuard(reflector)
   );

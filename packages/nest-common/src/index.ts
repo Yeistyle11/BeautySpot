@@ -10,5 +10,12 @@ export { HttpExceptionFilter } from "./filters/http-exception.filter";
 export { InternalSecretGuard } from "./guards/internal-secret.guard";
 export { EventBusService } from "./modules/event-bus/event-bus.service";
 export { EventBusModule } from "./modules/event-bus/event-bus.module";
+export { RedisCacheService } from "./cache/redis-cache.service";
+export { RedisCacheModule } from "./cache/redis-cache.module";
+export {
+  TokenVersionStore,
+  TOKEN_VERSION_KEY_PREFIX,
+  TOKEN_VERSION_DEFAULT,
+} from "./security/token-version.store";
 export { createMicroserviceApp } from "./factories/create-app.factory";
 export { assertJwtSecret } from "./security/assert-jwt-secret";

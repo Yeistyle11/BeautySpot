@@ -8,6 +8,7 @@ import { DataSource, EntityManager, Repository } from "typeorm";
 import { Membership } from "../../entities/membership.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
 import { Role } from "@beautyspot/shared-types";
+import { TokenVersionStore } from "@beautyspot/nest-common";
 
 export interface MembershipActor {
   userId: string;
@@ -22,7 +23,8 @@ export class MembershipsService {
     private readonly membershipRepository: Repository<Membership>,
     @InjectRepository(AuditLog)
     private readonly auditLogRepository: Repository<AuditLog>,
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    private readonly tokenVersionStore: TokenVersionStore
   ) {}
 
   async create(
@@ -97,6 +99,7 @@ export class MembershipsService {
         },
         manager
       );
+      await this.tokenVersionStore.bumpVersion(membership.userId);
       return updated;
     });
   }
@@ -128,6 +131,7 @@ export class MembershipsService {
         },
         manager
       );
+      await this.tokenVersionStore.bumpVersion(membership.userId);
     });
   }
 
