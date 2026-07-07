@@ -10,7 +10,7 @@ import { Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcryptjs";
-import { v4 as uuidv4 } from "uuid";
+import * as crypto from "crypto";
 import { User } from "../../entities/user.entity";
 import { PasswordReset } from "../../entities/password-reset.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
@@ -21,6 +21,11 @@ import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { Role, IJwtPayload } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
 import { EventBusService, assertJwtSecret } from "@beautyspot/nest-common";
+import { toSafeUser, SafeUser } from "../users/dto/user-response.dto";
+
+function hashResetToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
 
 @Injectable()
 export class AuthService {
@@ -38,7 +43,7 @@ export class AuthService {
 
   async register(
     dto: RegisterDto
-  ): Promise<{ user: User; accessToken: string; refreshToken: string }> {
+  ): Promise<{ user: SafeUser; accessToken: string; refreshToken: string }> {
     const existing = await this.userRepository.findOne({
       where: { email: dto.email },
     });
@@ -68,12 +73,11 @@ export class AuthService {
     });
 
     const { accessToken, refreshToken } = this.generateTokens(user);
-    const { password: _, ...safeUser } = user;
-    return { user: safeUser as User, accessToken, refreshToken };
+    return { user: toSafeUser(user), accessToken, refreshToken };
   }
 
   async login(dto: LoginDto): Promise<{
-    user: Partial<User>;
+    user: SafeUser;
     accessToken: string;
     refreshToken: string;
   }> {
@@ -90,8 +94,7 @@ export class AuthService {
       relations: ["memberships"],
     });
     const { accessToken, refreshToken } = this.generateTokens(fullUser!);
-    const { password: _, ...safeUser } = fullUser!;
-    return { user: safeUser, accessToken, refreshToken };
+    return { user: toSafeUser(fullUser!), accessToken, refreshToken };
   }
 
   async refreshToken(
@@ -116,30 +119,35 @@ export class AuthService {
     }
   }
 
-  async forgotPassword(email: string): Promise<{ message: string }> {
+  async forgotPassword(
+    email: string
+  ): Promise<{ message: string; resetToken?: string }> {
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
       return { message: "Si el email existe, recibirás instrucciones" };
     }
 
-    const token = uuidv4();
+    const rawToken = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1);
 
     const reset = this.passwordResetRepository.create({
       userId: user.id,
-      token,
+      tokenHash: hashResetToken(rawToken),
       expiresAt,
     });
     await this.passwordResetRepository.save(reset);
 
     await this.logAction(user.id, "PASSWORD_RESET_REQUESTED", "users", user.id);
-    return { message: "Si el email existe, recibirás instrucciones" };
+    return {
+      message: "Si el email existe, recibirás instrucciones",
+      resetToken: rawToken,
+    };
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
     const reset = await this.passwordResetRepository.findOne({
-      where: { token: dto.token },
+      where: { tokenHash: hashResetToken(dto.token) },
     });
 
     if (!reset || reset.usedAt || reset.expiresAt < new Date()) {
@@ -192,7 +200,7 @@ export class AuthService {
     return { message: "Contraseña actualizada correctamente" };
   }
 
-  async getMe(userId: string): Promise<Partial<User>> {
+  async getMe(userId: string): Promise<SafeUser> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: ["memberships"],
@@ -200,8 +208,7 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException("Usuario no encontrado");
     }
-    const { password: _, ...safeUser } = user;
-    return safeUser;
+    return toSafeUser(user);
   }
 
   private async validateUser(email: string, password: string): Promise<User> {
