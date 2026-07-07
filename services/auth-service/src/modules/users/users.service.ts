@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { DataSource, EntityManager, Repository } from "typeorm";
 import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcryptjs";
 import { User } from "../../entities/user.entity";
@@ -25,7 +25,8 @@ export class UsersService {
     private readonly membershipRepository: Repository<Membership>,
     @InjectRepository(AuditLog)
     private readonly auditLogRepository: Repository<AuditLog>,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly dataSource: DataSource
   ) {}
 
   // --- Consultas ---
@@ -136,37 +137,41 @@ export class UsersService {
     );
     const hashedPassword = await bcrypt.hash(dto.password, saltRounds);
 
-    // Crear usuario
-    const user = this.userRepository.create({
-      email: dto.email,
-      password: hashedPassword,
-      name: dto.name,
-      phone: dto.phone,
+    return this.dataSource.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      const membershipRepo = manager.getRepository(Membership);
+
+      const user = userRepo.create({
+        email: dto.email,
+        password: hashedPassword,
+        name: dto.name,
+        phone: dto.phone,
+      });
+      await userRepo.save(user);
+
+      const membership = membershipRepo.create({
+        userId: user.id,
+        businessId,
+        role: dto.role,
+        acceptedAt: new Date(),
+      });
+      await membershipRepo.save(membership);
+
+      await this.logAction(
+        user.id,
+        "STAFF_ACCOUNT_CREATED",
+        "users",
+        user.id,
+        businessId,
+        manager
+      );
+
+      return {
+        ...toSafeUser(user),
+        membershipId: membership.id,
+        role: membership.role,
+      };
     });
-    await this.userRepository.save(user);
-
-    // Crear membresia
-    const membership = this.membershipRepository.create({
-      userId: user.id,
-      businessId,
-      role: dto.role,
-      acceptedAt: new Date(),
-    });
-    await this.membershipRepository.save(membership);
-
-    await this.logAction(
-      user.id,
-      "STAFF_ACCOUNT_CREATED",
-      "users",
-      user.id,
-      businessId
-    );
-
-    return {
-      ...toSafeUser(user),
-      membershipId: membership.id,
-      role: membership.role,
-    };
   }
 
   // --- Admin: Actualizar cuenta de staff ---
@@ -205,20 +210,29 @@ export class UsersService {
     if (dto.phone !== undefined) updateData.phone = dto.phone;
     if (dto.avatar !== undefined) updateData.avatar = dto.avatar;
 
-    if (Object.keys(updateData).length > 0) {
-      await this.userRepository.update(userId, updateData);
+    if (Object.keys(updateData).length === 0) {
+      return this.findById(userId).then((u) => toSafeUser(u));
     }
 
-    await this.logAction(
-      userId,
-      "STAFF_ACCOUNT_UPDATED",
-      "users",
-      userId,
-      businessId
-    );
+    return this.dataSource.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      await userRepo.update(userId, updateData);
 
-    const user = await this.findById(userId);
-    return toSafeUser(user);
+      await this.logAction(
+        userId,
+        "STAFF_ACCOUNT_UPDATED",
+        "users",
+        userId,
+        businessId,
+        manager
+      );
+
+      const user = await userRepo.findOne({ where: { id: userId } });
+      if (!user) {
+        throw new NotFoundException("Usuario no encontrado");
+      }
+      return toSafeUser(user);
+    });
   }
 
   // --- Admin: Resetear contrasena ---
@@ -251,15 +265,19 @@ export class UsersService {
     );
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    await this.userRepository.update(userId, { password: hashedPassword });
+    await this.dataSource.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      await userRepo.update(userId, { password: hashedPassword });
 
-    await this.logAction(
-      userId,
-      "STAFF_PASSWORD_RESET_BY_ADMIN",
-      "users",
-      userId,
-      businessId
-    );
+      await this.logAction(
+        userId,
+        "STAFF_PASSWORD_RESET_BY_ADMIN",
+        "users",
+        userId,
+        businessId,
+        manager
+      );
+    });
 
     return { message: "Contrasena actualizada correctamente" };
   }
@@ -293,28 +311,34 @@ export class UsersService {
       );
     }
 
-    if (!active) {
-      // Solo desactivar cuenta y membresia (NO tocar profesional en core-service)
-      await this.membershipRepository.update(membership.id, { active: false });
-      await this.userRepository.update(userId, { active: false });
-      await this.logAction(
-        userId,
-        "STAFF_ACCOUNT_DEACTIVATED",
-        "users",
-        userId,
-        businessId
-      );
-    } else {
-      await this.userRepository.update(userId, { active: true });
-      await this.membershipRepository.update(membership.id, { active: true });
-      await this.logAction(
-        userId,
-        "STAFF_ACCOUNT_ACTIVATED",
-        "users",
-        userId,
-        businessId
-      );
-    }
+    await this.dataSource.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      const membershipRepo = manager.getRepository(Membership);
+
+      if (!active) {
+        await membershipRepo.update(membership.id, { active: false });
+        await userRepo.update(userId, { active: false });
+        await this.logAction(
+          userId,
+          "STAFF_ACCOUNT_DEACTIVATED",
+          "users",
+          userId,
+          businessId,
+          manager
+        );
+      } else {
+        await userRepo.update(userId, { active: true });
+        await membershipRepo.update(membership.id, { active: true });
+        await this.logAction(
+          userId,
+          "STAFF_ACCOUNT_ACTIVATED",
+          "users",
+          userId,
+          businessId,
+          manager
+        );
+      }
+    });
 
     return {
       message: active
@@ -330,15 +354,19 @@ export class UsersService {
     action: string,
     entity: string,
     entityId: string,
-    businessId?: string
+    businessId: string | undefined,
+    manager?: EntityManager
   ): Promise<void> {
-    const log = this.auditLogRepository.create({
+    const repo = manager
+      ? manager.getRepository(AuditLog)
+      : this.auditLogRepository;
+    const log = repo.create({
       userId,
       action,
       entity,
       entityId,
       changes: businessId ? { businessId } : undefined,
     });
-    await this.auditLogRepository.save(log);
+    await repo.save(log);
   }
 }

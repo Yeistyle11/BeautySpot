@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { DataSource, EntityManager, Repository } from "typeorm";
 import { Membership } from "../../entities/membership.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
 import { Role } from "@beautyspot/shared-types";
@@ -21,7 +21,8 @@ export class MembershipsService {
     @InjectRepository(Membership)
     private readonly membershipRepository: Repository<Membership>,
     @InjectRepository(AuditLog)
-    private readonly auditLogRepository: Repository<AuditLog>
+    private readonly auditLogRepository: Repository<AuditLog>,
+    private readonly dataSource: DataSource
   ) {}
 
   async create(
@@ -40,24 +41,28 @@ export class MembershipsService {
       throw new ForbiddenException("El usuario ya es miembro de este negocio");
     }
 
-    const membership = this.membershipRepository.create({
-      ...data,
-      acceptedAt: new Date(),
-    });
-    const saved = await this.membershipRepository.save(membership);
+    return this.dataSource.transaction(async (manager) => {
+      const membershipRepo = manager.getRepository(Membership);
+      const membership = membershipRepo.create({
+        ...data,
+        acceptedAt: new Date(),
+      });
+      const saved = await membershipRepo.save(membership);
 
-    if (actor) {
-      await this.logAction(
-        actor.userId,
-        "MEMBERSHIP_CREATED",
-        data.businessId,
-        {
-          targetUserId: data.userId,
-          role: data.role,
-        }
-      );
-    }
-    return saved;
+      if (actor) {
+        await this.logAction(
+          actor.userId,
+          "MEMBERSHIP_CREATED",
+          data.businessId,
+          {
+            targetUserId: data.userId,
+            role: data.role,
+          },
+          manager
+        );
+      }
+      return saved;
+    });
   }
 
   async updateRole(
@@ -74,21 +79,26 @@ export class MembershipsService {
     }
 
     const previousRole = membership.role;
-    membership.role = newRole;
-    const updated = await this.membershipRepository.save(membership);
 
-    await this.logAction(
-      actor.userId,
-      "MEMBERSHIP_ROLE_CHANGED",
-      membership.businessId,
-      {
-        membershipId,
-        targetUserId: membership.userId,
-        previousRole,
-        newRole,
-      }
-    );
-    return updated;
+    return this.dataSource.transaction(async (manager) => {
+      const membershipRepo = manager.getRepository(Membership);
+      membership.role = newRole;
+      const updated = await membershipRepo.save(membership);
+
+      await this.logAction(
+        actor.userId,
+        "MEMBERSHIP_ROLE_CHANGED",
+        membership.businessId,
+        {
+          membershipId,
+          targetUserId: membership.userId,
+          previousRole,
+          newRole,
+        },
+        manager
+      );
+      return updated;
+    });
   }
 
   async deactivate(
@@ -103,18 +113,22 @@ export class MembershipsService {
       );
     }
 
-    await this.membershipRepository.update(membershipId, { active: false });
+    return this.dataSource.transaction(async (manager) => {
+      const membershipRepo = manager.getRepository(Membership);
+      await membershipRepo.update(membershipId, { active: false });
 
-    await this.logAction(
-      actor.userId,
-      "MEMBERSHIP_DEACTIVATED",
-      membership.businessId,
-      {
-        membershipId,
-        targetUserId: membership.userId,
-        role: membership.role,
-      }
-    );
+      await this.logAction(
+        actor.userId,
+        "MEMBERSHIP_DEACTIVATED",
+        membership.businessId,
+        {
+          membershipId,
+          targetUserId: membership.userId,
+          role: membership.role,
+        },
+        manager
+      );
+    });
   }
 
   async findByUserAndBusiness(
@@ -167,14 +181,18 @@ export class MembershipsService {
     userId: string,
     action: string,
     businessId: string,
-    changes: Record<string, unknown>
+    changes: Record<string, unknown>,
+    manager?: EntityManager
   ): Promise<void> {
-    const log = this.auditLogRepository.create({
+    const repo = manager
+      ? manager.getRepository(AuditLog)
+      : this.auditLogRepository;
+    const log = repo.create({
       userId,
       action,
       entity: "memberships",
       changes: { businessId, ...changes },
     });
-    await this.auditLogRepository.save(log);
+    await repo.save(log);
   }
 }
