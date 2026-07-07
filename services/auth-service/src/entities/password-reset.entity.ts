@@ -7,8 +7,8 @@ export class PasswordReset extends BaseEntity {
   @Column({ type: "uuid", name: "user_id" })
   userId!: string;
 
-  @Column({ unique: true })
-  token!: string;
+  @Column({ unique: true, name: "token_hash" })
+  tokenHash!: string;
 
   @Column({ type: "timestamp", name: "expires_at" })
   expiresAt!: Date;

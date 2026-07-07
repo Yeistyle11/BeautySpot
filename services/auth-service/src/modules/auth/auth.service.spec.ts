@@ -4,7 +4,7 @@ import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { Repository } from "typeorm";
 import * as bcrypt from "bcryptjs";
-import { v4 as uuidv4 } from "uuid";
+import * as crypto from "crypto";
 import { AuthService } from "./auth.service";
 import { User } from "../../entities/user.entity";
 import { PasswordReset } from "../../entities/password-reset.entity";
@@ -18,6 +18,10 @@ import {
 import { Role } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
 import { EventBusService } from "@beautyspot/nest-common";
+
+function hashResetToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
 
 describe("AuthService", () => {
   let service: AuthService;
@@ -48,7 +52,7 @@ describe("AuthService", () => {
   const mockPasswordReset: any = {
     id: "reset-123",
     userId: "user-123",
-    token: "reset-token",
+    tokenHash: hashResetToken("valid-token"),
     expiresAt: new Date(Date.now() + 3600000),
     usedAt: null,
     createdAt: new Date(),
@@ -378,20 +382,25 @@ describe("AuthService", () => {
       mockPasswordResetRepository.save.mockResolvedValue(mockPasswordReset);
       mockAuditLogRepository.create.mockReturnValue(mockAuditLog);
       mockAuditLogRepository.save.mockResolvedValue(mockAuditLog);
-      (uuidv4 as jest.Mock).mockReturnValue("new-reset-token");
 
       const result = await service.forgotPassword(email);
 
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({
         where: { email },
       });
-      expect(uuidv4).toHaveBeenCalled();
-      expect(mockPasswordResetRepository.create).toHaveBeenCalled();
+      expect(mockPasswordResetRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: mockUser.id,
+          tokenHash: expect.any(String),
+          expiresAt: expect.any(Date),
+        })
+      );
       expect(mockPasswordResetRepository.save).toHaveBeenCalled();
       expect(mockAuditLogRepository.create).toHaveBeenCalled();
       expect(result.message).toBe(
         "Si el email existe, recibirás instrucciones"
       );
+      expect(result.resetToken).toEqual(expect.any(String));
     });
 
     it("debería retornar mensaje sin revelar si el email existe", async () => {
@@ -416,7 +425,6 @@ describe("AuthService", () => {
       mockPasswordResetRepository.save.mockResolvedValue(mockPasswordReset);
       mockAuditLogRepository.create.mockReturnValue(mockAuditLog);
       mockAuditLogRepository.save.mockResolvedValue(mockAuditLog);
-      (uuidv4 as jest.Mock).mockReturnValue("new-reset-token");
 
       await service.forgotPassword(email);
 
@@ -451,7 +459,7 @@ describe("AuthService", () => {
       const result = await service.resetPassword(resetDto);
 
       expect(mockPasswordResetRepository.findOne).toHaveBeenCalledWith({
-        where: { token: resetDto.token },
+        where: { tokenHash: hashResetToken(resetDto.token) },
       });
       expect(bcrypt.hash).toHaveBeenCalledWith(resetDto.newPassword, 12);
       expect(mockUserRepository.update).toHaveBeenCalledWith(

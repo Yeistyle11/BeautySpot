@@ -1,4 +1,5 @@
 import { Entity, Column, OneToMany } from "typeorm";
+import { Exclude } from "class-transformer";
 import { BaseEntity } from "@beautyspot/database";
 import { Membership } from "./membership.entity";
 import { PasswordReset } from "./password-reset.entity";
@@ -8,6 +9,7 @@ export class User extends BaseEntity {
   @Column({ unique: true })
   email!: string;
 
+  @Exclude()
   @Column()
   password!: string;
 

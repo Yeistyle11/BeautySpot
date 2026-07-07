@@ -6,6 +6,7 @@ import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { CreateStaffDto } from "./dto/create-staff.dto";
 import { UpdateStaffDto } from "./dto/update-staff.dto";
 import { AdminResetPasswordDto } from "./dto/admin-reset-password.dto";
+import { toSafeUser } from "./dto/user-response.dto";
 
 @Controller("users")
 export class UsersController {
@@ -16,14 +17,13 @@ export class UsersController {
   @Get("me")
   async getMe(@CurrentUser("userId") userId: string) {
     const user = await this.usersService.findById(userId);
-    const { password: _, ...safeUser } = user;
-    return safeUser;
+    return toSafeUser(user);
   }
 
   @Patch("me")
   async updateProfile(
     @CurrentUser("userId") userId: string,
-    @Body() dto: UpdateProfileDto,
+    @Body() dto: UpdateProfileDto
   ) {
     return this.usersService.updateProfile(userId, dto);
   }
@@ -50,10 +50,7 @@ export class UsersController {
    */
   @Get(":id/staff")
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
-  async getStaffMember(
-    @Param("id") userId: string,
-    @Req() req: any,
-  ) {
+  async getStaffMember(@Param("id") userId: string, @Req() req: any) {
     return this.usersService.findByIdAndBusiness(userId, req.businessId);
   }
 
@@ -64,10 +61,7 @@ export class UsersController {
    */
   @Post("staff")
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
-  async createStaff(
-    @Body() dto: CreateStaffDto,
-    @Req() req: any,
-  ) {
+  async createStaff(@Body() dto: CreateStaffDto, @Req() req: any) {
     return this.usersService.createStaff(req.businessId, dto);
   }
 
@@ -80,7 +74,7 @@ export class UsersController {
   async updateStaff(
     @Param("id") userId: string,
     @Body() dto: UpdateStaffDto,
-    @Req() req: any,
+    @Req() req: any
   ) {
     return this.usersService.updateStaff(userId, req.businessId, dto);
   }
@@ -94,9 +88,13 @@ export class UsersController {
   async adminResetPassword(
     @Param("id") userId: string,
     @Body() dto: AdminResetPasswordDto,
-    @Req() req: any,
+    @Req() req: any
   ) {
-    return this.usersService.adminResetPassword(userId, req.businessId, dto.newPassword);
+    return this.usersService.adminResetPassword(
+      userId,
+      req.businessId,
+      dto.newPassword
+    );
   }
 
   /**
@@ -108,7 +106,7 @@ export class UsersController {
   async toggleActive(
     @Param("id") userId: string,
     @Body() body: { active: boolean },
-    @Req() req: any,
+    @Req() req: any
   ) {
     return this.usersService.toggleActive(userId, req.businessId, body.active);
   }
