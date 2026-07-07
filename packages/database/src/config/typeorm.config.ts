@@ -1,6 +1,6 @@
-import { DataSource, DataSourceOptions, LogLevel } from "typeorm";
+import { DataSourceOptions, LogLevel } from "typeorm";
 
-export type ServiceType = 'read' | 'write' | 'default';
+export type ServiceType = "read" | "write" | "default";
 
 export interface PoolConfig {
   max: number;
@@ -8,7 +8,10 @@ export interface PoolConfig {
   connectionTimeoutMillis: number;
 }
 
-export function getPoolConfig(serviceType: ServiceType, isProduction: boolean): PoolConfig {
+export function getPoolConfig(
+  serviceType: ServiceType,
+  isProduction: boolean
+): PoolConfig {
   if (isProduction) {
     const productionConfigs = {
       read: {
@@ -40,15 +43,15 @@ export function getPoolConfig(serviceType: ServiceType, isProduction: boolean): 
 export function createTypeOrmConfig(
   databaseUrl: string,
   entities: Function[],
-  serviceType: ServiceType = 'default',
-  synchronize = false,
+  serviceType: ServiceType = "default",
+  synchronize = false
 ): DataSourceOptions {
   const isProduction = process.env.NODE_ENV === "production";
   const poolConfig = getPoolConfig(serviceType, isProduction);
 
-  const loggingOptions: LogLevel[] = isProduction 
-    ? ['error', 'warn'] as LogLevel[]
-    : ['query', 'error', 'warn'] as LogLevel[];
+  const loggingOptions: LogLevel[] = isProduction
+    ? (["error", "warn"] as LogLevel[])
+    : (["query", "error", "warn"] as LogLevel[]);
 
   return {
     type: "postgres",
@@ -60,7 +63,7 @@ export function createTypeOrmConfig(
     ssl: isProduction ? { rejectUnauthorized: false } : false,
     extra: {
       ...poolConfig,
-      application_name: `beautyspot-${serviceType}-${process.env.SERVICE_NAME || 'unknown'}`,
+      application_name: `beautyspot-${serviceType}-${process.env.SERVICE_NAME || "unknown"}`,
       statement_timeout: isProduction ? 30000 : 0,
       query_timeout: isProduction ? 60000 : 0,
     },
@@ -69,43 +72,11 @@ export function createTypeOrmConfig(
 
 export function createTypeOrmModuleOptions(
   entities: Function[],
-  serviceType: ServiceType = 'default',
+  serviceType: ServiceType = "default"
 ): DataSourceOptions {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     throw new Error("DATABASE_URL no está configurado");
   }
-  
-  const isProduction = process.env.NODE_ENV === "production";
-  const poolConfig = getPoolConfig(serviceType, isProduction);
-
-  const loggingOptions: LogLevel[] = isProduction 
-    ? ['error', 'warn'] as LogLevel[]
-    : ['query', 'error', 'warn'] as LogLevel[];
-
-  return {
-    type: "postgres",
-    url: databaseUrl,
-    entities,
-    synchronize: !isProduction,
-    logging: loggingOptions,
-    maxQueryExecutionTime: isProduction ? 1000 : 0,
-    ssl: isProduction ? { rejectUnauthorized: false } : false,
-    extra: {
-      ...poolConfig,
-      application_name: `beautyspot-${serviceType}-${process.env.SERVICE_NAME || 'unknown'}`,
-      statement_timeout: isProduction ? 30000 : 0,
-      query_timeout: isProduction ? 60000 : 0,
-    },
-  };
-}
-
-export function createDataSource(
-  databaseUrl: string,
-  entities: Function[],
-  serviceType: ServiceType = 'default',
-): DataSource {
-  return new DataSource(
-    createTypeOrmConfig(databaseUrl, entities, serviceType) as DataSourceOptions,
-  );
+  return createTypeOrmConfig(databaseUrl, entities, serviceType, true);
 }

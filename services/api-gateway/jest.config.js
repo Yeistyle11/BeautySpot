@@ -22,7 +22,6 @@ module.exports = {
   testEnvironment: "node",
   moduleDirectories: ["node_modules", "<rootDir>/../../node_modules"],
   moduleNameMapper: {
-    "^@beautyspot/database$": "<rootDir>/../../packages/database/src",
     "^@beautyspot/shared-types$": "<rootDir>/../../packages/shared-types/src",
     "^@beautyspot/shared-utils$": "<rootDir>/../../packages/shared-utils/src",
     "^@beautyspot/event-types$": "<rootDir>/../../packages/event-types/src",
