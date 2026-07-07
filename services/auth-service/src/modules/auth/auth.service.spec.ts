@@ -1,8 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
+import { DataSource, Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
-import { Repository } from "typeorm";
 import * as bcrypt from "bcryptjs";
 import * as crypto from "crypto";
 import { AuthService } from "./auth.service";
@@ -116,6 +116,17 @@ describe("AuthService", () => {
       emit: jest.fn(),
     } as any;
 
+    const mockManager = {
+      getRepository: jest.fn((target: any) => {
+        if (target === User) return mockUserRepository;
+        if (target === PasswordReset) return mockPasswordResetRepository;
+        return mockAuditLogRepository;
+      }),
+    };
+    const mockDataSource: any = {
+      transaction: jest.fn((cb: any) => cb(mockManager)),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -142,6 +153,11 @@ describe("AuthService", () => {
         {
           provide: EventBusService,
           useValue: mockEventBus,
+        },
+        { provide: "DataSource", useValue: mockDataSource },
+        {
+          provide: DataSource,
+          useValue: mockDataSource,
         },
       ],
     }).compile();

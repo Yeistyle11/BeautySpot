@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { DataSource, EntityManager, Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcryptjs";
@@ -38,7 +38,8 @@ export class AuthService {
     private readonly auditLogRepository: Repository<AuditLog>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly eventBus: EventBusService
+    private readonly eventBus: EventBusService,
+    private readonly dataSource: DataSource
   ) {}
 
   async register(
@@ -56,15 +57,24 @@ export class AuthService {
     );
     const hashedPassword = await bcrypt.hash(dto.password, saltRounds);
 
-    const user = this.userRepository.create({
-      email: dto.email,
-      password: hashedPassword,
-      name: dto.name,
-      phone: dto.phone,
+    const user = await this.dataSource.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      const created = userRepo.create({
+        email: dto.email,
+        password: hashedPassword,
+        name: dto.name,
+        phone: dto.phone,
+      });
+      const saved = await userRepo.save(created);
+      await this.logAction(
+        saved.id,
+        "USER_REGISTERED",
+        "users",
+        saved.id,
+        manager
+      );
+      return saved;
     });
-    await this.userRepository.save(user);
-
-    await this.logAction(user.id, "USER_REGISTERED", "users", user.id);
 
     this.eventBus.emit(EventNames.AUTH_USER_REGISTERED, {
       userId: user.id,
@@ -131,14 +141,23 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1);
 
-    const reset = this.passwordResetRepository.create({
-      userId: user.id,
-      tokenHash: hashResetToken(rawToken),
-      expiresAt,
-    });
-    await this.passwordResetRepository.save(reset);
+    await this.dataSource.transaction(async (manager) => {
+      const resetRepo = manager.getRepository(PasswordReset);
+      const reset = resetRepo.create({
+        userId: user.id,
+        tokenHash: hashResetToken(rawToken),
+        expiresAt,
+      });
+      await resetRepo.save(reset);
 
-    await this.logAction(user.id, "PASSWORD_RESET_REQUESTED", "users", user.id);
+      await this.logAction(
+        user.id,
+        "PASSWORD_RESET_REQUESTED",
+        "users",
+        user.id,
+        manager
+      );
+    });
     return {
       message: "Si el email existe, recibirás instrucciones",
       resetToken: rawToken,
@@ -159,17 +178,20 @@ export class AuthService {
     );
     const hashedPassword = await bcrypt.hash(dto.newPassword, saltRounds);
 
-    await this.userRepository.update(reset.userId, {
-      password: hashedPassword,
-    });
-    await this.passwordResetRepository.update(reset.id, { usedAt: new Date() });
+    await this.dataSource.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      const resetRepo = manager.getRepository(PasswordReset);
+      await userRepo.update(reset.userId, { password: hashedPassword });
+      await resetRepo.update(reset.id, { usedAt: new Date() });
 
-    await this.logAction(
-      reset.userId,
-      "PASSWORD_RESET_COMPLETED",
-      "users",
-      reset.userId
-    );
+      await this.logAction(
+        reset.userId,
+        "PASSWORD_RESET_COMPLETED",
+        "users",
+        reset.userId,
+        manager
+      );
+    });
     return { message: "Contraseña actualizada correctamente" };
   }
 
@@ -195,8 +217,17 @@ export class AuthService {
     );
     const hashedPassword = await bcrypt.hash(dto.newPassword, saltRounds);
 
-    await this.userRepository.update(userId, { password: hashedPassword });
-    await this.logAction(userId, "PASSWORD_CHANGED", "users", userId);
+    await this.dataSource.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      await userRepo.update(userId, { password: hashedPassword });
+      await this.logAction(
+        userId,
+        "PASSWORD_CHANGED",
+        "users",
+        userId,
+        manager
+      );
+    });
     return { message: "Contraseña actualizada correctamente" };
   }
 
@@ -291,14 +322,18 @@ export class AuthService {
     userId: string,
     action: string,
     entity: string,
-    entityId: string
+    entityId: string,
+    manager?: EntityManager
   ): Promise<void> {
-    const log = this.auditLogRepository.create({
+    const repo = manager
+      ? manager.getRepository(AuditLog)
+      : this.auditLogRepository;
+    const log = repo.create({
       userId,
       action,
       entity,
       entityId,
     });
-    await this.auditLogRepository.save(log);
+    await repo.save(log);
   }
 }

@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { DataSource } from "typeorm";
 import { MembershipsService, MembershipActor } from "./memberships.service";
 import { Membership } from "../../entities/membership.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
@@ -9,8 +9,8 @@ import { NotFoundException, ForbiddenException } from "@nestjs/common";
 
 describe("MembershipsService", () => {
   let service: MembershipsService;
-  let mockRepo: jest.Mocked<Repository<Membership>>;
-  let mockAuditRepo: jest.Mocked<Repository<AuditLog>>;
+  let mockRepo: jest.Mocked<any>;
+  let mockAuditRepo: jest.Mocked<any>;
 
   const actor: MembershipActor = {
     userId: "admin-123",
@@ -44,11 +44,21 @@ describe("MembershipsService", () => {
       save: jest.fn(),
     } as any;
 
+    const mockManager = {
+      getRepository: jest.fn((target: any) =>
+        target === Membership ? mockRepo : mockAuditRepo
+      ),
+    };
+    const mockDataSource: any = {
+      transaction: jest.fn((cb: any) => cb(mockManager)),
+    };
+
     const module = await Test.createTestingModule({
       providers: [
         MembershipsService,
         { provide: getRepositoryToken(Membership), useValue: mockRepo },
         { provide: getRepositoryToken(AuditLog), useValue: mockAuditRepo },
+        { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
 
