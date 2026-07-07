@@ -6,11 +6,13 @@ import { Membership } from "../../entities/membership.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
 import { Role } from "@beautyspot/shared-types";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
+import { TokenVersionStore } from "@beautyspot/nest-common";
 
 describe("MembershipsService", () => {
   let service: MembershipsService;
   let mockRepo: jest.Mocked<any>;
   let mockAuditRepo: jest.Mocked<any>;
+  let mockTokenVersionStore: jest.Mocked<TokenVersionStore>;
 
   const actor: MembershipActor = {
     userId: "admin-123",
@@ -52,6 +54,10 @@ describe("MembershipsService", () => {
     const mockDataSource: any = {
       transaction: jest.fn((cb: any) => cb(mockManager)),
     };
+    mockTokenVersionStore = {
+      getVersion: jest.fn().mockResolvedValue(0),
+      bumpVersion: jest.fn().mockResolvedValue(1),
+    } as any;
 
     const module = await Test.createTestingModule({
       providers: [
@@ -59,6 +65,7 @@ describe("MembershipsService", () => {
         { provide: getRepositoryToken(Membership), useValue: mockRepo },
         { provide: getRepositoryToken(AuditLog), useValue: mockAuditRepo },
         { provide: DataSource, useValue: mockDataSource },
+        { provide: TokenVersionStore, useValue: mockTokenVersionStore },
       ],
     }).compile();
 

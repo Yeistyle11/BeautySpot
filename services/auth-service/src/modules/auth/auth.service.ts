@@ -20,7 +20,11 @@ import { ChangePasswordDto } from "./dto/change-password.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { Role, IJwtPayload } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
-import { EventBusService, assertJwtSecret } from "@beautyspot/nest-common";
+import {
+  EventBusService,
+  assertJwtSecret,
+  TokenVersionStore,
+} from "@beautyspot/nest-common";
 import { toSafeUser, SafeUser } from "../users/dto/user-response.dto";
 
 function hashResetToken(token: string): string {
@@ -39,7 +43,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly eventBus: EventBusService,
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    private readonly tokenVersionStore: TokenVersionStore
   ) {}
 
   async register(
@@ -82,7 +87,7 @@ export class AuthService {
       name: user.name,
     });
 
-    const { accessToken, refreshToken } = this.generateTokens(user);
+    const { accessToken, refreshToken } = await this.generateTokens(user);
     return { user: toSafeUser(user), accessToken, refreshToken };
   }
 
@@ -103,7 +108,7 @@ export class AuthService {
       where: { id: user.id },
       relations: ["memberships"],
     });
-    const { accessToken, refreshToken } = this.generateTokens(fullUser!);
+    const { accessToken, refreshToken } = await this.generateTokens(fullUser!);
     return { user: toSafeUser(fullUser!), accessToken, refreshToken };
   }
 
@@ -192,6 +197,7 @@ export class AuthService {
         manager
       );
     });
+    await this.tokenVersionStore.bumpVersion(reset.userId);
     return { message: "Contraseña actualizada correctamente" };
   }
 
@@ -228,7 +234,14 @@ export class AuthService {
         manager
       );
     });
+    await this.tokenVersionStore.bumpVersion(userId);
     return { message: "Contraseña actualizada correctamente" };
+  }
+
+  async logout(userId: string): Promise<{ message: string }> {
+    await this.tokenVersionStore.bumpVersion(userId);
+    await this.logAction(userId, "USER_LOGGED_OUT", "users", userId);
+    return { message: "Sesión cerrada correctamente" };
   }
 
   async getMe(userId: string): Promise<SafeUser> {
@@ -280,17 +293,19 @@ export class AuthService {
     };
   }
 
-  private generateTokens(user: User): {
+  private async generateTokens(user: User): Promise<{
     accessToken: string;
     refreshToken: string;
-  } {
+  }> {
     const { role, businessId, businessIds } = this.getMembershipsData(user);
+    const tokenVersion = await this.tokenVersionStore.getVersion(user.id);
     const payload: Omit<IJwtPayload, "iat" | "exp"> = {
       sub: user.id,
       email: user.email,
       role: role as Role,
       businessId,
       businessIds,
+      tokenVersion,
     };
 
     const accessToken = this.jwtService.sign(payload, {

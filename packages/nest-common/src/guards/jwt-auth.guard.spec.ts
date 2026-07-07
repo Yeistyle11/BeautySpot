@@ -4,6 +4,10 @@ import { Reflector } from "@nestjs/core";
 import { UnauthorizedException } from "@nestjs/common";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
+import {
+  TokenVersionStore,
+  TOKEN_VERSION_DEFAULT,
+} from "../security/token-version.store";
 
 jest.mock("jsonwebtoken", () => ({
   verify: jest.fn(),
@@ -15,6 +19,7 @@ describe("JwtAuthGuard", () => {
   let guard: JwtAuthGuard;
   let mockConfigService: jest.Mocked<ConfigService>;
   let mockReflector: jest.Mocked<Reflector>;
+  let mockTokenVersionStore: jest.Mocked<TokenVersionStore>;
 
   const mockExecutionContext = (
     url: string,
@@ -48,6 +53,11 @@ describe("JwtAuthGuard", () => {
       getAllAndOverride: jest.fn(),
     } as any;
 
+    mockTokenVersionStore = {
+      getVersion: jest.fn().mockResolvedValue(TOKEN_VERSION_DEFAULT),
+      bumpVersion: jest.fn().mockResolvedValue(1),
+    } as any;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         JwtAuthGuard,
@@ -58,6 +68,10 @@ describe("JwtAuthGuard", () => {
         {
           provide: Reflector,
           useValue: mockReflector,
+        },
+        {
+          provide: TokenVersionStore,
+          useValue: mockTokenVersionStore,
         },
       ],
     }).compile();
@@ -72,28 +86,28 @@ describe("JwtAuthGuard", () => {
   });
 
   describe("canActivate - endpoints públicos", () => {
-    it("debería permitir acceso a rutas públicas", () => {
+    it("debería permitir acceso a rutas públicas", async () => {
       mockReflector.getAllAndOverride.mockReturnValue(true);
 
       const context = mockExecutionContext("/public/route");
 
-      expect(guard.canActivate(context)).toBe(true);
+      expect(await guard.canActivate(context)).toBe(true);
     });
 
-    it("debería permitir acceso a /health", () => {
+    it("debería permitir acceso a /health", async () => {
       mockReflector.getAllAndOverride.mockReturnValue(false);
 
       const context = mockExecutionContext("/health");
 
-      expect(guard.canActivate(context)).toBe(true);
+      expect(await guard.canActivate(context)).toBe(true);
     });
 
-    it("debería permitir acceso a rutas /internal", () => {
+    it("debería permitir acceso a rutas /internal", async () => {
       mockReflector.getAllAndOverride.mockReturnValue(false);
 
       const context = mockExecutionContext("/internal/test");
 
-      expect(guard.canActivate(context)).toBe(true);
+      expect(await guard.canActivate(context)).toBe(true);
     });
   });
 
@@ -105,6 +119,7 @@ describe("JwtAuthGuard", () => {
       role: "CLIENT",
       businessId: "business-123",
       businessIds: ["business-123", "business-456"],
+      tokenVersion: TOKEN_VERSION_DEFAULT,
     };
 
     beforeEach(() => {
@@ -113,14 +128,15 @@ describe("JwtAuthGuard", () => {
           return "test-secret-with-sufficient-length-32!!";
         return key;
       });
+      mockTokenVersionStore.getVersion.mockResolvedValue(TOKEN_VERSION_DEFAULT);
     });
 
-    it("debería permitir acceso con token Bearer válido", () => {
+    it("debería permitir acceso con token Bearer válido", async () => {
       (jwt.verify as jest.Mock).mockReturnValue(mockDecoded as any);
 
       const context = mockExecutionContext("/api/test", `Bearer ${validToken}`);
 
-      expect(guard.canActivate(context)).toBe(true);
+      expect(await guard.canActivate(context)).toBe(true);
       expect(context.switchToHttp().getRequest().user).toEqual({
         userId: "user-123",
         email: "test@example.com",
@@ -130,72 +146,78 @@ describe("JwtAuthGuard", () => {
       });
     });
 
-    it("debería permitir acceso con token sin prefijo Bearer", () => {
+    it("debería permitir acceso con token sin prefijo Bearer", async () => {
       (jwt.verify as jest.Mock).mockReturnValue(mockDecoded as any);
 
       const context = mockExecutionContext("/api/test", validToken);
 
-      expect(guard.canActivate(context)).toBe(true);
+      expect(await guard.canActivate(context)).toBe(true);
     });
 
-    it("debería lanzar UnauthorizedException cuando no hay header de autorización", () => {
+    it("debería lanzar UnauthorizedException cuando no hay header de autorización", async () => {
       const context = mockExecutionContext("/api/test");
 
-      expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
-      expect(() => guard.canActivate(context)).toThrow(
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        UnauthorizedException
+      );
+      await expect(guard.canActivate(context)).rejects.toThrow(
         "Token no proporcionado"
       );
     });
 
-    it("debería lanzar UnauthorizedException con token inválido", () => {
+    it("debería lanzar UnauthorizedException con token inválido", async () => {
       (jwt.verify as jest.Mock).mockImplementation(() => {
         throw new Error("Invalid token");
       });
 
       const context = mockExecutionContext("/api/test", "Bearer invalid-token");
 
-      expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
-      expect(() => guard.canActivate(context)).toThrow(
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        UnauthorizedException
+      );
+      await expect(guard.canActivate(context)).rejects.toThrow(
         "Token inválido o expirado"
       );
     });
 
-    it("debería lanzar InternalServerErrorException cuando JWT_SECRET no está configurado", () => {
+    it("debería lanzar error cuando JWT_SECRET no está configurado", async () => {
       mockConfigService.get.mockReturnValue(undefined);
 
       const context = mockExecutionContext("/api/test", "Bearer token");
 
-      expect(() => guard.canActivate(context)).toThrow(
+      await expect(guard.canActivate(context)).rejects.toThrow(
         "JWT_SECRET no está configurado"
       );
     });
 
-    it("debería rechazar JWT_SECRET con valor por defecto débil (dev-jwt-secret-change-in-production)", () => {
+    it("debería rechazar JWT_SECRET con valor por defecto débil (dev-jwt-secret-change-in-production)", async () => {
       mockConfigService.get.mockReturnValue(
         "dev-jwt-secret-change-in-production"
       );
 
       const context = mockExecutionContext("/api/test", "Bearer token");
 
-      expect(() => guard.canActivate(context)).toThrow(
+      await expect(guard.canActivate(context)).rejects.toThrow(
         "tiene un valor por defecto inseguro"
       );
     });
 
-    it("debería rechazar JWT_SECRET demasiado corto (< 16 caracteres)", () => {
+    it("debería rechazar JWT_SECRET demasiado corto (< 16 caracteres)", async () => {
       mockConfigService.get.mockReturnValue("short");
 
       const context = mockExecutionContext("/api/test", "Bearer token");
 
-      expect(() => guard.canActivate(context)).toThrow("es demasiado corto");
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        "es demasiado corto"
+      );
     });
 
-    it("debería extraer correctamente el token del header Bearer", () => {
+    it("debería extraer correctamente el token del header Bearer", async () => {
       (jwt.verify as jest.Mock).mockReturnValue(mockDecoded as any);
 
       const context = mockExecutionContext("/api/test", "Bearer my-jwt-token");
 
-      guard.canActivate(context);
+      await guard.canActivate(context);
 
       expect(jwt.verify).toHaveBeenCalledWith(
         "my-jwt-token",
@@ -204,25 +226,51 @@ describe("JwtAuthGuard", () => {
       );
     });
 
-    it("debería pinear el algoritmo HS256 para prevenir alg-confusion", () => {
+    it("debería pinear el algoritmo HS256 para prevenir alg-confusion", async () => {
       (jwt.verify as jest.Mock).mockReturnValue(mockDecoded as any);
 
       const context = mockExecutionContext("/api/test", "Bearer token");
 
-      guard.canActivate(context);
+      await guard.canActivate(context);
 
       const callArgs = (jwt.verify as jest.Mock).mock.calls.at(-1);
       expect(callArgs?.[2]).toEqual({ algorithms: ["HS256"] });
     });
+
+    it("debería rechazar si tokenVersion no coincide (sesión invalidada)", async () => {
+      (jwt.verify as jest.Mock).mockReturnValue({
+        ...mockDecoded,
+        tokenVersion: 0,
+      } as any);
+      mockTokenVersionStore.getVersion.mockResolvedValue(1);
+
+      const context = mockExecutionContext("/api/test", "Bearer token");
+
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        "Sesión invalidada"
+      );
+    });
+
+    it("debería permitir acceso si tokenVersion coincide con Redis", async () => {
+      (jwt.verify as jest.Mock).mockReturnValue({
+        ...mockDecoded,
+        tokenVersion: 2,
+      } as any);
+      mockTokenVersionStore.getVersion.mockResolvedValue(2);
+
+      const context = mockExecutionContext("/api/test", "Bearer token");
+
+      expect(await guard.canActivate(context)).toBe(true);
+    });
   });
 
   describe("canActivate - integración con reflector", () => {
-    it("debería leer metadatos IS_PUBLIC_KEY del handler", () => {
+    it("debería leer metadatos IS_PUBLIC_KEY del handler", async () => {
       mockReflector.getAllAndOverride.mockReturnValue(true);
 
       const context = mockExecutionContext("/public/route");
 
-      guard.canActivate(context);
+      await guard.canActivate(context);
 
       expect(mockReflector.getAllAndOverride).toHaveBeenCalledWith(
         IS_PUBLIC_KEY,
@@ -230,12 +278,12 @@ describe("JwtAuthGuard", () => {
       );
     });
 
-    it("debería leer metadatos IS_PUBLIC_KEY de la clase si no está en el handler", () => {
+    it("debería leer metadatos IS_PUBLIC_KEY de la clase si no está en el handler", async () => {
       mockReflector.getAllAndOverride.mockReturnValue(true);
 
       const context = mockExecutionContext("/public/route");
 
-      const result = guard.canActivate(context);
+      const result = await guard.canActivate(context);
 
       expect(mockReflector.getAllAndOverride).toHaveBeenCalledWith(
         IS_PUBLIC_KEY,

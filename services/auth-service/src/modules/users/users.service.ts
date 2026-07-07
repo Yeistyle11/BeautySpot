@@ -15,6 +15,7 @@ import { CreateStaffDto } from "./dto/create-staff.dto";
 import { UpdateStaffDto } from "./dto/update-staff.dto";
 import { toSafeUser, SafeUser } from "./dto/user-response.dto";
 import { Role } from "@beautyspot/shared-types";
+import { TokenVersionStore } from "@beautyspot/nest-common";
 
 @Injectable()
 export class UsersService {
@@ -26,7 +27,8 @@ export class UsersService {
     @InjectRepository(AuditLog)
     private readonly auditLogRepository: Repository<AuditLog>,
     private readonly configService: ConfigService,
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    private readonly tokenVersionStore: TokenVersionStore
   ) {}
 
   // --- Consultas ---
@@ -278,6 +280,7 @@ export class UsersService {
         manager
       );
     });
+    await this.tokenVersionStore.bumpVersion(userId);
 
     return { message: "Contrasena actualizada correctamente" };
   }
@@ -339,6 +342,9 @@ export class UsersService {
         );
       }
     });
+    if (!active) {
+      await this.tokenVersionStore.bumpVersion(userId);
+    }
 
     return {
       message: active

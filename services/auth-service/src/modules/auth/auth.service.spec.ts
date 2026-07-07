@@ -17,7 +17,7 @@ import {
 } from "@nestjs/common";
 import { Role } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
-import { EventBusService } from "@beautyspot/nest-common";
+import { EventBusService, TokenVersionStore } from "@beautyspot/nest-common";
 
 function hashResetToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -126,6 +126,10 @@ describe("AuthService", () => {
     const mockDataSource: any = {
       transaction: jest.fn((cb: any) => cb(mockManager)),
     };
+    const mockTokenVersionStore: any = {
+      getVersion: jest.fn().mockResolvedValue(0),
+      bumpVersion: jest.fn().mockResolvedValue(1),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -155,10 +159,8 @@ describe("AuthService", () => {
           useValue: mockEventBus,
         },
         { provide: "DataSource", useValue: mockDataSource },
-        {
-          provide: DataSource,
-          useValue: mockDataSource,
-        },
+        { provide: DataSource, useValue: mockDataSource },
+        { provide: TokenVersionStore, useValue: mockTokenVersionStore },
       ],
     }).compile();
 

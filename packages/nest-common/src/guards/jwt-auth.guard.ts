@@ -9,15 +9,20 @@ import { Reflector } from "@nestjs/core";
 import * as jwt from "jsonwebtoken";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 import { assertJwtSecret } from "../security/assert-jwt-secret";
+import {
+  TokenVersionStore,
+  TOKEN_VERSION_DEFAULT,
+} from "../security/token-version.store";
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
     private configService: ConfigService,
-    private reflector: Reflector
+    private reflector: Reflector,
+    private readonly tokenVersionStore: TokenVersionStore
   ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -42,20 +47,38 @@ export class JwtAuthGuard implements CanActivate {
       "JWT_SECRET"
     );
 
+    let decoded: jwt.JwtPayload;
     try {
-      const decoded = jwt.verify(token, secret, {
+      decoded = jwt.verify(token, secret, {
         algorithms: ["HS256"],
       }) as jwt.JwtPayload;
-      request.user = {
-        userId: decoded.sub,
-        email: decoded.email,
-        role: decoded.role,
-        businessId: decoded.businessId,
-        businessIds: decoded.businessIds,
-      };
-      return true;
     } catch {
       throw new UnauthorizedException("Token inválido o expirado");
     }
+
+    if (decoded.sub && decoded.tokenVersion !== undefined) {
+      const currentVersion = await this.tokenVersionStore.getVersion(
+        decoded.sub
+      );
+      if (currentVersion !== decoded.tokenVersion) {
+        throw new UnauthorizedException("Sesión invalidada");
+      }
+    } else if (decoded.sub) {
+      const currentVersion = await this.tokenVersionStore.getVersion(
+        decoded.sub
+      );
+      if (currentVersion !== TOKEN_VERSION_DEFAULT) {
+        throw new UnauthorizedException("Sesión invalidada");
+      }
+    }
+
+    request.user = {
+      userId: decoded.sub,
+      email: decoded.email,
+      role: decoded.role,
+      businessId: decoded.businessId,
+      businessIds: decoded.businessIds,
+    };
+    return true;
   }
 }

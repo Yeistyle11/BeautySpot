@@ -1,13 +1,26 @@
-import { createMicroserviceApp } from './create-app.factory';
-import { ValidationPipe } from '@nestjs/common';
+import { createMicroserviceApp } from "./create-app.factory";
+import { ValidationPipe } from "@nestjs/common";
 
-jest.mock('@nestjs/core', () => ({
+jest.mock("@nestjs/core", () => ({
   NestFactory: {
     create: jest.fn(),
   },
 }));
 
-describe('createAppFactory', () => {
+jest.mock("ioredis", () => {
+  const mockRedis = {
+    get: jest.fn(),
+    set: jest.fn(),
+    incr: jest.fn(),
+    del: jest.fn(),
+    exists: jest.fn(),
+    disconnect: jest.fn(),
+  };
+  const fn = jest.fn(() => mockRedis);
+  return { __esModule: true, default: fn, Redis: fn };
+});
+
+describe("createAppFactory", () => {
   let NestFactoryMock: any;
   let mockApp: any;
   let mockConfigService: any;
@@ -16,7 +29,7 @@ describe('createAppFactory', () => {
     mockConfigService = {
       get: jest.fn((key: string) => {
         const config: any = {
-          CORS_ORIGINS: 'http://localhost:3000,https://example.com',
+          CORS_ORIGINS: "http://localhost:3000,https://example.com",
         };
         return config[key];
       }),
@@ -37,19 +50,19 @@ describe('createAppFactory', () => {
       create: jest.fn().mockResolvedValue(mockApp),
     };
 
-    (require('@nestjs/core').NestFactory as any) = NestFactoryMock;
+    (require("@nestjs/core").NestFactory as any) = NestFactoryMock;
   });
 
-  describe('constructor', () => {
-    it('debería crear aplicación NestJS', async () => {
+  describe("constructor", () => {
+    it("debería crear aplicación NestJS", async () => {
       await createMicroserviceApp({} as any);
 
       expect(NestFactoryMock.create).toHaveBeenCalledWith({} as any);
     });
   });
 
-  describe('CORS configuration', () => {
-    it('debería habilitar CORS con configuración personalizada', async () => {
+  describe("CORS configuration", () => {
+    it("debería habilitar CORS con configuración personalizada", async () => {
       await createMicroserviceApp({} as any);
 
       expect(mockApp.enableCors).toHaveBeenCalledWith({
@@ -58,105 +71,105 @@ describe('createAppFactory', () => {
       });
     });
 
-    it('debería permitir orígenes configurados', async () => {
+    it("debería permitir orígenes configurados", async () => {
       await createMicroserviceApp({} as any);
       const corsCallback = mockApp.enableCors.mock.calls[0][0].origin;
 
-      corsCallback('https://example.com', (err: any, allow?: boolean) => {
+      corsCallback("https://example.com", (err: any, allow?: boolean) => {
         expect(err).toBeNull();
         expect(allow).toBe(true);
       });
     });
 
-    it('debería permitir orígenes localhost', async () => {
+    it("debería permitir orígenes localhost", async () => {
       await createMicroserviceApp({} as any);
       const corsCallback = mockApp.enableCors.mock.calls[0][0].origin;
 
-      corsCallback('http://localhost:3000', (err: any, allow?: boolean) => {
+      corsCallback("http://localhost:3000", (err: any, allow?: boolean) => {
         expect(err).toBeNull();
         expect(allow).toBe(true);
       });
     });
 
-    it('debería permitir orígenes en desarrollo', async () => {
+    it("debería permitir orígenes en desarrollo", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'NODE_ENV') return 'development';
-        if (key === 'CORS_ORIGINS') return 'https://example.com';
+        if (key === "NODE_ENV") return "development";
+        if (key === "CORS_ORIGINS") return "https://example.com";
         return undefined;
       });
 
       await createMicroserviceApp({} as any);
       const corsCallback = mockApp.enableCors.mock.calls[0][0].origin;
 
-      corsCallback('https://other-origin.com', (err: any, allow?: boolean) => {
+      corsCallback("https://other-origin.com", (err: any, allow?: boolean) => {
         expect(err).toBeNull();
         expect(allow).toBe(true);
       });
     });
 
-    it('debería denegar orígenes no permitidos en producción', async () => {
+    it("debería denegar orígenes no permitidos en producción", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'NODE_ENV') return 'production';
-        if (key === 'CORS_ORIGINS') return 'https://example.com';
+        if (key === "NODE_ENV") return "production";
+        if (key === "CORS_ORIGINS") return "https://example.com";
         return undefined;
       });
 
       await createMicroserviceApp({} as any);
       const corsCallback = mockApp.enableCors.mock.calls[0][0].origin;
 
-      corsCallback('https://malicious.com', (err: any, allow?: boolean) => {
+      corsCallback("https://malicious.com", (err: any, allow?: boolean) => {
         expect(err).toBeInstanceOf(Error);
         expect(allow).toBeUndefined();
       });
     });
   });
 
-  describe('ValidationPipe', () => {
-    it('debería configurar ValidationPipe global', async () => {
+  describe("ValidationPipe", () => {
+    it("debería configurar ValidationPipe global", async () => {
       await createMicroserviceApp({} as any);
- 
+
       expect(mockApp.useGlobalPipes).toHaveBeenCalledWith(
         expect.any(ValidationPipe)
       );
- 
+
       const pipe = mockApp.useGlobalPipes.mock.calls[0][0];
       expect(pipe).toBeInstanceOf(ValidationPipe);
       expect(pipe).toBeDefined();
     });
   });
 
-  describe('Global Guards', () => {
-    it('debería registrar guards globales', async () => {
+  describe("Global Guards", () => {
+    it("debería registrar guards globales", async () => {
       await createMicroserviceApp({} as any);
- 
+
       expect(mockApp.useGlobalGuards).toHaveBeenCalled();
     });
   });
 
-  describe('Global Filters', () => {
-    it('debería registrar HttpExceptionFilter global', async () => {
+  describe("Global Filters", () => {
+    it("debería registrar HttpExceptionFilter global", async () => {
       await createMicroserviceApp({} as any);
- 
+
       expect(mockApp.useGlobalFilters).toHaveBeenCalled();
     });
   });
 
-  describe('Global Interceptors', () => {
-    it('debería registrar TransformInterceptor global', async () => {
+  describe("Global Interceptors", () => {
+    it("debería registrar TransformInterceptor global", async () => {
       await createMicroserviceApp({} as any);
- 
+
       expect(mockApp.useGlobalInterceptors).toHaveBeenCalled();
     });
   });
 
-  describe('Application initialization', () => {
-    it('debería inicializar la aplicación', async () => {
+  describe("Application initialization", () => {
+    it("debería inicializar la aplicación", async () => {
       await createMicroserviceApp({} as any);
 
       expect(mockApp.init).toHaveBeenCalled();
     });
 
-    it('debería iniciar el servidor en el puerto configurado', async () => {
+    it("debería iniciar el servidor en el puerto configurado", async () => {
       const port = 3000;
       process.env.PORT = port.toString();
 
@@ -165,7 +178,7 @@ describe('createAppFactory', () => {
       expect(mockApp.listen).toHaveBeenCalledWith(port);
     });
 
-    it('debería usar puerto por defecto si PORT no está configurado', async () => {
+    it("debería usar puerto por defecto si PORT no está configurado", async () => {
       delete process.env.PORT;
 
       await createMicroserviceApp({} as any);
@@ -174,17 +187,19 @@ describe('createAppFactory', () => {
     });
   });
 
-  describe('ConfigService integration', () => {
-    it('debería obtener ConfigService de la aplicación', async () => {
+  describe("ConfigService integration", () => {
+    it("debería obtener ConfigService de la aplicación", async () => {
       await createMicroserviceApp({} as any);
 
-      expect(mockApp.get).toHaveBeenCalledWith(require('@nestjs/config').ConfigService);
+      expect(mockApp.get).toHaveBeenCalledWith(
+        require("@nestjs/config").ConfigService
+      );
     });
 
-    it('debería leer configuración CORS', async () => {
+    it("debería leer configuración CORS", async () => {
       await createMicroserviceApp({} as any);
 
-      expect(mockConfigService.get).toHaveBeenCalledWith('CORS_ORIGINS');
+      expect(mockConfigService.get).toHaveBeenCalledWith("CORS_ORIGINS");
     });
   });
 });
