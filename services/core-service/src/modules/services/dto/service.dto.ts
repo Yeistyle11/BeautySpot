@@ -1,10 +1,27 @@
-import { IsString, IsNumber, IsOptional, Min } from "class-validator";
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  Min,
+  IsBoolean,
+  MaxLength,
+} from "class-validator";
 
 export class CreateServiceDto {
-  @IsString() name!: string;
-  @IsString() description!: string;
+  @IsString() @MaxLength(200) name!: string;
+  @IsString() @MaxLength(1000) description!: string;
   @IsNumber() @Min(0) price!: number;
   @IsNumber() @Min(5) duration!: number;
-  @IsString() category!: string;
+  @IsString() @MaxLength(100) category!: string;
   @IsOptional() @IsString() image?: string;
+}
+
+export class UpdateServiceDto {
+  @IsOptional() @IsString() @MaxLength(200) name?: string;
+  @IsOptional() @IsString() @MaxLength(1000) description?: string;
+  @IsOptional() @IsNumber() @Min(0) price?: number;
+  @IsOptional() @IsNumber() @Min(5) duration?: number;
+  @IsOptional() @IsString() @MaxLength(100) category?: string;
+  @IsOptional() @IsString() image?: string;
+  @IsOptional() @IsBoolean() active?: boolean;
 }

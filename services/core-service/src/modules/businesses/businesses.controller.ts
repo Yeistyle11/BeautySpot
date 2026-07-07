@@ -1,8 +1,17 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  Query,
+} from "@nestjs/common";
 import { BusinessesService } from "./businesses.service";
 import { Roles } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
-import { CreateBusinessDto } from "./dto/business.dto";
+import { CreateBusinessDto, UpdateBusinessDto } from "./dto/business.dto";
 
 @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
 @Controller("businesses")
@@ -14,13 +23,25 @@ export class BusinessesController {
     return this.service.create(dto);
   }
 
-  @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN, Role.PROFESSIONAL, Role.RECEPTIONIST)
+  @Roles(
+    Role.OWNER,
+    Role.ADMIN,
+    Role.SUPER_ADMIN,
+    Role.PROFESSIONAL,
+    Role.RECEPTIONIST
+  )
   @Get()
   async findAll(@Query() query: Record<string, unknown>) {
     return this.service.findAll(query);
   }
 
-  @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN, Role.PROFESSIONAL, Role.RECEPTIONIST)
+  @Roles(
+    Role.OWNER,
+    Role.ADMIN,
+    Role.SUPER_ADMIN,
+    Role.PROFESSIONAL,
+    Role.RECEPTIONIST
+  )
   @Get("slug/:slug")
   async findBySlug(@Param("slug") slug: string) {
     return this.service.findBySlug(slug);
@@ -32,7 +53,7 @@ export class BusinessesController {
   }
 
   @Patch(":id")
-  async update(@Param("id") id: string, @Body() dto: Partial<CreateBusinessDto>) {
+  async update(@Param("id") id: string, @Body() dto: UpdateBusinessDto) {
     return this.service.update(id, dto);
   }
 

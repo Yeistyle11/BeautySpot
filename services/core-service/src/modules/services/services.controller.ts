@@ -1,8 +1,18 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  Query,
+  Req,
+} from "@nestjs/common";
 import { ServicesService } from "./services.service";
 import { Roles } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
-import { CreateServiceDto } from "./dto/service.dto";
+import { CreateServiceDto, UpdateServiceDto } from "./dto/service.dto";
 
 @Roles(Role.OWNER, Role.ADMIN)
 @Controller("services")
@@ -26,7 +36,11 @@ export class ServicesController {
   }
 
   @Patch(":id")
-  async update(@Param("id") id: string, @Req() req: any, @Body() dto: Partial<CreateServiceDto>) {
+  async update(
+    @Param("id") id: string,
+    @Req() req: any,
+    @Body() dto: UpdateServiceDto
+  ) {
     return this.service.update(id, req.businessId, dto);
   }
 

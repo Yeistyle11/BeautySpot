@@ -1,19 +1,44 @@
-import { IsString, IsOptional, IsNumber } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsBoolean,
+  MaxLength,
+} from "class-validator";
 
 export class CreateBusinessDto {
-  @IsString() name!: string;
-  @IsOptional() @IsString() description?: string;
-  @IsOptional() @IsString() phone?: string;
-  @IsOptional() @IsString() email?: string;
-  @IsOptional() @IsString() website?: string;
-  @IsOptional() @IsString() address?: string;
-  @IsOptional() @IsString() city?: string;
-  @IsOptional() @IsString() state?: string;
-  @IsOptional() @IsString() country?: string;
+  @IsString() @MaxLength(200) name!: string;
+  @IsOptional() @IsString() @MaxLength(1000) description?: string;
+  @IsOptional() @IsString() @MaxLength(30) phone?: string;
+  @IsOptional() @IsString() @MaxLength(255) email?: string;
+  @IsOptional() @IsString() @MaxLength(255) website?: string;
+  @IsOptional() @IsString() @MaxLength(255) address?: string;
+  @IsOptional() @IsString() @MaxLength(100) city?: string;
+  @IsOptional() @IsString() @MaxLength(100) state?: string;
+  @IsOptional() @IsString() @MaxLength(100) country?: string;
   @IsOptional() @IsNumber() latitude?: number;
   @IsOptional() @IsNumber() longitude?: number;
-  @IsOptional() @IsString() timezone?: string;
-  @IsOptional() @IsString() currency?: string;
-  @IsOptional() @IsString() locale?: string;
-  @IsOptional() @IsString() businessType?: string;
+  @IsOptional() @IsString() @MaxLength(50) timezone?: string;
+  @IsOptional() @IsString() @MaxLength(10) currency?: string;
+  @IsOptional() @IsString() @MaxLength(10) locale?: string;
+  @IsOptional() @IsString() @MaxLength(50) businessType?: string;
+}
+
+export class UpdateBusinessDto {
+  @IsOptional() @IsString() @MaxLength(200) name?: string;
+  @IsOptional() @IsString() @MaxLength(1000) description?: string;
+  @IsOptional() @IsString() @MaxLength(30) phone?: string;
+  @IsOptional() @IsString() @MaxLength(255) email?: string;
+  @IsOptional() @IsString() @MaxLength(255) website?: string;
+  @IsOptional() @IsString() @MaxLength(255) address?: string;
+  @IsOptional() @IsString() @MaxLength(100) city?: string;
+  @IsOptional() @IsString() @MaxLength(100) state?: string;
+  @IsOptional() @IsString() @MaxLength(100) country?: string;
+  @IsOptional() @IsNumber() latitude?: number;
+  @IsOptional() @IsNumber() longitude?: number;
+  @IsOptional() @IsString() @MaxLength(50) timezone?: string;
+  @IsOptional() @IsString() @MaxLength(10) currency?: string;
+  @IsOptional() @IsString() @MaxLength(10) locale?: string;
+  @IsOptional() @IsString() @MaxLength(50) businessType?: string;
+  @IsOptional() @IsBoolean() active?: boolean;
 }

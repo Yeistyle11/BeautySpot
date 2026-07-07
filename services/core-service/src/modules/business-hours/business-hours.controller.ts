@@ -1,8 +1,20 @@
-import { Controller, Get, Put, Patch, Param, Body, Query, Req } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Put,
+  Patch,
+  Param,
+  Body,
+  Query,
+  Req,
+} from "@nestjs/common";
 import { BusinessHoursService } from "./business-hours.service";
 import { Roles } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
-import { BusinessHourItemDto, BatchUpsertDto } from "./dto/business-hours.dto";
+import {
+  BatchUpsertDto,
+  UpdateBusinessHoursDto,
+} from "./dto/business-hours.dto";
 
 @Roles(Role.OWNER, Role.ADMIN)
 @Controller("business-hours")
@@ -20,7 +32,11 @@ export class BusinessHoursController {
   }
 
   @Patch(":id")
-  async update(@Param("id") id: string, @Req() req: any, @Body() dto: Partial<BusinessHourItemDto>) {
+  async update(
+    @Param("id") id: string,
+    @Req() req: any,
+    @Body() dto: UpdateBusinessHoursDto
+  ) {
     return this.service.updateOne(id, req.businessId, dto);
   }
 }
