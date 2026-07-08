@@ -1,4 +1,13 @@
-import { IsNumber, IsString, IsOptional, IsBoolean, Min, Max, ValidateNested } from "class-validator";
+import {
+  IsNumber,
+  IsString,
+  IsOptional,
+  IsBoolean,
+  Min,
+  Max,
+  ValidateNested,
+  MaxLength,
+} from "class-validator";
 import { Type } from "class-transformer";
 
 export class BusinessHourItemDto {
@@ -6,9 +15,26 @@ export class BusinessHourItemDto {
 
   @Type(() => Number) @IsNumber() @Min(0) @Max(6) dayOfWeek!: number;
 
-  @IsString() openTime!: string;
+  @IsString() @MaxLength(5) openTime!: string;
 
-  @IsString() closeTime!: string;
+  @IsString() @MaxLength(5) closeTime!: string;
+
+  @IsOptional() @IsBoolean() active?: boolean;
+}
+
+export class UpdateBusinessHoursDto {
+  @IsOptional() @IsString() branchId?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(6)
+  dayOfWeek?: number;
+
+  @IsOptional() @IsString() @MaxLength(5) openTime?: string;
+
+  @IsOptional() @IsString() @MaxLength(5) closeTime?: string;
 
   @IsOptional() @IsBoolean() active?: boolean;
 }
