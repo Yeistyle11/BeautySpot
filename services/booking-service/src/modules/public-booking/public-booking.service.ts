@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException } from "@nestjs/common";
+import {
+  Injectable,
+  BadRequestException,
+  ServiceUnavailableException,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { ConfigService } from "@nestjs/config";
@@ -12,7 +17,6 @@ import {
   timeToMinutes,
   timesOverlap,
 } from "@beautyspot/shared-utils";
-import * as http from "http";
 
 @Injectable()
 export class PublicBookingService {
@@ -124,47 +128,69 @@ export class PublicBookingService {
     email?: string,
     phone?: string
   ): Promise<string> {
-    const corePort = this.configService.get("CORE_SERVICE_PORT", "3002");
+    const coreServiceUrl = this.configService.get<string>(
+      "CORE_SERVICE_URL",
+      "http://localhost:3002"
+    );
     const internalSecret = this.configService.get<string>(
       "INTERNAL_API_SECRET",
       ""
     );
     const body = JSON.stringify({ businessId, name, email, phone });
 
-    return new Promise((resolve, reject) => {
-      const req = http.request(
+    let response: Response;
+    try {
+      response = await fetch(
+        `${coreServiceUrl}/internal/clients/find-or-create`,
         {
-          hostname: "localhost",
-          port: corePort,
-          path: "/internal/clients/find-or-create",
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Content-Length": Buffer.byteLength(body),
             "x-internal-secret": internalSecret,
           },
-        },
-        (res) => {
-          let data = "";
-          res.on("data", (chunk) => {
-            data += chunk;
-          });
-          res.on("end", () => {
-            try {
-              const parsed = JSON.parse(data);
-              const client =
-                parsed.success !== undefined ? parsed.data : parsed;
-              resolve(client.id);
-            } catch {
-              reject(new Error("Error creando cliente"));
-            }
-          });
+          body,
+          signal: AbortSignal.timeout(5000),
         }
       );
-      req.on("error", reject);
-      req.write(body);
-      req.end();
-    });
+    } catch (error) {
+      throw new ServiceUnavailableException(
+        `No se pudo crear el cliente guest (core-service no disponible). ` +
+          `Reintenta mas tarde. Error: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+      );
+    }
+
+    if (!response.ok) {
+      throw new ServiceUnavailableException(
+        `No se pudo crear el cliente guest (core-service respondio ${response.status}). ` +
+          `Reintenta mas tarde.`
+      );
+    }
+
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Respuesta invalida del core-service al crear cliente guest: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+
+    const client =
+      typeof data === "object" && data !== null && "success" in data
+        ? (data as any).data
+        : data;
+
+    if (!client || typeof client.id !== "string" || client.id.length === 0) {
+      throw new InternalServerErrorException(
+        "El core-service no retorno un clientId valido"
+      );
+    }
+
+    return client.id;
   }
 
   private async isSlotAvailable(
