@@ -1,7 +1,7 @@
-import 'reflect-metadata';
+import "reflect-metadata";
 
 // Mock de IoRedis
-jest.mock('ioredis', () => {
+jest.mock("ioredis", () => {
   const mockRedis = {
     get: jest.fn(),
     set: jest.fn(),
@@ -17,15 +17,19 @@ jest.mock('ioredis', () => {
 });
 
 // Mock de amqplib (RabbitMQ)
-jest.mock('amqplib', () => ({
+jest.mock("amqplib", () => ({
   connect: jest.fn(),
 }));
 
 // Mock de EventBusService
-jest.mock('@beautyspot/nest-common', () => ({
+jest.mock("@beautyspot/nest-common", () => ({
+  ...jest.requireActual("@beautyspot/nest-common"),
   EventBusService: jest.fn().mockImplementation(() => ({
     emit: jest.fn().mockResolvedValue(undefined),
     on: jest.fn().mockReturnValue(undefined),
+  })),
+  OutboxService: jest.fn().mockImplementation(() => ({
+    enqueue: jest.fn().mockResolvedValue(undefined),
   })),
 }));
 

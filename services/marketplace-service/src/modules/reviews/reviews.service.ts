@@ -1,16 +1,25 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from "@nestjs/common";
+import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
+import { Repository, DataSource } from "typeorm";
 import { ReviewEntity } from "../../entities/review.entity";
 import { ReviewHelpfulEntity } from "../../entities/review-helpful.entity";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
-import { CreateReviewDto, ReviewQueryDto } from "./dto/review.dto";
-import { EventBusService } from "@beautyspot/nest-common";
+import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
+import { CreateReviewDto, ReviewQueryDto } from "./dto/review.dto";
 
 export interface RatingDistribution {
-  5: number; 4: number; 3: number; 2: number; 1: number;
+  5: number;
+  4: number;
+  3: number;
+  2: number;
+  1: number;
 }
 
 export interface ReviewSummary {
@@ -26,9 +35,11 @@ export class ReviewsService {
     private readonly repo: Repository<ReviewEntity>,
     @InjectRepository(ReviewHelpfulEntity)
     private readonly helpfulRepo: Repository<ReviewHelpfulEntity>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
     private readonly profilesService: BusinessProfilesService,
     private readonly professionalProfilesService: ProfessionalProfilesService,
-    private readonly eventBus: EventBusService,
+    private readonly outbox: OutboxService
   ) {}
 
   async create(dto: CreateReviewDto): Promise<ReviewEntity> {
@@ -37,7 +48,8 @@ export class ReviewsService {
       const existing = await this.repo.findOne({
         where: { appointmentId: dto.appointmentId },
       });
-      if (existing) throw new ConflictException("Ya existe una reseña para esta cita");
+      if (existing)
+        throw new ConflictException("Ya existe una reseña para esta cita");
 
       // Si viene de una cita, es verificada
       dto.photos = dto.photos?.slice(0, 3); // Max 3 fotos
@@ -45,43 +57,57 @@ export class ReviewsService {
 
     // Si rating < 4 y no hay comentario, requerirlo
     if (dto.rating < 4 && !dto.comment) {
-      throw new BadRequestException("El comentario es obligatorio para calificaciones menores a 4 estrellas");
+      throw new BadRequestException(
+        "El comentario es obligatorio para calificaciones menores a 4 estrellas"
+      );
     }
 
     const review = this.repo.create({
       ...dto,
       isVerified: !!dto.appointmentId,
     });
-    const saved = await this.repo.save(review);
 
-    // Actualizar rating del negocio
-    await this.profilesService.updateRating(dto.businessId);
+    return this.dataSource.transaction(async (manager) => {
+      const saved = await manager.getRepository(ReviewEntity).save(review);
 
-    // Actualizar rating del profesional si aplica
-    if (dto.professionalId) {
-      await this.professionalProfilesService.updateRating(dto.professionalId);
-    }
+      await this.profilesService.updateRating(dto.businessId, manager);
 
-    // Emitir evento de reseña creada
-    this.eventBus.emit(EventNames.MARKETPLACE_REVIEW_CREATED, {
-      reviewId: saved.id,
-      businessId: dto.businessId,
-      professionalId: dto.professionalId,
-      clientId: dto.clientId,
-      rating: dto.rating,
-      comment: dto.comment,
-      isVerified: saved.isVerified,
+      if (dto.professionalId) {
+        await this.professionalProfilesService.updateRating(
+          dto.professionalId,
+          manager
+        );
+      }
+
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.MARKETPLACE_REVIEW_CREATED,
+        aggregateType: "review",
+        aggregateId: saved.id,
+        payload: {
+          reviewId: saved.id,
+          businessId: dto.businessId,
+          professionalId: dto.professionalId,
+          clientId: dto.clientId,
+          rating: dto.rating,
+          comment: dto.comment,
+          isVerified: saved.isVerified,
+        },
+      });
+
+      return saved;
     });
-
-    return saved;
   }
 
-  async findByBusiness(businessId: string, query: ReviewQueryDto): Promise<{ items: ReviewEntity[]; total: number }> {
+  async findByBusiness(
+    businessId: string,
+    query: ReviewQueryDto
+  ): Promise<{ items: ReviewEntity[]; total: number }> {
     const page = query.page || 1;
     const limit = Math.min(query.limit || 20, 50);
     const offset = (page - 1) * limit;
 
-    const qb = this.repo.createQueryBuilder("r")
+    const qb = this.repo
+      .createQueryBuilder("r")
       .where("r.business_id = :businessId", { businessId });
 
     if (query.rating) {
@@ -89,7 +115,9 @@ export class ReviewsService {
     }
 
     if (query.professionalId) {
-      qb.andWhere("r.professional_id = :professionalId", { professionalId: query.professionalId });
+      qb.andWhere("r.professional_id = :professionalId", {
+        professionalId: query.professionalId,
+      });
     }
 
     if (query.withPhotos === "true") {
@@ -131,7 +159,8 @@ export class ReviewsService {
 
   async respond(id: string, response: string): Promise<ReviewEntity> {
     const review = await this.findById(id);
-    if (review.response) throw new BadRequestException("Esta reseña ya tiene respuesta");
+    if (review.response)
+      throw new BadRequestException("Esta reseña ya tiene respuesta");
     review.response = response;
     review.respondedAt = new Date();
     return this.repo.save(review);
