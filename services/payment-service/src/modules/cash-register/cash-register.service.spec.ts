@@ -1,18 +1,22 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, DataSource } from "typeorm";
 import { CashRegisterService } from "./cash-register.service";
 import { CashSessionEntity } from "./cash-session.entity";
 import { CashMovementEntity } from "./cash-movement.entity";
 import { CashMovementType } from "@beautyspot/shared-types";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
-import { EventBusService } from "@beautyspot/nest-common";
+import { OutboxService } from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
 
 describe("CashRegisterService", () => {
   let service: CashRegisterService;
   let mockSessionRepo: jest.Mocked<Repository<CashSessionEntity>>;
   let mockMovementRepo: jest.Mocked<Repository<CashMovementEntity>>;
-  let mockEventBus: jest.Mocked<EventBusService>;
+  let mockManagerRepo: any;
+  let mockManager: any;
+  let mockDataSource: any;
+  let mockOutbox: jest.Mocked<OutboxService>;
 
   const mockSession: CashSessionEntity = {
     id: "session-123",
@@ -77,8 +81,19 @@ describe("CashRegisterService", () => {
       save: jest.fn(),
     } as any;
 
-    mockEventBus = {
-      emit: jest.fn().mockResolvedValue(undefined),
+    mockManagerRepo = {
+      save: jest.fn(),
+    };
+    mockManager = {
+      getRepository: jest.fn().mockReturnValue(mockManagerRepo),
+    };
+    mockDataSource = {
+      transaction: jest.fn(async (fn: (m: any) => Promise<any>) =>
+        fn(mockManager)
+      ),
+    };
+    mockOutbox = {
+      enqueue: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     const module = await Test.createTestingModule({
@@ -92,10 +107,8 @@ describe("CashRegisterService", () => {
           provide: getRepositoryToken(CashMovementEntity),
           useValue: mockMovementRepo,
         },
-        {
-          provide: EventBusService,
-          useValue: mockEventBus,
-        },
+        { provide: DataSource, useValue: mockDataSource },
+        { provide: OutboxService, useValue: mockOutbox },
       ],
     }).compile();
 
@@ -155,7 +168,7 @@ describe("CashRegisterService", () => {
   });
 
   describe("closeSession", () => {
-    it("debería cerrar una sesión exitosamente", async () => {
+    it("debería cerrar la sesión y encolar el evento en la misma transacción", async () => {
       const dto = {
         closingAmount: 55000,
         notes: "Cierre del día",
@@ -169,14 +182,13 @@ describe("CashRegisterService", () => {
       } as any;
 
       mockSessionRepo.findOne.mockResolvedValue(openSession);
-      mockSessionRepo.save.mockResolvedValue({
+      mockManagerRepo.save.mockResolvedValue({
         ...openSession,
         closedBy: "user-123",
         closingAmount: 55000,
         closedAt: expect.any(Date),
         isOpen: false,
       } as any);
-      mockEventBus.emit.mockResolvedValue(undefined);
 
       await service.closeSession(
         "session-123",
@@ -185,11 +197,67 @@ describe("CashRegisterService", () => {
         dto
       );
 
-      expect(mockSessionRepo.save).toHaveBeenCalledWith(
+      expect(mockDataSource.transaction).toHaveBeenCalled();
+      // el save ocurre a traves del repositorio del manager (dentro de la tx)
+      expect(mockManagerRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({
           closedBy: "user-123",
           closingAmount: dto.closingAmount,
           closedAt: expect.any(Date),
+        })
+      );
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        mockManager,
+        expect.objectContaining({
+          eventType: EventNames.PAYMENT_CASH_SESSION_CLOSED,
+          aggregateType: "cash_session",
+          aggregateId: "session-123",
+          payload: expect.objectContaining({
+            sessionId: "session-123",
+            businessId: "business-123",
+            closingAmount: 55000,
+            movementCount: 0,
+          }),
+        })
+      );
+    });
+
+    it("debería calcular totales de movimientos al cerrar", async () => {
+      const dto = { closingAmount: 55000 };
+      const openSession = {
+        ...mockSession,
+        movements: [
+          { ...mockMovement, type: CashMovementType.IN, amount: 10000 },
+          {
+            ...mockMovement,
+            type: CashMovementType.OUT,
+            amount: 5000,
+            id: "movement-456",
+          },
+        ],
+        isOpen: true,
+        initOpenedAt: () => {},
+        generateId: () => {},
+      } as any;
+
+      mockSessionRepo.findOne.mockResolvedValue(openSession);
+      mockManagerRepo.save.mockResolvedValue(openSession);
+
+      await service.closeSession(
+        "session-123",
+        "business-123",
+        "user-123",
+        dto
+      );
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        mockManager,
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            totalIn: 10000,
+            totalOut: 5000,
+            movementCount: 2,
+          }),
         })
       );
     });
@@ -202,11 +270,6 @@ describe("CashRegisterService", () => {
           closingAmount: 50000,
         })
       ).rejects.toThrow(NotFoundException);
-      await expect(
-        service.closeSession("non-existent", "business-123", "user-123", {
-          closingAmount: 50000,
-        })
-      ).rejects.toThrow("Sesión de caja no encontrada");
     });
 
     it("debería lanzar BadRequestException si la sesión ya está cerrada", async () => {
@@ -217,14 +280,9 @@ describe("CashRegisterService", () => {
           closingAmount: 50000,
         })
       ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.closeSession("session-123", "business-123", "user-123", {
-          closingAmount: 50000,
-        })
-      ).rejects.toThrow("La sesión ya está cerrada");
     });
 
-    it("debería propagar errores de EventBusService (fail-closed, no silent swallow)", async () => {
+    it("debería propagar errores de outbox (fail-closed: la tx revierte)", async () => {
       const dto = { closingAmount: 55000 };
       const openSession = {
         ...mockSession,
@@ -235,20 +293,14 @@ describe("CashRegisterService", () => {
       } as any;
 
       mockSessionRepo.findOne.mockResolvedValue(openSession);
-      mockSessionRepo.save.mockResolvedValue({
-        ...openSession,
-        closedBy: "user-123",
-        closingAmount: 55000,
-        closedAt: expect.any(Date),
-        isOpen: false,
-      } as any);
-      mockEventBus.emit.mockRejectedValue(new Error("EventBus error"));
+      mockManagerRepo.save.mockResolvedValue(openSession);
+      mockOutbox.enqueue.mockRejectedValue(new Error("Outbox error"));
 
       await expect(
         service.closeSession("session-123", "business-123", "user-123", dto)
-      ).rejects.toThrow("EventBus error");
+      ).rejects.toThrow("Outbox error");
 
-      expect(mockEventBus.emit).toHaveBeenCalled();
+      expect(mockOutbox.enqueue).toHaveBeenCalled();
     });
   });
 

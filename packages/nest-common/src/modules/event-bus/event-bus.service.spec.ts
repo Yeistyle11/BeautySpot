@@ -250,12 +250,13 @@ describe("EventBusService", () => {
       expect(mainChannel.publish).toHaveBeenCalledTimes(3);
     }, 15000);
 
-    it("debería manejar canal no disponible", async () => {
+    it("debería lanzar cuando el canal no está disponible (fail-loud)", async () => {
       (service as any).channel = null;
+      (service as any).connecting = true;
 
-      const result = await service.emit(mockEventType, mockPayload);
-
-      expect(result).toBeUndefined();
+      await expect(service.emit(mockEventType, mockPayload)).rejects.toThrow(
+        "Canal RabbitMQ no disponible"
+      );
     });
   });
 

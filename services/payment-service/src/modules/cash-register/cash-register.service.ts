@@ -3,8 +3,8 @@ import {
   BadRequestException,
   NotFoundException,
 } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
+import { Repository, DataSource } from "typeorm";
 import { CashSessionEntity } from "./cash-session.entity";
 import { CashMovementEntity } from "./cash-movement.entity";
 import { CashMovementType } from "@beautyspot/shared-types";
@@ -13,7 +13,7 @@ import {
   CloseSessionDto,
   RegisterMovementDto,
 } from "./dto/cash-register.dto";
-import { EventBusService } from "@beautyspot/nest-common";
+import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 
 @Injectable()
@@ -23,7 +23,9 @@ export class CashRegisterService {
     private readonly sessionRepo: Repository<CashSessionEntity>,
     @InjectRepository(CashMovementEntity)
     private readonly movementRepo: Repository<CashMovementEntity>,
-    private readonly eventBus: EventBusService
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+    private readonly outbox: OutboxService
   ) {}
 
   async openSession(
@@ -63,13 +65,6 @@ export class CashRegisterService {
     if (session.closedAt)
       throw new BadRequestException("La sesión ya está cerrada");
 
-    session.closedBy = closedBy;
-    session.closingAmount = dto.closingAmount;
-    session.closedAt = new Date();
-    if (dto.notes) session.notes = dto.notes;
-
-    const closedSession = await this.sessionRepo.save(session);
-
     let totalIn = 0;
     let totalOut = 0;
     for (const m of session.movements) {
@@ -77,28 +72,40 @@ export class CashRegisterService {
       else totalOut += Number(m.amount);
     }
 
-    await this.eventBus.emit(
-      EventNames.PAYMENT_CASH_SESSION_CLOSED,
-      {
-        sessionId,
-        businessId,
-        branchId: session.branchId,
-        openedBy: session.openedBy,
-        closedBy,
-        openingAmount: Number(session.openingAmount),
-        closingAmount: Number(dto.closingAmount),
-        totalIn,
-        totalOut,
-        movementCount: session.movements.length,
-        expectedTotal: Number(session.openingAmount) + totalIn - totalOut,
-        openedAt: session.openedAt,
-        closedAt: session.closedAt,
-        notes: dto.notes,
-      },
-      sessionId
-    );
+    session.closedBy = closedBy;
+    session.closingAmount = dto.closingAmount;
+    session.closedAt = new Date();
+    if (dto.notes) session.notes = dto.notes;
 
-    return closedSession;
+    return this.dataSource.transaction(async (manager) => {
+      const closedSession = await manager
+        .getRepository(CashSessionEntity)
+        .save(session);
+
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.PAYMENT_CASH_SESSION_CLOSED,
+        aggregateType: "cash_session",
+        aggregateId: sessionId,
+        payload: {
+          sessionId,
+          businessId,
+          branchId: session.branchId,
+          openedBy: session.openedBy,
+          closedBy,
+          openingAmount: Number(session.openingAmount),
+          closingAmount: Number(dto.closingAmount),
+          totalIn,
+          totalOut,
+          movementCount: session.movements.length,
+          expectedTotal: Number(session.openingAmount) + totalIn - totalOut,
+          openedAt: session.openedAt,
+          closedAt: session.closedAt,
+          notes: dto.notes,
+        },
+      });
+
+      return closedSession;
+    });
   }
 
   async registerMovement(

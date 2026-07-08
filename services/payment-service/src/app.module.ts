@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
+import { OutboxModule, OutboxMessageEntity } from "@beautyspot/nest-common";
 import { PaymentsModule } from "./modules/payments/payments.module";
 import { InvoicesModule } from "./modules/invoices/invoices.module";
 import { CashRegisterModule } from "./modules/cash-register/cash-register.module";
@@ -19,6 +20,7 @@ const entities = [
   InvoiceItemEntity,
   CashSessionEntity,
   CashMovementEntity,
+  OutboxMessageEntity,
 ];
 
 @Module({
@@ -30,6 +32,7 @@ const entities = [
     TypeOrmModule.forRootAsync({
       useFactory: () => createTypeOrmModuleOptions(entities),
     }),
+    OutboxModule,
     PaymentsModule,
     InvoicesModule,
     CashRegisterModule,

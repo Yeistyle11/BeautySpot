@@ -10,6 +10,14 @@ export { HttpExceptionFilter } from "./filters/http-exception.filter";
 export { InternalSecretGuard } from "./guards/internal-secret.guard";
 export { EventBusService } from "./modules/event-bus/event-bus.service";
 export { EventBusModule } from "./modules/event-bus/event-bus.module";
+export { OutboxService } from "./modules/outbox/outbox.service";
+export type { OutboxMessageInput } from "./modules/outbox/outbox.service";
+export { OutboxRelayWorker } from "./modules/outbox/outbox-relay.worker";
+export { OutboxModule } from "./modules/outbox/outbox.module";
+export {
+  OutboxMessageEntity,
+  OutboxStatus,
+} from "./modules/outbox/outbox-message.entity";
 export { RedisCacheService } from "./cache/redis-cache.service";
 export { RedisCacheModule } from "./cache/redis-cache.module";
 export {

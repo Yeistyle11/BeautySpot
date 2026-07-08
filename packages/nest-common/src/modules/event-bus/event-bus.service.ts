@@ -80,8 +80,11 @@ export class EventBusService implements OnModuleDestroy {
     }
 
     if (!this.channel) {
-      this.logger.warn("Canal no disponible, evento no enviado");
-      return;
+      // Fail-loud: lanza en vez de dropear silenciosamente. Asi los callers
+      // (p.ej. OutboxRelayWorker) pueden atrapar el error y reintentar. Los
+      // servicios que aun publican directamente veran el fallo explicito en
+      // vez de perder el evento sin mas (fail-closed).
+      throw new Error("Canal RabbitMQ no disponible, evento no publicado");
     }
 
     const message: IBaseEvent<T> = {
