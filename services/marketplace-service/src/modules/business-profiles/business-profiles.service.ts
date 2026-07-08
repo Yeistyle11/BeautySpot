@@ -1,10 +1,22 @@
-import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, EntityManager } from "typeorm";
 import { escapeLikePattern } from "@beautyspot/shared-utils";
-import { BusinessProfileEntity, SectionConfig } from "../../entities/business-profile.entity";
+import {
+  BusinessProfileEntity,
+  SectionConfig,
+} from "../../entities/business-profile.entity";
 import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
-import { UpsertProfileDto, UpdateProfileConfigDto, AddGalleryImagesDto, UpdateGalleryImageDto } from "./dto/profile.dto";
+import {
+  UpsertProfileDto,
+  UpdateProfileConfigDto,
+  AddGalleryImagesDto,
+  UpdateGalleryImageDto,
+} from "./dto/profile.dto";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
 
 const DEFAULT_SECTIONS: SectionConfig[] = [
@@ -21,13 +33,15 @@ export class BusinessProfilesService {
   constructor(
     @InjectRepository(BusinessProfileEntity)
     private readonly repo: Repository<BusinessProfileEntity>,
-    private readonly professionalProfilesService: ProfessionalProfilesService,
+    private readonly professionalProfilesService: ProfessionalProfilesService
   ) {}
 
   // --- Sincronizacion desde core-service ---
 
   async createOrUpdate(dto: UpsertProfileDto): Promise<BusinessProfileEntity> {
-    const existing = await this.repo.findOne({ where: { businessId: dto.businessId } });
+    const existing = await this.repo.findOne({
+      where: { businessId: dto.businessId },
+    });
 
     if (existing) {
       Object.assign(existing, { ...dto, id: existing.id });
@@ -46,36 +60,52 @@ export class BusinessProfilesService {
 
   // --- Lectura publica ---
 
-  async findBySlug(slug: string): Promise<{ profile: BusinessProfileEntity; professionals: ProfessionalProfileEntity[] }> {
+  async findBySlug(slug: string): Promise<{
+    profile: BusinessProfileEntity;
+    professionals: ProfessionalProfileEntity[];
+  }> {
     const profile = await this.repo.findOne({
       where: { slug, active: true, isPublished: true },
     });
-    if (!profile) throw new NotFoundException("Perfil de negocio no encontrado");
+    if (!profile)
+      throw new NotFoundException("Perfil de negocio no encontrado");
 
     // Incluir profesionales si la seccion "team" esta habilitada
-    const teamSection = profile.sectionConfig?.sections?.find(s => s.id === "team");
+    const teamSection = profile.sectionConfig?.sections?.find(
+      (s) => s.id === "team"
+    );
     let professionals: ProfessionalProfileEntity[] = [];
 
     if (teamSection?.enabled !== false) {
-      professionals = await this.professionalProfilesService.findVisibleByBusiness(profile.businessId);
+      professionals =
+        await this.professionalProfilesService.findVisibleByBusiness(
+          profile.businessId
+        );
     }
 
     return { profile, professionals };
   }
 
-  async findProfessionalBySlug(businessSlug: string, professionalSlug: string): Promise<ProfessionalProfileEntity> {
+  async findProfessionalBySlug(
+    businessSlug: string,
+    professionalSlug: string
+  ): Promise<ProfessionalProfileEntity> {
     const business = await this.repo.findOne({
       where: { slug: businessSlug, active: true, isPublished: true },
     });
-    if (!business) throw new NotFoundException("Perfil de negocio no encontrado");
+    if (!business)
+      throw new NotFoundException("Perfil de negocio no encontrado");
 
     // Verificar que la seccion "team" este habilitada
-    const teamSection = business.sectionConfig?.sections?.find(s => s.id === "team");
+    const teamSection = business.sectionConfig?.sections?.find(
+      (s) => s.id === "team"
+    );
     if (teamSection?.enabled === false) {
       throw new NotFoundException("Seccion de equipo no disponible");
     }
 
-    const professional = await this.professionalProfilesService.findBySlug(professionalSlug);
+    const professional =
+      await this.professionalProfilesService.findBySlug(professionalSlug);
 
     // Verificar que el profesional pertenece a este negocio
     if (professional.businessId !== business.businessId) {
@@ -87,19 +117,24 @@ export class BusinessProfilesService {
 
   async findById(id: string): Promise<BusinessProfileEntity> {
     const profile = await this.repo.findOne({ where: { id } });
-    if (!profile) throw new NotFoundException("Perfil de negocio no encontrado");
+    if (!profile)
+      throw new NotFoundException("Perfil de negocio no encontrado");
     return profile;
   }
 
   async findByBusinessId(businessId: string): Promise<BusinessProfileEntity> {
     const profile = await this.repo.findOne({ where: { businessId } });
-    if (!profile) throw new NotFoundException("Perfil de negocio no encontrado");
+    if (!profile)
+      throw new NotFoundException("Perfil de negocio no encontrado");
     return profile;
   }
 
   // --- Configuracion del perfil inmersivo ---
 
-  async updateConfig(businessId: string, dto: UpdateProfileConfigDto): Promise<BusinessProfileEntity> {
+  async updateConfig(
+    businessId: string,
+    dto: UpdateProfileConfigDto
+  ): Promise<BusinessProfileEntity> {
     const profile = await this.findByBusinessId(businessId);
 
     if (dto.tagline !== undefined) profile.tagline = dto.tagline;
@@ -120,7 +155,10 @@ export class BusinessProfilesService {
 
   // --- Galeria ---
 
-  async addGalleryImages(businessId: string, dto: AddGalleryImagesDto): Promise<BusinessProfileEntity> {
+  async addGalleryImages(
+    businessId: string,
+    dto: AddGalleryImagesDto
+  ): Promise<BusinessProfileEntity> {
     const profile = await this.findByBusinessId(businessId);
     const current = profile.galleryImages || [];
     profile.galleryImages = [...current, ...dto.images];
@@ -128,7 +166,10 @@ export class BusinessProfilesService {
     return this.repo.save(profile);
   }
 
-  async updateGalleryImage(businessId: string, dto: UpdateGalleryImageDto): Promise<BusinessProfileEntity> {
+  async updateGalleryImage(
+    businessId: string,
+    dto: UpdateGalleryImageDto
+  ): Promise<BusinessProfileEntity> {
     const profile = await this.findByBusinessId(businessId);
     const images = profile.galleryImages || [];
 
@@ -144,7 +185,10 @@ export class BusinessProfilesService {
     return this.repo.save(profile);
   }
 
-  async removeGalleryImage(businessId: string, index: number): Promise<BusinessProfileEntity> {
+  async removeGalleryImage(
+    businessId: string,
+    index: number
+  ): Promise<BusinessProfileEntity> {
     const profile = await this.findByBusinessId(businessId);
     const images = profile.galleryImages || [];
 
@@ -163,7 +207,9 @@ export class BusinessProfilesService {
   async publish(businessId: string): Promise<BusinessProfileEntity> {
     const profile = await this.findByBusinessId(businessId);
     if (!profile.name || !profile.slug) {
-      throw new BadRequestException("El perfil debe tener nombre y slug para publicarse");
+      throw new BadRequestException(
+        "El perfil debe tener nombre y slug para publicarse"
+      );
     }
     profile.isPublished = true;
     return this.repo.save(profile);
@@ -177,8 +223,16 @@ export class BusinessProfilesService {
 
   // --- Rating ---
 
-  async updateRating(businessId: string): Promise<void> {
-    const result = await this.repo.manager
+  async updateRating(
+    businessId: string,
+    manager?: EntityManager
+  ): Promise<void> {
+    const repo = manager
+      ? manager.getRepository(BusinessProfileEntity)
+      : this.repo;
+    const querySource = manager || this.repo.manager;
+
+    const result = await querySource
       .createQueryBuilder()
       .select("AVG(r.rating)", "avg")
       .addSelect("COUNT(r.id)", "count")
@@ -187,11 +241,12 @@ export class BusinessProfilesService {
       .getRawOne();
 
     const totalReviews = parseInt(result?.count || "0", 10);
-    const rating = totalReviews > 0
-      ? Math.round(parseFloat(result?.avg || "0") * 100) / 100
-      : 0;
+    const rating =
+      totalReviews > 0
+        ? Math.round(parseFloat(result?.avg || "0") * 100) / 100
+        : 0;
 
-    await this.repo.update({ businessId }, { rating, totalReviews });
+    await repo.update({ businessId }, { rating, totalReviews });
   }
 
   // --- Feed helpers ---
@@ -210,12 +265,15 @@ export class BusinessProfilesService {
     const limit = Math.min(options.limit || 20, 50);
     const offset = (page - 1) * limit;
 
-    const qb = this.repo.createQueryBuilder("bp")
+    const qb = this.repo
+      .createQueryBuilder("bp")
       .where("bp.active = :active", { active: true })
       .andWhere("bp.is_published = :published", { published: true });
 
     if (options.city) {
-      qb.andWhere("bp.city ILIKE :city", { city: `%${escapeLikePattern(options.city)}%` });
+      qb.andWhere("bp.city ILIKE :city", {
+        city: `%${escapeLikePattern(options.city)}%`,
+      });
     }
 
     if (options.businessType) {
@@ -226,11 +284,11 @@ export class BusinessProfilesService {
       const radius = options.radius || 10;
       qb.andWhere(
         `(6371 * acos(cos(radians(:lat)) * cos(radians(bp.lat)) * cos(radians(bp.lng) - radians(:lng)) + sin(radians(:lat)) * sin(radians(bp.lat)))) <= :radius`,
-        { lat: options.lat, lng: options.lng, radius },
+        { lat: options.lat, lng: options.lng, radius }
       );
       qb.orderBy(
         `(6371 * acos(cos(radians(:lat2)) * cos(radians(bp.lat)) * cos(radians(bp.lng) - radians(:lng2)) + sin(radians(:lat2)) * sin(radians(bp.lat))))`,
-        "ASC",
+        "ASC"
       );
       qb.setParameters({ lat2: options.lat, lng2: options.lng });
     } else if (options.orderBy === "createdAt") {
@@ -251,11 +309,15 @@ export class BusinessProfilesService {
     });
   }
 
-  async findRecent(days: number, limit: number): Promise<BusinessProfileEntity[]> {
+  async findRecent(
+    days: number,
+    limit: number
+  ): Promise<BusinessProfileEntity[]> {
     const since = new Date();
     since.setDate(since.getDate() - days);
 
-    return this.repo.createQueryBuilder("bp")
+    return this.repo
+      .createQueryBuilder("bp")
       .where("bp.active = :active", { active: true })
       .andWhere("bp.is_published = :published", { published: true })
       .andWhere("bp.created_at >= :since", { since })
@@ -266,7 +328,9 @@ export class BusinessProfilesService {
 
   // --- Completitud ---
 
-  private async calculateCompleteness(profile: BusinessProfileEntity): Promise<number> {
+  private async calculateCompleteness(
+    profile: BusinessProfileEntity
+  ): Promise<number> {
     let score = 0;
 
     // Datos basicos (30 pts)
@@ -286,7 +350,8 @@ export class BusinessProfilesService {
 
     // Redes sociales (10 pts)
     if (profile.socialLinks?.instagram) score += 5;
-    if (profile.socialLinks?.facebook || profile.socialLinks?.tiktok) score += 5;
+    if (profile.socialLinks?.facebook || profile.socialLinks?.tiktok)
+      score += 5;
 
     // Ubicacion (10 pts)
     if (profile.address && profile.city) score += 5;
@@ -300,7 +365,10 @@ export class BusinessProfilesService {
     if (profile.tagline) score += 5;
 
     // Equipo (15 pts)
-    const visibleProfessionals = await this.professionalProfilesService.findVisibleByBusiness(profile.businessId);
+    const visibleProfessionals =
+      await this.professionalProfilesService.findVisibleByBusiness(
+        profile.businessId
+      );
     if (visibleProfessionals.length >= 1) score += 7;
     if (visibleProfessionals.length >= 3) score += 8;
 

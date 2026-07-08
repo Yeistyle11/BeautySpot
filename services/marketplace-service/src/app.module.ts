@@ -4,6 +4,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
+import { OutboxModule, OutboxMessageEntity } from "@beautyspot/nest-common";
 import { BusinessProfilesModule } from "./modules/business-profiles/business-profiles.module";
 import { SearchModule } from "./modules/search/search.module";
 import { ReviewsModule } from "./modules/reviews/reviews.module";
@@ -19,6 +20,7 @@ const entities = [
   ReviewEntity,
   ProfessionalProfileEntity,
   ReviewHelpfulEntity,
+  OutboxMessageEntity,
 ];
 
 @Module({
@@ -30,6 +32,7 @@ const entities = [
     TypeOrmModule.forRootAsync({
       useFactory: () => createTypeOrmModuleOptions(entities),
     }),
+    OutboxModule,
     BusinessProfilesModule,
     SearchModule,
     ReviewsModule,
