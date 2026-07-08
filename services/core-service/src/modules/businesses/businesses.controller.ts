@@ -7,6 +7,7 @@ import {
   Param,
   Body,
   Query,
+  Req,
 } from "@nestjs/common";
 import { BusinessesService } from "./businesses.service";
 import { Roles } from "@beautyspot/nest-common";
@@ -31,8 +32,8 @@ export class BusinessesController {
     Role.RECEPTIONIST
   )
   @Get()
-  async findAll(@Query() query: Record<string, unknown>) {
-    return this.service.findAll(query);
+  async findAll(@Req() req: any, @Query() query: Record<string, unknown>) {
+    return this.service.findAll(query, req.businessId, req.user?.role);
   }
 
   @Roles(
@@ -43,23 +44,27 @@ export class BusinessesController {
     Role.RECEPTIONIST
   )
   @Get("slug/:slug")
-  async findBySlug(@Param("slug") slug: string) {
-    return this.service.findBySlug(slug);
+  async findBySlug(@Req() req: any, @Param("slug") slug: string) {
+    return this.service.findBySlug(slug, req.businessId, req.user?.role);
   }
 
   @Get(":id")
-  async findById(@Param("id") id: string) {
-    return this.service.findById(id);
+  async findById(@Req() req: any, @Param("id") id: string) {
+    return this.service.findById(id, req.businessId, req.user?.role);
   }
 
   @Patch(":id")
-  async update(@Param("id") id: string, @Body() dto: UpdateBusinessDto) {
-    return this.service.update(id, dto);
+  async update(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: UpdateBusinessDto
+  ) {
+    return this.service.update(id, dto, req.businessId, req.user?.role);
   }
 
   @Delete(":id")
-  async deactivate(@Param("id") id: string) {
-    await this.service.deactivate(id);
+  async deactivate(@Req() req: any, @Param("id") id: string) {
+    await this.service.deactivate(id, req.businessId, req.user?.role);
     return { message: "Negocio desactivado" };
   }
 }

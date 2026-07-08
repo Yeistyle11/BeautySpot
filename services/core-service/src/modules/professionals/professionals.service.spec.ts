@@ -264,12 +264,14 @@ describe("ProfessionalsService", () => {
         customDuration: 45,
       };
 
+      mockRepo.findOne.mockResolvedValue(mockProfessional);
       mockPsRepo.create.mockReturnValue(mockProfessionalService);
       mockPsRepo.save.mockResolvedValue(mockProfessionalService);
 
       const result = await service.assignService(
         "prof-123",
         "service-123",
+        "business-123",
         data.customPrice,
         data.customDuration
       );
@@ -285,10 +287,11 @@ describe("ProfessionalsService", () => {
     });
 
     it("debería asignar un servicio sin precio personalizado", async () => {
+      mockRepo.findOne.mockResolvedValue(mockProfessional);
       mockPsRepo.create.mockReturnValue(mockProfessionalService);
       mockPsRepo.save.mockResolvedValue(mockProfessionalService);
 
-      await service.assignService("prof-123", "service-123");
+      await service.assignService("prof-123", "service-123", "business-123");
 
       expect(mockPsRepo.create).toHaveBeenCalledWith({
         professionalId: "prof-123",
@@ -297,13 +300,26 @@ describe("ProfessionalsService", () => {
         customDuration: undefined,
       });
     });
+
+    it("debería lanzar NotFoundException si el profesional no pertenece al business", async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.assignService("prof-123", "service-123", "other-business")
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 
   describe("removeServiceAssignment", () => {
     it("debería eliminar la asignación de servicio", async () => {
+      mockRepo.findOne.mockResolvedValue(mockProfessional);
       mockPsRepo.delete.mockResolvedValue({ affected: 1 } as any);
 
-      await service.removeServiceAssignment("prof-123", "service-123");
+      await service.removeServiceAssignment(
+        "prof-123",
+        "service-123",
+        "business-123"
+      );
 
       expect(mockPsRepo.delete).toHaveBeenCalledWith({
         professionalId: "prof-123",
@@ -314,9 +330,10 @@ describe("ProfessionalsService", () => {
 
   describe("getServices", () => {
     it("debería retornar todos los servicios del profesional", async () => {
+      mockRepo.findOne.mockResolvedValue(mockProfessional);
       mockPsRepo.find.mockResolvedValue([mockProfessionalService]);
 
-      const result = await service.getServices("prof-123");
+      const result = await service.getServices("prof-123", "business-123");
 
       expect(mockPsRepo.find).toHaveBeenCalledWith({
         where: { professionalId: "prof-123" },
@@ -325,9 +342,10 @@ describe("ProfessionalsService", () => {
     });
 
     it("debería retornar array vacío si no hay servicios asignados", async () => {
+      mockRepo.findOne.mockResolvedValue(mockProfessional);
       mockPsRepo.find.mockResolvedValue([]);
 
-      const result = await service.getServices("prof-123");
+      const result = await service.getServices("prof-123", "business-123");
 
       expect(result).toEqual([]);
       expect(result).toHaveLength(0);

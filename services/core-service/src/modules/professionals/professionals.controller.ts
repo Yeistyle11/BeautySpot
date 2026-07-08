@@ -54,26 +54,32 @@ export class ProfessionalsController {
   }
 
   @Post(":id/services")
-  async assignService(@Param("id") id: string, @Body() dto: AssignServiceDto) {
+  async assignService(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: AssignServiceDto
+  ) {
     return this.service.assignService(
       id,
       dto.serviceId,
+      req.businessId,
       dto.customPrice,
       dto.customDuration
     );
   }
 
   @Get(":id/services")
-  async getServices(@Param("id") id: string) {
-    return this.service.getServices(id);
+  async getServices(@Req() req: any, @Param("id") id: string) {
+    return this.service.getServices(id, req.businessId);
   }
 
   @Delete(":id/services/:serviceId")
   async removeService(
+    @Req() req: any,
     @Param("id") id: string,
     @Param("serviceId") serviceId: string
   ) {
-    await this.service.removeServiceAssignment(id, serviceId);
+    await this.service.removeServiceAssignment(id, serviceId, req.businessId);
     return { message: "Servicio desasignado" };
   }
 

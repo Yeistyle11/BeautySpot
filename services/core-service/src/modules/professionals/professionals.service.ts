@@ -57,9 +57,13 @@ export class ProfessionalsService {
   async assignService(
     professionalId: string,
     serviceId: string,
+    businessId: string,
     customPrice?: number,
     customDuration?: number
   ): Promise<ProfessionalService> {
+    // IDOR fix: verify professional belongs to caller's business
+    await this.findById(professionalId, businessId);
+
     const ps = this.psRepo.create({
       professionalId,
       serviceId,
@@ -71,12 +75,20 @@ export class ProfessionalsService {
 
   async removeServiceAssignment(
     professionalId: string,
-    serviceId: string
+    serviceId: string,
+    businessId: string
   ): Promise<void> {
+    // IDOR fix: verify professional belongs to caller's business
+    await this.findById(professionalId, businessId);
     await this.psRepo.delete({ professionalId, serviceId });
   }
 
-  async getServices(professionalId: string): Promise<ProfessionalService[]> {
+  async getServices(
+    professionalId: string,
+    businessId: string
+  ): Promise<ProfessionalService[]> {
+    // IDOR fix: verify professional belongs to caller's business
+    await this.findById(professionalId, businessId);
     return this.psRepo.find({ where: { professionalId } });
   }
 
