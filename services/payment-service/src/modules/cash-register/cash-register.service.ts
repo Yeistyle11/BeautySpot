@@ -1,11 +1,19 @@
-import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { CashSessionEntity } from "./cash-session.entity";
 import { CashMovementEntity } from "./cash-movement.entity";
 import { CashMovementType } from "@beautyspot/shared-types";
-import { OpenSessionDto, CloseSessionDto, RegisterMovementDto } from "./dto/cash-register.dto";
-import { AmqpConnection } from "@golevelup/nestjs-rabbitmq";
+import {
+  OpenSessionDto,
+  CloseSessionDto,
+  RegisterMovementDto,
+} from "./dto/cash-register.dto";
+import { EventBusService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 
 @Injectable()
@@ -15,10 +23,14 @@ export class CashRegisterService {
     private readonly sessionRepo: Repository<CashSessionEntity>,
     @InjectRepository(CashMovementEntity)
     private readonly movementRepo: Repository<CashMovementEntity>,
-    private readonly amqpConnection: AmqpConnection,
+    private readonly eventBus: EventBusService
   ) {}
 
-  async openSession(businessId: string, openedBy: string, dto: OpenSessionDto): Promise<CashSessionEntity> {
+  async openSession(
+    businessId: string,
+    openedBy: string,
+    dto: OpenSessionDto
+  ): Promise<CashSessionEntity> {
     const openSession = await this.sessionRepo.findOne({
       where: { businessId, closedAt: null as unknown as undefined },
     });
@@ -33,7 +45,7 @@ export class CashRegisterService {
         openedBy,
         openingAmount: dto.openingAmount || 0,
         notes: dto.notes,
-      }),
+      })
     );
   }
 
@@ -41,14 +53,15 @@ export class CashRegisterService {
     sessionId: string,
     businessId: string,
     closedBy: string,
-    dto: CloseSessionDto,
+    dto: CloseSessionDto
   ): Promise<CashSessionEntity> {
     const session = await this.sessionRepo.findOne({
       where: { id: sessionId, businessId },
       relations: ["movements"],
     });
     if (!session) throw new NotFoundException("Sesión de caja no encontrada");
-    if (session.closedAt) throw new BadRequestException("La sesión ya está cerrada");
+    if (session.closedAt)
+      throw new BadRequestException("La sesión ya está cerrada");
 
     session.closedBy = closedBy;
     session.closingAmount = dto.closingAmount;
@@ -64,32 +77,26 @@ export class CashRegisterService {
       else totalOut += Number(m.amount);
     }
 
-    try {
-      await this.amqpConnection.publish('beautyspot.events', EventNames.PAYMENT_CASH_SESSION_CLOSED, {
-        eventType: EventNames.PAYMENT_CASH_SESSION_CLOSED,
-        timestamp: new Date(),
-        correlationId: sessionId,
-        payload: {
-          sessionId,
-          businessId,
-          branchId: session.branchId,
-          openedBy: session.openedBy,
-          closedBy,
-          openingAmount: Number(session.openingAmount),
-          closingAmount: Number(dto.closingAmount),
-          totalIn,
-          totalOut,
-          movementCount: session.movements.length,
-          expectedTotal: Number(session.openingAmount) + totalIn - totalOut,
-          openedAt: session.openedAt,
-          closedAt: session.closedAt,
-          notes: dto.notes,
-        },
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      console.error(`Error publicando evento payment.cash.session.closed: ${errorMessage}`);
-    }
+    await this.eventBus.emit(
+      EventNames.PAYMENT_CASH_SESSION_CLOSED,
+      {
+        sessionId,
+        businessId,
+        branchId: session.branchId,
+        openedBy: session.openedBy,
+        closedBy,
+        openingAmount: Number(session.openingAmount),
+        closingAmount: Number(dto.closingAmount),
+        totalIn,
+        totalOut,
+        movementCount: session.movements.length,
+        expectedTotal: Number(session.openingAmount) + totalIn - totalOut,
+        openedAt: session.openedAt,
+        closedAt: session.closedAt,
+        notes: dto.notes,
+      },
+      sessionId
+    );
 
     return closedSession;
   }
@@ -98,13 +105,16 @@ export class CashRegisterService {
     sessionId: string,
     businessId: string,
     registeredBy: string,
-    dto: RegisterMovementDto,
+    dto: RegisterMovementDto
   ): Promise<CashMovementEntity> {
     const session = await this.sessionRepo.findOne({
       where: { id: sessionId, businessId },
     });
     if (!session) throw new NotFoundException("Sesión de caja no encontrada");
-    if (session.closedAt) throw new BadRequestException("No se pueden registrar movimientos en una sesión cerrada");
+    if (session.closedAt)
+      throw new BadRequestException(
+        "No se pueden registrar movimientos en una sesión cerrada"
+      );
 
     return this.movementRepo.save(
       this.movementRepo.create({
@@ -113,7 +123,7 @@ export class CashRegisterService {
         amount: dto.amount,
         concept: dto.concept,
         registeredBy,
-      }),
+      })
     );
   }
 
@@ -135,7 +145,9 @@ export class CashRegisterService {
       session: {
         id: session.id,
         openingAmount: Number(session.openingAmount),
-        closingAmount: session.closingAmount ? Number(session.closingAmount) : null,
+        closingAmount: session.closingAmount
+          ? Number(session.closingAmount)
+          : null,
         openedAt: session.openedAt,
         closedAt: session.closedAt,
         isOpen: session.isOpen,
@@ -150,7 +162,9 @@ export class CashRegisterService {
     };
   }
 
-  async getActiveSession(businessId: string): Promise<CashSessionEntity | null> {
+  async getActiveSession(
+    businessId: string
+  ): Promise<CashSessionEntity | null> {
     return this.sessionRepo.findOne({
       where: { businessId, closedAt: null as unknown as undefined },
       relations: ["movements"],

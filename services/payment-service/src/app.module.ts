@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
 import { PaymentsModule } from "./modules/payments/payments.module";
@@ -14,23 +13,22 @@ import { InvoiceItemEntity } from "./modules/invoices/invoice-item.entity";
 import { CashSessionEntity } from "./modules/cash-register/cash-session.entity";
 import { CashMovementEntity } from "./modules/cash-register/cash-movement.entity";
 
-const entities = [PaymentEntity, InvoiceEntity, InvoiceItemEntity, CashSessionEntity, CashMovementEntity];
+const entities = [
+  PaymentEntity,
+  InvoiceEntity,
+  InvoiceItemEntity,
+  CashSessionEntity,
+  CashMovementEntity,
+];
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: path.join(__dirname, "..", ".env") }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: path.join(__dirname, "..", ".env"),
+    }),
     TypeOrmModule.forRootAsync({
       useFactory: () => createTypeOrmModuleOptions(entities),
-    }),
-    RabbitMQModule.forRoot({
-      exchanges: [
-        {
-          name: "beautyspot.events",
-          type: "topic",
-        },
-      ],
-      uri: process.env.RABBITMQ_URL || "amqp://localhost:5672",
-      connectionInitOptions: { wait: false },
     }),
     PaymentsModule,
     InvoicesModule,
