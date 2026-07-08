@@ -1,17 +1,20 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, DataSource } from "typeorm";
 import { PaymentsService } from "./payments.service";
 import { PaymentEntity } from "./payment.entity";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
-import { EventBusService } from "@beautyspot/nest-common";
+import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 
 describe("PaymentsService", () => {
   let service: PaymentsService;
   let mockRepo: jest.Mocked<Repository<PaymentEntity>>;
-  let mockEventBus: jest.Mocked<EventBusService>;
+  let mockManagerRepo: any;
+  let mockManager: any;
+  let mockDataSource: any;
+  let mockOutbox: jest.Mocked<OutboxService>;
 
   const mockPayment: PaymentEntity = {
     id: "payment-123",
@@ -42,8 +45,19 @@ describe("PaymentsService", () => {
       update: jest.fn(),
     } as any;
 
-    mockEventBus = {
-      emit: jest.fn().mockResolvedValue(undefined),
+    mockManagerRepo = {
+      save: jest.fn(),
+    };
+    mockManager = {
+      getRepository: jest.fn().mockReturnValue(mockManagerRepo),
+    };
+    mockDataSource = {
+      transaction: jest.fn(async (fn: (m: any) => Promise<any>) =>
+        fn(mockManager)
+      ),
+    };
+    mockOutbox = {
+      enqueue: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     const module = await Test.createTestingModule({
@@ -53,10 +67,8 @@ describe("PaymentsService", () => {
           provide: getRepositoryToken(PaymentEntity),
           useValue: mockRepo,
         },
-        {
-          provide: EventBusService,
-          useValue: mockEventBus,
-        },
+        { provide: DataSource, useValue: mockDataSource },
+        { provide: OutboxService, useValue: mockOutbox },
       ],
     }).compile();
 
@@ -64,7 +76,7 @@ describe("PaymentsService", () => {
   });
 
   describe("create", () => {
-    it("debería crear un pago exitosamente", async () => {
+    it("debería crear un pago y encolar el evento en la misma transacción", async () => {
       const data = {
         clientId: "client-123",
         amount: 100,
@@ -73,7 +85,7 @@ describe("PaymentsService", () => {
       };
 
       mockRepo.create.mockReturnValue(mockPayment);
-      mockRepo.save.mockResolvedValue(mockPayment);
+      mockManagerRepo.save.mockResolvedValue(mockPayment);
 
       const result = await service.create("business-123", data);
 
@@ -81,22 +93,28 @@ describe("PaymentsService", () => {
         ...data,
         businessId: "business-123",
       });
-      expect(mockRepo.save).toHaveBeenCalledWith(mockPayment);
-      expect(mockEventBus.emit).toHaveBeenCalledWith(
-        EventNames.PAYMENT_PAYMENT_REGISTERED,
+      // el save ocurre a traves del repositorio del manager (dentro de la tx)
+      expect(mockManagerRepo.save).toHaveBeenCalledWith(mockPayment);
+      expect(mockDataSource.transaction).toHaveBeenCalled();
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        mockManager,
         expect.objectContaining({
-          paymentId: mockPayment.id,
-          businessId: "business-123",
-          clientId: mockPayment.clientId,
-          amount: Number(mockPayment.amount),
-          method: mockPayment.method,
-        }),
-        mockPayment.id
+          eventType: EventNames.PAYMENT_PAYMENT_REGISTERED,
+          aggregateType: "payment",
+          aggregateId: mockPayment.id,
+          payload: expect.objectContaining({
+            paymentId: mockPayment.id,
+            businessId: "business-123",
+            clientId: mockPayment.clientId,
+            amount: Number(mockPayment.amount),
+            method: mockPayment.method,
+          }),
+        })
       );
       expect(result).toEqual(mockPayment);
     });
 
-    it("debería propagar errores del repositorio", async () => {
+    it("debería propagar errores de la transacción", async () => {
       const data = {
         clientId: "client-123",
         amount: 100,
@@ -104,9 +122,12 @@ describe("PaymentsService", () => {
         registeredBy: "user-123",
       };
 
-      mockRepo.save.mockRejectedValue(new Error("Database error"));
+      mockRepo.create.mockReturnValue(mockPayment);
+      mockManagerRepo.save.mockRejectedValue(new Error("Database error"));
 
       await expect(service.create("business-123", data)).rejects.toThrow();
+      // si el save falla, no se encola evento (atomicidad outbox)
+      expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
   });
 
@@ -190,12 +211,6 @@ describe("PaymentsService", () => {
 
   describe("updateStatus", () => {
     it("debería actualizar el estado del pago", async () => {
-      mockRepo.findOne.mockResolvedValue(mockPayment);
-      mockRepo.update.mockResolvedValue({
-        raw: [],
-        generatedMaps: [],
-        affected: 1,
-      });
       mockRepo.findOne.mockResolvedValue({
         ...mockPayment,
         status: PaymentStatus.REFUNDED,
@@ -270,14 +285,13 @@ describe("PaymentsService", () => {
   });
 
   describe("refundPayment", () => {
-    it("debería reembolsar un pago exitosamente", async () => {
+    it("debería reembolsar y encolar el evento en la misma transacción", async () => {
       const payment1WeekOld = {
         ...mockPayment,
         createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
         generateId: () => {},
       } as any;
-      mockRepo.findOne.mockResolvedValue(payment1WeekOld);
-      mockRepo.save.mockResolvedValue({
+      const refundedPayment = {
         ...payment1WeekOld,
         status: PaymentStatus.REFUNDED,
         refundedAt: new Date(),
@@ -285,7 +299,9 @@ describe("PaymentsService", () => {
         refundReason: "Solicitud del cliente",
         refundedBy: "SYSTEM",
         generateId: () => {},
-      } as any);
+      } as any;
+      mockRepo.findOne.mockResolvedValue(payment1WeekOld);
+      mockManagerRepo.save.mockResolvedValue(refundedPayment);
 
       const result = await service.refundPayment(
         "payment-123",
@@ -294,22 +310,27 @@ describe("PaymentsService", () => {
         50
       );
 
-      expect(mockRepo.save).toHaveBeenCalledWith(
+      expect(mockDataSource.transaction).toHaveBeenCalled();
+      expect(mockManagerRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({
           status: PaymentStatus.REFUNDED,
           refundAmount: 50,
           refundReason: "Solicitud del cliente",
         })
       );
-      expect(mockEventBus.emit).toHaveBeenCalledWith(
-        EventNames.PAYMENT_REFUND_PROCESSED,
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        mockManager,
         expect.objectContaining({
-          paymentId: "payment-123",
-          businessId: "business-123",
-          refundAmount: 50,
-          reason: "Solicitud del cliente",
-        }),
-        "payment-123"
+          eventType: EventNames.PAYMENT_REFUND_PROCESSED,
+          aggregateType: "payment",
+          aggregateId: "payment-123",
+          payload: expect.objectContaining({
+            paymentId: "payment-123",
+            businessId: "business-123",
+            refundAmount: 50,
+            reason: "Solicitud del cliente",
+          }),
+        })
       );
       expect(result.status).toBe(PaymentStatus.REFUNDED);
     });
@@ -321,19 +342,11 @@ describe("PaymentsService", () => {
         generateId: () => {},
       } as any;
       mockRepo.findOne.mockResolvedValue(payment1WeekOld);
-      mockRepo.save.mockResolvedValue({
-        ...payment1WeekOld,
-        status: PaymentStatus.REFUNDED,
-        refundedAt: new Date(),
-        refundAmount: 100,
-        refundReason: "Reembolso solicitado",
-        refundedBy: "SYSTEM",
-        generateId: () => {},
-      } as any);
+      mockManagerRepo.save.mockResolvedValue(payment1WeekOld);
 
       await service.refundPayment("payment-123", "business-123");
 
-      expect(mockRepo.save).toHaveBeenCalledWith(
+      expect(mockManagerRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({
           refundAmount: 100,
         })
@@ -351,6 +364,7 @@ describe("PaymentsService", () => {
       await expect(
         service.refundPayment("payment-123", "business-123")
       ).rejects.toThrow(BadRequestException);
+      expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
 
     it("debería lanzar BadRequestException si expiró el periodo de reembolso", async () => {
@@ -365,6 +379,7 @@ describe("PaymentsService", () => {
       await expect(
         service.refundPayment("payment-123", "business-123")
       ).rejects.toThrow(BadRequestException);
+      expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
 
     it("debería lanzar BadRequestException si el monto es inválido", async () => {
@@ -381,6 +396,7 @@ describe("PaymentsService", () => {
       await expect(
         service.refundPayment("payment-123", "business-123", "", 200)
       ).rejects.toThrow(BadRequestException);
+      expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
   });
 });

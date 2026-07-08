@@ -3,11 +3,11 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, Between } from "typeorm";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
+import { Repository, DataSource, EntityManager, Between } from "typeorm";
 import { PaymentEntity } from "./payment.entity";
 import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
-import { EventBusService } from "@beautyspot/nest-common";
+import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 
 const REFUND_WINDOW_DAYS = 30;
@@ -17,7 +17,9 @@ export class PaymentsService {
   constructor(
     @InjectRepository(PaymentEntity)
     private readonly repo: Repository<PaymentEntity>,
-    private readonly eventBus: EventBusService
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+    private readonly outbox: OutboxService
   ) {}
 
   async create(
@@ -32,23 +34,28 @@ export class PaymentsService {
       registeredBy: string;
     }
   ): Promise<PaymentEntity> {
-    const payment = this.repo.create({ ...data, businessId });
-    const savedPayment = await this.repo.save(payment);
+    return this.dataSource.transaction(async (manager) => {
+      const payment = this.repo.create({ ...data, businessId });
+      const savedPayment = await manager
+        .getRepository(PaymentEntity)
+        .save(payment);
 
-    await this.eventBus.emit(
-      EventNames.PAYMENT_PAYMENT_REGISTERED,
-      {
-        paymentId: savedPayment.id,
-        businessId,
-        appointmentId: savedPayment.appointmentId,
-        clientId: savedPayment.clientId,
-        amount: Number(savedPayment.amount),
-        method: savedPayment.method,
-      },
-      savedPayment.id
-    );
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.PAYMENT_PAYMENT_REGISTERED,
+        aggregateType: "payment",
+        aggregateId: savedPayment.id,
+        payload: {
+          paymentId: savedPayment.id,
+          businessId,
+          appointmentId: savedPayment.appointmentId,
+          clientId: savedPayment.clientId,
+          amount: Number(savedPayment.amount),
+          method: savedPayment.method,
+        },
+      });
 
-    return savedPayment;
+      return savedPayment;
+    });
   }
 
   async findByBusiness(
@@ -122,20 +129,23 @@ export class PaymentsService {
     const finalAmount = this.calculateRefundAmount(payment, refundAmount);
     const finalReason = reason || "Reembolso solicitado";
 
-    const updatedPayment = await this.applyRefund(
-      payment,
-      finalAmount,
-      finalReason
-    );
-    await this.publishRefundEvent(
-      updatedPayment,
-      payment,
-      finalAmount,
-      finalReason,
-      businessId
-    );
-
-    return updatedPayment;
+    return this.dataSource.transaction(async (manager) => {
+      const refunded = await this.applyRefund(
+        manager,
+        payment,
+        finalAmount,
+        finalReason
+      );
+      await this.enqueueRefundEvent(
+        manager,
+        refunded,
+        payment,
+        finalAmount,
+        finalReason,
+        businessId
+      );
+      return refunded;
+    });
   }
 
   private async loadRefundablePayment(
@@ -174,11 +184,12 @@ export class PaymentsService {
   }
 
   private async applyRefund(
+    manager: EntityManager,
     payment: PaymentEntity,
     amount: number,
     reason: string
   ): Promise<PaymentEntity> {
-    return this.repo.save({
+    return manager.getRepository(PaymentEntity).save({
       ...payment,
       status: PaymentStatus.REFUNDED,
       refundedAt: new Date(),
@@ -188,16 +199,19 @@ export class PaymentsService {
     });
   }
 
-  private async publishRefundEvent(
+  private async enqueueRefundEvent(
+    manager: EntityManager,
     refundedPayment: PaymentEntity,
     originalPayment: PaymentEntity,
     refundAmount: number,
     reason: string,
     businessId: string
   ): Promise<void> {
-    await this.eventBus.emit(
-      EventNames.PAYMENT_REFUND_PROCESSED,
-      {
+    await this.outbox.enqueue(manager, {
+      eventType: EventNames.PAYMENT_REFUND_PROCESSED,
+      aggregateType: "payment",
+      aggregateId: refundedPayment.id,
+      payload: {
         paymentId: refundedPayment.id,
         businessId,
         clientId: originalPayment.clientId,
@@ -207,7 +221,6 @@ export class PaymentsService {
         reason,
         refundedAt: refundedPayment.refundedAt,
       },
-      refundedPayment.id
-    );
+    });
   }
 }
