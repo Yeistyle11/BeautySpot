@@ -436,19 +436,42 @@ export class AppointmentsService {
       date?: string;
       professionalId?: string;
       clientId?: string;
-    }
-  ) {
+    },
+    pagination?: { page: number; limit: number; offset: number }
+  ): Promise<{
+    items: Appointment[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     const where: Record<string, unknown> = { businessId };
     if (filters?.status) where.status = filters.status;
     if (filters?.date) where.date = filters.date;
     if (filters?.professionalId) where.professionalId = filters.professionalId;
     if (filters?.clientId) where.clientId = filters.clientId;
 
-    return this.apptRepo.find({
+    if (pagination) {
+      const [items, total] = await this.apptRepo.findAndCount({
+        where,
+        relations: ["appointmentServices"],
+        order: { date: "DESC", startTime: "ASC" },
+        skip: pagination.offset,
+        take: pagination.limit,
+      });
+      return {
+        items,
+        total,
+        page: pagination.page,
+        limit: pagination.limit,
+      };
+    }
+
+    const items = await this.apptRepo.find({
       where,
       relations: ["appointmentServices"],
       order: { date: "DESC", startTime: "ASC" },
     });
+    return { items, total: items.length, page: 1, limit: items.length };
   }
 
   /**

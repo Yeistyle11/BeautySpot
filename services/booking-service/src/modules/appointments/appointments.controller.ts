@@ -11,6 +11,7 @@ import {
 import { AppointmentsService } from "./appointments.service";
 import { AppointmentStatus, Role } from "@beautyspot/shared-types";
 import { Roles, Public } from "@beautyspot/nest-common";
+import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import {
   CreateAppointmentDto,
   CancelDto,
@@ -54,12 +55,17 @@ export class AppointmentsController {
     @Query("professionalId") professionalId?: string,
     @Query("clientId") clientId?: string
   ) {
-    return this.service.findByBusiness(req.businessId, {
-      status,
-      date,
-      professionalId,
-      clientId,
-    });
+    const pagination = parsePaginationQuery(req.query, [
+      "date",
+      "startTime",
+      "createdAt",
+      "updatedAt",
+    ]);
+    return this.service.findByBusiness(
+      req.businessId,
+      { status, date, professionalId, clientId },
+      pagination
+    );
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
