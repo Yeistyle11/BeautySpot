@@ -1,14 +1,24 @@
-import { Injectable, NotFoundException, ConflictException } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Business } from "../../entities/business.entity";
-import { generateSlug, parsePaginationQuery, escapeLikePattern } from "@beautyspot/shared-utils";
+import {
+  generateSlug,
+  parsePaginationQuery,
+  escapeLikePattern,
+} from "@beautyspot/shared-utils";
+import { Role } from "@beautyspot/shared-types";
 
 @Injectable()
 export class BusinessesService {
   constructor(
     @InjectRepository(Business)
-    private readonly repo: Repository<Business>,
+    private readonly repo: Repository<Business>
   ) {}
 
   async create(data: Partial<Business>): Promise<Business> {
@@ -22,19 +32,45 @@ export class BusinessesService {
     return this.repo.save(business);
   }
 
-  async findAll(query: Record<string, unknown>) {
-    const params = parsePaginationQuery(query, ["createdAt", "updatedAt", "name", "city", "active"]);
-    const qb = this.repo.createQueryBuilder("b")
+  /**
+   * Lista negocios. SUPER_ADMIN ve todos; resto scoped a su businessId.
+   */
+  async findAll(
+    query: Record<string, unknown>,
+    callerBusinessId?: string,
+    callerRole?: Role
+  ) {
+    const params = parsePaginationQuery(query, [
+      "createdAt",
+      "updatedAt",
+      "name",
+      "city",
+      "active",
+    ]);
+    const qb = this.repo
+      .createQueryBuilder("b")
       .leftJoinAndSelect("b.branches", "branches")
       .leftJoinAndSelect("b.services", "services")
       .leftJoinAndSelect("b.professionals", "professionals");
 
-    if (query.city) qb.andWhere("b.city ILIKE :city", { city: `%${escapeLikePattern(String(query.city))}%` });
-    if (query.businessType) qb.andWhere("b.business_type = :type", { type: query.businessType });
-    if (query.active !== undefined) qb.andWhere("b.active = :active", { active: query.active === "true" });
+    // IDOR fix: non-SUPER_ADMIN scoped to own business
+    if (callerRole !== Role.SUPER_ADMIN && callerBusinessId) {
+      qb.andWhere("b.id = :bid", { bid: callerBusinessId });
+    }
+
+    if (query.city)
+      qb.andWhere("b.city ILIKE :city", {
+        city: `%${escapeLikePattern(String(query.city))}%`,
+      });
+    if (query.businessType)
+      qb.andWhere("b.business_type = :type", { type: query.businessType });
+    if (query.active !== undefined)
+      qb.andWhere("b.active = :active", { active: query.active === "true" });
     if (params.search) {
       const escaped = escapeLikePattern(params.search);
-      qb.andWhere("(b.name ILIKE :search OR b.description ILIKE :search)", { search: `%${escaped}%` });
+      qb.andWhere("(b.name ILIKE :search OR b.description ILIKE :search)", {
+        search: `%${escaped}%`,
+      });
     }
 
     qb.orderBy(`b.${params.sort}`, params.order)
@@ -45,7 +81,14 @@ export class BusinessesService {
     return { items, total, page: params.page, limit: params.limit };
   }
 
-  async findById(id: string): Promise<Business> {
+  /**
+   * Obtiene un negocio por id. Verifica ownership salvo SUPER_ADMIN.
+   */
+  async findById(
+    id: string,
+    callerBusinessId?: string,
+    callerRole?: Role
+  ): Promise<Business> {
     const business = await this.repo.findOne({
       where: { id },
       relations: {
@@ -58,10 +101,19 @@ export class BusinessesService {
     });
 
     if (!business) throw new NotFoundException("Negocio no encontrado");
+    this.assertOwnership(business.id, callerBusinessId, callerRole);
     return business;
   }
 
-  async findBySlug(slug: string): Promise<Business> {
+  /**
+   * Obtiene un negocio por slug. Verifica ownership salvo SUPER_ADMIN.
+   * Internal callers (sin callerBusinessId) bypass el check.
+   */
+  async findBySlug(
+    slug: string,
+    callerBusinessId?: string,
+    callerRole?: Role
+  ): Promise<Business> {
     const business = await this.repo.findOne({
       where: { slug },
       relations: {
@@ -71,16 +123,47 @@ export class BusinessesService {
       },
     });
 
-    if (!business) throw new NotFoundException(`Negocio "${slug}" no encontrado`);
+    if (!business)
+      throw new NotFoundException(`Negocio "${slug}" no encontrado`);
+    if (callerBusinessId !== undefined) {
+      this.assertOwnership(business.id, callerBusinessId, callerRole);
+    }
     return business;
   }
 
-  async update(id: string, data: Partial<Business>): Promise<Business> {
+  async update(
+    id: string,
+    data: Partial<Business>,
+    callerBusinessId?: string,
+    callerRole?: Role
+  ): Promise<Business> {
+    await this.findById(id, callerBusinessId, callerRole);
     await this.repo.update(id, data as any);
-    return this.findById(id);
+    return this.findById(id, callerBusinessId, callerRole);
   }
 
-  async deactivate(id: string): Promise<void> {
+  async deactivate(
+    id: string,
+    callerBusinessId?: string,
+    callerRole?: Role
+  ): Promise<void> {
+    await this.findById(id, callerBusinessId, callerRole);
     await this.repo.update(id, { active: false });
+  }
+
+  /**
+   * Verifica que el caller tiene acceso al negocio.
+   * SUPER_ADMIN bypass. Sin callerBusinessId (internal) bypass.
+   */
+  private assertOwnership(
+    businessId: string,
+    callerBusinessId?: string,
+    callerRole?: Role
+  ): void {
+    if (callerRole === Role.SUPER_ADMIN) return;
+    if (callerBusinessId === undefined) return;
+    if (businessId !== callerBusinessId) {
+      throw new ForbiddenException("No tienes acceso a este negocio");
+    }
   }
 }
