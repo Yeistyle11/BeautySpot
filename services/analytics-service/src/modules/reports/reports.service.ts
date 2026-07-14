@@ -4,87 +4,120 @@ import { Repository, Between } from "typeorm";
 import { DailyMetricEntity } from "../../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
 
+interface ProfessionalAggRow {
+  professionalId: string;
+  appointments: string;
+  revenue: string;
+  avgRating: string;
+  days: string;
+}
+
 @Injectable()
 export class ReportsService {
   constructor(
     @InjectRepository(DailyMetricEntity)
     private readonly dailyRepo: Repository<DailyMetricEntity>,
     @InjectRepository(ProfessionalMetricEntity)
-    private readonly profRepo: Repository<ProfessionalMetricEntity>,
+    private readonly profRepo: Repository<ProfessionalMetricEntity>
   ) {}
 
   async getRevenueReport(businessId: string, from: string, to: string) {
-    const metrics = await this.dailyRepo.find({
-      where: { businessId, date: Between(from, to) },
-      order: { date: "ASC" },
-    });
+    const [aggregates, daily, dayCount] = await Promise.all([
+      this.dailyRepo
+        .createQueryBuilder("m")
+        .select("COALESCE(SUM(m.total_revenue), 0)", "totalRevenue")
+        .addSelect(
+          "COALESCE(SUM(m.total_appointments), 0)",
+          "totalAppointments"
+        )
+        .where("m.business_id = :businessId", { businessId })
+        .andWhere("m.date BETWEEN :from AND :to", { from, to })
+        .getRawOne<{ totalRevenue: string; totalAppointments: string }>(),
+      this.dailyRepo.find({
+        where: { businessId, date: Between(from, to) },
+        order: { date: "ASC" },
+      }),
+      this.dailyRepo.count({
+        where: { businessId, date: Between(from, to) },
+      }),
+    ]);
 
-    const totalRevenue = metrics.reduce((sum, m) => sum + Number(m.totalRevenue), 0);
-    const totalAppointments = metrics.reduce((sum, m) => sum + m.totalAppointments, 0);
-    const avgTicket = totalAppointments > 0 ? totalRevenue / totalAppointments : 0;
+    const totalRevenue = Number(aggregates?.totalRevenue ?? 0);
+    const totalAppointments = Number(aggregates?.totalAppointments ?? 0);
+    const avgTicket =
+      totalAppointments > 0 ? Math.round(totalRevenue / totalAppointments) : 0;
 
     return {
       period: { from, to },
-      summary: {
-        totalRevenue,
-        totalAppointments,
-        avgTicket: Math.round(avgTicket),
-        days: metrics.length,
-      },
-      daily: metrics,
+      summary: { totalRevenue, totalAppointments, avgTicket, days: dayCount },
+      daily,
     };
   }
 
   async getProfessionalsReport(businessId: string, from: string, to: string) {
-    const metrics = await this.profRepo.find({
-      where: { businessId, date: Between(from, to) },
-      order: { professionalId: "ASC", date: "ASC" },
-    });
-
-    const byProfessional: Record<string, { appointments: number; revenue: number; avgRating: number; days: number }> = {};
-
-    for (const m of metrics) {
-      if (!byProfessional[m.professionalId]) {
-        byProfessional[m.professionalId] = { appointments: 0, revenue: 0, avgRating: 0, days: 0 };
-      }
-      byProfessional[m.professionalId].appointments += m.appointments;
-      byProfessional[m.professionalId].revenue += Number(m.revenue);
-      byProfessional[m.professionalId].avgRating += Number(m.rating);
-      byProfessional[m.professionalId].days += 1;
-    }
-
-    for (const id of Object.keys(byProfessional)) {
-      const p = byProfessional[id];
-      p.avgRating = p.days > 0 ? Math.round((p.avgRating / p.days) * 100) / 100 : 0;
-    }
+    const rows = await this.profRepo
+      .createQueryBuilder("pm")
+      .select("pm.professional_id", "professionalId")
+      .addSelect("SUM(pm.appointments)", "appointments")
+      .addSelect("SUM(pm.revenue)", "revenue")
+      .addSelect("AVG(pm.rating)", "avgRating")
+      .addSelect("COUNT(*)", "days")
+      .where("pm.business_id = :businessId", { businessId })
+      .andWhere("pm.date BETWEEN :from AND :to", { from, to })
+      .groupBy("pm.professional_id")
+      .orderBy("pm.professional_id", "ASC")
+      .getRawMany<ProfessionalAggRow>();
 
     return {
       period: { from, to },
-      professionals: Object.entries(byProfessional).map(([professionalId, data]) => ({
-        professionalId,
-        ...data,
+      professionals: rows.map((row) => ({
+        professionalId: row.professionalId,
+        appointments: Number(row.appointments),
+        revenue: Number(row.revenue),
+        avgRating: Math.round(Number(row.avgRating) * 100) / 100,
+        days: Number(row.days),
       })),
     };
   }
 
   async getAppointmentsReport(businessId: string, from: string, to: string) {
-    const metrics = await this.dailyRepo.find({
-      where: { businessId, date: Between(from, to) },
-      order: { date: "ASC" },
-    });
+    const [aggregates, daily] = await Promise.all([
+      this.dailyRepo
+        .createQueryBuilder("m")
+        .select("COALESCE(SUM(m.total_appointments), 0)", "total")
+        .addSelect("COALESCE(SUM(m.completed_appointments), 0)", "completed")
+        .addSelect("COALESCE(SUM(m.cancelled_appointments), 0)", "cancelled")
+        .addSelect("COALESCE(SUM(m.no_show_appointments), 0)", "noShow")
+        .where("m.business_id = :businessId", { businessId })
+        .andWhere("m.date BETWEEN :from AND :to", { from, to })
+        .getRawOne<{
+          total: string;
+          completed: string;
+          cancelled: string;
+          noShow: string;
+        }>(),
+      this.dailyRepo.find({
+        where: { businessId, date: Between(from, to) },
+        order: { date: "ASC" },
+      }),
+    ]);
 
-    const total = metrics.reduce((sum, m) => sum + m.totalAppointments, 0);
-    const completed = metrics.reduce((sum, m) => sum + m.completedAppointments, 0);
-    const cancelled = metrics.reduce((sum, m) => sum + m.cancelledAppointments, 0);
-    const noShow = metrics.reduce((sum, m) => sum + m.noShowAppointments, 0);
+    const total = Number(aggregates?.total ?? 0);
+    const completed = Number(aggregates?.completed ?? 0);
+    const cancelled = Number(aggregates?.cancelled ?? 0);
+    const noShow = Number(aggregates?.noShow ?? 0);
 
     return {
       period: { from, to },
       summary: { total, completed, cancelled, noShow },
-      completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
-      cancellationRate: total > 0 ? Math.round((cancelled / total) * 100) : 0,
-      noShowRate: total > 0 ? Math.round((noShow / total) * 100) : 0,
-      daily: metrics,
+      completionRate: this.percentage(completed, total),
+      cancellationRate: this.percentage(cancelled, total),
+      noShowRate: this.percentage(noShow, total),
+      daily,
     };
+  }
+
+  private percentage(part: number, total: number): number {
+    return total > 0 ? Math.round((part / total) * 100) : 0;
   }
 }

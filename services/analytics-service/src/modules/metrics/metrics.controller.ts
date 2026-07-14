@@ -2,26 +2,49 @@ import { Controller, Get, Post, Body, Query, Req } from "@nestjs/common";
 import { MetricsService } from "./metrics.service";
 import { Roles } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
-import { UpsertDailyMetricDto, UpsertProfessionalMetricDto } from "./dto/metric.dto";
+import {
+  IncrementDailyMetricDto,
+  IncrementProfessionalMetricDto,
+} from "./dto/metric.dto";
 import { DateRangeQueryDto } from "../reports/dto/report-query.dto";
+
+interface AuthenticatedRequest {
+  businessId: string;
+}
 
 @Controller("metrics")
 @Roles(Role.SUPER_ADMIN, Role.OWNER, Role.ADMIN)
 export class MetricsController {
   constructor(private readonly service: MetricsService) {}
 
-  @Post("daily")
-  async upsertDaily(@Req() req: any, @Body() dto: UpsertDailyMetricDto) {
-    return this.service.upsertDailyMetric({ ...dto, businessId: req.businessId });
+  @Post("daily/increment")
+  async incrementDaily(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: IncrementDailyMetricDto
+  ) {
+    await this.service.incrementDailyMetric(req.businessId, dto.date, dto);
+    return { message: "Métrica diaria actualizada" };
   }
 
-  @Post("professional")
-  async upsertProfessional(@Req() req: any, @Body() dto: UpsertProfessionalMetricDto) {
-    return this.service.upsertProfessionalMetric({ ...dto, businessId: req.businessId });
+  @Post("professional/increment")
+  async incrementProfessional(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: IncrementProfessionalMetricDto
+  ) {
+    await this.service.incrementProfessionalMetric(
+      req.businessId,
+      dto.professionalId,
+      dto.date,
+      dto
+    );
+    return { message: "Métrica profesional actualizada" };
   }
 
   @Get()
-  async getMetrics(@Req() req: any, @Query() query: DateRangeQueryDto) {
+  async getMetrics(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: DateRangeQueryDto
+  ) {
     return this.service.getMetrics(req.businessId, query.from, query.to);
   }
 }
