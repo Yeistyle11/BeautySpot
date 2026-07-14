@@ -1,21 +1,31 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+  BadGatewayException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import Redis from "ioredis";
+import { REDIS_CLIENT } from "../redis/redis.module";
+import { ServiceUrlsConfig } from "../../config/service-urls";
+
+const TENANT_CACHE_TTL_SECONDS = 300;
+const TENANT_FETCH_TIMEOUT_MS = 5000;
 
 @Injectable()
 export class TenantService {
-  private redis: Redis;
-
-  constructor(private configService: ConfigService) {
-    this.redis = new Redis({
-      host: this.configService.get("REDIS_HOST", "localhost"),
-      port: this.configService.get<number>("REDIS_PORT", 6379),
-      password: this.configService.get("REDIS_PASSWORD"),
-    });
-  }
+  constructor(
+    private configService: ConfigService,
+    private serviceUrls: ServiceUrlsConfig,
+    @Inject(REDIS_CLIENT) private redis: Redis
+  ) {}
 
   async resolveFromSubdomain(host: string): Promise<string | null> {
-    const domain = this.configService.get("APP_DOMAIN", "beautyspot.co");
+    const domain = this.configService.get<string>(
+      "APP_DOMAIN",
+      "beautyspot.co"
+    );
     if (!host || !host.includes(domain)) return null;
 
     const subdomain = host.split(".")[0];
@@ -29,19 +39,44 @@ export class TenantService {
     const cached = await this.redis.get(cacheKey);
     if (cached) return cached;
 
-    const coreUrl = this.configService.get("CORE_SERVICE_URL", "http://localhost:3002");
-    const response = await fetch(`${coreUrl}/internal/businesses/resolve?slug=${encodeURIComponent(slug)}`, {
-      headers: { "x-internal-secret": this.configService.get("INTERNAL_API_SECRET") || "" },
-    });
+    const coreUrl = this.serviceUrls.getUrl("core");
+    const url = `${coreUrl}/internal/businesses/resolve?slug=${encodeURIComponent(slug)}`;
+    const internalSecret =
+      this.configService.get<string>("INTERNAL_API_SECRET") || "";
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: { "x-internal-secret": internalSecret },
+        signal: AbortSignal.timeout(TENANT_FETCH_TIMEOUT_MS),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === "TimeoutError") {
+        throw new ServiceUnavailableException(
+          `Core service no responde (timeout ${TENANT_FETCH_TIMEOUT_MS}ms)`
+        );
+      }
+      throw new ServiceUnavailableException(
+        `No se pudo conectar con core service: ${
+          error instanceof Error ? error.message : "Error desconocido"
+        }`
+      );
+    }
+
+    if (response.status === 404) {
+      throw new NotFoundException(`Negocio "${slug}" no encontrado`);
+    }
 
     if (!response.ok) {
-      throw new NotFoundException(`Negocio "${slug}" no encontrado`);
+      throw new BadGatewayException(
+        `Core service respondió ${response.status} al resolver slug "${slug}"`
+      );
     }
 
     const body = (await response.json()) as { data: { id: string } };
     const businessId = body.data.id;
 
-    await this.redis.set(cacheKey, businessId, "EX", 300);
+    await this.redis.set(cacheKey, businessId, "EX", TENANT_CACHE_TTL_SECONDS);
     return businessId;
   }
 

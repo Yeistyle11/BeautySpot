@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 
 export enum CircuitState {
-  CLOSED = 'CLOSED',
-  OPEN = 'OPEN',
-  HALF_OPEN = 'HALF_OPEN'
+  CLOSED = "CLOSED",
+  OPEN = "OPEN",
+  HALF_OPEN = "HALF_OPEN",
 }
 
 interface CircuitBreakerState {
@@ -18,18 +19,27 @@ export class CircuitBreakerService {
   private readonly logger = new Logger(CircuitBreakerService.name);
   private readonly states: Map<string, CircuitBreakerState> = new Map();
 
-  private readonly THRESHOLD = 5;
-  private readonly TIMEOUT = 60000;
-  private readonly HALF_OPEN_MAX_CALLS = 3;
+  private readonly threshold: number;
+  private readonly timeoutMs: number;
+  private readonly halfOpenMaxCalls: number;
 
-  async execute<T>(
-    service: string,
-    fn: () => Promise<T>
-  ): Promise<T> {
+  constructor(configService: ConfigService) {
+    this.threshold = configService.get<number>("CIRCUIT_BREAKER_THRESHOLD", 5);
+    this.timeoutMs = configService.get<number>(
+      "CIRCUIT_BREAKER_TIMEOUT_MS",
+      60000
+    );
+    this.halfOpenMaxCalls = configService.get<number>(
+      "CIRCUIT_BREAKER_HALF_OPEN_MAX_CALLS",
+      3
+    );
+  }
+
+  async execute<T>(service: string, fn: () => Promise<T>): Promise<T> {
     const state = this.getState(service);
 
     if (state.state === CircuitState.OPEN) {
-      if (Date.now() - state.lastFailureTime > this.TIMEOUT) {
+      if (Date.now() - state.lastFailureTime > this.timeoutMs) {
         this.transitionTo(service, CircuitState.HALF_OPEN);
         this.logger.log(`Circuit breaker HALF_OPEN para ${service}`);
       } else {
@@ -53,7 +63,7 @@ export class CircuitBreakerService {
 
     if (state.state === CircuitState.HALF_OPEN) {
       state.successCount++;
-      if (state.successCount >= this.HALF_OPEN_MAX_CALLS) {
+      if (state.successCount >= this.halfOpenMaxCalls) {
         this.transitionTo(service, CircuitState.CLOSED);
         this.logger.log(`Circuit breaker CLOSED para ${service}`);
       }
@@ -62,12 +72,18 @@ export class CircuitBreakerService {
     }
   }
 
-  private onFailure(service: string, _error: any): void {
+  private onFailure(service: string, error: unknown): void {
     const state = this.getState(service);
     state.failures++;
     state.lastFailureTime = Date.now();
 
-    if (state.failures >= this.THRESHOLD) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Error desconocido";
+    this.logger.warn(
+      `Fallo registrado para ${service}: ${errorMessage} (total: ${state.failures})`
+    );
+
+    if (state.failures >= this.threshold) {
       this.transitionTo(service, CircuitState.OPEN);
       this.logger.warn(`Circuit breaker OPENED para ${service}`);
     }
@@ -76,7 +92,7 @@ export class CircuitBreakerService {
   private transitionTo(service: string, newState: CircuitState): void {
     const state = this.getState(service);
     state.state = newState;
-    
+
     if (newState === CircuitState.CLOSED) {
       state.failures = 0;
       state.successCount = 0;

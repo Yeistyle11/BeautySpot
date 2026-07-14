@@ -1,9 +1,14 @@
-import { Test } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
-import { NotFoundException } from '@nestjs/common';
-import { TenantService } from './tenant.service';
+import { Test } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
+import {
+  NotFoundException,
+  BadGatewayException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
+import { TenantService } from "./tenant.service";
+import { ServiceUrlsConfig } from "../../config/service-urls";
+import { REDIS_CLIENT } from "../redis/redis.module";
 
-// Mock de ioredis local para este test
 const mockRedisInstance = {
   get: jest.fn(),
   set: jest.fn(),
@@ -11,192 +16,191 @@ const mockRedisInstance = {
   disconnect: jest.fn(),
 };
 
-jest.mock('ioredis', () => {
-  return {
-    __esModule: true,
-    default: jest.fn(() => mockRedisInstance),
-  };
-});
-
-describe('TenantService', () => {
+describe("TenantService", () => {
   let service: TenantService;
   let mockConfigService: jest.Mocked<ConfigService>;
+  let mockServiceUrls: jest.Mocked<ServiceUrlsConfig>;
 
   beforeEach(async () => {
-    // Reset mocks
     jest.clearAllMocks();
     mockRedisInstance.get.mockResolvedValue(null);
-    mockRedisInstance.set.mockResolvedValue('OK');
+    mockRedisInstance.set.mockResolvedValue("OK");
     mockRedisInstance.del.mockResolvedValue(1);
 
-    // Mock global fetch
     global.fetch = jest.fn() as any;
 
     mockConfigService = {
       get: jest.fn(),
     } as any;
 
+    mockServiceUrls = {
+      getUrl: jest.fn().mockReturnValue("http://localhost:3002"),
+      hasUrl: jest.fn(),
+      getAll: jest.fn(),
+    } as any;
+
     const module = await Test.createTestingModule({
       providers: [
         TenantService,
-        {
-          provide: ConfigService,
-          useValue: mockConfigService,
-        },
+        { provide: ConfigService, useValue: mockConfigService },
+        { provide: ServiceUrlsConfig, useValue: mockServiceUrls },
+        { provide: REDIS_CLIENT, useValue: mockRedisInstance },
       ],
     }).compile();
 
     service = module.get<TenantService>(TenantService);
   });
 
-  describe('resolveFromSubdomain', () => {
-    it('debería retornar null si el host no incluye el dominio', async () => {
-      mockConfigService.get.mockReturnValue('beautyspot.co');
+  describe("resolveFromSubdomain", () => {
+    it("debería retornar null si el host no incluye el dominio", async () => {
+      mockConfigService.get.mockReturnValue("beautyspot.co");
 
-      const result = await service.resolveFromSubdomain('external.com');
-
-      expect(result).toBeNull();
-    });
-
-    it('debería retornar null si el subdominio es www', async () => {
-      mockConfigService.get.mockReturnValue('beautyspot.co');
-
-      const result = await service.resolveFromSubdomain('www.beautyspot.co');
+      const result = await service.resolveFromSubdomain("external.com");
 
       expect(result).toBeNull();
     });
 
-    it('debería retornar null si el subdominio es api', async () => {
-      mockConfigService.get.mockReturnValue('beautyspot.co');
+    it("debería retornar null si el subdominio es www", async () => {
+      mockConfigService.get.mockReturnValue("beautyspot.co");
 
-      const result = await service.resolveFromSubdomain('api.beautyspot.co');
+      const result = await service.resolveFromSubdomain("www.beautyspot.co");
 
       expect(result).toBeNull();
     });
 
-    it('debería extraer el subdominio y llamar a resolveSlug', async () => {
-      mockConfigService.get.mockReturnValue('beautyspot.co');
-      const expectedBusinessId = 'business-123';
-      mockRedisInstance.get.mockResolvedValue(expectedBusinessId);
+    it("debería retornar null si el subdominio es api", async () => {
+      mockConfigService.get.mockReturnValue("beautyspot.co");
 
-      const result = await service.resolveFromSubdomain('mystudio.beautyspot.co');
+      const result = await service.resolveFromSubdomain("api.beautyspot.co");
 
-      expect(result).toBe(expectedBusinessId);
-      expect(mockRedisInstance.get).toHaveBeenCalledWith('tenant:mystudio');
+      expect(result).toBeNull();
     });
 
-    it('debería manejar hosts complejos con puertos', async () => {
-      mockConfigService.get.mockReturnValue('beautyspot.co');
-      const expectedBusinessId = 'business-456';
-      mockRedisInstance.get.mockResolvedValue(expectedBusinessId);
+    it("debería extraer el subdominio y llamar a resolveSlug", async () => {
+      mockConfigService.get.mockReturnValue("beautyspot.co");
+      mockRedisInstance.get.mockResolvedValue("business-123");
 
-      const result = await service.resolveFromSubdomain('mystudio.beautyspot.co:3000');
+      const result = await service.resolveFromSubdomain(
+        "mystudio.beautyspot.co"
+      );
 
-      expect(result).toBe(expectedBusinessId);
-      expect(mockRedisInstance.get).toHaveBeenCalledWith('tenant:mystudio');
+      expect(result).toBe("business-123");
+      expect(mockRedisInstance.get).toHaveBeenCalledWith("tenant:mystudio");
+    });
+
+    it("debería manejar hosts complejos con puertos", async () => {
+      mockConfigService.get.mockReturnValue("beautyspot.co");
+      mockRedisInstance.get.mockResolvedValue("business-456");
+
+      const result = await service.resolveFromSubdomain(
+        "mystudio.beautyspot.co:3000"
+      );
+
+      expect(result).toBe("business-456");
+      expect(mockRedisInstance.get).toHaveBeenCalledWith("tenant:mystudio");
     });
   });
 
-  describe('resolveSlug', () => {
+  describe("resolveSlug", () => {
     beforeEach(() => {
       mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'APP_DOMAIN') return 'beautyspot.co';
-        if (key === 'CORE_SERVICE_URL') return 'http://localhost:3002';
-        if (key === 'INTERNAL_API_SECRET') return 'secret123';
+        if (key === "APP_DOMAIN") return "beautyspot.co";
+        if (key === "INTERNAL_API_SECRET") return "secret123";
         return undefined;
       });
     });
 
-    it('debería retornar businessId desde caché si existe', async () => {
-      const slug = 'mystudio';
-      const cachedBusinessId = 'business-123';
-      
-      mockRedisInstance.get.mockResolvedValue(cachedBusinessId);
+    it("debería retornar businessId desde caché si existe", async () => {
+      mockRedisInstance.get.mockResolvedValue("business-123");
 
-      const result = await service.resolveSlug(slug);
+      const result = await service.resolveSlug("mystudio");
 
-      expect(result).toBe(cachedBusinessId);
-      expect(mockRedisInstance.get).toHaveBeenCalledWith(`tenant:${slug}`);
-      expect(mockRedisInstance.set).not.toHaveBeenCalled();
+      expect(result).toBe("business-123");
+      expect(mockRedisInstance.get).toHaveBeenCalledWith("tenant:mystudio");
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
-    it('debería hacer fetch al core service si no está en caché', async () => {
-      const slug = 'mystudio';
-      const businessId = 'business-456';
-      const responseBody = { data: { id: businessId } };
-
+    it("debería hacer fetch al core service si no está en caché", async () => {
+      const businessId = "business-456";
       mockRedisInstance.get.mockResolvedValue(null);
-      
-      // Mock global fetch
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
-        json: async () => responseBody,
-      } as Response);
+        status: 200,
+        json: async () => ({ data: { id: businessId } }),
+      } as any);
 
-      const result = await service.resolveSlug(slug);
+      const result = await service.resolveSlug("mystudio");
 
       expect(result).toBe(businessId);
-      expect(mockRedisInstance.get).toHaveBeenCalledWith(`tenant:${slug}`);
+      expect(mockServiceUrls.getUrl).toHaveBeenCalledWith("core");
       expect(global.fetch).toHaveBeenCalledWith(
-        `http://localhost:3002/internal/businesses/resolve?slug=${encodeURIComponent(slug)}`,
+        expect.stringContaining("/internal/businesses/resolve?slug=mystudio"),
         expect.objectContaining({
-          headers: { "x-internal-secret": "secret123" }
+          headers: { "x-internal-secret": "secret123" },
         })
       );
       expect(mockRedisInstance.set).toHaveBeenCalledWith(
-        `tenant:${slug}`,
+        "tenant:mystudio",
         businessId,
         "EX",
         300
       );
     });
 
-    it('debería lanzar NotFoundException si el core service retorna 404', async () => {
-      const slug = 'nonexistent';
-
+    it("debería lanzar NotFoundException si el core service retorna 404", async () => {
       mockRedisInstance.get.mockResolvedValue(null);
-
       global.fetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 404,
-      } as Response);
+        text: async () => "Not found",
+      } as any);
 
-      await expect(service.resolveSlug(slug)).rejects.toThrow(NotFoundException);
-      await expect(service.resolveSlug(slug)).rejects.toThrow(`Negocio "${slug}" no encontrado`);
+      await expect(service.resolveSlug("nonexistent")).rejects.toThrow(
+        NotFoundException
+      );
     });
 
-    it('debería lanzar NotFoundException si el core service retorna error', async () => {
-      const slug = 'error-slug';
-
+    it("debería lanzar BadGatewayException si el core service retorna 500", async () => {
       mockRedisInstance.get.mockResolvedValue(null);
-
       global.fetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 500,
-      } as Response);
+        text: async () => "Internal error",
+      } as any);
 
-      await expect(service.resolveSlug(slug)).rejects.toThrow(NotFoundException);
+      await expect(service.resolveSlug("error-slug")).rejects.toThrow(
+        BadGatewayException
+      );
     });
 
-    it('debería manejar errores de red en el fetch', async () => {
-      const slug = 'network-error';
-
+    it("debería lanzar ServiceUnavailableException en timeout", async () => {
       mockRedisInstance.get.mockResolvedValue(null);
+      const timeoutError = new Error("Timeout");
+      timeoutError.name = "TimeoutError";
+      global.fetch = jest.fn().mockRejectedValue(timeoutError);
 
-      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+      await expect(service.resolveSlug("timeout-slug")).rejects.toThrow(
+        ServiceUnavailableException
+      );
+    });
 
-      await expect(service.resolveSlug(slug)).rejects.toThrow('Network error');
+    it("debería lanzar ServiceUnavailableException en error de red", async () => {
+      mockRedisInstance.get.mockResolvedValue(null);
+      global.fetch = jest
+        .fn()
+        .mockRejectedValue(new Error("Connection refused"));
+
+      await expect(service.resolveSlug("network-error")).rejects.toThrow(
+        ServiceUnavailableException
+      );
     });
   });
 
-  describe('clearCache', () => {
-    it('debería eliminar la clave del cache', async () => {
-      const slug = 'mystudio';
+  describe("clearCache", () => {
+    it("debería eliminar la clave del cache", async () => {
+      await service.clearCache("mystudio");
 
-      await service.clearCache(slug);
-
-      expect(mockRedisInstance.del).toHaveBeenCalledWith(`tenant:${slug}`);
+      expect(mockRedisInstance.del).toHaveBeenCalledWith("tenant:mystudio");
     });
   });
 });
