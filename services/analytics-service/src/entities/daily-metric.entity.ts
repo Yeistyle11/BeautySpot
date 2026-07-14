@@ -1,6 +1,11 @@
 import { Entity, Column, Index } from "typeorm";
 import { TenantEntity } from "@beautyspot/database";
 
+const numericTransformer = {
+  to: (value: number) => value,
+  from: (value: string) => Number(value),
+};
+
 @Entity("daily_metrics")
 @Index(["businessId", "date"], { unique: true })
 export class DailyMetricEntity extends TenantEntity {
@@ -19,7 +24,14 @@ export class DailyMetricEntity extends TenantEntity {
   @Column({ name: "no_show_appointments", default: 0 })
   noShowAppointments: number;
 
-  @Column({ type: "decimal", precision: 12, scale: 2, default: 0 })
+  @Column({
+    name: "total_revenue",
+    type: "decimal",
+    precision: 12,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
   totalRevenue: number;
 
   @Column({ name: "new_clients", default: 0 })

@@ -1,19 +1,20 @@
-import { Test } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { MetricsService } from './metrics.service';
-import { DailyMetricEntity } from '../../entities/daily-metric.entity';
-import { ProfessionalMetricEntity } from '../../entities/professional-metric.entity';
+import { Test } from "@nestjs/testing";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Repository, DataSource } from "typeorm";
+import { MetricsService } from "./metrics.service";
+import { DailyMetricEntity } from "../../entities/daily-metric.entity";
+import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
 
-describe('MetricsService', () => {
+describe("MetricsService", () => {
   let service: MetricsService;
   let mockDailyRepo: jest.Mocked<Repository<DailyMetricEntity>>;
   let mockProfRepo: jest.Mocked<Repository<ProfessionalMetricEntity>>;
+  let mockDataSource: jest.Mocked<DataSource>;
 
   const mockDailyMetric: DailyMetricEntity = {
-    id: 'metrics-123',
-    businessId: 'business-123',
-    date: '2024-01-15',
+    id: "metrics-123",
+    businessId: "business-123",
+    date: "2024-01-15",
     totalAppointments: 10,
     completedAppointments: 8,
     cancelledAppointments: 1,
@@ -27,10 +28,10 @@ describe('MetricsService', () => {
   } as any;
 
   const mockProfessionalMetric: ProfessionalMetricEntity = {
-    id: 'prof-metrics-123',
-    businessId: 'business-123',
-    professionalId: 'prof-123',
-    date: '2024-01-15',
+    id: "prof-metrics-123",
+    businessId: "business-123",
+    professionalId: "prof-123",
+    date: "2024-01-15",
     appointments: 8,
     revenue: 400000,
     rating: 4.8,
@@ -42,17 +43,15 @@ describe('MetricsService', () => {
 
   beforeEach(async () => {
     mockDailyRepo = {
-      findOne: jest.fn(),
       find: jest.fn(),
-      create: jest.fn(),
-      save: jest.fn(),
     } as any;
 
     mockProfRepo = {
-      findOne: jest.fn(),
       find: jest.fn(),
-      create: jest.fn(),
-      save: jest.fn(),
+    } as any;
+
+    mockDataSource = {
+      query: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     const module = await Test.createTestingModule({
@@ -66,177 +65,126 @@ describe('MetricsService', () => {
           provide: getRepositoryToken(ProfessionalMetricEntity),
           useValue: mockProfRepo,
         },
+        { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
 
     service = module.get<MetricsService>(MetricsService);
   });
 
-  describe('upsertDailyMetric', () => {
-    it('debería crear una nueva métrica diaria', async () => {
-      const data = {
-        businessId: 'business-123',
-        date: '2024-01-15',
-        totalAppointments: 10,
-        completedAppointments: 8,
-        cancelledAppointments: 1,
-        noShowAppointments: 1,
-        totalRevenue: 500000,
-        newClients: 3,
-        returningClients: 7,
-      };
-
-      mockDailyRepo.findOne.mockResolvedValue(null);
-      mockDailyRepo.create.mockReturnValue(mockDailyMetric);
-      mockDailyRepo.save.mockResolvedValue(mockDailyMetric);
-
-      const result = await service.upsertDailyMetric(data);
-
-      expect(mockDailyRepo.findOne).toHaveBeenCalledWith({
-        where: { businessId: data.businessId, date: data.date },
+  describe("incrementDailyMetric", () => {
+    it("debería ejecutar query ON CONFLICT con incrementos", async () => {
+      await service.incrementDailyMetric("business-123", "2024-01-15", {
+        totalAppointments: 1,
+        totalRevenue: 50000,
       });
-      expect(mockDailyRepo.create).toHaveBeenCalledWith(data);
-      expect(mockDailyRepo.save).toHaveBeenCalledWith(mockDailyMetric);
-      expect(result).toEqual(mockDailyMetric);
+
+      expect(mockDataSource.query).toHaveBeenCalledTimes(1);
+      const [sql, params] = mockDataSource.query.mock.calls[0];
+      expect(sql).toContain("INSERT INTO daily_metrics");
+      expect(sql).toContain("ON CONFLICT (business_id, date) DO UPDATE");
+      expect(sql).toContain("total_appointments = COALESCE");
+      expect(params).toContain("business-123");
+      expect(params).toContain("2024-01-15");
+      expect(params).toContain(1);
+      expect(params).toContain(50000);
     });
 
-    it('debería actualizar una métrica diaria existente', async () => {
-      const data = {
-        businessId: 'business-123',
-        date: '2024-01-15',
-        totalAppointments: 12,
-        completedAppointments: 10,
-      };
+    it("no debería ejecutar query si no hay incrementos", async () => {
+      await service.incrementDailyMetric("business-123", "2024-01-15", {});
 
-      mockDailyRepo.findOne.mockResolvedValue(mockDailyMetric);
-      mockDailyRepo.save.mockResolvedValue(mockDailyMetric);
-
-      const result = await service.upsertDailyMetric(data);
-
-      expect(mockDailyMetric.totalAppointments).toBe(12);
-      expect(mockDailyMetric.completedAppointments).toBe(10);
-      expect(mockDailyRepo.save).toHaveBeenCalledWith(mockDailyMetric);
-      expect(result).toEqual(mockDailyMetric);
+      expect(mockDataSource.query).not.toHaveBeenCalled();
     });
 
-    it('debería actualizar solo campos proporcionados', async () => {
-      const data = {
-        businessId: 'business-123',
-        date: '2024-01-15',
-        totalRevenue: 600000,
-      };
+    it("debería incluir solo las columnas proporcionadas", async () => {
+      await service.incrementDailyMetric("business-123", "2024-01-15", {
+        completedAppointments: 1,
+      });
 
-      const freshMetric = {
-        ...mockDailyMetric,
-        totalAppointments: 10,
-        generateId: () => {},
-      } as any;
-
-      mockDailyRepo.findOne.mockResolvedValue(freshMetric);
-      mockDailyRepo.save.mockResolvedValue(freshMetric);
-
-      await service.upsertDailyMetric(data);
-
-      const saveCallArg = mockDailyRepo.save.mock.calls[0][0];
-      expect(saveCallArg.totalRevenue).toBe(600000);
-      expect(saveCallArg.totalAppointments).toBe(10);
-      expect(mockDailyRepo.save).toHaveBeenCalledWith(saveCallArg);
+      const [sql] = mockDataSource.query.mock.calls[0];
+      expect(sql).toContain("completed_appointments");
+      expect(sql).not.toContain("total_appointments");
+      expect(sql).not.toContain("total_revenue");
     });
   });
 
-  describe('upsertProfessionalMetric', () => {
-    it('debería crear una nueva métrica profesional', async () => {
-      const data = {
-        businessId: 'business-123',
-        professionalId: 'prof-123',
-        date: '2024-01-15',
-        appointments: 8,
-        revenue: 400000,
-        rating: 4.8,
-        avgServiceTime: 45,
-      };
+  describe("incrementProfessionalMetric", () => {
+    it("debería ejecutar query ON CONFLICT con incrementos", async () => {
+      await service.incrementProfessionalMetric(
+        "business-123",
+        "prof-123",
+        "2024-01-15",
+        { appointments: 1, revenue: 40000 }
+      );
 
-      mockProfRepo.findOne.mockResolvedValue(null);
-      mockProfRepo.create.mockReturnValue(mockProfessionalMetric);
-      mockProfRepo.save.mockResolvedValue(mockProfessionalMetric);
-
-      const result = await service.upsertProfessionalMetric(data);
-
-      expect(mockProfRepo.findOne).toHaveBeenCalledWith({
-        where: {
-          businessId: data.businessId,
-          professionalId: data.professionalId,
-          date: data.date,
-        },
-      });
-      expect(mockProfRepo.create).toHaveBeenCalledWith(data);
-      expect(mockProfRepo.save).toHaveBeenCalledWith(mockProfessionalMetric);
-      expect(result).toEqual(mockProfessionalMetric);
+      expect(mockDataSource.query).toHaveBeenCalledTimes(1);
+      const [sql, params] = mockDataSource.query.mock.calls[0];
+      expect(sql).toContain("INSERT INTO professional_metrics");
+      expect(sql).toContain(
+        "ON CONFLICT (business_id, professional_id, date) DO UPDATE"
+      );
+      expect(params).toContain("business-123");
+      expect(params).toContain("prof-123");
+      expect(params).toContain("2024-01-15");
     });
 
-    it('debería actualizar una métrica profesional existente', async () => {
-      const data = {
-        businessId: 'business-123',
-        professionalId: 'prof-123',
-        date: '2024-01-15',
-        appointments: 10,
-        revenue: 500000,
-      };
+    it("no debería ejecutar query si no hay incrementos", async () => {
+      await service.incrementProfessionalMetric(
+        "business-123",
+        "prof-123",
+        "2024-01-15",
+        {}
+      );
 
-      mockProfRepo.findOne.mockResolvedValue(mockProfessionalMetric);
-      mockProfRepo.save.mockResolvedValue(mockProfessionalMetric);
-
-      const result = await service.upsertProfessionalMetric(data);
-
-      expect(mockProfessionalMetric.appointments).toBe(10);
-      expect(mockProfessionalMetric.revenue).toBe(500000);
-      expect(mockProfRepo.save).toHaveBeenCalledWith(mockProfessionalMetric);
-      expect(result).toEqual(mockProfessionalMetric);
-    });
-
-    it('debería actualizar solo campos proporcionados en métrica profesional', async () => {
-      const data = {
-        businessId: 'business-123',
-        professionalId: 'prof-123',
-        date: '2024-01-15',
-        rating: 5.0,
-      };
-
-      const freshMetric = {
-        ...mockProfessionalMetric,
-        appointments: 8,
-        generateId: () => {},
-      } as any;
-
-      mockProfRepo.findOne.mockResolvedValue(freshMetric);
-      mockProfRepo.save.mockResolvedValue(freshMetric);
-
-      await service.upsertProfessionalMetric(data);
-
-      const saveCallArg = mockProfRepo.save.mock.calls[0][0];
-      expect(saveCallArg.rating).toBe(5.0);
-      expect(saveCallArg.appointments).toBe(8);
-      expect(mockProfRepo.save).toHaveBeenCalledWith(saveCallArg);
+      expect(mockDataSource.query).not.toHaveBeenCalled();
     });
   });
 
-  describe('getMetrics', () => {
-    it('debería retornar métricas diarias y profesionales', async () => {
-      const dailyMetrics = [mockDailyMetric, { ...mockDailyMetric, date: '2024-01-16' } as any];
-      const profMetrics = [mockProfessionalMetric, { ...mockProfessionalMetric, date: '2024-01-16' } as any];
+  describe("setProfessionalRating", () => {
+    it("debería ejecutar query ON CONFLICT con SET absoluto", async () => {
+      await service.setProfessionalRating(
+        "business-123",
+        "prof-123",
+        "2024-01-15",
+        4.5
+      );
+
+      expect(mockDataSource.query).toHaveBeenCalledTimes(1);
+      const [sql, params] = mockDataSource.query.mock.calls[0];
+      expect(sql).toContain("INSERT INTO professional_metrics");
+      expect(sql).toContain("ON CONFLICT");
+      expect(sql).toContain("rating = EXCLUDED.rating");
+      expect(params).toContain(4.5);
+    });
+  });
+
+  describe("getMetrics", () => {
+    it("debería retornar métricas diarias y profesionales", async () => {
+      const dailyMetrics = [
+        mockDailyMetric,
+        { ...mockDailyMetric, date: "2024-01-16" } as any,
+      ];
+      const profMetrics = [
+        mockProfessionalMetric,
+        { ...mockProfessionalMetric, date: "2024-01-16" } as any,
+      ];
 
       mockDailyRepo.find.mockResolvedValue(dailyMetrics);
       mockProfRepo.find.mockResolvedValue(profMetrics);
 
-      const result = await service.getMetrics('business-123', '2024-01-15', '2024-01-16');
+      const result = await service.getMetrics(
+        "business-123",
+        "2024-01-15",
+        "2024-01-16"
+      );
 
       expect(mockDailyRepo.find).toHaveBeenCalledWith({
-        where: { businessId: 'business-123', date: expect.any(Object) },
-        order: { date: 'DESC' },
+        where: { businessId: "business-123", date: expect.any(Object) },
+        order: { date: "DESC" },
       });
       expect(mockProfRepo.find).toHaveBeenCalledWith({
-        where: { businessId: 'business-123', date: expect.any(Object) },
-        order: { date: 'DESC', professionalId: 'ASC' },
+        where: { businessId: "business-123", date: expect.any(Object) },
+        order: { date: "DESC", professionalId: "ASC" },
         take: 100,
       });
       expect(result).toEqual({
@@ -245,27 +193,18 @@ describe('MetricsService', () => {
       });
     });
 
-    it('debería retornar arrays vacíos si no hay datos', async () => {
+    it("debería retornar arrays vacíos si no hay datos", async () => {
       mockDailyRepo.find.mockResolvedValue([]);
       mockProfRepo.find.mockResolvedValue([]);
 
-      const result = await service.getMetrics('business-123', '2024-01-15', '2024-01-16');
+      const result = await service.getMetrics(
+        "business-123",
+        "2024-01-15",
+        "2024-01-16"
+      );
 
       expect(result.daily).toEqual([]);
       expect(result.professional).toEqual([]);
-    });
-
-    it('debería limitar resultados profesionales a 100', async () => {
-      mockDailyRepo.find.mockResolvedValue([mockDailyMetric]);
-      mockProfRepo.find.mockResolvedValue([mockProfessionalMetric]);
-
-      await service.getMetrics('business-123', '2024-01-15', '2024-01-16');
-
-      expect(mockProfRepo.find).toHaveBeenCalledWith(
-        expect.objectContaining({
-          take: 100,
-        })
-      );
     });
   });
 });

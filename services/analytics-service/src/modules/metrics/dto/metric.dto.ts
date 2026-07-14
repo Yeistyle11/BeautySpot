@@ -1,21 +1,25 @@
-import { IsString, IsNumber, IsOptional, IsDateString } from "class-validator";
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsDateString,
+  Min,
+} from "class-validator";
 
-export class UpsertDailyMetricDto {
+export class IncrementDailyMetricDto {
   @IsDateString() date!: string;
-  @IsOptional() @IsNumber() totalAppointments?: number;
-  @IsOptional() @IsNumber() completedAppointments?: number;
-  @IsOptional() @IsNumber() cancelledAppointments?: number;
-  @IsOptional() @IsNumber() noShowAppointments?: number;
-  @IsOptional() @IsNumber() totalRevenue?: number;
-  @IsOptional() @IsNumber() newClients?: number;
-  @IsOptional() @IsNumber() returningClients?: number;
+  @IsOptional() @IsNumber() @Min(0) totalAppointments?: number;
+  @IsOptional() @IsNumber() @Min(0) completedAppointments?: number;
+  @IsOptional() @IsNumber() @Min(0) cancelledAppointments?: number;
+  @IsOptional() @IsNumber() @Min(0) noShowAppointments?: number;
+  @IsOptional() @IsNumber() @Min(0) totalRevenue?: number;
+  @IsOptional() @IsNumber() @Min(0) newClients?: number;
+  @IsOptional() @IsNumber() @Min(0) returningClients?: number;
 }
 
-export class UpsertProfessionalMetricDto {
+export class IncrementProfessionalMetricDto {
   @IsString() professionalId!: string;
   @IsDateString() date!: string;
-  @IsOptional() @IsNumber() appointments?: number;
-  @IsOptional() @IsNumber() revenue?: number;
-  @IsOptional() @IsNumber() rating?: number;
-  @IsOptional() @IsNumber() avgServiceTime?: number;
+  @IsOptional() @IsNumber() @Min(0) appointments?: number;
+  @IsOptional() @IsNumber() @Min(0) revenue?: number;
 }
