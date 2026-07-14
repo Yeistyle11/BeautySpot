@@ -1,11 +1,23 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
-import * as nodemailer from 'nodemailer';
-import * as handlebars from 'handlebars';
-import * as fs from 'fs';
-import * as path from 'path';
+import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
+import * as nodemailer from "nodemailer";
+import * as handlebars from "handlebars";
+import * as fs from "fs";
+import * as path from "path";
+
+type EmailPriority = "low" | "normal" | "high";
+
+interface QueueEmailInput {
+  to: string;
+  template: string;
+  data: Record<string, unknown>;
+  subject: string;
+  priority?: EmailPriority;
+  pdfPath?: string;
+  currencyFields?: string[];
+}
 
 @Injectable()
 export class EmailService {
@@ -14,58 +26,69 @@ export class EmailService {
 
   constructor(
     private readonly configService: ConfigService,
-    @InjectQueue('emails') private readonly emailQueue: Queue,
+    @InjectQueue("emails") private readonly emailQueue: Queue
   ) {
     this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>('SMTP_HOST'),
-      port: parseInt(this.configService.get<string>('SMTP_PORT', '587')),
-      secure: this.configService.get<string>('SMTP_SECURE', 'false') === 'true',
+      host: this.configService.get<string>("SMTP_HOST"),
+      port: parseInt(this.configService.get<string>("SMTP_PORT", "587")),
+      secure: this.configService.get<string>("SMTP_SECURE", "false") === "true",
       auth: {
-        user: this.configService.get<string>('SMTP_USER'),
-        pass: this.configService.get<string>('SMTP_PASS'),
+        user: this.configService.get<string>("SMTP_USER"),
+        pass: this.configService.get<string>("SMTP_PASS"),
       },
     });
-    
     this.templates = new Map();
     this.loadTemplates();
   }
 
   private loadTemplates() {
-    const templatesDir = path.join(__dirname, 'templates');
-    if (fs.existsSync(templatesDir)) {
-      const files = fs.readdirSync(templatesDir).filter(f => f.endsWith('.hbs'));
-      
-      for (const file of files) {
-        const templatePath = path.join(templatesDir, file);
-        const templateContent = fs.readFileSync(templatePath, 'utf-8');
-        const templateName = file.replace('.hbs', '');
-        
-        this.templates.set(templateName, handlebars.compile(templateContent));
-      }
+    const templatesDir = path.join(__dirname, "templates");
+    if (!fs.existsSync(templatesDir)) return;
+
+    for (const file of fs
+      .readdirSync(templatesDir)
+      .filter((f) => f.endsWith(".hbs"))) {
+      const content = fs.readFileSync(path.join(templatesDir, file), "utf-8");
+      this.templates.set(file.replace(".hbs", ""), handlebars.compile(content));
     }
   }
 
-  async sendEmail(to: string, templateName: string, context: any): Promise<{ messageId: string }> {
+  // ─── Core send/queue ──────────────────────────────────────
+
+  async sendEmail(
+    to: string,
+    templateName: string,
+    context: any
+  ): Promise<{ messageId: string }> {
     const template = this.templates.get(templateName);
-    
     if (!template) {
       throw new Error(`Template ${templateName} not found`);
     }
 
     const html = template(context);
-    const text = html.replace(/<[^>]*>/g, '').trim();
-
-    const mailOptions = {
-      from: this.configService.get<string>('EMAIL_FROM'),
+    const info = await this.transporter.sendMail({
+      from: this.configService.get<string>("EMAIL_FROM"),
       to,
       subject: context.subject || `BeautySpot - ${templateName}`,
       html,
-      text,
-    };
-
-    const info = await this.transporter.sendMail(mailOptions);
+      text: html.replace(/<[^>]*>/g, "").trim(),
+    });
     return { messageId: info.messageId };
   }
+
+  private async queueEmail(input: QueueEmailInput): Promise<{ jobId: string }> {
+    const context = { ...input.data, subject: input.subject };
+    const job = await this.emailQueue.add("send", {
+      to: input.to,
+      template: input.template,
+      context,
+      pdfPath: input.pdfPath,
+      priority: input.priority ?? "normal",
+    });
+    return { jobId: job.id! };
+  }
+
+  // ─── Direct send methods ──────────────────────────────────
 
   async sendAppointmentConfirmation(
     to: string,
@@ -80,12 +103,10 @@ export class EmailService {
       businessPhone: string;
     }
   ): Promise<void> {
-    const context = {
+    await this.sendEmail(to, "appointment-confirmed", {
       ...data,
       subject: `Confirmación de cita en ${data.businessName}`,
-    };
-
-    await this.sendEmail(to, 'appointment-confirmed', context);
+    });
   }
 
   async sendAppointmentReminder24h(
@@ -100,12 +121,10 @@ export class EmailService {
       businessAddress: string;
     }
   ): Promise<void> {
-    const context = {
+    await this.sendEmail(to, "appointment-reminder-24h", {
       ...data,
       subject: `Recordatorio - Cita mañana en ${data.businessName}`,
-    };
-
-    await this.sendEmail(to, 'appointment-reminder-24h', context);
+    });
   }
 
   async sendAppointmentReminder1h(
@@ -118,12 +137,10 @@ export class EmailService {
       businessName: string;
     }
   ): Promise<void> {
-    const context = {
+    await this.sendEmail(to, "appointment-reminder-1h", {
       ...data,
       subject: `Recordatorio - Cita en 1 hora en ${data.businessName}`,
-    };
-
-    await this.sendEmail(to, 'appointment-reminder-1h', context);
+    });
   }
 
   async sendAppointmentCancelled(
@@ -137,12 +154,10 @@ export class EmailService {
       businessName: string;
     }
   ): Promise<void> {
-    const context = {
+    await this.sendEmail(to, "appointment-cancelled", {
       ...data,
       subject: `Cita cancelada - ${data.businessName}`,
-    };
-
-    await this.sendEmail(to, 'appointment-cancelled', context);
+    });
   }
 
   async sendInvoice(
@@ -164,58 +179,39 @@ export class EmailService {
     };
 
     if (pdfPath && fs.existsSync(pdfPath)) {
-      const attachments = [
-        {
-          filename: `Factura_${data.invoiceNumber}.pdf`,
-          path: pdfPath,
-        },
-      ];
-
-      const mailOptions = {
-        from: this.configService.get<string>('EMAIL_FROM'),
+      const info = await this.transporter.sendMail({
+        from: this.configService.get<string>("EMAIL_FROM"),
         to,
         subject: context.subject,
-        html: this.templates.get('invoice-generated')!(context),
-        text: '',
-        attachments,
-      };
-
-      const info = await this.transporter.sendMail(mailOptions);
+        html: this.templates.get("invoice-generated")!(context),
+        text: "",
+        attachments: [
+          { filename: `Factura_${data.invoiceNumber}.pdf`, path: pdfPath },
+        ],
+      });
       return { messageId: info.messageId };
-    } else {
-      return await this.sendEmail(to, 'invoice-generated', context);
     }
+    return this.sendEmail(to, "invoice-generated", context);
   }
 
   async sendPasswordReset(
     to: string,
-    data: {
-      clientName: string;
-      resetLink: string;
-      expiryHours: number;
-    }
+    data: { clientName: string; resetLink: string; expiryHours: number }
   ): Promise<void> {
-    const context = {
+    await this.sendEmail(to, "password-reset", {
       ...data,
-      subject: 'Restablecer contraseña - BeautySpot',
-    };
-
-    await this.sendEmail(to, 'password-reset', context);
+      subject: "Restablecer contraseña - BeautySpot",
+    });
   }
 
   async sendWelcomeEmail(
     to: string,
-    data: {
-      clientName: string;
-      businessName?: string;
-    }
+    data: { clientName: string; businessName?: string }
   ): Promise<void> {
-    const context = {
+    await this.sendEmail(to, "welcome-email", {
       ...data,
-      subject: 'Bienvenido a BeautySpot',
-    };
-
-    await this.sendEmail(to, 'welcome-email', context);
+      subject: "Bienvenido a BeautySpot",
+    });
   }
 
   async sendMonthlyReport(
@@ -231,15 +227,15 @@ export class EmailService {
       clientName: string;
     }
   ): Promise<void> {
-    const context = {
+    await this.sendEmail(to, "monthly-report", {
       ...data,
       totalRevenue: this.formatCurrency(data.totalRevenue),
       topServiceRevenue: this.formatCurrency(data.topServiceRevenue),
       subject: `Reporte mensual - ${data.businessName} (${data.month} ${data.year})`,
-    };
-
-    await this.sendEmail(to, 'monthly-report', context);
+    });
   }
+
+  // ─── Queue methods (thin wrappers over queueEmail) ────────
 
   async queueAppointmentConfirmation(
     to: string,
@@ -254,17 +250,13 @@ export class EmailService {
       businessPhone: string;
     }
   ): Promise<{ jobId: string }> {
-    const job = await this.emailQueue.add('send', {
+    return this.queueEmail({
       to,
-      template: 'appointment-confirmed',
-      context: {
-        ...data,
-        subject: `Confirmación de cita en ${data.businessName}`,
-      },
-      priority: 'high',
+      template: "appointment-confirmed",
+      data,
+      subject: `Confirmación de cita en ${data.businessName}`,
+      priority: "high",
     });
-
-    return { jobId: job.id! };
   }
 
   async queueAppointmentReminder24h(
@@ -279,17 +271,13 @@ export class EmailService {
       businessAddress: string;
     }
   ): Promise<{ jobId: string }> {
-    const job = await this.emailQueue.add('send', {
+    return this.queueEmail({
       to,
-      template: 'appointment-reminder-24h',
-      context: {
-        ...data,
-        subject: `Recordatorio - Cita mañana en ${data.businessName}`,
-      },
-      priority: 'normal',
+      template: "appointment-reminder-24h",
+      data,
+      subject: `Recordatorio - Cita mañana en ${data.businessName}`,
+      priority: "normal",
     });
-
-    return { jobId: job.id! };
   }
 
   async queueAppointmentReminder1h(
@@ -302,17 +290,13 @@ export class EmailService {
       businessName: string;
     }
   ): Promise<{ jobId: string }> {
-    const job = await this.emailQueue.add('send', {
+    return this.queueEmail({
       to,
-      template: 'appointment-reminder-1h',
-      context: {
-        ...data,
-        subject: `Recordatorio - Cita en 1 hora en ${data.businessName}`,
-      },
-      priority: 'high',
+      template: "appointment-reminder-1h",
+      data,
+      subject: `Recordatorio - Cita en 1 hora en ${data.businessName}`,
+      priority: "high",
     });
-
-    return { jobId: job.id! };
   }
 
   async queueAppointmentCancelled(
@@ -326,17 +310,13 @@ export class EmailService {
       businessName: string;
     }
   ): Promise<{ jobId: string }> {
-    const job = await this.emailQueue.add('send', {
+    return this.queueEmail({
       to,
-      template: 'appointment-cancelled',
-      context: {
-        ...data,
-        subject: `Cita cancelada - ${data.businessName}`,
-      },
-      priority: 'normal',
+      template: "appointment-cancelled",
+      data,
+      subject: `Cita cancelada - ${data.businessName}`,
+      priority: "normal",
     });
-
-    return { jobId: job.id! };
   }
 
   async queueInvoice(
@@ -351,62 +331,40 @@ export class EmailService {
     },
     pdfPath?: string
   ): Promise<{ jobId: string }> {
-    const context = {
-      ...data,
-      amount: this.formatCurrency(data.amount),
-      subject: `Factura #${data.invoiceNumber} - ${data.businessName}`,
-    };
-
-    const job = await this.emailQueue.add('send', {
+    return this.queueEmail({
       to,
-      template: 'invoice-generated',
-      context,
+      template: "invoice-generated",
+      data: { ...data, amount: this.formatCurrency(data.amount) },
+      subject: `Factura #${data.invoiceNumber} - ${data.businessName}`,
+      priority: "normal",
       pdfPath,
-      priority: 'normal',
     });
-
-    return { jobId: job.id! };
   }
 
   async queuePasswordReset(
     to: string,
-    data: {
-      clientName: string;
-      resetLink: string;
-      expiryHours: number;
-    }
+    data: { clientName: string; resetLink: string; expiryHours: number }
   ): Promise<{ jobId: string }> {
-    const job = await this.emailQueue.add('send', {
+    return this.queueEmail({
       to,
-      template: 'password-reset',
-      context: {
-        ...data,
-        subject: 'Restablecer contraseña - BeautySpot',
-      },
-      priority: 'high',
+      template: "password-reset",
+      data,
+      subject: "Restablecer contraseña - BeautySpot",
+      priority: "high",
     });
-
-    return { jobId: job.id! };
   }
 
   async queueWelcomeEmail(
     to: string,
-    data: {
-      clientName: string;
-      businessName?: string;
-    }
+    data: { clientName: string; businessName?: string }
   ): Promise<{ jobId: string }> {
-    const job = await this.emailQueue.add('send', {
+    return this.queueEmail({
       to,
-      template: 'welcome-email',
-      context: {
-        ...data,
-        subject: 'Bienvenido a BeautySpot',
-      },
-      priority: 'low',
+      template: "welcome-email",
+      data,
+      subject: "Bienvenido a BeautySpot",
+      priority: "low",
     });
-
-    return { jobId: job.id! };
   }
 
   async queueMonthlyReport(
@@ -422,27 +380,23 @@ export class EmailService {
       clientName: string;
     }
   ): Promise<{ jobId: string }> {
-    const context = {
-      ...data,
-      totalRevenue: this.formatCurrency(data.totalRevenue),
-      topServiceRevenue: this.formatCurrency(data.topServiceRevenue),
-      subject: `Reporte mensual - ${data.businessName} (${data.month} ${data.year})`,
-    };
-
-    const job = await this.emailQueue.add('send', {
+    return this.queueEmail({
       to,
-      template: 'monthly-report',
-      context,
-      priority: 'low',
+      template: "monthly-report",
+      data: {
+        ...data,
+        totalRevenue: this.formatCurrency(data.totalRevenue),
+        topServiceRevenue: this.formatCurrency(data.topServiceRevenue),
+      },
+      subject: `Reporte mensual - ${data.businessName} (${data.month} ${data.year})`,
+      priority: "low",
     });
-
-    return { jobId: job.id! };
   }
 
   private formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
+    return new Intl.NumberFormat("es-CO", {
+      style: "currency",
+      currency: "COP",
       minimumFractionDigits: 0,
     }).format(amount);
   }
