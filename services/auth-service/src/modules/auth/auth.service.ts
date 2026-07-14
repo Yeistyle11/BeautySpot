@@ -22,6 +22,7 @@ import { Role, IJwtPayload } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
 import {
   EventBusService,
+  OutboxService,
   assertJwtSecret,
   TokenVersionStore,
 } from "@beautyspot/nest-common";
@@ -44,6 +45,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly eventBus: EventBusService,
     private readonly dataSource: DataSource,
+    private readonly outboxService: OutboxService,
     private readonly tokenVersionStore: TokenVersionStore
   ) {}
 
@@ -134,9 +136,7 @@ export class AuthService {
     }
   }
 
-  async forgotPassword(
-    email: string
-  ): Promise<{ message: string; resetToken?: string }> {
+  async forgotPassword(email: string): Promise<{ message: string }> {
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
       return { message: "Si el email existe, recibirás instrucciones" };
@@ -162,11 +162,21 @@ export class AuthService {
         user.id,
         manager
       );
+
+      await this.outboxService.enqueue(manager, {
+        eventType: EventNames.AUTH_PASSWORD_RESET_REQUESTED,
+        aggregateType: "users",
+        aggregateId: user.id,
+        payload: {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          resetToken: rawToken,
+          expiresAt: expiresAt.toISOString(),
+        },
+      });
     });
-    return {
-      message: "Si el email existe, recibirás instrucciones",
-      resetToken: rawToken,
-    };
+    return { message: "Si el email existe, recibirás instrucciones" };
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {

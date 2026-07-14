@@ -25,6 +25,17 @@ export interface UserLoggedInPayload {
 
 export type UserLoggedInEvent = IBaseEvent<UserLoggedInPayload>;
 
+export interface PasswordResetRequestedPayload {
+  userId: string;
+  email: string;
+  name: string;
+  resetToken: string;
+  expiresAt: string;
+}
+
+export type PasswordResetRequestedEvent =
+  IBaseEvent<PasswordResetRequestedPayload>;
+
 export interface MembershipCreatedPayload {
   membershipId: string;
   userId: string;
@@ -43,7 +54,8 @@ export interface MembershipRoleChangedPayload {
   newRole: string;
 }
 
-export type MembershipRoleChangedEvent = IBaseEvent<MembershipRoleChangedPayload>;
+export type MembershipRoleChangedEvent =
+  IBaseEvent<MembershipRoleChangedPayload>;
 
 // ─── Core Events ──────────────────────────────────────────────
 
@@ -111,10 +123,19 @@ export interface AppointmentCreatedPayload {
 export type AppointmentCreatedEvent = IBaseEvent<AppointmentCreatedPayload>;
 
 export type AppointmentConfirmedEvent = IBaseEvent<AppointmentCreatedPayload>;
-export type AppointmentCancelledEvent = IBaseEvent<AppointmentCreatedPayload & { cancelReason?: string }>;
-export type AppointmentCompletedEvent = IBaseEvent<AppointmentCreatedPayload & { pointsEarned: number }>;
+export type AppointmentCancelledEvent = IBaseEvent<
+  AppointmentCreatedPayload & { cancelReason?: string }
+>;
+export type AppointmentCompletedEvent = IBaseEvent<
+  AppointmentCreatedPayload & { pointsEarned: number }
+>;
 export type AppointmentNoShowedEvent = IBaseEvent<AppointmentCreatedPayload>;
-export type AppointmentRescheduledEvent = IBaseEvent<AppointmentCreatedPayload & { previousDate: string; previousStartTime: string }>;
+export type AppointmentRescheduledEvent = IBaseEvent<
+  AppointmentCreatedPayload & {
+    previousDate: string;
+    previousStartTime: string;
+  }
+>;
 export type AppointmentReminderDueEvent = IBaseEvent<AppointmentCreatedPayload>;
 
 // ─── Payment Events ───────────────────────────────────────────
@@ -206,6 +227,7 @@ export type EmailFailedEvent = IBaseEvent<EmailFailedPayload>;
 export const EventNames = {
   AUTH_USER_REGISTERED: "auth.user.registered",
   AUTH_USER_LOGGED_IN: "auth.user.logged-in",
+  AUTH_PASSWORD_RESET_REQUESTED: "auth.password-reset.requested",
   AUTH_MEMBERSHIP_CREATED: "auth.membership.created",
   AUTH_MEMBERSHIP_ROLE_CHANGED: "auth.membership.role-changed",
 

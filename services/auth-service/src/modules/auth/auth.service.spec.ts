@@ -17,7 +17,11 @@ import {
 } from "@nestjs/common";
 import { Role } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
-import { EventBusService, TokenVersionStore } from "@beautyspot/nest-common";
+import {
+  EventBusService,
+  TokenVersionStore,
+  OutboxService,
+} from "@beautyspot/nest-common";
 
 function hashResetToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -31,6 +35,7 @@ describe("AuthService", () => {
   let mockJwtService: jest.Mocked<JwtService>;
   let mockConfigService: jest.Mocked<ConfigService>;
   let mockEventBus: jest.Mocked<EventBusService>;
+  let mockOutboxService: jest.Mocked<OutboxService>;
 
   const mockUser: any = {
     id: "user-123",
@@ -116,6 +121,10 @@ describe("AuthService", () => {
       emit: jest.fn(),
     } as any;
 
+    mockOutboxService = {
+      enqueue: jest.fn().mockResolvedValue(undefined),
+    } as any;
+
     const mockManager = {
       getRepository: jest.fn((target: any) => {
         if (target === User) return mockUserRepository;
@@ -160,6 +169,7 @@ describe("AuthService", () => {
         },
         { provide: "DataSource", useValue: mockDataSource },
         { provide: DataSource, useValue: mockDataSource },
+        { provide: OutboxService, useValue: mockOutboxService },
         { provide: TokenVersionStore, useValue: mockTokenVersionStore },
       ],
     }).compile();
@@ -393,7 +403,7 @@ describe("AuthService", () => {
   });
 
   describe("forgotPassword", () => {
-    it("debería generar token de reset para usuario existente", async () => {
+    it("debería generar token de reset y encolar evento via outbox", async () => {
       const email = "test@example.com";
       mockUserRepository.findOne.mockResolvedValue(mockUser);
       mockPasswordResetRepository.create.mockReturnValue(mockPasswordReset);
@@ -415,10 +425,23 @@ describe("AuthService", () => {
       );
       expect(mockPasswordResetRepository.save).toHaveBeenCalled();
       expect(mockAuditLogRepository.create).toHaveBeenCalled();
+      expect(mockOutboxService.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.AUTH_PASSWORD_RESET_REQUESTED,
+          aggregateType: "users",
+          aggregateId: mockUser.id,
+          payload: expect.objectContaining({
+            userId: mockUser.id,
+            email: mockUser.email,
+            resetToken: expect.any(String),
+          }),
+        })
+      );
       expect(result.message).toBe(
         "Si el email existe, recibirás instrucciones"
       );
-      expect(result.resetToken).toEqual(expect.any(String));
+      expect(result).not.toHaveProperty("resetToken");
     });
 
     it("debería retornar mensaje sin revelar si el email existe", async () => {
@@ -455,6 +478,14 @@ describe("AuthService", () => {
       expect(expiresAt.getTime()).toBeLessThanOrEqual(
         expectedExpiresAt.getTime() + 1000
       );
+    });
+
+    it("no debería encolar evento outbox si el usuario no existe", async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      await service.forgotPassword("nonexistent@example.com");
+
+      expect(mockOutboxService.enqueue).not.toHaveBeenCalled();
     });
   });
 

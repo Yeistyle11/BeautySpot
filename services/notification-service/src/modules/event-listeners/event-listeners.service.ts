@@ -1,16 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { EventPattern, Payload } from '@nestjs/microservices';
-import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { EmailService } from '../emails/email.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { EventPattern, Payload } from "@nestjs/microservices";
+import { AmqpConnection } from "@golevelup/nestjs-rabbitmq";
+import { ConfigService } from "@nestjs/config";
+import { EmailService } from "../emails/email.service";
+import { DataEnricherService } from "../data-enricher/data-enricher.service";
 import {
   UserRegisteredEvent,
+  PasswordResetRequestedEvent,
   AppointmentConfirmedEvent,
   AppointmentCancelledEvent,
   AppointmentReminderDueEvent,
   InvoiceGeneratedEvent,
   PaymentRegisteredEvent,
   EventNames,
-} from '@beautyspot/event-types';
+} from "@beautyspot/event-types";
 
 @Injectable()
 export class NotificationEventListeners {
@@ -19,179 +22,257 @@ export class NotificationEventListeners {
   constructor(
     private readonly emailService: EmailService,
     private readonly amqpConnection: AmqpConnection,
+    private readonly configService: ConfigService,
+    private readonly dataEnricher: DataEnricherService
   ) {}
 
   @EventPattern(EventNames.AUTH_USER_REGISTERED)
   async handleUserRegistered(@Payload() event: UserRegisteredEvent) {
     this.logger.log(`Usuario registrado: ${event.payload.email}`);
     try {
-      const { jobId } = await this.emailService.queueWelcomeEmail(event.payload.email, {
-        clientName: event.payload.name,
-      });
+      const { jobId } = await this.emailService.queueWelcomeEmail(
+        event.payload.email,
+        { clientName: event.payload.name }
+      );
 
       await this.emitEmailQueuedEvent(
         jobId,
         event.payload.email,
-        'welcome-email',
-        'Bienvenido a BeautySpot',
+        "welcome-email",
+        "Bienvenido a BeautySpot"
       );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error enviando email de bienvenida: ${errorMessage}`, errorStack);
+      this.logError("bienvenida", error);
+    }
+  }
+
+  @EventPattern(EventNames.AUTH_PASSWORD_RESET_REQUESTED)
+  async handlePasswordResetRequested(
+    @Payload() event: PasswordResetRequestedEvent
+  ) {
+    const { email, name, resetToken, expiresAt } = event.payload;
+
+    this.logger.log(`Solicitud de reset de contraseña para: ${email}`);
+
+    try {
+      const appUrl = this.configService.get<string>(
+        "APP_URL",
+        "http://localhost:3000"
+      );
+      const resetLink = `${appUrl}/reset-password?token=${resetToken}`;
+      const expiryHours = Math.ceil(
+        (new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60)
+      );
+
+      const { jobId } = await this.emailService.queuePasswordReset(email, {
+        clientName: name,
+        resetLink,
+        expiryHours,
+      });
+
+      await this.emitEmailQueuedEvent(
+        jobId,
+        email,
+        "password-reset",
+        "Restablecer contraseña - BeautySpot"
+      );
+    } catch (error) {
+      this.logError("reset de contraseña", error);
     }
   }
 
   @EventPattern(EventNames.BOOKING_APPOINTMENT_CONFIRMED)
-  async handleAppointmentConfirmed(@Payload() event: AppointmentConfirmedEvent) {
-    const { appointmentId, date, startTime } = event.payload;
+  async handleAppointmentConfirmed(
+    @Payload() event: AppointmentConfirmedEvent
+  ) {
+    const {
+      appointmentId,
+      clientId,
+      professionalId,
+      businessId,
+      date,
+      startTime,
+    } = event.payload;
 
     this.logger.log(`Cita confirmada: ${appointmentId}`);
 
     try {
+      const data = await this.dataEnricher.enrichAppointmentParticipants(
+        clientId,
+        professionalId,
+        businessId
+      );
+
       const { jobId } = await this.emailService.queueAppointmentConfirmation(
-        'client@example.com',
+        data.clientEmail,
         {
-          clientName: 'Cliente',
-          professionalName: 'Profesional',
-          serviceName: 'Servicio',
+          clientName: data.clientName,
+          professionalName: data.professionalName,
+          serviceName: "Servicio",
           appointmentDate: date,
           appointmentTime: startTime,
-          businessName: 'BeautySpot Business',
-          businessAddress: 'Dirección',
-          businessPhone: '+57 300 123 4567',
-        },
+          businessName: data.businessName,
+          businessAddress: data.businessAddress,
+          businessPhone: data.businessPhone,
+        }
       );
 
       await this.emitEmailQueuedEvent(
         jobId,
-        'client@example.com',
-        'appointment-confirmed',
-        'Confirmación de cita',
+        data.clientEmail,
+        "appointment-confirmed",
+        `Confirmación de cita en ${data.businessName}`
       );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error enviando email de confirmación: ${errorMessage}`, errorStack);
+      this.logError("confirmación", error);
     }
   }
 
   @EventPattern(EventNames.BOOKING_APPOINTMENT_CANCELLED)
-  async handleAppointmentCancelled(@Payload() event: AppointmentCancelledEvent) {
-    const { appointmentId, cancelReason, date } = event.payload;
+  async handleAppointmentCancelled(
+    @Payload() event: AppointmentCancelledEvent
+  ) {
+    const {
+      appointmentId,
+      cancelReason,
+      date,
+      clientId,
+      professionalId,
+      businessId,
+    } = event.payload;
 
-    this.logger.log(`Cita cancelada: ${appointmentId}, motivo: ${cancelReason}`);
+    this.logger.log(
+      `Cita cancelada: ${appointmentId}, motivo: ${cancelReason}`
+    );
 
     try {
+      const data = await this.dataEnricher.enrichAppointmentParticipants(
+        clientId,
+        professionalId,
+        businessId
+      );
+
       const { jobId } = await this.emailService.queueAppointmentCancelled(
-        'client@example.com',
+        data.clientEmail,
         {
-          clientName: 'Cliente',
-          professionalName: 'Profesional',
-          serviceName: 'Servicio',
+          clientName: data.clientName,
+          professionalName: data.professionalName,
+          serviceName: "Servicio",
           cancelledDate: date,
-          reason: cancelReason || 'Sin motivo',
-          businessName: 'BeautySpot Business',
-        },
+          reason: cancelReason || "Sin motivo",
+          businessName: data.businessName,
+        }
       );
 
       await this.emitEmailQueuedEvent(
         jobId,
-        'client@example.com',
-        'appointment-cancelled',
-        'Cita cancelada',
+        data.clientEmail,
+        "appointment-cancelled",
+        `Cita cancelada - ${data.businessName}`
       );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error enviando email de cancelación: ${errorMessage}`, errorStack);
+      this.logError("cancelación", error);
     }
   }
 
   @EventPattern(EventNames.BOOKING_APPOINTMENT_REMINDER_DUE)
-  async handleAppointmentReminder(@Payload() event: AppointmentReminderDueEvent) {
-    const { appointmentId, date, startTime } = event.payload;
+  async handleAppointmentReminder(
+    @Payload() event: AppointmentReminderDueEvent
+  ) {
+    const {
+      appointmentId,
+      date,
+      startTime,
+      clientId,
+      professionalId,
+      businessId,
+    } = event.payload;
 
     this.logger.log(`Recordatorio de cita pendiente: ${appointmentId}`);
 
     try {
       const reminderType = this.determineReminderType(date, startTime);
+      if (!reminderType) return;
 
-      if (reminderType === '24h') {
+      const data = await this.dataEnricher.enrichAppointmentParticipants(
+        clientId,
+        professionalId,
+        businessId
+      );
+
+      if (reminderType === "24h") {
         const { jobId } = await this.emailService.queueAppointmentReminder24h(
-          'client@example.com',
+          data.clientEmail,
           {
-            clientName: 'Cliente',
-            professionalName: 'Profesional',
-            serviceName: 'Servicio',
+            clientName: data.clientName,
+            professionalName: data.professionalName,
+            serviceName: "Servicio",
             appointmentDate: date,
             appointmentTime: startTime,
-            businessName: 'BeautySpot Business',
-            businessAddress: 'Dirección',
-          },
+            businessName: data.businessName,
+            businessAddress: data.businessAddress,
+          }
         );
 
         await this.emitEmailQueuedEvent(
           jobId,
-          'client@example.com',
-          'appointment-reminder-24h',
-          'Recordatorio de cita',
+          data.clientEmail,
+          "appointment-reminder-24h",
+          `Recordatorio - Cita mañana en ${data.businessName}`
         );
-      } else if (reminderType === '1h') {
+      } else {
         const { jobId } = await this.emailService.queueAppointmentReminder1h(
-          'client@example.com',
+          data.clientEmail,
           {
-            clientName: 'Cliente',
-            professionalName: 'Profesional',
-            serviceName: 'Servicio',
+            clientName: data.clientName,
+            professionalName: data.professionalName,
+            serviceName: "Servicio",
             appointmentTime: startTime,
-            businessName: 'BeautySpot Business',
-          },
+            businessName: data.businessName,
+          }
         );
 
         await this.emitEmailQueuedEvent(
           jobId,
-          'client@example.com',
-          'appointment-reminder-1h',
-          'Recordatorio de cita',
+          data.clientEmail,
+          "appointment-reminder-1h",
+          `Recordatorio - Cita en 1 hora en ${data.businessName}`
         );
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error enviando recordatorio de cita: ${errorMessage}`, errorStack);
+      this.logError("recordatorio de cita", error);
     }
   }
 
   @EventPattern(EventNames.PAYMENT_INVOICE_GENERATED)
   async handleInvoiceGenerated(@Payload() event: InvoiceGeneratedEvent) {
-    const { invoiceId, number, total } = event.payload;
+    const { invoiceId, number, total, clientId, businessId } = event.payload;
 
     this.logger.log(`Factura generada: ${invoiceId}`);
 
     try {
-      const { jobId } = await this.emailService.queueInvoice('client@example.com', {
-        clientName: 'Cliente',
+      const [clientEmail, businessData] = await Promise.all([
+        this.dataEnricher.enrichClientEmail(clientId),
+        this.dataEnricher.enrichBusinessData(businessId),
+      ]);
+
+      const { jobId } = await this.emailService.queueInvoice(clientEmail, {
+        clientName: "Cliente",
         invoiceNumber: number.toString(),
         amount: total,
-        dueDate: '2024-12-31',
-        businessName: 'BeautySpot Business',
-        services: [
-          { name: 'Servicio 1', price: 50000 },
-          { name: 'Servicio 2', price: 30000 },
-        ],
+        dueDate: new Date().toISOString().split("T")[0],
+        businessName: businessData.businessName,
+        services: [],
       });
 
       await this.emitEmailQueuedEvent(
         jobId,
-        'client@example.com',
-        'invoice-generated',
-        `Factura #${number}`,
+        clientEmail,
+        "invoice-generated",
+        `Factura #${number} - ${businessData.businessName}`
       );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error enviando email de factura: ${errorMessage}`, errorStack);
+      this.logError("factura", error);
     }
   }
 
@@ -200,40 +281,52 @@ export class NotificationEventListeners {
     this.logger.log(`Pago registrado: ${event.payload.paymentId}`);
 
     try {
-      if (event.payload.method === 'transfer' || event.payload.method === 'efectivo') {
-        const { jobId } = await this.emailService.queueInvoice('client@example.com', {
-          clientName: 'Cliente',
-          invoiceNumber: `REC-${event.payload.paymentId}`,
-          amount: event.payload.amount,
-          dueDate: new Date().toISOString().split('T')[0],
-          businessName: 'BeautySpot Business',
-          services: [{ name: 'Servicio', price: event.payload.amount }],
+      if (
+        event.payload.method === "transfer" ||
+        event.payload.method === "efectivo"
+      ) {
+        const { clientId, businessId, paymentId, amount } = event.payload;
+        const [clientEmail, businessData] = await Promise.all([
+          this.dataEnricher.enrichClientEmail(clientId),
+          this.dataEnricher.enrichBusinessData(businessId),
+        ]);
+
+        const { jobId } = await this.emailService.queueInvoice(clientEmail, {
+          clientName: "Cliente",
+          invoiceNumber: `REC-${paymentId}`,
+          amount,
+          dueDate: new Date().toISOString().split("T")[0],
+          businessName: businessData.businessName,
+          services: [{ name: "Servicio", price: amount }],
         });
 
         await this.emitEmailQueuedEvent(
           jobId,
-          'client@example.com',
-          'invoice-generated',
-          `Recibo de pago`,
+          clientEmail,
+          "invoice-generated",
+          `Recibo de pago - ${businessData.businessName}`
         );
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error enviando email de pago: ${errorMessage}`, errorStack);
+      this.logError("pago", error);
     }
   }
 
-  private determineReminderType(appointmentDate: string, appointmentTime: string): '24h' | '1h' | null {
-    const appointmentDateTime = new Date(`${appointmentDate}T${appointmentTime}`);
+  private determineReminderType(
+    appointmentDate: string,
+    appointmentTime: string
+  ): "24h" | "1h" | null {
+    const appointmentDateTime = new Date(
+      `${appointmentDate}T${appointmentTime}`
+    );
     const now = new Date();
     const diffMs = appointmentDateTime.getTime() - now.getTime();
     const diffHours = diffMs / (1000 * 60 * 60);
 
     if (diffHours <= 1.5 && diffHours >= 0.5) {
-      return '1h';
+      return "1h";
     } else if (diffHours <= 25 && diffHours >= 23) {
-      return '24h';
+      return "24h";
     }
 
     return null;
@@ -243,24 +336,28 @@ export class NotificationEventListeners {
     jobId: string,
     to: string,
     template: string,
-    subject: string,
+    subject: string
   ) {
     try {
-      await this.amqpConnection.publish('beautyspot.events', 'notification.email.queued', {
-        eventType: 'notification.email.queued',
-        timestamp: new Date(),
-        correlationId: jobId,
-        payload: {
-          jobId,
-          to,
-          template,
-          subject,
-        },
-      });
+      await this.amqpConnection.publish(
+        "beautyspot.events",
+        "notification.email.queued",
+        {
+          eventType: "notification.email.queued",
+          timestamp: new Date(),
+          correlationId: jobId,
+          payload: { jobId, to, template, subject },
+        }
+      );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error publicando evento email.queued: ${errorMessage}`, errorStack);
+      this.logError("publicación email.queued", error);
     }
+  }
+
+  private logError(context: string, error: unknown): void {
+    const message =
+      error instanceof Error ? error.message : "Error desconocido";
+    const stack = error instanceof Error ? error.stack : undefined;
+    this.logger.error(`Error enviando email de ${context}: ${message}`, stack);
   }
 }
