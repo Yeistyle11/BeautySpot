@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { appointmentCreateSchema } from "@/lib/validations/schemas";
+import { ZodError } from "zod";
 
 // GET - Obtener citas (filtradas según el usuario)
 export async function GET(request: NextRequest) {
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
 
-    let where: any = {};
+    let where: Record<string, unknown> = {};
 
     // Si es cliente, solo ver sus propias citas
     if (session.user.role === "CLIENT") {
@@ -94,22 +96,8 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const { serviceIds, barberId, date, startTime, notes } = body;
-
-    // Validaciones
-    if (
-      !serviceIds ||
-      !Array.isArray(serviceIds) ||
-      serviceIds.length === 0 ||
-      !barberId ||
-      !date ||
-      !startTime
-    ) {
-      return NextResponse.json(
-        { error: "Todos los campos son requeridos" },
-        { status: 400 }
-      );
-    }
+    const validatedData = appointmentCreateSchema.parse(body);
+    const { serviceIds, barberId, date, startTime, notes } = validatedData;
 
     // Obtener los servicios para saber la duración y precio total
     const services = await prisma.service.findMany({
@@ -235,14 +223,16 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error al crear cita:", error);
-    return NextResponse.json(
-      {
-        error: "Error al crear cita",
-        details: error.message,
-      },
-      { status: 500 }
-    );
+
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: error.errors[0]?.message ?? "Datos inválidos" },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({ error: "Error al crear cita" }, { status: 500 });
   }
 }

@@ -2,26 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { z } from "zod";
+import { barberUpdateSchema } from "@/lib/validations/schemas";
 import bcrypt from "bcryptjs";
-
-// Schema de validación para editar barbero
-const updateBarberSchema = z.object({
-  name: z
-    .string()
-    .min(3, "El nombre debe tener al menos 3 caracteres")
-    .optional(),
-  phone: z.string().optional(),
-  bio: z.string().optional(),
-  specialties: z.array(z.string()).optional(),
-  yearsExp: z.number().min(0).max(50).optional(),
-  image: z.string().optional(),
-  active: z.boolean().optional(),
-  password: z
-    .string()
-    .min(6, "La contraseña debe tener al menos 6 caracteres")
-    .optional(),
-});
+import { ZodError } from "zod";
 
 export async function GET(
   _request: Request,
@@ -96,7 +79,7 @@ export async function PATCH(
     const body = await request.json();
 
     // Validar datos con Zod
-    const validatedData = updateBarberSchema.parse(body);
+    const validatedData = barberUpdateSchema.parse(body);
 
     // Obtener barbero actual
     const currentBarber = await prisma.barber.findUnique({
@@ -128,7 +111,12 @@ export async function PATCH(
     }
 
     // Preparar datos de actualización del usuario
-    const userUpdateData: any = {
+    const userUpdateData: {
+      name: string;
+      phone: string | null;
+      image: string | null;
+      password?: string;
+    } = {
       name: validatedData.name || currentBarber.user.name,
       phone: validatedData.phone || currentBarber.user.phone,
       image:
@@ -204,12 +192,12 @@ export async function PATCH(
       message: "Barbero actualizado exitosamente",
       barber: updatedBarber,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error al actualizar barbero:", error);
 
-    if (error.name === "ZodError") {
+    if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: "Datos inválidos", details: error.errors },
+        { error: error.errors[0]?.message ?? "Datos inválidos" },
         { status: 400 }
       );
     }

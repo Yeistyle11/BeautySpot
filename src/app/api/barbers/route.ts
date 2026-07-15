@@ -3,25 +3,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-
-// Schema de validación para crear barbero
-const createBarberSchema = z.object({
-  name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-  email: z.string().email("Email inválido"),
-  phone: z.string().optional(),
-  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
-  bio: z.string().optional(),
-  specialties: z.array(z.string()).optional(),
-  yearsExp: z.number().min(0).max(50).optional(),
-  image: z.string().optional(),
-});
+import { barberCreateSchema } from "@/lib/validations/schemas";
+import { ZodError } from "zod";
 
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    // Verificar que el usuario sea admin
     if (!session || session.user.role !== "ADMIN") {
       return NextResponse.json(
         { error: "No autorizado. Solo administradores pueden crear barberos." },
@@ -30,9 +18,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-
-    // Validar datos con Zod
-    const validatedData = createBarberSchema.parse(body);
+    const validatedData = barberCreateSchema.parse(body);
 
     // Verificar si el email ya existe
     const existingUser = await prisma.user.findUnique({
@@ -93,12 +79,12 @@ export async function POST(request: Request) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error al crear barbero:", error);
 
-    if (error.name === "ZodError") {
+    if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: "Datos inválidos", details: error.errors },
+        { error: error.errors[0]?.message ?? "Datos inválidos" },
         { status: 400 }
       );
     }

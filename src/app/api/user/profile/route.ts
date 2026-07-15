@@ -3,30 +3,23 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { profileSchema } from "@/lib/validations/schemas";
+import { ZodError } from "zod";
 
 export async function PATCH(request: NextRequest) {
   try {
-    // Verificar que el usuario esté autenticado
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const { name, email, phone, currentPassword, newPassword } =
-      await request.json();
+    const body = await request.json();
+    const validatedData = profileSchema.parse(body);
 
-    // Validaciones básicas
-    if (!name || !email) {
-      return NextResponse.json(
-        { error: "Nombre y email son requeridos" },
-        { status: 400 }
-      );
-    }
-
-    // Buscar el usuario actual
+    const userId = parseInt(session.user.id);
     const user = await prisma.user.findUnique({
-      where: { id: parseInt(session.user.id) },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -36,10 +29,9 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Si quiere cambiar el email, verificar que no exista
-    if (email !== user.email) {
+    if (validatedData.email !== user.email) {
       const existingUser = await prisma.user.findUnique({
-        where: { email },
+        where: { email: validatedData.email },
       });
 
       if (existingUser) {
@@ -50,25 +42,20 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // Preparar datos a actualizar
-    const updateData: any = {
-      name,
-      email,
-      phone: phone || null,
+    const updateData: {
+      name: string;
+      email: string;
+      phone: string | null;
+      password?: string;
+    } = {
+      name: validatedData.name,
+      email: validatedData.email,
+      phone: validatedData.phone || null,
     };
 
-    // Si quiere cambiar la contraseña
-    if (newPassword) {
-      if (!currentPassword) {
-        return NextResponse.json(
-          { error: "Debes ingresar tu contraseña actual" },
-          { status: 400 }
-        );
-      }
-
-      // Verificar contraseña actual
+    if (validatedData.newPassword) {
       const isValidPassword = await bcrypt.compare(
-        currentPassword,
+        validatedData.currentPassword!,
         user.password
       );
 
@@ -79,19 +66,9 @@ export async function PATCH(request: NextRequest) {
         );
       }
 
-      // Validar longitud de la nueva contraseña
-      if (newPassword.length < 8) {
-        return NextResponse.json(
-          { error: "La nueva contraseña debe tener al menos 8 caracteres" },
-          { status: 400 }
-        );
-      }
-
-      // Hash de la nueva contraseña
-      updateData.password = await bcrypt.hash(newPassword, 10);
+      updateData.password = await bcrypt.hash(validatedData.newPassword, 10);
     }
 
-    // Actualizar usuario
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: updateData,
@@ -108,8 +85,16 @@ export async function PATCH(request: NextRequest) {
       message: "Perfil actualizado exitosamente",
       user: updatedUser,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error al actualizar perfil:", error);
+
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: error.errors[0]?.message ?? "Datos inválidos" },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Error al actualizar el perfil" },
       { status: 500 }

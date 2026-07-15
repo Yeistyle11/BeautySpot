@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { barberServiceSchema } from "@/lib/validations/schemas";
+import { ZodError } from "zod";
 
 // POST - Asignar un servicio a un barbero
 export async function POST(request: NextRequest) {
@@ -12,14 +14,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
-    const { barberId, serviceId } = await request.json();
-
-    if (!barberId || !serviceId) {
-      return NextResponse.json(
-        { error: "barberId y serviceId son requeridos" },
-        { status: 400 }
-      );
-    }
+    const body = await request.json();
+    const { barberId, serviceId } = barberServiceSchema.parse(body);
 
     // Verificar que el barbero existe
     const barber = await prisma.barber.findUnique({
@@ -89,8 +85,16 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error al asignar servicio:", error);
+
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: error.errors[0]?.message ?? "Datos inválidos" },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Error al asignar servicio" },
       { status: 500 }
@@ -107,14 +111,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
-    const { barberId, serviceId } = await request.json();
-
-    if (!barberId || !serviceId) {
-      return NextResponse.json(
-        { error: "barberId y serviceId son requeridos" },
-        { status: 400 }
-      );
-    }
+    const body = await request.json();
+    const { barberId, serviceId } = barberServiceSchema.parse(body);
 
     // Verificar que la asignación existe
     const existing = await prisma.barberService.findUnique({
@@ -158,8 +156,16 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({
       message: `Servicio "${existing.service.name}" desasignado de ${existing.barber.user.name}`,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error al desasignar servicio:", error);
+
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: error.errors[0]?.message ?? "Datos inválidos" },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Error al desasignar servicio" },
       { status: 500 }

@@ -1,31 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { resetPasswordSchema } from "@/lib/validations/schemas";
+import { ZodError } from "zod";
 
 export async function POST(request: NextRequest) {
   try {
-    const { token, password } = await request.json();
+    const body = await request.json();
+    const { token, password } = resetPasswordSchema.parse(body);
 
-    if (!token || !password) {
-      return NextResponse.json(
-        { error: "Token y contraseña son requeridos" },
-        { status: 400 }
-      );
-    }
-
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: "La contraseña debe tener al menos 8 caracteres" },
-        { status: 400 }
-      );
-    }
-
-    // Buscar usuario con el token y verificar que no haya expirado
     const user = await prisma.user.findFirst({
       where: {
         resetToken: token,
         resetTokenExpiry: {
-          gt: new Date(), // Token no debe estar expirado
+          gt: new Date(),
         },
       },
     });
@@ -37,10 +25,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Hash de la nueva contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Actualizar contraseña y eliminar token
     await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -53,8 +39,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: "Contraseña restablecida exitosamente",
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error en reset-password:", error);
+
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: error.errors[0]?.message ?? "Datos inválidos" },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Error al restablecer la contraseña" },
       { status: 500 }
