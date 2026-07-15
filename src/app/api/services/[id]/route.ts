@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { serviceUpdateSchema } from "@/lib/validations/schemas";
+import { ZodError } from "zod";
 
 // GET - Obtener un servicio por ID
 export async function GET(
@@ -42,23 +44,10 @@ export async function PATCH(
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
+    const body = await request.json();
+    const validatedData = serviceUpdateSchema.parse(body);
     const { name, description, price, duration, category, active } =
-      await request.json();
-
-    // Validaciones
-    if (price && price <= 0) {
-      return NextResponse.json(
-        { error: "El precio debe ser mayor a 0" },
-        { status: 400 }
-      );
-    }
-
-    if (duration && duration <= 0) {
-      return NextResponse.json(
-        { error: "La duración debe ser mayor a 0" },
-        { status: 400 }
-      );
-    }
+      validatedData;
 
     const serviceId = parseInt(params.id);
 
@@ -90,16 +79,24 @@ export async function PATCH(
       data: {
         ...(name && { name }),
         ...(description && { description }),
-        ...(price && { price: parseFloat(price) }),
-        ...(duration && { duration: parseInt(duration) }),
+        ...(price !== undefined && { price }),
+        ...(duration !== undefined && { duration }),
         ...(category && { category }),
         ...(active !== undefined && { active }),
       },
     });
 
     return NextResponse.json(service);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error al actualizar servicio:", error);
+
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: error.errors[0]?.message ?? "Datos inválidos" },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Error al actualizar servicio" },
       { status: 500 }

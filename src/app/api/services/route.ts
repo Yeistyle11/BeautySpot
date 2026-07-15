@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { serviceSchema } from "@/lib/validations/schemas";
+import { ZodError } from "zod";
 
 // GET - Obtener todos los servicios
 export async function GET(request: NextRequest) {
@@ -33,38 +35,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
-    const { name, description, price, duration, category } =
-      await request.json();
-
-    // Validaciones
-    if (!name || !description || !price || !duration || !category) {
-      return NextResponse.json(
-        { error: "Todos los campos son requeridos" },
-        { status: 400 }
-      );
-    }
-
-    if (price <= 0 || duration <= 0) {
-      return NextResponse.json(
-        { error: "Precio y duración deben ser mayores a 0" },
-        { status: 400 }
-      );
-    }
+    const body = await request.json();
+    const validatedData = serviceSchema.parse(body);
 
     const service = await prisma.service.create({
       data: {
-        name,
-        description,
-        price: parseFloat(price),
-        duration: parseInt(duration),
-        category,
+        name: validatedData.name,
+        description: validatedData.description,
+        price: validatedData.price,
+        duration: validatedData.duration,
+        category: validatedData.category,
         active: true,
       },
     });
 
     return NextResponse.json(service, { status: 201 });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error al crear servicio:", error);
+
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: error.errors[0]?.message ?? "Datos inválidos" },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Error al crear servicio" },
       { status: 500 }

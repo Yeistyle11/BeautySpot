@@ -82,8 +82,8 @@ export default function BarberForm({ mode, initialData }: BarberFormProps) {
 
     // Validar contraseña
     if (mode === "create") {
-      if (!formData.password || formData.password.length < 6) {
-        setError("La contraseña debe tener al menos 6 caracteres");
+      if (!formData.password || formData.password.length < 8) {
+        setError("La contraseña debe tener al menos 8 caracteres");
         return;
       }
 
@@ -92,9 +92,8 @@ export default function BarberForm({ mode, initialData }: BarberFormProps) {
         return;
       }
     } else if (mode === "edit" && formData.password) {
-      // En modo edición, solo validar si se ingresó una contraseña
-      if (formData.password.length < 6) {
-        setError("La contraseña debe tener al menos 6 caracteres");
+      if (formData.password.length < 8) {
+        setError("La contraseña debe tener al menos 8 caracteres");
         return;
       }
 
@@ -310,9 +309,9 @@ export default function BarberForm({ mode, initialData }: BarberFormProps) {
               value={formData.password}
               onChange={handleChange}
               required={mode === "create"}
-              minLength={6}
+              minLength={8}
               className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
-              placeholder="Mínimo 6 caracteres"
+              placeholder="Mínimo 8 caracteres"
             />
           </div>
 
@@ -328,7 +327,7 @@ export default function BarberForm({ mode, initialData }: BarberFormProps) {
               value={formData.confirmPassword}
               onChange={handleChange}
               required={mode === "create"}
-              minLength={6}
+              minLength={8}
               className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
               placeholder="Repite la contraseña"
             />

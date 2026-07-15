@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validations/schemas";
+import { ZodError } from "zod";
 
 export async function POST(request: Request) {
   try {
@@ -51,12 +52,12 @@ export async function POST(request: Request) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en registro:", error);
 
-    if (error.name === "ZodError") {
+    if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: "Datos inválidos", details: error.errors },
+        { error: error.errors[0]?.message ?? "Datos inválidos" },
         { status: 400 }
       );
     }
