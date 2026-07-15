@@ -12,8 +12,8 @@ describe("BusinessesService", () => {
   const mockBusiness: Business = {
     id: "business-123",
     name: "Test Beauty Center",
-    slug: "test-barber-shop",
-    description: "A great barber shop",
+    slug: "test-beauty-center",
+    description: "A great beauty center",
     city: "Bogotá",
     businessType: "BARBERIA",
     active: true,
@@ -77,9 +77,9 @@ describe("BusinessesService", () => {
     it("debería crear un negocio exitosamente", async () => {
       const createData = {
         name: "Test Beauty Center",
-        description: "A great barber shop",
+        description: "A great beauty center",
         city: "Bogotá",
-        businessType: "beautyspot",
+        businessType: "BELLEZA",
       };
 
       mockRepository.findOne.mockResolvedValue(null);
@@ -89,11 +89,11 @@ describe("BusinessesService", () => {
       const result = await service.create(createData);
 
       expect(mockRepository.findOne).toHaveBeenCalledWith({
-        where: { slug: "test-barber-shop" },
+        where: { slug: "test-beauty-center" },
       });
       expect(mockRepository.create).toHaveBeenCalledWith({
         ...createData,
-        slug: "test-barber-shop",
+        slug: "test-beauty-center",
       });
       expect(mockRepository.save).toHaveBeenCalledWith(mockBusiness);
       expect(result).toEqual(mockBusiness);
@@ -102,7 +102,7 @@ describe("BusinessesService", () => {
     it("debería lanzar ConflictException si el slug ya existe", async () => {
       const createData = {
         name: "Test Beauty Center",
-        description: "A great barber shop",
+        description: "A great beauty center",
         city: "Bogotá",
       };
 
@@ -112,7 +112,7 @@ describe("BusinessesService", () => {
         ConflictException
       );
       await expect(service.create(createData)).rejects.toThrow(
-        'El slug "test-barber-shop" ya existe'
+        'El slug "test-beauty-center" ya existe'
       );
     });
 
@@ -163,11 +163,11 @@ describe("BusinessesService", () => {
     it("debería filtrar por tipo de negocio", async () => {
       const queryBuilder = mockRepository.createQueryBuilder() as any;
 
-      await service.findAll({ businessType: "beautyspot" });
+      await service.findAll({ businessType: "BELLEZA" });
 
       expect(queryBuilder.andWhere).toHaveBeenCalledWith(
         "b.business_type = :type",
-        { type: "beautyspot" }
+        { type: "BELLEZA" }
       );
     });
 
@@ -266,11 +266,11 @@ describe("BusinessesService", () => {
     it("debería retornar el negocio cuando existe", async () => {
       mockRepository.findOne.mockResolvedValue(mockBusiness);
 
-      const result = await service.findBySlug("test-barber-shop");
+      const result = await service.findBySlug("test-beauty-center");
 
       expect(result).toEqual(mockBusiness);
       expect(mockRepository.findOne).toHaveBeenCalledWith({
-        where: { slug: "test-barber-shop" },
+        where: { slug: "test-beauty-center" },
         relations: {
           branches: true,
           services: true,

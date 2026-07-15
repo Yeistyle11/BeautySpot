@@ -36,7 +36,7 @@ describe("Shared Utils", () => {
     });
 
     it("debería manejar números y letras", () => {
-      expect(generateSlug("Beauty Center 2024")).toBe("barber-shop-2024");
+      expect(generateSlug("Beauty Center 2024")).toBe("beauty-center-2024");
     });
   });
 
