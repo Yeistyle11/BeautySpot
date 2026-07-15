@@ -49,7 +49,7 @@ export default async function EditServicePage({ params }: Props) {
               { label: "Editar" },
             ]}
           />
-          <h1 className="text-3xl font-bold text-gray-900 mt-4">
+          <h1 className="mt-4 text-3xl font-bold text-gray-900">
             Editar Servicio: {service.name}
           </h1>
         </div>

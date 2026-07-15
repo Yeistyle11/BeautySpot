@@ -9,7 +9,7 @@ type Service = {
   duration: number;
 };
 
-type Barber = {
+type Professional = {
   id: number;
   user: {
     name: string;
@@ -24,7 +24,7 @@ type Appointment = {
   endTime: string;
   status: string;
   notes: string | null;
-  barber: {
+  professional: {
     id: number;
     user: {
       name: string;
@@ -42,25 +42,26 @@ type Appointment = {
 
 type AdminCalendarProps = {
   appointments: Appointment[];
-  barbers: Barber[];
+  professionals: Professional[];
 };
 
 export default function AdminCalendar({
   appointments: initialAppointments,
-  barbers,
+  professionals,
 }: AdminCalendarProps) {
   const [appointments, setAppointments] = useState(initialAppointments);
-  const [selectedBarberId, setSelectedBarberId] = useState<string>("all");
+  const [selectedProfessionalId, setSelectedProfessionalId] =
+    useState<string>("all");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
 
-  // Filtrar citas por barbero
+  // Filtrar citas por profesional
   const filteredAppointments =
-    selectedBarberId === "all"
+    selectedProfessionalId === "all"
       ? appointments
       : appointments.filter(
-          (apt) => String(apt.barber.id) === selectedBarberId
+          (apt) => String(apt.professional.id) === selectedProfessionalId
         );
 
   // Actualizar appointments cuando cambien las props
@@ -204,21 +205,21 @@ export default function AdminCalendar({
 
   return (
     <div className="rounded-lg bg-white p-4 shadow-lg md:p-6">
-      {/* Filtro de barbero y navegación */}
+      {/* Filtro de profesional y navegación */}
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <label className="text-sm font-medium text-gray-700">
-            Filtrar por barbero:
+            Filtrar por profesional:
           </label>
           <select
-            value={selectedBarberId}
-            onChange={(e) => setSelectedBarberId(e.target.value)}
+            value={selectedProfessionalId}
+            onChange={(e) => setSelectedProfessionalId(e.target.value)}
             className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 sm:w-auto"
           >
-            <option value="all">Todos los barberos</option>
-            {barbers.map((barber) => (
-              <option key={barber.id} value={String(barber.id)}>
-                {barber.user.name}
+            <option value="all">Todos los profesionales</option>
+            {professionals.map((professional) => (
+              <option key={professional.id} value={String(professional.id)}>
+                {professional?.user.name}
               </option>
             ))}
           </select>
@@ -323,7 +324,7 @@ export default function AdminCalendar({
                     <div
                       key={idx}
                       className={`truncate rounded px-1 py-0.5 text-xs ${getStatusColor(apt.status)}`}
-                      title={`${apt.startTime} - ${apt.barber.user.name}`}
+                      title={`${apt.startTime} - ${apt.professional.user.name}`}
                     >
                       {apt.startTime}
                     </div>
@@ -398,7 +399,7 @@ export default function AdminCalendar({
                         </p>
                       )}
                       <p className="mt-1 text-sm font-medium text-indigo-600">
-                        Barbero: {apt.barber.user.name}
+                        Profesional: {apt.professional.user.name}
                       </p>
                     </div>
                     <span

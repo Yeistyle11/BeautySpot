@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
-import { BarberImage } from "@/components/shared/BarberImage";
+import { ProfessionalImage } from "@/components/shared/ProfessionalImage";
 
 type Service = {
   id: number;
@@ -17,7 +17,7 @@ type AppointmentService = {
   service: Service;
 };
 
-type Barber = {
+type Professional = {
   id: number;
   user: {
     name: string;
@@ -32,7 +32,7 @@ type Appointment = {
   startTime: string;
   endTime: string;
   services: AppointmentService[];
-  barber: Barber;
+  professional: Professional;
   status: string;
 };
 
@@ -126,9 +126,12 @@ export default function RescheduleAppointmentPage() {
 
     try {
       setLoading(true);
-      const totalDuration = appointment.services.reduce((sum, as) => sum + as.service.duration, 0);
+      const totalDuration = appointment.services.reduce(
+        (sum, as) => sum + as.service.duration,
+        0
+      );
       const res = await fetch(
-        `/api/appointments/availability?barberId=${appointment.barber.id}&date=${selectedDate}&duration=${totalDuration}`
+        `/api/appointments/availability?professionalId=${appointment.professional.id}&date=${selectedDate}&duration=${totalDuration}`
       );
       const data = await res.json();
       setAvailableSlots(data.slots || []);
@@ -276,24 +279,37 @@ export default function RescheduleAppointmentPage() {
                       {as.service.name}
                     </p>
                     <p className="text-sm text-gray-600">
-                      {formatCurrency(as.service.price)} • {as.service.duration} min
+                      {formatCurrency(as.service.price)} • {as.service.duration}{" "}
+                      min
                     </p>
                   </div>
                 ))}
                 <p className="mt-2 text-sm font-medium text-indigo-700">
-                  Total: {formatCurrency(appointment.services.reduce((sum, as) => sum + as.service.price, 0))} • {appointment.services.reduce((sum, as) => sum + as.service.duration, 0)} min
+                  Total:{" "}
+                  {formatCurrency(
+                    appointment.services.reduce(
+                      (sum, as) => sum + as.service.price,
+                      0
+                    )
+                  )}{" "}
+                  •{" "}
+                  {appointment.services.reduce(
+                    (sum, as) => sum + as.service.duration,
+                    0
+                  )}{" "}
+                  min
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Barbero</p>
+                <p className="text-sm text-gray-600">Profesional</p>
                 <div className="mt-1 flex items-center gap-3">
-                  <BarberImage
-                    image={appointment.barber.user.image}
-                    name={appointment.barber.user.name}
+                  <ProfessionalImage
+                    image={appointment.professional.user.image}
+                    name={appointment.professional.user.name}
                     size={40}
                   />
                   <span className="font-semibold text-gray-900">
-                    {appointment.barber.user.name}
+                    {appointment.professional.user.name}
                   </span>
                 </div>
               </div>

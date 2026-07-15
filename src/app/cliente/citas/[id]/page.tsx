@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { formatCurrency, formatDuration } from "@/lib/utils";
-import { BarberImage } from "@/components/shared/BarberImage";
+import { ProfessionalImage } from "@/components/shared/ProfessionalImage";
 import CancelAppointmentButton from "@/components/appointments/CancelAppointmentButton";
 
 export default async function AppointmentDetailPage({
@@ -29,7 +29,7 @@ export default async function AppointmentDetailPage({
           service: true,
         },
       },
-      barber: {
+      professional: {
         include: {
           user: {
             select: {
@@ -129,23 +129,23 @@ export default async function AppointmentDetailPage({
       {/* Contenido */}
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="overflow-hidden rounded-lg bg-white shadow-lg">
-          {/* Información del Barbero */}
+          {/* Información del Profesional */}
           <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-8">
             <div className="flex items-center gap-4">
-              <BarberImage
-                image={appointment.barber.user.image}
-                name={appointment.barber.user.name}
+              <ProfessionalImage
+                image={appointment.professional.user.image}
+                name={appointment.professional.user.name}
                 size={80}
                 className="ring-4 ring-white"
               />
               <div className="text-white">
                 <h2 className="text-2xl font-bold">
-                  {appointment.barber.user.name}
+                  {appointment.professional.user.name}
                 </h2>
-                <p className="text-indigo-100">Barbero profesional</p>
-                {appointment.barber.user.phone && (
+                <p className="text-indigo-100">Profesional profesional</p>
+                {appointment.professional.user.phone && (
                   <p className="mt-1 text-indigo-100">
-                    📞 {appointment.barber.user.phone}
+                    📞 {appointment.professional.user.phone}
                   </p>
                 )}
               </div>

@@ -21,7 +21,7 @@ async function run() {
   console.log("Login:", token ? "OK" : "FAIL");
 
   // Get business via internal endpoint (no auth/biz-id required)
-  const bizRes = await api("GET", services.core + "/internal/businesses/resolve?slug=elite-barbershop", null, {"x-internal-secret": "dev-internal-secret-change-in-production"});
+  const bizRes = await api("GET", services.core + "/internal/businesses/resolve?slug=elite-beautyspot", null, {"x-internal-secret": "dev-internal-secret-change-in-production"});
   businessId = bizRes?.id;
   console.log("Business:", businessId || "NOT FOUND");
   if (!businessId) { console.log("Cannot continue"); return; }
@@ -56,8 +56,8 @@ async function run() {
 
   // Professionals
   const pros = [
-    {name:"Juan Perez",bio:"Barbero 8 anos",specialties:["Corte"],yearsExp:8,branchId},
-    {name:"Andres Gomez",bio:"Maestro barbero 12 anos",specialties:["Afeitado"],yearsExp:12,branchId},
+    {name:"Juan Perez",bio:"Professionalo 8 anos",specialties:["Corte"],yearsExp:8,branchId},
+    {name:"Andres Gomez",bio:"Maestro professionalo 12 anos",specialties:["Afeitado"],yearsExp:12,branchId},
     {name:"Laura Ramirez",bio:"Estilista profesional",specialties:["Tinte"],yearsExp:6,branchId},
   ];
   for (const p of pros) { const r = await api("POST", services.core+"/professionals", p); professionalIds[p.name] = r?.id; console.log("Professional:", p.name, r?.id ? "OK" : "FAIL"); }

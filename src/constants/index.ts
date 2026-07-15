@@ -1,9 +1,10 @@
-export const APP_NAME = "Elite Barbershop";
-export const APP_DESCRIPTION = "Sistema moderno de gestión para barberías";
+export const APP_NAME = "BeautySpot";
+export const APP_DESCRIPTION =
+  "Sistema moderno de gestión para centro de bellezas";
 
 export const ROLES = {
   ADMIN: "ADMIN",
-  BARBER: "BARBER",
+  PROFESSIONAL: "PROFESSIONAL",
   CLIENT: "CLIENT",
 } as const;
 

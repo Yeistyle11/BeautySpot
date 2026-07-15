@@ -32,11 +32,11 @@ model User {
   resetTokenExpiry DateTime?
 
   // Relaciones
-  appointments Appointment[]
-  reviews      Review[]
-  barber       Barber?
-  loyaltyPoints Int         @default(0)
-  
+  appointments  Appointment[]
+  reviews       Review[]
+  professional  Professional?
+  loyaltyPoints Int           @default(0)
+
   // Para NextAuth
   accounts Account[]
   sessions Session[]
@@ -48,7 +48,7 @@ model User {
 
 enum Role {
   CLIENT
-  BARBER
+  PROFESSIONAL
   ADMIN
 }
 
@@ -96,10 +96,10 @@ model VerificationToken {
 }
 
 // ============================================
-// MODELO DE BARBEROS
+// MODELO DE PROFESIONALES
 // ============================================
 
-model Barber {
+model Professional {
   id          Int      @id @default(autoincrement())
   userId      Int      @unique
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -113,14 +113,14 @@ model Barber {
 
   // Relaciones
   appointments Appointment[]
-  services     BarberService[]
+  services     ProfessionalService[]
   availability Availability[]
   portfolio    Portfolio[]
   reviews      Review[]
   blockedSlots BlockedSlot[]
 
   @@index([userId])
-  @@map("barbers")
+  @@map("professionals")
 }
 
 // ============================================
@@ -128,38 +128,38 @@ model Barber {
 // ============================================
 
 model Service {
-  id          Int       @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   name        String
-  description String    @db.Text
+  description String   @db.Text
   price       Float
   duration    Int // en minutos
   category    String
   image       String?
-  active      Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relaciones
-  appointments AppointmentService[]
-  barbers      BarberService[]
+  appointments  AppointmentService[]
+  professionals ProfessionalService[]
 
   @@index([category, active])
   @@map("services")
 }
 
 // Tabla intermedia para relación muchos a muchos
-model BarberService {
-  id        Int      @id @default(autoincrement())
-  barberId  Int
-  serviceId Int
-  barber    Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
-  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+model ProfessionalService {
+  id             Int          @id @default(autoincrement())
+  professionalId Int
+  serviceId      Int
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  service        Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
 
-  @@unique([barberId, serviceId])
-  @@index([barberId])
+  @@unique([professionalId, serviceId])
+  @@index([professionalId])
   @@index([serviceId])
-  @@map("barber_services")
+  @@map("professional_services")
 }
 
 // ============================================
@@ -167,27 +167,27 @@ model BarberService {
 // ============================================
 
 model Appointment {
-  id           Int               @id @default(autoincrement())
-  clientId     Int
-  client       User              @relation(fields: [clientId], references: [id])
-  barberId     Int
-  barber       Barber            @relation(fields: [barberId], references: [id])
-  date         DateTime
-  startTime    String // "09:00"
-  endTime      String // "10:00"
-  status       AppointmentStatus @default(PENDING)
-  notes        String?           @db.Text
-  cancelReason String?           @db.Text
-  pointsEarned Int               @default(0)
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  id             Int               @id @default(autoincrement())
+  clientId       Int
+  client         User              @relation(fields: [clientId], references: [id])
+  professionalId Int
+  professional   Professional      @relation(fields: [professionalId], references: [id])
+  date           DateTime
+  startTime      String // "09:00"
+  endTime        String // "10:00"
+  status         AppointmentStatus @default(PENDING)
+  notes          String?           @db.Text
+  cancelReason   String?           @db.Text
+  pointsEarned   Int               @default(0)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   // Relaciones
   services AppointmentService[]
   review   Review?
 
   @@index([clientId, status])
-  @@index([barberId, date])
+  @@index([professionalId, date])
   @@index([date, status])
   @@map("appointments")
 }
@@ -220,32 +220,32 @@ enum AppointmentStatus {
 // ============================================
 
 model Availability {
-  id        Int      @id @default(autoincrement())
-  barberId  Int
-  barber    Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
-  dayOfWeek Int // 0-6 (domingo-sábado)
-  startTime String // "09:00"
-  endTime   String // "18:00"
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             Int          @id @default(autoincrement())
+  professionalId Int
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  dayOfWeek      Int // 0-6 (domingo-sábado)
+  startTime      String // "09:00"
+  endTime        String // "18:00"
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
-  @@index([barberId, dayOfWeek])
+  @@index([professionalId, dayOfWeek])
   @@map("availabilities")
 }
 
 // Bloques de tiempo específicos no disponibles (vacaciones, días libres, etc.)
 model BlockedSlot {
-  id        Int      @id @default(autoincrement())
-  barberId  Int
-  barber    Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
-  date      DateTime
-  startTime String
-  endTime   String
-  reason    String?
-  createdAt DateTime @default(now())
+  id             Int          @id @default(autoincrement())
+  professionalId Int
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  date           DateTime
+  startTime      String
+  endTime        String
+  reason         String?
+  createdAt      DateTime     @default(now())
 
-  @@index([barberId, date])
+  @@index([professionalId, date])
   @@map("blocked_slots")
 }
 
@@ -254,37 +254,37 @@ model BlockedSlot {
 // ============================================
 
 model Review {
-  id            Int         @id @default(autoincrement())
-  appointmentId Int         @unique
-  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  clientId      Int
-  client        User        @relation(fields: [clientId], references: [id])
-  barberId      Int
-  barber        Barber      @relation(fields: [barberId], references: [id])
-  rating        Int // 1-5
-  comment       String?     @db.Text
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id             Int          @id @default(autoincrement())
+  appointmentId  Int          @unique
+  appointment    Appointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  clientId       Int
+  client         User         @relation(fields: [clientId], references: [id])
+  professionalId Int
+  professional   Professional @relation(fields: [professionalId], references: [id])
+  rating         Int // 1-5
+  comment        String?      @db.Text
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
-  @@index([barberId])
+  @@index([professionalId])
   @@index([rating])
   @@map("reviews")
 }
 
 // ============================================
-// PORTAFOLIO DE BARBEROS
+// PORTAFOLIO DE PROFESIONALES
 // ============================================
 
 model Portfolio {
-  id          Int      @id @default(autoincrement())
-  barberId    Int
-  barber      Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
-  image       String
-  title       String?
-  description String?  @db.Text
-  createdAt   DateTime @default(now())
+  id             Int          @id @default(autoincrement())
+  professionalId Int
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  image          String
+  title          String?
+  description    String?      @db.Text
+  createdAt      DateTime     @default(now())
 
-  @@index([barberId])
+  @@index([professionalId])
   @@map("portfolio")
 }
 
@@ -340,11 +340,11 @@ model Promotion {
 // ============================================
 
 model SystemConfig {
-  id                    Int      @id @default(autoincrement())
-  key                   String   @unique
-  value                 String   @db.Text
-  description           String?
-  updatedAt             DateTime @updatedAt
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       String   @db.Text
+  description String?
+  updatedAt   DateTime @updatedAt
 
   @@map("system_config")
 }

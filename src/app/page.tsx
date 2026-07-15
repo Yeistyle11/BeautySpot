@@ -19,7 +19,7 @@ export default function Home() {
       image:
         "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=2000&q=95&fit=crop",
       title: "Experiencia Premium",
-      subtitle: "Barbero profesional en acción",
+      subtitle: "Profesional profesional en acción",
     },
     {
       image:
@@ -77,7 +77,7 @@ export default function Home() {
                   Elite
                 </span>
                 <span className="text-xs uppercase tracking-wider text-gray-500">
-                  Barbershop
+                  BeautySpot
                 </span>
               </div>
             </Link>
@@ -100,10 +100,10 @@ export default function Home() {
             ) : (
               <div className="flex items-center gap-4">
                 <Link
-                  href="/barberos"
+                  href="/profesionales"
                   className="hidden px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 sm:block"
                 >
-                  Barberos
+                  Profesionales
                 </Link>
                 <Link
                   href="/servicios"
@@ -197,8 +197,8 @@ export default function Home() {
               href={
                 session.user.role === "ADMIN"
                   ? "/admin"
-                  : session.user.role === "BARBER"
-                    ? "/barbero"
+                  : session.user.role === "PROFESSIONAL"
+                    ? "/profesional"
                     : "/cliente"
               }
               className="hover:shadow-3xl group transform rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 p-6 text-white shadow-2xl transition hover:-translate-y-1"
@@ -438,7 +438,7 @@ export default function Home() {
               Profesionalismo
             </h3>
             <p className="text-gray-600">
-              Barberos expertos con años de experiencia
+              Profesionales expertos con años de experiencia
             </p>
           </div>
 
@@ -538,14 +538,14 @@ export default function Home() {
               </svg>
             </div>
             <span className="ml-3 text-xl font-bold text-gray-900">
-              Elite Barbershop
+              BeautySpot
             </span>
           </div>
           <p className="mb-4 text-center text-sm text-gray-600">
-            Sistema de gestión profesional para barberías modernas
+            Sistema de gestión profesional para centro de bellezas modernas
           </p>
           <p className="text-center text-xs text-gray-400">
-            © 2024 Elite Barbershop. Todos los derechos reservados.
+            © 2024 BeautySpot. Todos los derechos reservados.
           </p>
         </div>
       </footer>

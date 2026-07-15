@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { formatCurrency, formatDuration } from "@/lib/utils";
-import { BarberImage } from "@/components/shared/BarberImage";
+import { ProfessionalImage } from "@/components/shared/ProfessionalImage";
 import AutoRefresh from "@/components/shared/AutoRefresh";
 
 export default async function AdminAppointmentsPage({
@@ -31,7 +31,7 @@ export default async function AdminAppointmentsPage({
           phone: true,
         },
       },
-      barber: {
+      professional: {
         include: {
           user: {
             select: {
@@ -311,7 +311,7 @@ export default async function AdminAppointmentsPage({
                     Cliente
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Barbero
+                    Profesional
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Servicios
@@ -364,14 +364,14 @@ export default async function AdminAppointmentsPage({
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
                         <div className="flex items-center">
-                          <BarberImage
-                            image={apt.barber.user.image}
-                            name={apt.barber.user.name}
+                          <ProfessionalImage
+                            image={apt.professional.user.image}
+                            name={apt.professional.user.name}
                             size={32}
                           />
                           <div className="ml-3">
                             <div className="text-sm font-medium text-gray-900">
-                              {apt.barber.user.name}
+                              {apt.professional.user.name}
                             </div>
                           </div>
                         </div>

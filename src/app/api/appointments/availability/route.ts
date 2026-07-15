@@ -1,22 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// GET - Obtener horarios disponibles para un barbero en una fecha
+// GET - Obtener horarios disponibles para un profesional en una fecha
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const barberIdParam = searchParams.get("barberId");
+    const professionalIdParam = searchParams.get("professionalId");
     const date = searchParams.get("date");
     const duration = parseInt(searchParams.get("duration") || "30");
 
-    if (!barberIdParam || !date) {
+    if (!professionalIdParam || !date) {
       return NextResponse.json(
-        { error: "barberId y date son requeridos" },
+        { error: "professionalId y date son requeridos" },
         { status: 400 }
       );
     }
 
-    const barberId = parseInt(barberIdParam);
+    const professionalId = parseInt(professionalIdParam);
 
     // Parsear la fecha correctamente en formato local
     const [year, month, day] = date.split("-").map(Number);
@@ -25,16 +25,16 @@ export async function GET(request: NextRequest) {
     // Obtener día de la semana (0 = domingo, 6 = sábado)
     const dayOfWeek = appointmentDate.getDay();
 
-    // Obtener disponibilidad del barbero para este día
+    // Obtener disponibilidad del profesional para este día
     const availability = await prisma.availability.findFirst({
       where: {
-        barberId,
+        professionalId,
         dayOfWeek,
         active: true,
       },
     });
 
-    // Si el barbero no trabaja este día, retornar slots vacíos
+    // Si el profesional no trabaja este día, retornar slots vacíos
     if (!availability) {
       return NextResponse.json({ slots: [] });
     }
@@ -42,15 +42,15 @@ export async function GET(request: NextRequest) {
     // Verificar si hay bloques bloqueados para esta fecha
     const blockedSlots = await prisma.blockedSlot.findMany({
       where: {
-        barberId,
+        professionalId,
         date: appointmentDate,
       },
     });
 
-    // Obtener citas existentes del barbero en esa fecha
+    // Obtener citas existentes del profesional en esa fecha
     const existingAppointments = await prisma.appointment.findMany({
       where: {
-        barberId,
+        professionalId,
         date: appointmentDate,
         status: {
           in: ["PENDING", "CONFIRMED"],
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     const currentMinute = now.getMinutes();
     const currentTimeInMinutes = currentHour * 60 + currentMinute;
 
-    // Extraer horas de la disponibilidad del barbero
+    // Extraer horas de la disponibilidad del profesional
     const [startHourStr, startMinuteStr] = availability.startTime
       .split(":")
       .map(Number);
@@ -85,7 +85,11 @@ export async function GET(request: NextRequest) {
     const startHour = startHourStr;
     const endHour = endHourStr;
 
-    for (let currentMinutes = availStartMinutes; currentMinutes < availEndMinutes; currentMinutes += 30) {
+    for (
+      let currentMinutes = availStartMinutes;
+      currentMinutes < availEndMinutes;
+      currentMinutes += 30
+    ) {
       const hour = Math.floor(currentMinutes / 60);
       const minutes = currentMinutes % 60;
       const timeStr = `${hour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;

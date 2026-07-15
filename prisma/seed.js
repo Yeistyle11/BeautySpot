@@ -12,9 +12,9 @@ async function main() {
   await prisma.portfolio.deleteMany();
   await prisma.blockedSlot.deleteMany();
   await prisma.availability.deleteMany();
-  await prisma.barberService.deleteMany();
+  await prisma.professionalService.deleteMany();
   await prisma.service.deleteMany();
-  await prisma.barber.deleteMany();
+  await prisma.professional.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.promotion.deleteMany();
   await prisma.systemConfig.deleteMany();
@@ -31,7 +31,7 @@ async function main() {
 
   const admin = await prisma.user.create({
     data: {
-      email: "admin@barbershop.com",
+      email: "admin@beautyspot.com",
       password: hashedPassword,
       name: "Administrador",
       phone: "+1234567890",
@@ -64,25 +64,25 @@ async function main() {
     },
   });
 
-  const barberUser1 = await prisma.user.create({
+  const professionalUser1 = await prisma.user.create({
     data: {
-      email: "carlos.barbero@barbershop.com",
+      email: "carlos.professional@beautyspot.com",
       password: hashedPassword,
       name: "Carlos Martínez",
       phone: "+1234567893",
-      role: "BARBER",
+      role: "PROFESSIONAL",
       emailVerified: new Date(),
       image: "https://i.pravatar.cc/150?img=12",
     },
   });
 
-  const barberUser2 = await prisma.user.create({
+  const professionalUser2 = await prisma.user.create({
     data: {
-      email: "luis.barbero@barbershop.com",
+      email: "luis.professional@beautyspot.com",
       password: hashedPassword,
       name: "Luis Rodríguez",
       phone: "+1234567894",
-      role: "BARBER",
+      role: "PROFESSIONAL",
       emailVerified: new Date(),
       image: "https://i.pravatar.cc/150?img=33",
     },
@@ -91,12 +91,12 @@ async function main() {
   console.log("✅ Usuarios creados");
 
   // ============================================
-  // CREAR BARBEROS
+  // CREAR PROFESIONALES
   // ============================================
 
-  const barber1 = await prisma.barber.create({
+  const professional1 = await prisma.professional.create({
     data: {
-      userId: barberUser1.id,
+      userId: professionalUser1.id,
       bio: "Especialista en cortes clásicos y modernos con más de 10 años de experiencia. Apasionado por crear el estilo perfecto para cada cliente.",
       specialties: ["Cortes clásicos", "Fade", "Barba", "Diseño"],
       yearsExp: 10,
@@ -104,9 +104,9 @@ async function main() {
     },
   });
 
-  const barber2 = await prisma.barber.create({
+  const professional2 = await prisma.professional.create({
     data: {
-      userId: barberUser2.id,
+      userId: professionalUser2.id,
       bio: "Experto en tendencias urbanas y cortes modernos. Me encanta trabajar con clientes que buscan un estilo único y personalizado.",
       specialties: ["Cortes modernos", "Afeitado", "Color", "Tratamientos"],
       yearsExp: 7,
@@ -114,7 +114,7 @@ async function main() {
     },
   });
 
-  console.log("✅ Barberos creados");
+  console.log("✅ Profesionales creados");
 
   // ============================================
   // CREAR SERVICIOS
@@ -183,7 +183,8 @@ async function main() {
   const completo = await prisma.service.create({
     data: {
       name: "Servicio Completo",
-      description: "Corte de cabello + Arreglo de barba. Nuestro servicio más popular.",
+      description:
+        "Corte de cabello + Arreglo de barba. Nuestro servicio más popular.",
       price: 35.0,
       duration: 50,
       category: "Paquetes",
@@ -194,34 +195,34 @@ async function main() {
   console.log("✅ Servicios creados");
 
   // ============================================
-  // ASIGNAR SERVICIOS A BARBEROS
+  // ASIGNAR SERVICIOS A PROFESIONALES
   // ============================================
 
-  await prisma.barberService.createMany({
+  await prisma.professionalService.createMany({
     data: [
-      { barberId: barber1.id, serviceId: corteClasico.id },
-      { barberId: barber1.id, serviceId: corteModerno.id },
-      { barberId: barber1.id, serviceId: fade.id },
-      { barberId: barber1.id, serviceId: barba.id },
-      { barberId: barber1.id, serviceId: completo.id },
-      { barberId: barber2.id, serviceId: corteModerno.id },
-      { barberId: barber2.id, serviceId: fade.id },
-      { barberId: barber2.id, serviceId: afeitado.id },
-      { barberId: barber2.id, serviceId: completo.id },
+      { professionalId: professional1.id, serviceId: corteClasico.id },
+      { professionalId: professional1.id, serviceId: corteModerno.id },
+      { professionalId: professional1.id, serviceId: fade.id },
+      { professionalId: professional1.id, serviceId: barba.id },
+      { professionalId: professional1.id, serviceId: completo.id },
+      { professionalId: professional2.id, serviceId: corteModerno.id },
+      { professionalId: professional2.id, serviceId: fade.id },
+      { professionalId: professional2.id, serviceId: afeitado.id },
+      { professionalId: professional2.id, serviceId: completo.id },
     ],
   });
 
-  console.log("✅ Servicios asignados a barberos");
+  console.log("✅ Servicios asignados a professionals");
 
   // ============================================
   // CREAR DISPONIBILIDAD
   // ============================================
 
-  // Disponibilidad para barber1 (Lunes a Viernes)
+  // Disponibilidad para professional1 (Lunes a Viernes)
   for (let day = 1; day <= 5; day++) {
     await prisma.availability.create({
       data: {
-        barberId: barber1.id,
+        professionalId: professional1.id,
         dayOfWeek: day,
         startTime: "09:00",
         endTime: "18:00",
@@ -229,21 +230,21 @@ async function main() {
     });
   }
 
-  // Disponibilidad para barber1 (Sábado)
+  // Disponibilidad para professional1 (Sábado)
   await prisma.availability.create({
     data: {
-      barberId: barber1.id,
+      professionalId: professional1.id,
       dayOfWeek: 6,
       startTime: "10:00",
       endTime: "14:00",
     },
   });
 
-  // Disponibilidad para barber2 (Martes a Sábado)
+  // Disponibilidad para professional2 (Martes a Sábado)
   for (let day = 2; day <= 6; day++) {
     await prisma.availability.create({
       data: {
-        barberId: barber2.id,
+        professionalId: professional2.id,
         dayOfWeek: day,
         startTime: "10:00",
         endTime: "19:00",
@@ -260,26 +261,26 @@ async function main() {
   await prisma.portfolio.createMany({
     data: [
       {
-        barberId: barber1.id,
-        image: "/portfolio/barber1-1.jpg",
+        professionalId: professional1.id,
+        image: "/portfolio/professional1-1.jpg",
         title: "Fade Clásico",
         description: "Degradado perfecto con diseño",
       },
       {
-        barberId: barber1.id,
-        image: "/portfolio/barber1-2.jpg",
+        professionalId: professional1.id,
+        image: "/portfolio/professional1-2.jpg",
         title: "Corte Ejecutivo",
         description: "Estilo profesional y elegante",
       },
       {
-        barberId: barber2.id,
-        image: "/portfolio/barber2-1.jpg",
+        professionalId: professional2.id,
+        image: "/portfolio/professional2-1.jpg",
         title: "Corte Urbano",
         description: "Estilo moderno con textura",
       },
       {
-        barberId: barber2.id,
-        image: "/portfolio/barber2-2.jpg",
+        professionalId: professional2.id,
+        image: "/portfolio/professional2-2.jpg",
         title: "Afeitado Premium",
         description: "Afeitado clásico con toalla caliente",
       },
@@ -325,12 +326,12 @@ async function main() {
     data: [
       {
         key: "BUSINESS_NAME",
-        value: "Elite Barbershop",
+        value: "BeautySpot",
         description: "Nombre del negocio",
       },
       {
         key: "BUSINESS_EMAIL",
-        value: "contacto@barbershop.com",
+        value: "contacto@beautyspot.com",
         description: "Email de contacto",
       },
       {
@@ -365,9 +366,11 @@ async function main() {
 
   console.log("\n🎉 Seed completado exitosamente!");
   console.log("\n📧 Credenciales de prueba:");
-  console.log("Admin: admin@barbershop.com / password123");
-  console.log("Barbero 1: carlos.barbero@barbershop.com / password123");
-  console.log("Barbero 2: luis.barbero@barbershop.com / password123");
+  console.log("Admin: admin@beautyspot.com / password123");
+  console.log(
+    "Profesional 1: carlos.professional@beautyspot.com / password123"
+  );
+  console.log("Profesional 2: luis.professional@beautyspot.com / password123");
   console.log("Cliente 1: juan.perez@email.com / password123");
   console.log("Cliente 2: maria.gomez@email.com / password123");
 }

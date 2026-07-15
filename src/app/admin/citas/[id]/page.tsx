@@ -4,7 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { formatCurrency, formatDuration } from "@/lib/utils";
-import { BarberImage } from "@/components/shared/BarberImage";
+import { ProfessionalImage } from "@/components/shared/ProfessionalImage";
 import AppointmentActions from "@/components/admin/AppointmentActions";
 
 export default async function AdminAppointmentDetailPage({
@@ -32,7 +32,7 @@ export default async function AdminAppointmentDetailPage({
           loyaltyPoints: true,
         },
       },
-      barber: {
+      professional: {
         include: {
           user: {
             select: {
@@ -182,7 +182,7 @@ export default async function AdminAppointmentDetailPage({
               </div>
             </div>
 
-            {/* Información del Barbero */}
+            {/* Información del Profesional */}
             <div className="overflow-hidden rounded-lg bg-white shadow">
               <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-4">
                 <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
@@ -199,22 +199,22 @@ export default async function AdminAppointmentDetailPage({
                       d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  Barbero
+                  Profesional
                 </h2>
               </div>
               <div className="p-6">
                 <div className="mb-4 flex items-center gap-4">
-                  <BarberImage
-                    image={appointment.barber.user.image}
-                    name={appointment.barber.user.name}
+                  <ProfessionalImage
+                    image={appointment.professional.user.image}
+                    name={appointment.professional.user.name}
                     size={64}
                   />
                   <div>
                     <p className="text-lg font-semibold text-gray-900">
-                      {appointment.barber.user.name}
+                      {appointment.professional.user.name}
                     </p>
                     <p className="text-sm text-gray-600">
-                      {appointment.barber.user.email}
+                      {appointment.professional.user.email}
                     </p>
                   </div>
                 </div>
@@ -222,7 +222,7 @@ export default async function AdminAppointmentDetailPage({
                   <div>
                     <p className="text-sm text-gray-600">Teléfono</p>
                     <p className="text-gray-900">
-                      {appointment.barber.user.phone || "No disponible"}
+                      {appointment.professional.user.phone || "No disponible"}
                     </p>
                   </div>
                   <div>
@@ -235,7 +235,7 @@ export default async function AdminAppointmentDetailPage({
                       >
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                       </svg>
-                      {appointment.barber.rating}
+                      {appointment.professional.rating}
                     </p>
                   </div>
                 </div>

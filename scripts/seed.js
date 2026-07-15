@@ -56,8 +56,8 @@ async function seedUsers() {
   const users = [
     { email: "owner@beautyspot.co", password: "Owner1234", name: "Carlos Méndez", phone: "+57 300 111 0001" },
     { email: "admin@beautyspot.co", password: "Admin1234", name: "María López", phone: "+57 300 111 0002" },
-    { email: "barbero1@beautyspot.co", password: "Barber123", name: "Juan Pérez", phone: "+57 300 111 0003" },
-    { email: "barbero2@beautyspot.co", password: "Barber123", name: "Andrés Gómez", phone: "+57 300 111 0004" },
+    { email: "professionalo1@beautyspot.co", password: "Professional123", name: "Juan Pérez", phone: "+57 300 111 0003" },
+    { email: "professionalo2@beautyspot.co", password: "Professional123", name: "Andrés Gómez", phone: "+57 300 111 0004" },
     { email: "estilista@beautyspot.co", password: "Style1234", name: "Laura Ramírez", phone: "+57 300 111 0005" },
     { email: "recepcionista@beautyspot.co", password: "Recep1234", name: "Sofía Herrera", phone: "+57 300 111 0006" },
     { email: "cliente1@beautyspot.co", password: "Client123", name: "Diego Torres", phone: "+57 300 111 0007" },
@@ -90,11 +90,11 @@ async function seedUsers() {
 // ─── 2. CREAR NEGOCIO (vía endpoint interno) ──────────────────────────
 async function seedBusiness() {
   const res = await api("POST", `${services.core}/internal/businesses`, {
-    name: "Elite Barbershop",
-    description: "La mejor barbería de Bogotá. Cortes clásicos y modernos con los mejores profesionales.",
+    name: "BeautySpot",
+    description: "La mejor professionalía de Bogotá. Cortes clásicos y modernos con los mejores profesionales.",
     phone: "+57 601 234 5678",
-    email: "info@elitebarbershop.co",
-    website: "https://elitebarbershop.co",
+    email: "info@elitebeautyspot.co",
+    website: "https://elitebeautyspot.co",
     address: "Calle 85 #15-20, Zona Rosa",
     city: "Bogotá",
     state: "Cundinamarca",
@@ -104,10 +104,10 @@ async function seedBusiness() {
     timezone: "America/Bogota",
     currency: "COP",
     locale: "es-CO",
-    businessType: "barbershop",
+    businessType: "beautyspot",
   }, { "x-internal-secret": INTERNAL_SECRET });
   businessId = res?.id || res?.data?.id || "";
-  log("Business", `Elite Barbershop → ${businessId}`);
+  log("Business", `BeautySpot → ${businessId}`);
 }
 
 // ─── 3. CREAR MEMBERSHIPS (vía endpoint interno) ───────────────────────
@@ -115,8 +115,8 @@ async function seedMemberships() {
   const memberships = [
     { userId: userIds["owner@beautyspot.co"], businessId, role: "OWNER" },
     { userId: userIds["admin@beautyspot.co"], businessId, role: "ADMIN" },
-    { userId: userIds["barbero1@beautyspot.co"], businessId, role: "PROFESSIONAL" },
-    { userId: userIds["barbero2@beautyspot.co"], businessId, role: "PROFESSIONAL" },
+    { userId: userIds["professionalo1@beautyspot.co"], businessId, role: "PROFESSIONAL" },
+    { userId: userIds["professionalo2@beautyspot.co"], businessId, role: "PROFESSIONAL" },
     { userId: userIds["estilista@beautyspot.co"], businessId, role: "PROFESSIONAL" },
     { userId: userIds["recepcionista@beautyspot.co"], businessId, role: "RECEPTIONIST" },
     { userId: userIds["cliente1@beautyspot.co"], businessId, role: "CLIENT" },
@@ -181,8 +181,8 @@ async function seedServices() {
 // ─── 5. CREAR PROFESIONALES ─────────────────────────────────────────
 async function seedProfessionals() {
   const professionals = [
-    { name: "Juan Pérez", bio: "Barbero con 8 años de experiencia. Especialista en cortes degradados y clásicos.", specialties: ["Corte Clásico", "Degradado", "Barba"], yearsExp: 8, userId: userIds["barbero1@beautyspot.co"], branchId },
-    { name: "Andrés Gómez", bio: "Maestro barbero, 12 años de trayectoria. Experto en afeitado clásico y estilos vintage.", specialties: ["Afeitado Clásico", "Corte Vintage", "Barba"], yearsExp: 12, userId: userIds["barbero2@beautyspot.co"], branchId },
+    { name: "Juan Pérez", bio: "Professionalo con 8 años de experiencia. Especialista en cortes degradados y clásicos.", specialties: ["Corte Clásico", "Degradado", "Barba"], yearsExp: 8, userId: userIds["professionalo1@beautyspot.co"], branchId },
+    { name: "Andrés Gómez", bio: "Maestro professionalo, 12 años de trayectoria. Experto en afeitado clásico y estilos vintage.", specialties: ["Afeitado Clásico", "Corte Vintage", "Barba"], yearsExp: 12, userId: userIds["professionalo2@beautyspot.co"], branchId },
     { name: "Laura Ramírez", bio: "Estilista profesional certificado. Especialista en colorimetría y tratamientos capilares.", specialties: ["Tinte", "Tratamiento Capilar", "Corte Femenino"], yearsExp: 6, userId: userIds["estilista@beautyspot.co"], branchId },
   ];
 
@@ -337,33 +337,33 @@ async function seedMarketplace() {
   // Crear perfil de negocio en marketplace
   const profileRes = await api("POST", `${services.marketplace}/business-profiles`, {
     businessId,
-    slug: "elite-barbershop",
-    name: "Elite Barbershop",
-    description: "La mejor experiencia de barbería en Bogotá. Más de 10 años cuidando tu estilo con los mejores profesionales del sector.",
+    slug: "elite-beautyspot",
+    name: "BeautySpot",
+    description: "La mejor experiencia de professionalía en Bogotá. Más de 10 años cuidando tu estilo con los mejores profesionales del sector.",
     phone: "+57 601 234 5678",
-    email: "info@elitebarbershop.co",
+    email: "info@elitebeautyspot.co",
     address: "Calle 85 #15-20, Zona Rosa",
     city: "Bogotá",
     state: "Cundinamarca",
     country: "Colombia",
     lat: 4.6696,
     lng: -74.0564,
-    businessType: "barbershop",
+    businessType: "beautyspot",
   });
-  log("Profile", `Elite Barbershop marketplace → ${profileRes?.id || "creado"}`);
+  log("Profile", `BeautySpot marketplace → ${profileRes?.id || "creado"}`);
 
   // Configurar perfil inmersivo
   await api("PUT", `${services.marketplace}/business-profiles/config`, {
     tagline: "Tu estilo, nuestra pasión",
     storyTitle: "Nuestra Historia",
-    storyText: "Fundada en 2014 por Carlos Méndez, Elite Barbershop nació con la visión de transformar la experiencia de barbería en Colombia. Comenzamos como un pequeño local en la Zona Rosa y hoy somos referencia de calidad y estilo en Bogotá.",
+    storyText: "Fundada en 2014 por Carlos Méndez, BeautySpot nació con la visión de transformar la experiencia de professionalía en Colombia. Comenzamos como un pequeño local en la Zona Rosa y hoy somos referencia de calidad y estilo en Bogotá.",
     storyImage: "https://images.unsplash.com/photo-1585747860019-8084de357de0?w=800",
     foundedYear: 2014,
     founders: "Carlos Méndez",
     socialLinks: {
-      instagram: "https://instagram.com/elitebarbershop",
-      facebook: "https://facebook.com/elitebarbershop",
-      tiktok: "https://tiktok.com/@elitebarbershop",
+      instagram: "https://instagram.com/elitebeautyspot",
+      facebook: "https://facebook.com/elitebeautyspot",
+      tiktok: "https://tiktok.com/@elitebeautyspot",
     },
     sectionConfig: [
       { id: "about", enabled: true, order: 1, customTitle: "Sobre Nosotros" },
@@ -382,7 +382,7 @@ async function seedMarketplace() {
       { url: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=600", title: "Interior principal", category: "local", featured: true },
       { url: "https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=600", title: "Corte degradado", category: "trabajos", featured: true },
       { url: "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=600", title: "Afeitado clásico", category: "trabajos" },
-      { url: "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=600", title: "Barber chair", category: "local" },
+      { url: "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=600", title: "Professional chair", category: "local" },
       { url: "https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=600", title: "Detalle de corte", category: "trabajos" },
       { url: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=600", title: "Ambiente VIP", category: "local" },
     ],
@@ -423,12 +423,12 @@ async function seedNotifications() {
   const notifications = [
     { userId: userIds["owner@beautyspot.co"], type: "APPOINTMENT_CONFIRMED", title: "Cita confirmada", message: "La cita de Diego Torres para hoy a las 9:00 AM ha sido confirmada.", channel: "IN_APP" },
     { userId: userIds["recepcionista@beautyspot.co"], type: "APPOINTMENT_REMINDER", title: "Recordatorio de cita", message: "Tienes una cita con Valentina Ruiz a las 10:00 AM. Servicio: Tinte de Cabello.", channel: "IN_APP" },
-    { userId: userIds["barbero1@beautyspot.co"], type: "APPOINTMENT_REMINDER", title: "Tu agenda de hoy", message: "Tienes 4 citas programadas para hoy. La primera es a las 9:00 AM con Diego Torres.", channel: "IN_APP" },
+    { userId: userIds["professionalo1@beautyspot.co"], type: "APPOINTMENT_REMINDER", title: "Tu agenda de hoy", message: "Tienes 4 citas programadas para hoy. La primera es a las 9:00 AM con Diego Torres.", channel: "IN_APP" },
     { userId: userIds["owner@beautyspot.co"], type: "REVIEW_RECEIVED", title: "Nueva reseña", message: "Diego Torres dejó una reseña de 5 estrellas: 'Excelente servicio como siempre...'", channel: "IN_APP" },
-    { userId: userIds["cliente1@beautyspot.co"], type: "APPOINTMENT_CONFIRMED", title: "Tu cita está confirmada", message: "Tu cita en Elite Barbershop para el día de hoy a las 9:00 AM ha sido confirmada. Profesional: Juan Pérez.", channel: "IN_APP" },
-    { userId: userIds["cliente2@beautyspot.co"], type: "APPOINTMENT_REMINDER", title: "Recordatorio: Cita mañana", message: "Tienes una cita mañana a las 10:00 AM en Elite Barbershop. Servicio: Tinte de Cabello.", channel: "IN_APP" },
+    { userId: userIds["cliente1@beautyspot.co"], type: "APPOINTMENT_CONFIRMED", title: "Tu cita está confirmada", message: "Tu cita en BeautySpot para el día de hoy a las 9:00 AM ha sido confirmada. Profesional: Juan Pérez.", channel: "IN_APP" },
+    { userId: userIds["cliente2@beautyspot.co"], type: "APPOINTMENT_REMINDER", title: "Recordatorio: Cita mañana", message: "Tienes una cita mañana a las 10:00 AM en BeautySpot. Servicio: Tinte de Cabello.", channel: "IN_APP" },
     { userId: userIds["owner@beautyspot.co"], type: "PROMOTION", title: "Promoción activa", message: "La promoción 'Martes de Barba Gratis' ha generado 15 reservas nuevas esta semana.", channel: "IN_APP" },
-    { userId: userIds["barbero2@beautyspot.co"], type: "APPOINTMENT_CANCELLED", title: "Cita cancelada", message: "La cita de las 3:00 PM ha sido cancelada por el cliente. Horario disponible.", channel: "IN_APP" },
+    { userId: userIds["professionalo2@beautyspot.co"], type: "APPOINTMENT_CANCELLED", title: "Cita cancelada", message: "La cita de las 3:00 PM ha sido cancelada por el cliente. Horario disponible.", channel: "IN_APP" },
     { userId: userIds["cliente4@beautyspot.co"], type: "APPOINTMENT_RESCHEDULED", title: "Cita reprogramada", message: "Tu cita ha sido reprogramada para mañana a las 11:00 AM. Profesional: Juan Pérez.", channel: "IN_APP" },
     { userId: userIds["admin@beautyspot.co"], type: "MEMBERSHIP_INVITATION", title: "Nuevo miembro", message: "Isabella Castro se ha registrado como nueva cliente. Revisa su perfil.", channel: "IN_APP" },
   ];
@@ -494,7 +494,7 @@ async function main() {
 
     console.log("📊 Resumen de datos creados:");
     console.log(`   👤 Usuarios: ${Object.keys(userIds).length}`);
-    console.log(`   🏢 Negocio: Elite Barbershop (${businessId})`);
+    console.log(`   🏢 Negocio: BeautySpot (${businessId})`);
     console.log(`   📍 Sucursales: 3`);
     console.log(`   ✂️  Servicios: ${Object.keys(serviceIds).length}`);
     console.log(`   👨‍🔧 Profesionales: ${Object.keys(professionalIds).length}`);
@@ -507,7 +507,7 @@ async function main() {
     console.log("\n🔑 Credenciales de acceso:");
     console.log("   Owner:    owner@beautyspot.co / Owner1234");
     console.log("   Admin:    admin@beautyspot.co / Admin1234");
-    console.log("   Barbero:  barbero1@beautyspot.co / Barber123");
+    console.log("   Professionalo:  professionalo1@beautyspot.co / Professional123");
     console.log("   Estilista: estilista@beautyspot.co / Style1234");
     console.log("   Recepción: recepcionista@beautyspot.co / Recep1234");
     console.log("   Cliente:  cliente1@beautyspot.co / Client123");

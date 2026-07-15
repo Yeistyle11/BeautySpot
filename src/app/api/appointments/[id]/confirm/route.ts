@@ -19,7 +19,7 @@ export async function POST(
     const appointment = await prisma.appointment.findUnique({
       where: { id: appointmentId },
       include: {
-        barber: true,
+        professional: true,
       },
     });
 
@@ -30,11 +30,11 @@ export async function POST(
       );
     }
 
-    // Solo barberos (dueños de la cita) o admins pueden confirmar
+    // Solo profesionales (dueños de la cita) o admins pueden confirmar
     if (
       session.user.role !== "ADMIN" &&
-      (session.user.role !== "BARBER" ||
-        appointment.barber.userId !== parseInt(session.user.id))
+      (session.user.role !== "PROFESSIONAL" ||
+        appointment.professional.userId !== parseInt(session.user.id))
     ) {
       return NextResponse.json(
         { error: "No tienes permiso para confirmar esta cita" },
@@ -62,7 +62,7 @@ export async function POST(
             email: true,
           },
         },
-        barber: {
+        professional: {
           include: {
             user: {
               select: {

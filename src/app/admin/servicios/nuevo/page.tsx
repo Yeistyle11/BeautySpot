@@ -23,7 +23,7 @@ export default async function NewServicePage() {
               { label: "Nuevo" },
             ]}
           />
-          <h1 className="text-3xl font-bold text-gray-900 mt-4">
+          <h1 className="mt-4 text-3xl font-bold text-gray-900">
             Crear Nuevo Servicio
           </h1>
         </div>

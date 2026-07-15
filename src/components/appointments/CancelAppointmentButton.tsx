@@ -13,7 +13,7 @@ export default function CancelAppointmentButton({
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     if (!confirm("¿Estás seguro de que deseas cancelar esta cita?")) {
       return;
     }
@@ -21,9 +21,12 @@ export default function CancelAppointmentButton({
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`/api/appointments/${appointmentId}/cancel`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `/api/appointments/${appointmentId}/cancel`,
+        {
+          method: "POST",
+        }
+      );
 
       if (response.ok) {
         window.location.href = "/cliente/citas";

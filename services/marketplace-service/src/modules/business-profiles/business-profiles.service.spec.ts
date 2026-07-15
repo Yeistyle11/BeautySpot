@@ -16,7 +16,7 @@ describe('BusinessProfilesService', () => {
     id: 'profile-123',
     businessId: 'business-123',
     slug: 'elite-barbers',
-    name: 'Elite Barbers',
+    name: 'BeautySpot Center',
     description: 'Mejores cortes de la ciudad',
     logo: 'logo.jpg',
     coverImage: 'cover.jpg',
@@ -106,7 +106,7 @@ describe('BusinessProfilesService', () => {
     it('debería crear un nuevo perfil', async () => {
       const dto = {
         businessId: 'business-123',
-        name: 'Elite Barbers',
+        name: 'BeautySpot Center',
         slug: 'elite-barbers',
         description: 'Mejores cortes',
       };
@@ -129,7 +129,7 @@ describe('BusinessProfilesService', () => {
     it('debería actualizar un perfil existente', async () => {
       const dto = {
         businessId: 'business-123',
-        name: 'Elite Barbers Updated',
+        name: 'BeautySpot Center Updated',
         slug: 'elite-barbers',
         description: 'Mejores cortes actualizados',
       };

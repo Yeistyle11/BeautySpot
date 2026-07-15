@@ -17,12 +17,12 @@ async function setupDemoData() {
       INSERT INTO businesses (id, name, slug, description, business_type, phone, email, address, city, state, country, lat, lng, active)
       VALUES (
         gen_random_uuid(),
-        'Demo Barbería',
-        'demo-barberia',
-        'Barbería de demo para pruebas',
+        'Demo Centro de Belleza',
+        'demo-belleza',
+        'Professionalía de demo para pruebas',
         'BARBERIA',
         '+57 300 123 4567',
-        'demo@barberia.com',
+        'demo@professionalia.com',
         'Calle 123 #45-67',
         'Bogotá',
         'Cundinamarca',
@@ -39,7 +39,7 @@ async function setupDemoData() {
 
     if (!businessId) {
       console.log('ℹ️ El negocio de demo ya existe');
-      const existingBusiness = await pool.query('SELECT id FROM businesses WHERE slug = $1', ['demo-barberia']);
+      const existingBusiness = await pool.query('SELECT id FROM businesses WHERE slug = $1', ['demo-belleza']);
       return existingBusiness.rows[0].id;
     }
 
@@ -55,7 +55,7 @@ async function setupDemoData() {
         'Calle 123 #45-67',
         'Bogotá',
         '+57 300 123 4567',
-        'demo@barberia.com',
+        'demo@professionalia.com',
         true,
         4.71,
         -74.07

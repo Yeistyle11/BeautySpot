@@ -82,7 +82,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       </header>
       <main>{children}</main>
       <footer className="border-t bg-white py-6 text-center text-sm text-muted-foreground">
-        <p>BeautySpot — Plataforma de gestion para barberias y salones de belleza</p>
+        <p>BeautySpot — Plataforma de gestion para centro de bellezas y salones de belleza</p>
       </footer>
     </div>
   );

@@ -24,13 +24,13 @@ export async function GET(request: NextRequest) {
     if (session.user.role === "CLIENT") {
       where.clientId = session.user.id;
     }
-    // Si es barbero, ver citas asignadas a él
-    else if (session.user.role === "BARBER") {
-      const barber = await prisma.barber.findUnique({
+    // Si es profesional, ver citas asignadas a él
+    else if (session.user.role === "PROFESSIONAL") {
+      const professional = await prisma.professional.findUnique({
         where: { userId: parseInt(session.user.id) },
       });
-      if (barber) {
-        where.barberId = barber.id;
+      if (professional) {
+        where.professionalId = professional.id;
       }
     }
     // Si es admin, ver todas
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
             phone: true,
           },
         },
-        barber: {
+        professional: {
           include: {
             user: {
               select: {
@@ -97,7 +97,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const validatedData = appointmentCreateSchema.parse(body);
-    const { serviceIds, barberId, date, startTime, notes } = validatedData;
+    const { serviceIds, professionalId, date, startTime, notes } =
+      validatedData;
 
     // Obtener los servicios para saber la duración y precio total
     const services = await prisma.service.findMany({
@@ -115,14 +116,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verificar que el barbero existe
-    const barberExists = await prisma.barber.findUnique({
-      where: { id: barberId },
+    // Verificar que el profesional existe
+    const professionalExists = await prisma.professional.findUnique({
+      where: { id: professionalId },
     });
 
-    if (!barberExists) {
+    if (!professionalExists) {
       return NextResponse.json(
-        { error: "El barbero no fue encontrado" },
+        { error: "El profesional no fue encontrado" },
         { status: 404 }
       );
     }
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
     // Verificar si ya existe una cita en ese horario
     const existingAppointment = await prisma.appointment.findFirst({
       where: {
-        barberId,
+        professionalId,
         date: appointmentDate,
         status: {
           in: ["PENDING", "CONFIRMED"],
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest) {
     const appointment = await prisma.appointment.create({
       data: {
         clientId: parseInt(session.user.id),
-        barberId,
+        professionalId,
         date: appointmentDate,
         startTime,
         endTime,
@@ -199,7 +200,7 @@ export async function POST(request: NextRequest) {
             service: true,
           },
         },
-        barber: {
+        professional: {
           include: {
             user: {
               select: { name: true },
@@ -210,7 +211,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Revalidar las páginas que muestran citas
-    revalidatePath("/barbero");
+    revalidatePath("/profesional");
     revalidatePath("/cliente/citas");
     revalidatePath("/admin");
 

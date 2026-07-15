@@ -38,7 +38,7 @@ export default async function ServicesPage() {
       {/* Contenido */}
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <p className="mb-8 text-center text-gray-600">
-          Descubre todos los servicios que ofrecemos en Elite Barbershop
+          Descubre todos los servicios que ofrecemos en BeautySpot
         </p>
 
         {/* Servicios por categoría */}

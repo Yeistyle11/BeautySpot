@@ -6,7 +6,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "BeautySpot - Panel de Gestion",
-  description: "Plataforma de gestion para barberias y salones de belleza",
+  description: "Plataforma de gestion para centro de bellezas y salones de belleza",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

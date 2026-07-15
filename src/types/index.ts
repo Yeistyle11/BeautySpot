@@ -1,4 +1,4 @@
-export type Role = "ADMIN" | "BARBER" | "CLIENT";
+export type Role = "ADMIN" | "PROFESSIONAL" | "CLIENT";
 
 export type AppointmentStatus =
   | "PENDING"
@@ -33,7 +33,7 @@ export interface Service {
 export interface Appointment {
   id: string;
   clientId: string;
-  barberId: string;
+  professionalId: string;
   serviceId: string;
   date: Date;
   startTime: string;

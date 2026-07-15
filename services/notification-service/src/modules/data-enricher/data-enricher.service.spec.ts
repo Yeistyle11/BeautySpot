@@ -34,7 +34,7 @@ describe("DataEnricherService", () => {
       const mockResponse = {
         client: { name: "Juan", email: "juan@test.com" },
         professional: { name: "Ana" },
-        business: { name: "Barber", address: "Calle 1", phone: "123" },
+        business: { name: "Professional", address: "Calle 1", phone: "123" },
       };
       jest.spyOn(global, "fetch").mockResolvedValue({
         ok: true,
@@ -51,7 +51,7 @@ describe("DataEnricherService", () => {
         clientName: "Juan",
         clientEmail: "juan@test.com",
         professionalName: "Ana",
-        businessName: "Barber",
+        businessName: "Professional",
         businessAddress: "Calle 1",
         businessPhone: "123",
       });

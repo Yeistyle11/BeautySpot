@@ -17,7 +17,7 @@ export default async function ClientDashboard() {
     where: { clientId: parseInt(session.user.id) },
     orderBy: [{ date: "desc" }, { startTime: "desc" }],
     include: {
-      barber: {
+      professional: {
         include: {
           user: {
             select: { name: true },
@@ -47,7 +47,7 @@ export default async function ClientDashboard() {
       startTime: apt.startTime,
       endTime: apt.endTime,
       status: apt.status,
-      barber: apt.barber,
+      professional: apt.professional,
       services,
       totalPrice,
       totalDuration,
@@ -238,7 +238,7 @@ export default async function ClientDashboard() {
                 ¿Listo para tu próximo corte?
               </h3>
               <p className="text-indigo-100">
-                Agenda tu cita con nuestros barberos expertos
+                Agenda tu cita con nuestros profesionales expertos
               </p>
             </div>
             <a
@@ -268,7 +268,7 @@ export default async function ClientDashboard() {
                     Fecha
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                    Barbero
+                    Profesional
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
                     Servicio
@@ -302,7 +302,7 @@ export default async function ClientDashboard() {
                         )}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                        {appointment.barber.user.name}
+                        {appointment.professional.user.name}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {appointment.services.length === 1 ? (

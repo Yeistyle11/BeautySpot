@@ -20,27 +20,24 @@ export async function middleware(request: NextRequest) {
     "/forgot-password",
     "/reset-password",
   ];
-  
-  const publicAccessRoutes = [
-    "/",
-    "/barberos",
-    "/servicios",
-  ];
-  
-  const isAuthRoute = authRoutes.some((route) =>
-    pathname.startsWith(route)
-  );
-  
-  const isPublicAccessRoute = publicAccessRoutes.some((route) =>
-    pathname === route || pathname.startsWith(route + "/")
+
+  const publicAccessRoutes = ["/", "/profesionales", "/servicios"];
+
+  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
+
+  const isPublicAccessRoute = publicAccessRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
   );
 
   // Si está en ruta de autenticación y YA está logueado → redirigir según rol
   if (isAuthRoute && token) {
     const userRole = token.role as string;
-    if (userRole === "ADMIN") return NextResponse.redirect(new URL("/admin", request.url));
-    if (userRole === "BARBER") return NextResponse.redirect(new URL("/barbero", request.url));
-    if (userRole === "CLIENT") return NextResponse.redirect(new URL("/cliente", request.url));
+    if (userRole === "ADMIN")
+      return NextResponse.redirect(new URL("/admin", request.url));
+    if (userRole === "PROFESSIONAL")
+      return NextResponse.redirect(new URL("/profesional", request.url));
+    if (userRole === "CLIENT")
+      return NextResponse.redirect(new URL("/cliente", request.url));
     return NextResponse.redirect(new URL("/", request.url));
   }
 
@@ -48,7 +45,7 @@ export async function middleware(request: NextRequest) {
   if (isAuthRoute) {
     return NextResponse.next();
   }
-  
+
   // Si está en ruta de acceso público → permitir acceso siempre (logueado o no)
   if (isPublicAccessRoute) {
     return NextResponse.next();
@@ -57,7 +54,7 @@ export async function middleware(request: NextRequest) {
   // ========================================
   // RUTAS PROTEGIDAS (requieren autenticación)
   // ========================================
-  const protectedRoutes = ["/profile", "/admin", "/barbero", "/cliente"];
+  const protectedRoutes = ["/profile", "/admin", "/profesional", "/cliente"];
   const isProtectedRoute = protectedRoutes.some((route) =>
     pathname.startsWith(route)
   );
@@ -80,8 +77,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/", request.url));
     }
 
-    // Solo BARBER puede acceder a /barbero/*
-    if (pathname.startsWith("/barbero") && userRole !== "BARBER") {
+    // Solo PROFESSIONAL puede acceder a /profesional/*
+    if (pathname.startsWith("/profesional") && userRole !== "PROFESSIONAL") {
       return NextResponse.redirect(new URL("/", request.url));
     }
 

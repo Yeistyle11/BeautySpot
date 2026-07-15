@@ -372,7 +372,7 @@ export default function ProfessionalsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Nombre *</Label>
-              <Input placeholder="Carlos Barber" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              <Input placeholder="Carlos Professional" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             </div>
             <div className="space-y-2">
               <Label>Categoría</Label>

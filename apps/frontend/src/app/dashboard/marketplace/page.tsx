@@ -379,7 +379,7 @@ export default function MarketplacePage() {
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <Label>Tagline (max 80 caracteres)</Label>
-              <Input maxLength={80} placeholder="La mejor experiencia en barberia..." value={configForm.tagline} onChange={(e) => setConfigForm({ ...configForm, tagline: e.target.value })} />
+              <Input maxLength={80} placeholder="La mejor experiencia en centro de belleza..." value={configForm.tagline} onChange={(e) => setConfigForm({ ...configForm, tagline: e.target.value })} />
               <p className="text-xs text-muted-foreground">{configForm.tagline.length}/80</p>
             </div>
 
@@ -593,7 +593,7 @@ export default function MarketplacePage() {
           </div>
           <div className="space-y-2">
             <Label>Categoria (opcional)</Label>
-            <Input placeholder="Cortes, Barberia, Estilo..." value={galleryForm.category} onChange={(e) => setGalleryForm({ ...galleryForm, category: e.target.value })} />
+            <Input placeholder="Cortes, Centro de belleza, Estilo..." value={galleryForm.category} onChange={(e) => setGalleryForm({ ...galleryForm, category: e.target.value })} />
           </div>
           <Button onClick={addGalleryImage} disabled={!galleryForm.url}>
             <Plus className="mr-2 h-4 w-4" /> Agregar

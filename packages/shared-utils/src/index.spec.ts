@@ -36,7 +36,7 @@ describe("Shared Utils", () => {
     });
 
     it("debería manejar números y letras", () => {
-      expect(generateSlug("Barber Shop 2024")).toBe("barber-shop-2024");
+      expect(generateSlug("Beauty Center 2024")).toBe("beauty-center-2024");
     });
   });
 
@@ -152,8 +152,8 @@ describe("Shared Utils", () => {
     });
 
     it("debería manejar parámetros de búsqueda", () => {
-      const result = parsePaginationQuery({ search: "barber" });
-      expect(result.search).toBe("barber");
+      const result = parsePaginationQuery({ search: "beauty" });
+      expect(result.search).toBe("beauty");
     });
 
     it("debería ignorar search si no es string", () => {

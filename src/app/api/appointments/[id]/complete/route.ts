@@ -13,7 +13,7 @@ export async function POST(
 
     if (
       !session ||
-      (session.user.role !== "BARBER" && session.user.role !== "ADMIN")
+      (session.user.role !== "PROFESSIONAL" && session.user.role !== "ADMIN")
     ) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
@@ -22,7 +22,7 @@ export async function POST(
     const appointment = await prisma.appointment.findUnique({
       where: { id: parseInt(params.id) },
       include: {
-        barber: true,
+        professional: true,
         services: {
           include: {
             service: true,
@@ -39,10 +39,10 @@ export async function POST(
       );
     }
 
-    // Verificar que el barbero es el dueño de la cita (excepto si es admin)
+    // Verificar que el profesional es el dueño de la cita (excepto si es admin)
     if (
       session.user.role !== "ADMIN" &&
-      appointment.barber.userId !== parseInt(session.user.id)
+      appointment.professional.userId !== parseInt(session.user.id)
     ) {
       return NextResponse.json(
         { error: "No tienes permiso para modificar esta cita" },

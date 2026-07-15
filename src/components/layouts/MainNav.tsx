@@ -12,8 +12,16 @@ export default function MainNav() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   // No mostrar navbar en páginas de auth y en la página principal
-  const authPages = ["/login", "/register", "/forgot-password", "/reset-password"];
-  if (pathname === "/" || authPages.some((page) => pathname?.startsWith(page))) {
+  const authPages = [
+    "/login",
+    "/register",
+    "/forgot-password",
+    "/reset-password",
+  ];
+  if (
+    pathname === "/" ||
+    authPages.some((page) => pathname?.startsWith(page))
+  ) {
     return null;
   }
 
@@ -21,7 +29,7 @@ export default function MainNav() {
     if (!session?.user) {
       return [
         { href: "/", label: "Inicio" },
-        { href: "/barberos", label: "Barberos" },
+        { href: "/profesionales", label: "Profesionales" },
         { href: "/servicios", label: "Servicios" },
         { href: "/login", label: "Iniciar Sesión" },
       ];
@@ -31,20 +39,20 @@ export default function MainNav() {
       case "ADMIN":
         return [
           { href: "/admin", label: "Dashboard" },
-          { href: "/admin/barberos", label: "Barberos" },
+          { href: "/admin/profesionales", label: "Profesionales" },
           { href: "/admin/servicios", label: "Servicios" },
           { href: "/admin/citas", label: "Citas" },
         ];
-      case "BARBER":
+      case "PROFESSIONAL":
         return [
-          { href: "/barbero", label: "Dashboard" },
-          { href: "/barbero/disponibilidad", label: "Disponibilidad" },
-          { href: "/barbero/bloqueos", label: "Bloqueos" },
+          { href: "/profesional", label: "Dashboard" },
+          { href: "/profesional/disponibilidad", label: "Disponibilidad" },
+          { href: "/profesional/bloqueos", label: "Bloqueos" },
         ];
       case "CLIENT":
         return [
           { href: "/cliente", label: "Dashboard" },
-          { href: "/barberos", label: "Barberos" },
+          { href: "/profesionales", label: "Profesionales" },
           { href: "/servicios", label: "Servicios" },
           { href: "/cliente/citas", label: "Mis Citas" },
           { href: "/citas/nueva", label: "Nueva Cita" },
@@ -85,7 +93,7 @@ export default function MainNav() {
                 Elite
               </span>
               <span className="hidden text-xs uppercase tracking-wider text-gray-500 sm:block">
-                Barbershop
+                BeautySpot
               </span>
             </div>
           </Link>
