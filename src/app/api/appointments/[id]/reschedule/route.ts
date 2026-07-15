@@ -33,7 +33,7 @@ export async function PATCH(
             service: true,
           },
         },
-        barber: true,
+        professional: true,
       },
     });
 
@@ -105,10 +105,10 @@ export async function PATCH(
     endDate.setHours(hours, minutes + totalDuration);
     const endTime = `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`;
 
-    // Verificar disponibilidad del barbero en el nuevo horario
+    // Verificar disponibilidad del profesional en el nuevo horario
     const conflictingAppointment = await prisma.appointment.findFirst({
       where: {
-        barberId: appointment.barberId,
+        professionalId: appointment.professionalId,
         date: newDate,
         status: {
           in: ["PENDING", "CONFIRMED"],
@@ -155,7 +155,7 @@ export async function PATCH(
             service: true,
           },
         },
-        barber: {
+        professional: {
           include: {
             user: {
               select: {

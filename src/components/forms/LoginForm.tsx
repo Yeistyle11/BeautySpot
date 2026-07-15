@@ -51,7 +51,7 @@ export default function LoginForm() {
   return (
     <div className="w-full max-w-md space-y-8">
       <div className="text-center">
-        <h2 className="text-3xl font-bold">💈 Elite Barbershop</h2>
+        <h2 className="text-3xl font-bold">💈 BeautySpot</h2>
         <p className="mt-2 text-gray-600">Inicia sesión en tu cuenta</p>
       </div>
 
@@ -144,8 +144,8 @@ export default function LoginForm() {
             Credenciales de prueba:
           </p>
           <div className="mt-2 space-y-1 text-xs text-gray-600">
-            <p>Admin: admin@barbershop.com / password123</p>
-            <p>Barbero: carlos.barbero@barbershop.com / password123</p>
+            <p>Admin: admin@beautyspot.com / password123</p>
+            <p>Profesional: carlos.professional@beautyspot.com / password123</p>
             <p>Cliente: juan.perez@email.com / password123</p>
           </div>
         </div>

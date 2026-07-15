@@ -58,7 +58,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 };
 
 const TYPE_LABELS: Record<string, string> = {
-  BARBERIA: "Barberia",
+  BELLEZA: "Centro de belleza",
   SALON: " Salon de Belleza",
   SPA: "Spa",
 };
@@ -122,7 +122,7 @@ export default function MarketplacePage() {
               Beauty<span className="text-primary">Spot</span>
             </h1>
             <p className="mx-auto mt-3 max-w-lg text-lg text-muted-foreground">
-              Explora las mejores barberias, salones y spas. Encuentra, compara y agenda tu cita en segundos.
+              Explora las mejores centro de bellezas, salones y spas. Encuentra, compara y agenda tu cita en segundos.
             </p>
           </div>
 

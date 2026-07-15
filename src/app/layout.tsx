@@ -7,8 +7,8 @@ import MainNav from "@/components/layouts/MainNav";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Elite Barbershop - Sistema de Gestión",
-  description: "Sistema moderno de gestión para barberías",
+  title: "BeautySpot - Sistema de Gestión",
+  description: "Sistema moderno de gestión para centro de bellezas",
 };
 
 export default function RootLayout({

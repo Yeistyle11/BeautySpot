@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       where: {
         id: validatedData.appointmentId,
         clientId: parseInt(session.user.id),
-        barberId: validatedData.barberId,
+        professionalId: validatedData.professionalId,
         status: "COMPLETED",
       },
       include: {
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     const review = await prisma.review.create({
       data: {
         appointmentId: validatedData.appointmentId,
-        barberId: validatedData.barberId,
+        professionalId: validatedData.professionalId,
         clientId: parseInt(session.user.id),
         rating: validatedData.rating,
         comment: validatedData.comment || null,
@@ -53,15 +53,15 @@ export async function POST(req: NextRequest) {
     });
 
     const reviews = await prisma.review.findMany({
-      where: { barberId: validatedData.barberId },
+      where: { professionalId: validatedData.professionalId },
       select: { rating: true },
     });
 
     const avgRating =
       reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
 
-    await prisma.barber.update({
-      where: { id: validatedData.barberId },
+    await prisma.professional.update({
+      where: { id: validatedData.professionalId },
       data: { rating: Math.round(avgRating * 10) / 10 },
     });
 

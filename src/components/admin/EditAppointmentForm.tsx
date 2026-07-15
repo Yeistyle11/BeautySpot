@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BarberImage } from "@/components/shared/BarberImage";
+import { ProfessionalImage } from "@/components/shared/ProfessionalImage";
 import { formatCurrency, formatDuration } from "@/lib/utils";
 import Toast from "@/components/ui/Toast";
 
-type Barber = {
+type Professional = {
   id: string | number;
   user: {
     id: number;
@@ -29,14 +29,14 @@ type Appointment = {
   startTime: string;
   endTime: string;
   status: string;
-  barberId: string | number;
+  professionalId: string | number;
   clientId: number;
   client: {
     id: number;
     name: string;
     email: string;
   };
-  barber: {
+  professional: {
     id: string | number;
     user: {
       id: number;
@@ -50,13 +50,13 @@ type Appointment = {
 
 type Props = {
   appointment: Appointment;
-  barbers: Barber[];
+  professionals: Professional[];
   services: Service[];
 };
 
 export default function EditAppointmentForm({
   appointment,
-  barbers,
+  professionals,
   services,
 }: Props) {
   const router = useRouter();
@@ -66,8 +66,8 @@ export default function EditAppointmentForm({
     type: "success" | "error";
   } | null>(null);
 
-  const [selectedBarberId, setSelectedBarberId] = useState(
-    appointment.barberId
+  const [selectedProfessionalId, setSelectedProfessionalId] = useState(
+    appointment.professionalId
   );
   const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>(
     appointment.services.map((as) => as.service.id)
@@ -97,8 +97,11 @@ export default function EditAppointmentForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedBarberId) {
-      setToast({ message: "Por favor selecciona un barbero", type: "error" });
+    if (!selectedProfessionalId) {
+      setToast({
+        message: "Por favor selecciona un profesional",
+        type: "error",
+      });
       return;
     }
 
@@ -125,10 +128,10 @@ export default function EditAppointmentForm({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          barberId:
-            typeof selectedBarberId === "string"
-              ? parseInt(selectedBarberId)
-              : selectedBarberId,
+          professionalId:
+            typeof selectedProfessionalId === "string"
+              ? parseInt(selectedProfessionalId)
+              : selectedProfessionalId,
           serviceIds: selectedServiceIds,
           date: date,
           startTime,
@@ -168,29 +171,29 @@ export default function EditAppointmentForm({
           <p className="text-sm text-gray-600">{appointment.client.email}</p>
         </div>
 
-        {/* Seleccionar barbero */}
+        {/* Seleccionar profesional */}
         <div>
           <label className="mb-3 block text-sm font-medium text-gray-700">
-            Barbero *
+            Profesional *
           </label>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {barbers.map((barber) => (
+            {professionals.map((professional) => (
               <div
-                key={barber.id}
-                onClick={() => setSelectedBarberId(barber.id)}
+                key={professional.id}
+                onClick={() => setSelectedProfessionalId(professional.id)}
                 className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 p-3 transition-all ${
-                  selectedBarberId === barber.id
+                  selectedProfessionalId === professional.id
                     ? "border-indigo-600 bg-indigo-50"
                     : "border-gray-200 hover:border-indigo-300"
                 }`}
               >
-                <BarberImage
-                  image={barber.user.image}
-                  name={barber.user.name}
+                <ProfessionalImage
+                  image={professional?.user.image}
+                  name={professional?.user.name}
                   size={40}
                 />
                 <span className="font-medium text-gray-900">
-                  {barber.user.name}
+                  {professional?.user.name}
                 </span>
               </div>
             ))}

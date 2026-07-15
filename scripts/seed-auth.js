@@ -36,8 +36,8 @@ async function main() {
 
   // Professionals
   const pros = [
-    { name: "Juan Perez", bio: "Barbero 8 anos.", specialties: ["Degradado", "Barba"], yearsExp: 8 },
-    { name: "Andres Gomez", bio: "Maestro barbero 12 anos.", specialties: ["Afeitado", "Vintage"], yearsExp: 12 },
+    { name: "Juan Perez", bio: "Professionalo 8 anos.", specialties: ["Degradado", "Barba"], yearsExp: 8 },
+    { name: "Andres Gomez", bio: "Maestro professionalo 12 anos.", specialties: ["Afeitado", "Vintage"], yearsExp: 12 },
     { name: "Laura Ramirez", bio: "Estilista profesional.", specialties: ["Tinte", "Tratamiento"], yearsExp: 6 },
   ];
   const proIds = {};
@@ -84,9 +84,9 @@ async function main() {
 
   // Marketplace profile
   await api("POST", BASE + ":3006/business-profiles", {
-    businessId: BIZ_ID, slug: "elite-barbershop", name: "Elite Barbershop",
-    description: "La mejor barberia de Bogota. Mas de 10 anos cuidando tu estilo.",
-    phone: "+57 601 234 5678", email: "info@elitebarbershop.co",
+    businessId: BIZ_ID, slug: "elite-beautyspot", name: "BeautySpot",
+    description: "La mejor professionalia de Bogota. Mas de 10 anos cuidando tu estilo.",
+    phone: "+57 601 234 5678", email: "info@elitebeautyspot.co",
     address: "Calle 85 #15-20, Zona Rosa", city: "Bogota", state: "Cundinamarca", country: "Colombia",
     lat: 4.6696, lng: -74.0564, businessType: "BARBERIA",
   });
@@ -97,7 +97,7 @@ async function main() {
     storyTitle: "Nuestra Historia",
     storyText: "Fundada en 2014, somos referencia de calidad en Bogota.",
     foundedYear: 2014, founders: "Carlos Mendez",
-    socialLinks: { instagram: "https://instagram.com/elitebarbershop", facebook: "https://facebook.com/elitebarbershop" },
+    socialLinks: { instagram: "https://instagram.com/elitebeautyspot", facebook: "https://facebook.com/elitebeautyspot" },
   }, h);
   console.log("Marketplace: config set");
 

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { formatCurrency, formatDuration } from "@/lib/utils";
-import { BarberImage } from "@/components/shared/BarberImage";
+import { ProfessionalImage } from "@/components/shared/ProfessionalImage";
 
 type Service = {
   id: number;
@@ -15,7 +15,7 @@ type Service = {
   category: string;
 };
 
-type Barber = {
+type Professional = {
   id: number;
   user: {
     name: string;
@@ -40,13 +40,14 @@ export default function NewAppointmentPage() {
 
   // State del formulario
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
-  const [selectedBarber, setSelectedBarber] = useState<Barber | null>(null);
+  const [selectedProfessional, setSelectedProfessional] =
+    useState<Professional | null>(null);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
 
   // Datos
   const [services, setServices] = useState<Service[]>([]);
-  const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
 
   // Estado del calendario
@@ -77,21 +78,21 @@ export default function NewAppointmentPage() {
     fetchServices();
   }, []);
 
-  // Cargar barberos cuando se seleccionan servicios
+  // Cargar profesionales cuando se seleccionan servicios
   useEffect(() => {
     if (selectedServices.length > 0) {
-      // Obtener barberos que ofrezcan todos los servicios seleccionados
-      fetchBarbersForServices(selectedServices.map((s) => s.id));
+      // Obtener profesionales que ofrezcan todos los servicios seleccionados
+      fetchProfessionalsForServices(selectedServices.map((s) => s.id));
     }
   }, [selectedServices]);
 
-  // Cargar horarios disponibles cuando se seleccionan barbero y fecha
+  // Cargar horarios disponibles cuando se seleccionan profesional y fecha
   useEffect(() => {
-    if (selectedBarber && selectedDate && selectedServices.length > 0) {
+    if (selectedProfessional && selectedDate && selectedServices.length > 0) {
       fetchAvailableSlots();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBarber, selectedDate]);
+  }, [selectedProfessional, selectedDate]);
 
   const fetchServices = async () => {
     try {
@@ -103,41 +104,49 @@ export default function NewAppointmentPage() {
     }
   };
 
-  const fetchBarbersForServices = async (serviceIds: number[]) => {
+  const fetchProfessionalsForServices = async (serviceIds: number[]) => {
     try {
-      // Obtener barberos para cada servicio
+      // Obtener profesionales para cada servicio
       const promises = serviceIds.map((id) =>
-        fetch(`/api/barber-services?serviceId=${id}`).then((r) => r.json())
+        fetch(`/api/professional-services?serviceId=${id}`).then((r) =>
+          r.json()
+        )
       );
       const results = await Promise.all(promises);
 
-      // Encontrar barberos que ofrezcan TODOS los servicios
-      const barberCounts = new Map<number, { barber: Barber; count: number }>();
+      // Encontrar profesionales que ofrezcan TODOS los servicios
+      const professionalCounts = new Map<
+        number,
+        { professional: Professional; count: number }
+      >();
 
       results.forEach((data) => {
         data.forEach((bs: any) => {
-          const barberId = bs.barber.id;
-          if (barberCounts.has(barberId)) {
-            barberCounts.get(barberId)!.count++;
+          const professionalId = bs.professional.id;
+          if (professionalCounts.has(professionalId)) {
+            professionalCounts.get(professionalId)!.count++;
           } else {
-            barberCounts.set(barberId, { barber: bs.barber, count: 1 });
+            professionalCounts.set(professionalId, {
+              professional: bs.professional,
+              count: 1,
+            });
           }
         });
       });
 
       // Filtrar solo los que ofrecen todos los servicios
-      const qualifiedBarbers = Array.from(barberCounts.values())
+      const qualifiedProfessionals = Array.from(professionalCounts.values())
         .filter((item) => item.count === serviceIds.length)
-        .map((item) => item.barber);
+        .map((item) => item.professional);
 
-      setBarbers(qualifiedBarbers);
+      setProfessionals(qualifiedProfessionals);
     } catch (err) {
-      console.error("Error al cargar barberos:", err);
+      console.error("Error al cargar profesionales:", err);
     }
   };
 
   const fetchAvailableSlots = async () => {
-    if (!selectedBarber || !selectedDate || selectedServices.length === 0)
+    if (!selectedProfessional || !selectedDate || selectedServices.length === 0)
       return;
 
     try {
@@ -149,7 +158,7 @@ export default function NewAppointmentPage() {
       );
 
       const res = await fetch(
-        `/api/appointments/availability?barberId=${selectedBarber.id}&date=${selectedDate}&duration=${totalDuration}`
+        `/api/appointments/availability?professionalId=${selectedProfessional.id}&date=${selectedDate}&duration=${totalDuration}`
       );
       const data = await res.json();
       setAvailableSlots(data.slots || []);
@@ -163,7 +172,7 @@ export default function NewAppointmentPage() {
   const handleSubmit = async () => {
     if (
       selectedServices.length === 0 ||
-      !selectedBarber ||
+      !selectedProfessional ||
       !selectedDate ||
       !selectedTime
     ) {
@@ -180,7 +189,7 @@ export default function NewAppointmentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           serviceIds: selectedServices.map((s) => s.id),
-          barberId: selectedBarber.id,
+          professionalId: selectedProfessional.id,
           date: selectedDate,
           startTime: selectedTime,
         }),
@@ -339,7 +348,7 @@ export default function NewAppointmentPage() {
           </div>
           <div className="mt-2 flex justify-between text-sm text-gray-600">
             <span>Servicio</span>
-            <span>Barbero</span>
+            <span>Profesional</span>
             <span>Fecha</span>
             <span>Confirmar</span>
           </div>
@@ -478,35 +487,35 @@ export default function NewAppointmentPage() {
             </div>
           )}
 
-          {/* Step 2: Seleccionar Barbero */}
+          {/* Step 2: Seleccionar Profesional */}
           {step === 2 && (
             <div>
               <h2 className="mb-6 text-2xl font-bold text-gray-900">
-                Selecciona un barbero
+                Selecciona un profesional
               </h2>
-              {barbers.length === 0 ? (
+              {professionals.length === 0 ? (
                 <p className="text-gray-600">
-                  No hay barberos disponibles para este servicio
+                  No hay profesionales disponibles para este servicio
                 </p>
               ) : (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {barbers.map((barber) => (
+                  {professionals.map((professional) => (
                     <button
-                      key={barber.id}
-                      onClick={() => setSelectedBarber(barber)}
+                      key={professional.id}
+                      onClick={() => setSelectedProfessional(professional)}
                       className={`rounded-xl border-2 p-6 text-left transition-all hover:shadow-lg ${
-                        selectedBarber?.id === barber.id
+                        selectedProfessional?.id === professional.id
                           ? "border-indigo-500 bg-indigo-50 shadow-md"
                           : "border-gray-200 hover:border-indigo-300"
                       }`}
                     >
                       <div className="flex items-center gap-4">
                         <div
-                          className={`${selectedBarber?.id === barber.id ? "rounded-full ring-4 ring-indigo-500 ring-offset-2" : ""}`}
+                          className={`${selectedProfessional?.id === professional.id ? "rounded-full ring-4 ring-indigo-500 ring-offset-2" : ""}`}
                         >
-                          <BarberImage
-                            image={barber.user.image}
-                            name={barber.user.name}
+                          <ProfessionalImage
+                            image={professional?.user.image}
+                            name={professional?.user.name}
                             size={80}
                             className="shadow-md"
                           />
@@ -514,9 +523,9 @@ export default function NewAppointmentPage() {
                         <div className="flex-1">
                           <div className="mb-1 flex items-center gap-2">
                             <h4 className="text-lg font-bold text-gray-900">
-                              {barber.user.name}
+                              {professional?.user.name}
                             </h4>
-                            {selectedBarber?.id === barber.id && (
+                            {selectedProfessional?.id === professional.id && (
                               <svg
                                 className="h-5 w-5 text-indigo-600"
                                 fill="currentColor"
@@ -545,7 +554,7 @@ export default function NewAppointmentPage() {
                                   d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                                 />
                               </svg>
-                              {barber.yearsExp} años de experiencia
+                              {professional.yearsExp} años de experiencia
                             </span>
                           </p>
                           <div className="flex items-center gap-1">
@@ -554,7 +563,7 @@ export default function NewAppointmentPage() {
                                 <svg
                                   key={i}
                                   className={`h-4 w-4 ${
-                                    i < Math.floor(barber.rating)
+                                    i < Math.floor(professional?.rating)
                                       ? "text-yellow-400"
                                       : "text-gray-300"
                                   }`}
@@ -566,7 +575,7 @@ export default function NewAppointmentPage() {
                               ))}
                             </div>
                             <span className="ml-1 text-sm font-semibold text-gray-700">
-                              {barber.rating.toFixed(1)}
+                              {professional?.rating.toFixed(1)}
                             </span>
                           </div>
                         </div>
@@ -592,7 +601,7 @@ export default function NewAppointmentPage() {
                 </div>
                 <button
                   onClick={() => setStep(3)}
-                  disabled={!selectedBarber}
+                  disabled={!selectedProfessional}
                   className="rounded-lg bg-indigo-600 px-6 py-2 text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Continuar
@@ -824,21 +833,21 @@ export default function NewAppointmentPage() {
                   </div>
                 </div>
 
-                {/* Barbero */}
+                {/* Profesional */}
                 <div className="rounded-lg bg-gray-50 p-4">
                   <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-700">
-                    Tu Barbero
+                    Tu Profesional
                   </p>
                   <div className="flex items-center gap-4 rounded-lg bg-white p-4 shadow-sm">
-                    <BarberImage
-                      image={selectedBarber?.user.image}
-                      name={selectedBarber?.user.name || ""}
+                    <ProfessionalImage
+                      image={selectedProfessional?.user.image}
+                      name={selectedProfessional?.user.name || ""}
                       size={64}
                       className="ring-2 ring-indigo-500"
                     />
                     <div className="flex-1">
                       <p className="text-lg font-bold text-gray-900">
-                        {selectedBarber?.user.name}
+                        {selectedProfessional?.user.name}
                       </p>
                       <div className="mt-1 flex items-center gap-2">
                         <div className="flex">
@@ -846,7 +855,8 @@ export default function NewAppointmentPage() {
                             <svg
                               key={i}
                               className={`h-4 w-4 ${
-                                i < Math.floor(selectedBarber?.rating || 0)
+                                i <
+                                Math.floor(selectedProfessional?.rating || 0)
                                   ? "text-yellow-400"
                                   : "text-gray-300"
                               }`}
@@ -858,7 +868,7 @@ export default function NewAppointmentPage() {
                           ))}
                         </div>
                         <span className="text-sm font-semibold text-gray-600">
-                          {selectedBarber?.rating.toFixed(1)}
+                          {selectedProfessional?.rating.toFixed(1)}
                         </span>
                       </div>
                     </div>

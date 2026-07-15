@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
-import { BarberImage } from "@/components/shared/BarberImage";
+import { ProfessionalImage } from "@/components/shared/ProfessionalImage";
 import AdminCalendar from "@/components/dashboard/AdminCalendar";
 import AutoRefresh from "@/components/shared/AutoRefresh";
 
@@ -52,7 +52,7 @@ export default async function AdminDashboard() {
   // Estadísticas generales
   const [
     totalUsers,
-    totalBarbers,
+    totalProfessionals,
     _totalServices,
     _totalAppointments,
     appointmentsToday,
@@ -61,7 +61,7 @@ export default async function AdminDashboard() {
     cancelledThisMonth,
   ] = await Promise.all([
     prisma.user.count(),
-    prisma.barber.count(),
+    prisma.professional.count(),
     prisma.service.count(),
     prisma.appointment.count(),
     prisma.appointment.count({
@@ -175,27 +175,27 @@ export default async function AdminDashboard() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  // Top barberos
-  const topBarbers = await prisma.appointment.groupBy({
-    by: ["barberId"],
+  // Top profesionales
+  const topProfessionals = await prisma.appointment.groupBy({
+    by: ["professionalId"],
     _count: {
-      barberId: true,
+      professionalId: true,
     },
     where: {
       status: "COMPLETED",
     },
     orderBy: {
       _count: {
-        barberId: "desc",
+        professionalId: "desc",
       },
     },
     take: 5,
   });
 
-  const topBarbersWithDetails = await Promise.all(
-    topBarbers.map(async (item) => {
-      const barber = await prisma.barber.findUnique({
-        where: { id: item.barberId },
+  const topProfessionalsWithDetails = await Promise.all(
+    topProfessionals.map(async (item) => {
+      const professional = await prisma.professional.findUnique({
+        where: { id: item.professionalId },
         include: {
           user: {
             select: { name: true, image: true },
@@ -203,10 +203,10 @@ export default async function AdminDashboard() {
         },
       });
       return {
-        name: barber?.user.name || "Desconocido",
-        image: barber?.user.image || null,
-        count: item._count.barberId,
-        rating: barber?.rating || 0,
+        name: professional?.user.name || "Desconocido",
+        image: professional?.user.image || null,
+        count: item._count.professionalId,
+        rating: professional?.rating || 0,
       };
     })
   );
@@ -219,7 +219,7 @@ export default async function AdminDashboard() {
       client: {
         select: { name: true },
       },
-      barber: {
+      professional: {
         include: {
           user: {
             select: { name: true },
@@ -271,7 +271,7 @@ export default async function AdminDashboard() {
       client: {
         select: { name: true, email: true, phone: true },
       },
-      barber: {
+      professional: {
         include: {
           user: {
             select: { name: true },
@@ -302,10 +302,10 @@ export default async function AdminDashboard() {
       endTime: apt.endTime,
       status: apt.status,
       notes: apt.notes,
-      barber: {
-        id: apt.barber.id,
+      professional: {
+        id: apt.professional.id,
         user: {
-          name: apt.barber.user.name,
+          name: apt.professional.user.name,
         },
       },
       client: apt.client,
@@ -315,8 +315,8 @@ export default async function AdminDashboard() {
     };
   });
 
-  // Obtener lista de barberos para el filtro
-  const allBarbers = await prisma.barber.findMany({
+  // Obtener lista de profesionales para el filtro
+  const allProfessionals = await prisma.professional.findMany({
     where: { active: true },
     include: {
       user: {
@@ -341,7 +341,9 @@ export default async function AdminDashboard() {
               <h1 className="text-3xl font-bold text-gray-900">
                 Panel de Administración
               </h1>
-              <p className="mt-1 text-gray-600">Gestiona tu barbería</p>
+              <p className="mt-1 text-gray-600">
+                Gestiona tu centro de belleza
+              </p>
             </div>
             <div className="flex gap-4">
               <Link
@@ -351,10 +353,10 @@ export default async function AdminDashboard() {
                 Citas
               </Link>
               <Link
-                href="/admin/barberos"
+                href="/admin/profesionales"
                 className="font-medium text-indigo-600 hover:text-indigo-800"
               >
-                Barberos
+                Profesionales
               </Link>
               <Link
                 href="/admin/servicios"
@@ -474,7 +476,7 @@ export default async function AdminDashboard() {
                 <p className="text-sm font-medium text-indigo-100">Usuarios</p>
                 <p className="mt-2 text-3xl font-bold">{totalUsers}</p>
                 <p className="mt-1 text-xs text-indigo-100">
-                  {totalBarbers} barberos
+                  {totalProfessionals} profesionales
                 </p>
               </div>
               <div className="rounded-lg bg-white bg-opacity-20 p-3">
@@ -500,7 +502,7 @@ export default async function AdminDashboard() {
         <div className="mb-8">
           <AdminCalendar
             appointments={monthAppointments}
-            barbers={allBarbers}
+            professionals={allProfessionals}
           />
         </div>
 
@@ -550,39 +552,39 @@ export default async function AdminDashboard() {
             </div>
           </div>
 
-          {/* Top barberos */}
+          {/* Top profesionales */}
           <div className="rounded-lg bg-white shadow">
             <div className="border-b border-gray-200 px-6 py-4">
               <h3 className="text-lg font-semibold text-gray-900">
-                Top Barberos
+                Top Profesionales
               </h3>
             </div>
             <div className="p-6">
-              {topBarbersWithDetails.length > 0 ? (
+              {topProfessionalsWithDetails.length > 0 ? (
                 <div className="space-y-4">
-                  {topBarbersWithDetails.map((barber, index) => (
+                  {topProfessionalsWithDetails.map((professional, index) => (
                     <div
                       key={index}
                       className="flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3">
-                        <BarberImage
-                          image={barber.image}
-                          name={barber.name}
+                        <ProfessionalImage
+                          image={professional?.image}
+                          name={professional?.name}
                           size={40}
                         />
                         <div>
                           <p className="font-semibold text-gray-900">
-                            {barber.name}
+                            {professional?.name}
                           </p>
                           <p className="text-sm text-yellow-600">
-                            ★ {barber.rating.toFixed(1)}
+                            ★ {professional?.rating.toFixed(1)}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-gray-900">
-                          {barber.count}
+                          {professional.count}
                         </p>
                         <p className="text-xs text-gray-600">completadas</p>
                       </div>
@@ -613,7 +615,7 @@ export default async function AdminDashboard() {
                     Cliente
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Barbero
+                    Profesional
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Servicio
@@ -645,7 +647,7 @@ export default async function AdminDashboard() {
                         {apt.client.name}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                        {apt.barber.user.name}
+                        {apt.professional.user.name}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {services.length === 1
@@ -711,7 +713,7 @@ export default async function AdminDashboard() {
                         className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
                           user.role === "ADMIN"
                             ? "bg-red-100 text-red-800"
-                            : user.role === "BARBER"
+                            : user.role === "PROFESSIONAL"
                               ? "bg-green-100 text-green-800"
                               : "bg-blue-100 text-blue-800"
                         }`}

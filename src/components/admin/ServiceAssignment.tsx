@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarberImage } from "@/components/shared/BarberImage";
+import { ProfessionalImage } from "@/components/shared/ProfessionalImage";
 import { formatCurrency } from "@/lib/utils";
 
 type Service = {
@@ -12,7 +12,7 @@ type Service = {
   category: string;
 };
 
-type Barber = {
+type Professional = {
   id: string | number;
   user: {
     name: string;
@@ -25,12 +25,12 @@ type Barber = {
 };
 
 type ServiceAssignmentProps = {
-  barbers: Barber[];
+  professionals: Professional[];
   allServices: Service[];
 };
 
 export default function ServiceAssignment({
-  barbers,
+  professionals,
   allServices,
 }: ServiceAssignmentProps) {
   const [loading, setLoading] = useState(false);
@@ -39,9 +39,9 @@ export default function ServiceAssignment({
   >(() => {
     // Inicializar con los servicios ya asignados
     const initial: Record<string, Set<string>> = {};
-    barbers.forEach((barber) => {
-      initial[String(barber.id)] = new Set(
-        barber.services.map((s) => String(s.serviceId))
+    professionals.forEach((professional) => {
+      initial[String(professional.id)] = new Set(
+        professional.services.map((s) => String(s.serviceId))
       );
     });
     return initial;
@@ -59,41 +59,41 @@ export default function ServiceAssignment({
     {} as Record<string, Service[]>
   );
 
-  const toggleService = (barberId: string, serviceId: string) => {
+  const toggleService = (professionalId: string, serviceId: string) => {
     setSelectedServices((prev) => {
       const newState = { ...prev };
-      const barberServices = new Set(prev[barberId]);
+      const professionalServices = new Set(prev[professionalId]);
 
-      if (barberServices.has(serviceId)) {
-        barberServices.delete(serviceId);
+      if (professionalServices.has(serviceId)) {
+        professionalServices.delete(serviceId);
       } else {
-        barberServices.add(serviceId);
+        professionalServices.add(serviceId);
       }
 
-      newState[barberId] = barberServices;
+      newState[professionalId] = professionalServices;
       return newState;
     });
   };
 
-  const selectAll = (barberId: string) => {
+  const selectAll = (professionalId: string) => {
     setSelectedServices((prev) => ({
       ...prev,
-      [barberId]: new Set(allServices.map((s) => String(s.id))),
+      [professionalId]: new Set(allServices.map((s) => String(s.id))),
     }));
   };
 
-  const deselectAll = (barberId: string) => {
+  const deselectAll = (professionalId: string) => {
     setSelectedServices((prev) => ({
       ...prev,
-      [barberId]: new Set(),
+      [professionalId]: new Set(),
     }));
   };
 
-  const hasChanges = (barberId: string) => {
-    const current = selectedServices[barberId] || new Set();
+  const hasChanges = (professionalId: string) => {
+    const current = selectedServices[professionalId] || new Set();
     const original = new Set(
-      barbers
-        .find((b) => String(b.id) === barberId)
+      professionals
+        .find((b) => String(b.id) === professionalId)
         ?.services.map((s) => String(s.serviceId)) || []
     );
 
@@ -105,14 +105,14 @@ export default function ServiceAssignment({
     return false;
   };
 
-  const handleSave = async (barberId: string) => {
+  const handleSave = async (professionalId: string) => {
     setLoading(true);
 
     try {
-      const currentServices = selectedServices[barberId] || new Set();
+      const currentServices = selectedServices[professionalId] || new Set();
       const originalServices = new Set(
-        barbers
-          .find((b) => String(b.id) === barberId)
+        professionals
+          .find((b) => String(b.id) === professionalId)
           ?.services.map((s) => String(s.serviceId)) || []
       );
 
@@ -128,10 +128,10 @@ export default function ServiceAssignment({
 
       // Agregar servicios
       for (const serviceId of toAdd) {
-        const response = await fetch("/api/barber-services", {
+        const response = await fetch("/api/professional-services", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ barberId, serviceId }),
+          body: JSON.stringify({ professionalId, serviceId }),
         });
 
         if (!response.ok) {
@@ -141,10 +141,10 @@ export default function ServiceAssignment({
 
       // Quitar servicios
       for (const serviceId of toRemove) {
-        const response = await fetch("/api/barber-services", {
+        const response = await fetch("/api/professional-services", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ barberId, serviceId }),
+          body: JSON.stringify({ professionalId, serviceId }),
         });
 
         if (!response.ok) {
@@ -160,12 +160,12 @@ export default function ServiceAssignment({
     }
   };
 
-  const handleCancel = (barberId: string) => {
+  const handleCancel = (professionalId: string) => {
     setSelectedServices((prev) => ({
       ...prev,
-      [barberId]: new Set(
-        barbers
-          .find((b) => String(b.id) === barberId)
+      [professionalId]: new Set(
+        professionals
+          .find((b) => String(b.id) === professionalId)
           ?.services.map((s) => String(s.serviceId)) || []
       ),
     }));
@@ -173,27 +173,29 @@ export default function ServiceAssignment({
 
   return (
     <div className="space-y-6">
-      {barbers.map((barber) => {
+      {professionals.map((professional) => {
         const currentServices =
-          selectedServices[String(barber.id)] || new Set();
-        const changed = hasChanges(String(barber.id));
+          selectedServices[String(professional.id)] || new Set();
+        const changed = hasChanges(String(professional.id));
 
         return (
-          <div key={barber.id} className="rounded-lg bg-white shadow">
-            {/* Barber Info */}
+          <div key={professional.id} className="rounded-lg bg-white shadow">
+            {/* Información del profesional */}
             <div className="border-b border-gray-200 p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <BarberImage
-                    image={barber.user.image}
-                    name={barber.user.name}
+                  <ProfessionalImage
+                    image={professional?.user.image}
+                    name={professional?.user.name}
                     size={64}
                   />
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">
-                      {barber.user.name}
+                      {professional?.user.name}
                     </h2>
-                    <p className="text-sm text-gray-600">{barber.user.email}</p>
+                    <p className="text-sm text-gray-600">
+                      {professional?.user.email}
+                    </p>
                     <p className="text-sm text-gray-500">
                       {currentServices.size} de {allServices.length} servicios
                       seleccionados
@@ -207,7 +209,7 @@ export default function ServiceAssignment({
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => selectAll(String(barber.id))}
+                    onClick={() => selectAll(String(professional.id))}
                     disabled={
                       loading || currentServices.size === allServices.length
                     }
@@ -216,7 +218,7 @@ export default function ServiceAssignment({
                     ✓ Seleccionar Todos
                   </button>
                   <button
-                    onClick={() => deselectAll(String(barber.id))}
+                    onClick={() => deselectAll(String(professional.id))}
                     disabled={loading || currentServices.size === 0}
                     className="rounded-lg bg-gray-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -249,7 +251,7 @@ export default function ServiceAssignment({
                             key={service.id}
                             onClick={() =>
                               toggleService(
-                                String(barber.id),
+                                String(professional.id),
                                 String(service.id)
                               )
                             }
@@ -308,14 +310,14 @@ export default function ServiceAssignment({
               <div className="border-t border-gray-200 bg-gray-50 p-6">
                 <div className="flex justify-end gap-3">
                   <button
-                    onClick={() => handleCancel(String(barber.id))}
+                    onClick={() => handleCancel(String(professional.id))}
                     disabled={loading}
                     className="rounded-lg border-2 border-gray-300 bg-white px-6 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Cancelar
                   </button>
                   <button
-                    onClick={() => handleSave(String(barber.id))}
+                    onClick={() => handleSave(String(professional.id))}
                     disabled={loading}
                     className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2 font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >

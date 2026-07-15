@@ -19,10 +19,10 @@ export default async function CreateReviewPage({
   const appointment = await prisma.appointment.findUnique({
     where: {
       id: parseInt(params.id),
-      clientId: session.user.id,
+      clientId: parseInt(session.user.id),
     },
     include: {
-      barber: {
+      professional: {
         include: {
           user: {
             select: {
@@ -73,21 +73,21 @@ export default async function CreateReviewPage({
         <div className="mb-6 rounded-lg bg-white p-6 shadow">
           <div className="flex items-center gap-4">
             <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-indigo-600 to-purple-600">
-              {appointment.barber.user.image ? (
+              {appointment.professional.user.image ? (
                 <img
-                  src={appointment.barber.user.image}
-                  alt={appointment.barber.user.name}
+                  src={appointment.professional.user.image}
+                  alt={appointment.professional.user.name}
                   className="h-full w-full object-cover"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-white">
-                  {appointment.barber.user.name.charAt(0)}
+                  {appointment.professional.user.name.charAt(0)}
                 </div>
               )}
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
-                {appointment.barber.user.name}
+                {appointment.professional.user.name}
               </h2>
               <p className="text-sm text-gray-600">
                 {new Date(appointment.date).toLocaleDateString("es-ES", {
@@ -115,7 +115,7 @@ export default async function CreateReviewPage({
         {/* Formulario de reseña */}
         <ReviewForm
           appointmentId={appointment.id}
-          barberId={appointment.barberId}
+          professionalId={appointment.professionalId}
         />
       </div>
     </div>

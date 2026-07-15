@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { formatCurrency, formatDuration } from "@/lib/utils";
-import { BarberImage } from "@/components/shared/BarberImage";
+import { ProfessionalImage } from "@/components/shared/ProfessionalImage";
 
 export default async function ClientAppointmentsPage({
   searchParams,
@@ -30,7 +30,7 @@ export default async function ClientAppointmentsPage({
           service: true,
         },
       },
-      barber: {
+      professional: {
         include: {
           user: {
             select: {
@@ -60,7 +60,7 @@ export default async function ClientAppointmentsPage({
       endTime: apt.endTime,
       status: apt.status,
       notes: apt.notes,
-      barber: apt.barber,
+      professional: apt.professional,
       services,
       totalPrice,
       totalDuration,
@@ -136,103 +136,35 @@ export default async function ClientAppointmentsPage({
 
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow transition-shadow hover:shadow-lg">
-        <Link
-          href={`/cliente/citas/${appointment.id}`}
-          className="block"
-        >
-        <div className="mb-4 flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <BarberImage
-              image={appointment.barber.user.image}
-              name={appointment.barber.user.name}
-              size={48}
-            />
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-gray-900">
-                  {appointment.services.length === 1
-                    ? appointment.services[0].name
-                    : `${appointment.services.length} servicios`}
-                </h3>
-                <span className="text-xs text-gray-500">
-                  #{appointment.id.toString().padStart(4, "0")}
-                </span>
+        <Link href={`/cliente/citas/${appointment.id}`} className="block">
+          <div className="mb-4 flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <ProfessionalImage
+                image={appointment.professional.user.image}
+                name={appointment.professional.user.name}
+                size={48}
+              />
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-gray-900">
+                    {appointment.services.length === 1
+                      ? appointment.services[0].name
+                      : `${appointment.services.length} servicios`}
+                  </h3>
+                  <span className="text-xs text-gray-500">
+                    #{appointment.id.toString().padStart(4, "0")}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600">
+                  con {appointment.professional.user.name}
+                </p>
               </div>
-              <p className="text-sm text-gray-600">
-                con {appointment.barber.user.name}
-              </p>
             </div>
-          </div>
-          {getStatusBadge(appointment.status)}
-        </div>
-
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center text-gray-600">
-            <svg
-              className="mr-2 h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            {aptDate.toLocaleDateString("es-ES", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </div>
-          <div className="flex items-center text-gray-600">
-            <svg
-              className="mr-2 h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            {appointment.startTime} - {appointment.endTime}
+            {getStatusBadge(appointment.status)}
           </div>
 
-          {/* Lista de servicios */}
-          <div className="space-y-1 pl-7">
-            {appointment.services.map((service: any, idx: number) => (
-              <div key={idx} className="text-sm text-gray-600">
-                • {service.name} ({service.duration} min)
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-center text-gray-600">
-            <svg
-              className="mr-2 h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            {formatCurrency(appointment.totalPrice)} •{" "}
-            {formatDuration(appointment.totalDuration)}
-          </div>
-          {appointment.totalPoints > 0 && (
-            <div className="flex items-center text-indigo-600">
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center text-gray-600">
               <svg
                 className="mr-2 h-5 w-5"
                 fill="none"
@@ -243,13 +175,78 @@ export default async function ClientAppointmentsPage({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                 />
               </svg>
-              +{appointment.totalPoints} puntos ganados
+              {aptDate.toLocaleDateString("es-ES", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
             </div>
-          )}
-        </div>
+            <div className="flex items-center text-gray-600">
+              <svg
+                className="mr-2 h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              {appointment.startTime} - {appointment.endTime}
+            </div>
+
+            {/* Lista de servicios */}
+            <div className="space-y-1 pl-7">
+              {appointment.services.map((service: any, idx: number) => (
+                <div key={idx} className="text-sm text-gray-600">
+                  • {service.name} ({service.duration} min)
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center text-gray-600">
+              <svg
+                className="mr-2 h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              {formatCurrency(appointment.totalPrice)} •{" "}
+              {formatDuration(appointment.totalDuration)}
+            </div>
+            {appointment.totalPoints > 0 && (
+              <div className="flex items-center text-indigo-600">
+                <svg
+                  className="mr-2 h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                  />
+                </svg>
+                +{appointment.totalPoints} puntos ganados
+              </div>
+            )}
+          </div>
 
           <div className="mt-4 border-t border-gray-200 pt-4">
             <p className="text-center text-sm text-gray-500">
@@ -257,7 +254,7 @@ export default async function ClientAppointmentsPage({
             </p>
           </div>
         </Link>
-        
+
         {/* Botón de reseña fuera del Link */}
         {appointment.status === "COMPLETED" && !appointment.hasReview && (
           <div className="mt-4">
@@ -276,7 +273,7 @@ export default async function ClientAppointmentsPage({
             </Link>
           </div>
         )}
-        
+
         {appointment.status === "COMPLETED" && appointment.hasReview && (
           <div className="mt-4 flex items-center justify-center text-sm text-green-600">
             <svg

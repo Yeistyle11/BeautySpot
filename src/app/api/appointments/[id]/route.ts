@@ -23,7 +23,7 @@ export async function GET(
             service: true,
           },
         },
-        barber: {
+        professional: {
           include: {
             user: {
               select: {
@@ -53,8 +53,8 @@ export async function GET(
     const hasAccess =
       appointment.clientId === parseInt(session.user.id) ||
       session.user.role === "ADMIN" ||
-      (session.user.role === "BARBER" &&
-        appointment.barber?.userId === parseInt(session.user.id));
+      (session.user.role === "PROFESSIONAL" &&
+        appointment.professional?.userId === parseInt(session.user.id));
 
     if (!hasAccess) {
       return NextResponse.json(
@@ -85,10 +85,11 @@ export async function PATCH(
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
-    const { barberId, serviceIds, date, startTime } = await request.json();
+    const { professionalId, serviceIds, date, startTime } =
+      await request.json();
 
     if (
-      !barberId ||
+      !professionalId ||
       !serviceIds ||
       serviceIds.length === 0 ||
       !date ||
@@ -150,7 +151,7 @@ export async function PATCH(
       const apt = await tx.appointment.update({
         where: { id: parseInt(params.id) },
         data: {
-          barberId,
+          professionalId,
           date: appointmentDate,
           startTime,
           endTime,

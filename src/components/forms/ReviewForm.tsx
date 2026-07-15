@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 
 interface ReviewFormProps {
   appointmentId: number;
-  barberId: number;
+  professionalId: number;
 }
 
 export default function ReviewForm({
   appointmentId,
-  barberId,
+  professionalId,
 }: ReviewFormProps) {
   const router = useRouter();
   const [rating, setRating] = useState(5);
@@ -31,7 +31,7 @@ export default function ReviewForm({
         },
         body: JSON.stringify({
           appointmentId,
-          barberId,
+          professionalId,
           rating,
           comment,
         }),

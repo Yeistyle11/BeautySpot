@@ -24,8 +24,8 @@ describe("ProfessionalsService", () => {
     userId: "user-123",
     name: "John Doe",
     photo: "",
-    bio: "Experienced barber",
-    category: "Barber",
+    bio: "Experienced professional",
+    category: "Professional",
     specialties: ["Haircut", "Beard Trim"],
     yearsExp: 5,
     rating: 4.5,
@@ -115,7 +115,7 @@ describe("ProfessionalsService", () => {
     it("debería crear un profesional exitosamente", async () => {
       const data = {
         name: "John Doe",
-        category: "Barber",
+        category: "Professional",
       };
 
       mockRepo.create.mockReturnValue(mockProfessional);

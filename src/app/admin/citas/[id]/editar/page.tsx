@@ -28,7 +28,7 @@ export default async function EditAppointmentPage({
           email: true,
         },
       },
-      barber: {
+      professional: {
         include: {
           user: {
             select: {
@@ -55,8 +55,8 @@ export default async function EditAppointmentPage({
     redirect(`/admin/citas/${params.id}`);
   }
 
-  // Obtener todos los barberos disponibles
-  const barbers = await prisma.barber.findMany({
+  // Obtener todos los profesionales disponibles
+  const professionals = await prisma.professional.findMany({
     include: {
       user: {
         select: {
@@ -87,11 +87,14 @@ export default async function EditAppointmentPage({
             items={[
               { label: "Admin", href: "/admin" },
               { label: "Citas", href: "/admin/citas" },
-              { label: `Cita #${appointment.id.toString().padStart(4, "0")}`, href: `/admin/citas/${appointment.id}` },
+              {
+                label: `Cita #${appointment.id.toString().padStart(4, "0")}`,
+                href: `/admin/citas/${appointment.id}`,
+              },
               { label: "Editar" },
             ]}
           />
-          <h1 className="text-3xl font-bold text-gray-900 mt-4">
+          <h1 className="mt-4 text-3xl font-bold text-gray-900">
             Editar Cita #{appointment.id.toString().padStart(4, "0")}
           </h1>
           <p className="mt-1 text-sm text-gray-600">
@@ -104,7 +107,7 @@ export default async function EditAppointmentPage({
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <EditAppointmentForm
           appointment={appointment}
-          barbers={barbers}
+          professionals={professionals}
           services={services}
         />
       </main>

@@ -14,7 +14,7 @@ describe('FeedService', () => {
     id: 'profile-123',
     businessId: 'business-123',
     slug: 'elite-barbers',
-    name: 'Elite Barbers',
+    name: 'BeautySpot Center',
     rating: 4.8,
     totalReviews: 100,
     profileCompleteness: 85,

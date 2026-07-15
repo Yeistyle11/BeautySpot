@@ -11,7 +11,7 @@ describe("BusinessesService", () => {
 
   const mockBusiness: Business = {
     id: "business-123",
-    name: "Test Barber Shop",
+    name: "Test Beauty Center",
     slug: "test-barber-shop",
     description: "A great barber shop",
     city: "Bogotá",
@@ -76,10 +76,10 @@ describe("BusinessesService", () => {
   describe("create", () => {
     it("debería crear un negocio exitosamente", async () => {
       const createData = {
-        name: "Test Barber Shop",
+        name: "Test Beauty Center",
         description: "A great barber shop",
         city: "Bogotá",
-        businessType: "barbershop",
+        businessType: "beautyspot",
       };
 
       mockRepository.findOne.mockResolvedValue(null);
@@ -101,7 +101,7 @@ describe("BusinessesService", () => {
 
     it("debería lanzar ConflictException si el slug ya existe", async () => {
       const createData = {
-        name: "Test Barber Shop",
+        name: "Test Beauty Center",
         description: "A great barber shop",
         city: "Bogotá",
       };
@@ -163,11 +163,11 @@ describe("BusinessesService", () => {
     it("debería filtrar por tipo de negocio", async () => {
       const queryBuilder = mockRepository.createQueryBuilder() as any;
 
-      await service.findAll({ businessType: "barbershop" });
+      await service.findAll({ businessType: "beautyspot" });
 
       expect(queryBuilder.andWhere).toHaveBeenCalledWith(
         "b.business_type = :type",
-        { type: "barbershop" }
+        { type: "beautyspot" }
       );
     });
 
@@ -294,7 +294,7 @@ describe("BusinessesService", () => {
   describe("update", () => {
     it("debería actualizar el negocio correctamente", async () => {
       const updateData = {
-        name: "Updated Barber Shop",
+        name: "Updated Beauty Center",
         description: "Updated description",
       };
 
@@ -310,7 +310,7 @@ describe("BusinessesService", () => {
         updateData
       );
       expect(mockRepository.findOne).toHaveBeenCalled();
-      expect(result.name).toBe("Updated Barber Shop");
+      expect(result.name).toBe("Updated Beauty Center");
       expect(result.description).toBe("Updated description");
     });
 

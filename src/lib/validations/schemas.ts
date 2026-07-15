@@ -77,7 +77,7 @@ export const serviceUpdateSchema = serviceSchema
   })
   .partial();
 
-export const barberCreateSchema = z.object({
+export const professionalCreateSchema = z.object({
   name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
   email: z.string().email("Email inválido"),
   phone: z.string().optional(),
@@ -88,7 +88,7 @@ export const barberCreateSchema = z.object({
   image: z.string().optional(),
 });
 
-export const barberUpdateSchema = z.object({
+export const professionalUpdateSchema = z.object({
   name: z.string().min(3).optional(),
   phone: z.string().optional(),
   bio: z.string().optional(),
@@ -101,7 +101,7 @@ export const barberUpdateSchema = z.object({
 
 export const appointmentCreateSchema = z.object({
   serviceIds: z.array(z.number()).min(1, "Selecciona al menos un servicio"),
-  barberId: z.number().min(1, "Selecciona un barbero"),
+  professionalId: z.number().min(1, "Selecciona un profesional"),
   date: z.string().min(1, "Selecciona una fecha"),
   startTime: z.string().min(1, "Selecciona una hora"),
   notes: z.string().optional(),
@@ -125,7 +125,7 @@ export const appointmentCancelSchema = z.object({
 
 export const reviewSchema = z.object({
   appointmentId: z.number().min(1, "Selecciona una cita"),
-  barberId: z.number().min(1, "Selecciona un barbero"),
+  professionalId: z.number().min(1, "Selecciona un profesional"),
   rating: z
     .number()
     .min(1, "La calificación mínima es 1")
@@ -133,8 +133,8 @@ export const reviewSchema = z.object({
   comment: z.string().optional(),
 });
 
-export const barberServiceSchema = z.object({
-  barberId: z.number().min(1, "Selecciona un barbero"),
+export const professionalServiceSchema = z.object({
+  professionalId: z.number().min(1, "Selecciona un profesional"),
   serviceId: z.number().min(1, "Selecciona un servicio"),
 });
 
@@ -148,8 +148,8 @@ export const blockedSlotSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type ServiceInput = z.infer<typeof serviceSchema>;
-export type BarberCreateInput = z.infer<typeof barberCreateSchema>;
-export type BarberUpdateInput = z.infer<typeof barberUpdateSchema>;
+export type ProfessionalCreateInput = z.infer<typeof professionalCreateSchema>;
+export type ProfessionalUpdateInput = z.infer<typeof professionalUpdateSchema>;
 export type AppointmentCreateInput = z.infer<typeof appointmentCreateSchema>;
 export type ReviewInput = z.infer<typeof reviewSchema>;
 export type ProfileInput = z.infer<typeof profileSchema>;

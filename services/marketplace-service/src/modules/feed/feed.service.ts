@@ -28,20 +28,19 @@ export interface FeedResponse {
 export class FeedService {
   constructor(
     private readonly profilesService: BusinessProfilesService,
-    private readonly professionalProfilesService: ProfessionalProfilesService,
+    private readonly professionalProfilesService: ProfessionalProfilesService
   ) {}
 
-  async getFeed(lat?: number, lng?: number, city?: string): Promise<FeedResponse> {
+  async getFeed(
+    lat?: number,
+    lng?: number,
+    city?: string
+  ): Promise<FeedResponse> {
     // Categorias disponibles
     const categories = await this.getCategories();
 
     // Secciones curadas en paralelo
-    const [
-      popular,
-      topRated,
-      recent,
-      topProfessionals,
-    ] = await Promise.all([
+    const [popular, topRated, recent, topProfessionals] = await Promise.all([
       this.getPopularNearby(lat, lng, city),
       this.getTopRated(),
       this.getRecent(),
@@ -95,9 +94,9 @@ export class FeedService {
 
   private async getCategories(): Promise<FeedCategory[]> {
     const categoryConfigs = [
-      { id: "BARBERIA", name: "Barberias", icon: "scissors" },
+      { id: "BARBERIA", name: "Barberías", icon: "scissors" },
       { id: "SALON", name: "Salones de Belleza", icon: "mirror" },
-      { id: "SPA", name: "Spas y Centros Esteticos", icon: "spa" },
+      { id: "SPA", name: "Spas y Centros Estéticos", icon: "spa" },
     ];
 
     const categories: FeedCategory[] = [];
@@ -112,9 +111,15 @@ export class FeedService {
     return categories;
   }
 
-  private async getPopularNearby(lat?: number, lng?: number, city?: string): Promise<BusinessProfileEntity[]> {
+  private async getPopularNearby(
+    lat?: number,
+    lng?: number,
+    city?: string
+  ): Promise<BusinessProfileEntity[]> {
     const { items } = await this.profilesService.findPublished({
-      lat, lng, city,
+      lat,
+      lng,
+      city,
       radius: 25,
       limit: 10,
       page: 1,
