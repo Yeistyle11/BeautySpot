@@ -100,7 +100,7 @@ cd apps/frontend && npm run dev
 
 La aplicación corre en:
 
-- **Frontend**: http://localhost:3001
+- **Frontend**: http://localhost:8080
 - **API Gateway**: http://localhost:3000
 
 ### Instalación con Docker completo
@@ -119,31 +119,26 @@ docker compose up -d postgres redis rabbitmq \
 
 ```bash
 # Desarrollo
-turbo dev                # Inicia todos los servicios en modo watch
-npm run dev              # Inicia servidor de desarrollo
+npm run dev                # turbo dev (microservicios + frontend)
+cd apps/frontend && npm run dev  # Frontend solo (puerto 8080)
 
 # Build
-turbo build              # Build de todos los servicios y packages
+npm run build              # turbo build (todos los servicios y packages)
 
 # Tests
-npm test                 # Ejecuta todos los tests Jest
-npm run test:coverage     # Tests con coverage
-npm run verify-coverage   # Verifica % de cobertura
+npm test                   # Ejecuta todos los tests Jest (12 proyectos)
+npm run test:coverage      # Tests con coverage
 
 # Calidad de código
-turbo lint               # ESLint en todo el monorepo
-turbo type-check         # TypeScript check en todo el monorepo
-
-# Base de datos
-docker compose up -d postgres redis rabbitmq  # Infraestructura
-npm run db:push          # Crear tablas en desarrollo
-npm run db:seed          # Cargar datos de demostración
-npm run db:studio        # Prisma Studio GUI
+npm run lint               # ESLint en todo el monorepo (turbo)
+npm run type-check         # TypeScript check (turbo)
+npm run format             # Prettier
+npm run format:check       # Prettier check
 
 # Docker
-docker compose up -d      # Inicia todos los servicios
-docker compose down        # Detiene todos los servicios
-docker compose logs        # Ver logs de todos los servicios
+npm run docker:up          # Inicia todos los servicios
+npm run docker:down        # Detiene todos los servicios
+npm run docker:logs        # Ver logs de todos los servicios
 ```
 
 ## Estructura del Proyecto
@@ -160,7 +155,7 @@ BeautySpot/
 │   ├── marketplace-service/  # Marketplace Service (puerto 3006)
 │   └── analytics-service/   # Analytics Service (puerto 3007)
 ├── apps/                   # Aplicaciones frontend
-│   └── frontend/            # Next.js 14 frontend (puerto 3001)
+│   └── frontend/            # Next.js 14 frontend (puerto 8080)
 ├── packages/               # Paquetes compartidos
 │   ├── database/            # TypeORM entities, pagination
 │   ├── event-types/         # Contratos de eventos RabbitMQ
