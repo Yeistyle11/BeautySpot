@@ -3,10 +3,14 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/utils";
+import dynamic from "next/dynamic";
 import ProfessionalAppointments from "@/components/dashboard/ProfessionalAppointments";
-import ProfessionalCalendar from "@/components/dashboard/ProfessionalCalendar";
 import AutoRefresh from "@/components/shared/AutoRefresh";
 import LastUpdateIndicator from "@/components/shared/LastUpdateIndicator";
+
+const ProfessionalCalendar = dynamic(
+  () => import("@/components/dashboard/ProfessionalCalendar")
+);
 
 export default async function ProfessionalDashboard() {
   const session = await getServerSession(authOptions);
@@ -38,111 +42,8 @@ export default async function ProfessionalDashboard() {
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-
-  // Citas de hoy
-  const todayAppointmentsRaw = await prisma.appointment.findMany({
-    where: {
-      professionalId: professional.id,
-      date: {
-        gte: today,
-        lt: tomorrow,
-      },
-    },
-    include: {
-      client: {
-        select: { name: true, email: true, phone: true },
-      },
-      services: {
-        include: {
-          service: {
-            select: { name: true, price: true, duration: true },
-          },
-        },
-      },
-    },
-    orderBy: { startTime: "asc" },
-  });
-
-  // Mapear citas de hoy con sus múltiples servicios
-  const todayAppointments = todayAppointmentsRaw.map((apt) => {
-    const services = apt.services.map((as) => as.service);
-    const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
-    const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
-
-    return {
-      key: apt.id,
-      id: apt.id,
-      ids: [apt.id],
-      date: apt.date,
-      startTime: apt.startTime,
-      endTime: apt.endTime,
-      status: apt.status,
-      notes: apt.notes,
-      client: apt.client,
-      services,
-      totalPrice,
-      totalDuration,
-    };
-  });
-
-  // Citas próximas (siguientes 7 días)
   const nextWeek = new Date(today);
   nextWeek.setDate(nextWeek.getDate() + 7);
-
-  const upcomingAppointmentsRaw = await prisma.appointment.findMany({
-    where: {
-      professionalId: professional.id,
-      date: {
-        gte: tomorrow,
-        lt: nextWeek,
-      },
-      status: {
-        in: ["PENDING", "CONFIRMED"],
-      },
-    },
-    include: {
-      client: {
-        select: { name: true, email: true, phone: true },
-      },
-      services: {
-        include: {
-          service: {
-            select: { name: true, price: true, duration: true },
-          },
-        },
-      },
-    },
-    orderBy: [{ date: "asc" }, { startTime: "asc" }],
-  });
-
-  // Mapear citas próximas con sus múltiples servicios
-  const upcomingAppointments = upcomingAppointmentsRaw.map((apt) => {
-    const services = apt.services.map((as) => as.service);
-    const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
-    const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
-
-    return {
-      key: apt.id,
-      id: apt.id,
-      ids: [apt.id],
-      date: apt.date,
-      startTime: apt.startTime,
-      endTime: apt.endTime,
-      status: apt.status,
-      notes: apt.notes,
-      client: apt.client,
-      services,
-      totalPrice,
-      totalDuration,
-    };
-  });
-
-  // Calcular ingresos del día usando las citas agrupadas
-  const todayEarnings = todayAppointments
-    .filter((apt) => apt.status === "COMPLETED")
-    .reduce((sum, apt) => sum + apt.totalPrice, 0);
-
-  // Obtener citas del mes completo para el calendario
   const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   const lastDayOfMonth = new Date(
     today.getFullYear(),
@@ -153,50 +54,112 @@ export default async function ProfessionalDashboard() {
     59
   );
 
-  const monthAppointmentsRaw = await prisma.appointment.findMany({
-    where: {
-      professionalId: professional.id,
-      date: {
-        gte: firstDayOfMonth,
-        lte: lastDayOfMonth,
-      },
-    },
-    include: {
-      client: {
-        select: { name: true, email: true, phone: true },
-      },
-      services: {
-        include: {
-          service: {
-            select: { name: true, price: true, duration: true },
+  // Las 3 queries son independientes entre sí: lanzarlas en paralelo
+  // (antes eran 3 awaits secuenciales)
+  const [todayAppointmentsRaw, upcomingAppointmentsRaw, monthAppointmentsRaw] =
+    await Promise.all([
+      prisma.appointment.findMany({
+        where: {
+          professionalId: professional.id,
+          date: {
+            gte: today,
+            lt: tomorrow,
           },
         },
-      },
-    },
-    orderBy: [{ date: "asc" }, { startTime: "asc" }],
-  });
+        include: {
+          client: {
+            select: { name: true, email: true, phone: true },
+          },
+          services: {
+            include: {
+              service: {
+                select: { name: true, price: true, duration: true },
+              },
+            },
+          },
+        },
+        orderBy: { startTime: "asc" },
+      }),
+      prisma.appointment.findMany({
+        where: {
+          professionalId: professional.id,
+          date: {
+            gte: tomorrow,
+            lt: nextWeek,
+          },
+          status: {
+            in: ["PENDING", "CONFIRMED"],
+          },
+        },
+        include: {
+          client: {
+            select: { name: true, email: true, phone: true },
+          },
+          services: {
+            include: {
+              service: {
+                select: { name: true, price: true, duration: true },
+              },
+            },
+          },
+        },
+        orderBy: [{ date: "asc" }, { startTime: "asc" }],
+      }),
+      prisma.appointment.findMany({
+        where: {
+          professionalId: professional.id,
+          date: {
+            gte: firstDayOfMonth,
+            lte: lastDayOfMonth,
+          },
+        },
+        include: {
+          client: {
+            select: { name: true, email: true, phone: true },
+          },
+          services: {
+            include: {
+              service: {
+                select: { name: true, price: true, duration: true },
+              },
+            },
+          },
+        },
+        orderBy: [{ date: "asc" }, { startTime: "asc" }],
+      }),
+    ]);
 
-  // Mapear citas del mes
-  const monthAppointments = monthAppointmentsRaw.map((apt) => {
-    const services = apt.services.map((as) => as.service);
-    const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
-    const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
+  // Helper local para mapear estructura de citas (usado 3 veces)
+  const mapAppointments = (apts: typeof todayAppointmentsRaw) =>
+    apts.map((apt) => {
+      const services = apt.services.map((as) => as.service);
+      const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
+      const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
 
-    return {
-      key: apt.id,
-      id: apt.id,
-      ids: [apt.id],
-      date: apt.date,
-      startTime: apt.startTime,
-      endTime: apt.endTime,
-      status: apt.status,
-      notes: apt.notes,
-      client: apt.client,
-      services,
-      totalPrice,
-      totalDuration,
-    };
-  });
+      return {
+        key: apt.id,
+        id: apt.id,
+        ids: [apt.id],
+        date: apt.date,
+        startTime: apt.startTime,
+        endTime: apt.endTime,
+        status: apt.status,
+        notes: apt.notes,
+        client: apt.client,
+        services,
+        totalPrice,
+        totalDuration,
+      };
+    });
+
+  const todayAppointments = mapAppointments(todayAppointmentsRaw);
+  const upcomingAppointments = mapAppointments(upcomingAppointmentsRaw);
+  const monthAppointments = mapAppointments(monthAppointmentsRaw);
+
+  // Calcular ingresos del día usando las citas agrupadas
+  const todayEarnings = todayAppointments
+    .filter((apt) => apt.status === "COMPLETED")
+    .reduce((sum, apt) => sum + apt.totalPrice, 0);
 
   return (
     <div className="min-h-screen bg-gray-50">

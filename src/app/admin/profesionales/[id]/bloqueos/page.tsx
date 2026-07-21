@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 interface BlockedSlot {
   id?: number;
@@ -24,6 +25,7 @@ export default function AdminBlockedSlotsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState("");
+  const [slotToDelete, setSlotToDelete] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     date: "",
@@ -107,8 +109,6 @@ export default function AdminBlockedSlotsPage() {
   };
 
   const handleDelete = async (slotId: number) => {
-    if (!confirm("¿Eliminar este bloque?")) return;
-
     try {
       const response = await fetch(
         `/api/professionals/${professionalId}/blocked-slots?slotId=${slotId}`,
@@ -128,6 +128,13 @@ export default function AdminBlockedSlotsPage() {
       console.error("Error:", error);
       setMessage("Error al eliminar bloque");
     }
+  };
+
+  const confirmDelete = () => {
+    if (slotToDelete === null) return;
+    const target = slotToDelete;
+    setSlotToDelete(null);
+    handleDelete(target);
   };
 
   const formatDate = (dateString: string) => {
@@ -310,7 +317,7 @@ export default function AdminBlockedSlotsPage() {
                       )}
                     </div>
                     <button
-                      onClick={() => handleDelete(slot.id!)}
+                      onClick={() => setSlotToDelete(slot.id!)}
                       className="rounded px-3 py-1 text-red-600 transition-colors hover:bg-red-50 hover:text-red-800"
                     >
                       Eliminar
@@ -343,6 +350,17 @@ export default function AdminBlockedSlotsPage() {
           </div>
         </div>
       </div>
+
+      {slotToDelete !== null && (
+        <ConfirmDialog
+          title="Eliminar bloque"
+          message="¿Eliminar este bloque?"
+          confirmText="Sí, eliminar"
+          confirmColor="red"
+          onConfirm={confirmDelete}
+          onCancel={() => setSlotToDelete(null)}
+        />
+      )}
     </div>
   );
 }

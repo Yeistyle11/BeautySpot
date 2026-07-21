@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 interface BlockedSlot {
   id?: number;
@@ -13,6 +14,11 @@ interface BlockedSlot {
   reason?: string;
 }
 
+interface Professional {
+  id: number;
+  userId: number;
+}
+
 export default function BlockedSlotsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -21,6 +27,7 @@ export default function BlockedSlotsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState("");
+  const [slotToDelete, setSlotToDelete] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     date: "",
@@ -45,6 +52,7 @@ export default function BlockedSlotsPage() {
       }
       fetchProfessionalAndSlots();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, status]);
 
   const fetchProfessionalAndSlots = async () => {
@@ -53,9 +61,9 @@ export default function BlockedSlotsPage() {
 
       // Obtener profesional
       const professionalRes = await fetch("/api/professionals");
-      const professionals = await professionalRes.json();
+      const professionals: Professional[] = await professionalRes.json();
       const myProfessional = professionals.find(
-        (b: any) => b.userId === parseInt(session!.user.id)
+        (b) => b.userId === parseInt(session!.user.id)
       );
 
       if (!myProfessional) {
@@ -69,7 +77,7 @@ export default function BlockedSlotsPage() {
       const slotsRes = await fetch(
         `/api/professionals/${myProfessional.id}/blocked-slots`
       );
-      const slotsData = await slotsRes.json();
+      const slotsData: BlockedSlot[] = await slotsRes.json();
       setBlockedSlots(slotsData);
     } catch (error) {
       console.error("Error al cargar bloques:", error);
@@ -115,12 +123,18 @@ export default function BlockedSlotsPage() {
     }
   };
 
-  const handleDelete = async (slotId: number) => {
-    if (!confirm("¿Eliminar este bloque?")) return;
+  const confirmDelete = async () => {
+    if (slotToDelete === null || !professionalId) {
+      setSlotToDelete(null);
+      return;
+    }
+
+    const targetSlotId = slotToDelete;
+    setSlotToDelete(null);
 
     try {
       const response = await fetch(
-        `/api/professionals/${professionalId}/blocked-slots?slotId=${slotId}`,
+        `/api/professionals/${professionalId}/blocked-slots?slotId=${targetSlotId}`,
         {
           method: "DELETE",
         }
@@ -301,7 +315,7 @@ export default function BlockedSlotsPage() {
                       )}
                     </div>
                     <button
-                      onClick={() => handleDelete(slot.id!)}
+                      onClick={() => setSlotToDelete(slot.id!)}
                       className="rounded px-3 py-1 text-red-600 transition-colors hover:bg-red-50 hover:text-red-800"
                     >
                       Eliminar
@@ -328,6 +342,17 @@ export default function BlockedSlotsPage() {
           </div>
         </div>
       </div>
+
+      {slotToDelete !== null && (
+        <ConfirmDialog
+          title="Eliminar bloque"
+          message="¿Eliminar este bloque?"
+          confirmText="Sí, eliminar"
+          confirmColor="red"
+          onConfirm={confirmDelete}
+          onCancel={() => setSlotToDelete(null)}
+        />
+      )}
     </div>
   );
 }

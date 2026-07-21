@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 interface CancelAppointmentButtonProps {
   appointmentId: number;
@@ -10,14 +12,12 @@ export default function CancelAppointmentButton({
   appointmentId,
 }: CancelAppointmentButtonProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!confirm("¿Estás seguro de que deseas cancelar esta cita?")) {
-      return;
-    }
-
+  const handleConfirm = async () => {
+    setShowConfirm(false);
     setIsSubmitting(true);
 
     try {
@@ -29,26 +29,46 @@ export default function CancelAppointmentButton({
       );
 
       if (response.ok) {
-        window.location.href = "/cliente/citas";
+        router.push("/cliente/citas");
+        router.refresh();
       } else {
-        alert("Error al cancelar la cita");
+        setErrorMsg("Error al cancelar la cita");
         setIsSubmitting(false);
       }
     } catch (error) {
-      alert("Error al cancelar la cita");
+      console.error("Error al cancelar la cita:", error);
+      setErrorMsg("Error al cancelar la cita");
       setIsSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex-1">
+    <>
       <button
-        type="submit"
+        type="button"
+        onClick={() => setShowConfirm(true)}
         disabled={isSubmitting}
         className="w-full rounded-lg bg-red-600 px-6 py-3 font-medium text-white transition-colors hover:bg-red-700 disabled:bg-gray-400"
       >
         {isSubmitting ? "Cancelando..." : "❌ Cancelar Cita"}
       </button>
-    </form>
+
+      {showConfirm && (
+        <ConfirmDialog
+          title="Cancelar cita"
+          message="¿Estás seguro de que deseas cancelar esta cita?"
+          confirmText="Sí, cancelar"
+          confirmColor="red"
+          onConfirm={handleConfirm}
+          onCancel={() => setShowConfirm(false)}
+        />
+      )}
+
+      {errorMsg && (
+        <p className="mt-2 text-sm text-red-600" role="alert">
+          {errorMsg}
+        </p>
+      )}
+    </>
   );
 }

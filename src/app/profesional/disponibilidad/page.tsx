@@ -12,6 +12,11 @@ interface AvailabilitySlot {
   active: boolean;
 }
 
+interface Professional {
+  id: number;
+  userId: number;
+}
+
 const DAYS_OF_WEEK = [
   "Domingo",
   "Lunes",
@@ -55,9 +60,9 @@ export default function ProfessionalAvailabilityPage() {
 
       // Obtener información del profesional
       const professionalRes = await fetch("/api/professionals");
-      const professionals = await professionalRes.json();
+      const professionals: Professional[] = await professionalRes.json();
       const myProfessional = professionals.find(
-        (b: any) => b.userId === parseInt(session!.user.id)
+        (b) => b.userId === parseInt(session!.user.id)
       );
 
       if (!myProfessional) {
