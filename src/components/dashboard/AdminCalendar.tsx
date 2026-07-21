@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo, memo } from "react";
 import { formatCurrency, formatDuration } from "@/lib/utils";
+import { getStatusColor, getStatusText } from "@/lib/appointment-status";
 
 type Service = {
   name: string;
@@ -45,29 +46,23 @@ type AdminCalendarProps = {
   professionals: Professional[];
 };
 
-export default function AdminCalendar({
-  appointments: initialAppointments,
-  professionals,
-}: AdminCalendarProps) {
-  const [appointments, setAppointments] = useState(initialAppointments);
+function AdminCalendar({ appointments, professionals }: AdminCalendarProps) {
   const [selectedProfessionalId, setSelectedProfessionalId] =
     useState<string>("all");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
 
-  // Filtrar citas por profesional
-  const filteredAppointments =
-    selectedProfessionalId === "all"
-      ? appointments
-      : appointments.filter(
-          (apt) => String(apt.professional.id) === selectedProfessionalId
-        );
-
-  // Actualizar appointments cuando cambien las props
-  useEffect(() => {
-    setAppointments(initialAppointments);
-  }, [initialAppointments]);
+  // Filtrar citas por profesional derivado en render (antes era state + useEffect)
+  const filteredAppointments = useMemo(
+    () =>
+      selectedProfessionalId === "all"
+        ? appointments
+        : appointments.filter(
+            (apt) => String(apt.professional.id) === selectedProfessionalId
+          ),
+    [appointments, selectedProfessionalId]
+  );
 
   // Scroll automático cuando se selecciona un día
   useEffect(() => {
@@ -79,74 +74,83 @@ export default function AdminCalendar({
     }
   }, [selectedDate]);
 
-  // Obtener el primer día del mes
-  const firstDayOfMonth = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth(),
-    1
-  );
-  const lastDayOfMonth = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth() + 1,
-    0
-  );
+  // Generar días del calendario memoizado (3 loops evitados en cada render)
+  const calendarDays = useMemo<
+    Array<{ date: Date; isCurrentMonth: boolean }>
+  >(() => {
+    const firstDayOfMonth = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      1
+    );
+    const lastDayOfMonth = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() + 1,
+      0
+    );
+    const firstDayWeekday = firstDayOfMonth.getDay();
+    const daysInMonth = lastDayOfMonth.getDate();
+    const prevMonthDays = firstDayWeekday === 0 ? 6 : firstDayWeekday - 1;
+    const lastDayPrevMonth = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      0
+    ).getDate();
 
-  // Obtener el día de la semana del primer día (0 = domingo, 1 = lunes, etc.)
-  const firstDayWeekday = firstDayOfMonth.getDay();
+    const days: Array<{ date: Date; isCurrentMonth: boolean }> = [];
 
-  // Días del mes
-  const daysInMonth = lastDayOfMonth.getDate();
+    for (let i = prevMonthDays; i > 0; i--) {
+      days.push({
+        date: new Date(
+          currentDate.getFullYear(),
+          currentDate.getMonth() - 1,
+          lastDayPrevMonth - i + 1
+        ),
+        isCurrentMonth: false,
+      });
+    }
 
-  // Días del mes anterior que se muestran
-  const prevMonthDays = firstDayWeekday === 0 ? 6 : firstDayWeekday - 1;
-  const lastDayPrevMonth = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth(),
-    0
-  ).getDate();
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push({
+        date: new Date(currentDate.getFullYear(), currentDate.getMonth(), i),
+        isCurrentMonth: true,
+      });
+    }
 
-  // Generar días del calendario
-  const calendarDays: Array<{ date: Date; isCurrentMonth: boolean }> = [];
+    const remainingDays = 42 - days.length;
+    for (let i = 1; i <= remainingDays; i++) {
+      days.push({
+        date: new Date(
+          currentDate.getFullYear(),
+          currentDate.getMonth() + 1,
+          i
+        ),
+        isCurrentMonth: false,
+      });
+    }
 
-  // Días del mes anterior
-  for (let i = prevMonthDays; i > 0; i--) {
-    calendarDays.push({
-      date: new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth() - 1,
-        lastDayPrevMonth - i + 1
-      ),
-      isCurrentMonth: false,
-    });
-  }
+    return days;
+  }, [currentDate]);
 
-  // Días del mes actual
-  for (let i = 1; i <= daysInMonth; i++) {
-    calendarDays.push({
-      date: new Date(currentDate.getFullYear(), currentDate.getMonth(), i),
-      isCurrentMonth: true,
-    });
-  }
-
-  // Días del mes siguiente para completar la grilla
-  const remainingDays = 42 - calendarDays.length;
-  for (let i = 1; i <= remainingDays; i++) {
-    calendarDays.push({
-      date: new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, i),
-      isCurrentMonth: false,
-    });
-  }
-
-  // Obtener citas de un día específico
-  const getAppointmentsForDay = (date: Date) => {
-    return filteredAppointments.filter((apt) => {
+  // Indexar citas por fecha (YYYY-M-D) para O(1) lookup por día
+  const appointmentsByDay = useMemo(() => {
+    const map = new Map<string, Appointment[]>();
+    for (const apt of filteredAppointments) {
       const aptDate = new Date(apt.date);
-      return (
-        aptDate.getDate() === date.getDate() &&
-        aptDate.getMonth() === date.getMonth() &&
-        aptDate.getFullYear() === date.getFullYear()
-      );
-    });
+      const key = `${aptDate.getFullYear()}-${aptDate.getMonth()}-${aptDate.getDate()}`;
+      const list = map.get(key);
+      if (list) {
+        list.push(apt);
+      } else {
+        map.set(key, [apt]);
+      }
+    }
+    return map;
+  }, [filteredAppointments]);
+
+  const getAppointmentsForDay = (date: Date) => {
+    const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    return appointmentsByDay.get(key) || [];
   };
 
   // Navegar entre meses
@@ -168,40 +172,6 @@ export default function AdminCalendar({
   const selectedDayAppointments = selectedDate
     ? getAppointmentsForDay(selectedDate)
     : [];
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "PENDING":
-        return "bg-yellow-100 text-yellow-800";
-      case "CONFIRMED":
-        return "bg-blue-100 text-blue-800";
-      case "COMPLETED":
-        return "bg-green-100 text-green-800";
-      case "CANCELLED":
-        return "bg-red-100 text-red-800";
-      case "NO_SHOW":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "PENDING":
-        return "Pendiente";
-      case "CONFIRMED":
-        return "Confirmada";
-      case "COMPLETED":
-        return "Completada";
-      case "CANCELLED":
-        return "Cancelada";
-      case "NO_SHOW":
-        return "No asistió";
-      default:
-        return status;
-    }
-  };
 
   return (
     <div className="rounded-lg bg-white p-4 shadow-lg md:p-6">
@@ -457,3 +427,5 @@ export default function AdminCalendar({
     </div>
   );
 }
+
+export default memo(AdminCalendar);

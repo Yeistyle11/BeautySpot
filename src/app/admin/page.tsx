@@ -3,32 +3,15 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { formatCurrency } from "@/lib/utils";
 import { ProfessionalImage } from "@/components/shared/ProfessionalImage";
-import AdminCalendar from "@/components/dashboard/AdminCalendar";
+import StatusBadge from "@/components/shared/StatusBadge";
 import AutoRefresh from "@/components/shared/AutoRefresh";
 
-const getStatusBadge = (status: string) => {
-  const styles = {
-    PENDING: "bg-yellow-100 text-yellow-800",
-    CONFIRMED: "bg-blue-100 text-blue-800",
-    COMPLETED: "bg-green-100 text-green-800",
-    CANCELLED: "bg-red-100 text-red-800",
-  };
-  const labels = {
-    PENDING: "Pendiente",
-    CONFIRMED: "Confirmada",
-    COMPLETED: "Completada",
-    CANCELLED: "Cancelada",
-  };
-  return (
-    <span
-      className={`rounded-full px-2 py-1 text-xs font-semibold ${styles[status as keyof typeof styles]}`}
-    >
-      {labels[status as keyof typeof labels]}
-    </span>
-  );
-};
+const AdminCalendar = dynamic(
+  () => import("@/components/dashboard/AdminCalendar")
+);
 
 export default async function AdminDashboard() {
   const session = await getServerSession(authOptions);
@@ -49,7 +32,7 @@ export default async function AdminDashboard() {
   const endOfToday = new Date(startOfToday);
   endOfToday.setDate(endOfToday.getDate() + 1);
 
-  // Estadísticas generales
+  // Round 1: todas las queries independientes en paralelo
   const [
     totalUsers,
     totalProfessionals,
@@ -59,6 +42,13 @@ export default async function AdminDashboard() {
     appointmentsThisMonth,
     completedThisMonth,
     cancelledThisMonth,
+    completedAppointments,
+    allAppointmentServices,
+    topProfessionalsGrouped,
+    recentAppointments,
+    users,
+    monthAppointmentsRaw,
+    allProfessionals,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.professional.count(),
@@ -98,30 +88,167 @@ export default async function AdminDashboard() {
         status: "CANCELLED",
       },
     }),
-  ]);
-
-  // Ingresos del mes
-  const completedAppointments = await prisma.appointment.findMany({
-    where: {
-      date: {
-        gte: startOfMonth,
-        lte: endOfMonth,
+    prisma.appointment.findMany({
+      where: {
+        date: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+        status: "COMPLETED",
       },
-      status: "COMPLETED",
-    },
-    include: {
-      services: {
-        include: {
-          service: {
-            select: {
-              price: true,
+      include: {
+        services: {
+          include: {
+            service: {
+              select: {
+                price: true,
+              },
             },
           },
         },
       },
-    },
+    }),
+    prisma.appointmentService.findMany({
+      where: {
+        appointment: {
+          date: {
+            gte: startOfMonth,
+            lte: endOfMonth,
+          },
+        },
+      },
+      include: {
+        service: {
+          select: {
+            id: true,
+            name: true,
+            price: true,
+          },
+        },
+      },
+    }),
+    prisma.appointment.groupBy({
+      by: ["professionalId"],
+      _count: {
+        professionalId: true,
+      },
+      where: {
+        status: "COMPLETED",
+      },
+      orderBy: {
+        _count: {
+          professionalId: "desc",
+        },
+      },
+      take: 5,
+    }),
+    prisma.appointment.findMany({
+      take: 10,
+      orderBy: { createdAt: "desc" },
+      include: {
+        client: {
+          select: { name: true },
+        },
+        professional: {
+          include: {
+            user: {
+              select: { name: true },
+            },
+          },
+        },
+        services: {
+          include: {
+            service: {
+              select: { name: true, price: true },
+            },
+          },
+        },
+      },
+    }),
+    prisma.user.findMany({
+      take: 10,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+    }),
+    prisma.appointment.findMany({
+      where: {
+        date: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+      },
+      include: {
+        client: {
+          select: { name: true, email: true, phone: true },
+        },
+        professional: {
+          include: {
+            user: {
+              select: { name: true },
+            },
+          },
+        },
+        services: {
+          include: {
+            service: {
+              select: { name: true, price: true, duration: true },
+            },
+          },
+        },
+      },
+      orderBy: [{ date: "asc" }, { startTime: "asc" }],
+    }),
+    prisma.professional.findMany({
+      where: { active: true },
+      include: {
+        user: {
+          select: { name: true, image: true },
+        },
+      },
+      orderBy: {
+        user: { name: "asc" },
+      },
+    }),
+  ]);
+
+  // Round 2: resolver detalles de los top profesionales en UNA sola query
+  // (antes era un N+1: Promise.all(topProfessionals.map(findUnique)))
+  const topProfessionalIds = topProfessionalsGrouped
+    .map((item) => item.professionalId)
+    .filter((id): id is number => id !== null);
+
+  const topProfessionalRecords = topProfessionalIds.length
+    ? await prisma.professional.findMany({
+        where: { id: { in: topProfessionalIds } },
+        include: {
+          user: {
+            select: { name: true, image: true },
+          },
+        },
+      })
+    : [];
+
+  const topProfessionalMap = new Map(
+    topProfessionalRecords.map((p) => [p.id, p])
+  );
+
+  const topProfessionalsWithDetails = topProfessionalsGrouped.map((item) => {
+    const professional = topProfessionalMap.get(item.professionalId as number);
+    return {
+      name: professional?.user.name || "Desconocido",
+      image: professional?.user.image || null,
+      count: item._count.professionalId,
+      rating: professional?.rating || 0,
+    };
   });
 
+  // Ingresos del mes
   const monthlyRevenue = completedAppointments.reduce(
     (sum, apt) => sum + apt.services.reduce((s, as) => s + as.service.price, 0),
     0
@@ -132,27 +259,6 @@ export default async function AdminDashboard() {
     appointmentsThisMonth > 0
       ? ((cancelledThisMonth / appointmentsThisMonth) * 100).toFixed(1)
       : 0;
-
-  // Servicios más solicitados
-  const allAppointmentServices = await prisma.appointmentService.findMany({
-    where: {
-      appointment: {
-        date: {
-          gte: startOfMonth,
-          lte: endOfMonth,
-        },
-      },
-    },
-    include: {
-      service: {
-        select: {
-          id: true,
-          name: true,
-          price: true,
-        },
-      },
-    },
-  });
 
   // Agrupar servicios y contar
   const serviceCount = allAppointmentServices.reduce(
@@ -174,120 +280,6 @@ export default async function AdminDashboard() {
   const topServicesWithDetails = Object.values(serviceCount)
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
-
-  // Top profesionales
-  const topProfessionals = await prisma.appointment.groupBy({
-    by: ["professionalId"],
-    _count: {
-      professionalId: true,
-    },
-    where: {
-      status: "COMPLETED",
-    },
-    orderBy: {
-      _count: {
-        professionalId: "desc",
-      },
-    },
-    take: 5,
-  });
-
-  const topProfessionalsWithDetails = await Promise.all(
-    topProfessionals.map(async (item) => {
-      const professional = await prisma.professional.findUnique({
-        where: { id: item.professionalId },
-        include: {
-          user: {
-            select: { name: true, image: true },
-          },
-        },
-      });
-      return {
-        name: professional?.user.name || "Desconocido",
-        image: professional?.user.image || null,
-        count: item._count.professionalId,
-        rating: professional?.rating || 0,
-      };
-    })
-  );
-
-  // Citas recientes
-  const recentAppointments = await prisma.appointment.findMany({
-    take: 10,
-    orderBy: { createdAt: "desc" },
-    include: {
-      client: {
-        select: { name: true },
-      },
-      professional: {
-        include: {
-          user: {
-            select: { name: true },
-          },
-        },
-      },
-      services: {
-        include: {
-          service: {
-            select: { name: true, price: true },
-          },
-        },
-      },
-    },
-  });
-
-  // Usuarios recientes
-  const users = await prisma.user.findMany({
-    take: 10,
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      createdAt: true,
-    },
-  });
-
-  // Obtener citas del mes completo para el calendario
-  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastDayOfMonth = new Date(
-    now.getFullYear(),
-    now.getMonth() + 1,
-    0,
-    23,
-    59,
-    59
-  );
-
-  const monthAppointmentsRaw = await prisma.appointment.findMany({
-    where: {
-      date: {
-        gte: firstDayOfMonth,
-        lte: lastDayOfMonth,
-      },
-    },
-    include: {
-      client: {
-        select: { name: true, email: true, phone: true },
-      },
-      professional: {
-        include: {
-          user: {
-            select: { name: true },
-          },
-        },
-      },
-      services: {
-        include: {
-          service: {
-            select: { name: true, price: true, duration: true },
-          },
-        },
-      },
-    },
-    orderBy: [{ date: "asc" }, { startTime: "asc" }],
-  });
 
   // Mapear citas del mes con precios y duraciones totales
   const monthAppointments = monthAppointmentsRaw.map((apt) => {
@@ -313,19 +305,6 @@ export default async function AdminDashboard() {
       totalPrice,
       totalDuration,
     };
-  });
-
-  // Obtener lista de profesionales para el filtro
-  const allProfessionals = await prisma.professional.findMany({
-    where: { active: true },
-    include: {
-      user: {
-        select: { name: true, image: true },
-      },
-    },
-    orderBy: {
-      user: { name: "asc" },
-    },
   });
 
   return (
@@ -664,7 +643,7 @@ export default async function AdminDashboard() {
                         {formatCurrency(totalPrice)}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
-                        {getStatusBadge(apt.status)}
+                        <StatusBadge status={apt.status} />
                       </td>
                     </tr>
                   );

@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { formatCurrency, formatDuration } from "@/lib/utils";
+import { getStatusColor, getStatusText } from "@/lib/appointment-status";
 
 type Service = {
   name: string;
@@ -40,165 +42,36 @@ export default function ProfessionalAppointments({
   initialTodayAppointments,
   initialUpcomingAppointments,
 }: ProfessionalAppointmentsProps) {
-  const [todayAppointments, setTodayAppointments] = useState<Appointment[]>(
-    initialTodayAppointments
-  );
-  const [upcomingAppointments, setUpcomingAppointments] = useState<
-    Appointment[]
-  >(initialUpcomingAppointments);
-  const [loading, setLoading] = useState(false);
+  // El refresh de los datos viene desde el server component padre vía
+  // AutoRefresh (router.refresh()). Antes este componente tenía su propio
+  // timer de 30s + fetch a /api/appointments que duplicaba el refresh
+  // (triple polling junto con ProfessionalCalendar).
+  // Los state locales solo reflejan las props (no hay estado derivado en
+  // useEffect que sincronice).
+  const todayAppointments = initialTodayAppointments;
+  const upcomingAppointments = initialUpcomingAppointments;
+  const [loadingId, setLoadingId] = useState<number | null>(null);
+  const router = useRouter();
 
-  const groupAppointments = (appointments: any[]) => {
-    return appointments.map((apt) => {
-      const services = apt.services.map((as: any) => as.service);
-      const totalPrice = services.reduce(
-        (sum: number, s: any) => sum + s.price,
-        0
-      );
-      const totalDuration = services.reduce(
-        (sum: number, s: any) => sum + s.duration,
-        0
-      );
+  const refreshPage = () => router.refresh();
 
-      return {
-        key: apt.id,
-        id: apt.id,
-        ids: [apt.id],
-        date: apt.date,
-        startTime: apt.startTime,
-        endTime: apt.endTime,
-        status: apt.status,
-        notes: apt.notes,
-        client: apt.client,
-        services,
-        totalPrice,
-        totalDuration,
-      };
-    });
-  };
-
-  const fetchAppointments = async () => {
+  const handleAction = async (
+    appointmentId: number,
+    action: "complete" | "no-show" | "confirm"
+  ) => {
     try {
-      setLoading(true);
-      const res = await fetch("/api/appointments", {
-        cache: "no-store",
+      setLoadingId(appointmentId);
+      const res = await fetch(`/api/appointments/${appointmentId}/${action}`, {
+        method: "POST",
       });
 
-      if (!res.ok) return;
-
-      const allAppointments: Appointment[] = await res.json();
-
-      // Filtrar citas de hoy
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      const todayAppts = allAppointments.filter((apt) => {
-        const aptDate = new Date(apt.date);
-        return aptDate >= today && aptDate < tomorrow;
-      });
-
-      // Filtrar próximas citas (siguientes 7 días)
-      const nextWeek = new Date(today);
-      nextWeek.setDate(nextWeek.getDate() + 7);
-
-      const upcomingAppts = allAppointments.filter((apt) => {
-        const aptDate = new Date(apt.date);
-        return (
-          aptDate >= tomorrow &&
-          aptDate < nextWeek &&
-          (apt.status === "PENDING" || apt.status === "CONFIRMED")
-        );
-      });
-
-      // Agrupar citas por fecha, hora y cliente
-      setTodayAppointments(groupAppointments(todayAppts));
-      setUpcomingAppointments(groupAppointments(upcomingAppts));
+      if (res.ok) {
+        refreshPage();
+      }
     } catch (error) {
-      console.error("Error al obtener citas:", error);
+      console.error(`Error al ${action} cita:`, error);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  // Auto-refresh cada 30 segundos
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchAppointments();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Actualizar cuando cambien las props iniciales
-  useEffect(() => {
-    setTodayAppointments(initialTodayAppointments);
-    setUpcomingAppointments(initialUpcomingAppointments);
-  }, [initialTodayAppointments, initialUpcomingAppointments]);
-
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      PENDING: "bg-yellow-100 text-yellow-800",
-      CONFIRMED: "bg-blue-100 text-blue-800",
-      COMPLETED: "bg-green-100 text-green-800",
-      CANCELLED: "bg-red-100 text-red-800",
-      NO_SHOW: "bg-gray-100 text-gray-800",
-    };
-    const labels = {
-      PENDING: "Pendiente",
-      CONFIRMED: "Confirmada",
-      COMPLETED: "Completada",
-      CANCELLED: "Cancelada",
-      NO_SHOW: "No se presentó",
-    };
-    return (
-      <span
-        className={`rounded-full px-3 py-1 text-xs font-semibold ${styles[status as keyof typeof styles]}`}
-      >
-        {labels[status as keyof typeof labels]}
-      </span>
-    );
-  };
-
-  const handleComplete = async (appointmentId: number) => {
-    try {
-      const res = await fetch(`/api/appointments/${appointmentId}/complete`, {
-        method: "POST",
-      });
-
-      if (res.ok) {
-        await fetchAppointments();
-      }
-    } catch (error) {
-      console.error("Error al completar cita:", error);
-    }
-  };
-
-  const handleNoShow = async (appointmentId: number) => {
-    try {
-      const res = await fetch(`/api/appointments/${appointmentId}/no-show`, {
-        method: "POST",
-      });
-
-      if (res.ok) {
-        await fetchAppointments();
-      }
-    } catch (error) {
-      console.error("Error al marcar no-show:", error);
-    }
-  };
-
-  const handleConfirm = async (appointmentId: number) => {
-    try {
-      const res = await fetch(`/api/appointments/${appointmentId}/confirm`, {
-        method: "POST",
-      });
-
-      if (res.ok) {
-        await fetchAppointments();
-      }
-    } catch (error) {
-      console.error("Error al confirmar cita:", error);
+      setLoadingId(null);
     }
   };
 
@@ -211,7 +84,7 @@ export default function ProfessionalAppointments({
             <h3 className="text-lg font-semibold text-gray-900">
               Citas de Hoy
             </h3>
-            {loading && (
+            {loadingId !== null && (
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <svg
                   className="h-4 w-4 animate-spin"
@@ -260,7 +133,11 @@ export default function ProfessionalAppointments({
                           </p>
                         </div>
                       </div>
-                      {getStatusBadge(apt.status)}
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusColor(apt.status)}`}
+                      >
+                        {getStatusText(apt.status)}
+                      </span>
                     </div>
 
                     <div className="mb-3 grid grid-cols-2 gap-4 text-sm">
@@ -268,7 +145,7 @@ export default function ProfessionalAppointments({
                         <p className="mb-1 text-gray-600">
                           {apt.services.length === 1 ? "Servicio" : "Servicios"}
                         </p>
-                        {apt.services.map((service: any, idx: number) => (
+                        {apt.services.map((service, idx) => (
                           <p key={idx} className="font-semibold text-gray-900">
                             • {service.name} ({formatDuration(service.duration)}
                             )
@@ -307,21 +184,24 @@ export default function ProfessionalAppointments({
                       <div className="flex gap-2 border-t border-gray-200 pt-3">
                         {apt.status === "PENDING" && (
                           <button
-                            onClick={() => handleConfirm(apt.id)}
-                            className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                            onClick={() => handleAction(apt.id, "confirm")}
+                            disabled={loadingId === apt.id}
+                            className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                           >
                             ✓ Confirmar
                           </button>
                         )}
                         <button
-                          onClick={() => handleComplete(apt.id)}
-                          className="flex-1 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                          onClick={() => handleAction(apt.id, "complete")}
+                          disabled={loadingId === apt.id}
+                          className="flex-1 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
                         >
                           ✓ Completar
                         </button>
                         <button
-                          onClick={() => handleNoShow(apt.id)}
-                          className="flex-1 rounded-lg bg-gray-600 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+                          onClick={() => handleAction(apt.id, "no-show")}
+                          disabled={loadingId === apt.id}
+                          className="flex-1 rounded-lg bg-gray-600 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
                         >
                           ✗ No Show
                         </button>

@@ -42,69 +42,95 @@ export default async function ProfessionalsManagementPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  // Calcular estadísticas para cada profesional
-  const professionalsWithStats = await Promise.all(
-    professionals.map(async (professional) => {
-      const completedAppointments = await prisma.appointment.findMany({
-        where: {
-          professionalId: professional.id,
-          status: "COMPLETED",
-        },
-        select: {
-          services: {
-            select: {
-              service: {
-                select: { price: true },
+  // Calcular estadísticas agregadas en paralelo (antes era N+1: 2 queries
+  // por profesional dentro de un Promise.all(map(...)))
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  const professionalIds = professionals.map((p) => p.id);
+
+  const aggregateResults = professionalIds.length
+    ? await Promise.all([
+        // Total de citas completadas por profesional
+        prisma.appointment.groupBy({
+          by: ["professionalId"],
+          where: {
+            professionalId: { in: professionalIds },
+            status: "COMPLETED",
+          },
+          _count: { professionalId: true },
+        }),
+        // Total de citas del mes por profesional (cualquier estado activo)
+        prisma.appointment.groupBy({
+          by: ["professionalId"],
+          where: {
+            professionalId: { in: professionalIds },
+            date: { gte: startOfMonth, lte: endOfMonth },
+            status: { in: ["COMPLETED", "CONFIRMED", "PENDING"] },
+          },
+          _count: { professionalId: true },
+        }),
+        // Citas completadas con servicios para calcular revenue real
+        prisma.appointment.findMany({
+          where: {
+            professionalId: { in: professionalIds },
+            status: "COMPLETED",
+          },
+          select: {
+            professionalId: true,
+            services: {
+              select: {
+                service: {
+                  select: { price: true },
+                },
               },
             },
           },
-        },
-      });
+        }),
+      ])
+    : [];
 
-      // Revenue real: suma de Service.price de los servicios de cada cita.
-      // Antes esto agregaba pointsEarned (puntos de fidelidad) como si fuera
-      // revenue, lo que subreportaba los ingresos reales.
-      const totalRevenue = completedAppointments.reduce(
-        (sum, apt) =>
-          sum + apt.services.reduce((s, as) => s + as.service.price, 0),
-        0
-      );
+  const [
+    completedByProfessional,
+    monthlyByProfessional,
+    completedWithServices,
+  ] =
+    aggregateResults.length === 3
+      ? aggregateResults
+      : ([[], [], []] as typeof aggregateResults);
 
-      // Citas del mes actual
-      const startOfMonth = new Date(
-        new Date().getFullYear(),
-        new Date().getMonth(),
-        1
-      );
-      const endOfMonth = new Date(
-        new Date().getFullYear(),
-        new Date().getMonth() + 1,
-        0
-      );
-
-      const monthlyAppointments = await prisma.appointment.count({
-        where: {
-          professionalId: professional.id,
-          date: {
-            gte: startOfMonth,
-            lte: endOfMonth,
-          },
-          status: {
-            in: ["COMPLETED", "CONFIRMED", "PENDING"],
-          },
-        },
-      });
-
-      return {
-        ...professional,
-        stats: {
-          completed: completedAppointments.length,
-          totalRevenue,
-          monthlyAppointments,
-        },
-      };
-    })
+  // Indexar conteos por professionalId
+  const completedCountMap = new Map(
+    completedByProfessional.map((row) => [
+      row.professionalId,
+      row._count.professionalId,
+    ])
   );
+  const monthlyCountMap = new Map(
+    monthlyByProfessional.map((row) => [
+      row.professionalId,
+      row._count.professionalId,
+    ])
+  );
+  // Calcular revenue real por profesional (suma de Service.price)
+  const revenueMap = completedWithServices.reduce(
+    (acc, apt) => {
+      const revenue = apt.services.reduce((s, as) => s + as.service.price, 0);
+      acc[apt.professionalId] = (acc[apt.professionalId] || 0) + revenue;
+      return acc;
+    },
+    {} as Record<number, number>
+  );
+
+  const professionalsWithStats = professionals.map((professional) => ({
+    ...professional,
+    stats: {
+      completed: completedCountMap.get(professional.id) || 0,
+      totalRevenue: revenueMap[professional.id] || 0,
+      monthlyAppointments: monthlyCountMap.get(professional.id) || 0,
+    },
+  }));
 
   // Usuarios que son profesionales pero no tienen perfil de profesional
   const professionalUsers = await prisma.user.findMany({

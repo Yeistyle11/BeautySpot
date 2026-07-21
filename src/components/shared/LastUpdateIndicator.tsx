@@ -3,16 +3,18 @@
 import { useEffect, useState } from "react";
 
 export default function LastUpdateIndicator() {
-  const [lastUpdate, setLastUpdate] = useState(new Date());
-
-  useEffect(() => {
-    // Actualizar cada vez que el componente se renderiza
-    setLastUpdate(new Date());
-  }, []);
+  // lastUpdate se fija al montar (cuando la página se re-renderiza por
+  // router.refresh() este componente se remonta y se resetea a "Ahora").
+  const [lastUpdate] = useState(() => new Date());
+  // `now` es un tick que actualiza cada minuto para forzar re-render y
+  // refrescar el texto "hace X min". Antes se hacía setLastUpdate((p) => p)
+  // que es un no-op en React 18 (misma referencia → bailout) y el texto
+  // nunca se actualizaba.
+  const [, setNowTick] = useState(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setLastUpdate((prev) => prev); // Forzar re-render
+      setNowTick((n) => n + 1);
     }, 60000);
 
     return () => clearInterval(interval);

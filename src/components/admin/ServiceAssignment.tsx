@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ProfessionalImage } from "@/components/shared/ProfessionalImage";
 import { formatCurrency } from "@/lib/utils";
 
@@ -34,6 +35,8 @@ export default function ServiceAssignment({
   allServices,
 }: ServiceAssignmentProps) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
   const [selectedServices, setSelectedServices] = useState<
     Record<string, Set<string>>
   >(() => {
@@ -107,6 +110,7 @@ export default function ServiceAssignment({
 
   const handleSave = async (professionalId: string) => {
     setLoading(true);
+    setError(null);
 
     try {
       const currentServices = selectedServices[professionalId] || new Set();
@@ -116,46 +120,44 @@ export default function ServiceAssignment({
           ?.services.map((s) => String(s.serviceId)) || []
       );
 
-      // Servicios a agregar
+      // Servicios a agregar / quitar
       const toAdd = Array.from(currentServices).filter(
         (id) => !originalServices.has(id)
       );
-
-      // Servicios a quitar
       const toRemove = Array.from(originalServices).filter(
         (id) => !currentServices.has(id)
       );
 
-      // Agregar servicios
-      for (const serviceId of toAdd) {
-        const response = await fetch("/api/professional-services", {
+      // Lanzar todos los requests en paralelo (antes era secuencial con for-of)
+      const addRequests = toAdd.map((serviceId) =>
+        fetch("/api/professional-services", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ professionalId, serviceId }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Error al agregar servicio");
-        }
-      }
-
-      // Quitar servicios
-      for (const serviceId of toRemove) {
-        const response = await fetch("/api/professional-services", {
+        })
+      );
+      const removeRequests = toRemove.map((serviceId) =>
+        fetch("/api/professional-services", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ professionalId, serviceId }),
-        });
+        })
+      );
 
-        if (!response.ok) {
-          throw new Error("Error al quitar servicio");
-        }
+      const responses = await Promise.all([...addRequests, ...removeRequests]);
+
+      const failed = responses.find((r) => !r.ok);
+      if (failed) {
+        throw new Error(`Error al guardar servicio (status ${failed.status})`);
       }
 
-      window.location.reload();
-    } catch (error) {
-      console.error("Error:", error);
-      alert("Error al guardar los cambios");
+      // Antes: window.location.reload(). Ahora: router.refresh() preserva
+      // estado del cliente y re-valida el server component.
+      router.refresh();
+    } catch (err) {
+      console.error("Error:", err);
+      setError("Error al guardar los cambios");
+    } finally {
       setLoading(false);
     }
   };
@@ -173,6 +175,14 @@ export default function ServiceAssignment({
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div
+          className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"
+          role="alert"
+        >
+          {error}
+        </div>
+      )}
       {professionals.map((professional) => {
         const currentServices =
           selectedServices[String(professional.id)] || new Set();

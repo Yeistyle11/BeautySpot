@@ -25,42 +25,42 @@ export async function GET(request: NextRequest) {
     // Obtener día de la semana (0 = domingo, 6 = sábado)
     const dayOfWeek = appointmentDate.getDay();
 
-    // Obtener disponibilidad del profesional para este día
-    const availability = await prisma.availability.findFirst({
-      where: {
-        professionalId,
-        dayOfWeek,
-        active: true,
-      },
-    });
+    // Las 3 queries son independientes: lanzarlas en paralelo
+    // (antes eran 3 awaits secuenciales en cascada)
+    const [availability, blockedSlots, existingAppointments] =
+      await Promise.all([
+        prisma.availability.findFirst({
+          where: {
+            professionalId,
+            dayOfWeek,
+            active: true,
+          },
+        }),
+        prisma.blockedSlot.findMany({
+          where: {
+            professionalId,
+            date: appointmentDate,
+          },
+        }),
+        prisma.appointment.findMany({
+          where: {
+            professionalId,
+            date: appointmentDate,
+            status: {
+              in: ["PENDING", "CONFIRMED"],
+            },
+          },
+          select: {
+            startTime: true,
+            endTime: true,
+          },
+        }),
+      ]);
 
     // Si el profesional no trabaja este día, retornar slots vacíos
     if (!availability) {
       return NextResponse.json({ slots: [] });
     }
-
-    // Verificar si hay bloques bloqueados para esta fecha
-    const blockedSlots = await prisma.blockedSlot.findMany({
-      where: {
-        professionalId,
-        date: appointmentDate,
-      },
-    });
-
-    // Obtener citas existentes del profesional en esa fecha
-    const existingAppointments = await prisma.appointment.findMany({
-      where: {
-        professionalId,
-        date: appointmentDate,
-        status: {
-          in: ["PENDING", "CONFIRMED"],
-        },
-      },
-      select: {
-        startTime: true,
-        endTime: true,
-      },
-    });
 
     // Obtener la hora actual
     const now = new Date();
@@ -82,8 +82,6 @@ export async function GET(request: NextRequest) {
 
     // Generar slots de 30 minutos dentro del horario disponible
     const slots = [];
-    const startHour = startHourStr;
-    const endHour = endHourStr;
 
     for (
       let currentMinutes = availStartMinutes;

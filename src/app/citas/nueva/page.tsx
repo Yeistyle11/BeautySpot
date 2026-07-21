@@ -121,17 +121,19 @@ export default function NewAppointmentPage() {
       >();
 
       results.forEach((data) => {
-        data.forEach((bs: any) => {
-          const professionalId = bs.professional.id;
-          if (professionalCounts.has(professionalId)) {
-            professionalCounts.get(professionalId)!.count++;
-          } else {
-            professionalCounts.set(professionalId, {
-              professional: bs.professional,
-              count: 1,
-            });
+        data.forEach(
+          (bs: { professional: Professional; serviceId: number }) => {
+            const professionalId = bs.professional.id;
+            if (professionalCounts.has(professionalId)) {
+              professionalCounts.get(professionalId)!.count++;
+            } else {
+              professionalCounts.set(professionalId, {
+                professional: bs.professional,
+                count: 1,
+              });
+            }
           }
-        });
+        );
       });
 
       // Filtrar solo los que ofrecen todos los servicios

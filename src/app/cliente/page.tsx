@@ -12,27 +12,33 @@ export default async function ClientDashboard() {
     redirect("/");
   }
 
-  // Obtener las citas del cliente
-  const allAppointments = await prisma.appointment.findMany({
-    where: { clientId: parseInt(session.user.id) },
-    orderBy: [{ date: "desc" }, { startTime: "desc" }],
-    include: {
-      professional: {
-        include: {
-          user: {
-            select: { name: true },
+  // Paralelizar la carga de citas y usuario (antes eran queries secuenciales)
+  const [allAppointments, user] = await Promise.all([
+    prisma.appointment.findMany({
+      where: { clientId: parseInt(session.user.id) },
+      orderBy: [{ date: "desc" }, { startTime: "desc" }],
+      include: {
+        professional: {
+          include: {
+            user: {
+              select: { name: true },
+            },
+          },
+        },
+        services: {
+          include: {
+            service: {
+              select: { name: true, price: true, duration: true },
+            },
           },
         },
       },
-      services: {
-        include: {
-          service: {
-            select: { name: true, price: true, duration: true },
-          },
-        },
-      },
-    },
-  });
+    }),
+    prisma.user.findUnique({
+      where: { id: parseInt(session.user.id) },
+      select: { loyaltyPoints: true },
+    }),
+  ]);
 
   // Las citas ya vienen con múltiples servicios, solo mapear la estructura
   const groupedAppointments = allAppointments.map((apt) => {
@@ -58,30 +64,14 @@ export default async function ClientDashboard() {
   // Tomar solo las 10 más recientes
   const appointments = groupedAppointments.slice(0, 10);
 
-  // Estadísticas del cliente
-  const totalAppointments = await prisma.appointment.count({
-    where: { clientId: parseInt(session.user.id) },
-  });
-
-  const completedAppointments = await prisma.appointment.count({
-    where: {
-      clientId: parseInt(session.user.id),
-      status: "COMPLETED",
-    },
-  });
-
-  const pendingAppointments = await prisma.appointment.count({
-    where: {
-      clientId: parseInt(session.user.id),
-      status: "PENDING",
-    },
-  });
-
-  // Obtener usuario con puntos de lealtad
-  const user = await prisma.user.findUnique({
-    where: { id: parseInt(session.user.id) },
-    select: { loyaltyPoints: true },
-  });
+  // Derivar contadores desde allAppointments (antes eran 3 count() a la DB)
+  const totalAppointments = allAppointments.length;
+  const completedAppointments = allAppointments.filter(
+    (apt) => apt.status === "COMPLETED"
+  ).length;
+  const pendingAppointments = allAppointments.filter(
+    (apt) => apt.status === "PENDING"
+  ).length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -312,7 +302,7 @@ export default async function ClientDashboard() {
                             <div className="font-medium">
                               {appointment.services.length} servicios:
                             </div>
-                            {appointment.services.map((s: any, idx: number) => (
+                            {appointment.services.map((s, idx) => (
                               <div key={idx} className="text-xs">
                                 • {s.name}
                               </div>
