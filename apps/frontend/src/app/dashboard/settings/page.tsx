@@ -58,11 +58,18 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState<string | null>(null);
 
   // Account tab
-  const [accountForm, setAccountForm] = useState({ name: user?.name || "", phone: user?.phone || "" });
-  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [accountForm, setAccountForm] = useState({
+    name: user?.name || "",
+    phone: user?.phone || "",
+  });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
 
   // Business tab
-  const [business, setBusiness] = useState<BusinessData | null>(null);
+  const [, setBusiness] = useState<BusinessData | null>(null);
   const [businessForm, setBusinessForm] = useState<Partial<BusinessData>>({});
   const [loadingBiz, setLoadingBiz] = useState(true);
 
@@ -71,9 +78,11 @@ export default function SettingsPage() {
 
   useEffect(() => {
     // Solo cargar datos de negocio/horarios si el rol tiene permisos para verlos
-    const canSeeBusiness = canDo(role, "business_edit") || canDo(role, "business_hours_edit");
+    const canSeeBusiness =
+      canDo(role, "business_edit") || canDo(role, "business_hours_edit");
     if (businessId && canSeeBusiness) {
-      api.get<BusinessData>(`/core/businesses/${businessId}`)
+      api
+        .get<BusinessData>(`/core/businesses/${businessId}`)
         .then((data) => {
           setBusiness(data);
           setBusinessForm({
@@ -93,12 +102,20 @@ export default function SettingsPage() {
         .catch(console.error)
         .finally(() => setLoadingBiz(false));
 
-      api.get<BusinessHour[]>("/core/business-hours")
+      api
+        .get<BusinessHour[]>("/core/business-hours")
         .then((data) => {
           if (data.length > 0) {
             const mapped = DAYS.map((d) => {
               const existing = data.find((h) => h.dayOfWeek === d.value);
-              return existing || { dayOfWeek: d.value, openTime: "08:00", closeTime: "18:00", active: false };
+              return (
+                existing || {
+                  dayOfWeek: d.value,
+                  openTime: "08:00",
+                  closeTime: "18:00",
+                  active: false,
+                }
+              );
             });
             setHours(mapped);
           }
@@ -129,7 +146,11 @@ export default function SettingsPage() {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
       });
-      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
       alert("Contrasena actualizada");
     } catch (err) {
       console.error(err);
@@ -161,9 +182,15 @@ export default function SettingsPage() {
     }
   };
 
-  const updateHour = (dayOfWeek: number, field: keyof BusinessHour, value: string | boolean) => {
+  const updateHour = (
+    dayOfWeek: number,
+    field: keyof BusinessHour,
+    value: string | boolean
+  ) => {
     setHours((prev) =>
-      prev.map((h) => (h.dayOfWeek === dayOfWeek ? { ...h, [field]: value } : h))
+      prev.map((h) =>
+        h.dayOfWeek === dayOfWeek ? { ...h, [field]: value } : h
+      )
     );
   };
 
@@ -176,23 +203,36 @@ export default function SettingsPage() {
 
       <Tabs defaultValue="account" className="max-w-3xl">
         <TabsList className="mb-4">
-          <TabsTrigger value="account" className="gap-2"><User className="h-4 w-4" /> Mi Cuenta</TabsTrigger>
+          <TabsTrigger value="account" className="gap-2">
+            <User className="h-4 w-4" /> Mi Cuenta
+          </TabsTrigger>
           {canDo(role, "business_edit") && (
-            <TabsTrigger value="business" className="gap-2"><Building2 className="h-4 w-4" /> Negocio</TabsTrigger>
+            <TabsTrigger value="business" className="gap-2">
+              <Building2 className="h-4 w-4" /> Negocio
+            </TabsTrigger>
           )}
           {canDo(role, "business_hours_edit") && (
-            <TabsTrigger value="hours" className="gap-2"><Clock className="h-4 w-4" /> Horarios</TabsTrigger>
+            <TabsTrigger value="hours" className="gap-2">
+              <Clock className="h-4 w-4" /> Horarios
+            </TabsTrigger>
           )}
         </TabsList>
 
         <TabsContent value="account">
           <Card className="border-0 shadow-sm">
-            <CardHeader><CardTitle className="text-lg">Mi cuenta</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-lg">Mi cuenta</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Nombre</Label>
-                  <Input value={accountForm.name} onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })} />
+                  <Input
+                    value={accountForm.name}
+                    onChange={(e) =>
+                      setAccountForm({ ...accountForm, name: e.target.value })
+                    }
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Email</Label>
@@ -200,37 +240,83 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Telefono</Label>
-                  <Input value={accountForm.phone} onChange={(e) => setAccountForm({ ...accountForm, phone: e.target.value })} />
+                  <Input
+                    value={accountForm.phone}
+                    onChange={(e) =>
+                      setAccountForm({ ...accountForm, phone: e.target.value })
+                    }
+                  />
                 </div>
               </div>
               {canDo(role, "settings_edit") && (
                 <Button onClick={saveAccount} disabled={saving === "account"}>
-                  {saving === "account" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  {saving === "account" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
                   Guardar cambios
                 </Button>
               )}
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm mt-6">
-            <CardHeader><CardTitle className="text-lg">Cambiar contrasena</CardTitle></CardHeader>
+          <Card className="mt-6 border-0 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg">Cambiar contrasena</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label>Contrasena actual</Label>
-                  <Input type="password" value={passwordForm.currentPassword} onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} />
+                  <Input
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(e) =>
+                      setPasswordForm({
+                        ...passwordForm,
+                        currentPassword: e.target.value,
+                      })
+                    }
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Nueva contrasena</Label>
-                  <Input type="password" value={passwordForm.newPassword} onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} />
+                  <Input
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) =>
+                      setPasswordForm({
+                        ...passwordForm,
+                        newPassword: e.target.value,
+                      })
+                    }
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Confirmar contrasena</Label>
-                  <Input type="password" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} />
+                  <Input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) =>
+                      setPasswordForm({
+                        ...passwordForm,
+                        confirmPassword: e.target.value,
+                      })
+                    }
+                  />
                 </div>
               </div>
-              <Button variant="outline" onClick={changePassword} disabled={saving === "password"}>
-                {saving === "password" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              <Button
+                variant="outline"
+                onClick={changePassword}
+                disabled={saving === "password"}
+              >
+                {saving === "password" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
                 Cambiar contrasena
               </Button>
             </CardContent>
@@ -238,117 +324,251 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="business">
-          {canDo(role, "business_edit") && (loadingBiz ? (
-            <Card className="border-0 shadow-sm"><CardContent className="p-8 text-center text-muted-foreground">Cargando...</CardContent></Card>
-          ) : (
-            <Card className="border-0 shadow-sm">
-              <CardHeader><CardTitle className="text-lg">Informacion del negocio</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Nombre</Label>
-                    <Input value={businessForm.name || ""} onChange={(e) => setBusinessForm({ ...businessForm, name: e.target.value })} />
+          {canDo(role, "business_edit") &&
+            (loadingBiz ? (
+              <Card className="border-0 shadow-sm">
+                <CardContent className="text-muted-foreground p-8 text-center">
+                  Cargando...
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-0 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg">
+                    Informacion del negocio
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Nombre</Label>
+                      <Input
+                        value={businessForm.name || ""}
+                        onChange={(e) =>
+                          setBusinessForm({
+                            ...businessForm,
+                            name: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Telefono</Label>
+                      <Input
+                        value={businessForm.phone || ""}
+                        onChange={(e) =>
+                          setBusinessForm({
+                            ...businessForm,
+                            phone: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      <Input
+                        value={businessForm.email || ""}
+                        onChange={(e) =>
+                          setBusinessForm({
+                            ...businessForm,
+                            email: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Sitio web</Label>
+                      <Input
+                        value={businessForm.website || ""}
+                        onChange={(e) =>
+                          setBusinessForm({
+                            ...businessForm,
+                            website: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>Descripcion</Label>
+                      <Textarea
+                        value={businessForm.description || ""}
+                        onChange={(e) =>
+                          setBusinessForm({
+                            ...businessForm,
+                            description: e.target.value,
+                          })
+                        }
+                        rows={3}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Direccion</Label>
+                      <Input
+                        value={businessForm.address || ""}
+                        onChange={(e) =>
+                          setBusinessForm({
+                            ...businessForm,
+                            address: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Ciudad</Label>
+                      <Input
+                        value={businessForm.city || ""}
+                        onChange={(e) =>
+                          setBusinessForm({
+                            ...businessForm,
+                            city: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Departamento</Label>
+                      <Input
+                        value={businessForm.state || ""}
+                        onChange={(e) =>
+                          setBusinessForm({
+                            ...businessForm,
+                            state: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Pais</Label>
+                      <Input
+                        value={businessForm.country || ""}
+                        onChange={(e) =>
+                          setBusinessForm({
+                            ...businessForm,
+                            country: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Logo (URL)</Label>
+                      <Input
+                        value={businessForm.logo || ""}
+                        onChange={(e) =>
+                          setBusinessForm({
+                            ...businessForm,
+                            logo: e.target.value,
+                          })
+                        }
+                        placeholder="https://..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Imagen portada (URL)</Label>
+                      <Input
+                        value={businessForm.coverImage || ""}
+                        onChange={(e) =>
+                          setBusinessForm({
+                            ...businessForm,
+                            coverImage: e.target.value,
+                          })
+                        }
+                        placeholder="https://..."
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Telefono</Label>
-                    <Input value={businessForm.phone || ""} onChange={(e) => setBusinessForm({ ...businessForm, phone: e.target.value })} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input value={businessForm.email || ""} onChange={(e) => setBusinessForm({ ...businessForm, email: e.target.value })} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Sitio web</Label>
-                    <Input value={businessForm.website || ""} onChange={(e) => setBusinessForm({ ...businessForm, website: e.target.value })} />
-                  </div>
-                  <div className="sm:col-span-2 space-y-2">
-                    <Label>Descripcion</Label>
-                    <Textarea value={businessForm.description || ""} onChange={(e) => setBusinessForm({ ...businessForm, description: e.target.value })} rows={3} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Direccion</Label>
-                    <Input value={businessForm.address || ""} onChange={(e) => setBusinessForm({ ...businessForm, address: e.target.value })} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Ciudad</Label>
-                    <Input value={businessForm.city || ""} onChange={(e) => setBusinessForm({ ...businessForm, city: e.target.value })} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Departamento</Label>
-                    <Input value={businessForm.state || ""} onChange={(e) => setBusinessForm({ ...businessForm, state: e.target.value })} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Pais</Label>
-                    <Input value={businessForm.country || ""} onChange={(e) => setBusinessForm({ ...businessForm, country: e.target.value })} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Logo (URL)</Label>
-                    <Input value={businessForm.logo || ""} onChange={(e) => setBusinessForm({ ...businessForm, logo: e.target.value })} placeholder="https://..." />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Imagen portada (URL)</Label>
-                    <Input value={businessForm.coverImage || ""} onChange={(e) => setBusinessForm({ ...businessForm, coverImage: e.target.value })} placeholder="https://..." />
-                  </div>
-                </div>
-                {canDo(role, "settings_edit") && (
-                  <Button onClick={saveBusiness} disabled={saving === "business"}>
-                    {saving === "business" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Guardar cambios
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  {canDo(role, "settings_edit") && (
+                    <Button
+                      onClick={saveBusiness}
+                      disabled={saving === "business"}
+                    >
+                      {saving === "business" ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="mr-2 h-4 w-4" />
+                      )}
+                      Guardar cambios
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
         </TabsContent>
 
         <TabsContent value="hours">
           {canDo(role, "business_hours_edit") && (
-          <Card className="border-0 shadow-sm">
-            <CardHeader><CardTitle className="text-lg">Horarios de atencion</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                {DAYS.map((day) => {
-                  const hour = hours.find((h) => h.dayOfWeek === day.value);
-                  return (
-                    <div key={day.value} className="flex items-center gap-4 rounded-lg border p-3">
-                      <div className="w-24">
-                        <span className="text-sm font-medium">{day.label}</span>
-                      </div>
-                      <Switch
-                        checked={hour?.active ?? false}
-                        onCheckedChange={(checked) => updateHour(day.value, "active", checked)}
-                      />
-                      {hour?.active ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="time"
-                            value={hour.openTime}
-                            onChange={(e) => updateHour(day.value, "openTime", e.target.value)}
-                            className="h-8 w-28 text-sm"
-                          />
-                          <span className="text-muted-foreground">a</span>
-                          <Input
-                            type="time"
-                            value={hour.closeTime}
-                            onChange={(e) => updateHour(day.value, "closeTime", e.target.value)}
-                            className="h-8 w-28 text-sm"
-                          />
+            <Card className="border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg">Horarios de atencion</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  {DAYS.map((day) => {
+                    const hour = hours.find((h) => h.dayOfWeek === day.value);
+                    return (
+                      <div
+                        key={day.value}
+                        className="flex items-center gap-4 rounded-lg border p-3"
+                      >
+                        <div className="w-24">
+                          <span className="text-sm font-medium">
+                            {day.label}
+                          </span>
                         </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">Cerrado</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              {canDo(role, "settings_edit") && (
-                <Button onClick={saveHours} disabled={saving === "hours"}>
-                  {saving === "hours" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  Guardar horarios
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+                        <Switch
+                          checked={hour?.active ?? false}
+                          onCheckedChange={(checked) =>
+                            updateHour(day.value, "active", checked)
+                          }
+                        />
+                        {hour?.active ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="time"
+                              value={hour.openTime}
+                              onChange={(e) =>
+                                updateHour(
+                                  day.value,
+                                  "openTime",
+                                  e.target.value
+                                )
+                              }
+                              className="h-8 w-28 text-sm"
+                            />
+                            <span className="text-muted-foreground">a</span>
+                            <Input
+                              type="time"
+                              value={hour.closeTime}
+                              onChange={(e) =>
+                                updateHour(
+                                  day.value,
+                                  "closeTime",
+                                  e.target.value
+                                )
+                              }
+                              className="h-8 w-28 text-sm"
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">
+                            Cerrado
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {canDo(role, "settings_edit") && (
+                  <Button onClick={saveHours} disabled={saving === "hours"}>
+                    {saving === "hours" ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Guardar horarios
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
       </Tabs>

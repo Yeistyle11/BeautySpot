@@ -7,7 +7,12 @@ interface RadioGroupProps {
   className?: string;
 }
 
-export function RadioGroup({ options, value, onChange, className }: RadioGroupProps) {
+export function RadioGroup({
+  options,
+  value,
+  onChange,
+  className,
+}: RadioGroupProps) {
   return (
     <div className={cn("flex flex-wrap gap-2", className)}>
       {options.map((opt) => (

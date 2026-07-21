@@ -1,8 +1,14 @@
 import { create } from "zustand";
 
-export type Role = "SUPER_ADMIN" | "OWNER" | "ADMIN" | "PROFESSIONAL" | "RECEPTIONIST" | "CLIENT";
+export type Role =
+  | "SUPER_ADMIN"
+  | "OWNER"
+  | "ADMIN"
+  | "PROFESSIONAL"
+  | "RECEPTIONIST"
+  | "CLIENT";
 
-interface User {
+export interface User {
   id: string;
   email: string;
   name: string;

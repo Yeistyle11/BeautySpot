@@ -1,13 +1,18 @@
 # Elite Barbershop - Guia de Despliegue en Servidor Windows
 
-## Requisitos del Servidor
-
-- **SO**: Windows Server 2019/2022 o Windows 10/11 Pro
-- **RAM**: Minimo 2 GB
-- **Disco**: Minimo 20 GB
-- **Node.js**: 18.x o superior
-- **Docker Desktop** para Windows
-- **PM2** (manejador de procesos)
+> **⚠️ DOCUMENTO DESACTUALIZADO (2026-07)**
+>
+> Esta guia fue escrita para el monolito Next.js + Prisma + NextAuth que vivia
+> en la raiz del repo. Ese monolito fue **eliminado** (commit `2870de2`).
+>
+> La arquitectura actual es **monorepo Turborepo** con:
+>
+> - `apps/frontend/` — Next.js 14 (App Router, JWT en Zustand, sin NextAuth/Prisma)
+> - `services/*` — 8 microservicios NestJS + TypeORM
+> - Stack: PostgreSQL, Redis, RabbitMQ
+>
+> Los comandos de Prisma, NextAuth y `db:seed` **ya no aplican**. Pendiente
+> reescribir esta guia para la arquitectura multi-servicio (Fase D/E del plan).
 
 ---
 

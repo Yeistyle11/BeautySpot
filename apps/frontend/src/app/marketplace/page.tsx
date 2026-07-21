@@ -5,7 +5,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Scissors, MapPin, Search, Star, Sparkles, TrendingUp, Clock,
+  Scissors,
+  MapPin,
+  Search,
+  Star,
+  Sparkles,
+  TrendingUp,
+  Clock,
 } from "lucide-react";
 import { apiPublic } from "@/lib/api";
 
@@ -79,25 +85,22 @@ export default function MarketplacePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const doSearch = useCallback(
-    (q: string, businessType?: string) => {
-      if (!q && !businessType) {
-        setSearchResults(null);
-        setSearching(false);
-        return;
-      }
-      setSearching(true);
-      const params = new URLSearchParams();
-      if (q) params.set("q", q);
-      if (businessType) params.set("businessType", businessType);
-      apiPublic
-        .get<SearchResult>(`/marketplace-service/search?${params.toString()}`)
-        .then(setSearchResults)
-        .catch(console.error)
-        .finally(() => setSearching(false));
-    },
-    []
-  );
+  const doSearch = useCallback((q: string, businessType?: string) => {
+    if (!q && !businessType) {
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (businessType) params.set("businessType", businessType);
+    apiPublic
+      .get<SearchResult>(`/marketplace-service/search?${params.toString()}`)
+      .then(setSearchResults)
+      .catch(console.error)
+      .finally(() => setSearching(false));
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -109,30 +112,31 @@ export default function MarketplacePage() {
   const isSearching = search !== "" || activeCategory !== null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+    <div className="from-background to-muted/30 min-h-screen bg-gradient-to-b">
       {/* Hero */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-primary/5">
+      <div className="from-primary/10 via-background to-primary/5 relative overflow-hidden bg-gradient-to-br">
         <div className="mx-auto max-w-6xl px-4 py-16 pb-10">
           <div className="text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+            <div className="bg-primary/10 text-primary mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium">
               <Sparkles className="h-4 w-4" />
               Descubre tu proximo lugar favorito
             </div>
             <h1 className="text-5xl font-bold tracking-tight">
               Beauty<span className="text-primary">Spot</span>
             </h1>
-            <p className="mx-auto mt-3 max-w-lg text-lg text-muted-foreground">
-              Explora las mejores centro de bellezas, salones y spas. Encuentra, compara y agenda tu cita en segundos.
+            <p className="text-muted-foreground mx-auto mt-3 max-w-lg text-lg">
+              Explora las mejores centro de bellezas, salones y spas. Encuentra,
+              compara y agenda tu cita en segundos.
             </p>
           </div>
 
           {/* Search bar */}
           <div className="mx-auto mt-8 max-w-xl">
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+              <Search className="text-muted-foreground absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2" />
               <Input
                 placeholder="Buscar por nombre, ciudad o tipo..."
-                className="h-12 pl-12 text-base shadow-lg border-muted bg-background/80 backdrop-blur"
+                className="border-muted bg-background/80 h-12 pl-12 text-base shadow-lg backdrop-blur"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -177,7 +181,7 @@ export default function MarketplacePage() {
       <div className="mx-auto max-w-6xl px-4 py-8">
         {loading ? (
           <div className="flex justify-center py-20">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
           </div>
         ) : isSearching ? (
           /* Search results */
@@ -192,7 +196,7 @@ export default function MarketplacePage() {
             </div>
             {searching ? (
               <div className="flex justify-center py-20">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
               </div>
             ) : searchResults && searchResults.items.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -222,11 +226,11 @@ export default function MarketplacePage() {
 function FeedSection({ section }: { section: FeedSection }) {
   const sectionIcon =
     section.id === "popular_nearby" ? (
-      <TrendingUp className="h-5 w-5 text-primary" />
+      <TrendingUp className="text-primary h-5 w-5" />
     ) : section.id === "top_rated" ? (
-      <Star className="h-5 w-5 text-primary" />
+      <Star className="text-primary h-5 w-5" />
     ) : (
-      <Clock className="h-5 w-5 text-primary" />
+      <Clock className="text-primary h-5 w-5" />
     );
 
   return (
@@ -236,7 +240,7 @@ function FeedSection({ section }: { section: FeedSection }) {
         <h2 className="text-2xl font-bold">{section.title}</h2>
       </div>
       {section.type === "carousel" ? (
-        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+        <div className="scrollbar-hide flex gap-4 overflow-x-auto pb-4">
           {section.items.map((p) => (
             <div key={p.id} className="w-72 shrink-0">
               <ProfileCard profile={p} />
@@ -262,9 +266,9 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
 
   return (
     <Link href={`/marketplace/business/${p.slug}`} className="group block">
-      <Card className="h-full overflow-hidden border-0 shadow-sm transition-all hover:shadow-xl hover:-translate-y-0.5">
+      <Card className="h-full overflow-hidden border-0 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-xl">
         {/* Cover image */}
-        <div className="relative h-40 bg-gradient-to-br from-primary/20 to-primary/5">
+        <div className="from-primary/20 to-primary/5 relative h-40 bg-gradient-to-br">
           {featuredImage ? (
             <img
               src={featuredImage}
@@ -273,7 +277,7 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
             />
           ) : (
             <div className="flex h-full items-center justify-center">
-              <Scissors className="h-10 w-10 text-primary/30" />
+              <Scissors className="text-primary/30 h-10 w-10" />
             </div>
           )}
           {/* Overlay gradient */}
@@ -289,8 +293,8 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
 
           {/* Business type badge */}
           {p.businessType && (
-            <div className="absolute left-3 bottom-3">
-              <Badge className="bg-white/90 text-foreground backdrop-blur hover:bg-white/90">
+            <div className="absolute bottom-3 left-3">
+              <Badge className="text-foreground bg-white/90 backdrop-blur hover:bg-white/90">
                 {TYPE_LABELS[p.businessType] || p.businessType}
               </Badge>
             </div>
@@ -298,7 +302,7 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
 
           {/* Verified */}
           {p.verified && (
-            <div className="absolute left-3 top-3 rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+            <div className="bg-primary text-primary-foreground absolute left-3 top-3 rounded-full px-2 py-0.5 text-xs font-medium">
               Verificado
             </div>
           )}
@@ -313,16 +317,16 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
                 className="h-11 w-11 shrink-0 rounded-lg object-cover"
               />
             ) : (
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold text-lg">
+              <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg font-bold">
                 {p.name.charAt(0)}
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
+              <h3 className="group-hover:text-primary truncate font-semibold transition-colors">
                 {p.name}
               </h3>
               {p.tagline && (
-                <p className="text-sm text-muted-foreground truncate">
+                <p className="text-muted-foreground truncate text-sm">
                   {p.tagline}
                 </p>
               )}
@@ -330,12 +334,12 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
           </div>
 
           {p.description && (
-            <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
+            <p className="text-muted-foreground mt-2 line-clamp-2 text-sm">
               {p.description}
             </p>
           )}
 
-          <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+          <div className="text-muted-foreground mt-3 flex items-center justify-between text-xs">
             {p.city && (
               <span className="flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
@@ -344,8 +348,7 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
             )}
             {p.totalReviews > 0 && (
               <span>
-                {p.totalReviews}{" "}
-                {p.totalReviews === 1 ? "resena" : "resenas"}
+                {p.totalReviews} {p.totalReviews === 1 ? "resena" : "resenas"}
               </span>
             )}
           </div>
@@ -357,11 +360,9 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
 
 function EmptyState() {
   return (
-    <div className="py-20 text-center text-muted-foreground">
+    <div className="text-muted-foreground py-20 text-center">
       <Scissors className="mx-auto h-16 w-16 opacity-20" />
-      <p className="mt-4 text-lg font-medium">
-        No encontramos negocios
-      </p>
+      <p className="mt-4 text-lg font-medium">No encontramos negocios</p>
       <p className="text-sm">Intenta con otra busqueda</p>
     </div>
   );

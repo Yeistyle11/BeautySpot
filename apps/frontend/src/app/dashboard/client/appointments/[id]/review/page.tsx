@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Calendar,
@@ -75,7 +74,7 @@ function StarRating({
               "h-8 w-8 transition-colors",
               (hovered || value) >= star
                 ? "fill-amber-400 text-amber-400"
-                : "fill-none text-muted-foreground/40"
+                : "text-muted-foreground/40 fill-none"
             )}
           />
         </button>
@@ -90,7 +89,6 @@ function StarRating({
 
 export default function ReviewPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const id = params.id;
   const { businessId, user } = useAuthStore();
 
@@ -151,9 +149,7 @@ export default function ReviewPage() {
     setSubmitting(true);
     setError(null);
 
-    const cleanPhotos = photos
-      .map((p) => p.trim())
-      .filter((p) => p.length > 0);
+    const cleanPhotos = photos.map((p) => p.trim()).filter((p) => p.length > 0);
 
     try {
       await api.post("/marketplace/reviews", {
@@ -205,9 +201,9 @@ export default function ReviewPage() {
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <CheckCircle className="h-16 w-16 text-emerald-500 mb-4" />
+        <CheckCircle className="mb-4 h-16 w-16 text-emerald-500" />
         <h2 className="text-xl font-bold">Resena publicada</h2>
-        <p className="mt-2 text-muted-foreground">
+        <p className="text-muted-foreground mt-2">
           Gracias por compartir tu experiencia
         </p>
         <div className="mt-6 flex gap-3">
@@ -230,7 +226,7 @@ export default function ReviewPage() {
       {/* Back link */}
       <Link
         href={`/dashboard/client/appointments/${id}`}
-        className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1 text-sm transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
         Volver al detalle de la cita
@@ -250,7 +246,7 @@ export default function ReviewPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {/* Services */}
-              <div className="rounded-lg bg-muted/50 px-4 py-3 space-y-2">
+              <div className="bg-muted/50 space-y-2 rounded-lg px-4 py-3">
                 {appointment.appointmentServices.map((svc, idx) => (
                   <div key={idx} className="flex justify-between text-sm">
                     <span>{svc.serviceName}</span>
@@ -262,13 +258,13 @@ export default function ReviewPage() {
               </div>
 
               {/* Date */}
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm">
                 <Calendar className="h-4 w-4" />
                 <span>{formatDate(appointment.date)}</span>
               </div>
 
               {/* Professional ID (fallback display) */}
-              <div className="text-xs text-muted-foreground">
+              <div className="text-muted-foreground text-xs">
                 Profesional: {appointment.professionalId}
               </div>
             </CardContent>
@@ -276,18 +272,16 @@ export default function ReviewPage() {
         </div>
 
         {/* Right: review form */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="space-y-4 lg:col-span-2">
           {/* Rating */}
           <Card className="border-0 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-base">
-                Calificacion
-              </CardTitle>
+              <CardTitle className="text-base">Calificacion</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <StarRating value={rating} onChange={setRating} />
               {rating > 0 && (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                   {rating === 1 && "Malo"}
                   {rating === 2 && "Regular"}
                   {rating === 3 && "Bueno"}
@@ -316,7 +310,7 @@ export default function ReviewPage() {
                   obligatorio
                 </p>
               )}
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 {comment.length}/500 caracteres
               </p>
             </CardContent>
@@ -363,7 +357,7 @@ export default function ReviewPage() {
                   Agregar otra foto
                 </Button>
               )}
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 Maximo 3 fotos. Pega la URL de cada imagen.
               </p>
             </CardContent>

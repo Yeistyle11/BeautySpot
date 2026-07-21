@@ -15,7 +15,11 @@ interface Appointment {
   professionalId: string;
   clientId: string;
   notes: string | null;
-  appointmentServices: { serviceName: string; price: string; duration: number }[];
+  appointmentServices: {
+    serviceName: string;
+    price: string;
+    duration: number;
+  }[];
 }
 
 interface CalendarViewProps {
@@ -66,14 +70,24 @@ function dateKey(d: Date): string {
   return d.toISOString().split("T")[0];
 }
 
-export function CalendarView({ appointments, onComplete, onConfirm, onCancel, canConfirm, canCancel }: CalendarViewProps) {
+export function CalendarView({
+  appointments,
+  onComplete,
+  onConfirm,
+  onCancel,
+  canConfirm,
+  canCancel,
+}: CalendarViewProps) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
 
   const referenceDate = new Date();
   referenceDate.setDate(referenceDate.getDate() + weekOffset * 7);
 
-  const weekDates = useMemo(() => getWeekDates(referenceDate), [referenceDate.getTime()]);
+  const weekDates = useMemo(
+    () => getWeekDates(referenceDate),
+    [referenceDate.getTime()]
+  );
 
   const appointmentsByDate = useMemo(() => {
     const map: Record<string, Appointment[]> = {};
@@ -96,10 +110,18 @@ export function CalendarView({ appointments, onComplete, onConfirm, onCancel, ca
       {/* Week navigation */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={prevWeek}><ChevronLeft className="h-4 w-4" /></Button>
-          {!isCurrentWeek && <Button variant="ghost" size="sm" onClick={thisWeek}>Hoy</Button>}
-          <Button variant="outline" size="icon" onClick={nextWeek}><ChevronRight className="h-4 w-4" /></Button>
-          <span className="text-sm font-medium ml-2">{weekLabel}</span>
+          <Button variant="outline" size="icon" onClick={prevWeek}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          {!isCurrentWeek && (
+            <Button variant="ghost" size="sm" onClick={thisWeek}>
+              Hoy
+            </Button>
+          )}
+          <Button variant="outline" size="icon" onClick={nextWeek}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <span className="ml-2 text-sm font-medium">{weekLabel}</span>
         </div>
       </div>
 
@@ -108,13 +130,22 @@ export function CalendarView({ appointments, onComplete, onConfirm, onCancel, ca
         <div className="min-w-[700px]">
           {/* Header */}
           <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b">
-            <div className="p-2 text-xs text-muted-foreground text-center">Hora</div>
+            <div className="text-muted-foreground p-2 text-center text-xs">
+              Hora
+            </div>
             {weekDates.map((d, i) => {
               const isToday = dateKey(d) === dateKey(new Date());
               return (
-                <div key={i} className={`p-2 text-center ${isToday ? "bg-primary/5" : ""}`}>
-                  <p className="text-xs text-muted-foreground">{DAYS_ES[i]}</p>
-                  <p className={`text-sm font-semibold ${isToday ? "text-primary" : ""}`}>{d.getDate()}</p>
+                <div
+                  key={i}
+                  className={`p-2 text-center ${isToday ? "bg-primary/5" : ""}`}
+                >
+                  <p className="text-muted-foreground text-xs">{DAYS_ES[i]}</p>
+                  <p
+                    className={`text-sm font-semibold ${isToday ? "text-primary" : ""}`}
+                  >
+                    {d.getDate()}
+                  </p>
                 </div>
               );
             })}
@@ -122,8 +153,11 @@ export function CalendarView({ appointments, onComplete, onConfirm, onCancel, ca
 
           {/* Time rows */}
           {HOURS.map((hour) => (
-            <div key={hour} className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border/50">
-              <div className="p-1 text-xs text-muted-foreground text-center">
+            <div
+              key={hour}
+              className="border-border/50 grid grid-cols-[60px_repeat(7,1fr)] border-b"
+            >
+              <div className="text-muted-foreground p-1 text-center text-xs">
                 {hour > 12 ? hour - 12 : hour}:00 {hour >= 12 ? "pm" : "am"}
               </div>
               {weekDates.map((d, dayIdx) => {
@@ -135,17 +169,26 @@ export function CalendarView({ appointments, onComplete, onConfirm, onCancel, ca
                 });
 
                 return (
-                  <div key={dayIdx} className="min-h-[48px] p-0.5 relative">
+                  <div key={dayIdx} className="relative min-h-[48px] p-0.5">
                     {hourAppts.map((appt) => {
-                      const colorClass = statusColors[appt.status] || statusColors.PENDING;
+                      const colorClass =
+                        statusColors[appt.status] || statusColors.PENDING;
                       return (
                         <button
                           key={appt.id}
-                          onClick={() => setSelectedAppt(selectedAppt?.id === appt.id ? null : appt)}
-                          className={`w-full text-left rounded px-1.5 py-0.5 text-[10px] border cursor-pointer ${colorClass} ${selectedAppt?.id === appt.id ? "ring-2 ring-primary" : ""}`}
+                          onClick={() =>
+                            setSelectedAppt(
+                              selectedAppt?.id === appt.id ? null : appt
+                            )
+                          }
+                          className={`w-full cursor-pointer rounded border px-1.5 py-0.5 text-left text-[10px] ${colorClass} ${selectedAppt?.id === appt.id ? "ring-primary ring-2" : ""}`}
                         >
-                          <p className="font-medium truncate">{appt.appointmentServices[0]?.serviceName || "Cita"}</p>
-                          <p className="opacity-70">{formatTime(appt.startTime)}</p>
+                          <p className="truncate font-medium">
+                            {appt.appointmentServices[0]?.serviceName || "Cita"}
+                          </p>
+                          <p className="opacity-70">
+                            {formatTime(appt.startTime)}
+                          </p>
                         </button>
                       );
                     })}
@@ -159,27 +202,59 @@ export function CalendarView({ appointments, onComplete, onConfirm, onCancel, ca
 
       {/* Selected appointment detail */}
       {selectedAppt && (
-        <div className="mt-4 rounded-lg border p-4 bg-muted/30">
+        <div className="bg-muted/30 mt-4 rounded-lg border p-4">
           <div className="flex items-start justify-between">
             <div>
-              <h4 className="font-semibold">{selectedAppt.appointmentServices.map((s) => s.serviceName).join(", ")}</h4>
-              <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
-                <span>{formatTime(selectedAppt.startTime)} - {formatTime(selectedAppt.endTime)}</span>
-                <span className="font-medium">{formatCurrency(parseFloat(selectedAppt.totalAmount))}</span>
+              <h4 className="font-semibold">
+                {selectedAppt.appointmentServices
+                  .map((s) => s.serviceName)
+                  .join(", ")}
+              </h4>
+              <div className="text-muted-foreground mt-1 flex items-center gap-3 text-sm">
+                <span>
+                  {formatTime(selectedAppt.startTime)} -{" "}
+                  {formatTime(selectedAppt.endTime)}
+                </span>
+                <span className="font-medium">
+                  {formatCurrency(parseFloat(selectedAppt.totalAmount))}
+                </span>
               </div>
-              <Badge className="mt-2" variant={selectedAppt.status === "CANCELLED" ? "destructive" : selectedAppt.status === "COMPLETED" ? "secondary" : "default"}>
+              <Badge
+                className="mt-2"
+                variant={
+                  selectedAppt.status === "CANCELLED"
+                    ? "destructive"
+                    : selectedAppt.status === "COMPLETED"
+                      ? "secondary"
+                      : "default"
+                }
+              >
                 {statusLabels[selectedAppt.status] || selectedAppt.status}
               </Badge>
             </div>
             <div className="flex gap-2">
               {selectedAppt.status === "PENDING" && canConfirm && (
-                <Button size="sm" onClick={() => onConfirm(selectedAppt.id)}>Confirmar</Button>
+                <Button size="sm" onClick={() => onConfirm(selectedAppt.id)}>
+                  Confirmar
+                </Button>
               )}
               {selectedAppt.status === "CONFIRMED" && canConfirm && (
-                <Button size="sm" variant="outline" onClick={() => onComplete(selectedAppt)}>Completar</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onComplete(selectedAppt)}
+                >
+                  Completar
+                </Button>
               )}
               {selectedAppt.status === "PENDING" && canCancel && (
-                <Button size="sm" variant="destructive" onClick={() => onCancel(selectedAppt.id)}>Cancelar</Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => onCancel(selectedAppt.id)}
+                >
+                  Cancelar
+                </Button>
               )}
             </div>
           </div>

@@ -8,23 +8,108 @@ export interface PageAccess {
 }
 
 export const PAGES: PageAccess[] = [
-  { path: "/dashboard", label: "Dashboard", icon: "LayoutDashboard", roles: ["SUPER_ADMIN", "OWNER", "ADMIN", "PROFESSIONAL"] },
-  { path: "/dashboard/appointments", label: "Agenda", icon: "Calendar", roles: ["OWNER", "ADMIN", "PROFESSIONAL", "RECEPTIONIST"] },
-  { path: "/dashboard/services", label: "Servicios", icon: "Scissors", roles: ["OWNER", "ADMIN", "PROFESSIONAL", "RECEPTIONIST"] },
-  { path: "/dashboard/professionals", label: "Equipo", icon: "Users", roles: ["OWNER", "ADMIN", "PROFESSIONAL"] },
-  { path: "/dashboard/categories", label: "Cat. Profesionales", icon: "Tag", roles: ["SUPER_ADMIN", "OWNER", "ADMIN"] },
-  { path: "/dashboard/service-categories", label: "Cat. Servicios", icon: "LayoutGrid", roles: ["SUPER_ADMIN", "OWNER", "ADMIN"] },
-  { path: "/dashboard/staff", label: "Usuarios", icon: "UserCog", roles: ["SUPER_ADMIN", "OWNER", "ADMIN"] },
-  { path: "/dashboard/clients", label: "Clientes", icon: "UserCircle", roles: ["OWNER", "ADMIN", "RECEPTIONIST"] },
-  { path: "/dashboard/payments", label: "Pagos", icon: "DollarSign", roles: ["OWNER", "ADMIN", "RECEPTIONIST"] },
-  { path: "/dashboard/cash-register", label: "Caja", icon: "Wallet", roles: ["OWNER", "ADMIN", "RECEPTIONIST"] },
-  { path: "/dashboard/analytics", label: "Reportes", icon: "BarChart3", roles: ["SUPER_ADMIN", "OWNER", "ADMIN"] },
-  { path: "/dashboard/client", label: "Mi Panel", icon: "Calendar", roles: ["CLIENT"] },
-  { path: "/dashboard/client/appointments", label: "Mis Citas", icon: "Scissors", roles: ["CLIENT"] },
-  { path: "/dashboard/client/profile", label: "Mi Perfil", icon: "UserCircle", roles: ["CLIENT"] },
-  { path: "/dashboard/marketplace", label: "Marketplace", icon: "Megaphone", roles: ["OWNER", "ADMIN", "CLIENT"] },
-  { path: "/dashboard/notifications", label: "Notificaciones", icon: "Bell", roles: ["SUPER_ADMIN", "OWNER", "ADMIN", "PROFESSIONAL", "CLIENT"] },
-  { path: "/dashboard/settings", label: "Configuracion", icon: "Settings", roles: ["SUPER_ADMIN", "OWNER", "ADMIN", "PROFESSIONAL", "CLIENT"] },
+  {
+    path: "/dashboard",
+    label: "Dashboard",
+    icon: "LayoutDashboard",
+    roles: ["SUPER_ADMIN", "OWNER", "ADMIN", "PROFESSIONAL"],
+  },
+  {
+    path: "/dashboard/appointments",
+    label: "Agenda",
+    icon: "Calendar",
+    roles: ["OWNER", "ADMIN", "PROFESSIONAL", "RECEPTIONIST"],
+  },
+  {
+    path: "/dashboard/services",
+    label: "Servicios",
+    icon: "Scissors",
+    roles: ["OWNER", "ADMIN", "PROFESSIONAL", "RECEPTIONIST"],
+  },
+  {
+    path: "/dashboard/professionals",
+    label: "Equipo",
+    icon: "Users",
+    roles: ["OWNER", "ADMIN", "PROFESSIONAL"],
+  },
+  {
+    path: "/dashboard/categories",
+    label: "Cat. Profesionales",
+    icon: "Tag",
+    roles: ["SUPER_ADMIN", "OWNER", "ADMIN"],
+  },
+  {
+    path: "/dashboard/service-categories",
+    label: "Cat. Servicios",
+    icon: "LayoutGrid",
+    roles: ["SUPER_ADMIN", "OWNER", "ADMIN"],
+  },
+  {
+    path: "/dashboard/staff",
+    label: "Usuarios",
+    icon: "UserCog",
+    roles: ["SUPER_ADMIN", "OWNER", "ADMIN"],
+  },
+  {
+    path: "/dashboard/clients",
+    label: "Clientes",
+    icon: "UserCircle",
+    roles: ["OWNER", "ADMIN", "RECEPTIONIST"],
+  },
+  {
+    path: "/dashboard/payments",
+    label: "Pagos",
+    icon: "DollarSign",
+    roles: ["OWNER", "ADMIN", "RECEPTIONIST"],
+  },
+  {
+    path: "/dashboard/cash-register",
+    label: "Caja",
+    icon: "Wallet",
+    roles: ["OWNER", "ADMIN", "RECEPTIONIST"],
+  },
+  {
+    path: "/dashboard/analytics",
+    label: "Reportes",
+    icon: "BarChart3",
+    roles: ["SUPER_ADMIN", "OWNER", "ADMIN"],
+  },
+  {
+    path: "/dashboard/client",
+    label: "Mi Panel",
+    icon: "Calendar",
+    roles: ["CLIENT"],
+  },
+  {
+    path: "/dashboard/client/appointments",
+    label: "Mis Citas",
+    icon: "Scissors",
+    roles: ["CLIENT"],
+  },
+  {
+    path: "/dashboard/client/profile",
+    label: "Mi Perfil",
+    icon: "UserCircle",
+    roles: ["CLIENT"],
+  },
+  {
+    path: "/dashboard/marketplace",
+    label: "Marketplace",
+    icon: "Megaphone",
+    roles: ["OWNER", "ADMIN", "CLIENT"],
+  },
+  {
+    path: "/dashboard/notifications",
+    label: "Notificaciones",
+    icon: "Bell",
+    roles: ["SUPER_ADMIN", "OWNER", "ADMIN", "PROFESSIONAL", "CLIENT"],
+  },
+  {
+    path: "/dashboard/settings",
+    label: "Configuracion",
+    icon: "Settings",
+    roles: ["SUPER_ADMIN", "OWNER", "ADMIN", "PROFESSIONAL", "CLIENT"],
+  },
 ];
 
 export const ACTIONS: Record<string, Role[]> = {
@@ -69,7 +154,10 @@ export function canAccess(role: Role | null, path: string): boolean {
   return page.roles.includes(role);
 }
 
-export function canDo(role: Role | null, action: keyof typeof ACTIONS): boolean {
+export function canDo(
+  role: Role | null,
+  action: keyof typeof ACTIONS
+): boolean {
   if (!role) return false;
   return ACTIONS[action]?.includes(role) ?? false;
 }
