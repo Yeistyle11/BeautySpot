@@ -2,10 +2,21 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Users, DollarSign, Clock, Star, Scissors, CheckCircle, TrendingUp } from "lucide-react";
+import {
+  Calendar,
+  Users,
+  DollarSign,
+  Clock,
+  Star,
+  Scissors,
+  CheckCircle,
+  TrendingUp,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
+import { getAppointmentStatus } from "@/lib/status";
 import { useAuthStore } from "@/lib/store";
+import { decodeJwt } from "@/lib/auth";
 
 interface Appointment {
   id: string;
@@ -49,14 +60,23 @@ interface RevenuePoint {
   revenue: number;
 }
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  PENDING: { label: "Pendiente", color: "bg-yellow-100 text-yellow-800" },
-  CONFIRMED: { label: "Confirmada", color: "bg-blue-100 text-blue-800" },
-  IN_PROGRESS: { label: "En proceso", color: "bg-purple-100 text-purple-800" },
-  COMPLETED: { label: "Completada", color: "bg-green-100 text-green-800" },
-  CANCELLED: { label: "Cancelada", color: "bg-red-100 text-red-800" },
-  NO_SHOW: { label: "No asistio", color: "bg-gray-100 text-gray-800" },
-};
+interface ClientRef {
+  id: string;
+  name: string;
+}
+
+interface RawAppointment {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  totalAmount?: string | number;
+  clientId: string;
+  appointmentServices?: { serviceName?: string }[];
+}
+
+const STATUS_MAP = getAppointmentStatus;
 
 export default function DashboardPage() {
   const { businessId, setBusinessId } = useAuthStore();
@@ -65,40 +85,56 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const [kpiData, setKpiData] = useState<KpiData | null>(null);
-  const [topProfessionals, setTopProfessionals] = useState<TopProfessional[]>([]);
+  const [topProfessionals, setTopProfessionals] = useState<TopProfessional[]>(
+    []
+  );
   const [revenueChart, setRevenueChart] = useState<RevenuePoint[]>([]);
 
   useEffect(() => {
     let bid = businessId;
     if (!bid) {
       const token = localStorage.getItem("token");
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split(".")[1]));
-          bid = payload.businessId;
-          if (bid) setBusinessId(bid);
-        } catch { /* ignore */ }
+      const payload = token ? decodeJwt(token) : null;
+      if (payload?.businessId) {
+        bid = payload.businessId;
+        setBusinessId(payload.businessId);
       }
     }
     if (bid) {
       const today = new Date().toISOString().split("T")[0];
       Promise.all([
-        api.get<Appointment[]>(`/booking/appointments?date=${today}`).catch(() => []),
-        api.get<any[]>(`/core/clients?limit=100`).catch(() => []),
+        api
+          .get<
+            RawAppointment[] | { items: RawAppointment[] }
+          >(`/booking/appointments?date=${today}`)
+          .catch(() => [] as RawAppointment[]),
+        api
+          .get<ClientRef[] | { items: ClientRef[] }>(`/core/clients?limit=100`)
+          .catch(() => [] as ClientRef[]),
       ])
         .then(([res, clients]) => {
-          const items = Array.isArray(res) ? res : (res as any).items || [];
+          const items: RawAppointment[] = Array.isArray(res)
+            ? res
+            : (res?.items ?? []);
+          const clientList: ClientRef[] = Array.isArray(clients)
+            ? clients
+            : (clients?.items ?? []);
           const names: Record<string, string> = {};
-          if (Array.isArray(clients)) {
-            clients.forEach((c: any) => { names[c.id] = c.name; });
-          }
+          clientList.forEach((c) => {
+            names[c.id] = c.name;
+          });
           setClientNames(names);
           setAppointments(
-            items.map((a: any) => ({
-              ...a,
+            items.map((a) => ({
+              id: a.id,
+              date: a.date,
+              startTime: a.startTime,
+              endTime: a.endTime,
+              status: a.status,
               totalAmount: Number(a.totalAmount || 0),
               serviceName: a.appointmentServices?.[0]?.serviceName,
-              clientName: names[a.clientId] || null,
+              clientName: names[a.clientId] || undefined,
+              clientId: a.clientId,
             }))
           );
         })
@@ -106,9 +142,20 @@ export default function DashboardPage() {
         .finally(() => setLoading(false));
 
       // Analytics data
-      api.get<KpiData>("/analytics/dashboard/kpis").then(setKpiData).catch(() => {});
-      api.get<TopProfessional[]>("/analytics/dashboard/top-professionals?limit=5").then(setTopProfessionals).catch(() => {});
-      api.get<RevenuePoint[]>("/analytics/dashboard/revenue-chart?days=7").then(setRevenueChart).catch(() => {});
+      api
+        .get<KpiData>("/analytics/dashboard/kpis")
+        .then(setKpiData)
+        .catch(() => {});
+      api
+        .get<TopProfessional[]>(
+          "/analytics/dashboard/top-professionals?limit=5"
+        )
+        .then(setTopProfessionals)
+        .catch(() => {});
+      api
+        .get<RevenuePoint[]>("/analytics/dashboard/revenue-chart?days=7")
+        .then(setRevenueChart)
+        .catch(() => {});
     } else {
       setLoading(false);
     }
@@ -116,9 +163,15 @@ export default function DashboardPage() {
 
   // Fallback calculations from booking data
   const todayTotal = appointments.length;
-  const todayCompleted = appointments.filter((a) => a.status === "COMPLETED").length;
-  const todayRevenue = appointments.filter((a) => a.status === "COMPLETED").reduce((sum, a) => sum + Number(a.totalAmount || 0), 0);
-  const pending = appointments.filter((a) => a.status === "PENDING" || a.status === "CONFIRMED").length;
+  const todayCompleted = appointments.filter(
+    (a) => a.status === "COMPLETED"
+  ).length;
+  const todayRevenue = appointments
+    .filter((a) => a.status === "COMPLETED")
+    .reduce((sum, a) => sum + Number(a.totalAmount || 0), 0);
+  const pending = appointments.filter(
+    (a) => a.status === "PENDING" || a.status === "CONFIRMED"
+  ).length;
 
   const stats = [
     {
@@ -170,10 +223,14 @@ export default function DashboardPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">{stat.title}</p>
-                  <p className="mt-1 text-2xl font-bold">{loading ? "..." : stat.value}</p>
+                  <p className="text-muted-foreground text-sm">{stat.title}</p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {loading ? "..." : stat.value}
+                  </p>
                 </div>
-                <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${stat.bg}`}>
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-xl ${stat.bg}`}
+                >
                   <stat.icon className={`h-6 w-6 ${stat.color}`} />
                 </div>
               </div>
@@ -187,34 +244,42 @@ export default function DashboardPage() {
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm">
                 <TrendingUp className="h-4 w-4" /> Ingresos 30 dias
               </div>
-              <p className="mt-1 text-xl font-bold">{formatCurrency(kpiData.last30Days.totalRevenue)}</p>
+              <p className="mt-1 text-xl font-bold">
+                {formatCurrency(kpiData.last30Days.totalRevenue)}
+              </p>
             </CardContent>
           </Card>
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm">
                 <Calendar className="h-4 w-4" /> Citas 30 dias
               </div>
-              <p className="mt-1 text-xl font-bold">{kpiData.last30Days.totalAppointments}</p>
+              <p className="mt-1 text-xl font-bold">
+                {kpiData.last30Days.totalAppointments}
+              </p>
             </CardContent>
           </Card>
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm">
                 <CheckCircle className="h-4 w-4" /> Tasa completado
               </div>
-              <p className="mt-1 text-xl font-bold">{kpiData.last30Days.completionRate.toFixed(1)}%</p>
+              <p className="mt-1 text-xl font-bold">
+                {kpiData.last30Days.completionRate.toFixed(1)}%
+              </p>
             </CardContent>
           </Card>
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm">
                 <Users className="h-4 w-4" /> Clientes nuevos
               </div>
-              <p className="mt-1 text-xl font-bold">{kpiData.last30Days.newClients}</p>
+              <p className="mt-1 text-xl font-bold">
+                {kpiData.last30Days.newClients}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -231,33 +296,49 @@ export default function DashboardPage() {
           <CardContent>
             {loading ? (
               <div className="flex justify-center py-8">
-                <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                <div className="border-primary h-6 w-6 animate-spin rounded-full border-4 border-t-transparent" />
               </div>
             ) : upcoming.length === 0 ? (
-              <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <div className="text-muted-foreground flex items-center justify-center py-8">
                 <div className="text-center">
                   <Calendar className="mx-auto h-12 w-12 opacity-20" />
-                  <p className="mt-2 text-sm">No hay citas pendientes para hoy</p>
+                  <p className="mt-2 text-sm">
+                    No hay citas pendientes para hoy
+                  </p>
                 </div>
               </div>
             ) : (
-              <div className="space-y-3 max-h-80 overflow-y-auto">
+              <div className="max-h-80 space-y-3 overflow-y-auto">
                 {upcoming.map((a) => {
-                  const st = STATUS_MAP[a.status] || { label: a.status, color: "bg-gray-100 text-gray-800" };
+                  const st = STATUS_MAP(a.status);
                   return (
-                    <div key={a.id} className="flex items-center justify-between rounded-lg border p-3">
+                    <div
+                      key={a.id}
+                      className="flex items-center justify-between rounded-lg border p-3"
+                    >
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
                           <Scissors className="h-4 w-4" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium">{a.clientName || "Cliente"}</p>
-                          <p className="text-xs text-muted-foreground">{a.serviceName || "Servicio"}</p>
+                          <p className="text-sm font-medium">
+                            {a.clientName || "Cliente"}
+                          </p>
+                          <p className="text-muted-foreground text-xs">
+                            {a.serviceName || "Servicio"}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-semibold">{formatTime(a.startTime)} - {formatTime(a.endTime)}</p>
-                        <Badge variant="secondary" className={`text-xs ${st.color}`}>{st.label}</Badge>
+                        <p className="text-sm font-semibold">
+                          {formatTime(a.startTime)} - {formatTime(a.endTime)}
+                        </p>
+                        <Badge
+                          variant="secondary"
+                          className={`text-xs ${st.color}`}
+                        >
+                          {st.label}
+                        </Badge>
                       </div>
                     </div>
                   );
@@ -276,20 +357,30 @@ export default function DashboardPage() {
             {revenueChart.length > 0 ? (
               <div className="space-y-2">
                 {revenueChart.map((point) => {
-                  const pct = maxRevenue > 0 ? (point.revenue / maxRevenue) * 100 : 0;
+                  const pct =
+                    maxRevenue > 0 ? (point.revenue / maxRevenue) * 100 : 0;
                   return (
                     <div key={point.date} className="flex items-center gap-3">
-                      <span className="w-12 text-xs text-muted-foreground">{formatDate(point.date).replace(/^\d+\sde\s/, "").replace(/\sde\s\d+$/, "")}</span>
-                      <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary/70 rounded-full transition-all duration-500" style={{ width: `${Math.max(pct, 2)}%` }} />
+                      <span className="text-muted-foreground w-12 text-xs">
+                        {formatDate(point.date)
+                          .replace(/^\d+\sde\s/, "")
+                          .replace(/\sde\s\d+$/, "")}
+                      </span>
+                      <div className="bg-muted h-6 flex-1 overflow-hidden rounded-full">
+                        <div
+                          className="bg-primary/70 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${Math.max(pct, 2)}%` }}
+                        />
                       </div>
-                      <span className="text-xs font-medium w-24 text-right">{formatCurrency(point.revenue)}</span>
+                      <span className="w-24 text-right text-xs font-medium">
+                        {formatCurrency(point.revenue)}
+                      </span>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <div className="text-muted-foreground flex items-center justify-center py-8">
                 <div className="text-center">
                   <DollarSign className="mx-auto h-12 w-12 opacity-20" />
                   <p className="mt-2 text-sm">Sin datos de ingresos</p>
@@ -304,20 +395,26 @@ export default function DashboardPage() {
       {topProfessionals.length > 0 && (
         <Card className="mt-6 border-0 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Star className="h-5 w-5 text-amber-500" /> Top profesionales (30 dias)
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Star className="h-5 w-5 text-amber-500" /> Top profesionales (30
+              dias)
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               {topProfessionals.map((p, i) => (
-                <div key={p.professionalId} className="flex items-center gap-3 rounded-lg border p-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold">
+                <div
+                  key={p.professionalId}
+                  className="flex items-center gap-3 rounded-lg border p-3"
+                >
+                  <div className="bg-primary/10 text-primary flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold">
                     {i + 1}
                   </div>
                   <div>
                     <p className="text-sm font-medium">{p.professionalName}</p>
-                    <p className="text-xs text-muted-foreground">{p.appointments} citas · {formatCurrency(p.revenue)}</p>
+                    <p className="text-muted-foreground text-xs">
+                      {p.appointments} citas · {formatCurrency(p.revenue)}
+                    </p>
                   </div>
                 </div>
               ))}

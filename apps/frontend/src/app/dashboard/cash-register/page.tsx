@@ -9,8 +9,16 @@ import { RadioGroup } from "@/components/ui/radio-group";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import {
-  Wallet, Plus, ArrowDownCircle, ArrowUpCircle, X,
-  Loader2, History, TrendingUp, TrendingDown, DollarSign,
+  Wallet,
+  Plus,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  X,
+  Loader2,
+  History,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
@@ -36,8 +44,16 @@ interface CashMovement {
 }
 
 const movementTypeOptions = [
-  { value: "IN", label: "Entrada", icon: <ArrowUpCircle className="h-5 w-5 text-green-600" /> },
-  { value: "OUT", label: "Salida", icon: <ArrowDownCircle className="h-5 w-5 text-red-600" /> },
+  {
+    value: "IN",
+    label: "Entrada",
+    icon: <ArrowUpCircle className="h-5 w-5 text-green-600" />,
+  },
+  {
+    value: "OUT",
+    label: "Salida",
+    icon: <ArrowDownCircle className="h-5 w-5 text-red-600" />,
+  },
 ];
 
 export default function CashRegisterPage() {
@@ -65,10 +81,14 @@ export default function CashRegisterPage() {
 
   const loadActive = async () => {
     try {
-      const session = await api.get<CashSession>("/payment/cash-register/active");
+      const session = await api.get<CashSession>(
+        "/payment/cash-register/active"
+      );
       setActiveSession(session);
       if (session?.id) {
-        const summary = await api.get<any>(`/payment/cash-register/${session.id}/summary`);
+        const summary = await api.get<{ movements: CashMovement[] }>(
+          `/payment/cash-register/${session.id}/summary`
+        );
         if (summary?.movements) setMovements(summary.movements);
       }
     } catch {
@@ -79,7 +99,10 @@ export default function CashRegisterPage() {
   };
 
   const loadHistory = () => {
-    api.get<CashSession[]>("/payment/cash-register/history").then(setHistory).catch(() => {});
+    api
+      .get<CashSession[]>("/payment/cash-register/history")
+      .then(setHistory)
+      .catch(() => {});
   };
 
   useEffect(() => {
@@ -146,8 +169,12 @@ export default function CashRegisterPage() {
     }
   };
 
-  const totalIn = movements.filter((m) => m.type === "IN").reduce((s, m) => s + parseFloat(m.amount), 0);
-  const totalOut = movements.filter((m) => m.type === "OUT").reduce((s, m) => s + parseFloat(m.amount), 0);
+  const totalIn = movements
+    .filter((m) => m.type === "IN")
+    .reduce((s, m) => s + parseFloat(m.amount), 0);
+  const totalOut = movements
+    .filter((m) => m.type === "OUT")
+    .reduce((s, m) => s + parseFloat(m.amount), 0);
   const openingAmt = parseFloat(activeSession?.openingAmount || "0");
   const expectedTotal = openingAmt + totalIn - totalOut;
 
@@ -155,7 +182,11 @@ export default function CashRegisterPage() {
     return (
       <div>
         <h1 className="text-2xl font-bold">Caja Registradora</h1>
-        <Card className="mt-4 border-0 shadow-sm"><CardContent className="p-8 text-center text-muted-foreground">Cargando...</CardContent></Card>
+        <Card className="mt-4 border-0 shadow-sm">
+          <CardContent className="text-muted-foreground p-8 text-center">
+            Cargando...
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -169,11 +200,13 @@ export default function CashRegisterPage() {
 
       {!activeSession ? (
         <Card className="border-0 shadow-sm">
-          <CardContent className="p-8 text-center space-y-4">
-            <Wallet className="mx-auto h-16 w-16 text-muted-foreground opacity-30" />
+          <CardContent className="space-y-4 p-8 text-center">
+            <Wallet className="text-muted-foreground mx-auto h-16 w-16 opacity-30" />
             <div>
               <h3 className="text-lg font-medium">Caja cerrada</h3>
-              <p className="text-sm text-muted-foreground">Abre la caja para empezar a registrar movimientos</p>
+              <p className="text-muted-foreground text-sm">
+                Abre la caja para empezar a registrar movimientos
+              </p>
             </div>
             <Button onClick={() => setOpenDialog(true)}>
               <Plus className="mr-2 h-4 w-4" /> Abrir caja
@@ -186,35 +219,46 @@ export default function CashRegisterPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-0 shadow-sm">
               <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">Monto inicial</p>
-                <p className="text-xl font-bold">{formatCurrency(openingAmt)}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {new Date(activeSession.openedAt).toLocaleString("es-CO", { hour: "2-digit", minute: "2-digit" })}
+                <p className="text-muted-foreground text-xs">Monto inicial</p>
+                <p className="text-xl font-bold">
+                  {formatCurrency(openingAmt)}
+                </p>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {new Date(activeSession.openedAt).toLocaleString("es-CO", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-sm">
-              <CardContent className="p-4 flex items-center gap-3">
+              <CardContent className="flex items-center gap-3 p-4">
                 <TrendingUp className="h-8 w-8 text-green-600" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Entradas</p>
-                  <p className="text-xl font-bold text-green-600">{formatCurrency(totalIn)}</p>
+                  <p className="text-muted-foreground text-xs">Entradas</p>
+                  <p className="text-xl font-bold text-green-600">
+                    {formatCurrency(totalIn)}
+                  </p>
                 </div>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-sm">
-              <CardContent className="p-4 flex items-center gap-3">
+              <CardContent className="flex items-center gap-3 p-4">
                 <TrendingDown className="h-8 w-8 text-red-600" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Salidas</p>
-                  <p className="text-xl font-bold text-red-600">{formatCurrency(totalOut)}</p>
+                  <p className="text-muted-foreground text-xs">Salidas</p>
+                  <p className="text-xl font-bold text-red-600">
+                    {formatCurrency(totalOut)}
+                  </p>
                 </div>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-sm">
               <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">Total esperado</p>
-                <p className="text-xl font-bold text-primary">{formatCurrency(expectedTotal)}</p>
+                <p className="text-muted-foreground text-xs">Total esperado</p>
+                <p className="text-primary text-xl font-bold">
+                  {formatCurrency(expectedTotal)}
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -225,7 +269,10 @@ export default function CashRegisterPage() {
               <Plus className="mr-2 h-4 w-4" /> Registrar movimiento
             </Button>
             {canDo(role, "cash_register_close") && (
-              <Button variant="destructive" onClick={() => setCloseDialog(true)}>
+              <Button
+                variant="destructive"
+                onClick={() => setCloseDialog(true)}
+              >
                 <X className="mr-2 h-4 w-4" /> Cerrar caja
               </Button>
             )}
@@ -233,14 +280,23 @@ export default function CashRegisterPage() {
 
           {/* Movements list */}
           <Card className="border-0 shadow-sm">
-            <CardHeader><CardTitle className="text-lg">Movimientos ({movements.length})</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-lg">
+                Movimientos ({movements.length})
+              </CardTitle>
+            </CardHeader>
             <CardContent>
               {movements.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No hay movimientos registrados</p>
+                <p className="text-muted-foreground py-4 text-center text-sm">
+                  No hay movimientos registrados
+                </p>
               ) : (
                 <div className="space-y-2">
                   {[...movements].reverse().map((m) => (
-                    <div key={m.id} className="flex items-center justify-between rounded-lg border p-3">
+                    <div
+                      key={m.id}
+                      className="flex items-center justify-between rounded-lg border p-3"
+                    >
                       <div className="flex items-center gap-3">
                         {m.type === "IN" ? (
                           <ArrowUpCircle className="h-5 w-5 text-green-600" />
@@ -249,13 +305,19 @@ export default function CashRegisterPage() {
                         )}
                         <div>
                           <p className="text-sm font-medium">{m.concept}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(m.registeredAt).toLocaleString("es-CO", { hour: "2-digit", minute: "2-digit" })}
+                          <p className="text-muted-foreground text-xs">
+                            {new Date(m.registeredAt).toLocaleString("es-CO", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </p>
                         </div>
                       </div>
-                      <span className={`font-semibold ${m.type === "IN" ? "text-green-600" : "text-red-600"}`}>
-                        {m.type === "IN" ? "+" : "-"}{formatCurrency(parseFloat(m.amount))}
+                      <span
+                        className={`font-semibold ${m.type === "IN" ? "text-green-600" : "text-red-600"}`}
+                      >
+                        {m.type === "IN" ? "+" : "-"}
+                        {formatCurrency(parseFloat(m.amount))}
                       </span>
                     </div>
                   ))}
@@ -270,19 +332,28 @@ export default function CashRegisterPage() {
       {history.length > 0 && (
         <Card className="mt-6 border-0 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2"><History className="h-5 w-5" /> Historial de sesiones</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <History className="h-5 w-5" /> Historial de sesiones
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {history.map((s) => (
-                <div key={s.id} className="flex items-center justify-between rounded-lg border p-3">
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
                   <div>
                     <p className="text-sm font-medium">
-                      {new Date(s.openedAt).toLocaleDateString("es-CO")} - {s.closedAt ? new Date(s.closedAt).toLocaleDateString("es-CO") : "En curso"}
+                      {new Date(s.openedAt).toLocaleDateString("es-CO")} -{" "}
+                      {s.closedAt
+                        ? new Date(s.closedAt).toLocaleDateString("es-CO")
+                        : "En curso"}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-muted-foreground text-xs">
                       Apertura: {formatCurrency(parseFloat(s.openingAmount))}
-                      {s.closingAmount && ` · Cierre: ${formatCurrency(parseFloat(s.closingAmount))}`}
+                      {s.closingAmount &&
+                        ` · Cierre: ${formatCurrency(parseFloat(s.closingAmount))}`}
                     </p>
                   </div>
                   <Badge variant={s.closedAt ? "secondary" : "success"}>
@@ -296,63 +367,134 @@ export default function CashRegisterPage() {
       )}
 
       {/* Open dialog */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title="Abrir caja">
+      <Dialog
+        open={openDialog}
+        onClose={() => setOpenDialog(false)}
+        title="Abrir caja"
+      >
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Monto inicial (COP)</Label>
-            <Input type="number" placeholder="50000" value={openAmount} onChange={(e) => setOpenAmount(e.target.value)} />
-            <p className="text-xs text-muted-foreground">Dejar en 0 si la caja arranca vacia</p>
+            <Input
+              type="number"
+              placeholder="50000"
+              value={openAmount}
+              onChange={(e) => setOpenAmount(e.target.value)}
+            />
+            <p className="text-muted-foreground text-xs">
+              Dejar en 0 si la caja arranca vacia
+            </p>
           </div>
           <div className="space-y-2">
             <Label>Notas (opcional)</Label>
-            <Textarea value={openNotes} onChange={(e) => setOpenNotes(e.target.value)} rows={2} placeholder="Observaciones..." />
+            <Textarea
+              value={openNotes}
+              onChange={(e) => setOpenNotes(e.target.value)}
+              rows={2}
+              placeholder="Observaciones..."
+            />
           </div>
           <Button onClick={handleOpen} disabled={opening}>
-            {opening ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wallet className="mr-2 h-4 w-4" />}
+            {opening ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Wallet className="mr-2 h-4 w-4" />
+            )}
             Abrir caja
           </Button>
         </div>
       </Dialog>
 
       {/* Movement dialog */}
-      <Dialog open={movementDialog} onClose={() => setMovementDialog(false)} title="Registrar movimiento">
+      <Dialog
+        open={movementDialog}
+        onClose={() => setMovementDialog(false)}
+        title="Registrar movimiento"
+      >
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Tipo de movimiento</Label>
-            <RadioGroup options={movementTypeOptions} value={moveType} onChange={setMoveType} />
+            <RadioGroup
+              options={movementTypeOptions}
+              value={moveType}
+              onChange={setMoveType}
+            />
           </div>
           <div className="space-y-2">
             <Label>Monto (COP)</Label>
-            <Input type="number" placeholder="10000" value={moveAmount} onChange={(e) => setMoveAmount(e.target.value)} required />
+            <Input
+              type="number"
+              placeholder="10000"
+              value={moveAmount}
+              onChange={(e) => setMoveAmount(e.target.value)}
+              required
+            />
           </div>
           <div className="space-y-2">
             <Label>Concepto</Label>
-            <Input placeholder="Ej: Pago de proveedor, Venta de producto..." value={moveConcept} onChange={(e) => setMoveConcept(e.target.value)} required />
+            <Input
+              placeholder="Ej: Pago de proveedor, Venta de producto..."
+              value={moveConcept}
+              onChange={(e) => setMoveConcept(e.target.value)}
+              required
+            />
           </div>
-          <Button onClick={handleMovement} disabled={registering || !moveAmount || !moveConcept}>
-            {registering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DollarSign className="mr-2 h-4 w-4" />}
+          <Button
+            onClick={handleMovement}
+            disabled={registering || !moveAmount || !moveConcept}
+          >
+            {registering ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <DollarSign className="mr-2 h-4 w-4" />
+            )}
             Registrar
           </Button>
         </div>
       </Dialog>
 
       {/* Close dialog */}
-      <Dialog open={closeDialog} onClose={() => setCloseDialog(false)} title="Cerrar caja">
+      <Dialog
+        open={closeDialog}
+        onClose={() => setCloseDialog(false)}
+        title="Cerrar caja"
+      >
         <div className="space-y-4">
-          <div className="rounded-lg bg-muted/50 p-4 space-y-1">
-            <p className="text-sm text-muted-foreground">Total esperado en caja</p>
+          <div className="bg-muted/50 space-y-1 rounded-lg p-4">
+            <p className="text-muted-foreground text-sm">
+              Total esperado en caja
+            </p>
             <p className="text-xl font-bold">{formatCurrency(expectedTotal)}</p>
           </div>
           <div className="space-y-2">
             <Label>Monto final en caja (COP)</Label>
-            <Input type="number" placeholder={String(expectedTotal)} value={closeAmount} onChange={(e) => setCloseAmount(e.target.value)} required />
+            <Input
+              type="number"
+              placeholder={String(expectedTotal)}
+              value={closeAmount}
+              onChange={(e) => setCloseAmount(e.target.value)}
+              required
+            />
           </div>
           <div className="space-y-2">
             <Label>Notas (opcional)</Label>
-            <Textarea value={closeNotes} onChange={(e) => setCloseNotes(e.target.value)} rows={2} placeholder="Diferencias, observaciones..." />
+            <Textarea
+              value={closeNotes}
+              onChange={(e) => setCloseNotes(e.target.value)}
+              rows={2}
+              placeholder="Diferencias, observaciones..."
+            />
           </div>
-          <Button variant="destructive" onClick={handleClose} disabled={closing || !closeAmount}>
-            {closing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+          <Button
+            variant="destructive"
+            onClick={handleClose}
+            disabled={closing || !closeAmount}
+          >
+            {closing ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <X className="mr-2 h-4 w-4" />
+            )}
             Cerrar caja
           </Button>
         </div>

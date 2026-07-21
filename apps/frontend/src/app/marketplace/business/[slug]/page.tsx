@@ -145,14 +145,15 @@ export default function BusinessProfilePage() {
         const bid = p.businessId;
         return Promise.all([
           apiPublic
-            .get<Professional[]>(
-              `/marketplace/professional-profiles/business/${bid}`
-            )
+            .get<
+              Professional[]
+            >(`/marketplace/professional-profiles/business/${bid}`)
             .catch(() => []),
           apiPublic
-            .get<{ items: Review[]; total: number }>(
-              `/marketplace/reviews/business/${bid}?limit=10`
-            )
+            .get<{
+              items: Review[];
+              total: number;
+            }>(`/marketplace/reviews/business/${bid}?limit=10`)
             .catch(() => ({ items: [], total: 0 })),
           apiPublic
             .get<RatingDistribution>(
@@ -175,20 +176,17 @@ export default function BusinessProfilePage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 text-muted-foreground">
+      <div className="text-muted-foreground flex min-h-screen flex-col items-center justify-center gap-4">
         <Scissors className="h-16 w-16 opacity-20" />
         <p className="text-lg font-medium">Negocio no encontrado</p>
-        <Link
-          href="/marketplace"
-          className="text-primary hover:underline"
-        >
+        <Link href="/marketplace" className="text-primary hover:underline">
           Volver al marketplace
         </Link>
       </div>
@@ -209,9 +207,9 @@ export default function BusinessProfilePage() {
   const coverImg = profile.coverImage || gallery[0]?.url;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background min-h-screen">
       {/* Hero Banner */}
-      <div className="relative h-72 sm:h-80 bg-gradient-to-br from-primary/30 to-primary/10">
+      <div className="from-primary/30 to-primary/10 relative h-72 bg-gradient-to-br sm:h-80">
         {coverImg && (
           <img
             src={coverImg}
@@ -243,10 +241,10 @@ export default function BusinessProfilePage() {
                 <img
                   src={profile.logo}
                   alt={profile.name}
-                  className="h-20 w-20 shrink-0 rounded-2xl border-4 border-white shadow-lg object-cover"
+                  className="h-20 w-20 shrink-0 rounded-2xl border-4 border-white object-cover shadow-lg"
                 />
               ) : (
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border-4 border-white bg-primary text-3xl font-bold text-primary-foreground shadow-lg">
+                <div className="bg-primary text-primary-foreground flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border-4 border-white text-3xl font-bold shadow-lg">
                   {profile.name.charAt(0)}
                 </div>
               )}
@@ -293,7 +291,7 @@ export default function BusinessProfilePage() {
               <Link href={`/marketplace/business/${slug}/book`}>
                 <Button
                   size="lg"
-                  className="hidden sm:flex bg-white text-primary hover:bg-white/90 shadow-lg"
+                  className="text-primary hidden bg-white shadow-lg hover:bg-white/90 sm:flex"
                 >
                   <Calendar className="mr-2 h-4 w-4" />
                   Agendar cita
@@ -353,9 +351,7 @@ export default function BusinessProfilePage() {
                     key={section.id}
                     title={title}
                     images={gallery}
-                    galleryIdx={galleryIdx}
                     setGalleryIdx={setGalleryIdx}
-                    lightboxOpen={lightboxOpen}
                     setLightboxOpen={setLightboxOpen}
                   />
                 )
@@ -398,7 +394,7 @@ export default function BusinessProfilePage() {
                   href={profile.socialLinks.instagram}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-full bg-muted px-4 py-2 text-sm hover:bg-muted/80 transition-colors"
+                  className="bg-muted hover:bg-muted/80 flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors"
                 >
                   <Instagram className="h-4 w-4" />
                   Instagram
@@ -409,7 +405,7 @@ export default function BusinessProfilePage() {
                   href={profile.socialLinks.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-full bg-muted px-4 py-2 text-sm hover:bg-muted/80 transition-colors"
+                  className="bg-muted hover:bg-muted/80 flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors"
                 >
                   <ExternalLink className="h-4 w-4" />
                   Sitio web
@@ -419,15 +415,15 @@ export default function BusinessProfilePage() {
           )}
 
         {/* Final CTA */}
-        <div className="mb-8 rounded-2xl bg-gradient-to-r from-primary to-primary/80 p-8 text-center text-primary-foreground">
+        <div className="from-primary to-primary/80 text-primary-foreground mb-8 rounded-2xl bg-gradient-to-r p-8 text-center">
           <h3 className="text-2xl font-bold">Listo para tu proxima cita?</h3>
-          <p className="mt-2 text-primary-foreground/80">
+          <p className="text-primary-foreground/80 mt-2">
             Agenda en segundos, sin necesidad de crear una cuenta
           </p>
           <Link href={`/marketplace/business/${slug}/book`}>
             <Button
               size="lg"
-              className="mt-4 bg-white text-primary hover:bg-white/90"
+              className="text-primary mt-4 bg-white hover:bg-white/90"
             >
               <Calendar className="mr-2 h-4 w-4" />
               Agendar cita ahora
@@ -443,7 +439,9 @@ export default function BusinessProfilePage() {
           onClick={() => setLightboxOpen(false)}
         >
           <button
-            onClick={() => setGalleryIdx((galleryIdx - 1 + gallery.length) % gallery.length)}
+            onClick={() =>
+              setGalleryIdx((galleryIdx - 1 + gallery.length) % gallery.length)
+            }
             className="absolute left-4 text-white/70 hover:text-white"
           >
             <ChevronLeft className="h-8 w-8" />
@@ -462,11 +460,11 @@ export default function BusinessProfilePage() {
           </button>
           <button
             onClick={() => setLightboxOpen(false)}
-            className="absolute right-4 top-4 text-white/70 hover:text-white text-2xl"
+            className="absolute right-4 top-4 text-2xl text-white/70 hover:text-white"
           >
             &times;
           </button>
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-sm text-white/70">
             {galleryIdx + 1} / {gallery.length}
           </div>
         </div>
@@ -493,30 +491,30 @@ function StorySection({
   return (
     <section className="mb-12">
       <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold">
-        <Quote className="h-5 w-5 text-primary" />
+        <Quote className="text-primary h-5 w-5" />
         {title}
       </h2>
       <div className="flex flex-col gap-6 sm:flex-row">
         {storyImage && (
-          <div className="sm:w-1/3 shrink-0">
+          <div className="shrink-0 sm:w-1/3">
             <img
               src={storyImage}
               alt={storyTitle || "Historia"}
-              className="rounded-xl object-cover w-full h-48 sm:h-full"
+              className="h-48 w-full rounded-xl object-cover sm:h-full"
             />
           </div>
         )}
         <div className="flex-1">
           {storyTitle && (
-            <h3 className="mb-3 text-xl font-semibold text-primary">
+            <h3 className="text-primary mb-3 text-xl font-semibold">
               {storyTitle}
             </h3>
           )}
-          <p className="whitespace-pre-line text-muted-foreground leading-relaxed">
+          <p className="text-muted-foreground whitespace-pre-line leading-relaxed">
             {storyText}
           </p>
           {(foundedYear || founders) && (
-            <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted-foreground">
+            <div className="text-muted-foreground mt-4 flex flex-wrap gap-4 text-sm">
               {foundedYear && (
                 <span className="flex items-center gap-1">
                   <Clock className="h-4 w-4" />
@@ -544,7 +542,7 @@ function TeamSection({
   return (
     <section className="mb-12">
       <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold">
-        <Users className="h-5 w-5 text-primary" />
+        <Users className="text-primary h-5 w-5" />
         {title}
       </h2>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -559,14 +557,14 @@ function TeamSection({
                     className="h-16 w-16 shrink-0 rounded-xl object-cover"
                   />
                 ) : (
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-2xl">
+                  <div className="bg-primary/10 text-primary flex h-16 w-16 shrink-0 items-center justify-center rounded-xl text-2xl font-bold">
                     {p.name.charAt(0)}
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-lg">{p.name}</h3>
+                  <h3 className="text-lg font-semibold">{p.name}</h3>
                   {p.tagline && (
-                    <p className="text-sm text-primary font-medium">
+                    <p className="text-primary text-sm font-medium">
                       {p.tagline}
                     </p>
                   )}
@@ -579,7 +577,7 @@ function TeamSection({
                       ))}
                     </div>
                   )}
-                  <div className="mt-2 flex items-center gap-3 text-sm text-muted-foreground">
+                  <div className="text-muted-foreground mt-2 flex items-center gap-3 text-sm">
                     {p.yearsExp > 0 && <span>{p.yearsExp} anos de exp.</span>}
                     {Number(p.rating) > 0 && (
                       <span className="flex items-center gap-1">
@@ -591,11 +589,14 @@ function TeamSection({
                 </div>
               </div>
               {p.bio && (
-                <p className="mt-3 text-sm text-muted-foreground line-clamp-2">
+                <p className="text-muted-foreground mt-3 line-clamp-2 text-sm">
                   {p.bio}
                 </p>
               )}
-              <Link href={`/marketplace/business/${slug}/book?professionalId=${p.id}`} className="mt-3 block">
+              <Link
+                href={`/marketplace/business/${slug}/book?professionalId=${p.id}`}
+                className="mt-3 block"
+              >
                 <Button variant="outline" size="sm" className="w-full gap-2">
                   <Calendar className="h-3 w-3" />
                   Agendar con {p.name.split(" ")[0]}
@@ -612,23 +613,19 @@ function TeamSection({
 function GallerySection({
   title,
   images,
-  galleryIdx,
   setGalleryIdx,
-  lightboxOpen,
   setLightboxOpen,
 }: {
   title: string;
   images: GalleryImage[];
-  galleryIdx: number;
   setGalleryIdx: (v: number | ((prev: number) => number)) => void;
-  lightboxOpen: boolean;
   setLightboxOpen: (v: boolean) => void;
 }) {
   return (
     <section className="mb-12">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-2xl font-bold">
-          <Camera className="h-5 w-5 text-primary" />
+          <Camera className="text-primary h-5 w-5" />
           {title}
         </h2>
         <Badge variant="secondary">{images.length} fotos</Badge>
@@ -648,8 +645,8 @@ function GallerySection({
             alt={images[0].title || "Galeria"}
             className="h-64 w-full object-cover sm:h-80"
           />
-          <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center">
-            <Camera className="h-8 w-8 text-white opacity-0 hover:opacity-100 transition-opacity" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors hover:bg-black/20">
+            <Camera className="h-8 w-8 text-white opacity-0 transition-opacity hover:opacity-100" />
           </div>
         </div>
       )}
@@ -669,19 +666,19 @@ function GallerySection({
               <img
                 src={img.url}
                 alt={img.title || `Foto ${i + 2}`}
-                className="aspect-square w-full object-cover hover:scale-105 transition-transform"
+                className="aspect-square w-full object-cover transition-transform hover:scale-105"
               />
             </div>
           ))}
           {images.length > 9 && (
             <div
-              className="flex cursor-pointer items-center justify-center rounded-lg bg-muted"
+              className="bg-muted flex cursor-pointer items-center justify-center rounded-lg"
               onClick={() => {
                 setGalleryIdx(9);
                 setLightboxOpen(true);
               }}
             >
-              <span className="text-sm font-medium text-muted-foreground">
+              <span className="text-muted-foreground text-sm font-medium">
                 +{images.length - 9} mas
               </span>
             </div>
@@ -708,13 +705,13 @@ function ReviewsSection({
   return (
     <section className="mb-12">
       <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold">
-        <MessageSquare className="h-5 w-5 text-primary" />
+        <MessageSquare className="text-primary h-5 w-5" />
         {title}
       </h2>
 
       {/* Rating summary */}
       <div className="mb-6 flex flex-col gap-6 sm:flex-row">
-        <div className="flex flex-col items-center justify-center rounded-xl bg-muted/50 px-8 py-6">
+        <div className="bg-muted/50 flex flex-col items-center justify-center rounded-xl px-8 py-6">
           <div className="text-5xl font-bold">{Number(rating).toFixed(1)}</div>
           <div className="mt-1 flex gap-0.5">
             {[1, 2, 3, 4, 5].map((s) => (
@@ -728,9 +725,8 @@ function ReviewsSection({
               />
             ))}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {totalReviews}{" "}
-            {totalReviews === 1 ? "resena" : "resenas"}
+          <p className="text-muted-foreground mt-1 text-sm">
+            {totalReviews} {totalReviews === 1 ? "resena" : "resenas"}
           </p>
         </div>
 
@@ -738,23 +734,22 @@ function ReviewsSection({
         {ratingDist && (
           <div className="flex-1 space-y-2">
             {[5, 4, 3, 2, 1].map((star) => {
-              const count =
-                ratingDist[star as keyof RatingDistribution] as number;
+              const count = ratingDist[
+                star as keyof RatingDistribution
+              ] as number;
               const pct =
-                ratingDist.total > 0
-                  ? (count / ratingDist.total) * 100
-                  : 0;
+                ratingDist.total > 0 ? (count / ratingDist.total) * 100 : 0;
               return (
                 <div key={star} className="flex items-center gap-3 text-sm">
                   <span className="w-8 text-right">{star}</span>
                   <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                  <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
+                  <div className="bg-muted h-2 flex-1 overflow-hidden rounded-full">
                     <div
                       className="h-full rounded-full bg-yellow-400"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <span className="w-8 text-muted-foreground">{count}</span>
+                  <span className="text-muted-foreground w-8">{count}</span>
                 </div>
               );
             })}
@@ -765,7 +760,7 @@ function ReviewsSection({
       {/* Reviews list */}
       <div className="space-y-4">
         {reviews.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">
+          <p className="text-muted-foreground py-8 text-center">
             Aun no hay resenas
           </p>
         ) : (
@@ -790,13 +785,13 @@ function ReviewsSection({
                       {r.isVerified && (
                         <Badge
                           variant="secondary"
-                          className="text-xs bg-primary/10 text-primary"
+                          className="bg-primary/10 text-primary text-xs"
                         >
                           Verificada
                         </Badge>
                       )}
                     </div>
-                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <div className="text-muted-foreground mt-1 flex flex-wrap gap-2 text-xs">
                       {r.serviceName && <span>{r.serviceName}</span>}
                       {r.professionalName && (
                         <span>con {r.professionalName}</span>
@@ -811,7 +806,7 @@ function ReviewsSection({
                     </div>
                   </div>
                   {r.helpfulCount > 0 && (
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span className="text-muted-foreground flex items-center gap-1 text-xs">
                       <Heart className="h-3 w-3" />
                       {r.helpfulCount}
                     </span>
@@ -837,8 +832,8 @@ function ReviewsSection({
 
                 {/* Business response */}
                 {r.response && (
-                  <div className="mt-3 rounded-lg bg-muted/50 p-3">
-                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                  <div className="bg-muted/50 mt-3 rounded-lg p-3">
+                    <p className="text-muted-foreground mb-1 text-xs font-medium">
                       Respuesta del negocio
                     </p>
                     <p className="text-sm">{r.response}</p>
@@ -872,13 +867,13 @@ function LocationSection({
   return (
     <section className="mb-12">
       <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold">
-        <MapPin className="h-5 w-5 text-primary" />
+        <MapPin className="text-primary h-5 w-5" />
         {title}
       </h2>
       <Card className="border-0 shadow-sm">
         <CardContent className="p-5">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
               <MapPin className="h-5 w-5" />
             </div>
             <div>
@@ -887,7 +882,7 @@ function LocationSection({
                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                className="text-primary mt-2 inline-flex items-center gap-1 text-sm hover:underline"
               >
                 <ExternalLink className="h-3 w-3" />
                 Ver en Google Maps

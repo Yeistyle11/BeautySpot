@@ -6,11 +6,19 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(amount);
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    minimumFractionDigits: 0,
+  }).format(amount);
 }
 
 export function formatDate(date: string): string {
-  return new Date(date + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(date + "T12:00:00").toLocaleDateString("es-CO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 export function formatTime(time: string): string {
@@ -19,4 +27,14 @@ export function formatTime(time: string): string {
   const ampm = hour >= 12 ? "pm" : "am";
   const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
   return `${displayHour}:${m} ${ampm}`;
+}
+
+export function formatDateTime(date: string, time: string): string {
+  return `${formatDate(date)} ${formatTime(time)}`;
+}
+
+export function getErrorMessage(err: unknown, fallback = "Error"): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  return fallback;
 }

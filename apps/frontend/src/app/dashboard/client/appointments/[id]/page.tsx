@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,8 @@ import {
   FileText,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
+import { getAppointmentStatus } from "@/lib/status";
 import Link from "next/link";
 
 /* ------------------------------------------------------------------ */
@@ -52,24 +53,12 @@ interface Review {
 /*  Status config                                                      */
 /* ------------------------------------------------------------------ */
 
-const statusConfig: Record<
-  string,
-  { label: string; color: string }
-> = {
-  PENDING: { label: "Pendiente", color: "bg-yellow-100 text-yellow-800" },
-  CONFIRMED: { label: "Confirmada", color: "bg-blue-100 text-blue-800" },
-  COMPLETED: { label: "Completada", color: "bg-green-100 text-green-800" },
-  CANCELLED: { label: "Cancelada", color: "bg-red-100 text-red-800" },
-  NO_SHOW: { label: "No asistio", color: "bg-gray-100 text-gray-800" },
-};
-
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
 export default function AppointmentDetailPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const id = params.id;
 
   const [appointment, setAppointment] = useState<Appointment | null>(null);
@@ -132,9 +121,7 @@ export default function AppointmentDetailPage() {
     isFuture(appointment.date);
 
   const canReview =
-    appointment &&
-    appointment.status === "COMPLETED" &&
-    !hasReview;
+    appointment && appointment.status === "COMPLETED" && !hasReview;
 
   /* ---- Render ---- */
 
@@ -149,7 +136,7 @@ export default function AppointmentDetailPage() {
   if (error && !appointment) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <AlertTriangle className="h-12 w-12 text-red-400 mb-3" />
+        <AlertTriangle className="mb-3 h-12 w-12 text-red-400" />
         <p className="text-red-600">{error}</p>
         <Link href="/dashboard/client/appointments">
           <Button variant="outline" className="mt-4 gap-2">
@@ -163,11 +150,7 @@ export default function AppointmentDetailPage() {
 
   if (!appointment) return null;
 
-  const status =
-    statusConfig[appointment.status] || {
-      label: appointment.status,
-      color: "bg-gray-100 text-gray-800",
-    };
+  const status = getAppointmentStatus(appointment.status);
 
   const totalDuration = appointment.appointmentServices.reduce(
     (sum, s) => sum + s.duration,
@@ -179,7 +162,7 @@ export default function AppointmentDetailPage() {
       {/* Back link */}
       <Link
         href="/dashboard/client/appointments"
-        className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1 text-sm transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
         Volver a mis citas
@@ -195,7 +178,7 @@ export default function AppointmentDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main info */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="space-y-4 lg:col-span-2">
           {/* Services */}
           <Card className="border-0 shadow-sm">
             <CardHeader>
@@ -209,11 +192,11 @@ export default function AppointmentDetailPage() {
                 {appointment.appointmentServices.map((svc, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3"
+                    className="bg-muted/50 flex items-center justify-between rounded-lg px-4 py-3"
                   >
                     <div>
                       <p className="font-medium">{svc.serviceName}</p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-muted-foreground text-sm">
                         {svc.duration} min
                       </p>
                     </div>
@@ -224,7 +207,7 @@ export default function AppointmentDetailPage() {
                 ))}
               </div>
               <div className="mt-4 flex items-center justify-between border-t pt-4">
-                <span className="text-sm font-medium text-muted-foreground">
+                <span className="text-muted-foreground text-sm font-medium">
                   Total ({totalDuration} min)
                 </span>
                 <span className="text-lg font-bold">
@@ -244,7 +227,7 @@ export default function AppointmentDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                <p className="text-muted-foreground whitespace-pre-wrap text-sm">
                   {appointment.notes}
                 </p>
               </CardContent>
@@ -263,14 +246,14 @@ export default function AppointmentDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3">
-                <Calendar className="h-5 w-5 text-primary" />
+              <div className="bg-muted/50 flex items-center gap-3 rounded-lg px-4 py-3">
+                <Calendar className="text-primary h-5 w-5" />
                 <span className="font-medium">
                   {formatDate(appointment.date)}
                 </span>
               </div>
-              <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3">
-                <Clock className="h-5 w-5 text-primary" />
+              <div className="bg-muted/50 flex items-center gap-3 rounded-lg px-4 py-3">
+                <Clock className="text-primary h-5 w-5" />
                 <span className="font-medium">
                   {formatTime(appointment.startTime)} -{" "}
                   {formatTime(appointment.endTime)}
@@ -317,7 +300,7 @@ export default function AppointmentDetailPage() {
                 </Link>
               )}
               {!canCancel && !canReschedule && !canReview && (
-                <p className="text-center text-sm text-muted-foreground py-2">
+                <p className="text-muted-foreground py-2 text-center text-sm">
                   No hay acciones disponibles para esta cita
                 </p>
               )}
@@ -333,7 +316,7 @@ export default function AppointmentDetailPage() {
         title="Cancelar cita"
       >
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Estas seguro de que deseas cancelar esta cita? Esta accion no se
             puede deshacer.
           </p>

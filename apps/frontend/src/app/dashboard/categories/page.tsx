@@ -17,7 +17,6 @@ import {
   Search,
   ToggleLeft,
   ToggleRight,
-  Palette,
   GripVertical,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -126,18 +125,18 @@ export default function CategoriesPage() {
     return categories.filter(
       (c) =>
         c.name.toLowerCase().includes(term) ||
-        (c.description && c.description.toLowerCase().includes(term)),
+        (c.description && c.description.toLowerCase().includes(term))
     );
   }, [categories, search]);
 
   const activeCount = useMemo(
     () => categories.filter((c) => c.active).length,
-    [categories],
+    [categories]
   );
 
   const inactiveCount = useMemo(
     () => categories.filter((c) => !c.active).length,
-    [categories],
+    [categories]
   );
 
   // ─── Handlers ──────────────────────────────────────────────────────
@@ -209,7 +208,11 @@ export default function CategoriesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Desactivar esta categoría? Los profesionales asignados perderán la asociación."))
+    if (
+      !confirm(
+        "¿Desactivar esta categoría? Los profesionales asignados perderán la asociación."
+      )
+    )
       return;
     try {
       await api.delete(`/core/categories/${id}`);
@@ -228,7 +231,8 @@ export default function CategoriesPage() {
         <div>
           <h1 className="text-2xl font-bold">Categorías de Profesionales</h1>
           <p className="text-muted-foreground">
-            Administra las categorías para clasificar a tu equipo de profesionales
+            Administra las categorías para clasificar a tu equipo de
+            profesionales
           </p>
         </div>
         {canDo(role, "categories_create") && (
@@ -241,8 +245,8 @@ export default function CategoriesPage() {
 
       {/* Barra de búsqueda y estadísticas */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="relative max-w-sm flex-1">
+          <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
           <Input
             placeholder="Buscar categoría..."
             value={search}
@@ -250,10 +254,14 @@ export default function CategoriesPage() {
             className="pl-9"
           />
         </div>
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <span>{activeCount} activa{activeCount !== 1 ? "s" : ""}</span>
+        <div className="text-muted-foreground flex items-center gap-3 text-sm">
+          <span>
+            {activeCount} activa{activeCount !== 1 ? "s" : ""}
+          </span>
           <Separator />
-          <span>{inactiveCount} inactiva{inactiveCount !== 1 ? "s" : ""}</span>
+          <span>
+            {inactiveCount} inactiva{inactiveCount !== 1 ? "s" : ""}
+          </span>
         </div>
       </div>
 
@@ -263,13 +271,13 @@ export default function CategoriesPage() {
           <p className="text-muted-foreground">Cargando categorías...</p>
         ) : filtered.length === 0 ? (
           <div className="col-span-full py-12 text-center">
-            <Tag className="mx-auto h-12 w-12 text-muted-foreground/40" />
-            <p className="mt-3 text-lg font-medium text-muted-foreground">
+            <Tag className="text-muted-foreground/40 mx-auto h-12 w-12" />
+            <p className="text-muted-foreground mt-3 text-lg font-medium">
               {search
                 ? "No se encontraron categorías"
                 : "No hay categorías creadas"}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground/70">
+            <p className="text-muted-foreground/70 mt-1 text-sm">
               {search
                 ? "Intenta con otro término de búsqueda"
                 : 'Haz clic en "Nueva categoría" para crear la primera'}
@@ -279,7 +287,7 @@ export default function CategoriesPage() {
           filtered.map((category) => (
             <Card
               key={category.id}
-              className={`border-0 shadow-sm hover:shadow-md transition-shadow ${
+              className={`border-0 shadow-sm transition-shadow hover:shadow-md ${
                 !category.active ? "opacity-60" : ""
               }`}
             >
@@ -331,7 +339,7 @@ export default function CategoriesPage() {
                         {category.active ? (
                           <ToggleRight className="h-4 w-4 text-emerald-500" />
                         ) : (
-                          <ToggleLeft className="h-4 w-4 text-muted-foreground" />
+                          <ToggleLeft className="text-muted-foreground h-4 w-4" />
                         )}
                       </Button>
                     )}
@@ -341,7 +349,7 @@ export default function CategoriesPage() {
                         size="icon"
                         onClick={() => openEdit(category)}
                       >
-                        <Edit className="h-4 w-4 text-muted-foreground" />
+                        <Edit className="text-muted-foreground h-4 w-4" />
                       </Button>
                     )}
                     {canDo(role, "categories_delete") && (
@@ -350,18 +358,18 @@ export default function CategoriesPage() {
                         size="icon"
                         onClick={() => handleDelete(category.id)}
                       >
-                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                        <Trash2 className="text-muted-foreground h-4 w-4" />
                       </Button>
                     )}
                   </div>
                 </div>
                 {category.description && (
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <p className="text-muted-foreground mt-2 text-sm">
                     {category.description}
                   </p>
                 )}
                 {category.icon && (
-                  <p className="mt-1 text-xs text-muted-foreground/60">
+                  <p className="text-muted-foreground/60 mt-1 text-xs">
                     Icono: {category.icon}
                   </p>
                 )}
@@ -372,14 +380,20 @@ export default function CategoriesPage() {
       </div>
 
       {/* Diálogo de creación */}
-      <Dialog open={createDialog} onClose={() => setCreateDialog(false)} title="Nueva categoría">
+      <Dialog
+        open={createDialog}
+        onClose={() => setCreateDialog(false)}
+        title="Nueva categoría"
+      >
         <form onSubmit={handleCreate} className="space-y-4">
           <div className="space-y-2">
             <Label>Nombre *</Label>
             <Input
               placeholder="Barbero, Estilista, Colorista..."
               value={createForm.name}
-              onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, name: e.target.value })
+              }
               required
             />
           </div>
@@ -387,9 +401,11 @@ export default function CategoriesPage() {
           <div className="space-y-2">
             <Label>Icono</Label>
             <select
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
               value={createForm.icon}
-              onChange={(e) => setCreateForm({ ...createForm, icon: e.target.value })}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, icon: e.target.value })
+              }
             >
               <option value="">Sin icono</option>
               {ICON_OPTIONS.map((opt) => (
@@ -406,8 +422,10 @@ export default function CategoriesPage() {
               <input
                 type="color"
                 value={createForm.color}
-                onChange={(e) => setCreateForm({ ...createForm, color: e.target.value })}
-                className="h-10 w-12 cursor-pointer rounded border border-input p-0.5"
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, color: e.target.value })
+                }
+                className="border-input h-10 w-12 cursor-pointer rounded border p-0.5"
               />
               <div className="flex flex-wrap gap-1.5">
                 {COLOR_PRESETS.map((c) => (
@@ -418,7 +436,7 @@ export default function CategoriesPage() {
                     className={`h-6 w-6 rounded-full border-2 transition-all ${
                       createForm.color === c
                         ? "border-foreground scale-110"
-                        : "border-transparent hover:border-muted-foreground"
+                        : "hover:border-muted-foreground border-transparent"
                     }`}
                     style={{ backgroundColor: c }}
                   />
@@ -432,7 +450,9 @@ export default function CategoriesPage() {
             <Textarea
               placeholder="Descripción opcional de la categoría"
               value={createForm.description}
-              onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, description: e.target.value })
+              }
               rows={3}
             />
           </div>
@@ -444,7 +464,9 @@ export default function CategoriesPage() {
               min="0"
               max="999"
               value={createForm.sortOrder}
-              onChange={(e) => setCreateForm({ ...createForm, sortOrder: e.target.value })}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, sortOrder: e.target.value })
+              }
             />
           </div>
 
@@ -485,7 +507,7 @@ export default function CategoriesPage() {
             <div className="space-y-2">
               <Label>Icono</Label>
               <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
                 value={editForm.icon}
                 onChange={(e) =>
                   setEditForm({ ...editForm, icon: e.target.value })
@@ -509,7 +531,7 @@ export default function CategoriesPage() {
                   onChange={(e) =>
                     setEditForm({ ...editForm, color: e.target.value })
                   }
-                  className="h-10 w-12 cursor-pointer rounded border border-input p-0.5"
+                  className="border-input h-10 w-12 cursor-pointer rounded border p-0.5"
                 />
                 <div className="flex flex-wrap gap-1.5">
                   {COLOR_PRESETS.slice(0, 5).map((c) => (
@@ -520,7 +542,7 @@ export default function CategoriesPage() {
                       className={`h-6 w-6 rounded-full border-2 transition-all ${
                         editForm.color === c
                           ? "border-foreground scale-110"
-                          : "border-transparent hover:border-muted-foreground"
+                          : "hover:border-muted-foreground border-transparent"
                       }`}
                       style={{ backgroundColor: c }}
                     />

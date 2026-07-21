@@ -8,7 +8,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Dialog } from "@/components/ui/dialog";
-import { Scissors, Plus, DollarSign, Clock, Edit, Trash2, Tag } from "lucide-react";
+import {
+  Scissors,
+  Plus,
+  DollarSign,
+  Clock,
+  Edit,
+  Trash2,
+  Tag,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
@@ -32,7 +40,15 @@ interface Category {
   active: boolean;
 }
 
-const emptyForm = { name: "", description: "", price: "", duration: "30", category: "", categoryId: "", active: true };
+const emptyForm = {
+  name: "",
+  description: "",
+  price: "",
+  duration: "30",
+  category: "",
+  categoryId: "",
+  active: true,
+};
 
 export default function ServicesPage() {
   const { role } = useAuthStore();
@@ -51,14 +67,23 @@ export default function ServicesPage() {
   const [savingEdit, setSavingEdit] = useState(false);
 
   const load = () => {
-    api.get<Service[]>("/core/services").then(setServices).catch(console.error).finally(() => setLoading(false));
-    api.get<Category[]>("/core/service-categories").then(setCategories).catch(console.error);
+    api
+      .get<Service[]>("/core/services")
+      .then(setServices)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+    api
+      .get<Category[]>("/core/service-categories")
+      .then(setCategories)
+      .catch(console.error);
   };
   useEffect(load, []);
 
   const categoryNames = useMemo(() => {
     const backendCats = categories.filter((c) => c.active).map((c) => c.name);
-    const serviceCats = Array.from(new Set(services.map((s) => s.category).filter(Boolean) as string[]));
+    const serviceCats = Array.from(
+      new Set(services.map((s) => s.category).filter(Boolean) as string[])
+    );
     const all = Array.from(new Set([...backendCats, ...serviceCats])).sort();
     return all;
   }, [categories, services]);
@@ -78,7 +103,9 @@ export default function ServicesPage() {
         price: Number(createForm.price),
         duration: Number(createForm.duration),
         category: createForm.categoryId
-          ? categories.find((c) => c.id === createForm.categoryId)?.name || createForm.category || undefined
+          ? categories.find((c) => c.id === createForm.categoryId)?.name ||
+            createForm.category ||
+            undefined
           : createForm.category || undefined,
         categoryId: createForm.categoryId || undefined,
       });
@@ -117,7 +144,9 @@ export default function ServicesPage() {
         price: Number(editForm.price),
         duration: Number(editForm.duration),
         category: editForm.categoryId
-          ? categories.find((c) => c.id === editForm.categoryId)?.name || editForm.category || undefined
+          ? categories.find((c) => c.id === editForm.categoryId)?.name ||
+            editForm.category ||
+            undefined
           : editForm.category || undefined,
         categoryId: editForm.categoryId || undefined,
         active: editForm.active,
@@ -147,7 +176,9 @@ export default function ServicesPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Servicios</h1>
-          <p className="text-muted-foreground">Administra los servicios de tu negocio</p>
+          <p className="text-muted-foreground">
+            Administra los servicios de tu negocio
+          </p>
         </div>
         {canDo(role, "services_create") && (
           <Button onClick={() => setCreateDialog(true)}>
@@ -159,11 +190,13 @@ export default function ServicesPage() {
 
       {categoryNames.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <Tag className="h-4 w-4 text-muted-foreground" />
+          <Tag className="text-muted-foreground h-4 w-4" />
           <button
             onClick={() => setFilterCategory("all")}
             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              filterCategory === "all" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-primary/20"
+              filterCategory === "all"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-primary/20"
             }`}
           >
             Todos ({services.length})
@@ -175,7 +208,9 @@ export default function ServicesPage() {
                 key={cat}
                 onClick={() => setFilterCategory(cat)}
                 className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  filterCategory === cat ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-primary/20"
+                  filterCategory === cat
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-primary/20"
                 }`}
               >
                 {cat} ({count})
@@ -190,7 +225,10 @@ export default function ServicesPage() {
           <p className="text-muted-foreground">Cargando...</p>
         ) : (
           filtered.map((s) => (
-            <Card key={s.id} className={`border-0 shadow-sm hover:shadow-md transition-shadow ${!s.active ? "opacity-60" : ""}`}>
+            <Card
+              key={s.id}
+              className={`border-0 shadow-sm transition-shadow hover:shadow-md ${!s.active ? "opacity-60" : ""}`}
+            >
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -199,34 +237,52 @@ export default function ServicesPage() {
                     </div>
                     <div>
                       <p className="font-semibold">{s.name}</p>
-                      {s.category && <Badge variant="secondary" className="mt-1">{s.category}</Badge>}
+                      {s.category && (
+                        <Badge variant="secondary" className="mt-1">
+                          {s.category}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
                     {canDo(role, "services_edit") && (
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(s)}>
-                        <Edit className="h-4 w-4 text-muted-foreground" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEdit(s)}
+                      >
+                        <Edit className="text-muted-foreground h-4 w-4" />
                       </Button>
                     )}
                     {canDo(role, "services_delete") && (
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(s.id)}>
-                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(s.id)}
+                      >
+                        <Trash2 className="text-muted-foreground h-4 w-4" />
                       </Button>
                     )}
                   </div>
                 </div>
-                {s.description && <p className="mt-2 text-sm text-muted-foreground">{s.description}</p>}
+                {s.description && (
+                  <p className="text-muted-foreground mt-2 text-sm">
+                    {s.description}
+                  </p>
+                )}
                 <div className="mt-3 flex items-center gap-4 text-sm">
-                  <span className="flex items-center gap-1 font-semibold text-primary">
+                  <span className="text-primary flex items-center gap-1 font-semibold">
                     <DollarSign className="h-4 w-4" />
                     {formatCurrency(s.price)}
                   </span>
-                  <span className="flex items-center gap-1 text-muted-foreground">
+                  <span className="text-muted-foreground flex items-center gap-1">
                     <Clock className="h-4 w-4" />
                     {s.duration} min
                   </span>
                   {!s.active && (
-                    <Badge variant="secondary" className="text-xs">Inactivo</Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      Inactivo
+                    </Badge>
                   )}
                 </div>
               </CardContent>
@@ -235,86 +291,185 @@ export default function ServicesPage() {
         )}
       </div>
 
-      <Dialog open={createDialog} onClose={() => setCreateDialog(false)} title="Nuevo servicio">
+      <Dialog
+        open={createDialog}
+        onClose={() => setCreateDialog(false)}
+        title="Nuevo servicio"
+      >
         <form onSubmit={handleCreate} className="space-y-4">
           <div className="space-y-2">
             <Label>Nombre</Label>
-            <Input placeholder="Corte clasico" value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} required />
+            <Input
+              placeholder="Corte clasico"
+              value={createForm.name}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, name: e.target.value })
+              }
+              required
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Precio (COP)</Label>
-              <Input type="number" placeholder="25000" value={createForm.price} onChange={(e) => setCreateForm({ ...createForm, price: e.target.value })} required />
+              <Input
+                type="number"
+                placeholder="25000"
+                value={createForm.price}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, price: e.target.value })
+                }
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label>Duracion (min)</Label>
-              <Input type="number" placeholder="30" value={createForm.duration} onChange={(e) => setCreateForm({ ...createForm, duration: e.target.value })} required />
+              <Input
+                type="number"
+                placeholder="30"
+                value={createForm.duration}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, duration: e.target.value })
+                }
+                required
+              />
             </div>
           </div>
           <div className="space-y-2">
             <Label>Categoría</Label>
             <select
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
               value={createForm.categoryId}
-              onChange={(e) => setCreateForm({ ...createForm, categoryId: e.target.value })}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, categoryId: e.target.value })
+              }
             >
               <option value="">Sin categoría</option>
-              {categories.filter((c) => c.active).map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
+              {categories
+                .filter((c) => c.active)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
             </select>
           </div>
           <div className="space-y-2">
             <Label>Descripcion</Label>
-            <Textarea placeholder="Descripcion del servicio" value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} rows={3} />
+            <Textarea
+              placeholder="Descripcion del servicio"
+              value={createForm.description}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, description: e.target.value })
+              }
+              rows={3}
+            />
           </div>
           <div className="flex gap-3 pt-2">
-            <Button type="submit" disabled={savingCreate}>{savingCreate ? "Guardando..." : "Crear servicio"}</Button>
-            <Button type="button" variant="outline" onClick={() => setCreateDialog(false)}>Cancelar</Button>
+            <Button type="submit" disabled={savingCreate}>
+              {savingCreate ? "Guardando..." : "Crear servicio"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCreateDialog(false)}
+            >
+              Cancelar
+            </Button>
           </div>
         </form>
       </Dialog>
 
-      <Dialog open={editDialog} onClose={() => setEditDialog(false)} title="Editar servicio">
+      <Dialog
+        open={editDialog}
+        onClose={() => setEditDialog(false)}
+        title="Editar servicio"
+      >
         <form onSubmit={handleUpdate} className="space-y-4">
           <div className="space-y-2">
             <Label>Nombre</Label>
-            <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} required />
+            <Input
+              value={editForm.name}
+              onChange={(e) =>
+                setEditForm({ ...editForm, name: e.target.value })
+              }
+              required
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Precio (COP)</Label>
-              <Input type="number" value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: e.target.value })} required />
+              <Input
+                type="number"
+                value={editForm.price}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, price: e.target.value })
+                }
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label>Duracion (min)</Label>
-              <Input type="number" value={editForm.duration} onChange={(e) => setEditForm({ ...editForm, duration: e.target.value })} required />
+              <Input
+                type="number"
+                value={editForm.duration}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, duration: e.target.value })
+                }
+                required
+              />
             </div>
           </div>
           <div className="space-y-2">
             <Label>Categoría</Label>
             <select
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
               value={editForm.categoryId}
-              onChange={(e) => setEditForm({ ...editForm, categoryId: e.target.value })}
+              onChange={(e) =>
+                setEditForm({ ...editForm, categoryId: e.target.value })
+              }
             >
               <option value="">Sin categoría</option>
-              {categories.filter((c) => c.active).map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
+              {categories
+                .filter((c) => c.active)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
             </select>
           </div>
           <div className="space-y-2">
             <Label>Descripcion</Label>
-            <Textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={3} />
+            <Textarea
+              value={editForm.description}
+              onChange={(e) =>
+                setEditForm({ ...editForm, description: e.target.value })
+              }
+              rows={3}
+            />
           </div>
           <div className="flex items-center gap-3">
-            <Switch checked={editForm.active} onCheckedChange={(checked) => setEditForm({ ...editForm, active: checked })} />
-            <Label>{editForm.active ? "Servicio activo" : "Servicio inactivo"}</Label>
+            <Switch
+              checked={editForm.active}
+              onCheckedChange={(checked) =>
+                setEditForm({ ...editForm, active: checked })
+              }
+            />
+            <Label>
+              {editForm.active ? "Servicio activo" : "Servicio inactivo"}
+            </Label>
           </div>
           <div className="flex gap-3 pt-2">
-            <Button type="submit" disabled={savingEdit}>{savingEdit ? "Guardando..." : "Guardar cambios"}</Button>
-            <Button type="button" variant="outline" onClick={() => setEditDialog(false)}>Cancelar</Button>
+            <Button type="submit" disabled={savingEdit}>
+              {savingEdit ? "Guardando..." : "Guardar cambios"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEditDialog(false)}
+            >
+              Cancelar
+            </Button>
           </div>
         </form>
       </Dialog>

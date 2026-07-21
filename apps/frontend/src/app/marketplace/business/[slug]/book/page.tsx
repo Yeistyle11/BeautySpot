@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Scissors,
-  Calendar,
   Clock,
   ArrowLeft,
   CheckCircle,
@@ -17,7 +16,7 @@ import {
 } from "lucide-react";
 import { apiPublic, api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, getErrorMessage } from "@/lib/utils";
 
 interface Profile {
   id: string;
@@ -33,9 +32,20 @@ interface Service {
 }
 interface Professional {
   id: string;
+  professionalId?: string;
   name: string;
   photo: string | null;
   specialties: string[];
+}
+
+interface BookingConfirmation {
+  id: string;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  totalAmount?: number | string;
+  services?: string[];
+  [key: string]: unknown;
 }
 
 function PublicBookingPageInner() {
@@ -61,7 +71,9 @@ function PublicBookingPageInner() {
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [confirmation, setConfirmation] = useState<any>(null);
+  const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(
+    null
+  );
   const [error, setError] = useState("");
 
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
@@ -87,16 +99,20 @@ function PublicBookingPageInner() {
             .get<Service[]>(`/core/public/businesses/${p.businessId}/services`)
             .catch(() => []),
           apiPublic
-            .get<Professional[]>(
-              `/marketplace/professional-profiles/business/${p.businessId}`
-            )
+            .get<
+              Professional[]
+            >(`/marketplace/professional-profiles/business/${p.businessId}`)
             .catch(() => []),
-        ]).then((results) => ({ profile: p, services: results[0], profs: results[1] }));
+        ]).then((results) => ({
+          profile: p,
+          services: results[0],
+          profs: results[1],
+        }));
       })
       .then((result) => {
         if (result) {
           setServices(
-            (result.services as any[]).map((s: any) => ({
+            result.services.map((s) => ({
               id: s.id,
               name: s.name,
               price: Number(s.price),
@@ -104,7 +120,7 @@ function PublicBookingPageInner() {
             }))
           );
           setProfessionals(
-            (result.profs as any[]).map((p) => ({
+            result.profs.map((p) => ({
               id: p.professionalId || p.id,
               name: p.name,
               photo: p.photo,
@@ -130,10 +146,7 @@ function PublicBookingPageInner() {
     (sum, s) => sum + s.duration,
     0
   );
-  const totalAmount = selectedServiceData.reduce(
-    (sum, s) => sum + s.price,
-    0
-  );
+  const totalAmount = selectedServiceData.reduce((sum, s) => sum + s.price, 0);
 
   // Fetch real availability when date, professional and services are selected
   useEffect(() => {
@@ -144,9 +157,7 @@ function PublicBookingPageInner() {
 
     if (selectedProfessional === "any") {
       // "Any" professional: use fallback range
-      setAvailableSlots(
-        generateFallbackSlots()
-      );
+      setAvailableSlots(generateFallbackSlots());
       return;
     }
 
@@ -195,12 +206,15 @@ function PublicBookingPageInner() {
       }
 
       const result = await (isAuthenticated
-        ? api.post("/booking/appointments", body)
-        : apiPublic.post("/booking/public/appointments", body));
+        ? api.post<BookingConfirmation>("/booking/appointments", body)
+        : apiPublic.post<BookingConfirmation>(
+            "/booking/public/appointments",
+            body
+          ));
       setConfirmation(result);
       setStep(5);
-    } catch (err: any) {
-      setError(err.message || "Error al crear la reserva");
+    } catch (err) {
+      setError(getErrorMessage(err, "Error al crear la reserva"));
     } finally {
       setSubmitting(false);
     }
@@ -209,16 +223,16 @@ function PublicBookingPageInner() {
   if (loading)
     return (
       <div className="flex justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
       </div>
     );
   if (!profile)
     return (
-      <div className="py-20 text-center text-muted-foreground">
+      <div className="text-muted-foreground py-20 text-center">
         <p>Negocio no encontrado</p>
         <Link
           href="/marketplace"
-          className="mt-2 inline-block text-primary hover:underline"
+          className="text-primary mt-2 inline-block hover:underline"
         >
           Volver al marketplace
         </Link>
@@ -231,14 +245,12 @@ function PublicBookingPageInner() {
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-green-600">
           <CheckCircle className="h-10 w-10" />
         </div>
-        <h1 className="mt-6 text-2xl font-bold">
-          Tu cita ha sido reservada
-        </h1>
-        <p className="mt-2 text-muted-foreground">
+        <h1 className="mt-6 text-2xl font-bold">Tu cita ha sido reservada</h1>
+        <p className="text-muted-foreground mt-2">
           Recibiras un correo de confirmacion
         </p>
-        <Card className="mt-6 border-0 shadow-sm text-left">
-          <CardContent className="p-6 space-y-2">
+        <Card className="mt-6 border-0 text-left shadow-sm">
+          <CardContent className="space-y-2 p-6">
             <p className="text-sm">
               <span className="font-medium">Negocio:</span> {profile.name}
             </p>
@@ -246,7 +258,8 @@ function PublicBookingPageInner() {
               <span className="font-medium">Fecha:</span> {date}
             </p>
             <p className="text-sm">
-              <span className="font-medium">Hora:</span> {confirmation.startTime} - {confirmation.endTime}
+              <span className="font-medium">Hora:</span>{" "}
+              {confirmation.startTime} - {confirmation.endTime}
             </p>
             <p className="text-sm">
               <span className="font-medium">Servicios:</span>{" "}
@@ -254,11 +267,11 @@ function PublicBookingPageInner() {
             </p>
             <p className="text-sm">
               <span className="font-medium">Total:</span>{" "}
-              {formatCurrency(confirmation.totalAmount)}
+              {formatCurrency(Number(confirmation.totalAmount ?? 0))}
             </p>
           </CardContent>
         </Card>
-        <div className="mt-6 flex gap-3 justify-center flex-wrap">
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
           {isAuthenticated ? (
             <>
               <Link href="/dashboard/client/appointments">
@@ -294,13 +307,13 @@ function PublicBookingPageInner() {
     <div className="mx-auto max-w-3xl px-4 py-8">
       <Link
         href={`/marketplace/business/${slug}`}
-        className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        className="text-muted-foreground hover:text-foreground mb-6 inline-flex items-center gap-1 text-sm"
       >
         <ArrowLeft className="h-4 w-4" />
         Volver al negocio
       </Link>
 
-      <h1 className="text-2xl font-bold mb-2">
+      <h1 className="mb-2 text-2xl font-bold">
         Agendar cita en {profile.name}
       </h1>
 
@@ -331,7 +344,7 @@ function PublicBookingPageInner() {
                   key={s.id}
                   type="button"
                   onClick={() => toggleService(s.id)}
-                  className={`w-full flex items-center justify-between rounded-lg border p-4 transition-colors text-left ${
+                  className={`flex w-full items-center justify-between rounded-lg border p-4 text-left transition-colors ${
                     selectedServices.includes(s.id)
                       ? "border-primary bg-primary/5"
                       : "border-input hover:border-primary/50"
@@ -339,19 +352,19 @@ function PublicBookingPageInner() {
                 >
                   <div>
                     <p className="font-medium">{s.name}</p>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <p className="text-muted-foreground flex items-center gap-1 text-sm">
                       <Clock className="h-3 w-3" />
                       {s.duration} min
                     </p>
                   </div>
-                  <span className="font-semibold text-primary">
+                  <span className="text-primary font-semibold">
                     {formatCurrency(s.price)}
                   </span>
                 </button>
               ))}
             </div>
             {selectedServices.length > 0 && (
-              <div className="mt-4 rounded-lg bg-muted p-3 text-sm">
+              <div className="bg-muted mt-4 rounded-lg p-3 text-sm">
                 <p>
                   Total:{" "}
                   <span className="font-semibold">
@@ -390,7 +403,7 @@ function PublicBookingPageInner() {
                   key={p.id}
                   type="button"
                   onClick={() => setSelectedProfessional(p.id)}
-                  className={`w-full flex items-center gap-3 rounded-lg border p-4 transition-colors text-left ${
+                  className={`flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors ${
                     selectedProfessional === p.id
                       ? "border-primary bg-primary/5"
                       : "border-input hover:border-primary/50"
@@ -403,14 +416,14 @@ function PublicBookingPageInner() {
                       className="h-12 w-12 shrink-0 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-lg">
+                    <div className="bg-primary/10 text-primary flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-bold">
                       {(p.name || "?").charAt(0)}
                     </div>
                   )}
                   <div>
                     <p className="font-medium">{p.name || "Profesional"}</p>
                     {p.specialties && p.specialties.length > 0 && (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-muted-foreground text-sm">
                         {p.specialties.join(", ")}
                       </p>
                     )}
@@ -420,18 +433,18 @@ function PublicBookingPageInner() {
               <button
                 type="button"
                 onClick={() => setSelectedProfessional("any")}
-                className={`w-full flex items-center gap-3 rounded-lg border p-4 transition-colors text-left ${
+                className={`flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors ${
                   selectedProfessional === "any"
                     ? "border-primary bg-primary/5"
                     : "border-input hover:border-primary/50"
                 }`}
               >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <div className="bg-muted text-muted-foreground flex h-12 w-12 shrink-0 items-center justify-center rounded-full">
                   <Scissors className="h-5 w-5" />
                 </div>
                 <div>
                   <p className="font-medium">Cualquier profesional</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     Se asignara el primero disponible
                   </p>
                 </div>
@@ -473,7 +486,7 @@ function PublicBookingPageInner() {
               />
             </div>
             {date && selectedProfessional === "any" && (
-              <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-3 text-sm text-yellow-800">
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
                 <p>
                   Selecciona un profesional especifico para ver disponibilidad
                   exacta. Se mostrara un rango general de horarios.
@@ -481,7 +494,7 @@ function PublicBookingPageInner() {
               </div>
             )}
             {date && slotsLoading && (
-              <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+              <div className="text-muted-foreground flex items-center justify-center gap-2 py-8">
                 <Loader2 className="h-5 w-5 animate-spin" />
                 <span className="text-sm">Consultando disponibilidad...</span>
               </div>
@@ -490,7 +503,7 @@ function PublicBookingPageInner() {
               <div className="space-y-2">
                 <Label>Hora disponible</Label>
                 {availableSlots.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
+                  <p className="text-muted-foreground py-4 text-center text-sm">
                     No hay horarios disponibles para esta fecha
                   </p>
                 ) : (
@@ -539,7 +552,7 @@ function PublicBookingPageInner() {
             <CardTitle>Tus datos</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
+            <div className="bg-muted space-y-1 rounded-lg p-3 text-sm">
               <p>
                 <span className="font-medium">Servicios:</span>{" "}
                 {selectedServiceData.map((s) => s.name).join(", ")}
@@ -559,13 +572,13 @@ function PublicBookingPageInner() {
             </div>
 
             {isAuthenticated && user ? (
-              <div className="rounded-lg border bg-primary/5 p-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <div className="bg-primary/5 flex items-center gap-3 rounded-lg border p-4">
+                <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
                   <User className="h-5 w-5" />
                 </div>
                 <div>
                   <p className="font-medium">Reservando como {user.name}</p>
-                  <p className="text-sm text-muted-foreground">{user.email}</p>
+                  <p className="text-muted-foreground text-sm">{user.email}</p>
                 </div>
               </div>
             ) : (
@@ -598,9 +611,7 @@ function PublicBookingPageInner() {
                 </div>
               </>
             )}
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+            {error && <p className="text-destructive text-sm">{error}</p>}
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -640,7 +651,7 @@ export default function PublicBookingPage() {
     <Suspense
       fallback={
         <div className="flex justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
         </div>
       }
     >

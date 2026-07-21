@@ -6,10 +6,15 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "BeautySpot - Panel de Gestion",
-  description: "Plataforma de gestion para centro de bellezas y salones de belleza",
+  description:
+    "Plataforma de gestion para centro de bellezas y salones de belleza",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="es">
       <body className={inter.className}>{children}</body>
