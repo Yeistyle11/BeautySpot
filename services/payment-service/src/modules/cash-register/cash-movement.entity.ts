@@ -1,5 +1,5 @@
 import { Entity, Column, ManyToOne, JoinColumn } from "typeorm";
-import { BaseEntity } from "@beautyspot/database";
+import { BaseEntity, numericTransformer } from "@beautyspot/database";
 import { CashMovementType } from "@beautyspot/shared-types";
 import { CashSessionEntity } from "./cash-session.entity";
 
@@ -7,7 +7,7 @@ import { CashSessionEntity } from "./cash-session.entity";
 export class CashMovementEntity extends BaseEntity {
   @Column({ type: "uuid", name: "cash_session_id" }) cashSessionId!: string;
   @Column({ type: "enum", enum: CashMovementType }) type!: CashMovementType;
-  @Column({ type: "decimal", precision: 10, scale: 2 }) amount!: number;
+  @Column({ type: "decimal", precision: 10, scale: 2, transformer: numericTransformer }) amount!: number;
   @Column({ type: "text" }) concept!: string;
   @Column({ type: "uuid", name: "registered_by" }) registeredBy!: string;
 

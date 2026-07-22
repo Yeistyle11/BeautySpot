@@ -1,10 +1,5 @@
 import { Entity, Column, Index } from "typeorm";
-import { TenantEntity } from "@beautyspot/database";
-
-const numericTransformer = {
-  to: (value: number) => value,
-  from: (value: string) => Number(value),
-};
+import { TenantEntity, numericTransformer } from "@beautyspot/database";
 
 @Entity("daily_metrics")
 @Index(["businessId", "date"], { unique: true })

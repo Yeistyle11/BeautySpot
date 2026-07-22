@@ -4,3 +4,4 @@ export { AuditableEntity } from "./entities/audit.entity";
 export { createTypeOrmModuleOptions } from "./config/typeorm.config";
 export { paginate } from "./helpers/pagination.helper";
 export type { PaginateParams } from "./helpers/pagination.helper";
+export { numericTransformer } from "./transformers/numeric.transformer";

@@ -1,5 +1,5 @@
 import { Entity, Column, OneToMany, Index } from "typeorm";
-import { TenantEntity } from "@beautyspot/database";
+import { TenantEntity, numericTransformer } from "@beautyspot/database";
 import { InvoiceStatus } from "@beautyspot/shared-types";
 import { InvoiceItemEntity } from "./invoice-item.entity";
 
@@ -10,7 +10,7 @@ export class InvoiceEntity extends TenantEntity {
   @Column({ unique: true }) number!: string;
   @Column({ type: "date" }) date!: string;
   @Column({ type: "date", name: "due_date" }) dueDate!: string;
-  @Column({ type: "decimal", precision: 10, scale: 2 }) total!: number;
+  @Column({ type: "decimal", precision: 10, scale: 2, transformer: numericTransformer }) total!: number;
   @Column({ type: "enum", enum: InvoiceStatus, default: InvoiceStatus.DRAFT }) status!: InvoiceStatus;
   @Column({ type: "text", nullable: true }) notes!: string;
 

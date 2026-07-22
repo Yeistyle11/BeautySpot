@@ -1,5 +1,5 @@
 import { Entity, Column, Index } from "typeorm";
-import { TenantEntity } from "@beautyspot/database";
+import { TenantEntity, numericTransformer } from "@beautyspot/database";
 
 export interface PortfolioItem {
   url: string;
@@ -38,7 +38,7 @@ export class ProfessionalProfileEntity extends TenantEntity {
   visibleOnProfile!: boolean;
 
   // Metricas calculadas
-  @Column({ type: "decimal", precision: 3, scale: 2, default: 0 }) rating!: number;
+  @Column({ type: "decimal", precision: 3, scale: 2, transformer: numericTransformer, default: 0 }) rating!: number;
 
   @Column({ name: "total_reviews", default: 0 }) totalReviews!: number;
 

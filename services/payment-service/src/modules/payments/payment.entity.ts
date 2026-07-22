@@ -1,5 +1,5 @@
 import { Entity, Column, Index } from "typeorm";
-import { TenantEntity } from "@beautyspot/database";
+import { TenantEntity, numericTransformer } from "@beautyspot/database";
 import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
 
 @Entity("payments")
@@ -8,7 +8,7 @@ export class PaymentEntity extends TenantEntity {
   @Column({ type: "uuid", name: "appointment_id", nullable: true })
   appointmentId!: string;
   @Column({ type: "uuid", name: "client_id" }) clientId!: string;
-  @Column({ type: "decimal", precision: 10, scale: 2 }) amount!: number;
+  @Column({ type: "decimal", precision: 10, scale: 2, transformer: numericTransformer }) amount!: number;
   @Column({ type: "enum", enum: PaymentMethod }) method!: PaymentMethod;
   @Column({
     type: "enum",
@@ -26,7 +26,7 @@ export class PaymentEntity extends TenantEntity {
   @Column({
     type: "decimal",
     precision: 10,
-    scale: 2,
+    scale: 2, transformer: numericTransformer,
     name: "refund_amount",
     nullable: true,
   })
