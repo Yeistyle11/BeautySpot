@@ -21,7 +21,10 @@ export class ProxyController {
     private circuitBreaker: CircuitBreakerService
   ) {}
 
-  @All(":service/*")
+  // Express 5 (path-to-regexp v8) exige nombrar el comodín: "*" suelto ya no es
+  // válido. "*splat" captura el resto de la ruta; no se consume por nombre
+  // porque buildTargetUrl reconstruye el path desde req.path.
+  @All(":service/*splat")
   async proxyRequest(
     @Param("service") service: string,
     @Req() req: Request,

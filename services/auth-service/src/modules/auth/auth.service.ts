@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, EntityManager, IsNull, Repository } from "typeorm";
-import { JwtService } from "@nestjs/jwt";
+import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcryptjs";
 import * as crypto from "crypto";
@@ -378,7 +378,10 @@ export class AuthService {
         this.configService.get<string>("JWT_SECRET"),
         "JWT_SECRET"
       ),
-      expiresIn: this.configService.get<string>("JWT_EXPIRES_IN", "15m"),
+      expiresIn: this.configService.get<string>(
+        "JWT_EXPIRES_IN",
+        "15m"
+      ) as JwtSignOptions["expiresIn"],
     });
 
     const refreshToken = this.jwtService.sign(
@@ -391,7 +394,7 @@ export class AuthService {
         expiresIn: this.configService.get<string>(
           "JWT_REFRESH_EXPIRES_IN",
           "7d"
-        ),
+        ) as JwtSignOptions["expiresIn"],
       }
     );
 

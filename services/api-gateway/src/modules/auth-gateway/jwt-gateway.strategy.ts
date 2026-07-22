@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import { ConfigService } from "@nestjs/config";
+import { assertJwtSecret } from "@beautyspot/nest-common";
 
 @Injectable()
 export class JwtGatewayStrategy extends PassportStrategy(Strategy) {
@@ -9,7 +10,11 @@ export class JwtGatewayStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>("JWT_SECRET"),
+      // passport-jwt v11 exige un secreto definido (string|Buffer, no undefined)
+      secretOrKey: assertJwtSecret(
+        configService.get<string>("JWT_SECRET"),
+        "JWT_SECRET"
+      ),
     });
   }
 

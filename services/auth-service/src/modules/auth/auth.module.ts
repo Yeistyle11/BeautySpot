@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { JwtModule } from "@nestjs/jwt";
+import { JwtModule, JwtSignOptions } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
@@ -17,7 +17,12 @@ import { EventBusModule } from "@beautyspot/nest-common";
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>("JWT_SECRET"),
         signOptions: {
-          expiresIn: configService.get<string>("JWT_EXPIRES_IN", "15m"),
+          // @nestjs/jwt v11 tipa expiresIn como number|StringValue; el valor de
+          // configuración es una cadena válida ("15m") que jsonwebtoken acepta.
+          expiresIn: configService.get<string>(
+            "JWT_EXPIRES_IN",
+            "15m"
+          ) as JwtSignOptions["expiresIn"],
         },
       }),
       inject: [ConfigService],
