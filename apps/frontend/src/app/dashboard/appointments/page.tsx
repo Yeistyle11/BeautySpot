@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useDeferredValue } from "react";
 import { mutate } from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -92,6 +92,7 @@ export default function AppointmentsPage() {
   const { data: appointments, isLoading: loading } =
     useApi<Appointment[]>(APPOINTMENTS_KEY);
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -130,12 +131,15 @@ export default function AppointmentsPage() {
     return map;
   }, [professionals]);
 
-  const filtered = (appointments ?? []).filter(
-    (a) =>
-      a.appointmentServices.some((s) =>
-        s.serviceName.toLowerCase().includes(search.toLowerCase())
-      ) || a.id.includes(search)
-  );
+  const filtered = useMemo(() => {
+    const q = deferredSearch.toLowerCase();
+    return (appointments ?? []).filter(
+      (a) =>
+        a.appointmentServices.some((s) =>
+          s.serviceName.toLowerCase().includes(q)
+        ) || a.id.includes(deferredSearch)
+    );
+  }, [appointments, deferredSearch]);
 
   const handleAction = async (id: string, action: string) => {
     try {

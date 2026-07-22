@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,16 @@ interface AvailabilitySlot {
   endTime: string;
 }
 
+const DAYS_MAP = [
+  { value: 1, label: "Lunes" },
+  { value: 2, label: "Martes" },
+  { value: 3, label: "Miercoles" },
+  { value: 4, label: "Jueves" },
+  { value: 5, label: "Viernes" },
+  { value: 6, label: "Sabado" },
+  { value: 0, label: "Domingo" },
+];
+
 const emptyForm = {
   name: "",
   bio: "",
@@ -64,9 +74,9 @@ const emptyForm = {
   active: "true",
 };
 
-function ProCard({
+const ProCard = memo(function ProCard({
   p,
-  categories,
+  categoryMap,
   role,
   onView,
   onEdit,
@@ -74,7 +84,7 @@ function ProCard({
   onSchedule,
 }: {
   p: Professional;
-  categories: Category[];
+  categoryMap: Map<string, Category>;
   role: Role | null;
   onView: (id: string) => void;
   onEdit: (p: Professional) => void;
@@ -109,10 +119,9 @@ function ProCard({
                 style={
                   p.categoryId
                     ? {
-                        backgroundColor: `${categories.find((c) => c.id === p.categoryId)?.color || "#8B5CF6"}20`,
+                        backgroundColor: `${categoryMap.get(p.categoryId)?.color || "#8B5CF6"}20`,
                         color:
-                          categories.find((c) => c.id === p.categoryId)
-                            ?.color || undefined,
+                          categoryMap.get(p.categoryId)?.color || undefined,
                       }
                     : undefined
                 }
@@ -197,7 +206,7 @@ function ProCard({
       </CardContent>
     </Card>
   );
-}
+});
 
 export default function ProfessionalsPage() {
   const { role } = useAuthStore();
@@ -220,17 +229,7 @@ export default function ProfessionalsPage() {
   >({});
   const [savingSchedule, setSavingSchedule] = useState(false);
 
-  const DAYS_MAP = [
-    { value: 1, label: "Lunes" },
-    { value: 2, label: "Martes" },
-    { value: 3, label: "Miercoles" },
-    { value: 4, label: "Jueves" },
-    { value: 5, label: "Viernes" },
-    { value: 6, label: "Sabado" },
-    { value: 0, label: "Domingo" },
-  ];
-
-  const openSchedule = (p: Professional) => {
+  const openSchedule = useCallback((p: Professional) => {
     setSchedulePro(p);
     api
       .get<AvailabilitySlot[]>(`/booking/professionals/${p.id}/availability`)
@@ -270,7 +269,7 @@ export default function ProfessionalsPage() {
         setScheduleHours(map);
       });
     setScheduleDialog(true);
-  };
+  }, []);
 
   const saveSchedule = async () => {
     if (!schedulePro) return;
@@ -298,7 +297,7 @@ export default function ProfessionalsPage() {
   };
   void load;
 
-  const startEdit = (p: Professional) => {
+  const startEdit = useCallback((p: Professional) => {
     setEditId(p.id);
     setViewId(null);
     setForm({
@@ -311,7 +310,7 @@ export default function ProfessionalsPage() {
       photo: p.photo || "",
       active: String(p.active),
     });
-  };
+  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -385,6 +384,18 @@ export default function ProfessionalsPage() {
   const viewed = (professionals ?? []).find((p) => p.id === viewId);
   const professionalList = professionals ?? [];
   const categoryList = categories ?? [];
+  const categoryMap = useMemo(
+    () => new Map((categories ?? []).map((c) => [c.id, c])),
+    [categories]
+  );
+  const { active: activePros, inactive: inactivePros } = useMemo(() => {
+    const active: Professional[] = [];
+    const inactive: Professional[] = [];
+    for (const p of professionals ?? []) {
+      (p.active ? active : inactive).push(p);
+    }
+    return { active, inactive };
+  }, [professionals]);
 
   return (
     <div>
@@ -415,53 +426,49 @@ export default function ProfessionalsPage() {
       ) : (
         <>
           {/* Activos */}
-          {professionalList.filter((p) => p.active).length > 0 && (
+          {activePros.length > 0 && (
             <div className="mb-8">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
                 <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                Activos ({professionalList.filter((p) => p.active).length})
+                Activos ({activePros.length})
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {professionalList
-                  .filter((p) => p.active)
-                  .map((p) => (
-                    <ProCard
-                      key={p.id}
-                      p={p}
-                      categories={categoryList}
-                      role={role}
-                      onView={setViewId}
-                      onEdit={startEdit}
-                      onDelete={setDeleteConfirm}
-                      onSchedule={openSchedule}
-                    />
-                  ))}
+                {activePros.map((p) => (
+                  <ProCard
+                    key={p.id}
+                    p={p}
+                    categoryMap={categoryMap}
+                    role={role}
+                    onView={setViewId}
+                    onEdit={startEdit}
+                    onDelete={setDeleteConfirm}
+                    onSchedule={openSchedule}
+                  />
+                ))}
               </div>
             </div>
           )}
 
           {/* Inactivos */}
-          {professionalList.filter((p) => !p.active).length > 0 && (
+          {inactivePros.length > 0 && (
             <div>
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
                 <span className="h-2.5 w-2.5 rounded-full bg-gray-400" />
-                Inactivos ({professionalList.filter((p) => !p.active).length})
+                Inactivos ({inactivePros.length})
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {professionalList
-                  .filter((p) => !p.active)
-                  .map((p) => (
-                    <ProCard
-                      key={p.id}
-                      p={p}
-                      categories={categoryList}
-                      role={role}
-                      onView={setViewId}
-                      onEdit={startEdit}
-                      onDelete={setDeleteConfirm}
-                      onSchedule={openSchedule}
-                    />
-                  ))}
+                {inactivePros.map((p) => (
+                  <ProCard
+                    key={p.id}
+                    p={p}
+                    categoryMap={categoryMap}
+                    role={role}
+                    onView={setViewId}
+                    onEdit={startEdit}
+                    onDelete={setDeleteConfirm}
+                    onSchedule={openSchedule}
+                  />
+                ))}
               </div>
             </div>
           )}
