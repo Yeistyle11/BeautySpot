@@ -585,14 +585,16 @@ export default function MarketplacePage() {
               </div>
             </div>
 
-            <Button onClick={saveConfig} disabled={saving === "config"}>
-              {saving === "config" ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              Guardar configuracion
-            </Button>
+            {canDo(role, "marketplace_edit") && (
+              <Button onClick={saveConfig} disabled={saving === "config"}>
+                {saving === "config" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Guardar configuracion
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -605,9 +607,11 @@ export default function MarketplacePage() {
               <CardTitle className="text-lg">
                 Galeria ({gallery.length} imagenes)
               </CardTitle>
-              <Button size="sm" onClick={() => setGalleryDialog(true)}>
-                <Plus className="mr-2 h-4 w-4" /> Agregar imagen
-              </Button>
+              {canDo(role, "marketplace_edit") && (
+                <Button size="sm" onClick={() => setGalleryDialog(true)}>
+                  <Plus className="mr-2 h-4 w-4" /> Agregar imagen
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -639,15 +643,17 @@ export default function MarketplacePage() {
                         <ImageIcon className="text-muted-foreground h-8 w-8 opacity-30" />
                       </div>
                     )}
-                    <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => removeGalleryImage(i)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {canDo(role, "marketplace_edit") && (
+                      <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => removeGalleryImage(i)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                     {img.title && (
                       <div className="absolute inset-x-0 bottom-0 bg-black/60 px-2 py-1">
                         <p className="truncate text-xs text-white">
@@ -725,14 +731,16 @@ export default function MarketplacePage() {
                   </div>
                 );
               })}
-            <Button onClick={saveConfig} disabled={saving === "config"}>
-              {saving === "config" ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              Guardar secciones
-            </Button>
+            {canDo(role, "marketplace_edit") && (
+              <Button onClick={saveConfig} disabled={saving === "config"}>
+                {saving === "config" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Guardar secciones
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}

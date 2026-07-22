@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useApi } from "@/lib/swr";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import Link from "next/link";
@@ -92,8 +93,11 @@ export default function ReviewPage() {
   const id = params.id;
   const { businessId, user } = useAuthStore();
 
-  const [appointment, setAppointment] = useState<Appointment | null>(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: appointment,
+    isLoading: loading,
+    error: loadError,
+  } = useApi<Appointment>(id ? `/booking/appointments/${id}` : null);
   const [error, setError] = useState<string | null>(null);
 
   const [rating, setRating] = useState(0);
@@ -101,16 +105,6 @@ export default function ReviewPage() {
   const [photos, setPhotos] = useState<string[]>([""]);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-
-  /* ---- Load appointment ---- */
-  useEffect(() => {
-    if (!id) return;
-    api
-      .get<Appointment>(`/booking/appointments/${id}`)
-      .then(setAppointment)
-      .catch((err) => setError(err.message || "Error al cargar la cita"))
-      .finally(() => setLoading(false));
-  }, [id]);
 
   /* ---- Validation ---- */
   const commentRequired = rating > 0 && rating < 4;
@@ -181,10 +175,10 @@ export default function ReviewPage() {
     );
   }
 
-  if (!appointment && error) {
+  if (!appointment && loadError) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-red-600">{error}</p>
+        <p className="text-red-600">Error al cargar la cita</p>
         <Link href="/dashboard/client/appointments">
           <Button variant="outline" className="mt-4 gap-2">
             <ArrowLeft className="h-4 w-4" />
