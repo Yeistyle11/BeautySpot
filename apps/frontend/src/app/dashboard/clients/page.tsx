@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, useDeferredValue } from "react";
+import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,25 +17,27 @@ import { useApi } from "@/lib/swr";
 import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 
-interface Client {
-  id: string;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  loyaltyPoints: number;
-  notes: string | null;
-  active: boolean;
-}
+const clientSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+  loyaltyPoints: z.number(),
+  notes: z.string().nullable(),
+  active: z.boolean(),
+});
+type Client = z.infer<typeof clientSchema>;
 
-interface Appointment {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: string;
-  totalAmount: string;
-  appointmentServices: { serviceName: string }[];
-}
+const appointmentSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+  status: z.string(),
+  totalAmount: z.string(),
+  appointmentServices: z.array(z.object({ serviceName: z.string() })),
+});
+type Appointment = z.infer<typeof appointmentSchema>;
 
 const emptyForm = { name: "", email: "", phone: "" };
 
@@ -50,6 +53,7 @@ export default function ClientsPage() {
   } = useCrudResource<Client>({
     listKey: CLIENTS_KEY,
     basePath: "/core/clients",
+    schema: z.array(clientSchema),
   });
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -151,8 +155,9 @@ export default function ClientsPage() {
   const detailKey = selectedClient
     ? `/booking/appointments?clientId=${selectedClient.id}`
     : null;
-  const { data: clientAppointments, isLoading: loadingDetail } =
-    useApi<Appointment[]>(detailKey);
+  const { data: clientAppointments, isLoading: loadingDetail } = useApi<
+    Appointment[]
+  >(detailKey, undefined, z.array(appointmentSchema));
 
   return (
     <div>

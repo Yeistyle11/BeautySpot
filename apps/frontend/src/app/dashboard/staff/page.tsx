@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo, useDeferredValue } from "react";
 import { mutate } from "swr";
+import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,26 +28,28 @@ import { getErrorMessage } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 
-interface StaffMember {
-  id: string;
-  email: string;
-  name: string;
-  phone: string | null;
-  avatar: string | null;
-  active: boolean;
-  membershipId: string;
-  role: string;
-  membershipActive: boolean;
-  joinedAt: string;
-  professionalId?: string | null;
-}
+const staffMemberSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  name: z.string(),
+  phone: z.string().nullable(),
+  avatar: z.string().nullable(),
+  active: z.boolean(),
+  membershipId: z.string(),
+  role: z.string(),
+  membershipActive: z.boolean(),
+  joinedAt: z.string(),
+  professionalId: z.string().nullable().optional(),
+});
+type StaffMember = z.infer<typeof staffMemberSchema>;
 
-interface Professional {
-  id: string;
-  name: string | null;
-  userId: string | null;
-  active: boolean;
-}
+const professionalSchema = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  userId: z.string().nullable(),
+  active: z.boolean(),
+});
+type Professional = z.infer<typeof professionalSchema>;
 
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
@@ -289,9 +292,16 @@ export default function StaffPage() {
   const { role } = useAuthStore();
   const STAFF_KEY = "/auth/users/business";
   const PROFESSIONALS_KEY = "/core/professionals";
-  const { data: staffData, isLoading: loading } =
-    useApi<StaffMember[]>(STAFF_KEY);
-  const { data: professionalsData } = useApi<Professional[]>(PROFESSIONALS_KEY);
+  const { data: staffData, isLoading: loading } = useApi<StaffMember[]>(
+    STAFF_KEY,
+    undefined,
+    z.array(staffMemberSchema)
+  );
+  const { data: professionalsData } = useApi<Professional[]>(
+    PROFESSIONALS_KEY,
+    undefined,
+    z.array(professionalSchema)
+  );
   const staff = staffData ?? [];
   const professionals = professionalsData ?? [];
   const [search, setSearch] = useState("");

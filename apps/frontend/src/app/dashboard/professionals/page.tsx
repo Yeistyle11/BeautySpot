@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo, useCallback, memo } from "react";
 import Image from "next/image";
+import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,26 +28,28 @@ import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 import type { Role } from "@/lib/store";
 
-interface Professional {
-  id: string;
-  name: string | null;
-  photo: string | null;
-  bio: string | null;
-  category: string | null;
-  categoryId: string | null;
-  specialties: string[];
-  yearsExp: number;
-  rating: string;
-  totalReviews: number;
-  active: boolean;
-}
+const professionalSchema = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  photo: z.string().nullable(),
+  bio: z.string().nullable(),
+  category: z.string().nullable(),
+  categoryId: z.string().nullable(),
+  specialties: z.array(z.string()),
+  yearsExp: z.number(),
+  rating: z.string(),
+  totalReviews: z.number(),
+  active: z.boolean(),
+});
+type Professional = z.infer<typeof professionalSchema>;
 
-interface Category {
-  id: string;
-  name: string;
-  color: string | null;
-  active: boolean;
-}
+const categorySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  color: z.string().nullable(),
+  active: z.boolean(),
+});
+type Category = z.infer<typeof categorySchema>;
 
 interface AvailabilitySlot {
   dayOfWeek: number;
@@ -226,8 +229,13 @@ export default function ProfessionalsPage() {
   } = useCrudResource<Professional>({
     listKey: PROFESSIONALS_KEY,
     basePath: "/core/professionals",
+    schema: z.array(professionalSchema),
   });
-  const { data: categories } = useApi<Category[]>(CATEGORIES_KEY);
+  const { data: categories } = useApi<Category[]>(
+    CATEGORIES_KEY,
+    undefined,
+    z.array(categorySchema)
+  );
   const [showCreate, setShowCreate] = useState(false);
   const [viewId, setViewId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);

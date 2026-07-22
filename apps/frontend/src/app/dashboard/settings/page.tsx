@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,29 +15,31 @@ import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 
-interface BusinessData {
-  id: string;
-  name: string;
-  description?: string;
-  phone?: string;
-  email?: string;
-  website?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  businessType?: string;
-  logo?: string;
-  coverImage?: string;
-}
+const businessDataSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().optional(),
+  website: z.string().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  country: z.string().optional(),
+  businessType: z.string().optional(),
+  logo: z.string().optional(),
+  coverImage: z.string().optional(),
+});
+type BusinessData = z.infer<typeof businessDataSchema>;
 
-interface BusinessHour {
-  id?: string;
-  dayOfWeek: number;
-  openTime: string;
-  closeTime: string;
-  active: boolean;
-}
+const businessHourSchema = z.object({
+  id: z.string().optional(),
+  dayOfWeek: z.number(),
+  openTime: z.string(),
+  closeTime: z.string(),
+  active: z.boolean(),
+});
+type BusinessHour = z.infer<typeof businessHourSchema>;
 
 const DAYS = [
   { value: 1, label: "Lunes" },
@@ -76,10 +79,14 @@ export default function SettingsPage() {
   const hoursKey = canSeeBusiness ? "/core/business-hours" : null;
 
   const { data: business, mutate: mutateBusiness } =
-    useApi<BusinessData | null>(businessKey);
+    useApi<BusinessData | null>(
+      businessKey,
+      undefined,
+      businessDataSchema.nullable()
+    );
   const { data: hoursData, mutate: mutateHours } = useApi<
     BusinessHour[] | null
-  >(hoursKey);
+  >(hoursKey, undefined, z.array(businessHourSchema).nullable());
 
   const [businessForm, setBusinessForm] = useState<Partial<BusinessData>>({});
   const [hours, setHours] = useState<BusinessHour[]>(defaultHours);

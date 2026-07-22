@@ -1,4 +1,5 @@
 import { mutate as globalMutate } from "swr";
+import type { ZodType } from "zod";
 import { api } from "./api";
 import { useApi } from "./swr";
 
@@ -10,11 +11,13 @@ import { useApi } from "./swr";
 export function useCrudResource<T>({
   listKey,
   basePath,
+  schema,
 }: {
   listKey: string;
   basePath: string;
+  schema?: ZodType<T[]>;
 }) {
-  const { data, isLoading, error } = useApi<T[]>(listKey);
+  const { data, isLoading, error } = useApi<T[]>(listKey, undefined, schema);
 
   const reload = () => globalMutate(listKey);
 

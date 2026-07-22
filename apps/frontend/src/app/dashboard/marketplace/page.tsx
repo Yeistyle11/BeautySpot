@@ -28,65 +28,72 @@ import {
   Link2,
   Image as ImageIcon,
 } from "lucide-react";
+import { z } from "zod";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 
-interface Profile {
-  id: string;
-  businessId: string;
-  slug: string;
-  name: string;
-  description?: string;
-  logo?: string;
-  coverImage?: string;
-  phone?: string;
-  email?: string;
-  tagline?: string;
-  storyTitle?: string;
-  storyText?: string;
-  storyImage?: string;
-  foundedYear?: number;
-  founders?: string;
-  socialLinks?: {
-    instagram?: string;
-    facebook?: string;
-    tiktok?: string;
-    website?: string;
-  };
-  sectionConfig?: { sections: SectionItem[] };
-  galleryImages?: GalleryImage[];
-  isPublished: boolean;
-  profileCompleteness: number;
-}
+const galleryImageSchema = z.object({
+  url: z.string(),
+  title: z.string().optional(),
+  category: z.string().optional(),
+  featured: z.boolean().optional(),
+});
+type GalleryImage = z.infer<typeof galleryImageSchema>;
 
-interface GalleryImage {
-  url: string;
-  title?: string;
-  category?: string;
-  featured?: boolean;
-}
+const sectionItemSchema = z.object({
+  type: z.string(),
+  enabled: z.boolean(),
+  order: z.number(),
+  customTitle: z.string().optional(),
+});
+type SectionItem = z.infer<typeof sectionItemSchema>;
 
-interface SectionItem {
-  type: string;
-  enabled: boolean;
-  order: number;
-  customTitle?: string;
-}
+const profileSchema = z.object({
+  id: z.string(),
+  businessId: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  logo: z.string().optional(),
+  coverImage: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().optional(),
+  tagline: z.string().optional(),
+  storyTitle: z.string().optional(),
+  storyText: z.string().optional(),
+  storyImage: z.string().optional(),
+  foundedYear: z.number().optional(),
+  founders: z.string().optional(),
+  socialLinks: z
+    .object({
+      instagram: z.string().optional(),
+      facebook: z.string().optional(),
+      tiktok: z.string().optional(),
+      website: z.string().optional(),
+    })
+    .optional(),
+  sectionConfig: z.object({ sections: z.array(sectionItemSchema) }).optional(),
+  galleryImages: z.array(galleryImageSchema).optional(),
+  isPublished: z.boolean(),
+  profileCompleteness: z.number(),
+});
+type Profile = z.infer<typeof profileSchema>;
 
-interface Review {
-  id: string;
-  clientId: string;
-  rating: number;
-  comment?: string;
-  response?: string;
-  respondedAt?: string;
-  createdAt: string;
-  professionalName?: string;
-  serviceName?: string;
-}
+const reviewSchema = z.object({
+  id: z.string(),
+  clientId: z.string(),
+  rating: z.number(),
+  comment: z.string().optional(),
+  response: z.string().optional(),
+  respondedAt: z.string().optional(),
+  createdAt: z.string(),
+  professionalName: z.string().optional(),
+  serviceName: z.string().optional(),
+});
+type Review = z.infer<typeof reviewSchema>;
 
 const SECTION_TYPES = [
   { type: "story", label: "Nuestra Historia" },
@@ -111,7 +118,7 @@ export default function MarketplacePage() {
     data: profile,
     isLoading: loading,
     mutate: mutateProfile,
-  } = useApi<Profile | null>(PROFILE_KEY);
+  } = useApi<Profile | null>(PROFILE_KEY, undefined, profileSchema.nullable());
   const [saving, setSaving] = useState<string | null>(null);
 
   const reviewsKey = businessId
@@ -119,7 +126,14 @@ export default function MarketplacePage() {
     : null;
   const { data: reviewsData, mutate: mutateReviews } = useApi<
     { items: Review[]; total: number } | Review[]
-  >(reviewsKey);
+  >(
+    reviewsKey,
+    undefined,
+    z.union([
+      z.object({ items: z.array(reviewSchema), total: z.number() }),
+      z.array(reviewSchema),
+    ])
+  );
   const reviews: Review[] = Array.isArray(reviewsData)
     ? reviewsData
     : (reviewsData?.items ?? []);

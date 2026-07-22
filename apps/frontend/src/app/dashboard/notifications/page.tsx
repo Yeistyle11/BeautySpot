@@ -3,25 +3,30 @@ import { useCallback } from "react";
 import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Bell, CheckCheck } from "lucide-react";
+import { z } from "zod";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/swr";
 import { formatDate } from "@/lib/utils";
 
-interface Notification {
-  id: string;
-  type: string;
-  channel: string;
-  title: string;
-  message: string;
-  read: boolean;
-  createdAt: string;
-}
+const notificationSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  channel: z.string(),
+  title: z.string(),
+  message: z.string(),
+  read: z.boolean(),
+  createdAt: z.string(),
+});
+type Notification = z.infer<typeof notificationSchema>;
 
 const NOTIFICATIONS_KEY = "/notification/notifications";
 
 export default function NotificationsPage() {
-  const { data: notifications, isLoading: loading } =
-    useApi<Notification[]>(NOTIFICATIONS_KEY);
+  const { data: notifications, isLoading: loading } = useApi<Notification[]>(
+    NOTIFICATIONS_KEY,
+    undefined,
+    z.array(notificationSchema)
+  );
 
   const markRead = useCallback(async (id: string) => {
     try {

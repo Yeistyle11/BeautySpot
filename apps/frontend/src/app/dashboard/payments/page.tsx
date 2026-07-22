@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
 import { mutate } from "swr";
+import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,22 +27,24 @@ import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 
-interface Payment {
-  id: string;
-  amount: string;
-  method: string;
-  status: string;
-  registeredAt: string;
-  appointmentId?: string;
-  clientId?: string;
-  reference?: string;
-  notes?: string;
-}
+const paymentSchema = z.object({
+  id: z.string(),
+  amount: z.string(),
+  method: z.string(),
+  status: z.string(),
+  registeredAt: z.string(),
+  appointmentId: z.string().optional(),
+  clientId: z.string().optional(),
+  reference: z.string().optional(),
+  notes: z.string().optional(),
+});
+type Payment = z.infer<typeof paymentSchema>;
 
-interface Client {
-  id: string;
-  name: string;
-}
+const clientSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+type Client = z.infer<typeof clientSchema>;
 
 const methodIcons: Record<
   string,
@@ -82,8 +85,11 @@ const CLIENTS_KEY = "/core/clients";
 
 export default function PaymentsPage() {
   const { role } = useAuthStore();
-  const { data: payments, isLoading: loading } =
-    useApi<Payment[]>(PAYMENTS_KEY);
+  const { data: payments, isLoading: loading } = useApi<Payment[]>(
+    PAYMENTS_KEY,
+    undefined,
+    z.array(paymentSchema)
+  );
   const [filterMethod, setFilterMethod] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -99,7 +105,9 @@ export default function PaymentsPage() {
 
   const shouldFetchClients = createDialog || editDialog;
   const { data: clients } = useApi<Client[]>(
-    shouldFetchClients ? CLIENTS_KEY : null
+    shouldFetchClients ? CLIENTS_KEY : null,
+    undefined,
+    z.array(clientSchema)
   );
 
   const filtered = useMemo(() => {

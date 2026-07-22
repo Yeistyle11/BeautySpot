@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useDeferredValue, type ComponentType } from "react";
 import { mutate } from "swr";
+import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,16 +25,17 @@ import { canDo, type ACTIONS } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 
-export interface CategoryEntity {
-  id: string;
-  businessId: string;
-  name: string;
-  description: string | null;
-  icon: string | null;
-  color: string | null;
-  sortOrder: number;
-  active: boolean;
-}
+const categoryEntitySchema = z.object({
+  id: z.string(),
+  businessId: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  icon: z.string().nullable(),
+  color: z.string().nullable(),
+  sortOrder: z.number(),
+  active: z.boolean(),
+});
+export type CategoryEntity = z.infer<typeof categoryEntitySchema>;
 
 interface CategoryForm {
   name: string;
@@ -93,8 +95,11 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
     showIconName,
   } = config;
 
-  const { data: categories, isLoading: loading } =
-    useApi<CategoryEntity[]>(queryKey);
+  const { data: categories, isLoading: loading } = useApi<CategoryEntity[]>(
+    queryKey,
+    undefined,
+    z.array(categoryEntitySchema)
+  );
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
 
