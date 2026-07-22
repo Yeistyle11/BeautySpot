@@ -32,6 +32,8 @@ jest.mock("@beautyspot/nest-common", () => ({
     emit: jest.fn().mockResolvedValue(undefined),
     on: jest.fn().mockReturnValue(undefined),
   })),
+  // Passthrough: ejecuta la operación una vez, sin la lógica real de reintento.
+  withSerializableRetry: (op: () => Promise<unknown>) => op(),
 }));
 
 // Mock de global.fetch para public-booking service

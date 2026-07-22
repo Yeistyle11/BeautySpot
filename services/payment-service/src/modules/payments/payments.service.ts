@@ -118,24 +118,30 @@ export class PaymentsService {
     return { date, total, count: payments.length, byMethod };
   }
 
+  /**
+   * Reembolsa un pago completado, total o parcialmente.
+   *
+   * La transición COMPLETED → REFUNDED se aplica con un UPDATE condicionado al
+   * estado actual dentro de la transacción: dos peticiones concurrentes sobre el
+   * mismo pago no pueden reembolsarlo dos veces, porque solo la primera afecta
+   * filas. `refundedBy` registra qué usuario autorizó el reembolso.
+   */
   async refundPayment(
     id: string,
     businessId: string,
-    reason?: string,
-    refundAmount?: number
+    options: { reason?: string; refundAmount?: number; refundedBy: string }
   ): Promise<PaymentEntity> {
     const payment = await this.loadRefundablePayment(id, businessId);
     this.validateRefundWindow(payment);
-    const finalAmount = this.calculateRefundAmount(payment, refundAmount);
-    const finalReason = reason || "Reembolso solicitado";
+    const finalAmount = this.calculateRefundAmount(payment, options.refundAmount);
+    const finalReason = options.reason || "Reembolso solicitado";
 
     return this.dataSource.transaction(async (manager) => {
-      const refunded = await this.applyRefund(
-        manager,
-        payment,
-        finalAmount,
-        finalReason
-      );
+      const refunded = await this.applyRefund(manager, payment, {
+        amount: finalAmount,
+        reason: finalReason,
+        refundedBy: options.refundedBy,
+      });
       await this.enqueueRefundEvent(
         manager,
         refunded,
@@ -186,16 +192,32 @@ export class PaymentsService {
   private async applyRefund(
     manager: EntityManager,
     payment: PaymentEntity,
-    amount: number,
-    reason: string
+    data: { amount: number; reason: string; refundedBy: string }
   ): Promise<PaymentEntity> {
-    return manager.getRepository(PaymentEntity).save({
-      ...payment,
+    const refundedAt = new Date();
+    // El WHERE sobre status = COMPLETED es la guarda anti doble-reembolso: si
+    // otra transacción ya cambió el estado, este UPDATE no toca ninguna fila.
+    const result = await manager.getRepository(PaymentEntity).update(
+      { id: payment.id, status: PaymentStatus.COMPLETED },
+      {
+        status: PaymentStatus.REFUNDED,
+        refundedAt,
+        refundAmount: data.amount,
+        refundReason: data.reason,
+        refundedBy: data.refundedBy,
+      }
+    );
+
+    if (!result.affected) {
+      throw new BadRequestException("El pago ya fue reembolsado");
+    }
+
+    return Object.assign(payment, {
       status: PaymentStatus.REFUNDED,
-      refundedAt: new Date(),
-      refundAmount: amount,
-      refundReason: reason,
-      refundedBy: "SYSTEM",
+      refundedAt,
+      refundAmount: data.amount,
+      refundReason: data.reason,
+      refundedBy: data.refundedBy,
     });
   }
 

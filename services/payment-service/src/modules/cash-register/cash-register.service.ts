@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
-import { Repository, DataSource } from "typeorm";
+import { Repository, DataSource, IsNull } from "typeorm";
 import { CashSessionEntity } from "./cash-session.entity";
 import { CashMovementEntity } from "./cash-movement.entity";
 import { CashMovementType } from "@beautyspot/shared-types";
@@ -28,26 +28,50 @@ export class CashRegisterService {
     private readonly outbox: OutboxService
   ) {}
 
+  /**
+   * Abre una sesión de caja para el negocio.
+   *
+   * El índice único parcial uq_cash_sessions_open_per_business es la garantía
+   * real de "una sola sesión abierta": la consulta previa solo sirve para dar un
+   * mensaje claro en el caso común, pero dos aperturas concurrentes que la
+   * superen chocan en el insert, y esa violación se traduce al mismo error.
+   */
   async openSession(
     businessId: string,
     openedBy: string,
     dto: OpenSessionDto
   ): Promise<CashSessionEntity> {
     const openSession = await this.sessionRepo.findOne({
-      where: { businessId, closedAt: null as unknown as undefined },
+      where: { businessId, closedAt: IsNull() },
     });
     if (openSession) {
       throw new BadRequestException("Ya existe una sesión de caja abierta");
     }
 
-    return this.sessionRepo.save(
-      this.sessionRepo.create({
-        businessId,
-        branchId: dto.branchId,
-        openedBy,
-        openingAmount: dto.openingAmount || 0,
-        notes: dto.notes,
-      })
+    try {
+      return await this.sessionRepo.save(
+        this.sessionRepo.create({
+          businessId,
+          branchId: dto.branchId,
+          openedBy,
+          openingAmount: dto.openingAmount || 0,
+          notes: dto.notes,
+        })
+      );
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new BadRequestException("Ya existe una sesión de caja abierta");
+      }
+      throw error;
+    }
+  }
+
+  /** Detecta la violación de índice único de Postgres (SQLSTATE 23505). */
+  private isUniqueViolation(error: unknown): boolean {
+    return (
+      typeof error === "object" &&
+      error !== null &&
+      (error as { code?: string }).code === "23505"
     );
   }
 
@@ -173,7 +197,7 @@ export class CashRegisterService {
     businessId: string
   ): Promise<CashSessionEntity | null> {
     return this.sessionRepo.findOne({
-      where: { businessId, closedAt: null as unknown as undefined },
+      where: { businessId, closedAt: IsNull() },
       relations: ["movements"],
       order: { openedAt: "DESC" },
     });

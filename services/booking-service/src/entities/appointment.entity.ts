@@ -1,5 +1,5 @@
 import { Entity, Column, OneToMany, Index } from "typeorm";
-import { AuditableEntity } from "@beautyspot/database";
+import { AuditableEntity, numericTransformer } from "@beautyspot/database";
 import { AppointmentStatus } from "@beautyspot/shared-types";
 import { AppointmentServiceEntity } from "./appointment-service.entity";
 
@@ -18,7 +18,7 @@ export class Appointment extends AuditableEntity {
   @Column({ nullable: true }) notes!: string;
   @Column({ name: "cancel_reason", nullable: true }) cancelReason!: string;
   @Column({ name: "points_earned", default: 0 }) pointsEarned!: number;
-  @Column({ type: "decimal", precision: 10, scale: 2, default: 0 }) totalAmount!: number;
+  @Column({ type: "decimal", precision: 10, scale: 2, transformer: numericTransformer, default: 0 }) totalAmount!: number;
 
   @OneToMany(() => AppointmentServiceEntity, (as) => as.appointment) appointmentServices!: AppointmentServiceEntity[];
 }

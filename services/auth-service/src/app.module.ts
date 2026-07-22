@@ -3,7 +3,13 @@ import { ConfigModule } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
-import { OutboxModule, OutboxMessageEntity } from "@beautyspot/nest-common";
+import {
+  OutboxModule,
+  OutboxMessageEntity,
+  SecurityModule,
+  TOKEN_VERSION_RESOLVER,
+} from "@beautyspot/nest-common";
+import { DbTokenVersionResolver } from "./security/db-token-version.resolver";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { MembershipsModule } from "./modules/memberships/memberships.module";
@@ -28,6 +34,13 @@ import { AuditLog } from "./entities/audit-log.entity";
           OutboxMessageEntity,
         ]),
       }),
+    }),
+    SecurityModule.withResolver({
+      imports: [TypeOrmModule.forFeature([User])],
+      resolver: {
+        provide: TOKEN_VERSION_RESOLVER,
+        useClass: DbTokenVersionResolver,
+      },
     }),
     OutboxModule,
     AuthModule,

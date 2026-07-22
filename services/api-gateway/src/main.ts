@@ -1,54 +1,61 @@
 import { NestFactory } from "@nestjs/core";
-import { ValidationPipe } from "@nestjs/common";
+import { Logger, ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AppModule } from "./app.module";
 import {
   HttpExceptionFilter,
   TransformInterceptor,
+  buildCorsOptions,
 } from "@beautyspot/nest-common";
 import { AuthGatewayGuard } from "./modules/auth-gateway/auth-gateway.guard";
 import { RateLimitGuard } from "./modules/rate-limit/rate-limit.guard";
 import helmet from "helmet";
 
 async function bootstrap() {
+  const logger = new Logger("Bootstrap");
   const app = await NestFactory.create(AppModule);
 
   app.use(helmet());
 
   const configService = app.get(ConfigService);
 
-  const allowedOrigins =
-    configService.get("CORS_ORIGINS")?.split(",").filter(Boolean) || [];
-  app.enableCors({
-    origin: (
-      origin: string | undefined,
-      callback: (err: Error | null, allow?: boolean) => void
-    ) => {
-      if (
-        !origin ||
-        allowedOrigins.includes(origin) ||
-        origin?.startsWith("http://localhost")
-      ) {
-        callback(null, true);
-      } else if (configService.get("NODE_ENV") !== "production") {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  });
+  // Detrás de un balanceador, req.ip es la IP del proxy salvo que se declare en
+  // cuántos saltos confiar. Sin esto el rate limit por IP agrupa a todos los
+  // clientes en una sola cuota. TRUST_PROXY = número de proxies intermedios.
+  const trustProxy = configService.get<string>("TRUST_PROXY");
+  if (trustProxy) {
+    app.getHttpAdapter().getInstance().set("trust proxy", Number(trustProxy));
+  }
 
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  app.enableCors(buildCorsOptions(configService));
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    })
+  );
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor());
 
-  const authGatewayGuard = app.get(AuthGatewayGuard);
-  const rateLimitGuard = app.get(RateLimitGuard);
-  app.useGlobalGuards(authGatewayGuard, rateLimitGuard);
+  // El rate limit va primero para que el abuso se corte antes de gastar
+  // verificaciones de firma JWT en cada petición.
+  app.useGlobalGuards(app.get(RateLimitGuard), app.get(AuthGatewayGuard));
+
+  app.enableShutdownHooks();
 
   const port = configService.get<number>("PORT", 3000);
   await app.listen(port);
-  console.log(`API Gateway running on port ${port}`);
+  logger.log(`API Gateway corriendo en puerto ${port}`);
 }
-bootstrap();
+
+bootstrap().catch((error: unknown) => {
+  new Logger("Bootstrap").error(
+    `No se pudo iniciar el API Gateway: ${
+      error instanceof Error ? error.message : String(error)
+    }`,
+    error instanceof Error ? error.stack : undefined
+  );
+  process.exit(1);
+});

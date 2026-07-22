@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { DataSource, Repository } from "typeorm";
+import { DataSource, IsNull, Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcryptjs";
@@ -277,6 +277,7 @@ describe("AuthService", () => {
 
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({
         where: { email: loginDto.email },
+        relations: ["memberships"],
       });
       expect(bcrypt.compare).toHaveBeenCalledWith(
         loginDto.password,
@@ -292,6 +293,20 @@ describe("AuthService", () => {
       );
       expect(mockJwtService.sign).toHaveBeenCalledTimes(2);
       expect(result.user).not.toHaveProperty("password");
+    });
+
+    it("ejecuta bcrypt.compare aunque el email no exista (anti-enumeración)", async () => {
+      // Un retorno temprano sin comparar hash permitiría distinguir emails
+      // registrados de los que no midiendo la latencia de la respuesta.
+      mockUserRepository.findOne.mockResolvedValue(null);
+      (bcrypt.hash as jest.Mock).mockResolvedValue("hash-senuelo");
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      await expect(
+        service.login({ email: "no-existe@example.com", password: "x" })
+      ).rejects.toThrow("Credenciales inválidas");
+
+      expect(bcrypt.compare).toHaveBeenCalledWith("x", "hash-senuelo");
     });
 
     it("debería lanzar UnauthorizedException con email incorrecto", async () => {
@@ -363,6 +378,36 @@ describe("AuthService", () => {
       expect(mockJwtService.sign).toHaveBeenCalledTimes(2);
       expect(result.accessToken).toBe("new-mock-token");
       expect(result.refreshToken).toBe("new-mock-token");
+    });
+
+    it("debería rechazar un refresh token emitido antes de una revocación", async () => {
+      // El usuario cerró sesión o cambió su contraseña después de emitirse este
+      // token: su tokenVersion quedó por detrás de la versión vigente.
+      mockJwtService.verify.mockReturnValue({
+        sub: mockUser.id,
+        email: mockUser.email,
+        tokenVersion: 0,
+      });
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      (service as any).tokenVersionStore.getVersion.mockResolvedValue(1);
+
+      await expect(service.refreshToken("token-revocado")).rejects.toThrow(
+        "Sesión invalidada"
+      );
+      expect(mockJwtService.sign).not.toHaveBeenCalled();
+    });
+
+    it("debería rechazar un refresh token sin tokenVersion si ya hubo revocación", async () => {
+      mockJwtService.verify.mockReturnValue({
+        sub: mockUser.id,
+        email: mockUser.email,
+      });
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      (service as any).tokenVersionStore.getVersion.mockResolvedValue(2);
+
+      await expect(service.refreshToken("token-antiguo")).rejects.toThrow(
+        "Sesión invalidada"
+      );
     });
 
     it("debería lanzar UnauthorizedException con refresh token inválido", async () => {
@@ -497,6 +542,7 @@ describe("AuthService", () => {
 
     it("debería resetear el password exitosamente", async () => {
       mockPasswordResetRepository.findOne.mockResolvedValue(mockPasswordReset);
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
       (bcrypt.hash as jest.Mock).mockResolvedValue("new-hashed-password");
       mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockPasswordResetRepository.update.mockResolvedValue({
@@ -515,8 +561,9 @@ describe("AuthService", () => {
         mockPasswordReset.userId,
         { password: "new-hashed-password" }
       );
+      // Anula todos los tokens pendientes del usuario, no solo el consumido
       expect(mockPasswordResetRepository.update).toHaveBeenCalledWith(
-        mockPasswordReset.id,
+        { userId: mockPasswordReset.userId, usedAt: IsNull() },
         { usedAt: expect.any(Date) }
       );
       expect(mockAuditLogRepository.create).toHaveBeenCalled();
@@ -698,7 +745,7 @@ describe("AuthService", () => {
         }
       );
       expect(mockJwtService.sign).toHaveBeenCalledWith(
-        { sub: mockUser.id, email: mockUser.email },
+        { sub: mockUser.id, email: mockUser.email, tokenVersion: 0 },
         {
           secret: "test-refresh-secret-with-sufficient-length-32!",
           expiresIn: "7d",

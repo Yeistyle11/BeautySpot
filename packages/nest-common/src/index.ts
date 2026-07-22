@@ -25,5 +25,13 @@ export {
   TOKEN_VERSION_KEY_PREFIX,
   TOKEN_VERSION_DEFAULT,
 } from "./security/token-version.store";
-export { createMicroserviceApp } from "./factories/create-app.factory";
+export { SecurityModule } from "./security/security.module";
+export { TOKEN_VERSION_RESOLVER } from "./security/token-version.resolver";
+export type { TokenVersionResolver } from "./security/token-version.resolver";
+export {
+  createMicroserviceApp,
+  bootstrapMicroservice,
+} from "./factories/create-app.factory";
+export { buildCorsOptions } from "./factories/cors.options";
 export { assertJwtSecret } from "./security/assert-jwt-secret";
+export { withSerializableRetry } from "./database/serializable-retry";

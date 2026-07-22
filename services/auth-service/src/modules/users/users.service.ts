@@ -125,7 +125,6 @@ export class UsersService {
     businessId: string,
     dto: CreateStaffDto
   ): Promise<SafeUser & { membershipId: string; role: string }> {
-    // Verificar email unico
     const existing = await this.userRepository.findOne({
       where: { email: dto.email },
     });
@@ -133,7 +132,6 @@ export class UsersService {
       throw new ConflictException("El email ya esta registrado");
     }
 
-    // Hashear contrasena
     const saltRounds = Number(
       this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12")
     );
@@ -187,7 +185,6 @@ export class UsersService {
     businessId: string,
     dto: UpdateStaffDto
   ): Promise<SafeUser> {
-    // Verificar membresia activa en el negocio
     const membership = await this.membershipRepository.findOne({
       where: { userId, businessId, active: true },
     });
@@ -195,7 +192,6 @@ export class UsersService {
       throw new NotFoundException("Usuario no encontrado en este negocio");
     }
 
-    // Si cambia email, verificar unicidad
     if (dto.email) {
       const existing = await this.userRepository.findOne({
         where: { email: dto.email },
@@ -205,7 +201,6 @@ export class UsersService {
       }
     }
 
-    // Actualizar solo campos proporcionados
     const updateData: Partial<User> = {};
     if (dto.name !== undefined) updateData.name = dto.name;
     if (dto.email !== undefined) updateData.email = dto.email;
@@ -247,7 +242,6 @@ export class UsersService {
     businessId: string,
     newPassword: string
   ): Promise<{ message: string }> {
-    // Verificar membresia activa
     const membership = await this.membershipRepository.findOne({
       where: { userId, businessId, active: true },
     });
@@ -255,7 +249,7 @@ export class UsersService {
       throw new NotFoundException("Usuario no encontrado en este negocio");
     }
 
-    // No permitir resetear la contrasena de un SUPER_ADMIN o OWNER si no es SUPER_ADMIN
+    // El dueño del negocio no puede ser reseteado por un admin de menor rango
     if (membership.role === Role.OWNER) {
       throw new ForbiddenException(
         "No se puede resetear la contrasena del dueno del negocio"
@@ -299,7 +293,6 @@ export class UsersService {
     businessId: string,
     active: boolean
   ): Promise<{ message: string }> {
-    // Verificar membresia
     const membership = await this.membershipRepository.findOne({
       where: { userId, businessId, active: true },
     });
@@ -307,7 +300,6 @@ export class UsersService {
       throw new NotFoundException("Usuario no encontrado en este negocio");
     }
 
-    // No desactivar al OWNER
     if (!active && membership.role === Role.OWNER) {
       throw new ForbiddenException(
         "No se puede desactivar al dueno del negocio"

@@ -31,6 +31,13 @@ export class User extends BaseEntity {
   @Column({ type: "uuid", nullable: true, name: "current_business_id" })
   currentBusinessId!: string;
 
+  /**
+   * Versión de los JWT del usuario. Al incrementarse, todos los tokens
+   * emitidos con la versión anterior quedan invalidados (ver TokenVersionStore).
+   */
+  @Column({ type: "int", default: 0, name: "token_version" })
+  tokenVersion!: number;
+
   @OneToMany(() => Membership, (membership) => membership.user)
   memberships!: Membership[];
 

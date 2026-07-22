@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository, DataSource } from "typeorm";
+import { Repository, DataSource, IsNull } from "typeorm";
 import { CashRegisterService } from "./cash-register.service";
 import { CashSessionEntity } from "./cash-session.entity";
 import { CashMovementEntity } from "./cash-movement.entity";
@@ -130,7 +130,7 @@ describe("CashRegisterService", () => {
       const result = await service.openSession("business-123", "user-123", dto);
 
       expect(mockSessionRepo.findOne).toHaveBeenCalledWith({
-        where: { businessId: "business-123", closedAt: null },
+        where: { businessId: "business-123", closedAt: IsNull() },
       });
       expect(mockSessionRepo.create).toHaveBeenCalledWith({
         businessId: "business-123",
@@ -149,6 +149,18 @@ describe("CashRegisterService", () => {
       await expect(
         service.openSession("business-123", "user-123", {})
       ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.openSession("business-123", "user-123", {})
+      ).rejects.toThrow("Ya existe una sesión de caja abierta");
+    });
+
+    it("traduce la violación de índice único a un error de sesión ya abierta", async () => {
+      // Dos aperturas concurrentes superan el findOne previo; el índice único
+      // parcial hace fallar el insert de la segunda con SQLSTATE 23505.
+      mockSessionRepo.findOne.mockResolvedValue(null);
+      mockSessionRepo.create.mockReturnValue(mockSession);
+      mockSessionRepo.save.mockRejectedValue({ code: "23505" });
+
       await expect(
         service.openSession("business-123", "user-123", {})
       ).rejects.toThrow("Ya existe una sesión de caja abierta");
@@ -438,7 +450,7 @@ describe("CashRegisterService", () => {
       const result = await service.getActiveSession("business-123");
 
       expect(mockSessionRepo.findOne).toHaveBeenCalledWith({
-        where: { businessId: "business-123", closedAt: null },
+        where: { businessId: "business-123", closedAt: IsNull() },
         relations: ["movements"],
         order: { openedAt: "DESC" },
       });

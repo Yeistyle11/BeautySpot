@@ -12,7 +12,10 @@ import { Availability } from "../../entities/availability.entity";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
 import { AppointmentStatus } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
-import { EventBusService } from "@beautyspot/nest-common";
+import {
+  EventBusService,
+  withSerializableRetry,
+} from "@beautyspot/nest-common";
 import {
   getTimeSlots,
   calculateEndTime,
@@ -91,64 +94,69 @@ export class AppointmentsService {
 
     // Ejecutar dentro de transaccion SERIALIZABLE: el re-check del conflicto
     // dentro de la tx aislada es el que previene el doble-booking (race). Una
-    // tx concurrente sobre el mismo slot recibe error de serializacion (40001).
-    return this.dataSource.transaction("SERIALIZABLE", async (manager) => {
-      // Re-check autoritativo dentro de la transaccion aislada
-      const conflictInTx = await this.hasTimeConflictWith(
-        manager,
-        businessId,
-        data.professionalId,
-        data.date,
-        data.startTime,
-        endTime
-      );
-      if (conflictInTx) {
-        throw new BadRequestException("Ya existe una cita en ese horario");
-      }
+    // tx concurrente sobre el mismo slot recibe error de serializacion (40001),
+    // que withSerializableRetry reintenta en vez de devolver un 500.
+    const appointment = await withSerializableRetry(() =>
+      this.dataSource.transaction("SERIALIZABLE", async (manager) => {
+        const conflictInTx = await this.hasTimeConflictWith(
+          manager,
+          businessId,
+          data.professionalId,
+          data.date,
+          data.startTime,
+          endTime
+        );
+        if (conflictInTx) {
+          throw new BadRequestException("Ya existe una cita en ese horario");
+        }
 
-      const appointment = manager.create(Appointment, {
-        businessId,
-        branchId: data.branchId,
-        clientId: data.clientId,
-        professionalId: data.professionalId,
-        date: data.date,
-        startTime: data.startTime,
-        endTime,
-        totalAmount,
-        notes: data.notes,
-        createdBy: data.createdBy,
-      });
-      const saved = await manager.save(Appointment, appointment);
+        const created = manager.create(Appointment, {
+          businessId,
+          branchId: data.branchId,
+          clientId: data.clientId,
+          professionalId: data.professionalId,
+          date: data.date,
+          startTime: data.startTime,
+          endTime,
+          totalAmount,
+          notes: data.notes,
+          createdBy: data.createdBy,
+        });
+        const saved = await manager.save(Appointment, created);
 
-      const apptServices = data.serviceIds.map((s) =>
-        manager.create(AppointmentServiceEntity, {
-          appointmentId: saved.id,
-          serviceId: s.id,
-          serviceName: s.name,
-          price: s.price,
-          duration: s.duration,
-        })
-      );
-      await manager.save(AppointmentServiceEntity, apptServices);
+        const apptServices = data.serviceIds.map((s) =>
+          manager.create(AppointmentServiceEntity, {
+            appointmentId: saved.id,
+            serviceId: s.id,
+            serviceName: s.name,
+            price: s.price,
+            duration: s.duration,
+          })
+        );
+        await manager.save(AppointmentServiceEntity, apptServices);
 
-      const result = await manager.findOne(Appointment, {
-        where: { id: saved.id },
-        relations: ["appointmentServices"],
-      });
+        const result = await manager.findOne(Appointment, {
+          where: { id: saved.id },
+          relations: ["appointmentServices"],
+        });
+        return result!;
+      })
+    );
 
-      this.eventBus.emit(EventNames.BOOKING_APPOINTMENT_CREATED, {
-        appointmentId: saved.id,
-        businessId,
-        clientId: data.clientId,
-        professionalId: data.professionalId,
-        date: data.date,
-        startTime: data.startTime,
-        endTime,
-        totalAmount,
-      });
-
-      return result!;
+    // El evento se emite despues de confirmarse el commit: emitirlo dentro de
+    // la transaccion publicaria una cita que un rollback posterior deshace.
+    this.eventBus.emit(EventNames.BOOKING_APPOINTMENT_CREATED, {
+      appointmentId: appointment.id,
+      businessId,
+      clientId: data.clientId,
+      professionalId: data.professionalId,
+      date: data.date,
+      startTime: data.startTime,
+      endTime,
+      totalAmount,
     });
+
+    return appointment;
   }
 
   /** Confirmar cita */
