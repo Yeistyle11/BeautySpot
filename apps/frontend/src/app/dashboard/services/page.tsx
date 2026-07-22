@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,7 @@ import { api } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
+import { useApi } from "@/lib/swr";
 
 interface Service {
   id: string;
@@ -50,11 +52,14 @@ const emptyForm = {
   active: true,
 };
 
+const SERVICES_KEY = "/core/services";
+const CATEGORIES_KEY = "/core/service-categories";
+
 export default function ServicesPage() {
   const { role } = useAuthStore();
-  const [services, setServices] = useState<Service[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: services, isLoading: loading } =
+    useApi<Service[]>(SERVICES_KEY);
+  const { data: categories } = useApi<Category[]>(CATEGORIES_KEY);
   const [filterCategory, setFilterCategory] = useState<string>("all");
 
   const [createDialog, setCreateDialog] = useState(false);
@@ -66,31 +71,22 @@ export default function ServicesPage() {
   const [editForm, setEditForm] = useState(emptyForm);
   const [savingEdit, setSavingEdit] = useState(false);
 
-  const load = () => {
-    api
-      .get<Service[]>("/core/services")
-      .then(setServices)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-    api
-      .get<Category[]>("/core/service-categories")
-      .then(setCategories)
-      .catch(console.error);
-  };
-  useEffect(load, []);
-
   const categoryNames = useMemo(() => {
-    const backendCats = categories.filter((c) => c.active).map((c) => c.name);
+    const backendCats = (categories ?? [])
+      .filter((c) => c.active)
+      .map((c) => c.name);
     const serviceCats = Array.from(
-      new Set(services.map((s) => s.category).filter(Boolean) as string[])
+      new Set(
+        (services ?? []).map((s) => s.category).filter(Boolean) as string[]
+      )
     );
     const all = Array.from(new Set([...backendCats, ...serviceCats])).sort();
     return all;
   }, [categories, services]);
 
   const filtered = useMemo(() => {
-    if (filterCategory === "all") return services;
-    return services.filter((s) => s.category === filterCategory);
+    if (filterCategory === "all") return services ?? [];
+    return (services ?? []).filter((s) => s.category === filterCategory);
   }, [services, filterCategory]);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -103,7 +99,8 @@ export default function ServicesPage() {
         price: Number(createForm.price),
         duration: Number(createForm.duration),
         category: createForm.categoryId
-          ? categories.find((c) => c.id === createForm.categoryId)?.name ||
+          ? (categories ?? []).find((c) => c.id === createForm.categoryId)
+              ?.name ||
             createForm.category ||
             undefined
           : createForm.category || undefined,
@@ -111,7 +108,7 @@ export default function ServicesPage() {
       });
       setCreateForm(emptyForm);
       setCreateDialog(false);
-      load();
+      await mutate(SERVICES_KEY);
     } catch (err) {
       console.error(err);
     } finally {
@@ -144,7 +141,8 @@ export default function ServicesPage() {
         price: Number(editForm.price),
         duration: Number(editForm.duration),
         category: editForm.categoryId
-          ? categories.find((c) => c.id === editForm.categoryId)?.name ||
+          ? (categories ?? []).find((c) => c.id === editForm.categoryId)
+              ?.name ||
             editForm.category ||
             undefined
           : editForm.category || undefined,
@@ -153,7 +151,7 @@ export default function ServicesPage() {
       });
       setEditDialog(false);
       setEditId(null);
-      load();
+      await mutate(SERVICES_KEY);
     } catch (err) {
       console.error(err);
     } finally {
@@ -165,11 +163,13 @@ export default function ServicesPage() {
     if (!confirm("Eliminar este servicio?")) return;
     try {
       await api.delete(`/core/services/${id}`);
-      load();
+      await mutate(SERVICES_KEY);
     } catch (err) {
       console.error(err);
     }
   };
+
+  const serviceList = services ?? [];
 
   return (
     <div>
@@ -199,10 +199,10 @@ export default function ServicesPage() {
                 : "bg-muted text-muted-foreground hover:bg-primary/20"
             }`}
           >
-            Todos ({services.length})
+            Todos ({serviceList.length})
           </button>
           {categoryNames.map((cat) => {
-            const count = services.filter((s) => s.category === cat).length;
+            const count = serviceList.filter((s) => s.category === cat).length;
             return (
               <button
                 key={cat}
@@ -344,7 +344,7 @@ export default function ServicesPage() {
               }
             >
               <option value="">Sin categoría</option>
-              {categories
+              {(categories ?? [])
                 .filter((c) => c.active)
                 .map((c) => (
                   <option key={c.id} value={c.id}>
@@ -429,7 +429,7 @@ export default function ServicesPage() {
               }
             >
               <option value="">Sin categoría</option>
-              {categories
+              {(categories ?? [])
                 .filter((c) => c.active)
                 .map((c) => (
                   <option key={c.id} value={c.id}>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
+import { mutate } from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ import {
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
+import { useApi } from "@/lib/swr";
 import Link from "next/link";
 
 /* ------------------------------------------------------------------ */
@@ -61,29 +63,26 @@ export default function AppointmentDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
 
-  const [appointment, setAppointment] = useState<Appointment | null>(null);
-  const [hasReview, setHasReview] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const appointmentKey = id ? `/booking/appointments/${id}` : null;
+  const reviewsKey = id ? `/marketplace/reviews/appointment/${id}` : null;
+  const {
+    data: appointment,
+    isLoading: loading,
+    error: fetchError,
+    mutate: mutateAppointment,
+  } = useApi<Appointment>(appointmentKey);
+  const { data: reviews } = useApi<Review[]>(reviewsKey);
+  const hasReview = (reviews ?? []).length > 0;
+
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
-  useEffect(() => {
-    if (!id) return;
-
-    Promise.all([
-      api.get<Appointment>(`/booking/appointments/${id}`),
-      api
-        .get<Review[]>(`/marketplace/reviews/appointment/${id}`)
-        .catch(() => []),
-    ])
-      .then(([appt, revs]) => {
-        setAppointment(appt);
-        setHasReview(revs.length > 0);
-      })
-      .catch((err) => setError(err.message || "Error al cargar la cita"))
-      .finally(() => setLoading(false));
-  }, [id]);
+  const error = fetchError
+    ? fetchError instanceof Error
+      ? fetchError.message
+      : "Error al cargar la cita"
+    : cancelError;
 
   const handleCancel = async () => {
     if (!appointment) return;
@@ -92,12 +91,13 @@ export default function AppointmentDetailPage() {
       await api.post(`/booking/appointments/${appointment.id}/cancel`, {
         reason: "Cancelado por el cliente",
       });
-      setAppointment({ ...appointment, status: "CANCELLED" });
+      await mutateAppointment();
+      await mutate("/booking/appointments");
       setCancelDialogOpen(false);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Error al cancelar la cita";
-      setError(message);
+      setCancelError(message);
     } finally {
       setCancelling(false);
     }

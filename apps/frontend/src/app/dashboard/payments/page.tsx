@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ import { api } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
+import { useApi } from "@/lib/swr";
 
 interface Payment {
   id: string;
@@ -74,16 +76,18 @@ const emptyCreateForm = {
 };
 const emptyEditForm = { amount: "", method: "", reference: "", notes: "" };
 
+const PAYMENTS_KEY = "/payment/payments";
+const CLIENTS_KEY = "/core/clients";
+
 export default function PaymentsPage() {
   const { role } = useAuthStore();
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: payments, isLoading: loading } =
+    useApi<Payment[]>(PAYMENTS_KEY);
   const [filterMethod, setFilterMethod] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
   const [createDialog, setCreateDialog] = useState(false);
-  const [clients, setClients] = useState<Client[]>([]);
   const [createForm, setCreateForm] = useState(emptyCreateForm);
   const [savingCreate, setSavingCreate] = useState(false);
 
@@ -92,26 +96,13 @@ export default function PaymentsPage() {
   const [editForm, setEditForm] = useState(emptyEditForm);
   const [savingEdit, setSavingEdit] = useState(false);
 
-  const load = () => {
-    api
-      .get<Payment[]>("/payment/payments")
-      .then(setPayments)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
-  useEffect(load, []);
-
-  useEffect(() => {
-    if (createDialog || editDialog) {
-      api
-        .get<Client[]>("/core/clients")
-        .then(setClients)
-        .catch(() => {});
-    }
-  }, [createDialog, editDialog]);
+  const shouldFetchClients = createDialog || editDialog;
+  const { data: clients } = useApi<Client[]>(
+    shouldFetchClients ? CLIENTS_KEY : null
+  );
 
   const filtered = useMemo(() => {
-    let result = payments;
+    let result = payments ?? [];
     if (filterMethod !== "all")
       result = result.filter((p) => p.method === filterMethod);
     if (dateFrom)
@@ -128,7 +119,7 @@ export default function PaymentsPage() {
 
   const todayPayments = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
-    return payments.filter((p) => p.registeredAt?.startsWith(today));
+    return (payments ?? []).filter((p) => p.registeredAt?.startsWith(today));
   }, [payments]);
 
   const summary = useMemo(() => {
@@ -161,7 +152,7 @@ export default function PaymentsPage() {
       });
       setCreateDialog(false);
       setCreateForm(emptyCreateForm);
-      load();
+      await mutate(PAYMENTS_KEY);
     } catch (err) {
       console.error(err);
     } finally {
@@ -193,7 +184,7 @@ export default function PaymentsPage() {
       });
       setEditDialog(false);
       setEditId(null);
-      load();
+      await mutate(PAYMENTS_KEY);
     } catch (err) {
       console.error(err);
     } finally {
@@ -400,7 +391,7 @@ export default function PaymentsPage() {
               }
             >
               <option value="">Sin cliente</option>
-              {clients.map((c) => (
+              {(clients ?? []).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>

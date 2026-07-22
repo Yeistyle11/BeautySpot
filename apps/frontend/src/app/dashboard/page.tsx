@@ -12,11 +12,11 @@ import {
   CheckCircle,
   TrendingUp,
 } from "lucide-react";
-import { api } from "@/lib/api";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
 import { useAuthStore } from "@/lib/store";
 import { decodeJwt } from "@/lib/auth";
+import { useApi } from "@/lib/swr";
 
 interface Appointment {
   id: string;
@@ -80,86 +80,83 @@ const STATUS_MAP = getAppointmentStatus;
 
 export default function DashboardPage() {
   const { businessId, setBusinessId } = useAuthStore();
+  const [resolvedBid, setResolvedBid] = useState<string | null>(businessId);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [, setClientNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
-  const [kpiData, setKpiData] = useState<KpiData | null>(null);
-  const [topProfessionals, setTopProfessionals] = useState<TopProfessional[]>(
-    []
-  );
-  const [revenueChart, setRevenueChart] = useState<RevenuePoint[]>([]);
-
   useEffect(() => {
-    let bid = businessId;
-    if (!bid) {
-      const token = localStorage.getItem("token");
+    if (!businessId) {
+      const token = localStorage.getItem("auth:v1:token");
       const payload = token ? decodeJwt(token) : null;
       if (payload?.businessId) {
-        bid = payload.businessId;
         setBusinessId(payload.businessId);
+        setResolvedBid(payload.businessId);
+      } else {
+        setLoading(false);
       }
-    }
-    if (bid) {
-      const today = new Date().toISOString().split("T")[0];
-      Promise.all([
-        api
-          .get<
-            RawAppointment[] | { items: RawAppointment[] }
-          >(`/booking/appointments?date=${today}`)
-          .catch(() => [] as RawAppointment[]),
-        api
-          .get<ClientRef[] | { items: ClientRef[] }>(`/core/clients?limit=100`)
-          .catch(() => [] as ClientRef[]),
-      ])
-        .then(([res, clients]) => {
-          const items: RawAppointment[] = Array.isArray(res)
-            ? res
-            : (res?.items ?? []);
-          const clientList: ClientRef[] = Array.isArray(clients)
-            ? clients
-            : (clients?.items ?? []);
-          const names: Record<string, string> = {};
-          clientList.forEach((c) => {
-            names[c.id] = c.name;
-          });
-          setClientNames(names);
-          setAppointments(
-            items.map((a) => ({
-              id: a.id,
-              date: a.date,
-              startTime: a.startTime,
-              endTime: a.endTime,
-              status: a.status,
-              totalAmount: Number(a.totalAmount || 0),
-              serviceName: a.appointmentServices?.[0]?.serviceName,
-              clientName: names[a.clientId] || undefined,
-              clientId: a.clientId,
-            }))
-          );
-        })
-        .catch(console.error)
-        .finally(() => setLoading(false));
-
-      // Analytics data
-      api
-        .get<KpiData>("/analytics/dashboard/kpis")
-        .then(setKpiData)
-        .catch(() => {});
-      api
-        .get<TopProfessional[]>(
-          "/analytics/dashboard/top-professionals?limit=5"
-        )
-        .then(setTopProfessionals)
-        .catch(() => {});
-      api
-        .get<RevenuePoint[]>("/analytics/dashboard/revenue-chart?days=7")
-        .then(setRevenueChart)
-        .catch(() => {});
     } else {
-      setLoading(false);
+      setResolvedBid(businessId);
     }
   }, [businessId, setBusinessId]);
+
+  const today = new Date().toISOString().split("T")[0];
+  const appointmentsKey = resolvedBid
+    ? `/booking/appointments?date=${today}`
+    : null;
+  const clientsKey = resolvedBid ? `/core/clients?limit=100` : null;
+
+  const { data: rawAppointments } = useApi<
+    RawAppointment[] | { items: RawAppointment[] }
+  >(appointmentsKey);
+  const { data: rawClients } = useApi<ClientRef[] | { items: ClientRef[] }>(
+    clientsKey
+  );
+  const { data: kpiData } = useApi<KpiData | null>(
+    resolvedBid ? "/analytics/dashboard/kpis" : null
+  );
+  const { data: topProfessionals } = useApi<TopProfessional[]>(
+    resolvedBid ? "/analytics/dashboard/top-professionals?limit=5" : null
+  );
+  const { data: revenueChart } = useApi<RevenuePoint[]>(
+    resolvedBid ? "/analytics/dashboard/revenue-chart?days=7" : null
+  );
+
+  useEffect(() => {
+    if (!resolvedBid) {
+      setLoading(false);
+      return;
+    }
+    const items: RawAppointment[] = Array.isArray(rawAppointments)
+      ? rawAppointments
+      : (rawAppointments?.items ?? []);
+    const clientList: ClientRef[] = Array.isArray(rawClients)
+      ? rawClients
+      : (rawClients?.items ?? []);
+    const names: Record<string, string> = {};
+    clientList.forEach((c) => {
+      names[c.id] = c.name;
+    });
+    setClientNames(names);
+    setAppointments(
+      items.map((a) => ({
+        id: a.id,
+        date: a.date,
+        startTime: a.startTime,
+        endTime: a.endTime,
+        status: a.status,
+        totalAmount: Number(a.totalAmount || 0),
+        serviceName: a.appointmentServices?.[0]?.serviceName,
+        clientName: names[a.clientId] || undefined,
+        clientId: a.clientId,
+      }))
+    );
+    if (rawAppointments !== undefined && rawClients !== undefined) {
+      setLoading(false);
+    }
+  }, [resolvedBid, rawAppointments, rawClients]);
+
+  void 0;
 
   // Fallback calculations from booking data
   const todayTotal = appointments.length;
@@ -208,7 +205,7 @@ export default function DashboardPage() {
     .filter((a) => a.status === "PENDING" || a.status === "CONFIRMED")
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-  const maxRevenue = Math.max(...revenueChart.map((r) => r.revenue), 1);
+  const maxRevenue = Math.max(...(revenueChart ?? []).map((r) => r.revenue), 1);
 
   return (
     <div>
@@ -354,9 +351,9 @@ export default function DashboardPage() {
             <CardTitle className="text-lg">Ingresos ultimos 7 dias</CardTitle>
           </CardHeader>
           <CardContent>
-            {revenueChart.length > 0 ? (
+            {(revenueChart ?? []).length > 0 ? (
               <div className="space-y-2">
-                {revenueChart.map((point) => {
+                {(revenueChart ?? []).map((point) => {
                   const pct =
                     maxRevenue > 0 ? (point.revenue / maxRevenue) * 100 : 0;
                   return (
@@ -392,7 +389,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Top professionals */}
-      {topProfessionals.length > 0 && (
+      {(topProfessionals ?? []).length > 0 && (
         <Card className="mt-6 border-0 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -402,7 +399,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              {topProfessionals.map((p, i) => (
+              {(topProfessionals ?? []).map((p, i) => (
                 <div
                   key={p.professionalId}
                   className="flex items-center gap-3 rounded-lg border p-3"

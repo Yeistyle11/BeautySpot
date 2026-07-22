@@ -1,5 +1,4 @@
 "use client";
-import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +11,10 @@ import {
   ArrowRight,
   Sparkles,
 } from "lucide-react";
-import { api } from "@/lib/api";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
 import { useAuthStore } from "@/lib/store";
+import { useApi } from "@/lib/swr";
 import Link from "next/link";
 
 interface Appointment {
@@ -34,27 +33,22 @@ interface Appointment {
   }[];
 }
 
+const APPOINTMENTS_KEY = "/booking/appointments";
+
 export default function ClientDashboardPage() {
   const { user } = useAuthStore();
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: appointments, isLoading: loading } =
+    useApi<Appointment[]>(APPOINTMENTS_KEY);
 
-  useEffect(() => {
-    api
-      .get<Appointment[]>("/booking/appointments")
-      .then(setAppointments)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  const upcoming = appointments
+  const list = appointments ?? [];
+  const upcoming = list
     .filter((a) => a.status === "PENDING" || a.status === "CONFIRMED")
     .sort((a, b) =>
       `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`)
     );
 
-  const completed = appointments.filter((a) => a.status === "COMPLETED").length;
-  const cancelled = appointments.filter((a) => a.status === "CANCELLED").length;
+  const completed = list.filter((a) => a.status === "COMPLETED").length;
+  const cancelled = list.filter((a) => a.status === "CANCELLED").length;
 
   const stats = [
     {
@@ -80,7 +74,7 @@ export default function ClientDashboardPage() {
     },
     {
       title: "Total citas",
-      value: appointments.length,
+      value: list.length,
       icon: Scissors,
       color: "text-purple-600",
       bg: "bg-purple-50",

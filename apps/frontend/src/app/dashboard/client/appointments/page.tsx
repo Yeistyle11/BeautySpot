@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, Scissors, Star, Plus } from "lucide-react";
-import { api } from "@/lib/api";
 import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
+import { useApi } from "@/lib/swr";
 import Link from "next/link";
 
 /* ------------------------------------------------------------------ */
@@ -79,27 +79,14 @@ function filterByTab(appointments: Appointment[], tab: TabKey): Appointment[] {
 /* ------------------------------------------------------------------ */
 
 export default function AppointmentsPage() {
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const { data: appointments, isLoading: loading } = useApi<Appointment[]>(
+    "/booking/appointments"
+  );
+  const { data: reviews } = useApi<Review[]>("/marketplace/reviews/mine");
   const [activeTab, setActiveTab] = useState<TabKey>("all");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    Promise.all([
-      api.get<Appointment[]>("/booking/appointments").catch(() => []),
-      api.get<Review[]>("/marketplace/reviews/mine").catch(() => []),
-    ])
-      .then(([appts, revs]) => {
-        setAppointments(appts);
-        setReviews(revs);
-      })
-      .catch((err) => setError(err.message || "Error al cargar las citas"))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const reviewedIds = new Set(reviews.map((r) => r.appointmentId));
-  const filtered = filterByTab(appointments, activeTab).sort((a, b) =>
+  const reviewedIds = new Set((reviews ?? []).map((r) => r.appointmentId));
+  const filtered = filterByTab(appointments ?? [], activeTab).sort((a, b) =>
     `${b.date}${b.startTime}`.localeCompare(`${a.date}${a.startTime}`)
   );
 
@@ -143,12 +130,6 @@ export default function AppointmentsPage() {
         <Card className="border-0 shadow-sm">
           <CardContent className="text-muted-foreground p-8 text-center">
             Cargando citas...
-          </CardContent>
-        </Card>
-      ) : error ? (
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-8 text-center text-red-600">
-            {error}
           </CardContent>
         </Card>
       ) : filtered.length === 0 ? (

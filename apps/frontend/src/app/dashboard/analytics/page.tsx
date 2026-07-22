@@ -1,9 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, Calendar } from "lucide-react";
-import { api } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
+import { useApi } from "@/lib/swr";
 
 interface KpiData {
   last30Days: {
@@ -20,16 +19,9 @@ interface KpiData {
 }
 
 export default function AnalyticsPage() {
-  const [data, setData] = useState<KpiData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    api
-      .get<KpiData>("/analytics/dashboard/kpis")
-      .then(setData)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  const { data, isLoading: loading } = useApi<KpiData>(
+    "/analytics/dashboard/kpis"
+  );
 
   return (
     <div>

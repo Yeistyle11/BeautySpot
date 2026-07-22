@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { mutate } from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ import { api } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
+import { useApi } from "@/lib/swr";
 
 interface CashSession {
   id: string;
@@ -56,12 +58,26 @@ const movementTypeOptions = [
   },
 ];
 
+const ACTIVE_KEY = "/payment/cash-register/active";
+const HISTORY_KEY = "/payment/cash-register/history";
+
 export default function CashRegisterPage() {
   const { role } = useAuthStore();
-  const [activeSession, setActiveSession] = useState<CashSession | null>(null);
-  const [movements, setMovements] = useState<CashMovement[]>([]);
-  const [history, setHistory] = useState<CashSession[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: activeSession,
+    isLoading: loadingActive,
+    mutate: mutateActive,
+  } = useApi<CashSession | null>(ACTIVE_KEY);
+  const { data: history } = useApi<CashSession[]>(HISTORY_KEY);
+
+  const movementsKey = activeSession?.id
+    ? `/payment/cash-register/${activeSession.id}/summary`
+    : null;
+  const { data: summary } = useApi<{ movements: CashMovement[] } | null>(
+    movementsKey
+  );
+  const movements = summary?.movements ?? [];
+  const loading = loadingActive;
 
   const [openDialog, setOpenDialog] = useState(false);
   const [openAmount, setOpenAmount] = useState("");
@@ -79,37 +95,6 @@ export default function CashRegisterPage() {
   const [closeNotes, setCloseNotes] = useState("");
   const [closing, setClosing] = useState(false);
 
-  const loadActive = async () => {
-    try {
-      const session = await api.get<CashSession>(
-        "/payment/cash-register/active"
-      );
-      setActiveSession(session);
-      if (session?.id) {
-        const summary = await api.get<{ movements: CashMovement[] }>(
-          `/payment/cash-register/${session.id}/summary`
-        );
-        if (summary?.movements) setMovements(summary.movements);
-      }
-    } catch {
-      setActiveSession(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadHistory = () => {
-    api
-      .get<CashSession[]>("/payment/cash-register/history")
-      .then(setHistory)
-      .catch(() => {});
-  };
-
-  useEffect(() => {
-    loadActive();
-    loadHistory();
-  }, []);
-
   const handleOpen = async () => {
     setOpening(true);
     try {
@@ -120,7 +105,7 @@ export default function CashRegisterPage() {
       setOpenDialog(false);
       setOpenAmount("");
       setOpenNotes("");
-      loadActive();
+      await mutateActive();
     } catch (err) {
       console.error(err);
     } finally {
@@ -140,7 +125,7 @@ export default function CashRegisterPage() {
       setMovementDialog(false);
       setMoveAmount("");
       setMoveConcept("");
-      loadActive();
+      await mutate(movementsKey);
     } catch (err) {
       console.error(err);
     } finally {
@@ -159,9 +144,7 @@ export default function CashRegisterPage() {
       setCloseDialog(false);
       setCloseAmount("");
       setCloseNotes("");
-      setActiveSession(null);
-      loadActive();
-      loadHistory();
+      await Promise.all([mutateActive(), mutate(HISTORY_KEY)]);
     } catch (err) {
       console.error(err);
     } finally {
@@ -329,7 +312,7 @@ export default function CashRegisterPage() {
       )}
 
       {/* Session history */}
-      {history.length > 0 && (
+      {(history ?? []).length > 0 && (
         <Card className="mt-6 border-0 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -338,7 +321,7 @@ export default function CashRegisterPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {history.map((s) => (
+              {(history ?? []).map((s) => (
                 <div
                   key={s.id}
                   className="flex items-center justify-between rounded-lg border p-3"

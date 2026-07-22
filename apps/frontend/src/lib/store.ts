@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { setCachedToken } from "./api";
 
 export type Role =
   | "SUPER_ADMIN"
@@ -29,6 +30,46 @@ interface AuthState {
   hydrate: () => void;
 }
 
+const KEYS = {
+  token: "auth:v1:token",
+  user: "auth:v1:user",
+  businessId: "auth:v1:businessId",
+  role: "auth:v1:role",
+} as const;
+
+const LEGACY_KEYS = {
+  token: "token",
+  user: "user",
+  businessId: "businessId",
+  role: "role",
+} as const;
+
+function migrateLegacyKeys(): void {
+  if (typeof window === "undefined") return;
+  (Object.keys(LEGACY_KEYS) as (keyof typeof LEGACY_KEYS)[]).forEach((k) => {
+    const legacy = localStorage.getItem(LEGACY_KEYS[k]);
+    if (legacy !== null && localStorage.getItem(KEYS[k]) === null) {
+      localStorage.setItem(KEYS[k], legacy);
+    }
+    if (legacy !== null) localStorage.removeItem(LEGACY_KEYS[k]);
+  });
+}
+
+function safeParse<T>(value: string | null): T | null {
+  if (value === null) return null;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}
+
+function readRole(): Role | null {
+  const raw = localStorage.getItem(KEYS.role);
+  if (!raw) return null;
+  return raw as Role;
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   user: null,
@@ -37,36 +78,33 @@ export const useAuthStore = create<AuthState>((set) => ({
   hydrated: false,
   hydrate: () => {
     if (typeof window === "undefined") return;
-    const token = localStorage.getItem("token");
-    const user = localStorage.getItem("user");
-    const businessId = localStorage.getItem("businessId");
-    const role = localStorage.getItem("role") as Role | null;
-    set({
-      token,
-      user: user ? JSON.parse(user) : null,
-      businessId,
-      role,
-      hydrated: true,
-    });
+    migrateLegacyKeys();
+    const token = localStorage.getItem(KEYS.token);
+    const user = safeParse<User>(localStorage.getItem(KEYS.user));
+    const businessId = localStorage.getItem(KEYS.businessId);
+    const role = readRole();
+    setCachedToken(token);
+    set({ token, user, businessId, role, hydrated: true });
   },
   setAuth: (token, user) => {
-    localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(user));
+    localStorage.setItem(KEYS.token, token);
+    localStorage.setItem(KEYS.user, JSON.stringify(user));
+    setCachedToken(token);
     set({ token, user });
   },
   setBusinessId: (id) => {
-    localStorage.setItem("businessId", id);
+    localStorage.setItem(KEYS.businessId, id);
     set({ businessId: id });
   },
   setRole: (role) => {
-    localStorage.setItem("role", role);
+    localStorage.setItem(KEYS.role, role);
     set({ role });
   },
   logout: () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("businessId");
-    localStorage.removeItem("role");
+    (Object.keys(KEYS) as (keyof typeof KEYS)[]).forEach((k) =>
+      localStorage.removeItem(KEYS[k])
+    );
+    setCachedToken(null);
     set({ token: null, user: null, businessId: null, role: null });
   },
 }));

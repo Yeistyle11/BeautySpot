@@ -30,6 +30,7 @@ import {
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
+import { useApi } from "@/lib/swr";
 
 interface Profile {
   id: string;
@@ -100,11 +101,26 @@ const defaultSections: SectionItem[] = SECTION_TYPES.map((s, i) => ({
   order: i + 1,
 }));
 
+const PROFILE_KEY = "/marketplace/business-profiles";
+
 export default function MarketplacePage() {
   const { businessId, role } = useAuthStore();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: profile,
+    isLoading: loading,
+    mutate: mutateProfile,
+  } = useApi<Profile | null>(PROFILE_KEY);
   const [saving, setSaving] = useState<string | null>(null);
+
+  const reviewsKey = businessId
+    ? `/marketplace/reviews/business/${businessId}`
+    : null;
+  const { data: reviewsData, mutate: mutateReviews } = useApi<
+    { items: Review[]; total: number } | Review[]
+  >(reviewsKey);
+  const reviews: Review[] = Array.isArray(reviewsData)
+    ? reviewsData
+    : (reviewsData?.items ?? []);
 
   const [configForm, setConfigForm] = useState({
     tagline: "",
@@ -120,7 +136,25 @@ export default function MarketplacePage() {
   });
   const [sections, setSections] = useState<SectionItem[]>(defaultSections);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
+
+  useEffect(() => {
+    if (profile) {
+      setConfigForm({
+        tagline: profile.tagline || "",
+        storyTitle: profile.storyTitle || "",
+        storyText: profile.storyText || "",
+        storyImage: profile.storyImage || "",
+        foundedYear: profile.foundedYear?.toString() || "",
+        founders: profile.founders || "",
+        instagram: profile.socialLinks?.instagram || "",
+        facebook: profile.socialLinks?.facebook || "",
+        tiktok: profile.socialLinks?.tiktok || "",
+        website: profile.socialLinks?.website || "",
+      });
+      setSections(profile.sectionConfig?.sections || defaultSections);
+      setGallery(profile.galleryImages || []);
+    }
+  }, [profile]);
 
   const [galleryDialog, setGalleryDialog] = useState(false);
   const [galleryForm, setGalleryForm] = useState({
@@ -134,45 +168,10 @@ export default function MarketplacePage() {
   );
   const [activeTab, setActiveTab] = useState("overview");
 
-  useEffect(() => {
-    if (businessId) {
-      api
-        .get<Profile>("/marketplace/business-profiles")
-        .then((data) => {
-          setProfile(data);
-          setConfigForm({
-            tagline: data.tagline || "",
-            storyTitle: data.storyTitle || "",
-            storyText: data.storyText || "",
-            storyImage: data.storyImage || "",
-            foundedYear: data.foundedYear?.toString() || "",
-            founders: data.founders || "",
-            instagram: data.socialLinks?.instagram || "",
-            facebook: data.socialLinks?.facebook || "",
-            tiktok: data.socialLinks?.tiktok || "",
-            website: data.socialLinks?.website || "",
-          });
-          setSections(data.sectionConfig?.sections || defaultSections);
-          setGallery(data.galleryImages || []);
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false));
-
-      api
-        .get<{ items: Review[]; total: number }>(
-          `/marketplace/reviews/business/${businessId}`
-        )
-        .then((data) =>
-          setReviews(Array.isArray(data) ? data : data?.items || [])
-        )
-        .catch(() => {});
-    }
-  }, [businessId]);
-
   const saveConfig = async () => {
     setSaving("config");
     try {
-      const updated = await api.put("/marketplace/business-profiles/config", {
+      await api.put("/marketplace/business-profiles/config", {
         tagline: configForm.tagline || undefined,
         storyTitle: configForm.storyTitle || undefined,
         storyText: configForm.storyText || undefined,
@@ -189,8 +188,7 @@ export default function MarketplacePage() {
         },
         sectionConfig: { sections },
       });
-      if (profile)
-        setProfile({ ...profile, ...(updated as Record<string, unknown>) });
+      await mutateProfile();
     } catch (err) {
       console.error(err);
     } finally {
@@ -202,15 +200,8 @@ export default function MarketplacePage() {
     if (!profile) return;
     try {
       const endpoint = profile.isPublished ? "unpublish" : "publish";
-      const updated = await api.post(
-        `/marketplace/business-profiles/${endpoint}`,
-        {}
-      );
-      setProfile({
-        ...profile,
-        isPublished: !profile.isPublished,
-        ...(updated as Record<string, unknown>),
-      });
+      await api.post(`/marketplace/business-profiles/${endpoint}`, {});
+      await mutateProfile();
     } catch (err) {
       console.error(err);
     }
@@ -218,28 +209,16 @@ export default function MarketplacePage() {
 
   const addGalleryImage = async () => {
     try {
-      const updated = await api.post<{ galleryImages?: typeof gallery }>(
-        "/marketplace/business-profiles/gallery",
-        {
-          images: [
-            {
-              url: galleryForm.url,
-              title: galleryForm.title,
-              category: galleryForm.category,
-            },
-          ],
-        }
-      );
-      setGallery(
-        updated.galleryImages || [
-          ...gallery,
+      await api.post("/marketplace/business-profiles/gallery", {
+        images: [
           {
             url: galleryForm.url,
             title: galleryForm.title,
             category: galleryForm.category,
           },
-        ]
-      );
+        ],
+      });
+      await mutateProfile();
       setGalleryForm({ url: "", title: "", category: "" });
       setGalleryDialog(false);
     } catch (err) {
@@ -250,7 +229,7 @@ export default function MarketplacePage() {
   const removeGalleryImage = async (index: number) => {
     try {
       await api.delete(`/marketplace/business-profiles/gallery/${index}`);
-      setGallery(gallery.filter((_, i) => i !== index));
+      await mutateProfile();
     } catch (err) {
       console.error(err);
     }
@@ -261,13 +240,7 @@ export default function MarketplacePage() {
     if (!response?.trim()) return;
     try {
       await api.post(`/marketplace/reviews/${reviewId}/respond`, { response });
-      setReviews(
-        reviews.map((r) =>
-          r.id === reviewId
-            ? { ...r, response, respondedAt: new Date().toISOString() }
-            : r
-        )
-      );
+      await mutateReviews();
       setReviewResponse((prev) => {
         const next = { ...prev };
         delete next[reviewId];

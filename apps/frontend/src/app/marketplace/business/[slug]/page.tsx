@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,7 +23,7 @@ import {
   Heart,
   Quote,
 } from "lucide-react";
-import { apiPublic } from "@/lib/api";
+import { useApiPublic } from "@/lib/swr";
 
 interface SectionConfig {
   id: string;
@@ -129,49 +129,26 @@ const SECTION_TITLES: Record<string, string> = {
 
 export default function BusinessProfilePage() {
   const { slug } = useParams<{ slug: string }>();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [professionals, setProfessionals] = useState<Professional[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [ratingDist, setRatingDist] = useState<RatingDistribution | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: profile, isLoading: loading } = useApiPublic<Profile>(
+    `/marketplace/profiles/${slug}`
+  );
+
+  const bid = profile?.businessId;
+  const { data: professionals } = useApiPublic<Professional[]>(
+    bid ? `/marketplace/professional-profiles/business/${bid}` : null
+  );
+  const { data: reviewsResp } = useApiPublic<{
+    items: Review[];
+    total: number;
+  }>(bid ? `/marketplace/reviews/business/${bid}?limit=10` : null);
+  const { data: ratingDist } = useApiPublic<RatingDistribution>(
+    bid ? `/marketplace/reviews/business/${bid}/summary` : null
+  );
+
   const [galleryIdx, setGalleryIdx] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
-  useEffect(() => {
-    apiPublic
-      .get<Profile>(`/marketplace/profiles/${slug}`)
-      .then((p) => {
-        setProfile(p);
-        const bid = p.businessId;
-        return Promise.all([
-          apiPublic
-            .get<
-              Professional[]
-            >(`/marketplace/professional-profiles/business/${bid}`)
-            .catch(() => []),
-          apiPublic
-            .get<{
-              items: Review[];
-              total: number;
-            }>(`/marketplace/reviews/business/${bid}?limit=10`)
-            .catch(() => ({ items: [], total: 0 })),
-          apiPublic
-            .get<RatingDistribution>(
-              `/marketplace/reviews/business/${bid}/summary`
-            )
-            .catch(() => null),
-        ]);
-      })
-      .then((results) => {
-        if (results) {
-          setProfessionals(results[0] as Professional[]);
-          setReviews((results[1] as { items: Review[] }).items);
-          setRatingDist(results[2] as RatingDistribution);
-        }
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [slug]);
+  const reviews = reviewsResp?.items ?? [];
 
   if (loading) {
     return (
@@ -335,11 +312,11 @@ export default function BusinessProfilePage() {
               );
             case "team":
               return (
-                professionals.length > 0 && (
+                (professionals ?? []).length > 0 && (
                   <TeamSection
                     key={section.id}
                     title={title}
-                    professionals={professionals}
+                    professionals={professionals ?? []}
                     slug={slug}
                   />
                 )
@@ -362,7 +339,7 @@ export default function BusinessProfilePage() {
                   key={section.id}
                   title={title}
                   reviews={reviews}
-                  ratingDist={ratingDist}
+                  ratingDist={ratingDist ?? null}
                   rating={profile.rating}
                   totalReviews={profile.totalReviews}
                 />

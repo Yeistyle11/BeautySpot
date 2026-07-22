@@ -1,8 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
+import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Bell, CheckCheck } from "lucide-react";
 import { api } from "@/lib/api";
+import { useApi } from "@/lib/swr";
 
 interface Notification {
   id: string;
@@ -14,26 +16,27 @@ interface Notification {
   createdAt: string;
 }
 
+const NOTIFICATIONS_KEY = "/notification/notifications";
+
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: notifications, isLoading: loading } =
+    useApi<Notification[]>(NOTIFICATIONS_KEY);
 
-  useEffect(() => {
-    api
-      .get<Notification[]>("/notification/notifications")
-      .then(setNotifications)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  const markRead = async (id: string) => {
+  const markRead = useCallback(async (id: string) => {
     try {
       await api.post(`/notification/notifications/${id}/read`, {});
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      await mutate(
+        NOTIFICATIONS_KEY,
+        (prev: Notification[] | undefined) =>
+          prev?.map((n) => (n.id === id ? { ...n, read: true } : n)),
+        { revalidate: false }
       );
-    } catch {}
-  };
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const list = notifications ?? [];
 
   return (
     <div>
@@ -44,7 +47,7 @@ export default function NotificationsPage() {
       <div className="space-y-3">
         {loading ? (
           <p className="text-muted-foreground">Cargando...</p>
-        ) : notifications.length === 0 ? (
+        ) : list.length === 0 ? (
           <Card className="border-0 shadow-sm">
             <CardContent className="text-muted-foreground p-8 text-center">
               <Bell className="mx-auto h-12 w-12 opacity-20" />
@@ -52,7 +55,7 @@ export default function NotificationsPage() {
             </CardContent>
           </Card>
         ) : (
-          notifications.map((n) => (
+          list.map((n) => (
             <Card
               key={n.id}
               className={`border-0 shadow-sm ${!n.read ? "bg-primary/5" : ""}`}

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { mutate } from "swr";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
 import { apiPublic, api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { formatCurrency, getErrorMessage } from "@/lib/utils";
+import { useApiPublic } from "@/lib/swr";
 
 interface Profile {
   id: string;
@@ -56,10 +58,30 @@ function PublicBookingPageInner() {
   const { user, hydrated } = useAuthStore();
   const isAuthenticated = hydrated && !!user;
 
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [services, setServices] = useState<Service[]>([]);
-  const [professionals, setProfessionals] = useState<Professional[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: profile, isLoading: loading } = useApiPublic<Profile>(
+    `/marketplace/profiles/${slug}`
+  );
+  const servicesKey = profile?.businessId
+    ? `/core/public/businesses/${profile.businessId}/services`
+    : null;
+  const profKey = profile?.businessId
+    ? `/marketplace/professional-profiles/business/${profile.businessId}`
+    : null;
+  const { data: rawServices } = useApiPublic<Service[]>(servicesKey);
+  const { data: rawProfessionals } = useApiPublic<Professional[]>(profKey);
+
+  const services = (rawServices ?? []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    price: Number(s.price),
+    duration: s.duration,
+  }));
+  const professionals = (rawProfessionals ?? []).map((p) => ({
+    id: p.professionalId || p.id,
+    name: p.name,
+    photo: p.photo,
+    specialties: p.specialties || [],
+  }));
 
   const [step, setStep] = useState(1);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -76,69 +98,6 @@ function PublicBookingPageInner() {
   );
   const [error, setError] = useState("");
 
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-  const [slotsLoading, setSlotsLoading] = useState(false);
-
-  // Pre-fill guest data when auth is hydrated
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      setGuestName(user.name || "");
-      setGuestEmail(user.email || "");
-      setGuestPhone(user.phone || "");
-    }
-  }, [isAuthenticated, user]);
-
-  // Load business profile, services and professionals
-  useEffect(() => {
-    apiPublic
-      .get<Profile>(`/marketplace/profiles/${slug}`)
-      .then((p) => {
-        setProfile(p);
-        return Promise.all([
-          apiPublic
-            .get<Service[]>(`/core/public/businesses/${p.businessId}/services`)
-            .catch(() => []),
-          apiPublic
-            .get<
-              Professional[]
-            >(`/marketplace/professional-profiles/business/${p.businessId}`)
-            .catch(() => []),
-        ]).then((results) => ({
-          profile: p,
-          services: results[0],
-          profs: results[1],
-        }));
-      })
-      .then((result) => {
-        if (result) {
-          setServices(
-            result.services.map((s) => ({
-              id: s.id,
-              name: s.name,
-              price: Number(s.price),
-              duration: s.duration,
-            }))
-          );
-          setProfessionals(
-            result.profs.map((p) => ({
-              id: p.professionalId || p.id,
-              name: p.name,
-              photo: p.photo,
-              specialties: p.specialties || [],
-            }))
-          );
-        }
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [slug]);
-
-  const toggleService = (id: string) => {
-    setSelectedServices((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-    );
-  };
-
   const selectedServiceData = services.filter((s) =>
     selectedServices.includes(s.id)
   );
@@ -148,37 +107,39 @@ function PublicBookingPageInner() {
   );
   const totalAmount = selectedServiceData.reduce((sum, s) => sum + s.price, 0);
 
-  // Fetch real availability when date, professional and services are selected
-  useEffect(() => {
-    if (!date || !selectedProfessional || selectedServiceData.length === 0) {
-      setAvailableSlots([]);
-      return;
-    }
+  const slotsKey =
+    date &&
+    selectedProfessional &&
+    selectedServiceData.length > 0 &&
+    selectedProfessional !== "any"
+      ? `/booking/appointments/availability?professionalId=${selectedProfessional}&date=${date}&duration=${totalDuration}`
+      : null;
+  const { data: rawSlots, isLoading: slotsLoading } =
+    useApiPublic<string[]>(slotsKey);
+  const availableSlots =
+    selectedProfessional === "any" && date
+      ? generateFallbackSlots()
+      : Array.isArray(rawSlots)
+        ? rawSlots
+        : [];
 
-    if (selectedProfessional === "any") {
-      // "Any" professional: use fallback range
-      setAvailableSlots(generateFallbackSlots());
-      return;
-    }
-
-    setSlotsLoading(true);
-    apiPublic
-      .get<string[]>(
-        `/booking/appointments/availability?professionalId=${selectedProfessional}&date=${date}&duration=${totalDuration}`
-      )
-      .then((slots) => {
-        setAvailableSlots(Array.isArray(slots) ? slots : []);
-      })
-      .catch(() => {
-        setAvailableSlots([]);
-      })
-      .finally(() => setSlotsLoading(false));
-  }, [date, selectedProfessional, totalDuration]);
-
-  // Clear selected time when slots change
   useEffect(() => {
     setStartTime("");
   }, [availableSlots]);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setGuestName(user.name || "");
+      setGuestEmail(user.email || "");
+      setGuestPhone(user.phone || "");
+    }
+  }, [isAuthenticated, user]);
+
+  const toggleService = (id: string) => {
+    setSelectedServices((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    );
+  };
 
   const handleSubmit = async () => {
     setError("");
@@ -213,6 +174,7 @@ function PublicBookingPageInner() {
           ));
       setConfirmation(result);
       setStep(5);
+      await mutate("/booking/appointments");
     } catch (err) {
       setError(getErrorMessage(err, "Error al crear la reserva"));
     } finally {

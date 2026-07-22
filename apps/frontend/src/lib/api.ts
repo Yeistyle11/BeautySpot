@@ -1,6 +1,29 @@
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
 
+let cachedToken: string | null = null;
+let tokenCacheInitialized = false;
+
+function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  if (!tokenCacheInitialized) {
+    cachedToken = localStorage.getItem("auth:v1:token");
+    tokenCacheInitialized = true;
+  }
+  return cachedToken;
+}
+
+export function setCachedToken(token: string | null): void {
+  cachedToken = token;
+  tokenCacheInitialized = true;
+  if (typeof window === "undefined") return;
+  if (token === null) {
+    localStorage.removeItem("auth:v1:token");
+  } else {
+    localStorage.setItem("auth:v1:token", token);
+  }
+}
+
 async function request<T>(
   path: string,
   options?: RequestInit,
@@ -12,8 +35,7 @@ async function request<T>(
   };
 
   if (!publicMode) {
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token = getAuthToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
 
