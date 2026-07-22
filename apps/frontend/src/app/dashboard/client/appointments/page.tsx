@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,27 +15,31 @@ import Link from "next/link";
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-interface Appointment {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: string;
-  notes: string | null;
-  totalAmount: string;
-  professionalId: string;
-  clientId: string;
-  appointmentServices: {
-    serviceName: string;
-    price: string;
-    duration: number;
-  }[];
-}
+const appointmentSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+  status: z.string(),
+  notes: z.string().nullable(),
+  totalAmount: z.string(),
+  professionalId: z.string(),
+  clientId: z.string(),
+  appointmentServices: z.array(
+    z.object({
+      serviceName: z.string(),
+      price: z.string(),
+      duration: z.number(),
+    })
+  ),
+});
+type Appointment = z.infer<typeof appointmentSchema>;
 
-interface Review {
-  id: string;
-  appointmentId: string;
-}
+const reviewSchema = z.object({
+  id: z.string(),
+  appointmentId: z.string(),
+});
+type Review = z.infer<typeof reviewSchema>;
 
 /* ------------------------------------------------------------------ */
 /*  Status config                                                      */
@@ -80,9 +85,15 @@ function filterByTab(appointments: Appointment[], tab: TabKey): Appointment[] {
 
 export default function AppointmentsPage() {
   const { data: appointments, isLoading: loading } = useApi<Appointment[]>(
-    "/booking/appointments"
+    "/booking/appointments",
+    undefined,
+    z.array(appointmentSchema)
   );
-  const { data: reviews } = useApi<Review[]>("/marketplace/reviews/mine");
+  const { data: reviews } = useApi<Review[]>(
+    "/marketplace/reviews/mine",
+    undefined,
+    z.array(reviewSchema)
+  );
   const [activeTab, setActiveTab] = useState<TabKey>("all");
 
   const reviewedIds = new Set((reviews ?? []).map((r) => r.appointmentId));

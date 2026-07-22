@@ -16,30 +16,36 @@ import {
   User,
   Loader2,
 } from "lucide-react";
+import { z } from "zod";
 import { apiPublic, api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { formatCurrency, getErrorMessage } from "@/lib/utils";
 import { useApiPublic } from "@/lib/swr";
 
-interface Profile {
-  id: string;
-  businessId: string;
-  name: string;
-  slug: string;
-}
-interface Service {
-  id: string;
-  name: string;
-  price: number;
-  duration: number;
-}
-interface Professional {
-  id: string;
-  professionalId?: string;
-  name: string;
-  photo: string | null;
-  specialties: string[];
-}
+const profileSchema = z.object({
+  id: z.string(),
+  businessId: z.string(),
+  name: z.string(),
+  slug: z.string(),
+});
+type Profile = z.infer<typeof profileSchema>;
+
+const serviceSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  price: z.number(),
+  duration: z.number(),
+});
+type Service = z.infer<typeof serviceSchema>;
+
+const professionalSchema = z.object({
+  id: z.string(),
+  professionalId: z.string().optional(),
+  name: z.string(),
+  photo: z.string().nullable(),
+  specialties: z.array(z.string()),
+});
+type Professional = z.infer<typeof professionalSchema>;
 
 interface BookingConfirmation {
   id: string;
@@ -60,7 +66,9 @@ function PublicBookingPageInner() {
   const isAuthenticated = hydrated && !!user;
 
   const { data: profile, isLoading: loading } = useApiPublic<Profile>(
-    `/marketplace/profiles/${slug}`
+    `/marketplace/profiles/${slug}`,
+    undefined,
+    profileSchema
   );
   const servicesKey = profile?.businessId
     ? `/core/public/businesses/${profile.businessId}/services`
@@ -68,8 +76,16 @@ function PublicBookingPageInner() {
   const profKey = profile?.businessId
     ? `/marketplace/professional-profiles/business/${profile.businessId}`
     : null;
-  const { data: rawServices } = useApiPublic<Service[]>(servicesKey);
-  const { data: rawProfessionals } = useApiPublic<Professional[]>(profKey);
+  const { data: rawServices } = useApiPublic<Service[]>(
+    servicesKey,
+    undefined,
+    z.array(serviceSchema)
+  );
+  const { data: rawProfessionals } = useApiPublic<Professional[]>(
+    profKey,
+    undefined,
+    z.array(professionalSchema)
+  );
 
   const services = (rawServices ?? []).map((s) => ({
     id: s.id,
@@ -115,8 +131,11 @@ function PublicBookingPageInner() {
     selectedProfessional !== "any"
       ? `/booking/appointments/availability?professionalId=${selectedProfessional}&date=${date}&duration=${totalDuration}`
       : null;
-  const { data: rawSlots, isLoading: slotsLoading } =
-    useApiPublic<string[]>(slotsKey);
+  const { data: rawSlots, isLoading: slotsLoading } = useApiPublic<string[]>(
+    slotsKey,
+    undefined,
+    z.array(z.string())
+  );
   const availableSlots =
     selectedProfessional === "any" && date
       ? generateFallbackSlots()

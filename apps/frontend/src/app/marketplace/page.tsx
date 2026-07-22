@@ -14,49 +14,62 @@ import {
   TrendingUp,
   Clock,
 } from "lucide-react";
+import { z } from "zod";
 import { useApiPublic } from "@/lib/swr";
 
-interface Profile {
-  id: string;
-  slug: string;
-  name: string;
-  description: string | null;
-  logo: string | null;
-  coverImage: string | null;
-  city: string | null;
-  address: string | null;
-  businessType: string | null;
-  rating: number;
-  totalReviews: number;
-  tagline: string | null;
-  profileCompleteness: number;
-  galleryImages: { url: string; title?: string; featured?: boolean }[] | null;
-  verified: boolean;
-}
+const profileSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  logo: z.string().nullable(),
+  coverImage: z.string().nullable(),
+  city: z.string().nullable(),
+  address: z.string().nullable(),
+  businessType: z.string().nullable(),
+  rating: z.number(),
+  totalReviews: z.number(),
+  tagline: z.string().nullable(),
+  profileCompleteness: z.number(),
+  galleryImages: z
+    .array(
+      z.object({
+        url: z.string(),
+        title: z.string().optional(),
+        featured: z.boolean().optional(),
+      })
+    )
+    .nullable(),
+  verified: z.boolean(),
+});
+type Profile = z.infer<typeof profileSchema>;
 
-interface FeedSection {
-  id: string;
-  title: string;
-  type: "carousel" | "grid";
-  items: Profile[];
-}
+const feedSectionSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  type: z.enum(["carousel", "grid"]),
+  items: z.array(profileSchema),
+});
+type FeedSection = z.infer<typeof feedSectionSchema>;
 
-interface FeedCategory {
-  id: string;
-  name: string;
-  icon: string;
-  count: number;
-}
+const feedCategorySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  icon: z.string(),
+  count: z.number(),
+});
 
-interface FeedResponse {
-  categories: FeedCategory[];
-  sections: FeedSection[];
-}
+const feedResponseSchema = z.object({
+  categories: z.array(feedCategorySchema),
+  sections: z.array(feedSectionSchema),
+});
+type FeedResponse = z.infer<typeof feedResponseSchema>;
 
-interface SearchResult {
-  items: Profile[];
-  total: number;
-}
+const searchResultSchema = z.object({
+  items: z.array(profileSchema),
+  total: z.number(),
+});
+type SearchResult = z.infer<typeof searchResultSchema>;
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   scissors: <Scissors className="h-5 w-5" />,
@@ -72,7 +85,9 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function MarketplacePage() {
   const { data: feed, isLoading: loading } = useApiPublic<FeedResponse>(
-    "/marketplace-service/feed"
+    "/marketplace-service/feed",
+    undefined,
+    feedResponseSchema
   );
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -85,7 +100,7 @@ export default function MarketplacePage() {
       ? `/marketplace-service/search?${searchParams.toString()}`
       : null;
   const { data: searchResults, isLoading: searching } =
-    useApiPublic<SearchResult>(searchKey);
+    useApiPublic<SearchResult>(searchKey, undefined, searchResultSchema);
 
   const isSearching = search !== "" || activeCategory !== null;
 

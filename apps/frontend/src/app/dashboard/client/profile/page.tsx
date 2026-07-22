@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,13 +10,14 @@ import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { useApi } from "@/lib/swr";
 
-interface ClientProfile {
-  id: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  loyaltyPoints: number;
-}
+const clientProfileSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  phone: z.string().nullable(),
+  loyaltyPoints: z.number(),
+});
+type ClientProfile = z.infer<typeof clientProfileSchema>;
 
 const LOYALTY_TIERS = [
   { min: 0, label: "Bronce", color: "bg-amber-700" },
@@ -46,7 +48,11 @@ export default function ClientProfilePage() {
     data: client,
     isLoading: loading,
     mutate: mutateClient,
-  } = useApi<ClientProfile | null>("/core/clients/me");
+  } = useApi<ClientProfile | null>(
+    "/core/clients/me",
+    undefined,
+    clientProfileSchema.nullable()
+  );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "" });

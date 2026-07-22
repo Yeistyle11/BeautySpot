@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,30 +24,32 @@ import Link from "next/link";
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-interface AppointmentService {
-  serviceName: string;
-  price: string;
-  duration: number;
-}
+const appointmentServiceSchema = z.object({
+  serviceName: z.string(),
+  price: z.string(),
+  duration: z.number(),
+});
 
-interface Appointment {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: string;
-  notes: string | null;
-  totalAmount: string;
-  professionalId: string;
-  clientId: string;
-  appointmentServices: AppointmentService[];
-}
+const appointmentSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+  status: z.string(),
+  notes: z.string().nullable(),
+  totalAmount: z.string(),
+  professionalId: z.string(),
+  clientId: z.string(),
+  appointmentServices: z.array(appointmentServiceSchema),
+});
+type Appointment = z.infer<typeof appointmentSchema>;
 
-interface AvailabilitySlot {
-  startTime: string;
-  endTime: string;
-  available: boolean;
-}
+const availabilitySlotSchema = z.object({
+  startTime: z.string(),
+  endTime: z.string(),
+  available: z.boolean(),
+});
+type AvailabilitySlot = z.infer<typeof availabilitySlotSchema>;
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
@@ -60,7 +63,11 @@ export default function ReschedulePage() {
     data: appointment,
     isLoading: loading,
     error: loadError,
-  } = useApi<Appointment>(id ? `/booking/appointments/${id}` : null);
+  } = useApi<Appointment>(
+    id ? `/booking/appointments/${id}` : null,
+    undefined,
+    appointmentSchema
+  );
   const [error, setError] = useState<string | null>(null);
 
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -82,8 +89,9 @@ export default function ReschedulePage() {
     selectedDate && appointment && totalDuration > 0
       ? `/booking/appointments/availability?professionalId=${appointment.professionalId}&date=${selectedDate}&duration=${totalDuration}`
       : null;
-  const { data: rawSlots, isLoading: slotsLoading } =
-    useApi<AvailabilitySlot[]>(slotsKey);
+  const { data: rawSlots, isLoading: slotsLoading } = useApi<
+    AvailabilitySlot[]
+  >(slotsKey, undefined, z.array(availabilitySlotSchema));
   const slots = rawSlots ?? [];
 
   useEffect(() => {

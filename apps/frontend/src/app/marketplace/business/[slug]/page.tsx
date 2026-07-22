@@ -24,100 +24,121 @@ import {
   Heart,
   Quote,
 } from "lucide-react";
+import { z } from "zod";
 import { useApiPublic } from "@/lib/swr";
 
-interface SectionConfig {
-  id: string;
-  enabled: boolean;
-  order: number;
-  customTitle?: string;
-}
+const sectionConfigSchema = z.object({
+  id: z.string(),
+  enabled: z.boolean(),
+  order: z.number(),
+  customTitle: z.string().optional(),
+});
 
-interface GalleryImage {
-  url: string;
-  title?: string;
-  category?: string;
-  featured?: boolean;
-}
+const galleryImageSchema = z.object({
+  url: z.string(),
+  title: z.string().optional(),
+  category: z.string().optional(),
+  featured: z.boolean().optional(),
+});
+type GalleryImage = z.infer<typeof galleryImageSchema>;
 
-interface SocialLinks {
-  instagram?: string;
-  facebook?: string;
-  tiktok?: string;
-  website?: string;
-}
+const socialLinksSchema = z.object({
+  instagram: z.string().optional(),
+  facebook: z.string().optional(),
+  tiktok: z.string().optional(),
+  website: z.string().optional(),
+});
 
-interface Profile {
-  id: string;
-  businessId: string;
-  slug: string;
-  name: string;
-  description: string | null;
-  logo: string | null;
-  coverImage: string | null;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-  city: string | null;
-  state: string | null;
-  country: string | null;
-  lat: number | null;
-  lng: number | null;
-  rating: number;
-  totalReviews: number;
-  businessType: string | null;
-  verified: boolean;
-  tagline: string | null;
-  storyTitle: string | null;
-  storyText: string | null;
-  storyImage: string | null;
-  foundedYear: number | null;
-  founders: string | null;
-  socialLinks: SocialLinks | null;
-  sectionConfig: { sections: SectionConfig[] } | null;
-  galleryImages: GalleryImage[] | null;
-  isPublished: boolean;
-  profileCompleteness: number;
-}
+const profileSchema = z.object({
+  id: z.string(),
+  businessId: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  logo: z.string().nullable(),
+  coverImage: z.string().nullable(),
+  phone: z.string().nullable(),
+  email: z.string().nullable(),
+  address: z.string().nullable(),
+  city: z.string().nullable(),
+  state: z.string().nullable(),
+  country: z.string().nullable(),
+  lat: z.number().nullable(),
+  lng: z.number().nullable(),
+  rating: z.number(),
+  totalReviews: z.number(),
+  businessType: z.string().nullable(),
+  verified: z.boolean(),
+  tagline: z.string().nullable(),
+  storyTitle: z.string().nullable(),
+  storyText: z.string().nullable(),
+  storyImage: z.string().nullable(),
+  foundedYear: z.number().nullable(),
+  founders: z.string().nullable(),
+  socialLinks: socialLinksSchema.nullable(),
+  sectionConfig: z
+    .object({ sections: z.array(sectionConfigSchema) })
+    .nullable(),
+  galleryImages: z.array(galleryImageSchema).nullable(),
+  isPublished: z.boolean(),
+  profileCompleteness: z.number(),
+});
+type Profile = z.infer<typeof profileSchema>;
 
-interface Professional {
-  id: string;
-  name: string;
-  photo: string | null;
-  bio: string | null;
-  specialties: string[];
-  yearsExp: number;
-  tagline: string | null;
-  rating: number;
-  totalReviews: number;
-  socialInstagram: string | null;
-  portfolio: { url: string; title?: string; category?: string }[] | null;
-}
+const professionalSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  photo: z.string().nullable(),
+  bio: z.string().nullable(),
+  specialties: z.array(z.string()),
+  yearsExp: z.number(),
+  tagline: z.string().nullable(),
+  rating: z.number(),
+  totalReviews: z.number(),
+  socialInstagram: z.string().nullable(),
+  portfolio: z
+    .array(
+      z.object({
+        url: z.string(),
+        title: z.string().optional(),
+        category: z.string().optional(),
+      })
+    )
+    .nullable(),
+});
+type Professional = z.infer<typeof professionalSchema>;
 
-interface Review {
-  id: string;
-  clientId: string;
-  rating: number;
-  comment: string | null;
-  response: string | null;
-  respondedAt: string | null;
-  serviceName: string | null;
-  professionalName: string | null;
-  photos: string[] | null;
-  isVerified: boolean;
-  helpfulCount: number;
-  createdAt: string;
-}
+const reviewSchema = z.object({
+  id: z.string(),
+  clientId: z.string(),
+  rating: z.number(),
+  comment: z.string().nullable(),
+  response: z.string().nullable(),
+  respondedAt: z.string().nullable(),
+  serviceName: z.string().nullable(),
+  professionalName: z.string().nullable(),
+  photos: z.array(z.string()).nullable(),
+  isVerified: z.boolean(),
+  helpfulCount: z.number(),
+  createdAt: z.string(),
+});
+type Review = z.infer<typeof reviewSchema>;
 
-interface RatingDistribution {
-  5: number;
-  4: number;
-  3: number;
-  2: number;
-  1: number;
-  average: number;
-  total: number;
-}
+const reviewsResponseSchema = z.object({
+  items: z.array(reviewSchema),
+  total: z.number(),
+});
+
+const ratingDistributionSchema = z.object({
+  5: z.number(),
+  4: z.number(),
+  3: z.number(),
+  2: z.number(),
+  1: z.number(),
+  average: z.number(),
+  total: z.number(),
+});
+type RatingDistribution = z.infer<typeof ratingDistributionSchema>;
 
 const SECTION_TITLES: Record<string, string> = {
   story: "Nuestra Historia",
@@ -131,19 +152,29 @@ const SECTION_TITLES: Record<string, string> = {
 export default function BusinessProfilePage() {
   const { slug } = useParams<{ slug: string }>();
   const { data: profile, isLoading: loading } = useApiPublic<Profile>(
-    `/marketplace/profiles/${slug}`
+    `/marketplace/profiles/${slug}`,
+    undefined,
+    profileSchema
   );
 
   const bid = profile?.businessId;
   const { data: professionals } = useApiPublic<Professional[]>(
-    bid ? `/marketplace/professional-profiles/business/${bid}` : null
+    bid ? `/marketplace/professional-profiles/business/${bid}` : null,
+    undefined,
+    z.array(professionalSchema)
   );
   const { data: reviewsResp } = useApiPublic<{
     items: Review[];
     total: number;
-  }>(bid ? `/marketplace/reviews/business/${bid}?limit=10` : null);
+  }>(
+    bid ? `/marketplace/reviews/business/${bid}?limit=10` : null,
+    undefined,
+    reviewsResponseSchema
+  );
   const { data: ratingDist } = useApiPublic<RatingDistribution>(
-    bid ? `/marketplace/reviews/business/${bid}/summary` : null
+    bid ? `/marketplace/reviews/business/${bid}/summary` : null,
+    undefined,
+    ratingDistributionSchema
   );
 
   const [galleryIdx, setGalleryIdx] = useState(0);
