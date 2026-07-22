@@ -27,6 +27,7 @@ describe("UsersService", () => {
     avatar: "",
     emailVerified: false,
     currentBusinessId: "",
+    tokenVersion: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
     memberships: [],

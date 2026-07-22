@@ -18,6 +18,7 @@ describe("AuthController", () => {
     emailVerified: false,
     active: true,
     currentBusinessId: "",
+    tokenVersion: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
     memberships: [],
