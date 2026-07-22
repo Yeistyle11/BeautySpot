@@ -54,6 +54,10 @@ export class PaymentsController {
   @Post(":id/refund")
   @Roles(Role.OWNER, Role.ADMIN)
   async refund(@Param("id") id: string, @Req() req: any, @Body() body: { reason?: string; refundAmount?: number }) {
-    return this.service.refundPayment(id, req.businessId, body.reason, body.refundAmount);
+    return this.service.refundPayment(id, req.businessId, {
+      reason: body.reason,
+      refundAmount: body.refundAmount,
+      refundedBy: req.user?.userId,
+    });
   }
 }

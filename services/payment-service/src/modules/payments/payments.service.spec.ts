@@ -47,6 +47,7 @@ describe("PaymentsService", () => {
 
     mockManagerRepo = {
       save: jest.fn(),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     mockManager = {
       getRepository: jest.fn().mockReturnValue(mockManagerRepo),
@@ -291,31 +292,25 @@ describe("PaymentsService", () => {
         createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
         generateId: () => {},
       } as any;
-      const refundedPayment = {
-        ...payment1WeekOld,
-        status: PaymentStatus.REFUNDED,
-        refundedAt: new Date(),
-        refundAmount: 50,
-        refundReason: "Solicitud del cliente",
-        refundedBy: "SYSTEM",
-        generateId: () => {},
-      } as any;
       mockRepo.findOne.mockResolvedValue(payment1WeekOld);
-      mockManagerRepo.save.mockResolvedValue(refundedPayment);
+      mockManagerRepo.update.mockResolvedValue({ affected: 1 });
 
-      const result = await service.refundPayment(
-        "payment-123",
-        "business-123",
-        "Solicitud del cliente",
-        50
-      );
+      const result = await service.refundPayment("payment-123", "business-123", {
+        reason: "Solicitud del cliente",
+        refundAmount: 50,
+        refundedBy: "user-777",
+      });
 
       expect(mockDataSource.transaction).toHaveBeenCalled();
-      expect(mockManagerRepo.save).toHaveBeenCalledWith(
+      // El UPDATE se condiciona a status COMPLETED para bloquear el doble
+      // reembolso concurrente, y registra qué usuario lo autorizó.
+      expect(mockManagerRepo.update).toHaveBeenCalledWith(
+        { id: "payment-123", status: PaymentStatus.COMPLETED },
         expect.objectContaining({
           status: PaymentStatus.REFUNDED,
           refundAmount: 50,
           refundReason: "Solicitud del cliente",
+          refundedBy: "user-777",
         })
       );
       expect(mockOutbox.enqueue).toHaveBeenCalledWith(
@@ -342,15 +337,36 @@ describe("PaymentsService", () => {
         generateId: () => {},
       } as any;
       mockRepo.findOne.mockResolvedValue(payment1WeekOld);
-      mockManagerRepo.save.mockResolvedValue(payment1WeekOld);
+      mockManagerRepo.update.mockResolvedValue({ affected: 1 });
 
-      await service.refundPayment("payment-123", "business-123");
+      await service.refundPayment("payment-123", "business-123", {
+        refundedBy: "user-777",
+      });
 
-      expect(mockManagerRepo.save).toHaveBeenCalledWith(
+      expect(mockManagerRepo.update).toHaveBeenCalledWith(
+        { id: "payment-123", status: PaymentStatus.COMPLETED },
         expect.objectContaining({
           refundAmount: 100,
         })
       );
+    });
+
+    it("rechaza el reembolso si otra transacción ya lo procesó (doble reembolso)", async () => {
+      const recentPayment = {
+        ...mockPayment,
+        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        generateId: () => {},
+      } as any;
+      mockRepo.findOne.mockResolvedValue(recentPayment);
+      // El UPDATE condicionado no afecta filas: el pago ya no está COMPLETED.
+      mockManagerRepo.update.mockResolvedValue({ affected: 0 });
+
+      await expect(
+        service.refundPayment("payment-123", "business-123", {
+          refundedBy: "user-777",
+        })
+      ).rejects.toThrow(BadRequestException);
+      expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
 
     it("debería lanzar BadRequestException si el pago no está completado", async () => {
@@ -362,7 +378,7 @@ describe("PaymentsService", () => {
       mockRepo.findOne.mockResolvedValue(pendingPayment);
 
       await expect(
-        service.refundPayment("payment-123", "business-123")
+        service.refundPayment("payment-123", "business-123", { refundedBy: "user-777" })
       ).rejects.toThrow(BadRequestException);
       expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
@@ -377,7 +393,7 @@ describe("PaymentsService", () => {
       mockRepo.findOne.mockResolvedValue(oldPayment);
 
       await expect(
-        service.refundPayment("payment-123", "business-123")
+        service.refundPayment("payment-123", "business-123", { refundedBy: "user-777" })
       ).rejects.toThrow(BadRequestException);
       expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
@@ -391,10 +407,10 @@ describe("PaymentsService", () => {
       mockRepo.findOne.mockResolvedValue(recentPayment);
 
       await expect(
-        service.refundPayment("payment-123", "business-123", "", -1)
+        service.refundPayment("payment-123", "business-123", { reason: "", refundAmount: -1, refundedBy: "user-777" })
       ).rejects.toThrow(BadRequestException);
       await expect(
-        service.refundPayment("payment-123", "business-123", "", 200)
+        service.refundPayment("payment-123", "business-123", { reason: "", refundAmount: 200, refundedBy: "user-777" })
       ).rejects.toThrow(BadRequestException);
       expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
