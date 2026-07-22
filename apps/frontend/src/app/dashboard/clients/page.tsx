@@ -15,6 +15,7 @@ import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
+import { logger } from "@/lib/logger";
 
 interface Client {
   id: string;
@@ -75,7 +76,7 @@ export default function ClientsPage() {
       setCreateDialog(false);
       await mutate(CLIENTS_KEY);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setSavingCreate(false);
     }
@@ -119,7 +120,7 @@ export default function ClientsPage() {
         });
       }
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setSavingEdit(false);
     }
@@ -184,7 +185,7 @@ export default function ClientsPage() {
           filtered.map((c) => (
             <Card
               key={c.id}
-              className="cursor-pointer border-0 shadow-sm transition-shadow hover:shadow-md"
+              className="cursor-pointer border-0 shadow-sm transition-shadow [contain-intrinsic-size:auto_140px] [content-visibility:auto] hover:shadow-md"
               onClick={() => openDetail(c)}
             >
               <CardContent className="p-5">

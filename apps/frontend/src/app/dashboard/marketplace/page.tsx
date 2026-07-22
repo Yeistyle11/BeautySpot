@@ -32,6 +32,7 @@ import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
+import { logger } from "@/lib/logger";
 
 interface Profile {
   id: string;
@@ -191,7 +192,7 @@ export default function MarketplacePage() {
       });
       await mutateProfile();
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setSaving(null);
     }
@@ -204,7 +205,7 @@ export default function MarketplacePage() {
       await api.post(`/marketplace/business-profiles/${endpoint}`, {});
       await mutateProfile();
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     }
   };
 
@@ -223,7 +224,7 @@ export default function MarketplacePage() {
       setGalleryForm({ url: "", title: "", category: "" });
       setGalleryDialog(false);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     }
   };
 
@@ -232,7 +233,7 @@ export default function MarketplacePage() {
       await api.delete(`/marketplace/business-profiles/gallery/${index}`);
       await mutateProfile();
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     }
   };
 
@@ -248,7 +249,7 @@ export default function MarketplacePage() {
         return next;
       });
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     }
   };
 

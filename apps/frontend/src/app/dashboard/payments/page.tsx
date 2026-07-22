@@ -20,10 +20,11 @@ import {
   Edit,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDateTimeStamp } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
+import { logger } from "@/lib/logger";
 
 interface Payment {
   id: string;
@@ -154,7 +155,7 @@ export default function PaymentsPage() {
       setCreateForm(emptyCreateForm);
       await mutate(PAYMENTS_KEY);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setSavingCreate(false);
     }
@@ -186,7 +187,7 @@ export default function PaymentsPage() {
       setEditId(null);
       await mutate(PAYMENTS_KEY);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setSavingEdit(false);
     }
@@ -321,18 +322,7 @@ export default function PaymentsPage() {
                           {formatCurrency(parseFloat(p.amount))}
                         </p>
                         <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                          <span>
-                            {new Date(p.registeredAt).toLocaleDateString(
-                              "es-CO",
-                              {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
-                            )}
-                          </span>
+                          <span>{formatDateTimeStamp(p.registeredAt)}</span>
                           {p.appointmentId && (
                             <span className="bg-muted rounded px-1.5 py-0.5 text-xs">
                               Cita: {p.appointmentId.slice(0, 8)}...

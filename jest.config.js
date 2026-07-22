@@ -1,6 +1,7 @@
 module.exports = {
   rootDir: ".",
   projects: [
+    "<rootDir>/apps/frontend",
     "<rootDir>/packages/shared-utils",
     "<rootDir>/packages/database",
     "<rootDir>/packages/nest-common",

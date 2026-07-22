@@ -14,7 +14,12 @@ export function formatCurrency(amount: number): string {
 }
 
 export function formatDate(date: string): string {
-  return new Date(date + "T12:00:00").toLocaleDateString("es-CO", {
+  // Las fechas sin hora ("YYYY-MM-DD") se parsean como medianoche UTC; sin
+  // el mediodia fijo, en timezones negativos se mostraria el dia anterior.
+  const parsed = date.includes("T")
+    ? new Date(date)
+    : new Date(`${date}T12:00:00`);
+  return parsed.toLocaleDateString("es-CO", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -31,6 +36,23 @@ export function formatTime(time: string): string {
 
 export function formatDateTime(date: string, time: string): string {
   return `${formatDate(date)} ${formatTime(time)}`;
+}
+
+export function formatDateTimeStamp(isoTimestamp: string): string {
+  return new Date(isoTimestamp).toLocaleDateString("es-CO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function formatTimeStamp(isoTimestamp: string): string {
+  return new Date(isoTimestamp).toLocaleTimeString("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export function getErrorMessage(err: unknown, fallback = "Error"): string {

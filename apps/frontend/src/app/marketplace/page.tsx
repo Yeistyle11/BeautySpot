@@ -244,7 +244,7 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
 
   return (
     <Link href={`/marketplace/business/${p.slug}`} className="group block">
-      <Card className="h-full overflow-hidden border-0 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-xl">
+      <Card className="h-full overflow-hidden border-0 shadow-sm transition-all [contain-intrinsic-size:auto_320px] [content-visibility:auto] hover:-translate-y-0.5 hover:shadow-xl">
         {/* Cover image */}
         <div className="from-primary/20 to-primary/5 relative h-40 bg-gradient-to-br">
           {featuredImage ? (

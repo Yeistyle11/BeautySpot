@@ -25,6 +25,7 @@ import { useAuthStore, type Role } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
+import { logger } from "@/lib/logger";
 
 interface StaffMember {
   id: string;
@@ -512,7 +513,7 @@ export default function StaffPage() {
       setConfirmId(null);
       await reload();
     } catch (err) {
-      console.error(getErrorMessage(err));
+      logger.error(getErrorMessage(err));
     } finally {
       setSaving(false);
     }

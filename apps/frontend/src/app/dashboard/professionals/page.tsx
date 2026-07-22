@@ -24,6 +24,7 @@ import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
+import { logger } from "@/lib/logger";
 import type { Role } from "@/lib/store";
 
 interface Professional {
@@ -94,7 +95,7 @@ const ProCard = memo(function ProCard({
 }) {
   return (
     <Card
-      className={`border-0 shadow-sm transition-shadow hover:shadow-md ${!p.active ? "opacity-60" : ""}`}
+      className={`border-0 shadow-sm transition-shadow [contain-intrinsic-size:auto_260px] [content-visibility:auto] hover:shadow-md ${!p.active ? "opacity-60" : ""}`}
     >
       <CardContent className="p-5">
         <div className="flex items-start gap-4">
@@ -290,7 +291,7 @@ export default function ProfessionalsPage() {
       });
       setScheduleDialog(false);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setSavingSchedule(false);
     }
@@ -339,7 +340,7 @@ export default function ProfessionalsPage() {
       setForm(emptyForm);
       await mutate(PROFESSIONALS_KEY);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     }
   };
 
@@ -368,7 +369,7 @@ export default function ProfessionalsPage() {
       setForm(emptyForm);
       await mutate(PROFESSIONALS_KEY);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     }
   };
 

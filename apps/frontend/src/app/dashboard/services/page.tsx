@@ -23,6 +23,7 @@ import { formatCurrency } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
+import { logger } from "@/lib/logger";
 
 interface Service {
   id: string;
@@ -119,7 +120,7 @@ export default function ServicesPage() {
       setCreateDialog(false);
       await mutate(SERVICES_KEY);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setSavingCreate(false);
     }
@@ -162,7 +163,7 @@ export default function ServicesPage() {
       setEditId(null);
       await mutate(SERVICES_KEY);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setSavingEdit(false);
     }
@@ -174,7 +175,7 @@ export default function ServicesPage() {
       await api.delete(`/core/services/${id}`);
       await mutate(SERVICES_KEY);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     }
   };
 
@@ -236,7 +237,7 @@ export default function ServicesPage() {
           filtered.map((s) => (
             <Card
               key={s.id}
-              className={`border-0 shadow-sm transition-shadow hover:shadow-md ${!s.active ? "opacity-60" : ""}`}
+              className={`border-0 shadow-sm transition-shadow [contain-intrinsic-size:auto_180px] [content-visibility:auto] hover:shadow-md ${!s.active ? "opacity-60" : ""}`}
             >
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
