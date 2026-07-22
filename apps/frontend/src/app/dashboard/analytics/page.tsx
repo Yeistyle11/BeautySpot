@@ -1,26 +1,30 @@
 "use client";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, Calendar } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
 
-interface KpiData {
-  last30Days: {
-    totalAppointments: number;
-    completedAppointments: number;
-    cancelledAppointments: number;
-    noShowAppointments: number;
-    totalRevenue: number;
-    avgDailyRevenue: number;
-    completionRate: number;
-    newClients: number;
-    returningClients: number;
-  };
-}
+const kpiDataSchema = z.object({
+  last30Days: z.object({
+    totalAppointments: z.number(),
+    completedAppointments: z.number(),
+    cancelledAppointments: z.number(),
+    noShowAppointments: z.number(),
+    totalRevenue: z.number(),
+    avgDailyRevenue: z.number(),
+    completionRate: z.number(),
+    newClients: z.number(),
+    returningClients: z.number(),
+  }),
+});
+type KpiData = z.infer<typeof kpiDataSchema>;
 
 export default function AnalyticsPage() {
   const { data, isLoading: loading } = useApi<KpiData>(
-    "/analytics/dashboard/kpis"
+    "/analytics/dashboard/kpis",
+    undefined,
+    kpiDataSchema
   );
 
   return (

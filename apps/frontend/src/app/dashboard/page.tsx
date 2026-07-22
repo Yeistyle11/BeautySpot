@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -30,51 +31,70 @@ interface Appointment {
   clientId: string;
 }
 
-interface KpiData {
-  today: {
-    totalAppointments: number;
-    completedAppointments: number;
-    cancelledAppointments: number;
-    totalRevenue: number;
-  };
-  last30Days: {
-    totalRevenue: number;
-    totalAppointments: number;
-    completionRate: number;
-    cancellationRate: number;
-    newClients: number;
-    returningClients: number;
-    avgDailyRevenue: number;
-  };
-}
+const kpiDataSchema = z.object({
+  today: z.object({
+    totalAppointments: z.number(),
+    completedAppointments: z.number(),
+    cancelledAppointments: z.number(),
+    totalRevenue: z.number(),
+  }),
+  last30Days: z.object({
+    totalRevenue: z.number(),
+    totalAppointments: z.number(),
+    completionRate: z.number(),
+    cancellationRate: z.number(),
+    newClients: z.number(),
+    returningClients: z.number(),
+    avgDailyRevenue: z.number(),
+  }),
+});
+type KpiData = z.infer<typeof kpiDataSchema>;
 
-interface TopProfessional {
-  professionalId: string;
-  professionalName: string;
-  appointments: number;
-  revenue: number;
-}
+const topProfessionalSchema = z.object({
+  professionalId: z.string(),
+  professionalName: z.string(),
+  appointments: z.number(),
+  revenue: z.number(),
+});
+type TopProfessional = z.infer<typeof topProfessionalSchema>;
 
-interface RevenuePoint {
-  date: string;
-  revenue: number;
-}
+const revenuePointSchema = z.object({
+  date: z.string(),
+  revenue: z.number(),
+});
+type RevenuePoint = z.infer<typeof revenuePointSchema>;
 
-interface ClientRef {
-  id: string;
-  name: string;
-}
+const clientRefSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+type ClientRef = z.infer<typeof clientRefSchema>;
 
-interface RawAppointment {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: string;
-  totalAmount?: string | number;
-  clientId: string;
-  appointmentServices?: { serviceName?: string }[];
-}
+const rawAppointmentSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+  status: z.string(),
+  totalAmount: z.union([z.string(), z.number()]).optional(),
+  clientId: z.string(),
+  appointmentServices: z
+    .array(z.object({ serviceName: z.string().optional() }))
+    .optional(),
+});
+type RawAppointment = z.infer<typeof rawAppointmentSchema>;
+
+// La API devuelve, segun el endpoint, o el arreglo crudo o
+// { items: [...] } -- se refleja tal cual con z.union, no se investiga ni
+// se normaliza esa inconsistencia de contrato en esta fase.
+const rawAppointmentListSchema = z.union([
+  z.array(rawAppointmentSchema),
+  z.object({ items: z.array(rawAppointmentSchema) }),
+]);
+const clientRefListSchema = z.union([
+  z.array(clientRefSchema),
+  z.object({ items: z.array(clientRefSchema) }),
+]);
 
 const STATUS_MAP = getAppointmentStatus;
 
@@ -108,18 +128,26 @@ export default function DashboardPage() {
 
   const { data: rawAppointments } = useApi<
     RawAppointment[] | { items: RawAppointment[] }
-  >(appointmentsKey);
+  >(appointmentsKey, undefined, rawAppointmentListSchema);
   const { data: rawClients } = useApi<ClientRef[] | { items: ClientRef[] }>(
-    clientsKey
+    clientsKey,
+    undefined,
+    clientRefListSchema
   );
   const { data: kpiData } = useApi<KpiData | null>(
-    resolvedBid ? "/analytics/dashboard/kpis" : null
+    resolvedBid ? "/analytics/dashboard/kpis" : null,
+    undefined,
+    kpiDataSchema.nullable()
   );
   const { data: topProfessionals } = useApi<TopProfessional[]>(
-    resolvedBid ? "/analytics/dashboard/top-professionals?limit=5" : null
+    resolvedBid ? "/analytics/dashboard/top-professionals?limit=5" : null,
+    undefined,
+    z.array(topProfessionalSchema)
   );
   const { data: revenueChart } = useApi<RevenuePoint[]>(
-    resolvedBid ? "/analytics/dashboard/revenue-chart?days=7" : null
+    resolvedBid ? "/analytics/dashboard/revenue-chart?days=7" : null,
+    undefined,
+    z.array(revenuePointSchema)
   );
 
   useEffect(() => {

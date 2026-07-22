@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo, useDeferredValue } from "react";
 import { mutate } from "swr";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,37 +38,45 @@ import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 import { CalendarView } from "@/components/calendar-view";
 
-interface Appointment {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: string;
-  notes: string | null;
-  totalAmount: string;
-  professionalId: string;
-  clientId: string;
-  appointmentServices: {
-    serviceName: string;
-    price: string;
-    duration: number;
-  }[];
-}
+const appointmentSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+  status: z.string(),
+  notes: z.string().nullable(),
+  totalAmount: z.string(),
+  professionalId: z.string(),
+  clientId: z.string(),
+  appointmentServices: z.array(
+    z.object({
+      serviceName: z.string(),
+      price: z.string(),
+      duration: z.number(),
+    })
+  ),
+});
+type Appointment = z.infer<typeof appointmentSchema>;
 
-interface Professional {
-  id: string;
-  name: string | null;
-}
-interface Service {
-  id: string;
-  name: string;
-  price: number;
-  duration: number;
-}
-interface Client {
-  id: string;
-  name: string;
-}
+const professionalSchema = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+});
+type Professional = z.infer<typeof professionalSchema>;
+
+const serviceSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  price: z.number(),
+  duration: z.number(),
+});
+type Service = z.infer<typeof serviceSchema>;
+
+const clientSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+type Client = z.infer<typeof clientSchema>;
 
 const paymentMethodOptions = [
   { value: "CASH", label: "Efectivo", icon: <Banknote className="h-5 w-5" /> },
@@ -90,8 +99,11 @@ export default function AppointmentsPage() {
   const SERVICES_KEY = "/core/services";
   const CLIENTS_KEY = "/core/clients";
 
-  const { data: appointments, isLoading: loading } =
-    useApi<Appointment[]>(APPOINTMENTS_KEY);
+  const { data: appointments, isLoading: loading } = useApi<Appointment[]>(
+    APPOINTMENTS_KEY,
+    undefined,
+    z.array(appointmentSchema)
+  );
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [showForm, setShowForm] = useState(false);
@@ -99,10 +111,20 @@ export default function AppointmentsPage() {
   const [error, setError] = useState("");
 
   const { data: professionals } = useApi<Professional[]>(
-    showForm ? PROFESSIONALS_KEY : null
+    showForm ? PROFESSIONALS_KEY : null,
+    undefined,
+    z.array(professionalSchema)
   );
-  const { data: services } = useApi<Service[]>(showForm ? SERVICES_KEY : null);
-  const { data: clients } = useApi<Client[]>(showForm ? CLIENTS_KEY : null);
+  const { data: services } = useApi<Service[]>(
+    showForm ? SERVICES_KEY : null,
+    undefined,
+    z.array(serviceSchema)
+  );
+  const { data: clients } = useApi<Client[]>(
+    showForm ? CLIENTS_KEY : null,
+    undefined,
+    z.array(clientSchema)
+  );
 
   const [form, setForm] = useState({
     professionalId: "",

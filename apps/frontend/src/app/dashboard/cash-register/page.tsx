@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { mutate } from "swr";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,23 +29,29 @@ import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 
-interface CashSession {
-  id: string;
-  openingAmount: string;
-  closingAmount?: string;
-  openedAt: string;
-  closedAt?: string;
-  notes?: string;
-  isOpen?: boolean;
-}
+const cashSessionSchema = z.object({
+  id: z.string(),
+  openingAmount: z.string(),
+  closingAmount: z.string().optional(),
+  openedAt: z.string(),
+  closedAt: z.string().optional(),
+  notes: z.string().optional(),
+  isOpen: z.boolean().optional(),
+});
+type CashSession = z.infer<typeof cashSessionSchema>;
 
-interface CashMovement {
-  id: string;
-  type: "IN" | "OUT";
-  amount: string;
-  concept: string;
-  registeredAt: string;
-}
+const cashMovementSchema = z.object({
+  id: z.string(),
+  type: z.enum(["IN", "OUT"]),
+  amount: z.string(),
+  concept: z.string(),
+  registeredAt: z.string(),
+});
+type CashMovement = z.infer<typeof cashMovementSchema>;
+
+const cashSummarySchema = z.object({
+  movements: z.array(cashMovementSchema),
+});
 
 const movementTypeOptions = [
   {
@@ -68,14 +75,24 @@ export default function CashRegisterPage() {
     data: activeSession,
     isLoading: loadingActive,
     mutate: mutateActive,
-  } = useApi<CashSession | null>(ACTIVE_KEY);
-  const { data: history } = useApi<CashSession[]>(HISTORY_KEY);
+  } = useApi<CashSession | null>(
+    ACTIVE_KEY,
+    undefined,
+    cashSessionSchema.nullable()
+  );
+  const { data: history } = useApi<CashSession[]>(
+    HISTORY_KEY,
+    undefined,
+    z.array(cashSessionSchema)
+  );
 
   const movementsKey = activeSession?.id
     ? `/payment/cash-register/${activeSession.id}/summary`
     : null;
   const { data: summary } = useApi<{ movements: CashMovement[] } | null>(
-    movementsKey
+    movementsKey,
+    undefined,
+    cashSummarySchema.nullable()
   );
   const movements = summary?.movements ?? [];
   const loading = loadingActive;

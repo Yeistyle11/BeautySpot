@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
+import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,23 +25,25 @@ import { useApi } from "@/lib/swr";
 import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 
-interface Service {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  duration: number;
-  category: string | null;
-  categoryId: string | null;
-  active: boolean;
-}
+const serviceSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  price: z.number(),
+  duration: z.number(),
+  category: z.string().nullable(),
+  categoryId: z.string().nullable(),
+  active: z.boolean(),
+});
+type Service = z.infer<typeof serviceSchema>;
 
-interface Category {
-  id: string;
-  name: string;
-  color: string | null;
-  active: boolean;
-}
+const categorySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  color: z.string().nullable(),
+  active: z.boolean(),
+});
+type Category = z.infer<typeof categorySchema>;
 
 const emptyForm = {
   name: "",
@@ -66,8 +69,13 @@ export default function ServicesPage() {
   } = useCrudResource<Service>({
     listKey: SERVICES_KEY,
     basePath: "/core/services",
+    schema: z.array(serviceSchema),
   });
-  const { data: categories } = useApi<Category[]>(CATEGORIES_KEY);
+  const { data: categories } = useApi<Category[]>(
+    CATEGORIES_KEY,
+    undefined,
+    z.array(categorySchema)
+  );
   const [filterCategory, setFilterCategory] = useState<string>("all");
 
   const [createDialog, setCreateDialog] = useState(false);
