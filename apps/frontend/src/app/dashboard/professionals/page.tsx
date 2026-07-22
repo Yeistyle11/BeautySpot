@@ -1,7 +1,6 @@
 "use client";
 import { useState, useMemo, useCallback, memo } from "react";
 import Image from "next/image";
-import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +23,7 @@ import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
+import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 import type { Role } from "@/lib/store";
 
@@ -217,8 +217,16 @@ export default function ProfessionalsPage() {
   const { role } = useAuthStore();
   const PROFESSIONALS_KEY = "/core/professionals";
   const CATEGORIES_KEY = "/core/categories";
-  const { data: professionals, isLoading: loading } =
-    useApi<Professional[]>(PROFESSIONALS_KEY);
+  const {
+    items: professionals,
+    isLoading: loading,
+    create: createProfessional,
+    update: updateProfessional,
+    remove: removeProfessional,
+  } = useCrudResource<Professional>({
+    listKey: PROFESSIONALS_KEY,
+    basePath: "/core/professionals",
+  });
   const { data: categories } = useApi<Category[]>(CATEGORIES_KEY);
   const [showCreate, setShowCreate] = useState(false);
   const [viewId, setViewId] = useState<string | null>(null);
@@ -297,11 +305,6 @@ export default function ProfessionalsPage() {
     }
   };
 
-  const load = async () => {
-    await Promise.all([mutate(PROFESSIONALS_KEY), mutate(CATEGORIES_KEY)]);
-  };
-  void load;
-
   const startEdit = useCallback((p: Professional) => {
     setEditId(p.id);
     setViewId(null);
@@ -320,7 +323,7 @@ export default function ProfessionalsPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post("/core/professionals", {
+      await createProfessional({
         name: form.name,
         bio: form.bio || undefined,
         specialties: form.specialties
@@ -338,7 +341,6 @@ export default function ProfessionalsPage() {
       });
       setShowCreate(false);
       setForm(emptyForm);
-      await mutate(PROFESSIONALS_KEY);
     } catch (err) {
       logger.error(err);
     }
@@ -348,7 +350,7 @@ export default function ProfessionalsPage() {
     e.preventDefault();
     if (!editId) return;
     try {
-      await api.patch(`/core/professionals/${editId}`, {
+      await updateProfessional(editId, {
         name: form.name,
         bio: form.bio || undefined,
         specialties: form.specialties
@@ -367,7 +369,6 @@ export default function ProfessionalsPage() {
       });
       setEditId(null);
       setForm(emptyForm);
-      await mutate(PROFESSIONALS_KEY);
     } catch (err) {
       logger.error(err);
     }
@@ -375,10 +376,9 @@ export default function ProfessionalsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await api.delete(`/core/professionals/${id}`);
+      await removeProfessional(id);
       setDeleteConfirm(null);
       setDeleteError("");
-      await mutate(PROFESSIONALS_KEY);
     } catch (err) {
       setDeleteError(
         getErrorMessage(err, "No se pudo inactivar el profesional")
@@ -386,8 +386,8 @@ export default function ProfessionalsPage() {
     }
   };
 
-  const viewed = (professionals ?? []).find((p) => p.id === viewId);
-  const professionalList = professionals ?? [];
+  const viewed = professionals.find((p) => p.id === viewId);
+  const professionalList = professionals;
   const categoryList = categories ?? [];
   const categoryMap = useMemo(
     () => new Map((categories ?? []).map((c) => [c.id, c])),
@@ -396,7 +396,7 @@ export default function ProfessionalsPage() {
   const { active: activePros, inactive: inactivePros } = useMemo(() => {
     const active: Professional[] = [];
     const inactive: Professional[] = [];
-    for (const p of professionals ?? []) {
+    for (const p of professionals) {
       (p.active ? active : inactive).push(p);
     }
     return { active, inactive };

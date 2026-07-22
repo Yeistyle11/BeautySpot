@@ -1,6 +1,5 @@
 "use client";
 import { useState, useMemo } from "react";
-import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,11 +17,11 @@ import {
   Trash2,
   Tag,
 } from "lucide-react";
-import { api } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
+import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 
 interface Service {
@@ -58,8 +57,16 @@ const CATEGORIES_KEY = "/core/service-categories";
 
 export default function ServicesPage() {
   const { role } = useAuthStore();
-  const { data: services, isLoading: loading } =
-    useApi<Service[]>(SERVICES_KEY);
+  const {
+    items: services,
+    isLoading: loading,
+    create: createService,
+    update: updateService,
+    remove: removeService,
+  } = useCrudResource<Service>({
+    listKey: SERVICES_KEY,
+    basePath: "/core/services",
+  });
   const { data: categories } = useApi<Category[]>(CATEGORIES_KEY);
   const [filterCategory, setFilterCategory] = useState<string>("all");
 
@@ -77,22 +84,20 @@ export default function ServicesPage() {
       .filter((c) => c.active)
       .map((c) => c.name);
     const serviceCats = Array.from(
-      new Set(
-        (services ?? []).map((s) => s.category).filter(Boolean) as string[]
-      )
+      new Set(services.map((s) => s.category).filter(Boolean) as string[])
     );
     const all = Array.from(new Set([...backendCats, ...serviceCats])).sort();
     return all;
   }, [categories, services]);
 
   const filtered = useMemo(() => {
-    if (filterCategory === "all") return services ?? [];
-    return (services ?? []).filter((s) => s.category === filterCategory);
+    if (filterCategory === "all") return services;
+    return services.filter((s) => s.category === filterCategory);
   }, [services, filterCategory]);
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const s of services ?? []) {
+    for (const s of services) {
       if (!s.category) continue;
       counts.set(s.category, (counts.get(s.category) ?? 0) + 1);
     }
@@ -103,7 +108,7 @@ export default function ServicesPage() {
     e.preventDefault();
     setSavingCreate(true);
     try {
-      await api.post("/core/services", {
+      await createService({
         name: createForm.name,
         description: createForm.description || undefined,
         price: Number(createForm.price),
@@ -118,7 +123,6 @@ export default function ServicesPage() {
       });
       setCreateForm(emptyForm);
       setCreateDialog(false);
-      await mutate(SERVICES_KEY);
     } catch (err) {
       logger.error(err);
     } finally {
@@ -145,7 +149,7 @@ export default function ServicesPage() {
     if (!editId) return;
     setSavingEdit(true);
     try {
-      await api.patch(`/core/services/${editId}`, {
+      await updateService(editId, {
         name: editForm.name,
         description: editForm.description || undefined,
         price: Number(editForm.price),
@@ -161,7 +165,6 @@ export default function ServicesPage() {
       });
       setEditDialog(false);
       setEditId(null);
-      await mutate(SERVICES_KEY);
     } catch (err) {
       logger.error(err);
     } finally {
@@ -172,14 +175,11 @@ export default function ServicesPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Eliminar este servicio?")) return;
     try {
-      await api.delete(`/core/services/${id}`);
-      await mutate(SERVICES_KEY);
+      await removeService(id);
     } catch (err) {
       logger.error(err);
     }
   };
-
-  const serviceList = services ?? [];
 
   return (
     <div>
@@ -209,7 +209,7 @@ export default function ServicesPage() {
                 : "bg-muted text-muted-foreground hover:bg-primary/20"
             }`}
           >
-            Todos ({serviceList.length})
+            Todos ({services.length})
           </button>
           {categoryNames.map((cat) => {
             const count = categoryCounts.get(cat) ?? 0;
