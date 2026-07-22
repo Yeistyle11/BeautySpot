@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, EntityManager, Repository } from "typeorm";
+import { DataSource, EntityManager, IsNull, Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcryptjs";
@@ -25,6 +25,7 @@ import {
   OutboxService,
   assertJwtSecret,
   TokenVersionStore,
+  TOKEN_VERSION_DEFAULT,
 } from "@beautyspot/nest-common";
 import { toSafeUser, SafeUser } from "../users/dto/user-response.dto";
 
@@ -34,6 +35,9 @@ function hashResetToken(token: string): string {
 
 @Injectable()
 export class AuthService {
+  /** Promesa memoizada del hash señuelo (ver getDecoyHash). */
+  private decoyHash?: Promise<string>;
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -59,10 +63,7 @@ export class AuthService {
       throw new ConflictException("El email ya está registrado");
     }
 
-    const saltRounds = Number(
-      this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12")
-    );
-    const hashedPassword = await bcrypt.hash(dto.password, saltRounds);
+    const hashedPassword = await bcrypt.hash(dto.password, this.getSaltRounds());
 
     const user = await this.dataSource.transaction(async (manager) => {
       const userRepo = manager.getRepository(User);
@@ -106,34 +107,46 @@ export class AuthService {
       email: user.email,
     });
 
-    const fullUser = await this.userRepository.findOne({
-      where: { id: user.id },
-      relations: ["memberships"],
-    });
-    const { accessToken, refreshToken } = await this.generateTokens(fullUser!);
-    return { user: toSafeUser(fullUser!), accessToken, refreshToken };
+    const { accessToken, refreshToken } = await this.generateTokens(user);
+    return { user: toSafeUser(user), accessToken, refreshToken };
   }
 
+  /**
+   * Emite un nuevo par de tokens a partir de un refresh token válido.
+   *
+   * Comprueba la versión de token además de la firma: sin ese control, un
+   * refresh token robado seguiría produciendo access tokens durante toda su
+   * vigencia (7 días por defecto) pese a un logout o un cambio de contraseña.
+   */
   async refreshToken(
     token: string
   ): Promise<{ accessToken: string; refreshToken: string }> {
+    let payload: IJwtPayload;
     try {
-      const payload = this.jwtService.verify<IJwtPayload>(token, {
-        secret: this.configService.get<string>("JWT_REFRESH_SECRET"),
+      payload = this.jwtService.verify<IJwtPayload>(token, {
+        secret: assertJwtSecret(
+          this.configService.get<string>("JWT_REFRESH_SECRET"),
+          "JWT_REFRESH_SECRET"
+        ),
       });
-
-      const user = await this.userRepository.findOne({
-        where: { id: payload.sub },
-        relations: ["memberships"],
-      });
-      if (!user || !user.active) {
-        throw new UnauthorizedException("Token inválido");
-      }
-
-      return this.generateTokens(user);
     } catch {
       throw new UnauthorizedException("Refresh token inválido o expirado");
     }
+
+    const user = await this.userRepository.findOne({
+      where: { id: payload.sub },
+      relations: ["memberships"],
+    });
+    if (!user || !user.active) {
+      throw new UnauthorizedException("Refresh token inválido o expirado");
+    }
+
+    const currentVersion = await this.tokenVersionStore.getVersion(user.id);
+    if ((payload.tokenVersion ?? TOKEN_VERSION_DEFAULT) !== currentVersion) {
+      throw new UnauthorizedException("Sesión invalidada");
+    }
+
+    return this.generateTokens(user);
   }
 
   async forgotPassword(email: string): Promise<{ message: string }> {
@@ -179,6 +192,13 @@ export class AuthService {
     return { message: "Si el email existe, recibirás instrucciones" };
   }
 
+  /**
+   * Restablece la contraseña a partir de un token de recuperación.
+   *
+   * Consume el token usado y anula los demás pendientes del usuario, para que
+   * una cadena de solicitudes no deje varios tokens válidos en circulación.
+   * Al terminar revoca las sesiones abiertas incrementando la versión de token.
+   */
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
     const reset = await this.passwordResetRepository.findOne({
       where: { tokenHash: hashResetToken(dto.token) },
@@ -188,16 +208,26 @@ export class AuthService {
       throw new BadRequestException("Token inválido o expirado");
     }
 
-    const saltRounds = Number(
-      this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12")
+    const user = await this.userRepository.findOne({
+      where: { id: reset.userId },
+    });
+    if (!user || !user.active) {
+      throw new BadRequestException("Token inválido o expirado");
+    }
+
+    const hashedPassword = await bcrypt.hash(
+      dto.newPassword,
+      this.getSaltRounds()
     );
-    const hashedPassword = await bcrypt.hash(dto.newPassword, saltRounds);
 
     await this.dataSource.transaction(async (manager) => {
       const userRepo = manager.getRepository(User);
       const resetRepo = manager.getRepository(PasswordReset);
       await userRepo.update(reset.userId, { password: hashedPassword });
-      await resetRepo.update(reset.id, { usedAt: new Date() });
+      await resetRepo.update(
+        { userId: reset.userId, usedAt: IsNull() },
+        { usedAt: new Date() }
+      );
 
       await this.logAction(
         reset.userId,
@@ -228,10 +258,7 @@ export class AuthService {
       throw new UnauthorizedException("Contraseña actual incorrecta");
     }
 
-    const saltRounds = Number(
-      this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12")
-    );
-    const hashedPassword = await bcrypt.hash(dto.newPassword, saltRounds);
+    const hashedPassword = await bcrypt.hash(dto.newPassword, this.getSaltRounds());
 
     await this.dataSource.transaction(async (manager) => {
       const userRepo = manager.getRepository(User);
@@ -265,21 +292,49 @@ export class AuthService {
     return toSafeUser(user);
   }
 
+  /**
+   * Valida credenciales y devuelve el usuario con sus membresías cargadas.
+   *
+   * Compara siempre contra un hash —el real o uno señuelo— para que el tiempo
+   * de respuesta no revele si el email existe: un retorno temprano sin ejecutar
+   * bcrypt permitiría enumerar cuentas midiendo la latencia.
+   */
   private async validateUser(email: string, password: string): Promise<User> {
-    const user = await this.userRepository.findOne({ where: { email } });
-    if (!user) {
+    const user = await this.userRepository.findOne({
+      where: { email },
+      relations: ["memberships"],
+    });
+
+    const hashToCompare = user?.password ?? (await this.getDecoyHash());
+    const isPasswordValid = await bcrypt.compare(password, hashToCompare);
+
+    if (!user || !isPasswordValid) {
       throw new UnauthorizedException("Credenciales inválidas");
     }
     if (!user.active) {
       throw new UnauthorizedException("Cuenta desactivada");
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException("Credenciales inválidas");
-    }
-
     return user;
+  }
+
+  /**
+   * Hash señuelo usado cuando el email no existe. Se calcula una sola vez y se
+   * reutiliza, con el mismo coste de bcrypt que los hashes reales.
+   */
+  private getDecoyHash(): Promise<string> {
+    if (!this.decoyHash) {
+      this.decoyHash = bcrypt.hash(
+        "usuario-inexistente",
+        this.getSaltRounds()
+      ) as Promise<string>;
+    }
+    return this.decoyHash;
+  }
+
+  /** Coste de bcrypt configurado para el servicio. */
+  private getSaltRounds(): number {
+    return Number(this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12"));
   }
 
   private getMembershipsData(user: User) {
@@ -327,7 +382,7 @@ export class AuthService {
     });
 
     const refreshToken = this.jwtService.sign(
-      { sub: user.id, email: user.email },
+      { sub: user.id, email: user.email, tokenVersion },
       {
         secret: assertJwtSecret(
           this.configService.get<string>("JWT_REFRESH_SECRET"),
