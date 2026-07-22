@@ -37,7 +37,9 @@ describe("createAppFactory", () => {
 
     mockApp = {
       get: jest.fn().mockReturnValue(mockConfigService),
+      use: jest.fn().mockReturnThis(),
       enableCors: jest.fn().mockReturnThis(),
+      enableShutdownHooks: jest.fn().mockReturnThis(),
       useGlobalPipes: jest.fn().mockReturnThis(),
       useGlobalGuards: jest.fn().mockReturnThis(),
       useGlobalFilters: jest.fn().mockReturnThis(),
@@ -91,7 +93,9 @@ describe("createAppFactory", () => {
       });
     });
 
-    it("debería permitir orígenes en desarrollo", async () => {
+    it("debería denegar orígenes desconocidos en desarrollo", async () => {
+      // Reflejar cualquier Origin con credentials:true permitiría a un sitio
+      // arbitrario leer respuestas autenticadas del usuario.
       mockConfigService.get.mockImplementation((key: string) => {
         if (key === "NODE_ENV") return "development";
         if (key === "CORS_ORIGINS") return "https://example.com";
@@ -102,6 +106,34 @@ describe("createAppFactory", () => {
       const corsCallback = mockApp.enableCors.mock.calls[0][0].origin;
 
       corsCallback("https://other-origin.com", (err: any, allow?: boolean) => {
+        expect(err).toBeInstanceOf(Error);
+        expect(allow).toBeUndefined();
+      });
+    });
+
+    it("debería denegar localhost en producción", async () => {
+      // El check de localhost se evaluaba antes que el de NODE_ENV, de modo que
+      // en producción cualquier http://localhost:* quedaba autorizado.
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === "NODE_ENV") return "production";
+        if (key === "CORS_ORIGINS") return "https://example.com";
+        return undefined;
+      });
+
+      await createMicroserviceApp({} as any);
+      const corsCallback = mockApp.enableCors.mock.calls[0][0].origin;
+
+      corsCallback("http://localhost:3000", (err: any, allow?: boolean) => {
+        expect(err).toBeInstanceOf(Error);
+        expect(allow).toBeUndefined();
+      });
+    });
+
+    it("debería permitir peticiones sin cabecera Origin", async () => {
+      await createMicroserviceApp({} as any);
+      const corsCallback = mockApp.enableCors.mock.calls[0][0].origin;
+
+      corsCallback(undefined, (err: any, allow?: boolean) => {
         expect(err).toBeNull();
         expect(allow).toBe(true);
       });
