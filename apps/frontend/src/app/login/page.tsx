@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,12 +14,13 @@ import { Label } from "@/components/ui/label";
 import { Scissors, Eye, EyeOff } from "lucide-react";
 import { useAuthStore, type Role, type User } from "@/lib/store";
 import { api } from "@/lib/api";
-import { getDefaultPath } from "@/lib/permissions";
+import { canAccess, getDefaultPath } from "@/lib/permissions";
 import { decodeJwt } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/utils";
 
-export default function LoginPage() {
+function LoginPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setAuth, setBusinessId, setRole } = useAuthStore();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -60,7 +61,8 @@ export default function LoginPage() {
           role = payload.role;
         }
       }
-      router.push(getDefaultPath(role));
+      const next = searchParams.get("next");
+      router.push(next && canAccess(role, next) ? next : getDefaultPath(role));
     } catch (err) {
       setError(getErrorMessage(err, "Error al iniciar sesion"));
     } finally {
@@ -185,5 +187,19 @@ export default function LoginPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+        </div>
+      }
+    >
+      <LoginPageInner />
+    </Suspense>
   );
 }

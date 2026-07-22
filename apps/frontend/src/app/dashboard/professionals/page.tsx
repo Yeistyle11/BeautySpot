@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, useCallback, memo } from "react";
+import Image from "next/image";
 import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -98,9 +99,12 @@ const ProCard = memo(function ProCard({
       <CardContent className="p-5">
         <div className="flex items-start gap-4">
           {p.photo ? (
-            <img
+            <Image
               src={p.photo}
               alt={p.name || ""}
+              width={56}
+              height={56}
+              unoptimized
               className="h-14 w-14 shrink-0 rounded-full object-cover"
             />
           ) : (
@@ -485,9 +489,12 @@ export default function ProfessionalsPage() {
           <div>
             <div className="mb-5 flex items-start gap-5">
               {viewed.photo ? (
-                <img
+                <Image
                   src={viewed.photo}
                   alt={viewed.name || ""}
+                  width={96}
+                  height={96}
+                  unoptimized
                   className="h-24 w-24 shrink-0 rounded-2xl object-cover"
                 />
               ) : (

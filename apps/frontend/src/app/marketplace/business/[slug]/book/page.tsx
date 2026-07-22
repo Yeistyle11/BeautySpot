@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, Suspense } from "react";
+import Image from "next/image";
 import { useParams, useSearchParams } from "next/navigation";
 import { mutate } from "swr";
 import Link from "next/link";
@@ -372,9 +373,12 @@ function PublicBookingPageInner() {
                   }`}
                 >
                   {p.photo ? (
-                    <img
+                    <Image
                       src={p.photo}
                       alt={p.name}
+                      width={48}
+                      height={48}
+                      unoptimized
                       className="h-12 w-12 shrink-0 rounded-full object-cover"
                     />
                   ) : (
