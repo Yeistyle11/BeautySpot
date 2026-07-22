@@ -197,7 +197,7 @@ const ProCard = memo(function ProCard({
               <Clock className="mr-1 h-3.5 w-3.5" /> Horarios
             </Button>
           )}
-          {canDo(role, "professionals_create") && (
+          {canDo(role, "professionals_delete") && (
             <Button
               size="sm"
               variant="ghost"

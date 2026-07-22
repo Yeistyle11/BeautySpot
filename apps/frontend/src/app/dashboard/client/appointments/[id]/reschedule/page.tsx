@@ -15,6 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useApi } from "@/lib/swr";
 import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -55,26 +56,17 @@ export default function ReschedulePage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
 
-  const [appointment, setAppointment] = useState<Appointment | null>(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: appointment,
+    isLoading: loading,
+    error: loadError,
+  } = useApi<Appointment>(id ? `/booking/appointments/${id}` : null);
   const [error, setError] = useState<string | null>(null);
 
   const [selectedDate, setSelectedDate] = useState<string>("");
-  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
-  const [slotsLoading, setSlotsLoading] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-
-  /* ---- Load appointment ---- */
-  useEffect(() => {
-    if (!id) return;
-    api
-      .get<Appointment>(`/booking/appointments/${id}`)
-      .then(setAppointment)
-      .catch((err) => setError(err.message || "Error al cargar la cita"))
-      .finally(() => setLoading(false));
-  }, [id]);
 
   /* ---- Compute total duration for availability query ---- */
   const totalDuration = useMemo(() => {
@@ -86,25 +78,17 @@ export default function ReschedulePage() {
   }, [appointment]);
 
   /* ---- Fetch slots when date changes ---- */
+  const slotsKey =
+    selectedDate && appointment && totalDuration > 0
+      ? `/booking/appointments/availability?professionalId=${appointment.professionalId}&date=${selectedDate}&duration=${totalDuration}`
+      : null;
+  const { data: rawSlots, isLoading: slotsLoading } =
+    useApi<AvailabilitySlot[]>(slotsKey);
+  const slots = rawSlots ?? [];
+
   useEffect(() => {
-    if (!selectedDate || !appointment || totalDuration === 0) {
-      setSlots([]);
-      setSelectedSlot(null);
-      return;
-    }
-
-    setSlotsLoading(true);
-    setSlots([]);
     setSelectedSlot(null);
-
-    api
-      .get<AvailabilitySlot[]>(
-        `/booking/appointments/availability?professionalId=${appointment.professionalId}&date=${selectedDate}&duration=${totalDuration}`
-      )
-      .then(setSlots)
-      .catch(() => setSlots([]))
-      .finally(() => setSlotsLoading(false));
-  }, [selectedDate, appointment, totalDuration]);
+  }, [selectedDate, appointment?.professionalId, totalDuration]);
 
   /* ---- Min date (today) ---- */
   const today = new Date().toISOString().split("T")[0];
@@ -140,10 +124,10 @@ export default function ReschedulePage() {
     );
   }
 
-  if (!appointment && error) {
+  if (!appointment && loadError) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-red-600">{error}</p>
+        <p className="text-red-600">Error al cargar la cita</p>
         <Link href="/dashboard/client/appointments">
           <Button variant="outline" className="mt-4 gap-2">
             <ArrowLeft className="h-4 w-4" />

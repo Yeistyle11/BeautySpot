@@ -112,12 +112,13 @@ export const PAGES: PageAccess[] = [
   },
 ];
 
-export const ACTIONS: Record<string, Role[]> = {
+export const ACTIONS = {
   services_create: ["OWNER", "ADMIN"],
   services_edit: ["OWNER", "ADMIN"],
   services_delete: ["OWNER", "ADMIN"],
   professionals_create: ["OWNER", "ADMIN"],
   professionals_edit: ["OWNER", "ADMIN"],
+  professionals_delete: ["OWNER", "ADMIN"],
   categories_create: ["OWNER", "ADMIN"],
   categories_edit: ["OWNER", "ADMIN"],
   categories_delete: ["OWNER", "ADMIN"],
@@ -130,6 +131,7 @@ export const ACTIONS: Record<string, Role[]> = {
   appointments_confirm: ["OWNER", "ADMIN", "PROFESSIONAL"],
   appointments_cancel: ["OWNER", "ADMIN", "RECEPTIONIST"],
   payments_create: ["OWNER", "ADMIN", "RECEPTIONIST"],
+  payments_edit: ["OWNER", "ADMIN"],
   payments_void: ["OWNER", "ADMIN"],
   cash_register_open: ["OWNER", "ADMIN", "RECEPTIONIST"],
   cash_register_close: ["OWNER", "ADMIN"],
@@ -142,14 +144,18 @@ export const ACTIONS: Record<string, Role[]> = {
   business_hours_edit: ["OWNER", "ADMIN"],
   business_edit: ["OWNER", "ADMIN"],
   settings_edit: ["OWNER"],
-};
+} as const;
 
 export function canAccess(role: Role | null, path: string): boolean {
   if (!role) return false;
-  const page = PAGES.find((p) => {
-    if (p.path === "/dashboard") return path === "/dashboard";
-    return path.startsWith(p.path);
-  });
+  // Ordenamos por longitud de path descendente para que el prefijo mas
+  // especifico gane (ej. /dashboard/clients vs /dashboard/client), sin
+  // depender del orden de declaracion en PAGES.
+  const page = [...PAGES]
+    .sort((a, b) => b.path.length - a.path.length)
+    .find((p) =>
+      p.path === "/dashboard" ? path === "/dashboard" : path.startsWith(p.path)
+    );
   if (!page) return false;
   return page.roles.includes(role);
 }
@@ -159,7 +165,9 @@ export function canDo(
   action: keyof typeof ACTIONS
 ): boolean {
   if (!role) return false;
-  return ACTIONS[action]?.includes(role) ?? false;
+  return (
+    (ACTIONS[action] as readonly Role[] | undefined)?.includes(role) ?? false
+  );
 }
 
 export function getPagesForRole(role: Role | null): PageAccess[] {

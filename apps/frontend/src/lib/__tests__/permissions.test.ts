@@ -32,6 +32,15 @@ describe("canAccess", () => {
   it("matchea subrutas por prefijo para paginas no raiz", () => {
     expect(canAccess("OWNER", "/dashboard/services/algo-mas")).toBe(true);
   });
+
+  it("resuelve el prefijo mas especifico cuando hay paths solapados (client vs clients)", () => {
+    // "/dashboard/clients" empieza con "/dashboard/client", asi que ambas
+    // entradas de PAGES matchean por startsWith; debe ganar la mas larga
+    // (/dashboard/clients, roles OWNER/ADMIN/RECEPTIONIST) y no la mas
+    // corta (/dashboard/client, solo CLIENT), sin importar el orden en PAGES.
+    expect(canAccess("RECEPTIONIST", "/dashboard/clients")).toBe(true);
+    expect(canAccess("CLIENT", "/dashboard/clients")).toBe(false);
+  });
 });
 
 describe("canDo", () => {
@@ -48,13 +57,25 @@ describe("canDo", () => {
   });
 
   it("cubre todas las acciones definidas en ACTIONS", () => {
-    for (const action of Object.keys(ACTIONS)) {
+    for (const action of Object.keys(ACTIONS) as (keyof typeof ACTIONS)[]) {
       expect(typeof canDo("OWNER", action)).toBe("boolean");
     }
   });
 
   it("devuelve false para una accion no definida en ACTIONS", () => {
-    expect(canDo("OWNER", "accion_inexistente")).toBe(false);
+    // Simula un valor que se cuela en runtime sin pasar por el chequeo de
+    // tipos (ej. viniendo de datos externos), no un caso alcanzable por
+    // codigo tipado normal tras el fix de ACTIONS con `as const`.
+    expect(canDo("OWNER", "accion_inexistente" as keyof typeof ACTIONS)).toBe(
+      false
+    );
+  });
+
+  it("permite las acciones agregadas para corregir permisos", () => {
+    expect(canDo("OWNER", "payments_edit")).toBe(true);
+    expect(canDo("RECEPTIONIST", "payments_edit")).toBe(false);
+    expect(canDo("OWNER", "professionals_delete")).toBe(true);
+    expect(canDo("PROFESSIONAL", "professionals_delete")).toBe(false);
   });
 });
 
