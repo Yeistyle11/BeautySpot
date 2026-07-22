@@ -1,5 +1,7 @@
 import type { Role } from "./store";
 
+export const AUTH_COOKIE_NAME = "bs_token";
+
 export interface JwtPayload {
   sub?: string;
   email?: string;

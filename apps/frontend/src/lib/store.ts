@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { setCachedToken } from "./api";
+import { decodeJwt, AUTH_COOKIE_NAME } from "./auth";
 
 export type Role =
   | "SUPER_ADMIN"
@@ -70,6 +71,26 @@ function readRole(): Role | null {
   return raw as Role;
 }
 
+// Cookie no-httpOnly que espeja el token de localStorage: la unica razon de
+// que exista es dejarle algo legible a middleware.ts (corre en el Edge, sin
+// acceso a localStorage) para redirigir por rol antes de renderizar. No es
+// un limite de seguridad nuevo (misma exposicion a XSS que hoy); la
+// autorizacion real la sigue validando el api-gateway via el header JWT.
+function setAuthCookie(token: string): void {
+  if (typeof document === "undefined") return;
+  const exp = decodeJwt(token)?.exp;
+  const maxAge = exp
+    ? Math.max(exp - Math.floor(Date.now() / 1000), 0)
+    : 60 * 60 * 24 * 7;
+  const secure = location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${AUTH_COOKIE_NAME}=${token}; path=/; max-age=${maxAge}; SameSite=Lax${secure}`;
+}
+
+function clearAuthCookie(): void {
+  if (typeof document === "undefined") return;
+  document.cookie = `${AUTH_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   user: null,
@@ -84,12 +105,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     const businessId = localStorage.getItem(KEYS.businessId);
     const role = readRole();
     setCachedToken(token);
+    if (token) setAuthCookie(token);
     set({ token, user, businessId, role, hydrated: true });
   },
   setAuth: (token, user) => {
     localStorage.setItem(KEYS.token, token);
     localStorage.setItem(KEYS.user, JSON.stringify(user));
     setCachedToken(token);
+    setAuthCookie(token);
     set({ token, user });
   },
   setBusinessId: (id) => {
@@ -105,6 +128,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.removeItem(KEYS[k])
     );
     setCachedToken(null);
+    clearAuthCookie();
     set({ token: null, user: null, businessId: null, role: null });
   },
 }));

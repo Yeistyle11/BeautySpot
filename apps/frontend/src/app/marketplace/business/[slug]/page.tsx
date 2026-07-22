@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -188,10 +189,14 @@ export default function BusinessProfilePage() {
       {/* Hero Banner */}
       <div className="from-primary/30 to-primary/10 relative h-72 bg-gradient-to-br sm:h-80">
         {coverImg && (
-          <img
+          <Image
             src={coverImg}
             alt={profile.name}
-            className="h-full w-full object-cover"
+            fill
+            sizes="100vw"
+            unoptimized
+            priority
+            className="object-cover"
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
@@ -215,9 +220,12 @@ export default function BusinessProfilePage() {
           <div className="mx-auto max-w-4xl">
             <div className="flex items-end gap-4">
               {profile.logo ? (
-                <img
+                <Image
                   src={profile.logo}
                   alt={profile.name}
+                  width={80}
+                  height={80}
+                  unoptimized
                   className="h-20 w-20 shrink-0 rounded-2xl border-4 border-white object-cover shadow-lg"
                 />
               ) : (
@@ -423,9 +431,12 @@ export default function BusinessProfilePage() {
           >
             <ChevronLeft className="h-8 w-8" />
           </button>
-          <img
+          <Image
             src={gallery[galleryIdx].url}
             alt={gallery[galleryIdx].title || ""}
+            width={1200}
+            height={900}
+            unoptimized
             className="max-h-[85vh] max-w-full rounded-lg object-contain"
             onClick={(e) => e.stopPropagation()}
           />
@@ -474,9 +485,12 @@ function StorySection({
       <div className="flex flex-col gap-6 sm:flex-row">
         {storyImage && (
           <div className="shrink-0 sm:w-1/3">
-            <img
+            <Image
               src={storyImage}
               alt={storyTitle || "Historia"}
+              width={400}
+              height={300}
+              unoptimized
               className="h-48 w-full rounded-xl object-cover sm:h-full"
             />
           </div>
@@ -528,9 +542,12 @@ function TeamSection({
             <CardContent className="p-5">
               <div className="flex items-start gap-4">
                 {p.photo ? (
-                  <img
+                  <Image
                     src={p.photo}
                     alt={p.name}
+                    width={64}
+                    height={64}
+                    unoptimized
                     className="h-16 w-16 shrink-0 rounded-xl object-cover"
                   />
                 ) : (
@@ -617,9 +634,12 @@ function GallerySection({
             setLightboxOpen(true);
           }}
         >
-          <img
+          <Image
             src={images[0].url}
             alt={images[0].title || "Galeria"}
+            width={800}
+            height={600}
+            unoptimized
             className="h-64 w-full object-cover sm:h-80"
           />
           <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors hover:bg-black/20">
@@ -640,9 +660,12 @@ function GallerySection({
                 setLightboxOpen(true);
               }}
             >
-              <img
+              <Image
                 src={img.url}
                 alt={img.title || `Foto ${i + 2}`}
+                width={300}
+                height={300}
+                unoptimized
                 className="aspect-square w-full object-cover transition-transform hover:scale-105"
               />
             </div>
@@ -797,10 +820,13 @@ function ReviewsSection({
                 {r.photos && r.photos.length > 0 && (
                   <div className="mt-3 flex gap-2">
                     {r.photos.map((photo, i) => (
-                      <img
+                      <Image
                         key={i}
                         src={photo}
                         alt=""
+                        width={64}
+                        height={64}
+                        unoptimized
                         className="h-16 w-16 rounded-lg object-cover"
                       />
                     ))}

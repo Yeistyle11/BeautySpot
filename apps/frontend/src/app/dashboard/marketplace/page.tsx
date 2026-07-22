@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -487,9 +488,12 @@ export default function MarketplacePage() {
                   }
                 />
                 {configForm.storyImage && (
-                  <img
+                  <Image
                     src={configForm.storyImage}
                     alt="Story"
+                    width={200}
+                    height={128}
+                    unoptimized
                     className="mt-2 h-32 w-auto rounded-lg object-cover"
                   />
                 )}
@@ -621,10 +625,13 @@ export default function MarketplacePage() {
                     className="bg-muted group relative aspect-square overflow-hidden rounded-lg border"
                   >
                     {img.url ? (
-                      <img
+                      <Image
                         src={img.url}
                         alt={img.title || `Imagen ${i + 1}`}
-                        className="h-full w-full object-cover"
+                        fill
+                        sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+                        unoptimized
+                        className="object-cover"
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center">
@@ -829,9 +836,12 @@ export default function MarketplacePage() {
             />
           </div>
           {galleryForm.url && (
-            <img
+            <Image
               src={galleryForm.url}
               alt="Preview"
+              width={200}
+              height={128}
+              unoptimized
               className="h-32 w-auto rounded-lg object-cover"
             />
           )}

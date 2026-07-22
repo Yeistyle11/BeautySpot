@@ -1,34 +1,18 @@
 "use client";
 import { useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { useAuthStore } from "@/lib/store";
-import { canAccess, getDefaultPath } from "@/lib/permissions";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { hydrated, hydrate, token, role } = useAuthStore();
+  const { hydrated, hydrate, token } = useAuthStore();
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
-
-  useEffect(() => {
-    if (hydrated && !token) {
-      router.replace("/login");
-    }
-  }, [hydrated, token, router]);
-
-  useEffect(() => {
-    if (hydrated && token && role && !canAccess(role, pathname)) {
-      router.replace(getDefaultPath(role));
-    }
-  }, [hydrated, token, role, pathname, router]);
 
   if (!hydrated) {
     return (
@@ -38,6 +22,9 @@ export default function DashboardLayout({
     );
   }
 
+  // Defensa en profundidad: middleware.ts ya redirige antes de renderizar
+  // si no hay token valido, pero cubrimos el caso de estado desincronizado
+  // (ej. cookie borrada manualmente sin recargar).
   if (!token) return null;
 
   return (

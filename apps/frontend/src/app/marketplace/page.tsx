@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -247,10 +248,13 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
         {/* Cover image */}
         <div className="from-primary/20 to-primary/5 relative h-40 bg-gradient-to-br">
           {featuredImage ? (
-            <img
+            <Image
               src={featuredImage}
               alt={p.name}
-              className="h-full w-full object-cover"
+              fill
+              sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+              unoptimized
+              className="object-cover"
             />
           ) : (
             <div className="flex h-full items-center justify-center">
@@ -288,9 +292,12 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             {p.logo ? (
-              <img
+              <Image
                 src={p.logo}
                 alt={p.name}
+                width={44}
+                height={44}
+                unoptimized
                 className="h-11 w-11 shrink-0 rounded-lg object-cover"
               />
             ) : (
