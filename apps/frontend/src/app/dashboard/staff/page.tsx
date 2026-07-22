@@ -26,6 +26,7 @@ import { useAuthStore, type Role } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
+import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 
 const staffMemberSchema = z.object({
@@ -292,17 +293,20 @@ export default function StaffPage() {
   const { role } = useAuthStore();
   const STAFF_KEY = "/auth/users/business";
   const PROFESSIONALS_KEY = "/core/professionals";
-  const { data: staffData, isLoading: loading } = useApi<StaffMember[]>(
-    STAFF_KEY,
-    undefined,
-    z.array(staffMemberSchema)
-  );
+  const {
+    items: staff,
+    isLoading: loading,
+    reload: reloadStaff,
+  } = useCrudResource<StaffMember>({
+    listKey: STAFF_KEY,
+    basePath: "/auth/users/staff",
+    schema: z.array(staffMemberSchema),
+  });
   const { data: professionalsData } = useApi<Professional[]>(
     PROFESSIONALS_KEY,
     undefined,
     z.array(professionalSchema)
   );
-  const staff = staffData ?? [];
   const professionals = professionalsData ?? [];
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -334,8 +338,7 @@ export default function StaffPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const reload = () =>
-    Promise.all([mutate(STAFF_KEY), mutate(PROFESSIONALS_KEY)]);
+  const reload = () => Promise.all([reloadStaff(), mutate(PROFESSIONALS_KEY)]);
 
   // Profesionales sin vincular
   const unlinkedPros = professionals.filter(
@@ -350,7 +353,7 @@ export default function StaffPage() {
   // Filtrado y ordenamiento
   const filtered = useMemo(() => {
     const q = deferredSearch.toLowerCase();
-    return (staffData ?? [])
+    return staff
       .filter(
         (s) =>
           !q ||
@@ -369,7 +372,7 @@ export default function StaffPage() {
           cmp = (a.joinedAt || "").localeCompare(b.joinedAt || "");
         return sortDir === "asc" ? cmp : -cmp;
       });
-  }, [staffData, deferredSearch, sortField, sortDir]);
+  }, [staff, deferredSearch, sortField, sortDir]);
 
   const teamMembers = filtered.filter((s) => STAFF_ROLES.includes(s.role));
   const clientMembers = filtered.filter((s) => s.role === "CLIENT");
