@@ -19,6 +19,14 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
+  // Detrás de un balanceador, req.ip es la IP del proxy salvo que se declare en
+  // cuántos saltos confiar. Sin esto el rate limit por IP agrupa a todos los
+  // clientes en una sola cuota. TRUST_PROXY = número de proxies intermedios.
+  const trustProxy = configService.get<string>("TRUST_PROXY");
+  if (trustProxy) {
+    app.getHttpAdapter().getInstance().set("trust proxy", Number(trustProxy));
+  }
+
   app.enableCors(buildCorsOptions(configService));
 
   app.useGlobalPipes(
