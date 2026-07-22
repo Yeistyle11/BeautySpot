@@ -12,10 +12,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Scissors, Eye, EyeOff } from "lucide-react";
-import { useAuthStore, type Role, type User } from "@/lib/store";
+import { useAuthStore, type Role } from "@/lib/store";
 import { api } from "@/lib/api";
 import { canAccess, getDefaultPath } from "@/lib/permissions";
-import { decodeJwt } from "@/lib/auth";
+import { decodeJwt, authResponseSchema } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/utils";
 
 function LoginPageInner() {
@@ -47,10 +47,12 @@ function LoginPageInner() {
             name: form.name,
             phone: form.phone,
           };
-      const data = await api.post<{ user: User; accessToken: string }>(
-        endpoint,
-        body
-      );
+      const raw = await api.post<unknown>(endpoint, body);
+      const parsed = authResponseSchema.safeParse(raw);
+      if (!parsed.success) {
+        throw new Error("Respuesta invalida del servidor al iniciar sesion");
+      }
+      const data = parsed.data;
       setAuth(data.accessToken, data.user);
       let role: Role | null = null;
       const payload = decodeJwt(data.accessToken);

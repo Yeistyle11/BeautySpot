@@ -1,6 +1,5 @@
 "use client";
 import { useState, useMemo, useDeferredValue } from "react";
-import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,11 +9,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Plus, Search, Phone, Mail, Award, Calendar, Edit } from "lucide-react";
-import { api } from "@/lib/api";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
+import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 
 interface Client {
@@ -43,7 +42,15 @@ const CLIENTS_KEY = "/core/clients";
 
 export default function ClientsPage() {
   const { role } = useAuthStore();
-  const { data: clients, isLoading: loading } = useApi<Client[]>(CLIENTS_KEY);
+  const {
+    items: clients,
+    isLoading: loading,
+    create: createClient,
+    update: updateClient,
+  } = useCrudResource<Client>({
+    listKey: CLIENTS_KEY,
+    basePath: "/core/clients",
+  });
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
 
@@ -67,14 +74,13 @@ export default function ClientsPage() {
     e.preventDefault();
     setSavingCreate(true);
     try {
-      await api.post("/core/clients", {
+      await createClient({
         name: createForm.name,
         email: createForm.email || undefined,
         phone: createForm.phone || undefined,
       });
       setCreateForm(emptyForm);
       setCreateDialog(false);
-      await mutate(CLIENTS_KEY);
     } catch (err) {
       logger.error(err);
     } finally {
@@ -102,7 +108,7 @@ export default function ClientsPage() {
     if (!editId) return;
     setSavingEdit(true);
     try {
-      await api.patch(`/core/clients/${editId}`, {
+      await updateClient(editId, {
         name: editForm.name,
         email: editForm.email || undefined,
         phone: editForm.phone || undefined,
@@ -110,7 +116,6 @@ export default function ClientsPage() {
       });
       setEditDialog(false);
       setEditId(null);
-      await mutate(CLIENTS_KEY);
       if (selectedClient?.id === editId) {
         setSelectedClient({
           ...selectedClient,
@@ -128,7 +133,7 @@ export default function ClientsPage() {
 
   const filtered = useMemo(() => {
     const q = deferredSearch.toLowerCase();
-    return (clients ?? []).filter(
+    return clients.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
         (c.email || "").toLowerCase().includes(q)
