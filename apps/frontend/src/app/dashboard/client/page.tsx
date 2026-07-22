@@ -1,4 +1,5 @@
 "use client";
+import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,28 +18,34 @@ import { useAuthStore } from "@/lib/store";
 import { useApi } from "@/lib/swr";
 import Link from "next/link";
 
-interface Appointment {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: string;
-  totalAmount: string;
-  professionalId: string;
-  clientId: string;
-  appointmentServices: {
-    serviceName: string;
-    price: string;
-    duration: number;
-  }[];
-}
+const appointmentSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+  status: z.string(),
+  totalAmount: z.string(),
+  professionalId: z.string(),
+  clientId: z.string(),
+  appointmentServices: z.array(
+    z.object({
+      serviceName: z.string(),
+      price: z.string(),
+      duration: z.number(),
+    })
+  ),
+});
+type Appointment = z.infer<typeof appointmentSchema>;
 
 const APPOINTMENTS_KEY = "/booking/appointments";
 
 export default function ClientDashboardPage() {
   const { user } = useAuthStore();
-  const { data: appointments, isLoading: loading } =
-    useApi<Appointment[]>(APPOINTMENTS_KEY);
+  const { data: appointments, isLoading: loading } = useApi<Appointment[]>(
+    APPOINTMENTS_KEY,
+    undefined,
+    z.array(appointmentSchema)
+  );
 
   const list = appointments ?? [];
   const upcoming = list

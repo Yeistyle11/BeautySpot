@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { mutate } from "swr";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,29 +28,31 @@ import Link from "next/link";
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-interface AppointmentService {
-  serviceName: string;
-  price: string;
-  duration: number;
-}
+const appointmentServiceSchema = z.object({
+  serviceName: z.string(),
+  price: z.string(),
+  duration: z.number(),
+});
 
-interface Appointment {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: string;
-  notes: string | null;
-  totalAmount: string;
-  professionalId: string;
-  clientId: string;
-  appointmentServices: AppointmentService[];
-}
+const appointmentSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+  status: z.string(),
+  notes: z.string().nullable(),
+  totalAmount: z.string(),
+  professionalId: z.string(),
+  clientId: z.string(),
+  appointmentServices: z.array(appointmentServiceSchema),
+});
+type Appointment = z.infer<typeof appointmentSchema>;
 
-interface Review {
-  id: string;
-  appointmentId: string;
-}
+const reviewSchema = z.object({
+  id: z.string(),
+  appointmentId: z.string(),
+});
+type Review = z.infer<typeof reviewSchema>;
 
 /* ------------------------------------------------------------------ */
 /*  Status config                                                      */
@@ -70,8 +73,12 @@ export default function AppointmentDetailPage() {
     isLoading: loading,
     error: fetchError,
     mutate: mutateAppointment,
-  } = useApi<Appointment>(appointmentKey);
-  const { data: reviews } = useApi<Review[]>(reviewsKey);
+  } = useApi<Appointment>(appointmentKey, undefined, appointmentSchema);
+  const { data: reviews } = useApi<Review[]>(
+    reviewsKey,
+    undefined,
+    z.array(reviewSchema)
+  );
   const hasReview = (reviews ?? []).length > 0;
 
   const [cancelError, setCancelError] = useState<string | null>(null);
