@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { useAuthStore } from "@/lib/store";
@@ -13,26 +13,24 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { hydrated, hydrate, token, role } = useAuthStore();
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     hydrate();
-    setMounted(true);
-  }, []);
+  }, [hydrate]);
 
   useEffect(() => {
-    if (mounted && hydrated && !token) {
+    if (hydrated && !token) {
       router.replace("/login");
     }
-  }, [mounted, hydrated, token, router]);
+  }, [hydrated, token, router]);
 
   useEffect(() => {
-    if (mounted && hydrated && token && role && !canAccess(role, pathname)) {
+    if (hydrated && token && role && !canAccess(role, pathname)) {
       router.replace(getDefaultPath(role));
     }
-  }, [mounted, hydrated, token, role, pathname, router]);
+  }, [hydrated, token, role, pathname, router]);
 
-  if (!mounted || !hydrated) {
+  if (!hydrated) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />

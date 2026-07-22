@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useDeferredValue } from "react";
 import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import {
   Link2,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { useAuthStore } from "@/lib/store";
+import { useAuthStore, type Role } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
@@ -85,6 +85,177 @@ const emptyCreateForm = {
 type SortField = "name" | "email" | "role" | "active" | "joinedAt";
 type SortDir = "asc" | "desc";
 
+type SortIconProps = { field: SortField; sortField: SortField };
+
+function SortIcon({ field, sortField }: SortIconProps) {
+  return (
+    <ArrowUpDown
+      className={`ml-1 inline h-3 w-3 ${sortField === field ? "text-primary" : "text-muted-foreground/40"}`}
+    />
+  );
+}
+
+interface MemberTableProps {
+  members: StaffMember[];
+  title: string;
+  icon: React.ReactNode;
+  dotColor: string;
+  role: Role | null;
+  sortField: SortField;
+  onToggleSort: (field: SortField) => void;
+  onEdit: (s: StaffMember) => void;
+  onRequestToggle: (id: string) => void;
+}
+
+function MemberTable({
+  members,
+  title,
+  icon,
+  dotColor,
+  role,
+  sortField,
+  onToggleSort,
+  onEdit,
+  onRequestToggle,
+}: MemberTableProps) {
+  if (members.length === 0) return null;
+  return (
+    <div className="mb-8">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-base font-semibold">
+          <span className={`h-2.5 w-2.5 rounded-full ${dotColor}`} />
+          {icon} {title} ({members.length})
+        </h2>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 gap-1 text-xs"
+          onClick={() =>
+            exportCSV(members, title.toLowerCase().replace(/ /g, "_"))
+          }
+        >
+          <Download className="h-3 w-3" /> Exportar CSV
+        </Button>
+      </div>
+      <div className="bg-card overflow-hidden rounded-lg border">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/50 border-b">
+                <th className="px-4 py-3 text-left font-medium">
+                  <button
+                    className="hover:text-foreground flex items-center transition-colors"
+                    onClick={() => onToggleSort("name")}
+                  >
+                    Nombre <SortIcon field="name" sortField={sortField} />
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left font-medium">
+                  <button
+                    className="hover:text-foreground flex items-center transition-colors"
+                    onClick={() => onToggleSort("email")}
+                  >
+                    Email <SortIcon field="email" sortField={sortField} />
+                  </button>
+                </th>
+                <th className="hidden px-4 py-3 text-left font-medium md:table-cell">
+                  Telefono
+                </th>
+                <th className="px-4 py-3 text-left font-medium">
+                  <button
+                    className="hover:text-foreground flex items-center transition-colors"
+                    onClick={() => onToggleSort("role")}
+                  >
+                    Rol <SortIcon field="role" sortField={sortField} />
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left font-medium">
+                  <button
+                    className="hover:text-foreground flex items-center transition-colors"
+                    onClick={() => onToggleSort("active")}
+                  >
+                    Estado <SortIcon field="active" sortField={sortField} />
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-right font-medium">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {members.map((s) => (
+                <tr
+                  key={s.id}
+                  className={`hover:bg-muted/30 border-b transition-colors last:border-0 ${!s.active ? "opacity-50" : ""}`}
+                >
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                          {s.name?.charAt(0) || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="max-w-[180px] truncate font-medium">
+                        {s.name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="text-muted-foreground max-w-[200px] truncate px-4 py-3">
+                    {s.email}
+                  </td>
+                  <td className="text-muted-foreground hidden px-4 py-3 md:table-cell">
+                    {s.phone || "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[s.role] || "bg-gray-100 text-gray-600"}`}
+                    >
+                      {ROLE_LABELS[s.role] || s.role}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge
+                      variant={s.active ? "default" : "secondary"}
+                      className="text-xs"
+                    >
+                      {s.active ? "Activo" : "Inactivo"}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      {canDo(role, "staff_edit") && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => onEdit(s)}
+                          title="Editar cuenta"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {canDo(role, "staff_deactivate") &&
+                        s.role !== "OWNER" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive h-7 px-2 text-xs"
+                            onClick={() => onRequestToggle(s.id)}
+                            title={s.active ? "Desactivar" : "Activar"}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function exportCSV(members: StaffMember[], filename: string) {
   const headers = [
     "Nombre",
@@ -123,6 +294,7 @@ export default function StaffPage() {
   const staff = staffData ?? [];
   const professionals = professionalsData ?? [];
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -166,8 +338,8 @@ export default function StaffPage() {
 
   // Filtrado y ordenamiento
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return staff
+    const q = deferredSearch.toLowerCase();
+    return (staffData ?? [])
       .filter(
         (s) =>
           !q ||
@@ -186,7 +358,7 @@ export default function StaffPage() {
           cmp = (a.joinedAt || "").localeCompare(b.joinedAt || "");
         return sortDir === "asc" ? cmp : -cmp;
       });
-  }, [staff, search, sortField, sortDir]);
+  }, [staffData, deferredSearch, sortField, sortDir]);
 
   const teamMembers = filtered.filter((s) => STAFF_ROLES.includes(s.role));
   const clientMembers = filtered.filter((s) => s.role === "CLIENT");
@@ -198,12 +370,6 @@ export default function StaffPage() {
       setSortDir("asc");
     }
   };
-
-  const SortIcon = ({ field }: { field: SortField }) => (
-    <ArrowUpDown
-      className={`ml-1 inline h-3 w-3 ${sortField === field ? "text-primary" : "text-muted-foreground/40"}`}
-    />
-  );
 
   // --- Crear cuenta ---
   const handleCreate = async (e: React.FormEvent) => {
@@ -352,156 +518,6 @@ export default function StaffPage() {
     }
   };
 
-  // --- Tabla reutilizable ---
-  function MemberTable({
-    members,
-    title,
-    icon,
-    dotColor,
-  }: {
-    members: StaffMember[];
-    title: string;
-    icon: React.ReactNode;
-    dotColor: string;
-  }) {
-    if (members.length === 0) return null;
-    return (
-      <div className="mb-8">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-base font-semibold">
-            <span className={`h-2.5 w-2.5 rounded-full ${dotColor}`} />
-            {icon} {title} ({members.length})
-          </h2>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 gap-1 text-xs"
-            onClick={() =>
-              exportCSV(members, title.toLowerCase().replace(/ /g, "_"))
-            }
-          >
-            <Download className="h-3 w-3" /> Exportar CSV
-          </Button>
-        </div>
-        <div className="bg-card overflow-hidden rounded-lg border">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted/50 border-b">
-                  <th className="px-4 py-3 text-left font-medium">
-                    <button
-                      className="hover:text-foreground flex items-center transition-colors"
-                      onClick={() => toggleSort("name")}
-                    >
-                      Nombre <SortIcon field="name" />
-                    </button>
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium">
-                    <button
-                      className="hover:text-foreground flex items-center transition-colors"
-                      onClick={() => toggleSort("email")}
-                    >
-                      Email <SortIcon field="email" />
-                    </button>
-                  </th>
-                  <th className="hidden px-4 py-3 text-left font-medium md:table-cell">
-                    Telefono
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium">
-                    <button
-                      className="hover:text-foreground flex items-center transition-colors"
-                      onClick={() => toggleSort("role")}
-                    >
-                      Rol <SortIcon field="role" />
-                    </button>
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium">
-                    <button
-                      className="hover:text-foreground flex items-center transition-colors"
-                      onClick={() => toggleSort("active")}
-                    >
-                      Estado <SortIcon field="active" />
-                    </button>
-                  </th>
-                  <th className="px-4 py-3 text-right font-medium">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((s) => (
-                  <tr
-                    key={s.id}
-                    className={`hover:bg-muted/30 border-b transition-colors last:border-0 ${!s.active ? "opacity-50" : ""}`}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                            {s.name?.charAt(0) || "U"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="max-w-[180px] truncate font-medium">
-                          {s.name}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="text-muted-foreground max-w-[200px] truncate px-4 py-3">
-                      {s.email}
-                    </td>
-                    <td className="text-muted-foreground hidden px-4 py-3 md:table-cell">
-                      {s.phone || "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[s.role] || "bg-gray-100 text-gray-600"}`}
-                      >
-                        {ROLE_LABELS[s.role] || s.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        variant={s.active ? "default" : "secondary"}
-                        className="text-xs"
-                      >
-                        {s.active ? "Activo" : "Inactivo"}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        {canDo(role, "staff_edit") && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2 text-xs"
-                            onClick={() => openEdit(s)}
-                            title="Editar cuenta"
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                        )}
-                        {canDo(role, "staff_deactivate") &&
-                          s.role !== "OWNER" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive h-7 px-2 text-xs"
-                              onClick={() => setConfirmId(s.id)}
-                              title={s.active ? "Desactivar" : "Activar"}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div>
       {/* Header */}
@@ -563,12 +579,22 @@ export default function StaffPage() {
             title="Equipo del negocio"
             icon={<Users className="text-primary h-4 w-4" />}
             dotColor="bg-primary"
+            role={role}
+            sortField={sortField}
+            onToggleSort={toggleSort}
+            onEdit={openEdit}
+            onRequestToggle={setConfirmId}
           />
           <MemberTable
             members={clientMembers}
             title="Clientes"
             icon={<UserCircle className="h-4 w-4 text-emerald-500" />}
             dotColor="bg-emerald-500"
+            role={role}
+            sortField={sortField}
+            onToggleSort={toggleSort}
+            onEdit={openEdit}
+            onRequestToggle={setConfirmId}
           />
         </>
       )}

@@ -89,6 +89,15 @@ export default function ServicesPage() {
     return (services ?? []).filter((s) => s.category === filterCategory);
   }, [services, filterCategory]);
 
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of services ?? []) {
+      if (!s.category) continue;
+      counts.set(s.category, (counts.get(s.category) ?? 0) + 1);
+    }
+    return counts;
+  }, [services]);
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingCreate(true);
@@ -202,7 +211,7 @@ export default function ServicesPage() {
             Todos ({serviceList.length})
           </button>
           {categoryNames.map((cat) => {
-            const count = serviceList.filter((s) => s.category === cat).length;
+            const count = categoryCounts.get(cat) ?? 0;
             return (
               <button
                 key={cat}

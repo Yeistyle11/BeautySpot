@@ -125,7 +125,7 @@ function PublicBookingPageInner() {
 
   useEffect(() => {
     setStartTime("");
-  }, [availableSlots]);
+  }, [date, selectedProfessional, totalDuration]);
 
   useEffect(() => {
     if (isAuthenticated && user) {

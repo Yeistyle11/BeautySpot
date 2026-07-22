@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo, useDeferredValue } from "react";
 import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,7 @@ export default function ClientsPage() {
   const { role } = useAuthStore();
   const { data: clients, isLoading: loading } = useApi<Client[]>(CLIENTS_KEY);
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
 
   const [createDialog, setCreateDialog] = useState(false);
   const [createForm, setCreateForm] = useState(emptyForm);
@@ -124,12 +125,14 @@ export default function ClientsPage() {
     }
   };
 
-  const clientList = clients ?? [];
-  const filtered = clientList.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      (c.email || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    const q = deferredSearch.toLowerCase();
+    return (clients ?? []).filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.email || "").toLowerCase().includes(q)
+    );
+  }, [clients, deferredSearch]);
 
   const statusLabels: Record<string, string> = {
     PENDING: "Pendiente",
