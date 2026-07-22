@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import {
   TrendingUp,
   Clock,
 } from "lucide-react";
-import { apiPublic } from "@/lib/api";
+import { useApiPublic } from "@/lib/swr";
 
 interface Profile {
   id: string;
@@ -70,44 +70,21 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export default function MarketplacePage() {
-  const [feed, setFeed] = useState<FeedResponse | null>(null);
-  const [searchResults, setSearchResults] = useState<SearchResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [searching, setSearching] = useState(false);
+  const { data: feed, isLoading: loading } = useApiPublic<FeedResponse>(
+    "/marketplace-service/feed"
+  );
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
-  useEffect(() => {
-    apiPublic
-      .get<FeedResponse>("/marketplace-service/feed")
-      .then(setFeed)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  const doSearch = useCallback((q: string, businessType?: string) => {
-    if (!q && !businessType) {
-      setSearchResults(null);
-      setSearching(false);
-      return;
-    }
-    setSearching(true);
-    const params = new URLSearchParams();
-    if (q) params.set("q", q);
-    if (businessType) params.set("businessType", businessType);
-    apiPublic
-      .get<SearchResult>(`/marketplace-service/search?${params.toString()}`)
-      .then(setSearchResults)
-      .catch(console.error)
-      .finally(() => setSearching(false));
-  }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      doSearch(search, activeCategory || undefined);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [search, activeCategory, doSearch]);
+  const searchParams = new URLSearchParams();
+  if (search) searchParams.set("q", search);
+  if (activeCategory) searchParams.set("businessType", activeCategory);
+  const searchKey =
+    search || activeCategory
+      ? `/marketplace-service/search?${searchParams.toString()}`
+      : null;
+  const { data: searchResults, isLoading: searching } =
+    useApiPublic<SearchResult>(searchKey);
 
   const isSearching = search !== "" || activeCategory !== null;
 

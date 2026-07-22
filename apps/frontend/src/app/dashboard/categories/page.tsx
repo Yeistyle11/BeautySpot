@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
+import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ import {
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
+import { useApi } from "@/lib/swr";
 
 // ─── Tipos ──────────────────────────────────────────────────────────
 
@@ -86,60 +88,45 @@ const COLOR_PRESETS = [
 
 // ─── Componente ──────────────────────────────────────────────────────
 
+const CATEGORIES_KEY = "/core/categories?active=false";
+
 export default function CategoriesPage() {
   const { role } = useAuthStore();
 
-  // Estado principal
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: categories, isLoading: loading } =
+    useApi<Category[]>(CATEGORIES_KEY);
   const [search, setSearch] = useState("");
 
-  // Diálogo de creación
   const [createDialog, setCreateDialog] = useState(false);
   const [createForm, setCreateForm] = useState<CategoryForm>(EMPTY_FORM);
   const [savingCreate, setSavingCreate] = useState(false);
 
-  // Diálogo de edición
   const [editDialog, setEditDialog] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<CategoryForm>(EMPTY_FORM);
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // ─── Carga de datos ────────────────────────────────────────────────
-
-  const load = useCallback(() => {
-    api
-      .get<Category[]>("/core/categories?active=false")
-      .then(setCategories)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(load, []);
-
-  // ─── Datos derivados ───────────────────────────────────────────────
+  const categoryList = categories ?? [];
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return categories;
+    if (!search.trim()) return categoryList;
     const term = search.toLowerCase();
-    return categories.filter(
+    return categoryList.filter(
       (c) =>
         c.name.toLowerCase().includes(term) ||
         (c.description && c.description.toLowerCase().includes(term))
     );
-  }, [categories, search]);
+  }, [categoryList, search]);
 
   const activeCount = useMemo(
-    () => categories.filter((c) => c.active).length,
-    [categories]
+    () => categoryList.filter((c) => c.active).length,
+    [categoryList]
   );
 
   const inactiveCount = useMemo(
-    () => categories.filter((c) => !c.active).length,
-    [categories]
+    () => categoryList.filter((c) => !c.active).length,
+    [categoryList]
   );
-
-  // ─── Handlers ──────────────────────────────────────────────────────
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,7 +141,7 @@ export default function CategoriesPage() {
       });
       setCreateForm(EMPTY_FORM);
       setCreateDialog(false);
-      load();
+      await mutate(CATEGORIES_KEY);
     } catch (err) {
       console.error(err);
     } finally {
@@ -190,7 +177,7 @@ export default function CategoriesPage() {
       });
       setEditDialog(false);
       setEditId(null);
-      load();
+      await mutate(CATEGORIES_KEY);
     } catch (err) {
       console.error(err);
     } finally {
@@ -201,7 +188,7 @@ export default function CategoriesPage() {
   const handleToggle = async (category: Category) => {
     try {
       await api.patch(`/core/categories/${category.id}/toggle`, {});
-      load();
+      await mutate(CATEGORIES_KEY);
     } catch (err) {
       console.error(err);
     }
@@ -216,7 +203,7 @@ export default function CategoriesPage() {
       return;
     try {
       await api.delete(`/core/categories/${id}`);
-      load();
+      await mutate(CATEGORIES_KEY);
     } catch (err) {
       console.error(err);
     }

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { User, Mail, Phone, Award, Save, CheckCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
+import { useApi } from "@/lib/swr";
 
 interface ClientProfile {
   id: string;
@@ -41,32 +42,29 @@ function getNextTier(points: number) {
 
 export default function ClientProfilePage() {
   const { user } = useAuthStore();
-  const [client, setClient] = useState<ClientProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: client,
+    isLoading: loading,
+    mutate: mutateClient,
+  } = useApi<ClientProfile | null>("/core/clients/me");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "" });
 
   useEffect(() => {
-    api
-      .get<ClientProfile>("/core/clients/me")
-      .then((data) => {
-        setClient(data);
-        setForm({ name: data.name, phone: data.phone || "" });
-      })
-      .catch(() => {
-        if (user) {
-          setForm({ name: user.name || "", phone: user.phone || "" });
-        }
-      })
-      .finally(() => setLoading(false));
-  }, [user]);
+    if (client) {
+      setForm({ name: client.name, phone: client.phone || "" });
+    } else if (user && !form.name) {
+      setForm({ name: user.name || "", phone: user.phone || "" });
+    }
+  }, [client, user, form.name]);
 
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
     try {
       await api.patch("/core/clients/me", form);
+      await mutateClient();
       setSaved(true);
     } catch {
       try {

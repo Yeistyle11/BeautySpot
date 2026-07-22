@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { api } from "@/lib/api";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
+import { useApi } from "@/lib/swr";
 
 interface Client {
   id: string;
@@ -36,10 +38,11 @@ interface Appointment {
 
 const emptyForm = { name: "", email: "", phone: "" };
 
+const CLIENTS_KEY = "/core/clients";
+
 export default function ClientsPage() {
   const { role } = useAuthStore();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: clients, isLoading: loading } = useApi<Client[]>(CLIENTS_KEY);
   const [search, setSearch] = useState("");
 
   const [createDialog, setCreateDialog] = useState(false);
@@ -47,10 +50,6 @@ export default function ClientsPage() {
   const [savingCreate, setSavingCreate] = useState(false);
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [clientAppointments, setClientAppointments] = useState<Appointment[]>(
-    []
-  );
-  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const [editDialog, setEditDialog] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -61,15 +60,6 @@ export default function ClientsPage() {
   });
   const [editId, setEditId] = useState<string | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
-
-  const load = () => {
-    api
-      .get<Client[]>("/core/clients")
-      .then(setClients)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
-  useEffect(load, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +72,7 @@ export default function ClientsPage() {
       });
       setCreateForm(emptyForm);
       setCreateDialog(false);
-      load();
+      await mutate(CLIENTS_KEY);
     } catch (err) {
       console.error(err);
     } finally {
@@ -92,12 +82,6 @@ export default function ClientsPage() {
 
   const openDetail = (client: Client) => {
     setSelectedClient(client);
-    setLoadingDetail(true);
-    api
-      .get<Appointment[]>(`/booking/appointments?clientId=${client.id}`)
-      .then(setClientAppointments)
-      .catch(() => setClientAppointments([]))
-      .finally(() => setLoadingDetail(false));
   };
 
   const openEdit = (client: Client) => {
@@ -124,7 +108,7 @@ export default function ClientsPage() {
       });
       setEditDialog(false);
       setEditId(null);
-      load();
+      await mutate(CLIENTS_KEY);
       if (selectedClient?.id === editId) {
         setSelectedClient({
           ...selectedClient,
@@ -140,7 +124,8 @@ export default function ClientsPage() {
     }
   };
 
-  const filtered = clients.filter(
+  const clientList = clients ?? [];
+  const filtered = clientList.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       (c.email || "").toLowerCase().includes(search.toLowerCase())
@@ -153,6 +138,12 @@ export default function ClientsPage() {
     CANCELLED: "Cancelada",
     NO_SHOW: "No asistio",
   };
+
+  const detailKey = selectedClient
+    ? `/booking/appointments?clientId=${selectedClient.id}`
+    : null;
+  const { data: clientAppointments, isLoading: loadingDetail } =
+    useApi<Appointment[]>(detailKey);
 
   return (
     <div>
@@ -346,13 +337,13 @@ export default function ClientsPage() {
               </h4>
               {loadingDetail ? (
                 <p className="text-muted-foreground text-sm">Cargando...</p>
-              ) : clientAppointments.length === 0 ? (
+              ) : (clientAppointments ?? []).length === 0 ? (
                 <p className="text-muted-foreground text-sm">
                   No hay citas registradas
                 </p>
               ) : (
                 <div className="max-h-60 space-y-2 overflow-y-auto">
-                  {clientAppointments.map((a) => (
+                  {(clientAppointments ?? []).map((a) => (
                     <div
                       key={a.id}
                       className="flex items-center justify-between rounded-lg border p-3"

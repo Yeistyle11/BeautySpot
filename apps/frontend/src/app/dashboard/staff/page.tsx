@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/utils";
+import { useApi } from "@/lib/swr";
 
 interface StaffMember {
   id: string;
@@ -113,9 +115,13 @@ function exportCSV(members: StaffMember[], filename: string) {
 
 export default function StaffPage() {
   const { role } = useAuthStore();
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [professionals, setProfessionals] = useState<Professional[]>([]);
-  const [loading, setLoading] = useState(true);
+  const STAFF_KEY = "/auth/users/business";
+  const PROFESSIONALS_KEY = "/core/professionals";
+  const { data: staffData, isLoading: loading } =
+    useApi<StaffMember[]>(STAFF_KEY);
+  const { data: professionalsData } = useApi<Professional[]>(PROFESSIONALS_KEY);
+  const staff = staffData ?? [];
+  const professionals = professionalsData ?? [];
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -145,19 +151,8 @@ export default function StaffPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const load = () => {
-    Promise.all([
-      api.get<StaffMember[]>("/auth/users/business"),
-      api.get<Professional[]>("/core/professionals"),
-    ])
-      .then(([staffData, proData]) => {
-        setStaff(staffData);
-        setProfessionals(proData);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
-  useEffect(load, []);
+  const reload = () =>
+    Promise.all([mutate(STAFF_KEY), mutate(PROFESSIONALS_KEY)]);
 
   // Profesionales sin vincular
   const unlinkedPros = professionals.filter(
@@ -234,7 +229,7 @@ export default function StaffPage() {
       }
       setShowCreate(false);
       setCreateForm(emptyCreateForm);
-      load();
+      await reload();
     } catch (err) {
       setError(getErrorMessage(err, "Error al crear la cuenta"));
     } finally {
@@ -330,7 +325,7 @@ export default function StaffPage() {
 
       await Promise.all(promises);
       setEditMember(null);
-      load();
+      await reload();
     } catch (err) {
       setError(getErrorMessage(err, "Error al guardar los cambios"));
     } finally {
@@ -349,7 +344,7 @@ export default function StaffPage() {
         active: !member.active,
       });
       setConfirmId(null);
-      load();
+      await reload();
     } catch (err) {
       console.error(getErrorMessage(err));
     } finally {

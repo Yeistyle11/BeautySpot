@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,7 @@ import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/utils";
+import { useApi } from "@/lib/swr";
 import type { Role } from "@/lib/store";
 
 interface Professional {
@@ -199,9 +201,11 @@ function ProCard({
 
 export default function ProfessionalsPage() {
   const { role } = useAuthStore();
-  const [professionals, setProfessionals] = useState<Professional[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const PROFESSIONALS_KEY = "/core/professionals";
+  const CATEGORIES_KEY = "/core/categories";
+  const { data: professionals, isLoading: loading } =
+    useApi<Professional[]>(PROFESSIONALS_KEY);
+  const { data: categories } = useApi<Category[]>(CATEGORIES_KEY);
   const [showCreate, setShowCreate] = useState(false);
   const [viewId, setViewId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -289,18 +293,10 @@ export default function ProfessionalsPage() {
     }
   };
 
-  const load = () => {
-    api
-      .get<Professional[]>("/core/professionals")
-      .then(setProfessionals)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-    api
-      .get<Category[]>("/core/categories")
-      .then(setCategories)
-      .catch(console.error);
+  const load = async () => {
+    await Promise.all([mutate(PROFESSIONALS_KEY), mutate(CATEGORIES_KEY)]);
   };
-  useEffect(load, []);
+  void load;
 
   const startEdit = (p: Professional) => {
     setEditId(p.id);
@@ -329,7 +325,7 @@ export default function ProfessionalsPage() {
           .filter(Boolean),
         yearsExp: Number(form.yearsExp),
         category: form.categoryId
-          ? categories.find((c) => c.id === form.categoryId)?.name ||
+          ? (categories ?? []).find((c) => c.id === form.categoryId)?.name ||
             form.category ||
             undefined
           : form.category || undefined,
@@ -338,7 +334,7 @@ export default function ProfessionalsPage() {
       });
       setShowCreate(false);
       setForm(emptyForm);
-      load();
+      await mutate(PROFESSIONALS_KEY);
     } catch (err) {
       console.error(err);
     }
@@ -357,7 +353,7 @@ export default function ProfessionalsPage() {
           .filter(Boolean),
         yearsExp: Number(form.yearsExp),
         category: form.categoryId
-          ? categories.find((c) => c.id === form.categoryId)?.name ||
+          ? (categories ?? []).find((c) => c.id === form.categoryId)?.name ||
             form.category ||
             undefined
           : form.category || undefined,
@@ -367,7 +363,7 @@ export default function ProfessionalsPage() {
       });
       setEditId(null);
       setForm(emptyForm);
-      load();
+      await mutate(PROFESSIONALS_KEY);
     } catch (err) {
       console.error(err);
     }
@@ -378,7 +374,7 @@ export default function ProfessionalsPage() {
       await api.delete(`/core/professionals/${id}`);
       setDeleteConfirm(null);
       setDeleteError("");
-      load();
+      await mutate(PROFESSIONALS_KEY);
     } catch (err) {
       setDeleteError(
         getErrorMessage(err, "No se pudo inactivar el profesional")
@@ -386,7 +382,9 @@ export default function ProfessionalsPage() {
     }
   };
 
-  const viewed = professionals.find((p) => p.id === viewId);
+  const viewed = (professionals ?? []).find((p) => p.id === viewId);
+  const professionalList = professionals ?? [];
+  const categoryList = categories ?? [];
 
   return (
     <div>
@@ -410,27 +408,27 @@ export default function ProfessionalsPage() {
       {/* Listado */}
       {loading ? (
         <p className="text-muted-foreground">Cargando...</p>
-      ) : professionals.length === 0 ? (
+      ) : professionalList.length === 0 ? (
         <p className="text-muted-foreground">
           No hay profesionales registrados
         </p>
       ) : (
         <>
           {/* Activos */}
-          {professionals.filter((p) => p.active).length > 0 && (
+          {professionalList.filter((p) => p.active).length > 0 && (
             <div className="mb-8">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
                 <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                Activos ({professionals.filter((p) => p.active).length})
+                Activos ({professionalList.filter((p) => p.active).length})
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {professionals
+                {professionalList
                   .filter((p) => p.active)
                   .map((p) => (
                     <ProCard
                       key={p.id}
                       p={p}
-                      categories={categories}
+                      categories={categoryList}
                       role={role}
                       onView={setViewId}
                       onEdit={startEdit}
@@ -443,20 +441,20 @@ export default function ProfessionalsPage() {
           )}
 
           {/* Inactivos */}
-          {professionals.filter((p) => !p.active).length > 0 && (
+          {professionalList.filter((p) => !p.active).length > 0 && (
             <div>
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
                 <span className="h-2.5 w-2.5 rounded-full bg-gray-400" />
-                Inactivos ({professionals.filter((p) => !p.active).length})
+                Inactivos ({professionalList.filter((p) => !p.active).length})
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {professionals
+                {professionalList
                   .filter((p) => !p.active)
                   .map((p) => (
                     <ProCard
                       key={p.id}
                       p={p}
-                      categories={categories}
+                      categories={categoryList}
                       role={role}
                       onView={setViewId}
                       onEdit={startEdit}
@@ -593,7 +591,7 @@ export default function ProfessionalsPage() {
                 }
               >
                 <option value="">Sin categoría</option>
-                {categories
+                {categoryList
                   .filter((c) => c.active)
                   .map((c) => (
                     <option key={c.id} value={c.id}>
@@ -680,7 +678,7 @@ export default function ProfessionalsPage() {
                 }
               >
                 <option value="">Sin categoría</option>
-                {categories
+                {categoryList
                   .filter((c) => c.active)
                   .map((c) => (
                     <option key={c.id} value={c.id}>
@@ -772,7 +770,7 @@ export default function ProfessionalsPage() {
                 <p className="text-muted-foreground mb-4 text-sm">
                   Estas seguro de inactivar a{" "}
                   <strong>
-                    {professionals.find((p) => p.id === deleteConfirm)?.name}
+                    {professionalList.find((p) => p.id === deleteConfirm)?.name}
                   </strong>
                   ?
                 </p>

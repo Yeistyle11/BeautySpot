@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { mutate } from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,7 @@ import {
   getErrorMessage,
 } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
+import { useApi } from "@/lib/swr";
 import { CalendarView } from "@/components/calendar-view";
 
 interface Appointment {
@@ -82,16 +84,23 @@ const paymentMethodOptions = [
 
 export default function AppointmentsPage() {
   const { role } = useAuthStore();
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const APPOINTMENTS_KEY = "/booking/appointments";
+  const PROFESSIONALS_KEY = "/core/professionals";
+  const SERVICES_KEY = "/core/services";
+  const CLIENTS_KEY = "/core/clients";
+
+  const { data: appointments, isLoading: loading } =
+    useApi<Appointment[]>(APPOINTMENTS_KEY);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const [professionals, setProfessionals] = useState<Professional[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
+  const { data: professionals } = useApi<Professional[]>(
+    showForm ? PROFESSIONALS_KEY : null
+  );
+  const { data: services } = useApi<Service[]>(showForm ? SERVICES_KEY : null);
+  const { data: clients } = useApi<Client[]>(showForm ? CLIENTS_KEY : null);
 
   const [form, setForm] = useState({
     professionalId: "",
@@ -113,40 +122,15 @@ export default function AppointmentsPage() {
 
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
-  useEffect(() => {
-    api
-      .get<Appointment[]>("/booking/appointments")
-      .then(setAppointments)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    if (showForm) {
-      api
-        .get<Professional[]>("/core/professionals")
-        .then(setProfessionals)
-        .catch(() => {});
-      api
-        .get<Service[]>("/core/services")
-        .then(setServices)
-        .catch(() => {});
-      api
-        .get<Client[]>("/core/clients")
-        .then(setClients)
-        .catch(() => {});
-    }
-  }, [showForm]);
-
   const professionalMap = useMemo(() => {
     const map: Record<string, string> = {};
-    professionals.forEach((p) => {
+    (professionals ?? []).forEach((p) => {
       map[p.id] = p.name || "Sin nombre";
     });
     return map;
   }, [professionals]);
 
-  const filtered = appointments.filter(
+  const filtered = (appointments ?? []).filter(
     (a) =>
       a.appointmentServices.some((s) =>
         s.serviceName.toLowerCase().includes(search.toLowerCase())
@@ -159,25 +143,7 @@ export default function AppointmentsPage() {
         `/booking/appointments/${id}/${action}`,
         action === "cancel" ? { reason: "Cancelado por usuario" } : {}
       );
-      setAppointments((prev) =>
-        prev.map((a) =>
-          a.id === id
-            ? {
-                ...a,
-                status:
-                  action === "confirm"
-                    ? "CONFIRMED"
-                    : action === "start"
-                      ? "IN_PROGRESS"
-                      : action === "cancel"
-                        ? "CANCELLED"
-                        : action === "no-show"
-                          ? "NO_SHOW"
-                          : a.status,
-              }
-            : a
-        )
-      );
+      await mutate(APPOINTMENTS_KEY);
     } catch (err) {
       console.error(err);
     }
@@ -208,11 +174,8 @@ export default function AppointmentsPage() {
         });
       }
 
-      setAppointments((prev) =>
-        prev.map((a) =>
-          a.id === completingAppt.id ? { ...a, status: "COMPLETED" } : a
-        )
-      );
+      await mutate(APPOINTMENTS_KEY);
+      await mutate("/payment/payments");
       setCompleteDialog(false);
       setCompletingAppt(null);
     } catch (err) {
@@ -228,7 +191,7 @@ export default function AppointmentsPage() {
     setSubmitting(true);
     try {
       const serviceData = selectedServices.map((sid) => {
-        const svc = services.find((s) => s.id === sid)!;
+        const svc = (services ?? []).find((s) => s.id === sid)!;
         return {
           id: svc.id,
           name: svc.name,
@@ -249,7 +212,7 @@ export default function AppointmentsPage() {
         notes: "",
       });
       setSelectedServices([]);
-      api.get<Appointment[]>("/booking/appointments").then(setAppointments);
+      await mutate(APPOINTMENTS_KEY);
     } catch (err) {
       setError(getErrorMessage(err, "Error al crear la cita"));
     } finally {
@@ -319,7 +282,7 @@ export default function AppointmentsPage() {
                   required
                 >
                   <option value="">Seleccionar...</option>
-                  {professionals.map((p) => (
+                  {(professionals ?? []).map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name || "Sin nombre"}
                     </option>
@@ -337,7 +300,7 @@ export default function AppointmentsPage() {
                   required
                 >
                   <option value="">Seleccionar...</option>
-                  {clients.map((c) => (
+                  {(clients ?? []).map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
@@ -367,7 +330,7 @@ export default function AppointmentsPage() {
               <div className="space-y-2 sm:col-span-2 lg:col-span-3">
                 <Label>Servicios</Label>
                 <div className="flex flex-wrap gap-2">
-                  {services.map((s) => (
+                  {(services ?? []).map((s) => (
                     <button
                       key={s.id}
                       type="button"
@@ -381,7 +344,7 @@ export default function AppointmentsPage() {
                       {s.name} — {formatCurrency(s.price)}
                     </button>
                   ))}
-                  {services.length === 0 && (
+                  {(services ?? []).length === 0 && (
                     <p className="text-muted-foreground text-sm">
                       No hay servicios disponibles
                     </p>
@@ -437,7 +400,7 @@ export default function AppointmentsPage() {
               </p>
             ) : (
               <CalendarView
-                appointments={appointments}
+                appointments={appointments ?? []}
                 onComplete={openCompleteDialog}
                 onConfirm={(id) => handleAction(id, "confirm")}
                 onCancel={(id) => handleAction(id, "cancel")}

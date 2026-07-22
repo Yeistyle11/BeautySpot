@@ -11,6 +11,7 @@ import { User, Building2, Clock, Save, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
+import { useApi } from "@/lib/swr";
 
 interface BusinessData {
   id: string;
@@ -57,7 +58,6 @@ export default function SettingsPage() {
   const { user, businessId, role } = useAuthStore();
   const [saving, setSaving] = useState<string | null>(null);
 
-  // Account tab
   const [accountForm, setAccountForm] = useState({
     name: user?.name || "",
     phone: user?.phone || "",
@@ -68,61 +68,57 @@ export default function SettingsPage() {
     confirmPassword: "",
   });
 
-  // Business tab
-  const [, setBusiness] = useState<BusinessData | null>(null);
-  const [businessForm, setBusinessForm] = useState<Partial<BusinessData>>({});
-  const [loadingBiz, setLoadingBiz] = useState(true);
+  const canSeeBusiness =
+    canDo(role, "business_edit") || canDo(role, "business_hours_edit");
+  const businessKey =
+    businessId && canSeeBusiness ? `/core/businesses/${businessId}` : null;
+  const hoursKey = canSeeBusiness ? "/core/business-hours" : null;
 
-  // Hours tab
+  const { data: business, mutate: mutateBusiness } =
+    useApi<BusinessData | null>(businessKey);
+  const { data: hoursData, mutate: mutateHours } = useApi<
+    BusinessHour[] | null
+  >(hoursKey);
+
+  const [businessForm, setBusinessForm] = useState<Partial<BusinessData>>({});
   const [hours, setHours] = useState<BusinessHour[]>(defaultHours);
 
-  useEffect(() => {
-    // Solo cargar datos de negocio/horarios si el rol tiene permisos para verlos
-    const canSeeBusiness =
-      canDo(role, "business_edit") || canDo(role, "business_hours_edit");
-    if (businessId && canSeeBusiness) {
-      api
-        .get<BusinessData>(`/core/businesses/${businessId}`)
-        .then((data) => {
-          setBusiness(data);
-          setBusinessForm({
-            name: data.name,
-            description: data.description,
-            phone: data.phone,
-            email: data.email,
-            website: data.website,
-            address: data.address,
-            city: data.city,
-            state: data.state,
-            country: data.country,
-            logo: data.logo,
-            coverImage: data.coverImage,
-          });
-        })
-        .catch(console.error)
-        .finally(() => setLoadingBiz(false));
+  const loadingBiz = canSeeBusiness && !business;
 
-      api
-        .get<BusinessHour[]>("/core/business-hours")
-        .then((data) => {
-          if (data.length > 0) {
-            const mapped = DAYS.map((d) => {
-              const existing = data.find((h) => h.dayOfWeek === d.value);
-              return (
-                existing || {
-                  dayOfWeek: d.value,
-                  openTime: "08:00",
-                  closeTime: "18:00",
-                  active: false,
-                }
-              );
-            });
-            setHours(mapped);
-          }
-        })
-        .catch(console.error);
+  useEffect(() => {
+    if (business) {
+      setBusinessForm({
+        name: business.name,
+        description: business.description,
+        phone: business.phone,
+        email: business.email,
+        website: business.website,
+        address: business.address,
+        city: business.city,
+        state: business.state,
+        country: business.country,
+        logo: business.logo,
+        coverImage: business.coverImage,
+      });
     }
-  }, [businessId, role]);
+  }, [business]);
+
+  useEffect(() => {
+    if (hoursData && hoursData.length > 0) {
+      const mapped = DAYS.map((d) => {
+        const existing = hoursData.find((h) => h.dayOfWeek === d.value);
+        return (
+          existing || {
+            dayOfWeek: d.value,
+            openTime: "08:00",
+            closeTime: "18:00",
+            active: false,
+          }
+        );
+      });
+      setHours(mapped);
+    }
+  }, [hoursData]);
 
   const saveAccount = async () => {
     setSaving("account");
@@ -164,6 +160,7 @@ export default function SettingsPage() {
     setSaving("business");
     try {
       await api.patch(`/core/businesses/${businessId}`, businessForm);
+      await mutateBusiness();
     } catch (err) {
       console.error(err);
     } finally {
@@ -175,6 +172,7 @@ export default function SettingsPage() {
     setSaving("hours");
     try {
       await api.put("/core/business-hours", { hours });
+      await mutateHours();
     } catch (err) {
       console.error(err);
     } finally {
