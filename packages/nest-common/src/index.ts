@@ -34,3 +34,4 @@ export {
 } from "./factories/create-app.factory";
 export { buildCorsOptions } from "./factories/cors.options";
 export { assertJwtSecret } from "./security/assert-jwt-secret";
+export { withSerializableRetry } from "./database/serializable-retry";
