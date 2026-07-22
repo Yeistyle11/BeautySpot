@@ -34,6 +34,7 @@ import {
 } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
 import { useApi } from "@/lib/swr";
+import { logger } from "@/lib/logger";
 import { CalendarView } from "@/components/calendar-view";
 
 interface Appointment {
@@ -149,7 +150,7 @@ export default function AppointmentsPage() {
       );
       await mutate(APPOINTMENTS_KEY);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     }
   };
 
@@ -183,7 +184,7 @@ export default function AppointmentsPage() {
       setCompleteDialog(false);
       setCompletingAppt(null);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setCompletingAction(false);
     }

@@ -22,6 +22,7 @@ import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo, type ACTIONS } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
+import { logger } from "@/lib/logger";
 
 export interface CategoryEntity {
   id: string;
@@ -146,7 +147,7 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
       setCreateDialog(false);
       await mutate(queryKey);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setSavingCreate(false);
     }
@@ -182,7 +183,7 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
       setEditId(null);
       await mutate(queryKey);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setSavingEdit(false);
     }
@@ -193,7 +194,7 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
       await api.patch(`${apiBasePath}/${category.id}/toggle`, {});
       await mutate(queryKey);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     }
   };
 
@@ -203,7 +204,7 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
       await api.delete(`${apiBasePath}/${id}`);
       await mutate(queryKey);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     }
   };
 

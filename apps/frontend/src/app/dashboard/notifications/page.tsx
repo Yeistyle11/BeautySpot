@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Bell, CheckCheck } from "lucide-react";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/swr";
+import { formatDate } from "@/lib/utils";
 
 interface Notification {
   id: string;
@@ -68,7 +69,7 @@ export default function NotificationsPage() {
                       {n.message}
                     </p>
                     <p className="text-muted-foreground mt-2 text-xs">
-                      {new Date(n.createdAt).toLocaleDateString("es-CO")}
+                      {formatDate(n.createdAt)}
                     </p>
                   </div>
                   {!n.read && (

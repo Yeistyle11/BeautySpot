@@ -22,10 +22,11 @@ import {
   DollarSign,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate, formatTimeStamp } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
+import { logger } from "@/lib/logger";
 
 interface CashSession {
   id: string;
@@ -107,7 +108,7 @@ export default function CashRegisterPage() {
       setOpenNotes("");
       await mutateActive();
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setOpening(false);
     }
@@ -127,7 +128,7 @@ export default function CashRegisterPage() {
       setMoveConcept("");
       await mutate(movementsKey);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setRegistering(false);
     }
@@ -146,7 +147,7 @@ export default function CashRegisterPage() {
       setCloseNotes("");
       await Promise.all([mutateActive(), mutate(HISTORY_KEY)]);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setClosing(false);
     }
@@ -207,10 +208,7 @@ export default function CashRegisterPage() {
                   {formatCurrency(openingAmt)}
                 </p>
                 <p className="text-muted-foreground mt-1 text-xs">
-                  {new Date(activeSession.openedAt).toLocaleString("es-CO", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {formatTimeStamp(activeSession.openedAt)}
                 </p>
               </CardContent>
             </Card>
@@ -289,10 +287,7 @@ export default function CashRegisterPage() {
                         <div>
                           <p className="text-sm font-medium">{m.concept}</p>
                           <p className="text-muted-foreground text-xs">
-                            {new Date(m.registeredAt).toLocaleString("es-CO", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                            {formatTimeStamp(m.registeredAt)}
                           </p>
                         </div>
                       </div>
@@ -328,10 +323,8 @@ export default function CashRegisterPage() {
                 >
                   <div>
                     <p className="text-sm font-medium">
-                      {new Date(s.openedAt).toLocaleDateString("es-CO")} -{" "}
-                      {s.closedAt
-                        ? new Date(s.closedAt).toLocaleDateString("es-CO")
-                        : "En curso"}
+                      {formatDate(s.openedAt)} -{" "}
+                      {s.closedAt ? formatDate(s.closedAt) : "En curso"}
                     </p>
                     <p className="text-muted-foreground text-xs">
                       Apertura: {formatCurrency(parseFloat(s.openingAmount))}

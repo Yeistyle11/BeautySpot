@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
+import { logger } from "@/lib/logger";
 
 interface BusinessData {
   id: string;
@@ -125,7 +126,7 @@ export default function SettingsPage() {
     try {
       await api.patch("/auth/users/me", accountForm);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setSaving(null);
     }
@@ -149,7 +150,7 @@ export default function SettingsPage() {
       });
       alert("Contrasena actualizada");
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setSaving(null);
     }
@@ -162,7 +163,7 @@ export default function SettingsPage() {
       await api.patch(`/core/businesses/${businessId}`, businessForm);
       await mutateBusiness();
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setSaving(null);
     }
@@ -174,7 +175,7 @@ export default function SettingsPage() {
       await api.put("/core/business-hours", { hours });
       await mutateHours();
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setSaving(null);
     }
