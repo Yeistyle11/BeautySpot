@@ -223,7 +223,6 @@ export default function ReviewPage() {
 
   return (
     <div>
-      {/* Back link */}
       <Link
         href={`/dashboard/client/appointments/${id}`}
         className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1 text-sm transition-colors"
@@ -235,7 +234,6 @@ export default function ReviewPage() {
       <h1 className="mb-6 text-2xl font-bold">Dejar resena</h1>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left: appointment summary */}
         <div className="lg:col-span-1">
           <Card className="border-0 shadow-sm">
             <CardHeader>
@@ -245,7 +243,6 @@ export default function ReviewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {/* Services */}
               <div className="bg-muted/50 space-y-2 rounded-lg px-4 py-3">
                 {appointment.appointmentServices.map((svc, idx) => (
                   <div key={idx} className="flex justify-between text-sm">
@@ -257,13 +254,11 @@ export default function ReviewPage() {
                 ))}
               </div>
 
-              {/* Date */}
               <div className="text-muted-foreground flex items-center gap-2 text-sm">
                 <Calendar className="h-4 w-4" />
                 <span>{formatDate(appointment.date)}</span>
               </div>
 
-              {/* Professional ID (fallback display) */}
               <div className="text-muted-foreground text-xs">
                 Profesional: {appointment.professionalId}
               </div>
@@ -271,9 +266,7 @@ export default function ReviewPage() {
           </Card>
         </div>
 
-        {/* Right: review form */}
         <div className="space-y-4 lg:col-span-2">
-          {/* Rating */}
           <Card className="border-0 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">Calificacion</CardTitle>
@@ -292,7 +285,6 @@ export default function ReviewPage() {
             </CardContent>
           </Card>
 
-          {/* Comment */}
           <Card className="border-0 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">Comentario</CardTitle>
@@ -316,7 +308,6 @@ export default function ReviewPage() {
             </CardContent>
           </Card>
 
-          {/* Photos */}
           <Card className="border-0 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -363,14 +354,12 @@ export default function ReviewPage() {
             </CardContent>
           </Card>
 
-          {/* Error */}
           {error && (
-            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="bg-destructive/10 text-destructive rounded-lg px-4 py-3 text-sm">
               {error}
             </div>
           )}
 
-          {/* Submit */}
           <div className="flex justify-end gap-3">
             <Link href={`/dashboard/client/appointments/${id}`}>
               <Button variant="outline">Cancelar</Button>

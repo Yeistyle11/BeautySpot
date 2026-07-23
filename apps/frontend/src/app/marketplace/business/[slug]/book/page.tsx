@@ -1,61 +1,32 @@
 "use client";
 import { useEffect, useState, Suspense } from "react";
-import Image from "next/image";
 import { useParams, useSearchParams } from "next/navigation";
-import { mutate } from "swr";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Scissors,
-  Clock,
-  ArrowLeft,
-  CheckCircle,
-  User,
-  Loader2,
-} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { z } from "zod";
 import { apiPublic, api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
-import { formatCurrency, getErrorMessage } from "@/lib/utils";
-import { useApiPublic } from "@/lib/swr";
-
-const profileSchema = z.object({
-  id: z.string(),
-  businessId: z.string(),
-  name: z.string(),
-  slug: z.string(),
-});
-type Profile = z.infer<typeof profileSchema>;
-
-const serviceSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  price: z.number(),
-  duration: z.number(),
-});
-type Service = z.infer<typeof serviceSchema>;
-
-const professionalSchema = z.object({
-  id: z.string(),
-  professionalId: z.string().optional(),
-  name: z.string(),
-  photo: z.string().nullable(),
-  specialties: z.array(z.string()),
-});
-type Professional = z.infer<typeof professionalSchema>;
-
-interface BookingConfirmation {
-  id: string;
-  date?: string;
-  startTime?: string;
-  endTime?: string;
-  totalAmount?: number | string;
-  services?: string[];
-  [key: string]: unknown;
-}
+import { getErrorMessage } from "@/lib/utils";
+import { useApiPublic, revalidatePrefix } from "@/lib/swr";
+import { BookingConfirmation } from "./booking-confirmation";
+import { SelectServicesStep } from "./steps/select-services-step";
+import { SelectProfessionalStep } from "./steps/select-professional-step";
+import { SelectSlotStep } from "./steps/select-slot-step";
+import {
+  GuestDetailsStep,
+  type GuestDetails,
+} from "./steps/guest-details-step";
+import {
+  BOOKING_STEPS,
+  generateFallbackSlots,
+  professionalSchema,
+  profileSchema,
+  serviceSchema,
+  type BookingConfirmation as Confirmation,
+  type Profile,
+  type Professional,
+  type Service,
+} from "./schemas";
 
 function PublicBookingPageInner() {
   const { slug } = useParams<{ slug: string }>();
@@ -70,33 +41,30 @@ function PublicBookingPageInner() {
     undefined,
     profileSchema
   );
-  const servicesKey = profile?.businessId
-    ? `/core/public/businesses/${profile.businessId}/services`
-    : null;
-  const profKey = profile?.businessId
-    ? `/marketplace/professional-profiles/business/${profile.businessId}`
-    : null;
   const { data: rawServices } = useApiPublic<Service[]>(
-    servicesKey,
+    profile?.businessId
+      ? `/core/public/businesses/${profile.businessId}/services`
+      : null,
     undefined,
     z.array(serviceSchema)
   );
   const { data: rawProfessionals } = useApiPublic<Professional[]>(
-    profKey,
+    profile?.businessId
+      ? `/marketplace/professional-profiles/business/${profile.businessId}`
+      : null,
     undefined,
     z.array(professionalSchema)
   );
 
   const services = (rawServices ?? []).map((s) => ({
-    id: s.id,
-    name: s.name,
+    ...s,
     price: Number(s.price),
-    duration: s.duration,
   }));
+  // El perfil publico y el profesional son entidades distintas; para reservar
+  // hace falta el id del profesional, no el del perfil.
   const professionals = (rawProfessionals ?? []).map((p) => ({
+    ...p,
     id: p.professionalId || p.id,
-    name: p.name,
-    photo: p.photo,
     specialties: p.specialties || [],
   }));
 
@@ -106,13 +74,13 @@ function PublicBookingPageInner() {
     useState(preselectedProfId);
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
-  const [guestName, setGuestName] = useState("");
-  const [guestEmail, setGuestEmail] = useState("");
-  const [guestPhone, setGuestPhone] = useState("");
+  const [guest, setGuest] = useState<GuestDetails>({
+    name: "",
+    email: "",
+    phone: "",
+  });
   const [submitting, setSubmitting] = useState(false);
-  const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(
-    null
-  );
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [error, setError] = useState("");
 
   const selectedServiceData = services.filter((s) =>
@@ -124,11 +92,9 @@ function PublicBookingPageInner() {
   );
   const totalAmount = selectedServiceData.reduce((sum, s) => sum + s.price, 0);
 
+  const isAnyProfessional = selectedProfessional === "any";
   const slotsKey =
-    date &&
-    selectedProfessional &&
-    selectedServiceData.length > 0 &&
-    selectedProfessional !== "any"
+    date && selectedProfessional && totalDuration > 0 && !isAnyProfessional
       ? `/booking/appointments/availability?professionalId=${selectedProfessional}&date=${date}&duration=${totalDuration}`
       : null;
   const { data: rawSlots, isLoading: slotsLoading } = useApiPublic<string[]>(
@@ -137,21 +103,20 @@ function PublicBookingPageInner() {
     z.array(z.string())
   );
   const availableSlots =
-    selectedProfessional === "any" && date
-      ? generateFallbackSlots()
-      : Array.isArray(rawSlots)
-        ? rawSlots
-        : [];
+    isAnyProfessional && date ? generateFallbackSlots() : (rawSlots ?? []);
 
+  // Cambiar de fecha, profesional o servicios invalida la hora ya elegida.
   useEffect(() => {
     setStartTime("");
   }, [date, selectedProfessional, totalDuration]);
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      setGuestName(user.name || "");
-      setGuestEmail(user.email || "");
-      setGuestPhone(user.phone || "");
+      setGuest({
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+      });
     }
   }, [isAuthenticated, user]);
 
@@ -162,11 +127,12 @@ function PublicBookingPageInner() {
   };
 
   const handleSubmit = async () => {
+    if (!profile) return;
     setError("");
     setSubmitting(true);
     try {
       const body: Record<string, unknown> = {
-        businessId: profile!.businessId,
+        businessId: profile.businessId,
         professionalId: selectedProfessional,
         serviceIds: selectedServiceData.map((s) => ({
           id: s.id,
@@ -178,23 +144,21 @@ function PublicBookingPageInner() {
         startTime,
       };
 
+      // Con sesion la cita se asocia al cliente; sin ella viaja como invitado
+      // por un endpoint publico distinto.
       if (isAuthenticated && user) {
         body.clientId = user.id;
       } else {
-        body.guestName = guestName;
-        body.guestEmail = guestEmail || undefined;
-        body.guestPhone = guestPhone || undefined;
+        body.guestName = guest.name;
+        body.guestEmail = guest.email || undefined;
+        body.guestPhone = guest.phone || undefined;
       }
 
       const result = await (isAuthenticated
-        ? api.post<BookingConfirmation>("/booking/appointments", body)
-        : apiPublic.post<BookingConfirmation>(
-            "/booking/public/appointments",
-            body
-          ));
+        ? api.post<Confirmation>("/booking/appointments", body)
+        : apiPublic.post<Confirmation>("/booking/public/appointments", body));
       setConfirmation(result);
-      setStep(5);
-      await mutate("/booking/appointments");
+      await revalidatePrefix("/booking/appointments");
     } catch (err) {
       setError(getErrorMessage(err, "Error al crear la reserva"));
     } finally {
@@ -202,13 +166,15 @@ function PublicBookingPageInner() {
     }
   };
 
-  if (loading)
+  if (loading) {
     return (
       <div className="flex justify-center py-20">
         <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
       </div>
     );
-  if (!profile)
+  }
+
+  if (!profile) {
     return (
       <div className="text-muted-foreground py-20 text-center">
         <p>Negocio no encontrado</p>
@@ -220,70 +186,19 @@ function PublicBookingPageInner() {
         </Link>
       </div>
     );
+  }
 
   if (confirmation) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-green-600">
-          <CheckCircle className="h-10 w-10" />
-        </div>
-        <h1 className="mt-6 text-2xl font-bold">Tu cita ha sido reservada</h1>
-        <p className="text-muted-foreground mt-2">
-          Recibiras un correo de confirmacion
-        </p>
-        <Card className="mt-6 border-0 text-left shadow-sm">
-          <CardContent className="space-y-2 p-6">
-            <p className="text-sm">
-              <span className="font-medium">Negocio:</span> {profile.name}
-            </p>
-            <p className="text-sm">
-              <span className="font-medium">Fecha:</span> {date}
-            </p>
-            <p className="text-sm">
-              <span className="font-medium">Hora:</span>{" "}
-              {confirmation.startTime} - {confirmation.endTime}
-            </p>
-            <p className="text-sm">
-              <span className="font-medium">Servicios:</span>{" "}
-              {confirmation.services?.join(", ")}
-            </p>
-            <p className="text-sm">
-              <span className="font-medium">Total:</span>{" "}
-              {formatCurrency(Number(confirmation.totalAmount ?? 0))}
-            </p>
-          </CardContent>
-        </Card>
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
-          {isAuthenticated ? (
-            <>
-              <Link href="/dashboard/client/appointments">
-                <Button variant="outline">Mis citas</Button>
-              </Link>
-              <Link href={`/marketplace/business/${slug}`}>
-                <Button>Ver negocio</Button>
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link href="/marketplace">
-                <Button variant="outline">Volver al inicio</Button>
-              </Link>
-              <Link href={`/marketplace/business/${slug}`}>
-                <Button>Ver negocio</Button>
-              </Link>
-            </>
-          )}
-        </div>
-      </div>
+      <BookingConfirmation
+        confirmation={confirmation}
+        businessName={profile.name}
+        slug={slug}
+        date={date}
+        isAuthenticated={isAuthenticated}
+      />
     );
   }
-
-  const steps = [
-    { n: 1, label: "Servicios" },
-    { n: 2, label: "Profesional" },
-    { n: 3, label: "Horario" },
-    { n: 4, label: "Tus datos" },
-  ];
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
@@ -299,10 +214,11 @@ function PublicBookingPageInner() {
         Agendar cita en {profile.name}
       </h1>
 
-      <div className="mb-8 flex gap-2">
-        {steps.map((s) => (
-          <div
+      <ol className="mb-8 flex gap-2">
+        {BOOKING_STEPS.map((s) => (
+          <li
             key={s.n}
+            aria-current={step === s.n ? "step" : undefined}
             className={`flex-1 rounded-lg py-2 text-center text-sm font-medium transition-colors ${
               step >= s.n
                 ? "bg-primary text-primary-foreground"
@@ -310,325 +226,65 @@ function PublicBookingPageInner() {
             }`}
           >
             {s.n}. {s.label}
-          </div>
+          </li>
         ))}
-      </div>
+      </ol>
 
       {step === 1 && (
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle>Selecciona los servicios</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {services.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => toggleService(s.id)}
-                  className={`flex w-full items-center justify-between rounded-lg border p-4 text-left transition-colors ${
-                    selectedServices.includes(s.id)
-                      ? "border-primary bg-primary/5"
-                      : "border-input hover:border-primary/50"
-                  }`}
-                >
-                  <div>
-                    <p className="font-medium">{s.name}</p>
-                    <p className="text-muted-foreground flex items-center gap-1 text-sm">
-                      <Clock className="h-3 w-3" />
-                      {s.duration} min
-                    </p>
-                  </div>
-                  <span className="text-primary font-semibold">
-                    {formatCurrency(s.price)}
-                  </span>
-                </button>
-              ))}
-            </div>
-            {selectedServices.length > 0 && (
-              <div className="bg-muted mt-4 rounded-lg p-3 text-sm">
-                <p>
-                  Total:{" "}
-                  <span className="font-semibold">
-                    {formatCurrency(totalAmount)}
-                  </span>{" "}
-                  · Duracion: {totalDuration} min
-                </p>
-              </div>
-            )}
-            <Button
-              className="mt-4 w-full"
-              disabled={selectedServices.length === 0}
-              onClick={() => {
-                if (selectedProfessional && selectedServices.length > 0) {
-                  setStep(3);
-                } else {
-                  setStep(2);
-                }
-              }}
-            >
-              Continuar
-            </Button>
-          </CardContent>
-        </Card>
+        <SelectServicesStep
+          services={services}
+          selected={selectedServices}
+          onToggle={toggleService}
+          totalAmount={totalAmount}
+          totalDuration={totalDuration}
+          // Si el profesional venia preseleccionado desde su ficha, se salta
+          // el paso 2.
+          onContinue={() => setStep(selectedProfessional ? 3 : 2)}
+        />
       )}
 
       {step === 2 && (
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle>Selecciona el profesional</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {professionals.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setSelectedProfessional(p.id)}
-                  className={`flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors ${
-                    selectedProfessional === p.id
-                      ? "border-primary bg-primary/5"
-                      : "border-input hover:border-primary/50"
-                  }`}
-                >
-                  {p.photo ? (
-                    <Image
-                      src={p.photo}
-                      alt={p.name}
-                      width={48}
-                      height={48}
-                      unoptimized
-                      className="h-12 w-12 shrink-0 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="bg-primary/10 text-primary flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-bold">
-                      {(p.name || "?").charAt(0)}
-                    </div>
-                  )}
-                  <div>
-                    <p className="font-medium">{p.name || "Profesional"}</p>
-                    {p.specialties && p.specialties.length > 0 && (
-                      <p className="text-muted-foreground text-sm">
-                        {p.specialties.join(", ")}
-                      </p>
-                    )}
-                  </div>
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setSelectedProfessional("any")}
-                className={`flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors ${
-                  selectedProfessional === "any"
-                    ? "border-primary bg-primary/5"
-                    : "border-input hover:border-primary/50"
-                }`}
-              >
-                <div className="bg-muted text-muted-foreground flex h-12 w-12 shrink-0 items-center justify-center rounded-full">
-                  <Scissors className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-medium">Cualquier profesional</p>
-                  <p className="text-muted-foreground text-sm">
-                    Se asignara el primero disponible
-                  </p>
-                </div>
-              </button>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setStep(1)}
-                className="flex-1"
-              >
-                Atras
-              </Button>
-              <Button
-                disabled={!selectedProfessional}
-                onClick={() => setStep(3)}
-                className="flex-1"
-              >
-                Continuar
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <SelectProfessionalStep
+          professionals={professionals}
+          selected={selectedProfessional}
+          onSelect={setSelectedProfessional}
+          onBack={() => setStep(1)}
+          onContinue={() => setStep(3)}
+        />
       )}
 
       {step === 3 && (
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle>Selecciona fecha y hora</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Fecha</Label>
-              <Input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                min={new Date().toISOString().split("T")[0]}
-              />
-            </div>
-            {date && selectedProfessional === "any" && (
-              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
-                <p>
-                  Selecciona un profesional especifico para ver disponibilidad
-                  exacta. Se mostrara un rango general de horarios.
-                </p>
-              </div>
-            )}
-            {date && slotsLoading && (
-              <div className="text-muted-foreground flex items-center justify-center gap-2 py-8">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span className="text-sm">Consultando disponibilidad...</span>
-              </div>
-            )}
-            {date && !slotsLoading && (
-              <div className="space-y-2">
-                <Label>Hora disponible</Label>
-                {availableSlots.length === 0 ? (
-                  <p className="text-muted-foreground py-4 text-center text-sm">
-                    No hay horarios disponibles para esta fecha
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-4 gap-2">
-                    {availableSlots.map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setStartTime(t)}
-                        className={`rounded-lg py-2 text-sm font-medium transition-colors ${
-                          startTime === t
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted hover:bg-muted/80"
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setStep(2)}
-                className="flex-1"
-              >
-                Atras
-              </Button>
-              <Button
-                disabled={!date || !startTime}
-                onClick={() => setStep(4)}
-                className="flex-1"
-              >
-                Continuar
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <SelectSlotStep
+          date={date}
+          onDateChange={setDate}
+          startTime={startTime}
+          onStartTimeChange={setStartTime}
+          availableSlots={availableSlots}
+          slotsLoading={slotsLoading}
+          isAnyProfessional={isAnyProfessional}
+          onBack={() => setStep(2)}
+          onContinue={() => setStep(4)}
+        />
       )}
 
       {step === 4 && (
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle>Tus datos</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="bg-muted space-y-1 rounded-lg p-3 text-sm">
-              <p>
-                <span className="font-medium">Servicios:</span>{" "}
-                {selectedServiceData.map((s) => s.name).join(", ")}
-              </p>
-              <p>
-                <span className="font-medium">Fecha:</span> {date} a las{" "}
-                {startTime}
-              </p>
-              <p>
-                <span className="font-medium">Duracion:</span> {totalDuration}{" "}
-                min
-              </p>
-              <p>
-                <span className="font-medium">Total:</span>{" "}
-                {formatCurrency(totalAmount)}
-              </p>
-            </div>
-
-            {isAuthenticated && user ? (
-              <div className="bg-primary/5 flex items-center gap-3 rounded-lg border p-4">
-                <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
-                  <User className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-medium">Reservando como {user.name}</p>
-                  <p className="text-muted-foreground text-sm">{user.email}</p>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label>Nombre completo *</Label>
-                  <Input
-                    placeholder="Tu nombre"
-                    value={guestName}
-                    onChange={(e) => setGuestName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Email (opcional)</Label>
-                  <Input
-                    type="email"
-                    placeholder="tu@email.com"
-                    value={guestEmail}
-                    onChange={(e) => setGuestEmail(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Telefono (opcional)</Label>
-                  <Input
-                    type="tel"
-                    placeholder="+57 300 1234567"
-                    value={guestPhone}
-                    onChange={(e) => setGuestPhone(e.target.value)}
-                  />
-                </div>
-              </>
-            )}
-            {error && <p className="text-destructive text-sm">{error}</p>}
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setStep(3)}
-                className="flex-1"
-              >
-                Atras
-              </Button>
-              <Button
-                disabled={(!isAuthenticated && !guestName) || submitting}
-                onClick={handleSubmit}
-                className="flex-1"
-              >
-                {submitting ? "Reservando..." : "Confirmar reserva"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <GuestDetailsStep
+          selectedServices={selectedServiceData}
+          date={date}
+          startTime={startTime}
+          totalDuration={totalDuration}
+          totalAmount={totalAmount}
+          user={isAuthenticated && user ? user : null}
+          guest={guest}
+          onGuestChange={setGuest}
+          error={error}
+          submitting={submitting}
+          onBack={() => setStep(3)}
+          onSubmit={handleSubmit}
+        />
       )}
     </div>
   );
-}
-
-function generateFallbackSlots(): string[] {
-  const slots: string[] = [];
-  for (let h = 8; h <= 18; h++) {
-    slots.push(`${String(h).padStart(2, "0")}:00`);
-    if (h < 18) {
-      slots.push(`${String(h).padStart(2, "0")}:30`);
-    }
-  }
-  return slots;
 }
 
 export default function PublicBookingPage() {

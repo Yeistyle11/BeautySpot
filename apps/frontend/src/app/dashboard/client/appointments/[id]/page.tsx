@@ -166,7 +166,6 @@ export default function AppointmentDetailPage() {
 
   return (
     <div>
-      {/* Back link */}
       <Link
         href="/dashboard/client/appointments"
         className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1 text-sm transition-colors"
@@ -175,7 +174,6 @@ export default function AppointmentDetailPage() {
         Volver a mis citas
       </Link>
 
-      {/* Title row */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">Detalle de cita</h1>
@@ -184,9 +182,7 @@ export default function AppointmentDetailPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main info */}
         <div className="space-y-4 lg:col-span-2">
-          {/* Services */}
           <Card className="border-0 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -224,7 +220,6 @@ export default function AppointmentDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Notes */}
           {appointment.notes && (
             <Card className="border-0 shadow-sm">
               <CardHeader>
@@ -242,9 +237,7 @@ export default function AppointmentDetailPage() {
           )}
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-4">
-          {/* Date & time card */}
           <Card className="border-0 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -269,7 +262,6 @@ export default function AppointmentDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Actions card */}
           <Card className="border-0 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">Acciones</CardTitle>
@@ -316,7 +308,6 @@ export default function AppointmentDetailPage() {
         </div>
       </div>
 
-      {/* Cancel confirmation dialog */}
       <Dialog
         open={cancelDialogOpen}
         onClose={() => setCancelDialogOpen(false)}

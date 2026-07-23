@@ -3,6 +3,7 @@ import {
   formatCurrency,
   formatDate,
   formatTime,
+  toLocalDateKey,
   formatDateTime,
   formatDateTimeStamp,
   formatTimeStamp,
@@ -99,5 +100,22 @@ describe("getErrorMessage", () => {
 
   it("usa 'Error' como fallback por defecto", () => {
     expect(getErrorMessage(null)).toBe("Error");
+  });
+});
+
+describe("toLocalDateKey", () => {
+  it("usa el dia local, no el UTC", () => {
+    // 20:30 en UTC-5 ya es el dia siguiente en UTC: toISOString() habria
+    // devuelto el 16.
+    const nocheDel15 = new Date(2026, 6, 15, 20, 30, 0);
+    expect(toLocalDateKey(nocheDel15)).toBe("2026-07-15");
+  });
+
+  it("rellena mes y dia a dos digitos", () => {
+    expect(toLocalDateKey(new Date(2026, 0, 5))).toBe("2026-01-05");
+  });
+
+  it("respeta el primer instante del dia", () => {
+    expect(toLocalDateKey(new Date(2026, 11, 31, 0, 0, 0))).toBe("2026-12-31");
   });
 });

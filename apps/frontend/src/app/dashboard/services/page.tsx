@@ -6,9 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/field";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Scissors,
   Plus,
@@ -24,6 +27,7 @@ import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
+import { getErrorMessage } from "@/lib/utils";
 
 const serviceSchema = z.object({
   id: z.string(),
@@ -86,6 +90,10 @@ export default function ServicesPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState(emptyForm);
   const [savingEdit, setSavingEdit] = useState(false);
+
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const categoryNames = useMemo(() => {
     const backendCats = (categories ?? [])
@@ -180,12 +188,18 @@ export default function ServicesPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Eliminar este servicio?")) return;
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    setDeleteError("");
     try {
-      await removeService(id);
+      await removeService(deleteId);
+      setDeleteId(null);
     } catch (err) {
       logger.error(err);
+      setDeleteError(getErrorMessage(err, "No se pudo eliminar el servicio"));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -276,7 +290,11 @@ export default function ServicesPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDelete(s.id)}
+                        onClick={() => {
+                          setDeleteId(s.id);
+                          setDeleteError("");
+                        }}
+                        aria-label={`Eliminar el servicio ${s.name}`}
                       >
                         <Trash2 className="text-muted-foreground h-4 w-4" />
                       </Button>
@@ -315,8 +333,7 @@ export default function ServicesPage() {
         title="Nuevo servicio"
       >
         <form onSubmit={handleCreate} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Nombre</Label>
+          <Field label="Nombre">
             <Input
               placeholder="Corte clasico"
               value={createForm.name}
@@ -325,10 +342,9 @@ export default function ServicesPage() {
               }
               required
             />
-          </div>
+          </Field>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Precio (COP)</Label>
+            <Field label="Precio (COP)">
               <Input
                 type="number"
                 placeholder="25000"
@@ -338,9 +354,8 @@ export default function ServicesPage() {
                 }
                 required
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Duracion (min)</Label>
+            </Field>
+            <Field label="Duracion (min)">
               <Input
                 type="number"
                 placeholder="30"
@@ -350,12 +365,10 @@ export default function ServicesPage() {
                 }
                 required
               />
-            </div>
+            </Field>
           </div>
-          <div className="space-y-2">
-            <Label>Categoría</Label>
-            <select
-              className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
+          <Field label="Categoría">
+            <Select
               value={createForm.categoryId}
               onChange={(e) =>
                 setCreateForm({ ...createForm, categoryId: e.target.value })
@@ -369,10 +382,9 @@ export default function ServicesPage() {
                     {c.name}
                   </option>
                 ))}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <Label>Descripcion</Label>
+            </Select>
+          </Field>
+          <Field label="Descripcion">
             <Textarea
               placeholder="Descripcion del servicio"
               value={createForm.description}
@@ -381,7 +393,7 @@ export default function ServicesPage() {
               }
               rows={3}
             />
-          </div>
+          </Field>
           <div className="flex gap-3 pt-2">
             <Button type="submit" disabled={savingCreate}>
               {savingCreate ? "Guardando..." : "Crear servicio"}
@@ -403,8 +415,7 @@ export default function ServicesPage() {
         title="Editar servicio"
       >
         <form onSubmit={handleUpdate} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Nombre</Label>
+          <Field label="Nombre">
             <Input
               value={editForm.name}
               onChange={(e) =>
@@ -412,10 +423,9 @@ export default function ServicesPage() {
               }
               required
             />
-          </div>
+          </Field>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Precio (COP)</Label>
+            <Field label="Precio (COP)">
               <Input
                 type="number"
                 value={editForm.price}
@@ -424,9 +434,8 @@ export default function ServicesPage() {
                 }
                 required
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Duracion (min)</Label>
+            </Field>
+            <Field label="Duracion (min)">
               <Input
                 type="number"
                 value={editForm.duration}
@@ -435,12 +444,10 @@ export default function ServicesPage() {
                 }
                 required
               />
-            </div>
+            </Field>
           </div>
-          <div className="space-y-2">
-            <Label>Categoría</Label>
-            <select
-              className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
+          <Field label="Categoría">
+            <Select
               value={editForm.categoryId}
               onChange={(e) =>
                 setEditForm({ ...editForm, categoryId: e.target.value })
@@ -454,10 +461,9 @@ export default function ServicesPage() {
                     {c.name}
                   </option>
                 ))}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <Label>Descripcion</Label>
+            </Select>
+          </Field>
+          <Field label="Descripcion">
             <Textarea
               value={editForm.description}
               onChange={(e) =>
@@ -465,15 +471,16 @@ export default function ServicesPage() {
               }
               rows={3}
             />
-          </div>
+          </Field>
           <div className="flex items-center gap-3">
             <Switch
+              id="service-active"
               checked={editForm.active}
               onCheckedChange={(checked) =>
                 setEditForm({ ...editForm, active: checked })
               }
             />
-            <Label>
+            <Label htmlFor="service-active">
               {editForm.active ? "Servicio activo" : "Servicio inactivo"}
             </Label>
           </div>
@@ -491,6 +498,20 @@ export default function ServicesPage() {
           </div>
         </form>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Eliminar servicio"
+        confirmLabel="Si, eliminar"
+        pendingLabel="Eliminando..."
+        pending={deleting}
+        variant="destructive"
+        error={deleteError}
+      >
+        Esta accion no se puede deshacer.
+      </ConfirmDialog>
     </div>
   );
 }

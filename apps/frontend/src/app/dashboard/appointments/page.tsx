@@ -1,112 +1,67 @@
 "use client";
 import { useState, useMemo, useDeferredValue } from "react";
-import { mutate } from "swr";
 import { z } from "zod";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog } from "@/components/ui/dialog";
-import { RadioGroup } from "@/components/ui/radio-group";
-import {
-  Calendar,
-  Plus,
-  Clock,
-  User,
-  Search,
-  X,
-  Banknote,
-  CreditCard,
-  Smartphone,
-  CheckCircle,
-  List,
-  CalendarDays,
-} from "lucide-react";
+import { Pagination } from "@/components/ui/pagination";
+import { Calendar, Plus, Search, X, List, CalendarDays } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
-import {
-  formatCurrency,
-  formatDate,
-  formatTime,
-  getErrorMessage,
-} from "@/lib/utils";
-import { getAppointmentStatus } from "@/lib/status";
-import { useApi, usePaginatedApi } from "@/lib/swr";
+import { getErrorMessage } from "@/lib/utils";
+import { useApi, revalidatePrefix } from "@/lib/swr";
+import { usePaginatedList } from "@/lib/use-paginated-list";
 import { logger } from "@/lib/logger";
 import { CalendarView } from "@/components/calendar-view";
-
-const appointmentSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  startTime: z.string(),
-  endTime: z.string(),
-  status: z.string(),
-  notes: z.string().nullable(),
-  totalAmount: z.string(),
-  professionalId: z.string(),
-  clientId: z.string(),
-  appointmentServices: z.array(
-    z.object({
-      serviceName: z.string(),
-      price: z.string(),
-      duration: z.number(),
-    })
-  ),
-});
-type Appointment = z.infer<typeof appointmentSchema>;
-
-const professionalSchema = z.object({
-  id: z.string(),
-  name: z.string().nullable(),
-});
-type Professional = z.infer<typeof professionalSchema>;
-
-const serviceSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  price: z.number(),
-  duration: z.number(),
-});
-type Service = z.infer<typeof serviceSchema>;
-
-const clientSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-});
-type Client = z.infer<typeof clientSchema>;
-
-const paymentMethodOptions = [
-  { value: "CASH", label: "Efectivo", icon: <Banknote className="h-5 w-5" /> },
-  {
-    value: "CARD",
-    label: "Datáfono",
-    icon: <CreditCard className="h-5 w-5" />,
-  },
-  {
-    value: "TRANSFER",
-    label: "Transferencia",
-    icon: <Smartphone className="h-5 w-5" />,
-  },
-];
+import { AppointmentForm } from "./appointment-form";
+import { AppointmentCard } from "./appointment-card";
+import {
+  CompleteAppointmentDialog,
+  emptyPaymentDraft,
+  type PaymentDraft,
+} from "./complete-appointment-dialog";
+import {
+  appointmentSchema,
+  APPOINTMENTS_KEY,
+  clientSchema,
+  CLIENTS_KEY,
+  emptyForm,
+  professionalSchema,
+  PROFESSIONALS_KEY,
+  serviceSchema,
+  SERVICES_KEY,
+  type Appointment,
+  type AppointmentForm as FormValues,
+  type Client,
+  type Professional,
+  type Service,
+} from "./schemas";
 
 export default function AppointmentsPage() {
   const { role } = useAuthStore();
-  const APPOINTMENTS_KEY = "/booking/appointments";
-  const PROFESSIONALS_KEY = "/core/professionals";
-  const SERVICES_KEY = "/core/services";
-  const CLIENTS_KEY = "/core/clients";
 
-  const { items: appointments, isLoading: loading } =
-    usePaginatedApi<Appointment>(APPOINTMENTS_KEY, appointmentSchema);
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
+  // El calendario pinta una semana entera, asi que pide el maximo que admite
+  // el backend (100) en vez de paginar; la lista si pagina de 20 en 20.
+  const {
+    items: appointments,
+    meta,
+    setPage,
+    isLoading: loading,
+  } = usePaginatedList<Appointment>({
+    basePath: APPOINTMENTS_KEY,
+    itemSchema: appointmentSchema,
+    limit: viewMode === "calendar" ? 100 : undefined,
+  });
+
+  // Los catalogos solo hacen falta con el formulario abierto.
   const { data: professionals } = useApi<Professional[]>(
     showForm ? PROFESSIONALS_KEY : null,
     undefined,
@@ -123,25 +78,14 @@ export default function AppointmentsPage() {
     z.array(clientSchema)
   );
 
-  const [form, setForm] = useState({
-    professionalId: "",
-    clientId: "",
-    date: "",
-    startTime: "",
-    notes: "",
-  });
+  const [form, setForm] = useState<FormValues>(emptyForm);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
 
-  const [completeDialog, setCompleteDialog] = useState(false);
   const [completingAppt, setCompletingAppt] = useState<Appointment | null>(
     null
   );
-  const [paymentMethod, setPaymentMethod] = useState("CASH");
-  const [paymentRef, setPaymentRef] = useState("");
-  const [paymentNotes, setPaymentNotes] = useState("");
+  const [payment, setPayment] = useState<PaymentDraft>(emptyPaymentDraft);
   const [completingAction, setCompletingAction] = useState(false);
-
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
   const professionalMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -151,9 +95,13 @@ export default function AppointmentsPage() {
     return map;
   }, [professionals]);
 
+  // Filtro local sobre la pagina cargada: el endpoint de citas todavia no
+  // acepta busqueda de texto, asi que la UI lo dice en vez de aparentar que
+  // busca en todo el historial.
   const filtered = useMemo(() => {
     const q = deferredSearch.toLowerCase();
-    return (appointments ?? []).filter(
+    if (!q) return appointments;
+    return appointments.filter(
       (a) =>
         a.appointmentServices.some((s) =>
           s.serviceName.toLowerCase().includes(q)
@@ -167,7 +115,7 @@ export default function AppointmentsPage() {
         `/booking/appointments/${id}/${action}`,
         action === "cancel" ? { reason: "Cancelado por usuario" } : {}
       );
-      await mutate(APPOINTMENTS_KEY);
+      await revalidatePrefix(APPOINTMENTS_KEY);
     } catch (err) {
       logger.error(err);
     }
@@ -175,10 +123,7 @@ export default function AppointmentsPage() {
 
   const openCompleteDialog = (appt: Appointment) => {
     setCompletingAppt(appt);
-    setPaymentMethod("CASH");
-    setPaymentRef("");
-    setPaymentNotes("");
-    setCompleteDialog(true);
+    setPayment(emptyPaymentDraft);
   };
 
   const handleCompleteWithPayment = async (registerPayment: boolean) => {
@@ -192,15 +137,14 @@ export default function AppointmentsPage() {
           appointmentId: completingAppt.id,
           clientId: completingAppt.clientId,
           amount: parseFloat(completingAppt.totalAmount),
-          method: paymentMethod,
-          reference: paymentRef || undefined,
-          notes: paymentNotes || undefined,
+          method: payment.method,
+          reference: payment.reference || undefined,
+          notes: payment.notes || undefined,
         });
       }
 
-      await mutate(APPOINTMENTS_KEY);
-      await mutate("/payment/payments");
-      setCompleteDialog(false);
+      await revalidatePrefix(APPOINTMENTS_KEY);
+      await revalidatePrefix("/payment/payments");
       setCompletingAppt(null);
     } catch (err) {
       logger.error(err);
@@ -214,29 +158,29 @@ export default function AppointmentsPage() {
     setError("");
     setSubmitting(true);
     try {
-      const serviceData = selectedServices.map((sid) => {
-        const svc = (services ?? []).find((s) => s.id === sid)!;
-        return {
-          id: svc.id,
-          name: svc.name,
-          price: svc.price,
-          duration: svc.duration,
-        };
+      // El backend guarda nombre y precio junto a la cita, para que el
+      // historico no cambie si luego se edita el servicio en el catalogo.
+      const serviceData = selectedServices.flatMap((id) => {
+        const svc = (services ?? []).find((s) => s.id === id);
+        return svc
+          ? [
+              {
+                id: svc.id,
+                name: svc.name,
+                price: svc.price,
+                duration: svc.duration,
+              },
+            ]
+          : [];
       });
       await api.post("/booking/appointments", {
         ...form,
         serviceIds: serviceData,
       });
       setShowForm(false);
-      setForm({
-        professionalId: "",
-        clientId: "",
-        date: "",
-        startTime: "",
-        notes: "",
-      });
+      setForm(emptyForm);
       setSelectedServices([]);
-      await mutate(APPOINTMENTS_KEY);
+      await revalidatePrefix(APPOINTMENTS_KEY);
     } catch (err) {
       setError(getErrorMessage(err, "Error al crear la cita"));
     } finally {
@@ -252,21 +196,23 @@ export default function AppointmentsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Agenda</h1>
           <p className="text-muted-foreground">Gestiona tus citas</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-md border">
+          <div className="flex overflow-hidden rounded-md border">
             <button
               onClick={() => setViewMode("list")}
+              aria-pressed={viewMode === "list"}
               className={`flex items-center gap-1 px-3 py-1.5 text-sm ${viewMode === "list" ? "bg-primary text-primary-foreground" : ""}`}
             >
               <List className="h-4 w-4" /> Lista
             </button>
             <button
               onClick={() => setViewMode("calendar")}
+              aria-pressed={viewMode === "calendar"}
               className={`flex items-center gap-1 px-3 py-1.5 text-sm ${viewMode === "calendar" ? "bg-primary text-primary-foreground" : ""}`}
             >
               <CalendarDays className="h-4 w-4" /> Calendario
@@ -286,119 +232,18 @@ export default function AppointmentsPage() {
       </div>
 
       {showForm && (
-        <Card className="mb-6 border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Nueva cita</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form
-              onSubmit={handleCreate}
-              className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-            >
-              <div className="space-y-2">
-                <Label>Profesional</Label>
-                <select
-                  className="border-input bg-background flex h-10 w-full rounded-md border px-3 py-2 text-sm"
-                  value={form.professionalId}
-                  onChange={(e) =>
-                    setForm({ ...form, professionalId: e.target.value })
-                  }
-                  required
-                >
-                  <option value="">Seleccionar...</option>
-                  {(professionals ?? []).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name || "Sin nombre"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label>Cliente</Label>
-                <select
-                  className="border-input bg-background flex h-10 w-full rounded-md border px-3 py-2 text-sm"
-                  value={form.clientId}
-                  onChange={(e) =>
-                    setForm({ ...form, clientId: e.target.value })
-                  }
-                  required
-                >
-                  <option value="">Seleccionar...</option>
-                  {(clients ?? []).map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label>Fecha</Label>
-                <Input
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Hora inicio</Label>
-                <Input
-                  type="time"
-                  value={form.startTime}
-                  onChange={(e) =>
-                    setForm({ ...form, startTime: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="space-y-2 sm:col-span-2 lg:col-span-3">
-                <Label>Servicios</Label>
-                <div className="flex flex-wrap gap-2">
-                  {(services ?? []).map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => toggleService(s.id)}
-                      className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-                        selectedServices.includes(s.id)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background text-muted-foreground border-input hover:border-primary"
-                      }`}
-                    >
-                      {s.name} — {formatCurrency(s.price)}
-                    </button>
-                  ))}
-                  {(services ?? []).length === 0 && (
-                    <p className="text-muted-foreground text-sm">
-                      No hay servicios disponibles
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-2 sm:col-span-2 lg:col-span-3">
-                <Label>Notas (opcional)</Label>
-                <Input
-                  placeholder="Notas sobre la cita..."
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                />
-              </div>
-              {error && (
-                <p className="text-destructive text-center text-sm sm:col-span-2 lg:col-span-3">
-                  {error}
-                </p>
-              )}
-              <div className="sm:col-span-2 lg:col-span-3">
-                <Button
-                  type="submit"
-                  disabled={submitting || selectedServices.length === 0}
-                >
-                  {submitting ? "Creando..." : "Crear cita"}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+        <AppointmentForm
+          form={form}
+          onChange={setForm}
+          onSubmit={handleCreate}
+          professionals={professionals ?? []}
+          clients={clients ?? []}
+          services={services ?? []}
+          selectedServices={selectedServices}
+          onToggleService={toggleService}
+          submitting={submitting}
+          error={error}
+        />
       )}
 
       {viewMode === "list" && (
@@ -406,12 +251,20 @@ export default function AppointmentsPage() {
           <div className="relative max-w-sm">
             <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
             <Input
-              placeholder="Buscar por servicio..."
+              id="appointment-search"
+              placeholder="Filtrar por servicio..."
               className="pl-10"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              aria-describedby="appointment-search-hint"
             />
           </div>
+          <p
+            id="appointment-search-hint"
+            className="text-muted-foreground mt-1.5 text-xs"
+          >
+            Filtra las citas de esta pagina.
+          </p>
         </div>
       )}
 
@@ -424,7 +277,7 @@ export default function AppointmentsPage() {
               </p>
             ) : (
               <CalendarView
-                appointments={appointments ?? []}
+                appointments={appointments}
                 onComplete={openCompleteDialog}
                 onConfirm={(id) => handleAction(id, "confirm")}
                 onCancel={(id) => handleAction(id, "cancel")}
@@ -450,185 +303,35 @@ export default function AppointmentsPage() {
               </CardContent>
             </Card>
           ) : (
-            filtered.map((appt) => {
-              const status = getAppointmentStatus(appt.status);
-              return (
-                <Card
-                  key={appt.id}
-                  className="border-0 shadow-sm transition-shadow hover:shadow-md"
-                >
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-xl">
-                          <Calendar className="text-primary h-5 w-5" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-semibold">
-                              {appt.appointmentServices
-                                .map((s) => s.serviceName)
-                                .join(", ")}
-                            </p>
-                            <Badge variant={status.variant}>
-                              {status.label}
-                            </Badge>
-                          </div>
-                          <div className="text-muted-foreground mt-1 flex items-center gap-3 text-sm">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {formatDate(appt.date)}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {formatTime(appt.startTime)} -{" "}
-                              {formatTime(appt.endTime)}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {professionalMap[appt.professionalId] ||
-                                appt.professionalId.slice(0, 8)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-semibold">
-                          {formatCurrency(parseFloat(appt.totalAmount))}
-                        </span>
-                        {appt.status === "PENDING" &&
-                          canDo(role, "appointments_confirm") && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleAction(appt.id, "confirm")}
-                            >
-                              Confirmar
-                            </Button>
-                          )}
-                        {appt.status === "CONFIRMED" &&
-                          canDo(role, "appointments_confirm") && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openCompleteDialog(appt)}
-                            >
-                              Completar
-                            </Button>
-                          )}
-                        {appt.status === "PENDING" &&
-                          canDo(role, "appointments_cancel") && (
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleAction(appt.id, "cancel")}
-                            >
-                              Cancelar
-                            </Button>
-                          )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })
+            filtered.map((appt) => (
+              <AppointmentCard
+                key={appt.id}
+                appointment={appt}
+                professionalName={
+                  professionalMap[appt.professionalId] ||
+                  appt.professionalId.slice(0, 8)
+                }
+                canConfirm={canDo(role, "appointments_confirm")}
+                canCancel={canDo(role, "appointments_cancel")}
+                onConfirm={(id) => handleAction(id, "confirm")}
+                onComplete={openCompleteDialog}
+                onCancel={(id) => handleAction(id, "cancel")}
+              />
+            ))
           )}
+          <Pagination meta={meta} onPageChange={setPage} itemLabel="citas" />
         </div>
       )}
 
-      <Dialog
-        open={completeDialog}
-        onClose={() => setCompleteDialog(false)}
-        title="Completar cita"
-        wide
-      >
-        {completingAppt && (
-          <div className="space-y-6">
-            <div className="bg-muted/50 space-y-3 rounded-lg p-4">
-              <h3 className="text-muted-foreground text-sm font-semibold uppercase tracking-wide">
-                Resumen de la cita
-              </h3>
-              <div className="space-y-2">
-                {completingAppt.appointmentServices.map((s, i) => (
-                  <div key={i} className="flex justify-between text-sm">
-                    <span>
-                      {s.serviceName} ({s.duration} min)
-                    </span>
-                    <span className="font-medium">
-                      {formatCurrency(parseFloat(s.price))}
-                    </span>
-                  </div>
-                ))}
-                <div className="flex justify-between border-t pt-2 font-semibold">
-                  <span>Total</span>
-                  <span>
-                    {formatCurrency(parseFloat(completingAppt.totalAmount))}
-                  </span>
-                </div>
-              </div>
-              <div className="text-muted-foreground flex gap-4 text-sm">
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  {formatDate(completingAppt.date)}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {formatTime(completingAppt.startTime)} -{" "}
-                  {formatTime(completingAppt.endTime)}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">Metodo de pago</Label>
-              <RadioGroup
-                options={paymentMethodOptions}
-                value={paymentMethod}
-                onChange={setPaymentMethod}
-              />
-            </div>
-
-            {paymentMethod === "TRANSFER" && (
-              <div className="space-y-2">
-                <Label>Referencia de la transferencia</Label>
-                <Input
-                  placeholder="Ej: #123456789"
-                  value={paymentRef}
-                  onChange={(e) => setPaymentRef(e.target.value)}
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label>Notas adicionales</Label>
-              <Textarea
-                placeholder="Notas sobre el pago..."
-                value={paymentNotes}
-                onChange={(e) => setPaymentNotes(e.target.value)}
-                rows={2}
-              />
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <Button
-                onClick={() => handleCompleteWithPayment(true)}
-                disabled={completingAction}
-              >
-                <CheckCircle className="mr-2 h-4 w-4" />
-                {completingAction
-                  ? "Procesando..."
-                  : "Completar y registrar pago"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleCompleteWithPayment(false)}
-                disabled={completingAction}
-              >
-                {completingAction ? "Procesando..." : "Completar sin pago"}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Dialog>
+      <CompleteAppointmentDialog
+        open={!!completingAppt}
+        onClose={() => setCompletingAppt(null)}
+        appointment={completingAppt}
+        payment={payment}
+        onPaymentChange={setPayment}
+        onComplete={handleCompleteWithPayment}
+        pending={completingAction}
+      />
     </div>
   );
 }

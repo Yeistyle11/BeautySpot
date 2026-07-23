@@ -69,7 +69,7 @@ export default function ClientDashboardPage() {
       title: "Completadas",
       value: completed,
       icon: CheckCircle,
-      color: "text-emerald-600",
+      color: "text-success",
       bg: "bg-emerald-50",
     },
     {

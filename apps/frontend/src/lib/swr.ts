@@ -35,7 +35,8 @@ export function usePaginatedApi<T>(
 ) {
   const { data, error, isLoading, mutate } = useSWR(
     path,
-    async () => paginatedSchema(itemSchema).parse(await api.get(path as string)),
+    async () =>
+      paginatedSchema(itemSchema).parse(await api.get(path as string)),
     options
   );
   return {
