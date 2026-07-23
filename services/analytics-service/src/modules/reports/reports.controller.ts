@@ -1,6 +1,6 @@
-import { Controller, Get, Query, Req } from "@nestjs/common";
+import { Controller, Get, Query } from "@nestjs/common";
 import { ReportsService } from "./reports.service";
-import { Roles } from "@beautyspot/nest-common";
+import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { DateRangeQueryDto } from "./dto/report-query.dto";
 
@@ -10,17 +10,17 @@ export class ReportsController {
   constructor(private readonly service: ReportsService) {}
 
   @Get("revenue")
-  async getRevenueReport(@Req() req: any, @Query() query: DateRangeQueryDto) {
-    return this.service.getRevenueReport(req.businessId, query.from, query.to);
+  async getRevenueReport(@BusinessId() businessId: string, @Query() query: DateRangeQueryDto) {
+    return this.service.getRevenueReport(businessId, query.from, query.to);
   }
 
   @Get("professionals")
-  async getProfessionalsReport(@Req() req: any, @Query() query: DateRangeQueryDto) {
-    return this.service.getProfessionalsReport(req.businessId, query.from, query.to);
+  async getProfessionalsReport(@BusinessId() businessId: string, @Query() query: DateRangeQueryDto) {
+    return this.service.getProfessionalsReport(businessId, query.from, query.to);
   }
 
   @Get("appointments")
-  async getAppointmentsReport(@Req() req: any, @Query() query: DateRangeQueryDto) {
-    return this.service.getAppointmentsReport(req.businessId, query.from, query.to);
+  async getAppointmentsReport(@BusinessId() businessId: string, @Query() query: DateRangeQueryDto) {
+    return this.service.getAppointmentsReport(businessId, query.from, query.to);
   }
 }

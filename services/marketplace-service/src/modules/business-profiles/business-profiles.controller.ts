@@ -1,13 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Param,
-  Body,
-  Req,
-} from "@nestjs/common";
+import { Controller, Get, Post, Put, Delete, Param, Body } from "@nestjs/common";
 import { BusinessProfilesService } from "./business-profiles.service";
 import {
   UpsertProfileDto,
@@ -15,7 +6,7 @@ import {
   AddGalleryImagesDto,
   UpdateGalleryImageDto,
 } from "./dto/profile.dto";
-import { Roles, Public } from "@beautyspot/nest-common";
+import { Roles, Public, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
 @Controller("business-profiles")
@@ -24,47 +15,47 @@ export class BusinessProfilesController {
 
   @Get()
   @Roles(Role.OWNER, Role.ADMIN)
-  async findMyProfile(@Req() req: any) {
-    return this.service.findByBusinessId(req.businessId);
+  async findMyProfile(@BusinessId() businessId: string) {
+    return this.service.findByBusinessId(businessId);
   }
 
   @Put("config")
   @Roles(Role.OWNER, Role.ADMIN)
-  async updateConfig(@Req() req: any, @Body() dto: UpdateProfileConfigDto) {
-    return this.service.updateConfig(req.businessId, dto);
+  async updateConfig(@BusinessId() businessId: string, @Body() dto: UpdateProfileConfigDto) {
+    return this.service.updateConfig(businessId, dto);
   }
 
   @Post("gallery")
   @Roles(Role.OWNER, Role.ADMIN)
-  async addGalleryImages(@Req() req: any, @Body() dto: AddGalleryImagesDto) {
-    return this.service.addGalleryImages(req.businessId, dto);
+  async addGalleryImages(@BusinessId() businessId: string, @Body() dto: AddGalleryImagesDto) {
+    return this.service.addGalleryImages(businessId, dto);
   }
 
   @Put("gallery")
   @Roles(Role.OWNER, Role.ADMIN)
   async updateGalleryImage(
-    @Req() req: any,
+    @BusinessId() businessId: string,
     @Body() dto: UpdateGalleryImageDto
   ) {
-    return this.service.updateGalleryImage(req.businessId, dto);
+    return this.service.updateGalleryImage(businessId, dto);
   }
 
   @Delete("gallery/:index")
   @Roles(Role.OWNER, Role.ADMIN)
-  async removeGalleryImage(@Req() req: any, @Param("index") index: number) {
-    return this.service.removeGalleryImage(req.businessId, index);
+  async removeGalleryImage(@BusinessId() businessId: string, @Param("index") index: number) {
+    return this.service.removeGalleryImage(businessId, index);
   }
 
   @Post("publish")
   @Roles(Role.OWNER, Role.ADMIN)
-  async publish(@Req() req: any) {
-    return this.service.publish(req.businessId);
+  async publish(@BusinessId() businessId: string) {
+    return this.service.publish(businessId);
   }
 
   @Post("unpublish")
   @Roles(Role.OWNER, Role.ADMIN)
-  async unpublish(@Req() req: any) {
-    return this.service.unpublish(req.businessId);
+  async unpublish(@BusinessId() businessId: string) {
+    return this.service.unpublish(businessId);
   }
 }
 

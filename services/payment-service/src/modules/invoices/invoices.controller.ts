@@ -1,8 +1,8 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, Req, Res, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Param, Body, Query, Res, HttpCode, HttpStatus } from "@nestjs/common";
 import { Response } from 'express';
 import { InvoicesService } from "./invoices.service";
 import { CreateInvoiceDto, UpdateInvoiceStatusDto } from "./dto/invoice.dto";
-import { Roles } from "@beautyspot/nest-common";
+import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
 @Controller("invoices")
@@ -11,30 +11,30 @@ export class InvoicesController {
   constructor(private readonly service: InvoicesService) {}
 
   @Post()
-  async create(@Req() req: any, @Body() dto: CreateInvoiceDto) {
-    return this.service.create(req.businessId, dto);
+  async create(@BusinessId() businessId: string, @Body() dto: CreateInvoiceDto) {
+    return this.service.create(businessId, dto);
   }
 
   @Get()
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
-  async findAll(@Req() req: any, @Query() query: Record<string, unknown>) {
-    return this.service.findByBusiness(req.businessId, query as any);
+  async findAll(@BusinessId() businessId: string, @Query() query: Record<string, unknown>) {
+    return this.service.findByBusiness(businessId, query as any);
   }
 
   @Get(":id")
-  async findById(@Param("id") id: string, @Req() req: any) {
-    return this.service.findById(id, req.businessId);
+  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+    return this.service.findById(id, businessId);
   }
 
   @Patch(":id/status")
-  async updateStatus(@Param("id") id: string, @Req() req: any, @Body() dto: UpdateInvoiceStatusDto) {
-    return this.service.updateStatus(id, req.businessId, dto.status);
+  async updateStatus(@Param("id") id: string, @BusinessId() businessId: string, @Body() dto: UpdateInvoiceStatusDto) {
+    return this.service.updateStatus(id, businessId, dto.status);
   }
 
   @Get(":id/pdf")
   @HttpCode(HttpStatus.OK)
-  async generatePdf(@Param("id") id: string, @Req() req: any, @Res() res: Response) {
-    const pdfBuffer = await this.service.generateInvoicePdf(id, req.businessId);
+  async generatePdf(@Param("id") id: string, @BusinessId() businessId: string, @Res() res: Response) {
+    const pdfBuffer = await this.service.generateInvoicePdf(id, businessId);
     
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=invoice-${id}.pdf`);

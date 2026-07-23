@@ -1,7 +1,7 @@
-import { Controller, Get, Post, Body, Param, Query, Req } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, Query } from "@nestjs/common";
 import { NotificationsService } from "./notifications.service";
 import { CreateNotificationDto, QueryNotificationsDto } from "./dto/create-notification.dto";
-import { Roles, CurrentUser } from "@beautyspot/nest-common";
+import { Roles, CurrentUser, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
 @Controller("notifications")
@@ -17,15 +17,18 @@ export class NotificationsController {
   @Get()
   findByUser(
     @CurrentUser("userId") userId: string,
-    @Req() req: any,
+    @BusinessId() businessId: string,
     @Query() query: QueryNotificationsDto,
   ) {
-    return this.service.findByUser(userId, req.businessId, query.unreadOnly);
+    return this.service.findByUser(userId, businessId, query.unreadOnly);
   }
 
   @Get("unread-count")
-  getUnreadCount(@CurrentUser("userId") userId: string, @Req() req: any) {
-    return this.service.getUnreadCount(userId, req.businessId);
+  getUnreadCount(
+    @CurrentUser("userId") userId: string,
+    @BusinessId() businessId: string,
+  ) {
+    return this.service.getUnreadCount(userId, businessId);
   }
 
   @Post(":id/read")
@@ -34,7 +37,10 @@ export class NotificationsController {
   }
 
   @Post("mark-all-read")
-  markAllAsRead(@CurrentUser("userId") userId: string, @Req() req: any) {
-    return this.service.markAllAsRead(userId, req.businessId);
+  markAllAsRead(
+    @CurrentUser("userId") userId: string,
+    @BusinessId() businessId: string,
+  ) {
+    return this.service.markAllAsRead(userId, businessId);
   }
 }

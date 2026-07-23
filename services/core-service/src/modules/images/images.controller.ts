@@ -4,7 +4,7 @@ import {
   Delete,
   Get,
   Body,
-  Req,
+  Param,
   HttpCode,
   HttpStatus,
   UseInterceptors,
@@ -13,12 +13,18 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { Roles } from "@beautyspot/nest-common";
+import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { ImagesService, UploadResult } from "./images.service";
 import { ProfessionalsService } from "../professionals/professionals.service";
 import { ServicesService } from "../services/services.service";
 import { GenerateUploadSignatureDto, DeleteImageDto } from "./dto";
+
+/** Contexto de autorización derivado del usuario autenticado y su tenant. */
+interface OwnershipContext {
+  role: string;
+  businessId?: string;
+}
 
 @Controller("images")
 export class ImagesController {
@@ -32,11 +38,10 @@ export class ImagesController {
   private async verifyResourceOwnership(
     resourceType: string,
     resourceId: string,
-    req: any
+    ctx: OwnershipContext
   ): Promise<void> {
-    if (req.user?.role === Role.SUPER_ADMIN) return;
-    const businessId: string | undefined = req.businessId;
-    if (!businessId) {
+    if (ctx.role === Role.SUPER_ADMIN) return;
+    if (!ctx.businessId) {
       throw new ForbiddenException(
         "No se pudo determinar el negocio del usuario"
       );
@@ -44,15 +49,15 @@ export class ImagesController {
 
     switch (resourceType) {
       case "businesses":
-        if (resourceId !== businessId) {
+        if (resourceId !== ctx.businessId) {
           throw new ForbiddenException("No tienes acceso a este negocio");
         }
         break;
       case "professionals":
-        await this.professionalsService.findById(resourceId, businessId);
+        await this.professionalsService.findById(resourceId, ctx.businessId);
         break;
       case "services":
-        await this.servicesService.findById(resourceId, businessId);
+        await this.servicesService.findById(resourceId, ctx.businessId);
         break;
       default:
         throw new BadRequestException("Tipo de recurso no válido");
@@ -60,8 +65,11 @@ export class ImagesController {
   }
 
   /** Verifica ownership de un S3 key (para delete/presigned-url). */
-  private async verifyKeyOwnership(key: string, req: any): Promise<void> {
-    if (req.user?.role === Role.SUPER_ADMIN) return;
+  private async verifyKeyOwnership(
+    key: string,
+    ctx: OwnershipContext
+  ): Promise<void> {
+    if (ctx.role === Role.SUPER_ADMIN) return;
 
     // Key format: businesses/{id}/logo/{uuid} | professionals/{id}/photo/{uuid} | services/{id}/image/{uuid}
     const parts = key.split("/");
@@ -69,24 +77,26 @@ export class ImagesController {
       throw new ForbiddenException("Key de imagen no válido");
     }
 
-    const resourceType = parts[0]; // "businesses" | "professionals" | "services"
-    const resourceId = parts[1];
-    await this.verifyResourceOwnership(resourceType, resourceId, req);
+    await this.verifyResourceOwnership(parts[0], parts[1], ctx);
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post("businesses/:businessId/logo-upload")
   @UseInterceptors(FileInterceptor("file"))
   async uploadBusinessLogo(
-    @Req() req: any,
+    @Param("businessId") businessId: string,
+    @CurrentUser("role") role: string,
+    @BusinessId() tenantBusinessId: string,
     @UploadedFile() file: Express.Multer.File
   ): Promise<{ success: true; data: UploadResult }> {
     if (!file) {
       throw new BadRequestException("Archivo no proporcionado");
     }
 
-    const businessId = req.params.businessId as string;
-    await this.verifyResourceOwnership("businesses", businessId, req);
+    await this.verifyResourceOwnership("businesses", businessId, {
+      role,
+      businessId: tenantBusinessId,
+    });
 
     this.imagesService.validateImageFile(file.buffer, file.mimetype);
 
@@ -103,15 +113,19 @@ export class ImagesController {
   @Post("professionals/:professionalId/photo-upload")
   @UseInterceptors(FileInterceptor("file"))
   async uploadProfessionalPhoto(
-    @Req() req: any,
+    @Param("professionalId") professionalId: string,
+    @CurrentUser("role") role: string,
+    @BusinessId() tenantBusinessId: string,
     @UploadedFile() file: Express.Multer.File
   ): Promise<{ success: true; data: UploadResult }> {
     if (!file) {
       throw new BadRequestException("Archivo no proporcionado");
     }
 
-    const professionalId = req.params.professionalId as string;
-    await this.verifyResourceOwnership("professionals", professionalId, req);
+    await this.verifyResourceOwnership("professionals", professionalId, {
+      role,
+      businessId: tenantBusinessId,
+    });
 
     this.imagesService.validateImageFile(file.buffer, file.mimetype);
 
@@ -128,15 +142,19 @@ export class ImagesController {
   @Post("services/:serviceId/image-upload")
   @UseInterceptors(FileInterceptor("file"))
   async uploadServiceImage(
-    @Req() req: any,
+    @Param("serviceId") serviceId: string,
+    @CurrentUser("role") role: string,
+    @BusinessId() tenantBusinessId: string,
     @UploadedFile() file: Express.Multer.File
   ): Promise<{ success: true; data: UploadResult }> {
     if (!file) {
       throw new BadRequestException("Archivo no proporcionado");
     }
 
-    const serviceId = req.params.serviceId as string;
-    await this.verifyResourceOwnership("services", serviceId, req);
+    await this.verifyResourceOwnership("services", serviceId, {
+      role,
+      businessId: tenantBusinessId,
+    });
 
     this.imagesService.validateImageFile(file.buffer, file.mimetype);
 
@@ -152,7 +170,8 @@ export class ImagesController {
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Get("upload-signature")
   async generateUploadSignature(
-    @Req() req: any,
+    @CurrentUser("role") role: string,
+    @BusinessId() tenantBusinessId: string,
     @Body() dto: GenerateUploadSignatureDto
   ): Promise<{ success: true; data: any }> {
     const expiresIn = dto.expiresIn ? parseInt(dto.expiresIn) : 3600;
@@ -172,7 +191,10 @@ export class ImagesController {
       throw new BadRequestException("Tipo de recurso no válido");
     }
 
-    await this.verifyResourceOwnership(mapping.verifyAs, dto.resourceId, req);
+    await this.verifyResourceOwnership(mapping.verifyAs, dto.resourceId, {
+      role,
+      businessId: tenantBusinessId,
+    });
 
     let result;
     switch (dto.resourceType) {
@@ -211,10 +233,14 @@ export class ImagesController {
   @Delete(":publicId")
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteImage(
-    @Req() req: any,
+    @CurrentUser("role") role: string,
+    @BusinessId() tenantBusinessId: string,
     @Body() dto: DeleteImageDto
   ): Promise<void> {
-    await this.verifyKeyOwnership(dto.key, req);
+    await this.verifyKeyOwnership(dto.key, {
+      role,
+      businessId: tenantBusinessId,
+    });
     await this.imagesService.deleteImage(dto.key);
   }
 
@@ -227,10 +253,14 @@ export class ImagesController {
   )
   @Get("presigned-url")
   async getPresignedUrl(
-    @Req() req: any,
+    @CurrentUser("role") role: string,
+    @BusinessId() tenantBusinessId: string,
     @Body() body: { key: string; expiresIn?: string }
   ): Promise<{ success: true; data: { url: string } }> {
-    await this.verifyKeyOwnership(body.key, req);
+    await this.verifyKeyOwnership(body.key, {
+      role,
+      businessId: tenantBusinessId,
+    });
     const expiresIn = body.expiresIn ? parseInt(body.expiresIn) : 3600;
     const url = await this.imagesService.getImageUrl(body.key, expiresIn);
     return { success: true, data: { url } };

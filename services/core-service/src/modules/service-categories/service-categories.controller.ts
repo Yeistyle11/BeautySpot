@@ -1,17 +1,7 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
-  Body,
-  Query,
-  Req,
-} from "@nestjs/common";
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query } from "@nestjs/common";
 import { ServiceCategoriesService } from "./service-categories.service";
 import { CreateServiceCategoryDto, UpdateServiceCategoryDto } from "./dto/service-category.dto";
-import { Roles } from "@beautyspot/nest-common";
+import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
 @Controller("service-categories")
@@ -20,14 +10,14 @@ export class ServiceCategoriesController {
 
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post()
-  async create(@Req() req: any, @Body() dto: CreateServiceCategoryDto) {
-    return this.service.create(req.businessId, dto);
+  async create(@BusinessId() businessId: string, @Body() dto: CreateServiceCategoryDto) {
+    return this.service.create(businessId, dto);
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN, Role.PROFESSIONAL, Role.RECEPTIONIST)
   @Get()
   async findAll(
-    @Req() req: any,
+    @BusinessId() businessId: string,
     @Query("active") active?: string,
     @Query("search") search?: string,
     @Query("page") page?: string,
@@ -37,7 +27,7 @@ export class ServiceCategoriesController {
       const p = Math.max(1, parseInt(page || "1", 10));
       const l = Math.min(100, Math.max(1, parseInt(limit || "20", 10)));
       return this.service.findPaginated(
-        req.businessId,
+        businessId,
         {
           page: p,
           limit: l,
@@ -50,45 +40,45 @@ export class ServiceCategoriesController {
       );
     }
 
-    return this.service.findByBusiness(req.businessId, active !== "false");
+    return this.service.findByBusiness(businessId, active !== "false");
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN, Role.PROFESSIONAL, Role.RECEPTIONIST)
   @Get(":id")
-  async findById(@Param("id") id: string, @Req() req: any) {
-    return this.service.findById(id, req.businessId);
+  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+    return this.service.findById(id, businessId);
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Patch(":id")
   async update(
     @Param("id") id: string,
-    @Req() req: any,
+    @BusinessId() businessId: string,
     @Body() dto: UpdateServiceCategoryDto,
   ) {
-    return this.service.update(id, req.businessId, dto);
+    return this.service.update(id, businessId, dto);
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Delete(":id")
-  async remove(@Param("id") id: string, @Req() req: any) {
-    await this.service.remove(id, req.businessId);
+  async remove(@Param("id") id: string, @BusinessId() businessId: string) {
+    await this.service.remove(id, businessId);
     return { message: "Categoría de servicio desactivada" };
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Patch(":id/toggle")
-  async toggleActive(@Param("id") id: string, @Req() req: any) {
-    return this.service.toggleActive(id, req.businessId);
+  async toggleActive(@Param("id") id: string, @BusinessId() businessId: string) {
+    return this.service.toggleActive(id, businessId);
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post("reorder")
   async reorder(
-    @Req() req: any,
+    @BusinessId() businessId: string,
     @Body() body: { items: { id: string; sortOrder: number }[] },
   ) {
-    await this.service.reorder(req.businessId, body.items);
+    await this.service.reorder(businessId, body.items);
     return { message: "Orden actualizado" };
   }
 }

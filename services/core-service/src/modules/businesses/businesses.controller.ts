@@ -7,10 +7,9 @@ import {
   Param,
   Body,
   Query,
-  Req,
 } from "@nestjs/common";
 import { BusinessesService } from "./businesses.service";
-import { Roles } from "@beautyspot/nest-common";
+import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { CreateBusinessDto, UpdateBusinessDto } from "./dto/business.dto";
 
@@ -32,8 +31,12 @@ export class BusinessesController {
     Role.RECEPTIONIST
   )
   @Get()
-  async findAll(@Req() req: any, @Query() query: Record<string, unknown>) {
-    return this.service.findAll(query, req.businessId, req.user?.role);
+  async findAll(
+    @BusinessId() businessId: string,
+    @CurrentUser("role") role: Role,
+    @Query() query: Record<string, unknown>
+  ) {
+    return this.service.findAll(query, businessId, role);
   }
 
   @Roles(
@@ -44,27 +47,40 @@ export class BusinessesController {
     Role.RECEPTIONIST
   )
   @Get("slug/:slug")
-  async findBySlug(@Req() req: any, @Param("slug") slug: string) {
-    return this.service.findBySlug(slug, req.businessId, req.user?.role);
+  async findBySlug(
+    @BusinessId() businessId: string,
+    @CurrentUser("role") role: Role,
+    @Param("slug") slug: string
+  ) {
+    return this.service.findBySlug(slug, businessId, role);
   }
 
   @Get(":id")
-  async findById(@Req() req: any, @Param("id") id: string) {
-    return this.service.findById(id, req.businessId, req.user?.role);
+  async findById(
+    @BusinessId() businessId: string,
+    @CurrentUser("role") role: Role,
+    @Param("id") id: string
+  ) {
+    return this.service.findById(id, businessId, role);
   }
 
   @Patch(":id")
   async update(
-    @Req() req: any,
+    @BusinessId() businessId: string,
+    @CurrentUser("role") role: Role,
     @Param("id") id: string,
     @Body() dto: UpdateBusinessDto
   ) {
-    return this.service.update(id, dto, req.businessId, req.user?.role);
+    return this.service.update(id, dto, businessId, role);
   }
 
   @Delete(":id")
-  async deactivate(@Req() req: any, @Param("id") id: string) {
-    await this.service.deactivate(id, req.businessId, req.user?.role);
+  async deactivate(
+    @BusinessId() businessId: string,
+    @CurrentUser("role") role: Role,
+    @Param("id") id: string
+  ) {
+    await this.service.deactivate(id, businessId, role);
     return { message: "Negocio desactivado" };
   }
 }

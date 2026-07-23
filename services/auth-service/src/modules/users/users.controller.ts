@@ -1,6 +1,6 @@
-import { Controller, Get, Post, Patch, Body, Param, Req } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Body, Param } from "@nestjs/common";
 import { UsersService } from "./users.service";
-import { CurrentUser, Roles } from "@beautyspot/nest-common";
+import { CurrentUser, Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { CreateStaffDto } from "./dto/create-staff.dto";
@@ -41,8 +41,8 @@ export class UsersController {
    */
   @Get("business")
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
-  async listStaff(@Req() req: any) {
-    return this.usersService.findByBusiness(req.businessId);
+  async listStaff(@BusinessId() businessId: string) {
+    return this.usersService.findByBusiness(businessId);
   }
 
   /**
@@ -50,8 +50,8 @@ export class UsersController {
    */
   @Get(":id/staff")
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
-  async getStaffMember(@Param("id") userId: string, @Req() req: any) {
-    return this.usersService.findByIdAndBusiness(userId, req.businessId);
+  async getStaffMember(@Param("id") userId: string, @BusinessId() businessId: string) {
+    return this.usersService.findByIdAndBusiness(userId, businessId);
   }
 
   /**
@@ -61,8 +61,8 @@ export class UsersController {
    */
   @Post("staff")
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
-  async createStaff(@Body() dto: CreateStaffDto, @Req() req: any) {
-    return this.usersService.createStaff(req.businessId, dto);
+  async createStaff(@Body() dto: CreateStaffDto, @BusinessId() businessId: string) {
+    return this.usersService.createStaff(businessId, dto);
   }
 
   /**
@@ -74,9 +74,9 @@ export class UsersController {
   async updateStaff(
     @Param("id") userId: string,
     @Body() dto: UpdateStaffDto,
-    @Req() req: any
+    @BusinessId() businessId: string
   ) {
-    return this.usersService.updateStaff(userId, req.businessId, dto);
+    return this.usersService.updateStaff(userId, businessId, dto);
   }
 
   /**
@@ -88,11 +88,11 @@ export class UsersController {
   async adminResetPassword(
     @Param("id") userId: string,
     @Body() dto: AdminResetPasswordDto,
-    @Req() req: any
+    @BusinessId() businessId: string
   ) {
     return this.usersService.adminResetPassword(
       userId,
-      req.businessId,
+      businessId,
       dto.newPassword
     );
   }
@@ -106,8 +106,8 @@ export class UsersController {
   async toggleActive(
     @Param("id") userId: string,
     @Body() body: { active: boolean },
-    @Req() req: any
+    @BusinessId() businessId: string
   ) {
-    return this.usersService.toggleActive(userId, req.businessId, body.active);
+    return this.usersService.toggleActive(userId, businessId, body.active);
   }
 }
