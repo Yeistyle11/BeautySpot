@@ -24,7 +24,7 @@ import { api } from "@/lib/api";
 import { formatCurrency, formatDateTimeStamp } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
-import { useApi } from "@/lib/swr";
+import { useApi, usePaginatedApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 
 const paymentSchema = z.object({
@@ -85,10 +85,9 @@ const CLIENTS_KEY = "/core/clients";
 
 export default function PaymentsPage() {
   const { role } = useAuthStore();
-  const { data: payments, isLoading: loading } = useApi<Payment[]>(
+  const { items: payments, isLoading: loading } = usePaginatedApi<Payment>(
     PAYMENTS_KEY,
-    undefined,
-    z.array(paymentSchema)
+    paymentSchema
   );
   const [filterMethod, setFilterMethod] = useState("all");
   const [dateFrom, setDateFrom] = useState("");

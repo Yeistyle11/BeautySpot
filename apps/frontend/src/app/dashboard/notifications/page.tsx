@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Bell, CheckCheck } from "lucide-react";
 import { z } from "zod";
 import { api } from "@/lib/api";
-import { useApi } from "@/lib/swr";
+import { usePaginatedApi } from "@/lib/swr";
+import type { IPaginatedResponse } from "@beautyspot/shared-types";
 import { formatDate } from "@/lib/utils";
 
 const notificationSchema = z.object({
@@ -22,19 +23,25 @@ type Notification = z.infer<typeof notificationSchema>;
 const NOTIFICATIONS_KEY = "/notification/notifications";
 
 export default function NotificationsPage() {
-  const { data: notifications, isLoading: loading } = useApi<Notification[]>(
-    NOTIFICATIONS_KEY,
-    undefined,
-    z.array(notificationSchema)
-  );
+  const { items: notifications, isLoading: loading } =
+    usePaginatedApi<Notification>(NOTIFICATIONS_KEY, notificationSchema);
 
   const markRead = useCallback(async (id: string) => {
     try {
       await api.post(`/notification/notifications/${id}/read`, {});
+      // La respuesta cacheada es la página { data, meta }: se actualiza el
+      // item dentro de `data` sin descartar los metadatos de paginación.
       await mutate(
         NOTIFICATIONS_KEY,
-        (prev: Notification[] | undefined) =>
-          prev?.map((n) => (n.id === id ? { ...n, read: true } : n)),
+        (prev: IPaginatedResponse<Notification> | undefined) =>
+          prev
+            ? {
+                ...prev,
+                data: prev.data.map((n) =>
+                  n.id === id ? { ...n, read: true } : n
+                ),
+              }
+            : prev,
         { revalidate: false }
       );
     } catch {

@@ -6,8 +6,13 @@ import {
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource, EntityManager, Between } from "typeorm";
 import { PaymentEntity } from "./payment.entity";
-import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
+import {
+  PaymentMethod,
+  PaymentStatus,
+  IPaginatedResponse,
+} from "@beautyspot/shared-types";
 import { OutboxService } from "@beautyspot/nest-common";
+import { paginate, PaginateParams } from "@beautyspot/database";
 import { EventNames } from "@beautyspot/event-types";
 
 const REFUND_WINDOW_DAYS = 30;
@@ -60,26 +65,21 @@ export class PaymentsService {
 
   async findByBusiness(
     businessId: string,
-    filters?: {
+    filters: {
       method?: PaymentMethod;
       status?: PaymentStatus;
       from?: string;
       to?: string;
-    }
-  ) {
+    },
+    pagination: PaginateParams
+  ): Promise<IPaginatedResponse<PaymentEntity>> {
     const where: Record<string, unknown> = { businessId };
-    if (filters?.method) where.method = filters.method;
-    if (filters?.status) where.status = filters.status;
-    if (filters?.from && filters?.to) {
-      return this.repo.find({
-        where: {
-          ...where,
-          createdAt: Between(new Date(filters.from), new Date(filters.to)),
-        },
-        order: { createdAt: "DESC" },
-      });
+    if (filters.method) where.method = filters.method;
+    if (filters.status) where.status = filters.status;
+    if (filters.from && filters.to) {
+      where.createdAt = Between(new Date(filters.from), new Date(filters.to));
     }
-    return this.repo.find({ where, order: { createdAt: "DESC" } });
+    return paginate(this.repo, pagination, { where });
   }
 
   async findById(id: string, businessId: string): Promise<PaymentEntity> {
@@ -97,25 +97,39 @@ export class PaymentsService {
     return this.findById(id, businessId);
   }
 
+  /**
+   * Resumen de pagos completados de un día, agregado por método.
+   *
+   * La suma y el conteo se hacen en SQL (SUM/COUNT + GROUP BY) en vez de cargar
+   * todas las filas del día en memoria: el volumen de pagos crece con el negocio
+   * y traer cada registro solo para sumarlo no escala.
+   */
   async getDailySummary(businessId: string, date: string) {
     const start = new Date(`${date}T00:00:00`);
     const end = new Date(`${date}T23:59:59`);
-    const payments = await this.repo.find({
-      where: {
-        businessId,
-        createdAt: Between(start, end),
-        status: PaymentStatus.COMPLETED,
-      },
-    });
+
+    const rows = await this.repo
+      .createQueryBuilder("p")
+      .select("p.method", "method")
+      .addSelect("SUM(p.amount)", "total")
+      .addSelect("COUNT(*)", "count")
+      .where("p.business_id = :businessId", { businessId })
+      .andWhere("p.status = :status", { status: PaymentStatus.COMPLETED })
+      .andWhere("p.created_at BETWEEN :start AND :end", { start, end })
+      .groupBy("p.method")
+      .getRawMany<{ method: string; total: string; count: string }>();
 
     const byMethod: Record<string, number> = {};
     let total = 0;
-    for (const p of payments) {
-      byMethod[p.method] = (byMethod[p.method] || 0) + Number(p.amount);
-      total += Number(p.amount);
+    let count = 0;
+    for (const row of rows) {
+      const amount = Number(row.total);
+      byMethod[row.method] = amount;
+      total += amount;
+      count += Number(row.count);
     }
 
-    return { date, total, count: payments.length, byMethod };
+    return { date, total, count, byMethod };
   }
 
   /**

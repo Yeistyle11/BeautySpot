@@ -14,13 +14,17 @@ export async function paginate<T extends ObjectLiteral>(
   params: PaginateParams,
   findOptions?: FindManyOptions<T>,
 ): Promise<IPaginatedResponse<T>> {
+  // Un `order` explícito en findOptions tiene prioridad (permite ordenar por
+  // varios campos, ej. date DESC + startTime ASC); si no se pasa, se usa el
+  // sort validado que llega en los parámetros de paginación.
+  const { order: explicitOrder, ...restOptions } = findOptions ?? {};
   const [data, total] = await repository.findAndCount({
-    ...findOptions,
+    ...restOptions,
     skip: params.offset,
     take: params.limit,
-    order: {
+    order: (explicitOrder ?? {
       [params.sort]: params.order,
-    } as FindManyOptions<T>["order"],
+    }) as FindManyOptions<T>["order"],
   });
 
   const totalPages = Math.ceil(total / params.limit);

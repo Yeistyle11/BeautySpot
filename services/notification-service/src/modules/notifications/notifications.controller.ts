@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Param, Query } from "@nestjs/common";
 import { NotificationsService } from "./notifications.service";
 import { CreateNotificationDto, QueryNotificationsDto } from "./dto/create-notification.dto";
 import { Roles, CurrentUser, BusinessId } from "@beautyspot/nest-common";
+import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import { Role } from "@beautyspot/shared-types";
 
 @Controller("notifications")
@@ -18,9 +19,15 @@ export class NotificationsController {
   findByUser(
     @CurrentUser("userId") userId: string,
     @BusinessId() businessId: string,
-    @Query() query: QueryNotificationsDto,
+    @Query() query: QueryNotificationsDto & Record<string, unknown>,
   ) {
-    return this.service.findByUser(userId, businessId, query.unreadOnly);
+    const pagination = parsePaginationQuery(query, ["createdAt"]);
+    return this.service.findByUser(
+      userId,
+      businessId,
+      query.unreadOnly ?? false,
+      pagination,
+    );
   }
 
   @Get("unread-count")

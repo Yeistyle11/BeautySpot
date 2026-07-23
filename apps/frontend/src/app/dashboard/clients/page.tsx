@@ -14,7 +14,7 @@ import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
-import { useCrudResource } from "@/lib/use-crud-resource";
+import { usePaginatedCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 
 const clientSchema = z.object({
@@ -50,10 +50,10 @@ export default function ClientsPage() {
     isLoading: loading,
     create: createClient,
     update: updateClient,
-  } = useCrudResource<Client>({
+  } = usePaginatedCrudResource<Client>({
     listKey: CLIENTS_KEY,
     basePath: "/core/clients",
-    schema: z.array(clientSchema),
+    itemSchema: clientSchema,
   });
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);

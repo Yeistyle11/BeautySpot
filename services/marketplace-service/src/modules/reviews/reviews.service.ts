@@ -131,17 +131,31 @@ export class ReviewsService {
     return { items, total };
   }
 
+  /**
+   * Resumen de reseñas de un negocio: promedio, total y distribución por
+   * estrellas. Se calcula con un GROUP BY rating (máximo 5 filas) en vez de
+   * traer todas las reseñas a memoria para promediarlas, que no escala.
+   */
   async getSummary(businessId: string): Promise<ReviewSummary> {
-    const reviews = await this.repo.find({ where: { businessId } });
-    const total = reviews.length;
+    const rows = await this.repo
+      .createQueryBuilder("r")
+      .select("r.rating", "rating")
+      .addSelect("COUNT(*)", "count")
+      .where("r.business_id = :businessId", { businessId })
+      .groupBy("r.rating")
+      .getRawMany<{ rating: number; count: string }>();
 
     const distribution: RatingDistribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    let total = 0;
     let sum = 0;
 
-    for (const r of reviews) {
-      const key = r.rating as keyof RatingDistribution;
-      if (key in distribution) distribution[key]++;
-      sum += r.rating;
+    for (const row of rows) {
+      const rating = Number(row.rating);
+      const count = Number(row.count);
+      const key = rating as keyof RatingDistribution;
+      if (key in distribution) distribution[key] = count;
+      total += count;
+      sum += rating * count;
     }
 
     return {

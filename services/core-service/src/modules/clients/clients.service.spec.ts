@@ -32,6 +32,7 @@ describe('ClientsService', () => {
       save: jest.fn(),
       findOne: jest.fn(),
       find: jest.fn(),
+      findAndCount: jest.fn().mockResolvedValue([[], 0]),
       update: jest.fn(),
       increment: jest.fn(),
     } as any;
@@ -80,68 +81,75 @@ describe('ClientsService', () => {
   });
 
   describe('findByBusiness', () => {
-    it('debería retornar todos los clientes activos del negocio', async () => {
-      mockRepo.find.mockResolvedValue([mockClient]);
+    const pagination = {
+      page: 1,
+      limit: 20,
+      offset: 0,
+      sort: 'name',
+      order: 'ASC' as const,
+    };
 
-      const result = await service.findByBusiness('business-123');
+    it('devuelve una página de clientes activos con meta', async () => {
+      mockRepo.findAndCount.mockResolvedValue([[mockClient], 1]);
 
-      expect(mockRepo.find).toHaveBeenCalledWith({
-        where: { businessId: 'business-123', active: true },
-        order: { name: 'ASC' },
-      });
-      expect(result).toEqual([mockClient]);
+      const result = await service.findByBusiness(
+        'business-123',
+        undefined,
+        pagination
+      );
+
+      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { businessId: 'business-123', active: true },
+          order: { name: 'ASC' },
+          skip: 0,
+          take: 20,
+        })
+      );
+      expect(result.data).toEqual([mockClient]);
+      expect(result.meta.total).toBe(1);
     });
 
-    it('debería buscar clientes por nombre', async () => {
-      mockRepo.find.mockResolvedValue([mockClient]);
+    it('debería buscar clientes por nombre/email/teléfono (OR)', async () => {
+      mockRepo.findAndCount.mockResolvedValue([[mockClient], 1]);
 
-      const result = await service.findByBusiness('business-123', 'Juan');
+      const result = await service.findByBusiness(
+        'business-123',
+        'Juan',
+        pagination
+      );
 
-      expect(mockRepo.find).toHaveBeenCalledWith({
-        where: expect.arrayContaining([
-          expect.objectContaining({
-            name: expect.any(Object),
-          }),
-        ]),
-        order: { name: 'ASC' },
-      });
-      expect(result).toEqual([mockClient]);
-    });
-
-    it('debería buscar clientes por email', async () => {
-      mockRepo.find.mockResolvedValue([mockClient]);
-
-      const result = await service.findByBusiness('business-123', 'juan@example.com');
-
-      expect(mockRepo.find).toHaveBeenCalled();
-      expect(result).toEqual([mockClient]);
-    });
-
-    it('debería buscar clientes por teléfono', async () => {
-      mockRepo.find.mockResolvedValue([mockClient]);
-
-      const result = await service.findByBusiness('business-123', '+57300');
-
-      expect(mockRepo.find).toHaveBeenCalled();
-      expect(result).toEqual([mockClient]);
+      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.arrayContaining([
+            expect.objectContaining({ name: expect.any(Object) }),
+            expect.objectContaining({ email: expect.any(Object) }),
+            expect.objectContaining({ phone: expect.any(Object) }),
+          ]),
+        })
+      );
+      expect(result.data).toEqual([mockClient]);
     });
 
     it('debería manejar caracteres especiales en búsqueda', async () => {
-      mockRepo.find.mockResolvedValue([mockClient]);
+      mockRepo.findAndCount.mockResolvedValue([[mockClient], 1]);
 
-      const result = await service.findByBusiness('business-123', 'Juan%');
+      await service.findByBusiness('business-123', 'Juan%', pagination);
 
-      expect(mockRepo.find).toHaveBeenCalled();
-      expect(result).toEqual([mockClient]);
+      expect(mockRepo.findAndCount).toHaveBeenCalled();
     });
 
-    it('debería retornar array vacío si no hay clientes', async () => {
-      mockRepo.find.mockResolvedValue([]);
+    it('devuelve una página vacía si no hay clientes', async () => {
+      mockRepo.findAndCount.mockResolvedValue([[], 0]);
 
-      const result = await service.findByBusiness('business-123');
+      const result = await service.findByBusiness(
+        'business-123',
+        undefined,
+        pagination
+      );
 
-      expect(result).toEqual([]);
-      expect(result).toHaveLength(0);
+      expect(result.data).toEqual([]);
+      expect(result.meta.total).toBe(0);
     });
   });
 

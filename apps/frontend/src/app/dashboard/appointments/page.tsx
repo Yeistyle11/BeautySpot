@@ -34,7 +34,7 @@ import {
   getErrorMessage,
 } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
-import { useApi } from "@/lib/swr";
+import { useApi, usePaginatedApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 import { CalendarView } from "@/components/calendar-view";
 
@@ -99,11 +99,8 @@ export default function AppointmentsPage() {
   const SERVICES_KEY = "/core/services";
   const CLIENTS_KEY = "/core/clients";
 
-  const { data: appointments, isLoading: loading } = useApi<Appointment[]>(
-    APPOINTMENTS_KEY,
-    undefined,
-    z.array(appointmentSchema)
-  );
+  const { items: appointments, isLoading: loading } =
+    usePaginatedApi<Appointment>(APPOINTMENTS_KEY, appointmentSchema);
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [showForm, setShowForm] = useState(false);

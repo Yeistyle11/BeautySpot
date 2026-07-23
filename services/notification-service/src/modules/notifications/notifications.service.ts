@@ -2,7 +2,12 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { NotificationEntity } from "./notification.entity";
-import { NotificationType, NotificationChannel } from "@beautyspot/shared-types";
+import {
+  NotificationType,
+  NotificationChannel,
+  IPaginatedResponse,
+} from "@beautyspot/shared-types";
+import { paginate, PaginateParams } from "@beautyspot/database";
 
 @Injectable()
 export class NotificationsService {
@@ -20,10 +25,18 @@ export class NotificationsService {
     return this.repo.save(notification);
   }
 
-  async findByUser(userId: string, businessId: string, unreadOnly = false): Promise<NotificationEntity[]> {
+  async findByUser(
+    userId: string,
+    businessId: string,
+    unreadOnly: boolean,
+    pagination: PaginateParams
+  ): Promise<IPaginatedResponse<NotificationEntity>> {
     const where: Record<string, unknown> = { userId, businessId };
     if (unreadOnly) where.read = false;
-    return this.repo.find({ where, order: { createdAt: "DESC" } });
+    return paginate(this.repo, pagination, {
+      where,
+      order: { createdAt: "DESC" },
+    });
   }
 
   async markAsRead(id: string, userId: string): Promise<NotificationEntity> {
