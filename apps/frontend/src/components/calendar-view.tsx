@@ -3,7 +3,8 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { formatCurrency, formatTime } from "@/lib/utils";
+import { formatCurrency, formatTime, toLocalDateKey } from "@/lib/utils";
+import { getAppointmentStatus } from "@/lib/status";
 
 interface Appointment {
   id: string;
@@ -31,43 +32,22 @@ interface CalendarViewProps {
   canCancel: boolean;
 }
 
-const statusColors: Record<string, string> = {
-  PENDING: "bg-yellow-200 border-yellow-400 text-yellow-900",
-  CONFIRMED: "bg-blue-200 border-blue-400 text-blue-900",
-  IN_PROGRESS: "bg-purple-200 border-purple-400 text-purple-900",
-  COMPLETED: "bg-green-200 border-green-400 text-green-900",
-  CANCELLED: "bg-red-200 border-red-400 text-red-900",
-  NO_SHOW: "bg-gray-200 border-gray-400 text-gray-700",
-};
-
-const statusLabels: Record<string, string> = {
-  PENDING: "Pendiente",
-  CONFIRMED: "Confirmada",
-  IN_PROGRESS: "En progreso",
-  COMPLETED: "Completada",
-  CANCELLED: "Cancelada",
-  NO_SHOW: "No asistio",
-};
-
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 7); // 7:00 - 18:00
 const DAYS_ES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
 
+// Los 7 dias de la semana (lunes a domingo) que contiene la fecha dada.
+// getDay() devuelve 0 para domingo, que aqui cierra la semana en vez de abrirla.
 function getWeekDates(referenceDate: Date): Date[] {
-  const d = new Date(referenceDate);
-  const day = d.getDay();
+  const day = referenceDate.getDay();
   const mondayOffset = day === 0 ? -6 : 1 - day;
-  const monday = new Date(d);
-  monday.setDate(d.getDate() + mondayOffset);
+  const monday = new Date(referenceDate);
+  monday.setDate(referenceDate.getDate() + mondayOffset);
 
   return Array.from({ length: 7 }, (_, i) => {
     const date = new Date(monday);
     date.setDate(monday.getDate() + i);
     return date;
   });
-}
-
-function dateKey(d: Date): string {
-  return d.toISOString().split("T")[0];
 }
 
 export function CalendarView({
@@ -81,13 +61,15 @@ export function CalendarView({
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
 
-  const referenceDate = new Date();
-  referenceDate.setDate(referenceDate.getDate() + weekOffset * 7);
+  // La semana visible depende solo del offset; se recalcula al navegar, no en
+  // cada render (antes la referencia era un `new Date()` nuevo cada vez).
+  const weekDates = useMemo(() => {
+    const reference = new Date();
+    reference.setDate(reference.getDate() + weekOffset * 7);
+    return getWeekDates(reference);
+  }, [weekOffset]);
 
-  const weekDates = useMemo(
-    () => getWeekDates(referenceDate),
-    [referenceDate.getTime()]
-  );
+  const todayKey = toLocalDateKey(new Date());
 
   const appointmentsByDate = useMemo(() => {
     const map: Record<string, Appointment[]> = {};
@@ -107,10 +89,14 @@ export function CalendarView({
 
   return (
     <div>
-      {/* Week navigation */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={prevWeek}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={prevWeek}
+            aria-label="Semana anterior"
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
           {!isCurrentWeek && (
@@ -118,23 +104,26 @@ export function CalendarView({
               Hoy
             </Button>
           )}
-          <Button variant="outline" size="icon" onClick={nextWeek}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={nextWeek}
+            aria-label="Semana siguiente"
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
           <span className="ml-2 text-sm font-medium">{weekLabel}</span>
         </div>
       </div>
 
-      {/* Calendar grid */}
       <div className="overflow-x-auto">
         <div className="min-w-[700px]">
-          {/* Header */}
           <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b">
             <div className="text-muted-foreground p-2 text-center text-xs">
               Hora
             </div>
             {weekDates.map((d, i) => {
-              const isToday = dateKey(d) === dateKey(new Date());
+              const isToday = toLocalDateKey(d) === todayKey;
               return (
                 <div
                   key={i}
@@ -151,7 +140,6 @@ export function CalendarView({
             })}
           </div>
 
-          {/* Time rows */}
           {HOURS.map((hour) => (
             <div
               key={hour}
@@ -161,7 +149,7 @@ export function CalendarView({
                 {hour > 12 ? hour - 12 : hour}:00 {hour >= 12 ? "pm" : "am"}
               </div>
               {weekDates.map((d, dayIdx) => {
-                const key = dateKey(d);
+                const key = toLocalDateKey(d);
                 const dayAppts = appointmentsByDate[key] || [];
                 const hourAppts = dayAppts.filter((a) => {
                   const startHour = parseInt(a.startTime.split(":")[0]);
@@ -171,8 +159,9 @@ export function CalendarView({
                 return (
                   <div key={dayIdx} className="relative min-h-[48px] p-0.5">
                     {hourAppts.map((appt) => {
-                      const colorClass =
-                        statusColors[appt.status] || statusColors.PENDING;
+                      const colorClass = getAppointmentStatus(
+                        appt.status
+                      ).calendarColor;
                       return (
                         <button
                           key={appt.id}
@@ -200,7 +189,6 @@ export function CalendarView({
         </div>
       </div>
 
-      {/* Selected appointment detail */}
       {selectedAppt && (
         <div className="bg-muted/30 mt-4 rounded-lg border p-4">
           <div className="flex items-start justify-between">
@@ -221,15 +209,9 @@ export function CalendarView({
               </div>
               <Badge
                 className="mt-2"
-                variant={
-                  selectedAppt.status === "CANCELLED"
-                    ? "destructive"
-                    : selectedAppt.status === "COMPLETED"
-                      ? "secondary"
-                      : "default"
-                }
+                variant={getAppointmentStatus(selectedAppt.status).variant}
               >
-                {statusLabels[selectedAppt.status] || selectedAppt.status}
+                {getAppointmentStatus(selectedAppt.status).label}
               </Badge>
             </div>
             <div className="flex gap-2">

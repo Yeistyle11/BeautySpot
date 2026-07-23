@@ -12,7 +12,10 @@ export const logger = {
   warn: (...args: unknown[]) => {
     if (isDev) console.warn(...args);
   },
+  // Este modulo es el envoltorio permitido de console; la regla no-console
+  // aplica al resto del codigo, no aqui.
   log: (...args: unknown[]) => {
+    // eslint-disable-next-line no-console
     if (isDev) console.log(...args);
   },
 };

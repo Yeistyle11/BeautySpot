@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,12 @@ import {
   CheckCircle,
   TrendingUp,
 } from "lucide-react";
-import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatDate,
+  formatTime,
+  toLocalDateKey,
+} from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
 import { useAuthStore } from "@/lib/store";
 import { decodeJwt } from "@/lib/auth";
@@ -96,65 +101,50 @@ const clientRefListSchema = z.union([
   z.object({ items: z.array(clientRefSchema) }),
 ]);
 
-const STATUS_MAP = getAppointmentStatus;
-
 export default function DashboardPage() {
-  const { businessId, setBusinessId } = useAuthStore();
-  const [resolvedBid, setResolvedBid] = useState<string | null>(businessId);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [, setClientNames] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+  const { businessId, setBusinessId, token } = useAuthStore();
 
+  // Tras un refresh el store puede quedarse sin businessId; se recupera del
+  // JWT porque sin el no se puede pedir nada al backend.
   useEffect(() => {
-    if (!businessId) {
-      const token = localStorage.getItem("auth:v1:token");
-      const payload = token ? decodeJwt(token) : null;
-      if (payload?.businessId) {
-        setBusinessId(payload.businessId);
-        setResolvedBid(payload.businessId);
-      } else {
-        setLoading(false);
-      }
-    } else {
-      setResolvedBid(businessId);
-    }
-  }, [businessId, setBusinessId]);
+    if (businessId) return;
+    const payload = token ? decodeJwt(token) : null;
+    if (payload?.businessId) setBusinessId(payload.businessId);
+  }, [businessId, token, setBusinessId]);
 
-  const today = new Date().toISOString().split("T")[0];
-  const appointmentsKey = resolvedBid
+  const today = toLocalDateKey(new Date());
+  const appointmentsKey = businessId
     ? `/booking/appointments?date=${today}`
     : null;
-  const clientsKey = resolvedBid ? `/core/clients?limit=100` : null;
+  const clientsKey = businessId ? `/core/clients?limit=100` : null;
 
-  const { data: rawAppointments } = useApi<
+  const { data: rawAppointments, isLoading: loadingAppointments } = useApi<
     RawAppointment[] | { items: RawAppointment[] }
   >(appointmentsKey, undefined, rawAppointmentListSchema);
-  const { data: rawClients } = useApi<ClientRef[] | { items: ClientRef[] }>(
-    clientsKey,
-    undefined,
-    clientRefListSchema
-  );
+  const { data: rawClients, isLoading: loadingClients } = useApi<
+    ClientRef[] | { items: ClientRef[] }
+  >(clientsKey, undefined, clientRefListSchema);
   const { data: kpiData } = useApi<KpiData | null>(
-    resolvedBid ? "/analytics/dashboard/kpis" : null,
+    businessId ? "/analytics/dashboard/kpis" : null,
     undefined,
     kpiDataSchema.nullable()
   );
   const { data: topProfessionals } = useApi<TopProfessional[]>(
-    resolvedBid ? "/analytics/dashboard/top-professionals?limit=5" : null,
+    businessId ? "/analytics/dashboard/top-professionals?limit=5" : null,
     undefined,
     z.array(topProfessionalSchema)
   );
   const { data: revenueChart } = useApi<RevenuePoint[]>(
-    resolvedBid ? "/analytics/dashboard/revenue-chart?days=7" : null,
+    businessId ? "/analytics/dashboard/revenue-chart?days=7" : null,
     undefined,
     z.array(revenuePointSchema)
   );
 
-  useEffect(() => {
-    if (!resolvedBid) {
-      setLoading(false);
-      return;
-    }
+  const loading = !!businessId && (loadingAppointments || loadingClients);
+
+  // Las citas llegan sin el nombre del cliente (viven en servicios distintos),
+  // asi que se cruzan aqui contra la lista de clientes por id.
+  const appointments = useMemo<Appointment[]>(() => {
     const items: RawAppointment[] = Array.isArray(rawAppointments)
       ? rawAppointments
       : (rawAppointments?.items ?? []);
@@ -165,28 +155,21 @@ export default function DashboardPage() {
     clientList.forEach((c) => {
       names[c.id] = c.name;
     });
-    setClientNames(names);
-    setAppointments(
-      items.map((a) => ({
-        id: a.id,
-        date: a.date,
-        startTime: a.startTime,
-        endTime: a.endTime,
-        status: a.status,
-        totalAmount: Number(a.totalAmount || 0),
-        serviceName: a.appointmentServices?.[0]?.serviceName,
-        clientName: names[a.clientId] || undefined,
-        clientId: a.clientId,
-      }))
-    );
-    if (rawAppointments !== undefined && rawClients !== undefined) {
-      setLoading(false);
-    }
-  }, [resolvedBid, rawAppointments, rawClients]);
+    return items.map((a) => ({
+      id: a.id,
+      date: a.date,
+      startTime: a.startTime,
+      endTime: a.endTime,
+      status: a.status,
+      totalAmount: Number(a.totalAmount || 0),
+      serviceName: a.appointmentServices?.[0]?.serviceName,
+      clientName: names[a.clientId] || undefined,
+      clientId: a.clientId,
+    }));
+  }, [rawAppointments, rawClients]);
 
-  void 0;
-
-  // Fallback calculations from booking data
+  // Los KPIs vienen de analytics-service; si aun no respondio, se calculan
+  // sobre las citas de hoy para no mostrar la tarjeta vacia.
   const todayTotal = appointments.length;
   const todayCompleted = appointments.filter(
     (a) => a.status === "COMPLETED"
@@ -203,29 +186,29 @@ export default function DashboardPage() {
       title: "Citas hoy",
       value: kpiData?.today?.totalAppointments ?? todayTotal,
       icon: Calendar,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
+      color: "text-info",
+      bg: "bg-info-soft",
     },
     {
       title: "Completadas",
       value: kpiData?.today?.completedAppointments ?? todayCompleted,
       icon: CheckCircle,
-      color: "text-emerald-600",
-      bg: "bg-emerald-50",
+      color: "text-success",
+      bg: "bg-success-soft",
     },
     {
       title: "Pendientes",
       value: pending,
       icon: Clock,
-      color: "text-yellow-600",
-      bg: "bg-yellow-50",
+      color: "text-warning",
+      bg: "bg-warning-soft",
     },
     {
       title: "Ingresos hoy",
       value: formatCurrency(kpiData?.today?.totalRevenue ?? todayRevenue),
       icon: DollarSign,
-      color: "text-amber-600",
-      bg: "bg-amber-50",
+      color: "text-primary",
+      bg: "bg-primary/10",
     },
   ];
 
@@ -264,7 +247,6 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Analytics row */}
       {kpiData?.last30Days && (
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="border-0 shadow-sm">
@@ -311,7 +293,6 @@ export default function DashboardPage() {
       )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        {/* Upcoming appointments */}
         <Card className="border-0 shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg">
@@ -335,7 +316,7 @@ export default function DashboardPage() {
             ) : (
               <div className="max-h-80 space-y-3 overflow-y-auto">
                 {upcoming.map((a) => {
-                  const st = STATUS_MAP(a.status);
+                  const st = getAppointmentStatus(a.status);
                   return (
                     <div
                       key={a.id}
@@ -373,7 +354,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Revenue mini chart */}
         <Card className="border-0 shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg">Ingresos ultimos 7 dias</CardTitle>
@@ -416,7 +396,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Top professionals */}
       {(topProfessionals ?? []).length > 0 && (
         <Card className="mt-6 border-0 shadow-sm">
           <CardHeader>

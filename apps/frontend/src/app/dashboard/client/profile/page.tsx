@@ -106,7 +106,6 @@ export default function ClientProfilePage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Loyalty card */}
         <Card className="border-0 shadow-sm lg:col-span-1">
           <CardContent className="p-6">
             <div className="mb-4 flex items-center gap-2">
@@ -154,7 +153,6 @@ export default function ClientProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Personal info */}
         <Card className="border-0 shadow-sm lg:col-span-2">
           <CardContent className="p-6">
             <h2 className="mb-6 font-semibold">Informacion personal</h2>
@@ -236,7 +234,7 @@ export default function ClientProfilePage() {
                       : "Guardar cambios"}
                 </Button>
                 {saved && (
-                  <p className="text-sm text-emerald-600">
+                  <p className="text-success text-sm">
                     Cambios guardados correctamente
                   </p>
                 )}

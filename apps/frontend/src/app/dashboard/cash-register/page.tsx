@@ -5,7 +5,7 @@ import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup } from "@/components/ui/radio-group";
 import { Dialog } from "@/components/ui/dialog";
@@ -216,7 +216,6 @@ export default function CashRegisterPage() {
         </Card>
       ) : (
         <div className="space-y-6">
-          {/* Session summary */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-0 shadow-sm">
               <CardContent className="p-4">
@@ -261,7 +260,6 @@ export default function CashRegisterPage() {
             </Card>
           </div>
 
-          {/* Actions */}
           <div className="flex gap-3">
             <Button onClick={() => setMovementDialog(true)}>
               <Plus className="mr-2 h-4 w-4" /> Registrar movimiento
@@ -276,7 +274,6 @@ export default function CashRegisterPage() {
             )}
           </div>
 
-          {/* Movements list */}
           <Card className="border-0 shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg">
@@ -323,7 +320,6 @@ export default function CashRegisterPage() {
         </div>
       )}
 
-      {/* Session history */}
       {(history ?? []).length > 0 && (
         <Card className="mt-6 border-0 shadow-sm">
           <CardHeader>
@@ -359,34 +355,31 @@ export default function CashRegisterPage() {
         </Card>
       )}
 
-      {/* Open dialog */}
       <Dialog
         open={openDialog}
         onClose={() => setOpenDialog(false)}
         title="Abrir caja"
       >
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Monto inicial (COP)</Label>
+          <Field
+            label="Monto inicial (COP)"
+            hint="Dejar en 0 si la caja arranca vacia"
+          >
             <Input
               type="number"
               placeholder="50000"
               value={openAmount}
               onChange={(e) => setOpenAmount(e.target.value)}
             />
-            <p className="text-muted-foreground text-xs">
-              Dejar en 0 si la caja arranca vacia
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label>Notas (opcional)</Label>
+          </Field>
+          <Field label="Notas (opcional)">
             <Textarea
               value={openNotes}
               onChange={(e) => setOpenNotes(e.target.value)}
               rows={2}
               placeholder="Observaciones..."
             />
-          </div>
+          </Field>
           <Button onClick={handleOpen} disabled={opening}>
             {opening ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -398,23 +391,20 @@ export default function CashRegisterPage() {
         </div>
       </Dialog>
 
-      {/* Movement dialog */}
       <Dialog
         open={movementDialog}
         onClose={() => setMovementDialog(false)}
         title="Registrar movimiento"
       >
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Tipo de movimiento</Label>
+          <Field label="Tipo de movimiento">
             <RadioGroup
               options={movementTypeOptions}
               value={moveType}
               onChange={setMoveType}
             />
-          </div>
-          <div className="space-y-2">
-            <Label>Monto (COP)</Label>
+          </Field>
+          <Field label="Monto (COP)">
             <Input
               type="number"
               placeholder="10000"
@@ -422,16 +412,15 @@ export default function CashRegisterPage() {
               onChange={(e) => setMoveAmount(e.target.value)}
               required
             />
-          </div>
-          <div className="space-y-2">
-            <Label>Concepto</Label>
+          </Field>
+          <Field label="Concepto">
             <Input
               placeholder="Ej: Pago de proveedor, Venta de producto..."
               value={moveConcept}
               onChange={(e) => setMoveConcept(e.target.value)}
               required
             />
-          </div>
+          </Field>
           <Button
             onClick={handleMovement}
             disabled={registering || !moveAmount || !moveConcept}
@@ -446,7 +435,6 @@ export default function CashRegisterPage() {
         </div>
       </Dialog>
 
-      {/* Close dialog */}
       <Dialog
         open={closeDialog}
         onClose={() => setCloseDialog(false)}
@@ -459,8 +447,7 @@ export default function CashRegisterPage() {
             </p>
             <p className="text-xl font-bold">{formatCurrency(expectedTotal)}</p>
           </div>
-          <div className="space-y-2">
-            <Label>Monto final en caja (COP)</Label>
+          <Field label="Monto final en caja (COP)">
             <Input
               type="number"
               placeholder={String(expectedTotal)}
@@ -468,16 +455,15 @@ export default function CashRegisterPage() {
               onChange={(e) => setCloseAmount(e.target.value)}
               required
             />
-          </div>
-          <div className="space-y-2">
-            <Label>Notas (opcional)</Label>
+          </Field>
+          <Field label="Notas (opcional)">
             <Textarea
               value={closeNotes}
               onChange={(e) => setCloseNotes(e.target.value)}
               rows={2}
               placeholder="Diferencias, observaciones..."
             />
-          </div>
+          </Field>
           <Button
             variant="destructive"
             onClick={handleClose}

@@ -1,151 +1,121 @@
 "use client";
 import { useState, useMemo } from "react";
-import { mutate } from "swr";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup } from "@/components/ui/radio-group";
-import { Dialog } from "@/components/ui/dialog";
-import {
-  DollarSign,
-  CreditCard,
-  Banknote,
-  Smartphone,
-  Plus,
-  Wallet,
-  Calendar,
-  Edit,
-} from "lucide-react";
+import { Pagination } from "@/components/ui/pagination";
+import { DollarSign, Plus, Calendar } from "lucide-react";
 import { api } from "@/lib/api";
-import { formatCurrency, formatDateTimeStamp } from "@/lib/utils";
+import { toLocalDateKey } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
-import { useApi, usePaginatedApi } from "@/lib/swr";
+import { useApi, revalidatePrefix } from "@/lib/swr";
+import { usePaginatedList } from "@/lib/use-paginated-list";
 import { logger } from "@/lib/logger";
-
-const paymentSchema = z.object({
-  id: z.string(),
-  amount: z.string(),
-  method: z.string(),
-  status: z.string(),
-  registeredAt: z.string(),
-  appointmentId: z.string().optional(),
-  clientId: z.string().optional(),
-  reference: z.string().optional(),
-  notes: z.string().optional(),
-});
-type Payment = z.infer<typeof paymentSchema>;
-
-const clientSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-});
-type Client = z.infer<typeof clientSchema>;
-
-const methodIcons: Record<
-  string,
-  React.ComponentType<{ className?: string }>
-> = { CASH: Banknote, CARD: CreditCard, TRANSFER: Smartphone };
-const methodLabels: Record<string, string> = {
-  CASH: "Efectivo",
-  CARD: "Tarjeta",
-  TRANSFER: "Transferencia",
-  OTHER: "Otro",
-};
-
-const paymentMethodOptions = [
-  { value: "CASH", label: "Efectivo", icon: <Banknote className="h-5 w-5" /> },
-  {
-    value: "CARD",
-    label: "Datáfono",
-    icon: <CreditCard className="h-5 w-5" />,
-  },
-  {
-    value: "TRANSFER",
-    label: "Transferencia",
-    icon: <Smartphone className="h-5 w-5" />,
-  },
-];
-
-const emptyCreateForm = {
-  clientId: "",
-  amount: "",
-  method: "CASH",
-  reference: "",
-  notes: "",
-};
-const emptyEditForm = { amount: "", method: "", reference: "", notes: "" };
-
-const PAYMENTS_KEY = "/payment/payments";
-const CLIENTS_KEY = "/core/clients";
+import { PaymentSummaryCards } from "./payment-summary";
+import { PaymentCard } from "./payment-card";
+import { CreatePaymentDialog, EditPaymentDialog } from "./payment-dialogs";
+import {
+  clientSchema,
+  CLIENTS_KEY,
+  dailySummarySchema,
+  emptyCreateForm,
+  emptyEditForm,
+  METHOD_FILTERS,
+  METHOD_LABELS,
+  paymentSchema,
+  PAYMENTS_KEY,
+  type Client,
+  type CreateForm,
+  type DailySummary,
+  type EditForm,
+  type Payment,
+} from "./schemas";
 
 export default function PaymentsPage() {
   const { role } = useAuthStore();
-  const { items: payments, isLoading: loading } = usePaginatedApi<Payment>(
-    PAYMENTS_KEY,
-    paymentSchema
-  );
   const [filterMethod, setFilterMethod] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
+  // El backend solo aplica el rango cuando recibe ambos extremos, asi que se
+  // completa el que falte para que filtrar por una sola fecha no sea un no-op.
+  const dateRange = useMemo(() => {
+    if (!dateFrom && !dateTo) return { from: undefined, to: undefined };
+    return {
+      from: dateFrom || "1970-01-01",
+      to: dateTo || toLocalDateKey(new Date()),
+    };
+  }, [dateFrom, dateTo]);
+
+  const {
+    items: payments,
+    meta,
+    setPage,
+    isLoading: loading,
+  } = usePaginatedList<Payment>({
+    basePath: PAYMENTS_KEY,
+    itemSchema: paymentSchema,
+    params: {
+      method: filterMethod !== "all" ? filterMethod : undefined,
+      from: dateRange.from,
+      to: dateRange.to,
+    },
+  });
+
   const [createDialog, setCreateDialog] = useState(false);
-  const [createForm, setCreateForm] = useState(emptyCreateForm);
+  const [createForm, setCreateForm] = useState<CreateForm>(emptyCreateForm);
   const [savingCreate, setSavingCreate] = useState(false);
 
   const [editDialog, setEditDialog] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState(emptyEditForm);
+  const [editForm, setEditForm] = useState<EditForm>(emptyEditForm);
   const [savingEdit, setSavingEdit] = useState(false);
 
-  const shouldFetchClients = createDialog || editDialog;
+  // La lista de clientes solo hace falta con un dialogo abierto.
   const { data: clients } = useApi<Client[]>(
-    shouldFetchClients ? CLIENTS_KEY : null,
+    createDialog || editDialog ? CLIENTS_KEY : null,
     undefined,
     z.array(clientSchema)
   );
 
-  const filtered = useMemo(() => {
-    let result = payments ?? [];
-    if (filterMethod !== "all")
-      result = result.filter((p) => p.method === filterMethod);
-    if (dateFrom)
-      result = result.filter(
-        (p) => new Date(p.registeredAt) >= new Date(dateFrom)
-      );
-    if (dateTo) {
-      const to = new Date(dateTo);
-      to.setHours(23, 59, 59);
-      result = result.filter((p) => new Date(p.registeredAt) <= to);
-    }
-    return result;
-  }, [payments, filterMethod, dateFrom, dateTo]);
-
-  const todayPayments = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
-    return (payments ?? []).filter((p) => p.registeredAt?.startsWith(today));
-  }, [payments]);
+  // El resumen del dia se pide al backend, que lo calcula sobre todos los
+  // pagos y no solo sobre la pagina visible. El endpoint es exclusivo de
+  // OWNER/ADMIN, asi que para recepcion se cae al calculo local aproximado.
+  const canReadSummary = canDo(role, "payments_edit");
+  const today = toLocalDateKey(new Date());
+  const { data: dailySummary } = useApi<DailySummary | null>(
+    canReadSummary ? `/payment/payments/daily-summary?date=${today}` : null,
+    undefined,
+    dailySummarySchema.nullable()
+  );
 
   const summary = useMemo(() => {
-    const total = todayPayments.reduce(
-      (sum, p) => sum + parseFloat(p.amount),
-      0
+    if (dailySummary) {
+      return {
+        total: dailySummary.total,
+        cash: dailySummary.byMethod.CASH ?? 0,
+        card: dailySummary.byMethod.CARD ?? 0,
+        transfer: dailySummary.byMethod.TRANSFER ?? 0,
+        count: dailySummary.count,
+      };
+    }
+    const todayPayments = payments.filter((p) =>
+      p.registeredAt?.startsWith(today)
     );
-    const cash = todayPayments
-      .filter((p) => p.method === "CASH")
-      .reduce((s, p) => s + parseFloat(p.amount), 0);
-    const card = todayPayments
-      .filter((p) => p.method === "CARD")
-      .reduce((s, p) => s + parseFloat(p.amount), 0);
-    const transfer = todayPayments
-      .filter((p) => p.method === "TRANSFER")
-      .reduce((s, p) => s + parseFloat(p.amount), 0);
-    return { total, cash, card, transfer, count: todayPayments.length };
-  }, [todayPayments]);
+    const sumBy = (method: string) =>
+      todayPayments
+        .filter((p) => p.method === method)
+        .reduce((s, p) => s + parseFloat(p.amount), 0);
+    return {
+      total: todayPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0),
+      cash: sumBy("CASH"),
+      card: sumBy("CARD"),
+      transfer: sumBy("TRANSFER"),
+      count: todayPayments.length,
+    };
+  }, [dailySummary, payments, today]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,7 +130,7 @@ export default function PaymentsPage() {
       });
       setCreateDialog(false);
       setCreateForm(emptyCreateForm);
-      await mutate(PAYMENTS_KEY);
+      await revalidatePrefix(PAYMENTS_KEY);
     } catch (err) {
       logger.error(err);
     } finally {
@@ -192,7 +162,7 @@ export default function PaymentsPage() {
       });
       setEditDialog(false);
       setEditId(null);
-      await mutate(PAYMENTS_KEY);
+      await revalidatePrefix(PAYMENTS_KEY);
     } catch (err) {
       logger.error(err);
     } finally {
@@ -202,7 +172,7 @@ export default function PaymentsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Pagos</h1>
           <p className="text-muted-foreground">Historial y registro de pagos</p>
@@ -215,70 +185,22 @@ export default function PaymentsPage() {
         )}
       </div>
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-0 shadow-sm">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
-              <Wallet className="h-5 w-5 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">Total hoy</p>
-              <p className="text-lg font-bold">
-                {formatCurrency(summary.total)}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-sm">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50">
-              <Banknote className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">Efectivo</p>
-              <p className="text-lg font-bold">
-                {formatCurrency(summary.cash)}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-sm">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
-              <CreditCard className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">Tarjeta</p>
-              <p className="text-lg font-bold">
-                {formatCurrency(summary.card)}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-sm">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50">
-              <Smartphone className="h-5 w-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">Transferencia</p>
-              <p className="text-lg font-bold">
-                {formatCurrency(summary.transfer)}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <PaymentSummaryCards summary={summary} />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex gap-1">
-          {["all", "CASH", "CARD", "TRANSFER"].map((m) => (
+        <div
+          className="flex flex-wrap gap-1"
+          role="group"
+          aria-label="Filtrar por metodo de pago"
+        >
+          {METHOD_FILTERS.map((m) => (
             <button
               key={m}
               onClick={() => setFilterMethod(m)}
+              aria-pressed={filterMethod === m}
               className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${filterMethod === m ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-primary/20"}`}
             >
-              {m === "all" ? "Todos" : methodLabels[m] || m}
+              {m === "all" ? "Todos" : METHOD_LABELS[m] || m}
             </button>
           ))}
         </div>
@@ -289,6 +211,7 @@ export default function PaymentsPage() {
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
             className="h-8 w-36 text-xs"
+            aria-label="Filtrar desde"
           />
           <span className="text-muted-foreground">a</span>
           <Input
@@ -296,6 +219,7 @@ export default function PaymentsPage() {
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
             className="h-8 w-36 text-xs"
+            aria-label="Filtrar hasta"
           />
         </div>
       </div>
@@ -303,7 +227,7 @@ export default function PaymentsPage() {
       <div className="space-y-3">
         {loading ? (
           <p className="text-muted-foreground">Cargando...</p>
-        ) : filtered.length === 0 ? (
+        ) : payments.length === 0 ? (
           <Card className="border-0 shadow-sm">
             <CardContent className="text-muted-foreground p-8 text-center">
               <DollarSign className="mx-auto h-12 w-12 opacity-20" />
@@ -311,210 +235,37 @@ export default function PaymentsPage() {
             </CardContent>
           </Card>
         ) : (
-          filtered.map((p) => {
-            const Icon = methodIcons[p.method] || DollarSign;
-            return (
-              <Card
-                key={p.id}
-                className="border-0 shadow-sm transition-shadow hover:shadow-md"
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
-                        <Icon className="h-5 w-5 text-emerald-600" />
-                      </div>
-                      <div>
-                        <p className="font-semibold">
-                          {formatCurrency(parseFloat(p.amount))}
-                        </p>
-                        <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                          <span>{formatDateTimeStamp(p.registeredAt)}</span>
-                          {p.appointmentId && (
-                            <span className="bg-muted rounded px-1.5 py-0.5 text-xs">
-                              Cita: {p.appointmentId.slice(0, 8)}...
-                            </span>
-                          )}
-                          {p.reference && (
-                            <span className="bg-muted rounded px-1.5 py-0.5 text-xs">
-                              Ref: {p.reference}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {canDo(role, "payments_edit") && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEdit(p)}
-                        >
-                          <Edit className="text-muted-foreground h-4 w-4" />
-                        </Button>
-                      )}
-                      <Badge variant="secondary">
-                        {methodLabels[p.method] || p.method}
-                      </Badge>
-                      <Badge
-                        variant={
-                          p.status === "COMPLETED" ? "success" : "secondary"
-                        }
-                      >
-                        {p.status === "COMPLETED" ? "Completado" : p.status}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
+          payments.map((p) => (
+            <PaymentCard
+              key={p.id}
+              payment={p}
+              canEdit={canDo(role, "payments_edit")}
+              onEdit={openEdit}
+            />
+          ))
         )}
       </div>
 
-      <Dialog
+      <Pagination meta={meta} onPageChange={setPage} itemLabel="pagos" />
+
+      <CreatePaymentDialog
         open={createDialog}
         onClose={() => setCreateDialog(false)}
-        title="Registrar pago"
-      >
-        <form onSubmit={handleCreate} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Cliente</Label>
-            <select
-              className="border-input bg-background flex h-10 w-full rounded-md border px-3 py-2 text-sm"
-              value={createForm.clientId}
-              onChange={(e) =>
-                setCreateForm({ ...createForm, clientId: e.target.value })
-              }
-            >
-              <option value="">Sin cliente</option>
-              {(clients ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <Label>Monto (COP)</Label>
-            <Input
-              type="number"
-              placeholder="25000"
-              value={createForm.amount}
-              onChange={(e) =>
-                setCreateForm({ ...createForm, amount: e.target.value })
-              }
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Metodo de pago</Label>
-            <RadioGroup
-              options={paymentMethodOptions}
-              value={createForm.method}
-              onChange={(v) => setCreateForm({ ...createForm, method: v })}
-            />
-          </div>
-          {createForm.method === "TRANSFER" && (
-            <div className="space-y-2">
-              <Label>Referencia</Label>
-              <Input
-                placeholder="#123456789"
-                value={createForm.reference}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, reference: e.target.value })
-                }
-              />
-            </div>
-          )}
-          <div className="space-y-2">
-            <Label>Notas</Label>
-            <Textarea
-              placeholder="Notas sobre el pago..."
-              value={createForm.notes}
-              onChange={(e) =>
-                setCreateForm({ ...createForm, notes: e.target.value })
-              }
-              rows={2}
-            />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <Button type="submit" disabled={savingCreate}>
-              {savingCreate ? "Guardando..." : "Registrar pago"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setCreateDialog(false)}
-            >
-              Cancelar
-            </Button>
-          </div>
-        </form>
-      </Dialog>
+        form={createForm}
+        onChange={setCreateForm}
+        onSubmit={handleCreate}
+        clients={clients ?? []}
+        saving={savingCreate}
+      />
 
-      <Dialog
+      <EditPaymentDialog
         open={editDialog}
         onClose={() => setEditDialog(false)}
-        title="Editar pago"
-      >
-        <form onSubmit={handleUpdate} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Monto (COP)</Label>
-            <Input
-              type="number"
-              value={editForm.amount}
-              onChange={(e) =>
-                setEditForm({ ...editForm, amount: e.target.value })
-              }
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Metodo de pago</Label>
-            <RadioGroup
-              options={paymentMethodOptions}
-              value={editForm.method}
-              onChange={(v) => setEditForm({ ...editForm, method: v })}
-            />
-          </div>
-          {editForm.method === "TRANSFER" && (
-            <div className="space-y-2">
-              <Label>Referencia</Label>
-              <Input
-                placeholder="#123456789"
-                value={editForm.reference}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, reference: e.target.value })
-                }
-              />
-            </div>
-          )}
-          <div className="space-y-2">
-            <Label>Notas</Label>
-            <Textarea
-              placeholder="Notas sobre el pago..."
-              value={editForm.notes}
-              onChange={(e) =>
-                setEditForm({ ...editForm, notes: e.target.value })
-              }
-              rows={2}
-            />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <Button type="submit" disabled={savingEdit}>
-              {savingEdit ? "Guardando..." : "Guardar cambios"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setEditDialog(false)}
-            >
-              Cancelar
-            </Button>
-          </div>
-        </form>
-      </Dialog>
+        form={editForm}
+        onChange={setEditForm}
+        onSubmit={handleUpdate}
+        saving={savingEdit}
+      />
     </div>
   );
 }

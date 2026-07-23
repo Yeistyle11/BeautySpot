@@ -53,7 +53,7 @@ export default function AnalyticsPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Completadas</span>
-                <span className="font-semibold text-emerald-600">
+                <span className="text-success font-semibold">
                   {data.last30Days.completedAppointments}
                 </span>
               </div>

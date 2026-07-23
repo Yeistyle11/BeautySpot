@@ -1,14 +1,15 @@
 "use client";
-import { useState, useMemo, useDeferredValue } from "react";
+import { useState } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
+import { Pagination } from "@/components/ui/pagination";
 import { Plus, Search, Phone, Mail, Award, Calendar, Edit } from "lucide-react";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
@@ -16,6 +17,7 @@ import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { usePaginatedCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
+import { getAppointmentStatus } from "@/lib/status";
 
 const clientSchema = z.object({
   id: z.string(),
@@ -45,18 +47,20 @@ const CLIENTS_KEY = "/core/clients";
 
 export default function ClientsPage() {
   const { role } = useAuthStore();
+  const [search, setSearch] = useState("");
   const {
     items: clients,
+    meta,
+    setPage,
     isLoading: loading,
+    isEmptySearch,
     create: createClient,
     update: updateClient,
   } = usePaginatedCrudResource<Client>({
-    listKey: CLIENTS_KEY,
-    basePath: "/core/clients",
+    basePath: CLIENTS_KEY,
     itemSchema: clientSchema,
+    search,
   });
-  const [search, setSearch] = useState("");
-  const deferredSearch = useDeferredValue(search);
 
   const [createDialog, setCreateDialog] = useState(false);
   const [createForm, setCreateForm] = useState(emptyForm);
@@ -135,23 +139,6 @@ export default function ClientsPage() {
     }
   };
 
-  const filtered = useMemo(() => {
-    const q = deferredSearch.toLowerCase();
-    return clients.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.email || "").toLowerCase().includes(q)
-    );
-  }, [clients, deferredSearch]);
-
-  const statusLabels: Record<string, string> = {
-    PENDING: "Pendiente",
-    CONFIRMED: "Confirmada",
-    COMPLETED: "Completada",
-    CANCELLED: "Cancelada",
-    NO_SHOW: "No asistio",
-  };
-
   const detailKey = selectedClient
     ? `/booking/appointments?clientId=${selectedClient.id}`
     : null;
@@ -188,11 +175,17 @@ export default function ClientsPage() {
         </div>
       </div>
 
+      {isEmptySearch && (
+        <p className="text-muted-foreground py-8 text-center">
+          No se encontraron clientes para &quot;{search}&quot;
+        </p>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {loading ? (
           <p className="text-muted-foreground">Cargando...</p>
         ) : (
-          filtered.map((c) => (
+          clients.map((c) => (
             <Card
               key={c.id}
               className="cursor-pointer border-0 shadow-sm transition-shadow [contain-intrinsic-size:auto_140px] [content-visibility:auto] hover:shadow-md"
@@ -235,14 +228,15 @@ export default function ClientsPage() {
         )}
       </div>
 
+      <Pagination meta={meta} onPageChange={setPage} itemLabel="clientes" />
+
       <Dialog
         open={createDialog}
         onClose={() => setCreateDialog(false)}
         title="Nuevo cliente"
       >
         <form onSubmit={handleCreate} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Nombre</Label>
+          <Field label="Nombre">
             <Input
               placeholder="Maria Garcia"
               value={createForm.name}
@@ -251,10 +245,9 @@ export default function ClientsPage() {
               }
               required
             />
-          </div>
+          </Field>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Email</Label>
+            <Field label="Email">
               <Input
                 type="email"
                 placeholder="maria@email.com"
@@ -263,9 +256,8 @@ export default function ClientsPage() {
                   setCreateForm({ ...createForm, email: e.target.value })
                 }
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Telefono</Label>
+            </Field>
+            <Field label="Telefono">
               <Input
                 placeholder="+57 300 1234567"
                 value={createForm.phone}
@@ -273,7 +265,7 @@ export default function ClientsPage() {
                   setCreateForm({ ...createForm, phone: e.target.value })
                 }
               />
-            </div>
+            </Field>
           </div>
           <div className="flex gap-3 pt-2">
             <Button type="submit" disabled={savingCreate}>
@@ -377,16 +369,10 @@ export default function ClientsPage() {
                           {formatCurrency(parseFloat(a.totalAmount))}
                         </span>
                         <Badge
-                          variant={
-                            a.status === "COMPLETED"
-                              ? "success"
-                              : a.status === "CANCELLED"
-                                ? "destructive"
-                                : "secondary"
-                          }
+                          variant={getAppointmentStatus(a.status).variant}
                           className="text-xs"
                         >
-                          {statusLabels[a.status] || a.status}
+                          {getAppointmentStatus(a.status).label}
                         </Badge>
                       </div>
                     </div>
@@ -404,8 +390,7 @@ export default function ClientsPage() {
         title="Editar cliente"
       >
         <form onSubmit={handleUpdate} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Nombre</Label>
+          <Field label="Nombre">
             <Input
               value={editForm.name}
               onChange={(e) =>
@@ -413,10 +398,9 @@ export default function ClientsPage() {
               }
               required
             />
-          </div>
+          </Field>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Email</Label>
+            <Field label="Email">
               <Input
                 type="email"
                 value={editForm.email}
@@ -424,19 +408,17 @@ export default function ClientsPage() {
                   setEditForm({ ...editForm, email: e.target.value })
                 }
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Telefono</Label>
+            </Field>
+            <Field label="Telefono">
               <Input
                 value={editForm.phone}
                 onChange={(e) =>
                   setEditForm({ ...editForm, phone: e.target.value })
                 }
               />
-            </div>
+            </Field>
           </div>
-          <div className="space-y-2">
-            <Label>Notas</Label>
+          <Field label="Notas">
             <Textarea
               value={editForm.notes}
               onChange={(e) =>
@@ -444,7 +426,7 @@ export default function ClientsPage() {
               }
               rows={3}
             />
-          </div>
+          </Field>
           <div className="flex gap-3">
             <Button type="submit" disabled={savingEdit}>
               {savingEdit ? "Guardando..." : "Guardar cambios"}

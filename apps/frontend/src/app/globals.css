@@ -24,6 +24,26 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 262 83% 58%;
     --radius: 0.75rem;
+
+    /* Colores con significado (exito, aviso, informacion). Existen porque el
+       codigo los tenia como clases fijas de Tailwind (bg-green-50,
+       text-amber-600...) repartidas por las paginas, lo que impedia cambiar la
+       paleta en un sitio y rompia el tema oscuro. Cada uno tiene una version
+       plana y otra "soft" para fondos suaves. */
+    --success: 142 71% 29%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 141 79% 95%;
+    --success-soft-foreground: 143 64% 24%;
+
+    --warning: 38 92% 40%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 48 96% 94%;
+    --warning-soft-foreground: 28 74% 26%;
+
+    --info: 217 91% 50%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 214 95% 95%;
+    --info-soft-foreground: 224 64% 33%;
   }
   .dark {
     --background: 222.2 84% 4.9%;
@@ -45,6 +65,23 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 263 70% 50%;
+
+    /* En oscuro las versiones "soft" invierten la relacion: fondo oscuro y
+       tenue, texto claro, para mantener el contraste sin deslumbrar. */
+    --success: 142 65% 45%;
+    --success-foreground: 144 61% 10%;
+    --success-soft: 143 45% 16%;
+    --success-soft-foreground: 141 79% 85%;
+
+    --warning: 38 92% 55%;
+    --warning-foreground: 28 74% 10%;
+    --warning-soft: 30 50% 17%;
+    --warning-soft-foreground: 48 96% 85%;
+
+    --info: 217 91% 65%;
+    --info-foreground: 224 64% 12%;
+    --info-soft: 222 47% 20%;
+    --info-soft-foreground: 214 95% 88%;
   }
 }
 

@@ -176,7 +176,6 @@ export default function ReschedulePage() {
 
   return (
     <div>
-      {/* Back link */}
       <Link
         href={`/dashboard/client/appointments/${id}`}
         className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1 text-sm transition-colors"
@@ -188,7 +187,6 @@ export default function ReschedulePage() {
       <h1 className="mb-6 text-2xl font-bold">Reagendar cita</h1>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left: current appointment summary */}
         <div className="lg:col-span-1">
           <Card className="border-0 shadow-sm">
             <CardHeader>
@@ -229,9 +227,7 @@ export default function ReschedulePage() {
           </Card>
         </div>
 
-        {/* Right: reschedule form */}
         <div className="space-y-4 lg:col-span-2">
-          {/* Date picker */}
           <Card className="border-0 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -254,7 +250,6 @@ export default function ReschedulePage() {
             </CardContent>
           </Card>
 
-          {/* Time slots */}
           {selectedDate && (
             <Card className="border-0 shadow-sm">
               <CardHeader>
@@ -299,14 +294,12 @@ export default function ReschedulePage() {
             </Card>
           )}
 
-          {/* Error */}
           {error && (
-            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="bg-destructive/10 text-destructive rounded-lg px-4 py-3 text-sm">
               {error}
             </div>
           )}
 
-          {/* Confirm button */}
           {selectedDate && selectedSlot && (
             <div className="flex justify-end gap-3">
               <Link href={`/dashboard/client/appointments/${id}`}>

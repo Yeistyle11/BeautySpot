@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Bell, CheckCheck } from "lucide-react";
 import { z } from "zod";
 import { api } from "@/lib/api";
-import { usePaginatedApi } from "@/lib/swr";
+import { usePaginatedList } from "@/lib/use-paginated-list";
+import { Pagination } from "@/components/ui/pagination";
 import type { IPaginatedResponse } from "@beautyspot/shared-types";
 import { formatDate } from "@/lib/utils";
 
@@ -23,33 +24,42 @@ type Notification = z.infer<typeof notificationSchema>;
 const NOTIFICATIONS_KEY = "/notification/notifications";
 
 export default function NotificationsPage() {
-  const { items: notifications, isLoading: loading } =
-    usePaginatedApi<Notification>(NOTIFICATIONS_KEY, notificationSchema);
+  const {
+    items: list,
+    meta,
+    setPage,
+    listKey,
+    isLoading: loading,
+  } = usePaginatedList<Notification>({
+    basePath: NOTIFICATIONS_KEY,
+    itemSchema: notificationSchema,
+  });
 
-  const markRead = useCallback(async (id: string) => {
-    try {
-      await api.post(`/notification/notifications/${id}/read`, {});
-      // La respuesta cacheada es la página { data, meta }: se actualiza el
-      // item dentro de `data` sin descartar los metadatos de paginación.
-      await mutate(
-        NOTIFICATIONS_KEY,
-        (prev: IPaginatedResponse<Notification> | undefined) =>
-          prev
-            ? {
-                ...prev,
-                data: prev.data.map((n) =>
-                  n.id === id ? { ...n, read: true } : n
-                ),
-              }
-            : prev,
-        { revalidate: false }
-      );
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  const list = notifications ?? [];
+  const markRead = useCallback(
+    async (id: string) => {
+      try {
+        await api.post(`/notification/notifications/${id}/read`, {});
+        // La respuesta cacheada es la página { data, meta }: se actualiza el
+        // item dentro de `data` sin descartar los metadatos de paginación.
+        await mutate(
+          listKey,
+          (prev: IPaginatedResponse<Notification> | undefined) =>
+            prev
+              ? {
+                  ...prev,
+                  data: prev.data.map((n) =>
+                    n.id === id ? { ...n, read: true } : n
+                  ),
+                }
+              : prev,
+          { revalidate: false }
+        );
+      } catch {
+        /* ignore */
+      }
+    },
+    [listKey]
+  );
 
   return (
     <div>
@@ -98,6 +108,12 @@ export default function NotificationsPage() {
           ))
         )}
       </div>
+
+      <Pagination
+        meta={meta}
+        onPageChange={setPage}
+        itemLabel="notificaciones"
+      />
     </div>
   );
 }

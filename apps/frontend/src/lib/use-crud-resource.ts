@@ -1,13 +1,15 @@
 import { mutate as globalMutate } from "swr";
 import type { ZodType } from "zod";
 import { api } from "./api";
-import { useApi, usePaginatedApi } from "./swr";
+import { useApi, revalidatePrefix } from "./swr";
+import {
+  usePaginatedList,
+  type PaginatedListParams,
+} from "./use-paginated-list";
 
 // Triangulo create/update/delete + mutate que comparten las paginas CRUD.
 // Se extrae para reutilizarlo tanto en listas array como paginadas.
-function useCrudMutations<T>(listKey: string, basePath: string) {
-  const reload = () => globalMutate(listKey);
-
+function useCrudMutations<T>(basePath: string, reload: () => Promise<unknown>) {
   const create = async (body: unknown) => {
     const created = await api.post<T>(basePath, body);
     await reload();
@@ -44,30 +46,40 @@ export function useCrudResource<T>({
     items: data ?? [],
     isLoading,
     error,
-    ...useCrudMutations<T>(listKey, basePath),
+    ...useCrudMutations<T>(basePath, () => globalMutate(listKey)),
   };
 }
 
-// Para colecciones que crecen sin limite cuyo endpoint devuelve { data, meta }
-// (clientes, pagos...). Expone ademas `meta` con el total y la navegacion.
+/**
+ * Para colecciones que crecen sin limite ({ data, meta }): añade paginacion y
+ * busqueda contra el servidor sobre el CRUD. Tras mutar se revalida el recurso
+ * entero, no solo la pagina visible, porque insertar o borrar desplaza los
+ * elementos de todas las paginas siguientes.
+ */
 export function usePaginatedCrudResource<T>({
-  listKey,
   basePath,
   itemSchema,
-}: {
-  listKey: string;
-  basePath: string;
-  itemSchema: ZodType<T>;
-}) {
-  const { items, meta, isLoading, error } = usePaginatedApi<T>(
-    listKey,
-    itemSchema
-  );
+  params,
+  limit,
+  search,
+}: PaginatedListParams<T>) {
+  const list = usePaginatedList<T>({
+    basePath,
+    itemSchema,
+    params,
+    limit,
+    search,
+  });
+
   return {
-    items,
-    meta,
-    isLoading,
-    error,
-    ...useCrudMutations<T>(listKey, basePath),
+    items: list.items,
+    meta: list.meta,
+    page: list.page,
+    setPage: list.setPage,
+    listKey: list.listKey,
+    isLoading: list.isLoading,
+    error: list.error,
+    isEmptySearch: list.isEmptySearch,
+    ...useCrudMutations<T>(basePath, () => revalidatePrefix(basePath)),
   };
 }

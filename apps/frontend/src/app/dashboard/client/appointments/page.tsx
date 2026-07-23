@@ -104,7 +104,6 @@ export default function AppointmentsPage() {
   /* ---- Render ---- */
   return (
     <div>
-      {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Mis citas</h1>
@@ -118,7 +117,6 @@ export default function AppointmentsPage() {
         </Link>
       </div>
 
-      {/* Tabs */}
       <div className="bg-muted mb-6 flex gap-1 rounded-lg p-1">
         {tabs.map((tab) => (
           <button
@@ -136,7 +134,6 @@ export default function AppointmentsPage() {
         ))}
       </div>
 
-      {/* Content */}
       {loading ? (
         <Card className="border-0 shadow-sm">
           <CardContent className="text-muted-foreground p-8 text-center">
@@ -172,7 +169,6 @@ export default function AppointmentsPage() {
                 <Card className="cursor-pointer border-0 shadow-sm transition-shadow hover:shadow-md">
                   <CardContent className="p-5">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      {/* Left: icon + info */}
                       <div className="flex items-center gap-4">
                         <div className="bg-primary/10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl">
                           <Scissors className="text-primary h-5 w-5" />
@@ -197,7 +193,6 @@ export default function AppointmentsPage() {
                         </div>
                       </div>
 
-                      {/* Right: amount + status + optional review link */}
                       <div className="flex items-center gap-3 sm:shrink-0">
                         <span className="font-semibold">
                           {formatCurrency(parseFloat(appt.totalAmount))}
