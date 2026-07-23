@@ -10,12 +10,19 @@ export class BlockedSlotsController {
   constructor(private readonly service: BlockedSlotsService) {}
 
   @Get()
-  async findAll(@Param("professionalId") professionalId: string, @BusinessId() businessId: string) {
+  async findAll(
+    @Param("professionalId") professionalId: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.findByProfessional(businessId, professionalId);
   }
 
   @Post()
-  async create(@Param("professionalId") professionalId: string, @BusinessId() businessId: string, @Body() dto: CreateBlockedSlotDto) {
+  async create(
+    @Param("professionalId") professionalId: string,
+    @BusinessId() businessId: string,
+    @Body() dto: CreateBlockedSlotDto
+  ) {
     return this.service.create(businessId, professionalId, dto);
   }
 

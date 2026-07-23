@@ -1,6 +1,18 @@
-import { Controller, Get, Post, Delete, Param, Body, Query } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  Body,
+  Query,
+} from "@nestjs/common";
 import { ReviewsService } from "./reviews.service";
-import { CreateReviewDto, ReviewQueryDto, RespondReviewDto } from "./dto/review.dto";
+import {
+  CreateReviewDto,
+  ReviewQueryDto,
+  RespondReviewDto,
+} from "./dto/review.dto";
 import { Roles, Public, CurrentUser } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
@@ -24,7 +36,7 @@ export class ReviewsController {
   @Public()
   async findByBusiness(
     @Param("businessId") businessId: string,
-    @Query() query: ReviewQueryDto,
+    @Query() query: ReviewQueryDto
   ) {
     return this.service.findByBusiness(businessId, query);
   }
@@ -45,7 +57,7 @@ export class ReviewsController {
   @Public()
   async markHelpful(
     @Param("id") id: string,
-    @CurrentUser("userId") userId: string | undefined,
+    @CurrentUser("userId") userId: string | undefined
   ) {
     await this.service.markHelpful(id, userId || "anonymous");
     return { marked: true };
@@ -55,7 +67,7 @@ export class ReviewsController {
   @Public()
   async unmarkHelpful(
     @Param("id") id: string,
-    @CurrentUser("userId") userId: string | undefined,
+    @CurrentUser("userId") userId: string | undefined
   ) {
     await this.service.unmarkHelpful(id, userId || "anonymous");
     return { marked: false };

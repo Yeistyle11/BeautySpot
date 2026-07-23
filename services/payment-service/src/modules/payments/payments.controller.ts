@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Patch, Param, Body, Query } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Body,
+  Query,
+} from "@nestjs/common";
 import { PaymentsService } from "./payments.service";
 import { IsString, IsNumber, IsEnum, IsOptional } from "class-validator";
 import { PaymentMethod, PaymentStatus, Role } from "@beautyspot/shared-types";

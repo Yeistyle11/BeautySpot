@@ -1,6 +1,10 @@
 import { Controller, Get, Post, Param, Body } from "@nestjs/common";
 import { CashRegisterService } from "./cash-register.service";
-import { OpenSessionDto, CloseSessionDto, RegisterMovementDto } from "./dto/cash-register.dto";
+import {
+  OpenSessionDto,
+  CloseSessionDto,
+  RegisterMovementDto,
+} from "./dto/cash-register.dto";
 import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
@@ -35,7 +39,12 @@ export class CashRegisterController {
     @CurrentUser("userId") userId: string,
     @Body() dto: RegisterMovementDto
   ) {
-    return this.service.registerMovement(id, businessId, userId || "system", dto);
+    return this.service.registerMovement(
+      id,
+      businessId,
+      userId || "system",
+      dto
+    );
   }
 
   @Get("active")

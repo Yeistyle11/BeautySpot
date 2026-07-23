@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsNumber, IsEmail, IsUrl, IsArray, ValidateNested, IsBoolean } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsEmail,
+  IsUrl,
+  IsArray,
+  ValidateNested,
+  IsBoolean,
+} from "class-validator";
 import { Type } from "class-transformer";
 import { SocialLinks } from "../../../entities/business-profile.entity";
 

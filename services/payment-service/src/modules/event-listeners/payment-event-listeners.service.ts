@@ -11,11 +11,17 @@ export class PaymentEventListeners {
     this.logger.log(`Cita creada: ${event.payload.appointmentId}`);
     try {
       const { appointmentId, totalAmount } = event.payload;
-      this.logger.log(`Pendiente de pago para cita ${appointmentId}: ${totalAmount} COP`);
+      this.logger.log(
+        `Pendiente de pago para cita ${appointmentId}: ${totalAmount} COP`
+      );
     } catch (error: any) {
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error procesando cita creada: ${errorMessage}`, errorStack);
+      this.logger.error(
+        `Error procesando cita creada: ${errorMessage}`,
+        errorStack
+      );
     }
   }
 
@@ -26,9 +32,13 @@ export class PaymentEventListeners {
       const { appointmentId } = event.payload;
       this.logger.log(`Cita ${appointmentId} confirmada, esperando pago`);
     } catch (error: any) {
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error procesando cita confirmada: ${errorMessage}`, errorStack);
+      this.logger.error(
+        `Error procesando cita confirmada: ${errorMessage}`,
+        errorStack
+      );
     }
   }
 
@@ -39,9 +49,13 @@ export class PaymentEventListeners {
       const { appointmentId } = event.payload;
       this.logger.log(`Cita ${appointmentId} completada con pago pendiente`);
     } catch (error: any) {
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error procesando cita completada: ${errorMessage}`, errorStack);
+      this.logger.error(
+        `Error procesando cita completada: ${errorMessage}`,
+        errorStack
+      );
     }
   }
 
@@ -50,11 +64,17 @@ export class PaymentEventListeners {
     this.logger.log(`Cita cancelada: ${event.payload.appointmentId}`);
     try {
       const { appointmentId, cancelReason } = event.payload;
-      this.logger.log(`Cita ${appointmentId} cancelada. Razon: ${cancelReason}`);
+      this.logger.log(
+        `Cita ${appointmentId} cancelada. Razon: ${cancelReason}`
+      );
     } catch (error: any) {
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error procesando cita cancelada: ${errorMessage}`, errorStack);
+      this.logger.error(
+        `Error procesando cita cancelada: ${errorMessage}`,
+        errorStack
+      );
     }
   }
 }

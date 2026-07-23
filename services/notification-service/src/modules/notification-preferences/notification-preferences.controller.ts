@@ -1,7 +1,10 @@
 import { Controller, Get, Post, Body, Headers } from "@nestjs/common";
 import { NotificationPreferencesService } from "./notification-preferences.service";
 import { IsBoolean, IsEnum, IsString } from "class-validator";
-import { NotificationType, NotificationChannel } from "@beautyspot/shared-types";
+import {
+  NotificationType,
+  NotificationChannel,
+} from "@beautyspot/shared-types";
 import { Roles } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
@@ -24,7 +27,10 @@ export class NotificationPreferencesController {
   constructor(private readonly service: NotificationPreferencesService) {}
 
   @Get()
-  findByUser(@Headers("x-user-id") userId: string, @Headers("x-business-id") businessId: string) {
+  findByUser(
+    @Headers("x-user-id") userId: string,
+    @Headers("x-business-id") businessId: string
+  ) {
     return this.service.findByUser(userId, businessId);
   }
 
@@ -32,7 +38,7 @@ export class NotificationPreferencesController {
   upsert(
     @Body() dto: UpsertPreferenceDto,
     @Headers("x-user-id") userId: string,
-    @Headers("x-business-id") businessId: string,
+    @Headers("x-business-id") businessId: string
   ) {
     return this.service.upsert({ ...dto, userId, businessId });
   }

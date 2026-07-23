@@ -9,7 +9,12 @@ import {
 } from "@nestjs/common";
 import { AppointmentsService } from "./appointments.service";
 import { AppointmentStatus, Role } from "@beautyspot/shared-types";
-import { Roles, Public, BusinessId, CurrentUser } from "@beautyspot/nest-common";
+import {
+  Roles,
+  Public,
+  BusinessId,
+  CurrentUser,
+} from "@beautyspot/nest-common";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import {
   CreateAppointmentDto,

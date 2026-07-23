@@ -147,7 +147,10 @@ export class PaymentsService {
   ): Promise<PaymentEntity> {
     const payment = await this.loadRefundablePayment(id, businessId);
     this.validateRefundWindow(payment);
-    const finalAmount = this.calculateRefundAmount(payment, options.refundAmount);
+    const finalAmount = this.calculateRefundAmount(
+      payment,
+      options.refundAmount
+    );
     const finalReason = options.reason || "Reembolso solicitado";
 
     return this.dataSource.transaction(async (manager) => {

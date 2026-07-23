@@ -13,12 +13,14 @@ export class HealthController {
     const results = await Promise.all(
       entries.map(async ([name, url]): Promise<[string, string]> => {
         try {
-          const response = await fetch(`${url}/health`, { signal: AbortSignal.timeout(3000) });
+          const response = await fetch(`${url}/health`, {
+            signal: AbortSignal.timeout(3000),
+          });
           return [name, response.ok ? "healthy" : "unhealthy"];
         } catch {
           return [name, "unreachable"];
         }
-      }),
+      })
     );
 
     const statusMap = Object.fromEntries(results);

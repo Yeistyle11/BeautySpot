@@ -1,23 +1,26 @@
-import { Test } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { NotificationsService } from './notifications.service';
-import { NotificationEntity } from './notification.entity';
-import { NotificationType, NotificationChannel } from '@beautyspot/shared-types';
-import { NotFoundException } from '@nestjs/common';
+import { Test } from "@nestjs/testing";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { NotificationsService } from "./notifications.service";
+import { NotificationEntity } from "./notification.entity";
+import {
+  NotificationType,
+  NotificationChannel,
+} from "@beautyspot/shared-types";
+import { NotFoundException } from "@nestjs/common";
 
-describe('NotificationsService', () => {
+describe("NotificationsService", () => {
   let service: NotificationsService;
   let mockRepo: jest.Mocked<Repository<NotificationEntity>>;
 
   const mockNotification: NotificationEntity = {
-    id: 'notif-123',
-    businessId: 'business-123',
-    userId: 'user-123',
+    id: "notif-123",
+    businessId: "business-123",
+    userId: "user-123",
     type: NotificationType.APPOINTMENT_CONFIRMED,
     channel: NotificationChannel.IN_APP,
-    title: 'Cita confirmada',
-    message: 'Tu cita ha sido confirmada',
+    title: "Cita confirmada",
+    message: "Tu cita ha sido confirmada",
     data: {},
     read: false,
     sentAt: new Date(),
@@ -51,14 +54,14 @@ describe('NotificationsService', () => {
     service = module.get<NotificationsService>(NotificationsService);
   });
 
-  describe('create', () => {
-    it('debería crear una notificación exitosamente', async () => {
+  describe("create", () => {
+    it("debería crear una notificación exitosamente", async () => {
       const data = {
-        businessId: 'business-123',
-        userId: 'user-123',
+        businessId: "business-123",
+        userId: "user-123",
         type: NotificationType.APPOINTMENT_CONFIRMED,
-        title: 'Cita confirmada',
-        message: 'Tu cita ha sido confirmada',
+        title: "Cita confirmada",
+        message: "Tu cita ha sido confirmada",
       };
 
       mockRepo.create.mockReturnValue(mockNotification);
@@ -73,13 +76,13 @@ describe('NotificationsService', () => {
       expect(mockRepo.save).toHaveBeenCalledWith(mockNotification);
     });
 
-    it('debería usar canal especificado si se proporciona', async () => {
+    it("debería usar canal especificado si se proporciona", async () => {
       const data = {
-        businessId: 'business-123',
-        userId: 'user-123',
+        businessId: "business-123",
+        userId: "user-123",
         type: NotificationType.REVIEW_RECEIVED,
-        title: 'Reseña recibida',
-        message: 'Has recibido una nueva reseña',
+        title: "Reseña recibida",
+        message: "Has recibido una nueva reseña",
         channel: NotificationChannel.EMAIL,
       };
 
@@ -94,23 +97,23 @@ describe('NotificationsService', () => {
       });
     });
 
-    it('debería propagar errores del repositorio', async () => {
+    it("debería propagar errores del repositorio", async () => {
       const data = {
-        businessId: 'business-123',
-        userId: 'user-123',
+        businessId: "business-123",
+        userId: "user-123",
         type: NotificationType.APPOINTMENT_CONFIRMED,
-        title: 'Cita confirmada',
-        message: 'Tu cita ha sido confirmada',
+        title: "Cita confirmada",
+        message: "Tu cita ha sido confirmada",
       };
 
-      mockRepo.save.mockRejectedValue(new Error('Database error'));
+      mockRepo.save.mockRejectedValue(new Error("Database error"));
 
-      await expect(service.create(data)).rejects.toThrow('Database error');
+      await expect(service.create(data)).rejects.toThrow("Database error");
     });
   });
 
-  describe('findByUser', () => {
-    it('debería retornar todas las notificaciones del usuario', async () => {
+  describe("findByUser", () => {
+    it("debería retornar todas las notificaciones del usuario", async () => {
       const mockUnreadNotification = {
         ...mockNotification,
         read: false,
@@ -119,25 +122,30 @@ describe('NotificationsService', () => {
       } as any;
       mockRepo.findAndCount.mockResolvedValue([[mockUnreadNotification], 1]);
 
-      const result = await service.findByUser('user-123', 'business-123', false, {
-        page: 1,
-        limit: 20,
-        offset: 0,
-        sort: 'createdAt',
-        order: 'DESC',
-      });
+      const result = await service.findByUser(
+        "user-123",
+        "business-123",
+        false,
+        {
+          page: 1,
+          limit: 20,
+          offset: 0,
+          sort: "createdAt",
+          order: "DESC",
+        }
+      );
 
       expect(mockRepo.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId: 'user-123', businessId: 'business-123' },
-          order: { createdAt: 'DESC' },
+          where: { userId: "user-123", businessId: "business-123" },
+          order: { createdAt: "DESC" },
         })
       );
       expect(result.data).toEqual([mockUnreadNotification]);
       expect(result.meta.total).toBe(1);
     });
 
-    it('debería filtrar solo no leídas', async () => {
+    it("debería filtrar solo no leídas", async () => {
       const mockReadNotification = {
         ...mockNotification,
         read: true,
@@ -152,10 +160,10 @@ describe('NotificationsService', () => {
         setSentAt: () => {},
       } as any);
 
-      await service.markAsRead('notif-123', 'user-123');
+      await service.markAsRead("notif-123", "user-123");
 
       expect(mockRepo.findOne).toHaveBeenCalledWith({
-        where: { id: 'notif-123', userId: 'user-123' },
+        where: { id: "notif-123", userId: "user-123" },
       });
       expect(mockRepo.save).toHaveBeenCalledWith({
         ...mockReadNotification,
@@ -163,36 +171,40 @@ describe('NotificationsService', () => {
       });
     });
 
-    it('debería lanzar NotFoundException si la notificación no existe', async () => {
+    it("debería lanzar NotFoundException si la notificación no existe", async () => {
       mockRepo.findOne.mockResolvedValue(null);
 
       await expect(
-        service.markAsRead('non-existent', 'user-123')
+        service.markAsRead("non-existent", "user-123")
       ).rejects.toThrow(NotFoundException);
     });
   });
 
-  describe('markAllAsRead', () => {
-    it('debería marcar todas las notificaciones no leídas como leídas', async () => {
-      mockRepo.update.mockResolvedValue({ raw: [], generatedMaps: [], affected: 5 });
+  describe("markAllAsRead", () => {
+    it("debería marcar todas las notificaciones no leídas como leídas", async () => {
+      mockRepo.update.mockResolvedValue({
+        raw: [],
+        generatedMaps: [],
+        affected: 5,
+      });
 
-      await service.markAllAsRead('user-123', 'business-123');
+      await service.markAllAsRead("user-123", "business-123");
 
       expect(mockRepo.update).toHaveBeenCalledWith(
-        { userId: 'user-123', businessId: 'business-123', read: false },
+        { userId: "user-123", businessId: "business-123", read: false },
         { read: true }
       );
     });
   });
 
-  describe('getUnreadCount', () => {
-    it('debería retornar el conteo de notificaciones no leídas', async () => {
+  describe("getUnreadCount", () => {
+    it("debería retornar el conteo de notificaciones no leídas", async () => {
       mockRepo.count.mockResolvedValue(3);
 
-      const result = await service.getUnreadCount('user-123', 'business-123');
+      const result = await service.getUnreadCount("user-123", "business-123");
 
       expect(mockRepo.count).toHaveBeenCalledWith({
-        where: { userId: 'user-123', businessId: 'business-123', read: false },
+        where: { userId: "user-123", businessId: "business-123", read: false },
       });
       expect(result).toBe(3);
     });

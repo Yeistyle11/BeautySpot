@@ -1,4 +1,12 @@
-import { Controller, Get, Put, Patch, Param, Body, Query } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Put,
+  Patch,
+  Param,
+  Body,
+  Query,
+} from "@nestjs/common";
 import { BusinessHoursService } from "./business-hours.service";
 import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
@@ -13,12 +21,18 @@ export class BusinessHoursController {
   constructor(private readonly service: BusinessHoursService) {}
 
   @Get()
-  async findAll(@BusinessId() businessId: string, @Query("branchId") branchId?: string) {
+  async findAll(
+    @BusinessId() businessId: string,
+    @Query("branchId") branchId?: string
+  ) {
     return this.service.findByBusiness(businessId, branchId);
   }
 
   @Put()
-  async batchUpsert(@BusinessId() businessId: string, @Body() dto: BatchUpsertDto) {
+  async batchUpsert(
+    @BusinessId() businessId: string,
+    @Body() dto: BatchUpsertDto
+  ) {
     return this.service.batchUpsert(businessId, dto.hours);
   }
 

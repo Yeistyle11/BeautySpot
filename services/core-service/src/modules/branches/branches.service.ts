@@ -5,7 +5,9 @@ import { Branch } from "../../entities/branch.entity";
 
 @Injectable()
 export class BranchesService {
-  constructor(@InjectRepository(Branch) private readonly repo: Repository<Branch>) {}
+  constructor(
+    @InjectRepository(Branch) private readonly repo: Repository<Branch>
+  ) {}
 
   async create(businessId: string, data: Partial<Branch>): Promise<Branch> {
     const branch = this.repo.create({ ...data, businessId });
@@ -13,7 +15,10 @@ export class BranchesService {
   }
 
   async findByBusiness(businessId: string): Promise<Branch[]> {
-    return this.repo.find({ where: { businessId, active: true }, order: { name: "ASC" } });
+    return this.repo.find({
+      where: { businessId, active: true },
+      order: { name: "ASC" },
+    });
   }
 
   async findById(id: string, businessId: string): Promise<Branch> {
@@ -22,7 +27,11 @@ export class BranchesService {
     return branch;
   }
 
-  async update(id: string, businessId: string, data: Partial<Branch>): Promise<Branch> {
+  async update(
+    id: string,
+    businessId: string,
+    data: Partial<Branch>
+  ): Promise<Branch> {
     await this.repo.update({ id, businessId }, data as any);
     return this.findById(id, businessId);
   }

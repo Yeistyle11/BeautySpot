@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, FindOptionsWhere, Like } from "typeorm";
 import { ProfessionalCategoryEntity } from "../../entities/category.entity";
@@ -10,10 +14,13 @@ import { IPaginatedResponse } from "@beautyspot/shared-types";
 export class CategoriesService {
   constructor(
     @InjectRepository(ProfessionalCategoryEntity)
-    private readonly repo: Repository<ProfessionalCategoryEntity>,
+    private readonly repo: Repository<ProfessionalCategoryEntity>
   ) {}
 
-  async create(businessId: string, dto: CreateCategoryDto): Promise<ProfessionalCategoryEntity> {
+  async create(
+    businessId: string,
+    dto: CreateCategoryDto
+  ): Promise<ProfessionalCategoryEntity> {
     // Verificar nombre unico dentro del negocio
     const existing = await this.repo.findOne({
       where: { name: dto.name, businessId, active: true },
@@ -27,7 +34,7 @@ export class CategoriesService {
 
   async findByBusiness(
     businessId: string,
-    activeOnly = true,
+    activeOnly = true
   ): Promise<ProfessionalCategoryEntity[]> {
     const where: FindOptionsWhere<ProfessionalCategoryEntity> = { businessId };
     if (activeOnly) where.active = true;
@@ -41,7 +48,7 @@ export class CategoriesService {
     businessId: string,
     params: PaginateParams,
     activeOnly?: boolean,
-    search?: string,
+    search?: string
   ): Promise<IPaginatedResponse<ProfessionalCategoryEntity>> {
     const where: FindOptionsWhere<ProfessionalCategoryEntity> = { businessId };
     if (activeOnly) where.active = true;
@@ -53,7 +60,10 @@ export class CategoriesService {
     });
   }
 
-  async findById(id: string, businessId: string): Promise<ProfessionalCategoryEntity> {
+  async findById(
+    id: string,
+    businessId: string
+  ): Promise<ProfessionalCategoryEntity> {
     const category = await this.repo.findOne({ where: { id, businessId } });
     if (!category) throw new NotFoundException("Categoría no encontrada");
     return category;
@@ -62,7 +72,7 @@ export class CategoriesService {
   async update(
     id: string,
     businessId: string,
-    dto: UpdateCategoryDto,
+    dto: UpdateCategoryDto
   ): Promise<ProfessionalCategoryEntity> {
     const category = await this.findById(id, businessId);
 
@@ -93,24 +103,27 @@ export class CategoriesService {
     });
   }
 
-  async toggleActive(id: string, businessId: string): Promise<ProfessionalCategoryEntity> {
+  async toggleActive(
+    id: string,
+    businessId: string
+  ): Promise<ProfessionalCategoryEntity> {
     const category = await this.findById(id, businessId);
     await this.repo.update(
       { id: category.id, businessId },
-      { active: !category.active },
+      { active: !category.active }
     );
     return this.findById(id, businessId);
   }
 
   async reorder(
     businessId: string,
-    items: { id: string; sortOrder: number }[],
+    items: { id: string; sortOrder: number }[]
   ): Promise<void> {
     for (const item of items) {
       await this.findById(item.id, businessId);
       await this.repo.update(
         { id: item.id, businessId },
-        { sortOrder: item.sortOrder },
+        { sortOrder: item.sortOrder }
       );
     }
   }

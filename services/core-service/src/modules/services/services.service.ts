@@ -5,14 +5,19 @@ import { Service } from "../../entities/service.entity";
 
 @Injectable()
 export class ServicesService {
-  constructor(@InjectRepository(Service) private readonly repo: Repository<Service>) {}
+  constructor(
+    @InjectRepository(Service) private readonly repo: Repository<Service>
+  ) {}
 
   async create(businessId: string, data: Partial<Service>): Promise<Service> {
     const service = this.repo.create({ ...data, businessId });
     return this.repo.save(service);
   }
 
-  async findByBusiness(businessId: string, activeOnly = false): Promise<Service[]> {
+  async findByBusiness(
+    businessId: string,
+    activeOnly = false
+  ): Promise<Service[]> {
     const where: Record<string, unknown> = { businessId };
     if (activeOnly) where.active = true;
     return this.repo.find({ where, order: { category: "ASC", name: "ASC" } });
@@ -24,7 +29,11 @@ export class ServicesService {
     return service;
   }
 
-  async update(id: string, businessId: string, data: Partial<Service>): Promise<Service> {
+  async update(
+    id: string,
+    businessId: string,
+    data: Partial<Service>
+  ): Promise<Service> {
     await this.repo.update({ id, businessId }, data as any);
     return this.findById(id, businessId);
   }

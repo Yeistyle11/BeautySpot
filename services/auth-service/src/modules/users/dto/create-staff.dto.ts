@@ -1,4 +1,10 @@
-import { IsEmail, IsString, IsOptional, IsEnum, MinLength } from "class-validator";
+import {
+  IsEmail,
+  IsString,
+  IsOptional,
+  IsEnum,
+  MinLength,
+} from "class-validator";
 import { Role } from "@beautyspot/shared-types";
 
 export class CreateStaffDto {
@@ -13,12 +19,14 @@ export class CreateStaffDto {
   @MinLength(2, { message: "El nombre debe tener al menos 2 caracteres" })
   name!: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   phone?: string;
 
   @IsEnum(Role, { message: "Rol no valido" })
   role!: Role;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   professionalId?: string;
 }

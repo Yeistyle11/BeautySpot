@@ -1,18 +1,18 @@
-import 'reflect-metadata';
+import "reflect-metadata";
 
 // Mock de bcryptjs
-jest.mock('bcryptjs', () => ({
+jest.mock("bcryptjs", () => ({
   hash: jest.fn(),
   compare: jest.fn(),
 }));
 
 // Mock de uuid
-jest.mock('uuid', () => ({
+jest.mock("uuid", () => ({
   v4: jest.fn(),
 }));
 
 // Mock de JwtService
-jest.mock('@nestjs/jwt', () => ({
+jest.mock("@nestjs/jwt", () => ({
   JwtService: jest.fn().mockImplementation(() => ({
     sign: jest.fn(),
     verify: jest.fn(),
@@ -20,16 +20,16 @@ jest.mock('@nestjs/jwt', () => ({
 }));
 
 // Mock de ConfigService
-jest.mock('@nestjs/config', () => ({
+jest.mock("@nestjs/config", () => ({
   ConfigService: jest.fn().mockImplementation(() => ({
     get: jest.fn((key: string) => {
       const config: any = {
-        BCRYPT_SALT_ROUNDS: '12',
-        JWT_SECRET: 'test-secret',
-        JWT_REFRESH_SECRET: 'test-refresh-secret',
-        JWT_EXPIRES_IN: '15m',
-        JWT_REFRESH_EXPIRES_IN: '7d',
-        RABBITMQ_URL: 'amqp://localhost:5672',
+        BCRYPT_SALT_ROUNDS: "12",
+        JWT_SECRET: "test-secret",
+        JWT_REFRESH_SECRET: "test-refresh-secret",
+        JWT_EXPIRES_IN: "15m",
+        JWT_REFRESH_EXPIRES_IN: "7d",
+        RABBITMQ_URL: "amqp://localhost:5672",
       };
       return config[key];
     }),
@@ -37,7 +37,7 @@ jest.mock('@nestjs/config', () => ({
 }));
 
 // Mock de IoRedis
-jest.mock('ioredis', () => {
+jest.mock("ioredis", () => {
   const mockRedis = {
     get: jest.fn(),
     set: jest.fn(),
@@ -53,13 +53,13 @@ jest.mock('ioredis', () => {
 });
 
 // Mock de amqplib (RabbitMQ)
-jest.mock('amqplib', () => ({
+jest.mock("amqplib", () => ({
   connect: jest.fn(),
 }));
 
 // Mock de EventBusService
-jest.mock('@beautyspot/nest-common', () => {
-  const originalModule = jest.requireActual('@beautyspot/nest-common');
+jest.mock("@beautyspot/nest-common", () => {
+  const originalModule = jest.requireActual("@beautyspot/nest-common");
   return {
     ...originalModule,
     EventBusService: jest.fn().mockImplementation(() => ({

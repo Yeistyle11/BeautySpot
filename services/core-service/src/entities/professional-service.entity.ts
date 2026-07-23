@@ -8,7 +8,15 @@ import { Service } from "./service.entity";
 export class ProfessionalService extends BaseEntity {
   @Column({ type: "uuid", name: "professional_id" }) professionalId!: string;
   @Column({ type: "uuid", name: "service_id" }) serviceId!: string;
-  @Column({ type: "decimal", precision: 10, scale: 2, transformer: numericTransformer, nullable: true, name: "custom_price" }) customPrice!: number;
+  @Column({
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    transformer: numericTransformer,
+    nullable: true,
+    name: "custom_price",
+  })
+  customPrice!: number;
   @Column({ nullable: true, name: "custom_duration" }) customDuration!: number;
 
   @ManyToOne(() => Professional, { onDelete: "CASCADE" })

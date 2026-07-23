@@ -8,7 +8,9 @@ import { Client } from "../../entities/client.entity";
 
 @Injectable()
 export class ClientsService {
-  constructor(@InjectRepository(Client) private readonly repo: Repository<Client>) {}
+  constructor(
+    @InjectRepository(Client) private readonly repo: Repository<Client>
+  ) {}
 
   async create(businessId: string, data: Partial<Client>): Promise<Client> {
     const client = this.repo.create({ ...data, businessId });
@@ -37,20 +39,35 @@ export class ClientsService {
     return client;
   }
 
-  async findByUserId(userId: string, businessId: string): Promise<Client | null> {
+  async findByUserId(
+    userId: string,
+    businessId: string
+  ): Promise<Client | null> {
     return this.repo.findOne({ where: { userId, businessId, active: true } });
   }
 
-  async update(id: string, businessId: string, data: Partial<Client>): Promise<Client> {
+  async update(
+    id: string,
+    businessId: string,
+    data: Partial<Client>
+  ): Promise<Client> {
     await this.repo.update({ id, businessId }, data as any);
     return this.findById(id, businessId);
   }
 
-  async addLoyaltyPoints(id: string, businessId: string, points: number): Promise<void> {
+  async addLoyaltyPoints(
+    id: string,
+    businessId: string,
+    points: number
+  ): Promise<void> {
     await this.repo.increment({ id, businessId }, "loyaltyPoints", points);
   }
 
-  async subtractLoyaltyPoints(id: string, businessId: string, points: number): Promise<void> {
+  async subtractLoyaltyPoints(
+    id: string,
+    businessId: string,
+    points: number
+  ): Promise<void> {
     const client = await this.findById(id, businessId);
     const newPoints = Math.max(0, client.loyaltyPoints - points);
     await this.repo.update({ id, businessId }, { loyaltyPoints: newPoints });

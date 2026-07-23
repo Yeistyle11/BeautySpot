@@ -1,6 +1,9 @@
 import { Controller, Get, Post, Body, Param, Query } from "@nestjs/common";
 import { NotificationsService } from "./notifications.service";
-import { CreateNotificationDto, QueryNotificationsDto } from "./dto/create-notification.dto";
+import {
+  CreateNotificationDto,
+  QueryNotificationsDto,
+} from "./dto/create-notification.dto";
 import { Roles, CurrentUser, BusinessId } from "@beautyspot/nest-common";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import { Role } from "@beautyspot/shared-types";
@@ -19,21 +22,21 @@ export class NotificationsController {
   findByUser(
     @CurrentUser("userId") userId: string,
     @BusinessId() businessId: string,
-    @Query() query: QueryNotificationsDto & Record<string, unknown>,
+    @Query() query: QueryNotificationsDto & Record<string, unknown>
   ) {
     const pagination = parsePaginationQuery(query, ["createdAt"]);
     return this.service.findByUser(
       userId,
       businessId,
       query.unreadOnly ?? false,
-      pagination,
+      pagination
     );
   }
 
   @Get("unread-count")
   getUnreadCount(
     @CurrentUser("userId") userId: string,
-    @BusinessId() businessId: string,
+    @BusinessId() businessId: string
   ) {
     return this.service.getUnreadCount(userId, businessId);
   }
@@ -46,7 +49,7 @@ export class NotificationsController {
   @Post("mark-all-read")
   markAllAsRead(
     @CurrentUser("userId") userId: string,
-    @BusinessId() businessId: string,
+    @BusinessId() businessId: string
   ) {
     return this.service.markAllAsRead(userId, businessId);
   }

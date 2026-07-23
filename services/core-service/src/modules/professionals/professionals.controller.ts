@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+} from "@nestjs/common";
 import { ProfessionalsService } from "./professionals.service";
 import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
@@ -14,7 +22,10 @@ export class ProfessionalsController {
   constructor(private readonly service: ProfessionalsService) {}
 
   @Post()
-  async create(@BusinessId() businessId: string, @Body() dto: CreateProfessionalDto) {
+  async create(
+    @BusinessId() businessId: string,
+    @Body() dto: CreateProfessionalDto
+  ) {
     return this.service.create(businessId, dto);
   }
 

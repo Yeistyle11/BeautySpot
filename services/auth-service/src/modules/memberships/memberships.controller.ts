@@ -1,4 +1,12 @@
-import { Controller, Post, Patch, Delete, Get, Param, Body } from "@nestjs/common";
+import {
+  Controller,
+  Post,
+  Patch,
+  Delete,
+  Get,
+  Param,
+  Body,
+} from "@nestjs/common";
 import { MembershipsService, MembershipActor } from "./memberships.service";
 import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";

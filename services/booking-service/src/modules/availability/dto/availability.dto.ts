@@ -1,4 +1,11 @@
-import { IsNumber, IsString, Min, Max, IsArray, ValidateNested } from "class-validator";
+import {
+  IsNumber,
+  IsString,
+  Min,
+  Max,
+  IsArray,
+  ValidateNested,
+} from "class-validator";
 import { Type } from "class-transformer";
 
 export class SlotDto {
@@ -8,6 +15,8 @@ export class SlotDto {
 }
 
 export class ReplaceAvailabilityDto {
-  @IsArray() @ValidateNested({ each: true }) @Type(() => SlotDto)
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SlotDto)
   slots!: SlotDto[];
 }

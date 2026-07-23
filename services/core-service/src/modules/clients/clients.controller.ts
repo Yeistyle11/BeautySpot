@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Patch, Param, Body, Query } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Body,
+  Query,
+} from "@nestjs/common";
 import { ClientsService } from "./clients.service";
 import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";

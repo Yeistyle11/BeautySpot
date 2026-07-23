@@ -1,19 +1,19 @@
-import { Test } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { NotificationPreferencesService } from './notification-preferences.service';
-import { NotificationPreferenceEntity } from './notification-preference.entity';
+import { Test } from "@nestjs/testing";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { NotificationPreferencesService } from "./notification-preferences.service";
+import { NotificationPreferenceEntity } from "./notification-preference.entity";
 
-describe('NotificationPreferencesService', () => {
+describe("NotificationPreferencesService", () => {
   let service: NotificationPreferencesService;
   let mockRepo: jest.Mocked<Repository<NotificationPreferenceEntity>>;
 
   const mockPreference: NotificationPreferenceEntity = {
-    id: 'pref-123',
-    userId: 'user-123',
-    businessId: 'biz-123',
-    type: 'APPOINTMENT_REMINDER',
-    channel: 'EMAIL',
+    id: "pref-123",
+    userId: "user-123",
+    businessId: "biz-123",
+    type: "APPOINTMENT_REMINDER",
+    channel: "EMAIL",
     enabled: true,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -38,63 +38,70 @@ describe('NotificationPreferencesService', () => {
       ],
     }).compile();
 
-    service = module.get<NotificationPreferencesService>(NotificationPreferencesService);
+    service = module.get<NotificationPreferencesService>(
+      NotificationPreferencesService
+    );
   });
 
-  describe('findByUser', () => {
-    it('debería retornar preferencias de un usuario', async () => {
+  describe("findByUser", () => {
+    it("debería retornar preferencias de un usuario", async () => {
       const preferences = [mockPreference];
       mockRepo.find.mockResolvedValue(preferences);
 
-      const result = await service.findByUser('user-123', 'biz-123');
+      const result = await service.findByUser("user-123", "biz-123");
 
       expect(result).toEqual(preferences);
       expect(mockRepo.find).toHaveBeenCalledWith({
-        where: { userId: 'user-123', businessId: 'biz-123' }
+        where: { userId: "user-123", businessId: "biz-123" },
       });
     });
 
-    it('debería retornar array vacío si no hay preferencias', async () => {
+    it("debería retornar array vacío si no hay preferencias", async () => {
       mockRepo.find.mockResolvedValue([]);
 
-      const result = await service.findByUser('user-999', 'biz-999');
+      const result = await service.findByUser("user-999", "biz-999");
 
       expect(result).toEqual([]);
     });
   });
 
-  describe('upsert', () => {
-    it('debería actualizar preferencia existente', async () => {
+  describe("upsert", () => {
+    it("debería actualizar preferencia existente", async () => {
       const data = {
-        businessId: 'biz-123',
-        userId: 'user-123',
-        type: 'APPOINTMENT_REMINDER',
-        channel: 'EMAIL',
+        businessId: "biz-123",
+        userId: "user-123",
+        type: "APPOINTMENT_REMINDER",
+        channel: "EMAIL",
         enabled: false,
       };
 
       mockRepo.findOne.mockResolvedValue(mockPreference);
-      mockRepo.save.mockResolvedValue({ ...mockPreference, enabled: false } as any);
+      mockRepo.save.mockResolvedValue({
+        ...mockPreference,
+        enabled: false,
+      } as any);
 
       await service.upsert(data);
 
       expect(mockRepo.findOne).toHaveBeenCalledWith({
         where: {
-          businessId: 'biz-123',
-          userId: 'user-123',
-          type: 'APPOINTMENT_REMINDER',
-          channel: 'EMAIL',
-        }
+          businessId: "biz-123",
+          userId: "user-123",
+          type: "APPOINTMENT_REMINDER",
+          channel: "EMAIL",
+        },
       });
-      expect(mockRepo.save).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
+      expect(mockRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ enabled: false })
+      );
     });
 
-    it('debería crear nueva preferencia si no existe', async () => {
+    it("debería crear nueva preferencia si no existe", async () => {
       const data = {
-        businessId: 'biz-456',
-        userId: 'user-456',
-        type: 'APPOINTMENT_REMINDER',
-        channel: 'EMAIL',
+        businessId: "biz-456",
+        userId: "user-456",
+        type: "APPOINTMENT_REMINDER",
+        channel: "EMAIL",
         enabled: true,
       };
 
@@ -109,29 +116,52 @@ describe('NotificationPreferencesService', () => {
     });
   });
 
-  describe('isNotificationEnabled', () => {
-    it('debería retornar enabled si existe preferencia', async () => {
-      const enabledPref = { ...mockPreference, enabled: true, generateId: () => {} };
+  describe("isNotificationEnabled", () => {
+    it("debería retornar enabled si existe preferencia", async () => {
+      const enabledPref = {
+        ...mockPreference,
+        enabled: true,
+        generateId: () => {},
+      };
       mockRepo.findOne.mockResolvedValue(enabledPref as any);
 
-      const result = await service.isNotificationEnabled('user-123', 'biz-123', 'APPOINTMENT_REMINDER', 'EMAIL');
+      const result = await service.isNotificationEnabled(
+        "user-123",
+        "biz-123",
+        "APPOINTMENT_REMINDER",
+        "EMAIL"
+      );
 
       expect(result).toBe(true);
     });
 
-    it('debería retornar enabled false si preferencia está desactivada', async () => {
-      const disabledPref = { ...mockPreference, enabled: false, generateId: () => {} };
+    it("debería retornar enabled false si preferencia está desactivada", async () => {
+      const disabledPref = {
+        ...mockPreference,
+        enabled: false,
+        generateId: () => {},
+      };
       mockRepo.findOne.mockResolvedValue(disabledPref as any);
 
-      const result = await service.isNotificationEnabled('user-123', 'biz-123', 'APPOINTMENT_REMINDER', 'EMAIL');
+      const result = await service.isNotificationEnabled(
+        "user-123",
+        "biz-123",
+        "APPOINTMENT_REMINDER",
+        "EMAIL"
+      );
 
       expect(result).toBe(false);
     });
 
-    it('debería retornar true por defecto si no existe preferencia', async () => {
+    it("debería retornar true por defecto si no existe preferencia", async () => {
       mockRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.isNotificationEnabled('user-999', 'biz-999', 'APPOINTMENT_REMINDER', 'EMAIL');
+      const result = await service.isNotificationEnabled(
+        "user-999",
+        "biz-999",
+        "APPOINTMENT_REMINDER",
+        "EMAIL"
+      );
 
       expect(result).toBe(true);
     });

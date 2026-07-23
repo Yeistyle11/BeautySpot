@@ -9,7 +9,8 @@ export interface PortfolioItem {
 
 @Entity("professional_profiles")
 export class ProfessionalProfileEntity extends TenantEntity {
-  @Column({ type: "uuid", name: "professional_id" }) @Index()
+  @Column({ type: "uuid", name: "professional_id" })
+  @Index()
   professionalId!: string;
 
   // Datos basicos sincronizados desde core-service
@@ -28,7 +29,8 @@ export class ProfessionalProfileEntity extends TenantEntity {
 
   @Column({ type: "jsonb", nullable: true }) portfolio!: PortfolioItem[] | null;
 
-  @Column({ name: "social_instagram", nullable: true }) socialInstagram!: string;
+  @Column({ name: "social_instagram", nullable: true })
+  socialInstagram!: string;
 
   // Slug para URL publica SEO-friendly
   @Column({ unique: true, nullable: true }) slug!: string;
@@ -38,7 +40,14 @@ export class ProfessionalProfileEntity extends TenantEntity {
   visibleOnProfile!: boolean;
 
   // Metricas calculadas
-  @Column({ type: "decimal", precision: 3, scale: 2, transformer: numericTransformer, default: 0 }) rating!: number;
+  @Column({
+    type: "decimal",
+    precision: 3,
+    scale: 2,
+    transformer: numericTransformer,
+    default: 0,
+  })
+  rating!: number;
 
   @Column({ name: "total_reviews", default: 0 }) totalReviews!: number;
 

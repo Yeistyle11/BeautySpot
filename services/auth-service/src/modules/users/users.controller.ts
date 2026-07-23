@@ -50,7 +50,10 @@ export class UsersController {
    */
   @Get(":id/staff")
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
-  async getStaffMember(@Param("id") userId: string, @BusinessId() businessId: string) {
+  async getStaffMember(
+    @Param("id") userId: string,
+    @BusinessId() businessId: string
+  ) {
     return this.usersService.findByIdAndBusiness(userId, businessId);
   }
 
@@ -61,7 +64,10 @@ export class UsersController {
    */
   @Post("staff")
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
-  async createStaff(@Body() dto: CreateStaffDto, @BusinessId() businessId: string) {
+  async createStaff(
+    @Body() dto: CreateStaffDto,
+    @BusinessId() businessId: string
+  ) {
     return this.usersService.createStaff(businessId, dto);
   }
 

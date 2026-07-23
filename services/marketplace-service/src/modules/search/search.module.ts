@@ -6,7 +6,12 @@ import { SearchService } from "./search.service";
 import { SearchController } from "./search.controller";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([BusinessProfileEntity, ProfessionalProfileEntity])],
+  imports: [
+    TypeOrmModule.forFeature([
+      BusinessProfileEntity,
+      ProfessionalProfileEntity,
+    ]),
+  ],
   controllers: [SearchController],
   providers: [SearchService],
   exports: [SearchService],

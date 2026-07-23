@@ -1,8 +1,15 @@
-import { Injectable, NotFoundException, ConflictException } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, FindOptionsWhere, Like } from "typeorm";
 import { ServiceCategoryEntity } from "../../entities/service-category.entity";
-import { CreateServiceCategoryDto, UpdateServiceCategoryDto } from "./dto/service-category.dto";
+import {
+  CreateServiceCategoryDto,
+  UpdateServiceCategoryDto,
+} from "./dto/service-category.dto";
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
 
@@ -10,15 +17,20 @@ import { IPaginatedResponse } from "@beautyspot/shared-types";
 export class ServiceCategoriesService {
   constructor(
     @InjectRepository(ServiceCategoryEntity)
-    private readonly repo: Repository<ServiceCategoryEntity>,
+    private readonly repo: Repository<ServiceCategoryEntity>
   ) {}
 
-  async create(businessId: string, dto: CreateServiceCategoryDto): Promise<ServiceCategoryEntity> {
+  async create(
+    businessId: string,
+    dto: CreateServiceCategoryDto
+  ): Promise<ServiceCategoryEntity> {
     const existing = await this.repo.findOne({
       where: { name: dto.name, businessId, active: true },
     });
     if (existing) {
-      throw new ConflictException(`La categoría de servicio "${dto.name}" ya existe`);
+      throw new ConflictException(
+        `La categoría de servicio "${dto.name}" ya existe`
+      );
     }
     const category = this.repo.create({ ...dto, businessId });
     return this.repo.save(category);
@@ -26,7 +38,7 @@ export class ServiceCategoriesService {
 
   async findByBusiness(
     businessId: string,
-    activeOnly = true,
+    activeOnly = true
   ): Promise<ServiceCategoryEntity[]> {
     const where: FindOptionsWhere<ServiceCategoryEntity> = { businessId };
     if (activeOnly) where.active = true;
@@ -40,7 +52,7 @@ export class ServiceCategoriesService {
     businessId: string,
     params: PaginateParams,
     activeOnly?: boolean,
-    search?: string,
+    search?: string
   ): Promise<IPaginatedResponse<ServiceCategoryEntity>> {
     const where: FindOptionsWhere<ServiceCategoryEntity> = { businessId };
     if (activeOnly) where.active = true;
@@ -52,16 +64,20 @@ export class ServiceCategoriesService {
     });
   }
 
-  async findById(id: string, businessId: string): Promise<ServiceCategoryEntity> {
+  async findById(
+    id: string,
+    businessId: string
+  ): Promise<ServiceCategoryEntity> {
     const category = await this.repo.findOne({ where: { id, businessId } });
-    if (!category) throw new NotFoundException("Categoría de servicio no encontrada");
+    if (!category)
+      throw new NotFoundException("Categoría de servicio no encontrada");
     return category;
   }
 
   async update(
     id: string,
     businessId: string,
-    dto: UpdateServiceCategoryDto,
+    dto: UpdateServiceCategoryDto
   ): Promise<ServiceCategoryEntity> {
     const category = await this.findById(id, businessId);
 
@@ -70,7 +86,9 @@ export class ServiceCategoriesService {
         where: { name: dto.name, businessId, active: true },
       });
       if (existing) {
-        throw new ConflictException(`La categoría de servicio "${dto.name}" ya existe`);
+        throw new ConflictException(
+          `La categoría de servicio "${dto.name}" ya existe`
+        );
       }
     }
 
@@ -83,19 +101,28 @@ export class ServiceCategoriesService {
     await this.repo.update({ id, businessId }, { active: false });
   }
 
-  async toggleActive(id: string, businessId: string): Promise<ServiceCategoryEntity> {
+  async toggleActive(
+    id: string,
+    businessId: string
+  ): Promise<ServiceCategoryEntity> {
     const category = await this.findById(id, businessId);
-    await this.repo.update({ id: category.id, businessId }, { active: !category.active });
+    await this.repo.update(
+      { id: category.id, businessId },
+      { active: !category.active }
+    );
     return this.findById(id, businessId);
   }
 
   async reorder(
     businessId: string,
-    items: { id: string; sortOrder: number }[],
+    items: { id: string; sortOrder: number }[]
   ): Promise<void> {
     for (const item of items) {
       await this.findById(item.id, businessId);
-      await this.repo.update({ id: item.id, businessId }, { sortOrder: item.sortOrder });
+      await this.repo.update(
+        { id: item.id, businessId },
+        { sortOrder: item.sortOrder }
+      );
     }
   }
 }

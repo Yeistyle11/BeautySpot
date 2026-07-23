@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MaxLength, Matches } from 'class-validator';
+import { IsString, IsOptional, MaxLength, Matches } from "class-validator";
 
 export class UploadBusinessLogoDto {
   @IsString()
@@ -44,7 +44,7 @@ export class UploadServiceImageDto {
 
 export class GenerateUploadSignatureDto {
   @Matches(/^(business-logo|professional-photo|service-image)$/)
-  resourceType: 'business-logo' | 'professional-photo' | 'service-image';
+  resourceType: "business-logo" | "professional-photo" | "service-image";
 
   @IsString()
   @MaxLength(50)

@@ -1,4 +1,12 @@
-import { IsString, IsOptional, IsNumber, IsArray, IsUrl, IsBoolean, MaxLength } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsArray,
+  IsUrl,
+  IsBoolean,
+  MaxLength,
+} from "class-validator";
 import { Type } from "class-transformer";
 
 class PortfolioItemDto {

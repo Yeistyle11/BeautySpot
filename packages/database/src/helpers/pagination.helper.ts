@@ -12,7 +12,7 @@ export interface PaginateParams {
 export async function paginate<T extends ObjectLiteral>(
   repository: Repository<T>,
   params: PaginateParams,
-  findOptions?: FindManyOptions<T>,
+  findOptions?: FindManyOptions<T>
 ): Promise<IPaginatedResponse<T>> {
   // Un `order` explícito en findOptions tiene prioridad (permite ordenar por
   // varios campos, ej. date DESC + startTime ASC); si no se pasa, se usa el

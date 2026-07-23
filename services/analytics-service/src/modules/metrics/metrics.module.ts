@@ -6,7 +6,9 @@ import { MetricsService } from "./metrics.service";
 import { MetricsController } from "./metrics.controller";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([DailyMetricEntity, ProfessionalMetricEntity])],
+  imports: [
+    TypeOrmModule.forFeature([DailyMetricEntity, ProfessionalMetricEntity]),
+  ],
   controllers: [MetricsController],
   providers: [MetricsService],
   exports: [MetricsService],

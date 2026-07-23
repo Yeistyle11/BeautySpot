@@ -11,11 +11,18 @@ import { paginate, PaginateParams } from "@beautyspot/database";
 
 @Injectable()
 export class NotificationsService {
-  constructor(@InjectRepository(NotificationEntity) private readonly repo: Repository<NotificationEntity>) {}
+  constructor(
+    @InjectRepository(NotificationEntity)
+    private readonly repo: Repository<NotificationEntity>
+  ) {}
 
   async create(data: {
-    businessId: string; userId: string; type: NotificationType;
-    title: string; message: string; data?: Record<string, unknown>;
+    businessId: string;
+    userId: string;
+    type: NotificationType;
+    title: string;
+    message: string;
+    data?: Record<string, unknown>;
     channel?: NotificationChannel;
   }): Promise<NotificationEntity> {
     const notification = this.repo.create({
@@ -41,7 +48,8 @@ export class NotificationsService {
 
   async markAsRead(id: string, userId: string): Promise<NotificationEntity> {
     const notification = await this.repo.findOne({ where: { id, userId } });
-    if (!notification) throw new NotFoundException("Notificación no encontrada");
+    if (!notification)
+      throw new NotFoundException("Notificación no encontrada");
     notification.read = true;
     return this.repo.save(notification);
   }

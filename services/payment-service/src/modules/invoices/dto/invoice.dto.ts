@@ -1,4 +1,12 @@
-import { IsString, IsNumber, IsOptional, IsEnum, IsArray, ValidateNested, IsDateString } from "class-validator";
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsEnum,
+  IsArray,
+  ValidateNested,
+  IsDateString,
+} from "class-validator";
 import { Type } from "class-transformer";
 import { InvoiceStatus } from "@beautyspot/shared-types";
 
@@ -13,7 +21,10 @@ export class CreateInvoiceDto {
   @IsOptional() @IsDateString() date?: string;
   @IsOptional() @IsDateString() dueDate?: string;
   @IsOptional() @IsString() notes?: string;
-  @IsArray() @ValidateNested({ each: true }) @Type(() => CreateInvoiceItemDto) items!: CreateInvoiceItemDto[];
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateInvoiceItemDto)
+  items!: CreateInvoiceItemDto[];
 }
 
 export class UpdateInvoiceStatusDto {

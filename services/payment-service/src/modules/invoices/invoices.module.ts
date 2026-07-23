@@ -7,7 +7,10 @@ import { InvoicesController } from "./invoices.controller";
 import { PdfModule } from "./pdf/pdf.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([InvoiceEntity, InvoiceItemEntity]), PdfModule],
+  imports: [
+    TypeOrmModule.forFeature([InvoiceEntity, InvoiceItemEntity]),
+    PdfModule,
+  ],
   controllers: [InvoicesController],
   providers: [InvoicesService],
   exports: [InvoicesService],

@@ -329,11 +329,15 @@ describe("PaymentsService", () => {
       mockRepo.findOne.mockResolvedValue(payment1WeekOld);
       mockManagerRepo.update.mockResolvedValue({ affected: 1 });
 
-      const result = await service.refundPayment("payment-123", "business-123", {
-        reason: "Solicitud del cliente",
-        refundAmount: 50,
-        refundedBy: "user-777",
-      });
+      const result = await service.refundPayment(
+        "payment-123",
+        "business-123",
+        {
+          reason: "Solicitud del cliente",
+          refundAmount: 50,
+          refundedBy: "user-777",
+        }
+      );
 
       expect(mockDataSource.transaction).toHaveBeenCalled();
       // El UPDATE se condiciona a status COMPLETED para bloquear el doble
@@ -412,7 +416,9 @@ describe("PaymentsService", () => {
       mockRepo.findOne.mockResolvedValue(pendingPayment);
 
       await expect(
-        service.refundPayment("payment-123", "business-123", { refundedBy: "user-777" })
+        service.refundPayment("payment-123", "business-123", {
+          refundedBy: "user-777",
+        })
       ).rejects.toThrow(BadRequestException);
       expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
@@ -427,7 +433,9 @@ describe("PaymentsService", () => {
       mockRepo.findOne.mockResolvedValue(oldPayment);
 
       await expect(
-        service.refundPayment("payment-123", "business-123", { refundedBy: "user-777" })
+        service.refundPayment("payment-123", "business-123", {
+          refundedBy: "user-777",
+        })
       ).rejects.toThrow(BadRequestException);
       expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
@@ -441,10 +449,18 @@ describe("PaymentsService", () => {
       mockRepo.findOne.mockResolvedValue(recentPayment);
 
       await expect(
-        service.refundPayment("payment-123", "business-123", { reason: "", refundAmount: -1, refundedBy: "user-777" })
+        service.refundPayment("payment-123", "business-123", {
+          reason: "",
+          refundAmount: -1,
+          refundedBy: "user-777",
+        })
       ).rejects.toThrow(BadRequestException);
       await expect(
-        service.refundPayment("payment-123", "business-123", { reason: "", refundAmount: 200, refundedBy: "user-777" })
+        service.refundPayment("payment-123", "business-123", {
+          reason: "",
+          refundAmount: 200,
+          refundedBy: "user-777",
+        })
       ).rejects.toThrow(BadRequestException);
       expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });

@@ -1,4 +1,7 @@
-import { TokenVersionStore, TOKEN_VERSION_DEFAULT } from "./token-version.store";
+import {
+  TokenVersionStore,
+  TOKEN_VERSION_DEFAULT,
+} from "./token-version.store";
 import { RedisCacheService } from "../cache/redis-cache.service";
 import { TokenVersionResolver } from "./token-version.resolver";
 

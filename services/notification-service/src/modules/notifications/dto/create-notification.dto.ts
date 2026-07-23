@@ -1,5 +1,15 @@
-import { IsEnum, IsUUID, IsString, IsOptional, IsObject, IsBoolean } from "class-validator";
-import { NotificationType, NotificationChannel } from "@beautyspot/shared-types";
+import {
+  IsEnum,
+  IsUUID,
+  IsString,
+  IsOptional,
+  IsObject,
+  IsBoolean,
+} from "class-validator";
+import {
+  NotificationType,
+  NotificationChannel,
+} from "@beautyspot/shared-types";
 
 export class CreateNotificationDto {
   @IsUUID()

@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Put, Delete, Param, Body } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Body,
+} from "@nestjs/common";
 import { BusinessProfilesService } from "./business-profiles.service";
 import {
   UpsertProfileDto,
@@ -21,13 +29,19 @@ export class BusinessProfilesController {
 
   @Put("config")
   @Roles(Role.OWNER, Role.ADMIN)
-  async updateConfig(@BusinessId() businessId: string, @Body() dto: UpdateProfileConfigDto) {
+  async updateConfig(
+    @BusinessId() businessId: string,
+    @Body() dto: UpdateProfileConfigDto
+  ) {
     return this.service.updateConfig(businessId, dto);
   }
 
   @Post("gallery")
   @Roles(Role.OWNER, Role.ADMIN)
-  async addGalleryImages(@BusinessId() businessId: string, @Body() dto: AddGalleryImagesDto) {
+  async addGalleryImages(
+    @BusinessId() businessId: string,
+    @Body() dto: AddGalleryImagesDto
+  ) {
     return this.service.addGalleryImages(businessId, dto);
   }
 
@@ -42,7 +56,10 @@ export class BusinessProfilesController {
 
   @Delete("gallery/:index")
   @Roles(Role.OWNER, Role.ADMIN)
-  async removeGalleryImage(@BusinessId() businessId: string, @Param("index") index: number) {
+  async removeGalleryImage(
+    @BusinessId() businessId: string,
+    @Param("index") index: number
+  ) {
     return this.service.removeGalleryImage(businessId, index);
   }
 

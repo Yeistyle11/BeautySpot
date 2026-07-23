@@ -14,10 +14,13 @@ export class InvoicesService {
     private readonly invoiceRepo: Repository<InvoiceEntity>,
     @InjectRepository(InvoiceItemEntity)
     private readonly itemRepo: Repository<InvoiceItemEntity>,
-    private readonly pdfService: PdfService,
+    private readonly pdfService: PdfService
   ) {}
 
-  async create(businessId: string, dto: CreateInvoiceDto): Promise<InvoiceEntity> {
+  async create(
+    businessId: string,
+    dto: CreateInvoiceDto
+  ): Promise<InvoiceEntity> {
     const number = await this.generateInvoiceNumber(businessId);
     const date = dto.date || new Date().toISOString().split("T")[0];
     const dueDate = dto.dueDate || this.getDefaultDueDate();
@@ -49,7 +52,10 @@ export class InvoicesService {
     return this.invoiceRepo.save(invoice);
   }
 
-  async findByBusiness(businessId: string, filters?: { status?: InvoiceStatus; from?: string; to?: string }) {
+  async findByBusiness(
+    businessId: string,
+    filters?: { status?: InvoiceStatus; from?: string; to?: string }
+  ) {
     const where: Record<string, unknown> = { businessId };
     if (filters?.status) where.status = filters.status;
 
@@ -61,35 +67,45 @@ export class InvoicesService {
   }
 
   async findById(id: string, businessId: string): Promise<InvoiceEntity> {
-    const invoice = await this.invoiceRepo.findOne({ where: { id, businessId }, relations: ["items"] });
+    const invoice = await this.invoiceRepo.findOne({
+      where: { id, businessId },
+      relations: ["items"],
+    });
     if (!invoice) throw new NotFoundException("Factura no encontrada");
     return invoice;
   }
 
-  async updateStatus(id: string, businessId: string, status: InvoiceStatus): Promise<InvoiceEntity> {
+  async updateStatus(
+    id: string,
+    businessId: string,
+    status: InvoiceStatus
+  ): Promise<InvoiceEntity> {
     await this.invoiceRepo.update({ id, businessId }, { status });
     return this.findById(id, businessId);
   }
 
-  async generateInvoicePdf(invoiceId: string, businessId: string): Promise<Buffer> {
+  async generateInvoicePdf(
+    invoiceId: string,
+    businessId: string
+  ): Promise<Buffer> {
     const invoice = await this.findById(invoiceId, businessId);
-    
+
     const invoiceData = {
       invoiceNumber: invoice.number,
       invoiceDate: new Date(invoice.date),
       dueDate: new Date(invoice.dueDate),
       business: {
-        name: 'BeautySpot Business',
-        nit: '900123456-1',
-        address: 'Calle 123 #45-67, Bogotá',
-        phone: '+57 300 123 4567',
-        email: 'info@beautyspot.co',
+        name: "BeautySpot Business",
+        nit: "900123456-1",
+        address: "Calle 123 #45-67, Bogotá",
+        phone: "+57 300 123 4567",
+        email: "info@beautyspot.co",
       },
       client: {
-        name: 'Cliente',
-        document: '123456789',
+        name: "Cliente",
+        document: "123456789",
       },
-      items: invoice.items.map(item => ({
+      items: invoice.items.map((item) => ({
         name: item.description,
         quantity: Number(item.quantity),
         price: Number(item.unitPrice),
@@ -97,7 +113,7 @@ export class InvoicesService {
       subtotal: Number(invoice.total) * 0.84,
       tax: Number(invoice.total) * 0.16,
       total: Number(invoice.total),
-      paymentMethod: 'Efectivo',
+      paymentMethod: "Efectivo",
       notes: invoice.notes,
     };
 

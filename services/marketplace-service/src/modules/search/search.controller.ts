@@ -1,6 +1,13 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import { SearchService, SearchFilters } from "./search.service";
-import { IsOptional, IsNumber, IsString, IsIn, Min, Max } from "class-validator";
+import {
+  IsOptional,
+  IsNumber,
+  IsString,
+  IsIn,
+  Min,
+  Max,
+} from "class-validator";
 import { Type } from "class-transformer";
 import { Public } from "@beautyspot/nest-common";
 
@@ -11,10 +18,18 @@ class SearchQueryDto {
   @IsOptional() @Type(() => Number) @IsNumber() lat?: number;
   @IsOptional() @Type(() => Number) @IsNumber() lng?: number;
   @IsOptional() @Type(() => Number) @IsNumber() radius?: number;
-  @IsOptional() @Type(() => Number) @IsNumber() @Min(1) @Max(5) ratingMin?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(5)
+  ratingMin?: number;
   @IsOptional() @Type(() => Number) @IsNumber() page?: number;
   @IsOptional() @Type(() => Number) @IsNumber() limit?: number;
-  @IsOptional() @IsString() @IsIn(["business", "professional", "all"]) type?: "business" | "professional" | "all";
+  @IsOptional() @IsString() @IsIn(["business", "professional", "all"]) type?:
+    | "business"
+    | "professional"
+    | "all";
 }
 
 @Controller("search")

@@ -63,7 +63,10 @@ export class AuthService {
       throw new ConflictException("El email ya está registrado");
     }
 
-    const hashedPassword = await bcrypt.hash(dto.password, this.getSaltRounds());
+    const hashedPassword = await bcrypt.hash(
+      dto.password,
+      this.getSaltRounds()
+    );
 
     const user = await this.dataSource.transaction(async (manager) => {
       const userRepo = manager.getRepository(User);
@@ -258,7 +261,10 @@ export class AuthService {
       throw new UnauthorizedException("Contraseña actual incorrecta");
     }
 
-    const hashedPassword = await bcrypt.hash(dto.newPassword, this.getSaltRounds());
+    const hashedPassword = await bcrypt.hash(
+      dto.newPassword,
+      this.getSaltRounds()
+    );
 
     await this.dataSource.transaction(async (manager) => {
       const userRepo = manager.getRepository(User);

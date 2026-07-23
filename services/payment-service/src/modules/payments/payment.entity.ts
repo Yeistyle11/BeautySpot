@@ -8,7 +8,13 @@ export class PaymentEntity extends TenantEntity {
   @Column({ type: "uuid", name: "appointment_id", nullable: true })
   appointmentId!: string;
   @Column({ type: "uuid", name: "client_id" }) clientId!: string;
-  @Column({ type: "decimal", precision: 10, scale: 2, transformer: numericTransformer }) amount!: number;
+  @Column({
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    transformer: numericTransformer,
+  })
+  amount!: number;
   @Column({ type: "enum", enum: PaymentMethod }) method!: PaymentMethod;
   @Column({
     type: "enum",
@@ -26,7 +32,8 @@ export class PaymentEntity extends TenantEntity {
   @Column({
     type: "decimal",
     precision: 10,
-    scale: 2, transformer: numericTransformer,
+    scale: 2,
+    transformer: numericTransformer,
     name: "refund_amount",
     nullable: true,
   })

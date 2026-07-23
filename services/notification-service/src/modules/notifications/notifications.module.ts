@@ -6,7 +6,10 @@ import { NotificationsController } from "./notifications.controller";
 import { NotificationPreferencesModule } from "../notification-preferences/notification-preferences.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([NotificationEntity]), NotificationPreferencesModule],
+  imports: [
+    TypeOrmModule.forFeature([NotificationEntity]),
+    NotificationPreferencesModule,
+  ],
   controllers: [NotificationsController],
   providers: [NotificationsService],
   exports: [NotificationsService],

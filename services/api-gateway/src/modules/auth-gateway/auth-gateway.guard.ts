@@ -37,8 +37,9 @@ export class AuthGatewayGuard extends AuthGuard("jwt") {
 
     const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
 
-    const isPublicMarketplace = PUBLIC_MARKETPLACE_PREFIXES.some((p) => path.startsWith(p))
-      && request.method === "GET";
+    const isPublicMarketplace =
+      PUBLIC_MARKETPLACE_PREFIXES.some((p) => path.startsWith(p)) &&
+      request.method === "GET";
 
     if (isPublic || isPublicMarketplace) {
       return true;

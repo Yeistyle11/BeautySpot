@@ -16,7 +16,10 @@ const entities = [NotificationEntity, NotificationPreferenceEntity];
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: path.join(__dirname, "..", ".env") }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: path.join(__dirname, "..", ".env"),
+    }),
     TypeOrmModule.forRootAsync({
       useFactory: () => createTypeOrmModuleOptions(entities),
     }),

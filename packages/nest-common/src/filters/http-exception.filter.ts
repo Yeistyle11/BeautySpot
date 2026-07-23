@@ -45,7 +45,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     if (statusCode >= 500) {
-      this.logger.error(exception instanceof Error ? exception.stack : String(exception));
+      this.logger.error(
+        exception instanceof Error ? exception.stack : String(exception)
+      );
     }
 
     response.status(statusCode).json({

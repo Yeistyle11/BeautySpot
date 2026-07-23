@@ -15,9 +15,13 @@ export class CoreEventListeners {
         this.logger.log(`Cliente potencial detectado: ${email}`);
       }
     } catch (error: any) {
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error procesando usuario registrado: ${errorMessage}`, errorStack);
+      this.logger.error(
+        `Error procesando usuario registrado: ${errorMessage}`,
+        errorStack
+      );
     }
   }
 
@@ -26,11 +30,17 @@ export class CoreEventListeners {
     this.logger.log(`Membresia creada: ${event.payload.membershipId}`);
     try {
       const { businessId, role } = event.payload;
-      this.logger.log(`Membresia creada en negocio ${businessId} con rol ${role}`);
+      this.logger.log(
+        `Membresia creada en negocio ${businessId} con rol ${role}`
+      );
     } catch (error: any) {
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error procesando membresia creada: ${errorMessage}`, errorStack);
+      this.logger.error(
+        `Error procesando membresia creada: ${errorMessage}`,
+        errorStack
+      );
     }
   }
 
@@ -39,11 +49,17 @@ export class CoreEventListeners {
     this.logger.log(`Rol de membresia cambiado: ${event.payload.membershipId}`);
     try {
       const { businessId, previousRole, newRole } = event.payload;
-      this.logger.log(`Usuario cambió de rol ${previousRole} a ${newRole} en negocio ${businessId}`);
+      this.logger.log(
+        `Usuario cambió de rol ${previousRole} a ${newRole} en negocio ${businessId}`
+      );
     } catch (error: any) {
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error procesando cambio de rol: ${errorMessage}`, errorStack);
+      this.logger.error(
+        `Error procesando cambio de rol: ${errorMessage}`,
+        errorStack
+      );
     }
   }
 
@@ -52,11 +68,17 @@ export class CoreEventListeners {
     this.logger.log(`Cita completada: ${event.payload.appointmentId}`);
     try {
       const { appointmentId, clientId, pointsEarned } = event.payload;
-      this.logger.log(`Cita ${appointmentId} completada. Cliente ${clientId} ganó ${pointsEarned} puntos`);
+      this.logger.log(
+        `Cita ${appointmentId} completada. Cliente ${clientId} ganó ${pointsEarned} puntos`
+      );
     } catch (error: any) {
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error procesando cita completada: ${errorMessage}`, errorStack);
+      this.logger.error(
+        `Error procesando cita completada: ${errorMessage}`,
+        errorStack
+      );
     }
   }
 
@@ -65,11 +87,17 @@ export class CoreEventListeners {
     this.logger.log(`Cita cancelada: ${event.payload.appointmentId}`);
     try {
       const { appointmentId, clientId, cancelReason } = event.payload;
-      this.logger.log(`Cita ${appointmentId} cancelada por cliente ${clientId}. Razon: ${cancelReason}`);
+      this.logger.log(
+        `Cita ${appointmentId} cancelada por cliente ${clientId}. Razon: ${cancelReason}`
+      );
     } catch (error: any) {
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error procesando cita cancelada: ${errorMessage}`, errorStack);
+      this.logger.error(
+        `Error procesando cita cancelada: ${errorMessage}`,
+        errorStack
+      );
     }
   }
 }

@@ -6,7 +6,8 @@ export class ReviewEntity extends TenantEntity {
   @Column({ type: "uuid", name: "appointment_id", nullable: true })
   appointmentId!: string;
 
-  @Column({ type: "uuid", name: "client_id" }) @Index()
+  @Column({ type: "uuid", name: "client_id" })
+  @Index()
   clientId!: string;
 
   @Column({ type: "uuid", name: "professional_id", nullable: true })

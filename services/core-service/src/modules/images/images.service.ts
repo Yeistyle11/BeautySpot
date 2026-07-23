@@ -1,13 +1,13 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, BadRequestException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { v4 as uuidv4 } from 'uuid';
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { v4 as uuidv4 } from "uuid";
 
 export interface UploadResult {
   url: string;
@@ -31,15 +31,21 @@ export class ImagesService {
   private readonly cdnUrl?: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.region = this.configService.get<string>('AWS_REGION', 'us-east-1');
-    this.bucket = this.configService.get<string>('AWS_S3_BUCKET', 'beautyspot-images');
-    this.cdnUrl = this.configService.get<string>('AWS_CDN_URL');
+    this.region = this.configService.get<string>("AWS_REGION", "us-east-1");
+    this.bucket = this.configService.get<string>(
+      "AWS_S3_BUCKET",
+      "beautyspot-images"
+    );
+    this.cdnUrl = this.configService.get<string>("AWS_CDN_URL");
 
     this.s3Client = new S3Client({
       region: this.region,
       credentials: {
-        accessKeyId: this.configService.get<string>('AWS_ACCESS_KEY_ID', ''),
-        secretAccessKey: this.configService.get<string>('AWS_SECRET_ACCESS_KEY', ''),
+        accessKeyId: this.configService.get<string>("AWS_ACCESS_KEY_ID", ""),
+        secretAccessKey: this.configService.get<string>(
+          "AWS_SECRET_ACCESS_KEY",
+          ""
+        ),
       },
     });
   }
@@ -48,7 +54,7 @@ export class ImagesService {
     file: Buffer,
     key: string,
     contentType: string,
-    metadata?: Record<string, string>,
+    metadata?: Record<string, string>
   ): Promise<UploadResult> {
     const publicId = uuidv4();
     const fullKey = `${key}/${publicId}`;
@@ -75,48 +81,56 @@ export class ImagesService {
         bucket: this.bucket,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new BadRequestException(`Error subiendo archivo a S3: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
+      throw new BadRequestException(
+        `Error subiendo archivo a S3: ${errorMessage}`
+      );
     }
   }
 
   async uploadBusinessLogo(
     businessId: string,
     file: Buffer,
-    contentType: string,
+    contentType: string
   ): Promise<UploadResult> {
     return this.uploadFile(file, `businesses/${businessId}/logo`, contentType, {
       businessId,
-      type: 'logo',
+      type: "logo",
     });
   }
 
   async uploadProfessionalPhoto(
     professionalId: string,
     file: Buffer,
-    contentType: string,
+    contentType: string
   ): Promise<UploadResult> {
-    return this.uploadFile(file, `professionals/${professionalId}/photo`, contentType, {
-      professionalId,
-      type: 'photo',
-    });
+    return this.uploadFile(
+      file,
+      `professionals/${professionalId}/photo`,
+      contentType,
+      {
+        professionalId,
+        type: "photo",
+      }
+    );
   }
 
   async uploadServiceImage(
     serviceId: string,
     file: Buffer,
-    contentType: string,
+    contentType: string
   ): Promise<UploadResult> {
     return this.uploadFile(file, `services/${serviceId}/image`, contentType, {
       serviceId,
-      type: 'image',
+      type: "image",
     });
   }
 
   async generatePresignedUploadUrl(
     key: string,
     contentType: string,
-    expiresIn: number = 3600,
+    expiresIn: number = 3600
   ): Promise<PresignedUploadUrlResult> {
     const publicId = uuidv4();
     const fullKey = `${key}/${publicId}`;
@@ -129,7 +143,9 @@ export class ImagesService {
         ContentType: contentType,
       });
 
-      const uploadUrl = await getSignedUrl(this.s3Client, command, { expiresIn });
+      const uploadUrl = await getSignedUrl(this.s3Client, command, {
+        expiresIn,
+      });
 
       return {
         uploadUrl,
@@ -138,44 +154,47 @@ export class ImagesService {
         expiresAt,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new BadRequestException(`Error generando URL presignada: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
+      throw new BadRequestException(
+        `Error generando URL presignada: ${errorMessage}`
+      );
     }
   }
 
   async generatePresignedUploadUrlForBusinessLogo(
     businessId: string,
     contentType: string,
-    expiresIn: number = 3600,
+    expiresIn: number = 3600
   ): Promise<PresignedUploadUrlResult> {
     return this.generatePresignedUploadUrl(
       `businesses/${businessId}/logo`,
       contentType,
-      expiresIn,
+      expiresIn
     );
   }
 
   async generatePresignedUploadUrlForProfessionalPhoto(
     professionalId: string,
     contentType: string,
-    expiresIn: number = 3600,
+    expiresIn: number = 3600
   ): Promise<PresignedUploadUrlResult> {
     return this.generatePresignedUploadUrl(
       `professionals/${professionalId}/photo`,
       contentType,
-      expiresIn,
+      expiresIn
     );
   }
 
   async generatePresignedUploadUrlForServiceImage(
     serviceId: string,
     contentType: string,
-    expiresIn: number = 3600,
+    expiresIn: number = 3600
   ): Promise<PresignedUploadUrlResult> {
     return this.generatePresignedUploadUrl(
       `services/${serviceId}/image`,
       contentType,
-      expiresIn,
+      expiresIn
     );
   }
 
@@ -188,8 +207,11 @@ export class ImagesService {
 
       await this.s3Client.send(command);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new BadRequestException(`Error eliminando imagen de S3: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
+      throw new BadRequestException(
+        `Error eliminando imagen de S3: ${errorMessage}`
+      );
     }
   }
 
@@ -204,23 +226,26 @@ export class ImagesService {
 
       return url;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new BadRequestException(`Error obteniendo URL de imagen: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
+      throw new BadRequestException(
+        `Error obteniendo URL de imagen: ${errorMessage}`
+      );
     }
   }
 
   validateImageFile(file: Buffer, contentType: string): void {
     const allowedTypes = [
-      'image/jpeg',
-      'image/jpg',
-      'image/png',
-      'image/webp',
-      'image/gif',
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/gif",
     ];
 
     if (!allowedTypes.includes(contentType)) {
       throw new BadRequestException(
-        `Tipo de archivo no permitido. Tipos permitidos: ${allowedTypes.join(', ')}`,
+        `Tipo de archivo no permitido. Tipos permitidos: ${allowedTypes.join(", ")}`
       );
     }
 
@@ -228,25 +253,28 @@ export class ImagesService {
 
     if (file.length > maxSize) {
       throw new BadRequestException(
-        `El archivo excede el tamaño máximo de 5MB. Tamaño actual: ${this.formatFileSize(file.length)}`,
+        `El archivo excede el tamaño máximo de 5MB. Tamaño actual: ${this.formatFileSize(file.length)}`
       );
     }
   }
 
   private formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   }
 
   extractKeyFromUrl(url: string): string {
-    const urlWithoutDomain = url.replace(/^https?:\/\/[^\/]+/, '');
-    const urlWithoutBucket = urlWithoutDomain.replace(/^\/beautyspot-images\//, '');
-    
+    const urlWithoutDomain = url.replace(/^https?:\/\/[^\/]+/, "");
+    const urlWithoutBucket = urlWithoutDomain.replace(
+      /^\/beautyspot-images\//,
+      ""
+    );
+
     if (this.cdnUrl) {
-      return urlWithoutBucket.replace(/^\//, '');
+      return urlWithoutBucket.replace(/^\//, "");
     }
 
     return urlWithoutBucket;

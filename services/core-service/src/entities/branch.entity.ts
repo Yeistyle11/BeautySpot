@@ -9,8 +9,10 @@ export class Branch extends TenantEntity {
   @Column({ nullable: true }) city!: string;
   @Column({ nullable: true }) state!: string;
   @Column({ nullable: true }) country!: string;
-  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true }) latitude!: number;
-  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true }) longitude!: number;
+  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true })
+  latitude!: number;
+  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true })
+  longitude!: number;
   @Column({ nullable: true }) phone!: string;
   @Column({ default: true }) active!: boolean;
 

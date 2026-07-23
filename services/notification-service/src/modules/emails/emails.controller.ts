@@ -8,7 +8,7 @@ import {
   SendInvoiceDto,
   SendPasswordResetDto,
   SendWelcomeEmailDto,
-  SendMonthlyReportDto
+  SendMonthlyReportDto,
 } from "./dto";
 
 /**
@@ -31,27 +31,21 @@ export class EmailsController {
 
   @Post("appointment/reminder-24h")
   @HttpCode(HttpStatus.OK)
-  async sendAppointmentReminder24h(
-    @Body() dto: SendAppointmentReminder24hDto
-  ) {
+  async sendAppointmentReminder24h(@Body() dto: SendAppointmentReminder24hDto) {
     await this.emailService.sendAppointmentReminder24h(dto.to, dto);
     return { message: "Email de recordatorio 24h enviado" };
   }
 
   @Post("appointment/reminder-1h")
   @HttpCode(HttpStatus.OK)
-  async sendAppointmentReminder1h(
-    @Body() dto: SendAppointmentReminder1hDto
-  ) {
+  async sendAppointmentReminder1h(@Body() dto: SendAppointmentReminder1hDto) {
     await this.emailService.sendAppointmentReminder1h(dto.to, dto);
     return { message: "Email de recordatorio 1h enviado" };
   }
 
   @Post("appointment/cancelled")
   @HttpCode(HttpStatus.OK)
-  async sendAppointmentCancelled(
-    @Body() dto: SendAppointmentCancelledDto
-  ) {
+  async sendAppointmentCancelled(@Body() dto: SendAppointmentCancelledDto) {
     await this.emailService.sendAppointmentCancelled(dto.to, dto);
     return { message: "Email de cancelación enviado" };
   }
@@ -65,27 +59,21 @@ export class EmailsController {
 
   @Post("password-reset")
   @HttpCode(HttpStatus.OK)
-  async sendPasswordReset(
-    @Body() dto: SendPasswordResetDto
-  ) {
+  async sendPasswordReset(@Body() dto: SendPasswordResetDto) {
     await this.emailService.sendPasswordReset(dto.to, dto);
     return { message: "Email de reset enviado" };
   }
 
   @Post("welcome")
   @HttpCode(HttpStatus.OK)
-  async sendWelcomeEmail(
-    @Body() dto: SendWelcomeEmailDto
-  ) {
+  async sendWelcomeEmail(@Body() dto: SendWelcomeEmailDto) {
     await this.emailService.sendWelcomeEmail(dto.to, dto);
     return { message: "Email de bienvenida enviado" };
   }
 
   @Post("monthly-report")
   @HttpCode(HttpStatus.OK)
-  async sendMonthlyReport(
-    @Body() dto: SendMonthlyReportDto
-  ) {
+  async sendMonthlyReport(@Body() dto: SendMonthlyReportDto) {
     await this.emailService.sendMonthlyReport(dto.to, dto);
     return { message: "Email de reporte mensual enviado" };
   }

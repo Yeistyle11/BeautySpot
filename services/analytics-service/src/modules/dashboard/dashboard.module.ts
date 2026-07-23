@@ -6,7 +6,9 @@ import { DashboardService } from "./dashboard.service";
 import { DashboardController } from "./dashboard.controller";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([DailyMetricEntity, ProfessionalMetricEntity])],
+  imports: [
+    TypeOrmModule.forFeature([DailyMetricEntity, ProfessionalMetricEntity]),
+  ],
   controllers: [DashboardController],
   providers: [DashboardService],
   exports: [DashboardService],
