@@ -9,7 +9,6 @@ import { Appointment } from "../../entities/appointment.entity";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 import { Availability } from "../../entities/availability.entity";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
-import { EventBusModule } from "@beautyspot/nest-common";
 
 @Module({
   imports: [
@@ -19,7 +18,6 @@ import { EventBusModule } from "@beautyspot/nest-common";
       Availability,
       BlockedSlot,
     ]),
-    EventBusModule,
   ],
   controllers: [AppointmentsController, InternalAppointmentsController],
   providers: [AppointmentsService],

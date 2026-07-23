@@ -26,11 +26,14 @@ jest.mock("amqplib", () => ({
   connect: jest.fn(),
 }));
 
-// Mock de EventBusService
+// Mock de los servicios de nest-common usados por booking
 jest.mock("@beautyspot/nest-common", () => ({
   EventBusService: jest.fn().mockImplementation(() => ({
     emit: jest.fn().mockResolvedValue(undefined),
     on: jest.fn().mockReturnValue(undefined),
+  })),
+  OutboxService: jest.fn().mockImplementation(() => ({
+    enqueue: jest.fn().mockResolvedValue(undefined),
   })),
   // Passthrough: ejecuta la operación una vez, sin la lógica real de reintento.
   withSerializableRetry: (op: () => Promise<unknown>) => op(),
