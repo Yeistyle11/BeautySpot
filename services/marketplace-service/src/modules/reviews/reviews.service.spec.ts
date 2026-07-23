@@ -407,32 +407,35 @@ describe("ReviewsService", () => {
   });
 
   describe("getSummary", () => {
-    it("debería calcular distribución de ratings correctamente", async () => {
-      const reviews = [
-        { ...mockReview, rating: 5, generateId: () => {} },
-        { ...mockReview, rating: 4, id: "review-456", generateId: () => {} },
-        { ...mockReview, rating: 3, id: "review-789", generateId: () => {} },
-        { ...mockReview, rating: 2, id: "review-999", generateId: () => {} },
-        { ...mockReview, rating: 1, id: "review-000", generateId: () => {} },
-      ] as any;
+    const summaryQb = (rows: unknown[]) => ({
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue(rows),
+    });
 
-      mockRepo.find.mockResolvedValue(reviews);
+    it("agrega la distribución de ratings vía GROUP BY", async () => {
+      // pg devuelve COUNT como string; el servicio lo convierte a number.
+      mockRepo.createQueryBuilder.mockReturnValue(
+        summaryQb([
+          { rating: 5, count: "1" },
+          { rating: 4, count: "1" },
+          { rating: 3, count: "1" },
+          { rating: 2, count: "1" },
+          { rating: 1, count: "1" },
+        ]) as any
+      );
 
       const result = await service.getSummary("business-123");
 
       expect(result.total).toBe(5);
       expect(result.average).toBeCloseTo(3, 0.01);
-      expect(result.distribution).toEqual({
-        5: 1,
-        4: 1,
-        3: 1,
-        2: 1,
-        1: 1,
-      });
+      expect(result.distribution).toEqual({ 5: 1, 4: 1, 3: 1, 2: 1, 1: 1 });
     });
 
     it("debería calcular promedio 0 si no hay reseñas", async () => {
-      mockRepo.find.mockResolvedValue([]);
+      mockRepo.createQueryBuilder.mockReturnValue(summaryQb([]) as any);
 
       const result = await service.getSummary("business-123");
 

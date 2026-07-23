@@ -781,49 +781,55 @@ describe("AppointmentsService", () => {
   });
 
   describe("findByBusiness", () => {
-    it("debería retornar citas paginadas del negocio (default page 1 limit 20)", async () => {
+    const pagination = {
+      page: 1,
+      limit: 20,
+      offset: 0,
+      sort: "date",
+      order: "DESC" as const,
+    };
+
+    it("devuelve una página con data + meta (ordenada por fecha y hora)", async () => {
       mockApptRepo.findAndCount.mockResolvedValue([[mockAppointment], 1]);
 
-      const result = await service.findByBusiness("business-123", undefined, {
-        page: 1,
-        limit: 20,
-        offset: 0,
-      });
+      const result = await service.findByBusiness(
+        "business-123",
+        {},
+        pagination
+      );
 
-      expect(mockApptRepo.findAndCount).toHaveBeenCalledWith({
-        where: { businessId: "business-123" },
-        relations: ["appointmentServices"],
-        order: { date: "DESC", startTime: "ASC" },
-        skip: 0,
-        take: 20,
-      });
-      expect(result).toEqual({
-        items: [mockAppointment],
-        total: 1,
-        page: 1,
-        limit: 20,
-      });
+      expect(mockApptRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { businessId: "business-123" },
+          relations: ["appointmentServices"],
+          order: { date: "DESC", startTime: "ASC" },
+          skip: 0,
+          take: 20,
+        })
+      );
+      expect(result.data).toEqual([mockAppointment]);
+      expect(result.meta.total).toBe(1);
+      expect(result.meta.page).toBe(1);
     });
 
-    it("debería paginar correctamente page 2 limit 10", async () => {
+    it("calcula los metadatos de paginación en page 2 limit 10", async () => {
       mockApptRepo.findAndCount.mockResolvedValue([[], 15]);
 
-      const result = await service.findByBusiness("business-123", undefined, {
-        page: 2,
-        limit: 10,
-        offset: 10,
-      });
+      const result = await service.findByBusiness(
+        "business-123",
+        {},
+        { page: 2, limit: 10, offset: 10, sort: "date", order: "DESC" }
+      );
 
-      expect(mockApptRepo.findAndCount).toHaveBeenCalledWith({
-        where: { businessId: "business-123" },
-        relations: ["appointmentServices"],
-        order: { date: "DESC", startTime: "ASC" },
-        skip: 10,
-        take: 10,
-      });
-      expect(result.page).toBe(2);
-      expect(result.limit).toBe(10);
-      expect(result.total).toBe(15);
+      expect(mockApptRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 10 })
+      );
+      expect(result.meta.page).toBe(2);
+      expect(result.meta.limit).toBe(10);
+      expect(result.meta.total).toBe(15);
+      expect(result.meta.totalPages).toBe(2);
+      expect(result.meta.hasNext).toBe(false);
+      expect(result.meta.hasPrev).toBe(true);
     });
 
     it("debería filtrar por status con paginación", async () => {
@@ -832,19 +838,17 @@ describe("AppointmentsService", () => {
       await service.findByBusiness(
         "business-123",
         { status: AppointmentStatus.CONFIRMED },
-        { page: 1, limit: 20, offset: 0 }
+        pagination
       );
 
-      expect(mockApptRepo.findAndCount).toHaveBeenCalledWith({
-        where: {
-          businessId: "business-123",
-          status: AppointmentStatus.CONFIRMED,
-        },
-        relations: ["appointmentServices"],
-        order: { date: "DESC", startTime: "ASC" },
-        skip: 0,
-        take: 20,
-      });
+      expect(mockApptRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            businessId: "business-123",
+            status: AppointmentStatus.CONFIRMED,
+          },
+        })
+      );
     });
 
     it("debería filtrar por fecha con paginación", async () => {
@@ -853,7 +857,7 @@ describe("AppointmentsService", () => {
       await service.findByBusiness(
         "business-123",
         { date: "2024-01-15" },
-        { page: 1, limit: 20, offset: 0 }
+        pagination
       );
 
       expect(mockApptRepo.findAndCount).toHaveBeenCalledWith(
@@ -861,20 +865,6 @@ describe("AppointmentsService", () => {
           where: { businessId: "business-123", date: "2024-01-15" },
         })
       );
-    });
-
-    it("debería retornar todas las citas sin paginación (backward-compat)", async () => {
-      mockApptRepo.find.mockResolvedValue([mockAppointment]);
-
-      const result = await service.findByBusiness("business-123");
-
-      expect(mockApptRepo.find).toHaveBeenCalledWith({
-        where: { businessId: "business-123" },
-        relations: ["appointmentServices"],
-        order: { date: "DESC", startTime: "ASC" },
-      });
-      expect(result.items).toEqual([mockAppointment]);
-      expect(result.total).toBe(1);
     });
   });
 

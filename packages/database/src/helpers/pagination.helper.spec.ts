@@ -115,6 +115,25 @@ describe('Pagination Helper', () => {
       );
     });
 
+    it('respeta un order explícito de findOptions (multi-campo) sobre el sort', async () => {
+      // Antes el helper descartaba findOptions.order y siempre imponía el sort
+      // de params; ahora un order explícito (p. ej. date DESC + startTime ASC)
+      // tiene prioridad.
+      mockRepository.findAndCount.mockResolvedValue([mockData, 2]);
+
+      await paginate(mockRepository, mockParams, {
+        where: { active: true },
+        order: { date: 'DESC', startTime: 'ASC' },
+      });
+
+      expect(mockRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { active: true },
+          order: { date: 'DESC', startTime: 'ASC' },
+        })
+      );
+    });
+
     it('debería manejar resultados vacíos', async () => {
       mockRepository.findAndCount.mockResolvedValue([[], 0]);
 

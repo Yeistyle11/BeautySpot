@@ -2,6 +2,7 @@ import { Controller, Get, Post, Patch, Param, Body, Query } from "@nestjs/common
 import { ClientsService } from "./clients.service";
 import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
+import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import { CreateClientDto, UpdateClientDto } from "./dto/client.dto";
 
 @Controller("clients")
@@ -16,8 +17,13 @@ export class ClientsController {
 
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
   @Get()
-  async findAll(@BusinessId() businessId: string, @Query("search") search?: string) {
-    return this.service.findByBusiness(businessId, search);
+  async findAll(
+    @BusinessId() businessId: string,
+    @Query() query: Record<string, unknown>,
+    @Query("search") search?: string
+  ) {
+    const pagination = parsePaginationQuery(query, ["name", "createdAt"]);
+    return this.service.findByBusiness(businessId, search, pagination);
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)

@@ -33,6 +33,7 @@ describe('NotificationsService', () => {
       save: jest.fn(),
       findOne: jest.fn(),
       find: jest.fn(),
+      findAndCount: jest.fn().mockResolvedValue([[], 0]),
       update: jest.fn(),
       count: jest.fn(),
     } as any;
@@ -116,15 +117,24 @@ describe('NotificationsService', () => {
         generateId: () => {},
         setSentAt: () => {},
       } as any;
-      mockRepo.find.mockResolvedValue([mockUnreadNotification]);
+      mockRepo.findAndCount.mockResolvedValue([[mockUnreadNotification], 1]);
 
-      const result = await service.findByUser('user-123', 'business-123');
-
-      expect(mockRepo.find).toHaveBeenCalledWith({
-        where: { userId: 'user-123', businessId: 'business-123' },
-        order: { createdAt: 'DESC' },
+      const result = await service.findByUser('user-123', 'business-123', false, {
+        page: 1,
+        limit: 20,
+        offset: 0,
+        sort: 'createdAt',
+        order: 'DESC',
       });
-      expect(result).toEqual([mockUnreadNotification]);
+
+      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'user-123', businessId: 'business-123' },
+          order: { createdAt: 'DESC' },
+        })
+      );
+      expect(result.data).toEqual([mockUnreadNotification]);
+      expect(result.meta.total).toBe(1);
     });
 
     it('debería filtrar solo no leídas', async () => {

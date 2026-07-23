@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, Like } from "typeorm";
 import { escapeLikePattern } from "@beautyspot/shared-utils";
+import { paginate, PaginateParams } from "@beautyspot/database";
+import { IPaginatedResponse } from "@beautyspot/shared-types";
 import { Client } from "../../entities/client.entity";
 
 @Injectable()
@@ -13,20 +15,20 @@ export class ClientsService {
     return this.repo.save(client);
   }
 
-  async findByBusiness(businessId: string, search?: string): Promise<Client[]> {
-    const where: Record<string, unknown> = { businessId, active: true };
-    if (search) {
-      const escaped = escapeLikePattern(search);
-      return this.repo.find({
-        where: [
-          { businessId, active: true, name: Like(`%${escaped}%`) },
-          { businessId, active: true, email: Like(`%${escaped}%`) },
-          { businessId, active: true, phone: Like(`%${escaped}%`) },
-        ],
-        order: { name: "ASC" },
-      });
-    }
-    return this.repo.find({ where, order: { name: "ASC" } });
+  async findByBusiness(
+    businessId: string,
+    search: string | undefined,
+    pagination: PaginateParams
+  ): Promise<IPaginatedResponse<Client>> {
+    const base = { businessId, active: true };
+    const where = search
+      ? [
+          { ...base, name: Like(`%${escapeLikePattern(search)}%`) },
+          { ...base, email: Like(`%${escapeLikePattern(search)}%`) },
+          { ...base, phone: Like(`%${escapeLikePattern(search)}%`) },
+        ]
+      : base;
+    return paginate(this.repo, pagination, { where, order: { name: "ASC" } });
   }
 
   async findById(id: string, businessId: string): Promise<Client> {

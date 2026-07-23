@@ -10,12 +10,13 @@ import { Appointment } from "../../entities/appointment.entity";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 import { Availability } from "../../entities/availability.entity";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
-import { AppointmentStatus } from "@beautyspot/shared-types";
+import { AppointmentStatus, IPaginatedResponse } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
 import {
   EventBusService,
   withSerializableRetry,
 } from "@beautyspot/nest-common";
+import { paginate, PaginateParams } from "@beautyspot/database";
 import {
   getTimeSlots,
   calculateEndTime,
@@ -439,47 +440,25 @@ export class AppointmentsService {
 
   async findByBusiness(
     businessId: string,
-    filters?: {
+    filters: {
       status?: AppointmentStatus;
       date?: string;
       professionalId?: string;
       clientId?: string;
     },
-    pagination?: { page: number; limit: number; offset: number }
-  ): Promise<{
-    items: Appointment[];
-    total: number;
-    page: number;
-    limit: number;
-  }> {
+    pagination: PaginateParams
+  ): Promise<IPaginatedResponse<Appointment>> {
     const where: Record<string, unknown> = { businessId };
-    if (filters?.status) where.status = filters.status;
-    if (filters?.date) where.date = filters.date;
-    if (filters?.professionalId) where.professionalId = filters.professionalId;
-    if (filters?.clientId) where.clientId = filters.clientId;
+    if (filters.status) where.status = filters.status;
+    if (filters.date) where.date = filters.date;
+    if (filters.professionalId) where.professionalId = filters.professionalId;
+    if (filters.clientId) where.clientId = filters.clientId;
 
-    if (pagination) {
-      const [items, total] = await this.apptRepo.findAndCount({
-        where,
-        relations: ["appointmentServices"],
-        order: { date: "DESC", startTime: "ASC" },
-        skip: pagination.offset,
-        take: pagination.limit,
-      });
-      return {
-        items,
-        total,
-        page: pagination.page,
-        limit: pagination.limit,
-      };
-    }
-
-    const items = await this.apptRepo.find({
+    return paginate(this.apptRepo, pagination, {
       where,
       relations: ["appointmentServices"],
       order: { date: "DESC", startTime: "ASC" },
     });
-    return { items, total: items.length, page: 1, limit: items.length };
   }
 
   /**

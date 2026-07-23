@@ -42,7 +42,9 @@ describe("PaymentsService", () => {
       save: jest.fn(),
       findOne: jest.fn(),
       find: jest.fn(),
+      findAndCount: jest.fn().mockResolvedValue([[], 0]),
       update: jest.fn(),
+      createQueryBuilder: jest.fn(),
     } as any;
 
     mockManagerRepo = {
@@ -133,59 +135,88 @@ describe("PaymentsService", () => {
   });
 
   describe("findByBusiness", () => {
-    it("debería retornar pagos del negocio por defecto", async () => {
-      mockRepo.find.mockResolvedValue([mockPayment]);
+    const pagination = {
+      page: 1,
+      limit: 20,
+      offset: 0,
+      sort: "createdAt",
+      order: "DESC" as const,
+    };
 
-      const result = await service.findByBusiness("business-123");
+    it("devuelve una página con metadatos de paginación", async () => {
+      mockRepo.findAndCount.mockResolvedValue([[mockPayment], 1]);
 
-      expect(mockRepo.find).toHaveBeenCalledWith({
-        where: { businessId: "business-123" },
-        order: { createdAt: "DESC" },
-      });
-      expect(result).toEqual([mockPayment]);
+      const result = await service.findByBusiness(
+        "business-123",
+        {},
+        pagination
+      );
+
+      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { businessId: "business-123" },
+          skip: 0,
+          take: 20,
+          order: { createdAt: "DESC" },
+        })
+      );
+      expect(result.data).toEqual([mockPayment]);
+      expect(result.meta.total).toBe(1);
+      expect(result.meta.page).toBe(1);
     });
 
     it("debería filtrar por método", async () => {
-      mockRepo.find.mockResolvedValue([mockPayment]);
+      mockRepo.findAndCount.mockResolvedValue([[mockPayment], 1]);
 
-      await service.findByBusiness("business-123", {
-        method: PaymentMethod.CASH,
-      });
+      await service.findByBusiness(
+        "business-123",
+        { method: PaymentMethod.CASH },
+        pagination
+      );
 
-      expect(mockRepo.find).toHaveBeenCalledWith({
-        where: { businessId: "business-123", method: PaymentMethod.CASH },
-        order: { createdAt: "DESC" },
-      });
+      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { businessId: "business-123", method: PaymentMethod.CASH },
+        })
+      );
     });
 
     it("debería filtrar por estado", async () => {
-      mockRepo.find.mockResolvedValue([mockPayment]);
+      mockRepo.findAndCount.mockResolvedValue([[mockPayment], 1]);
 
-      await service.findByBusiness("business-123", {
-        status: PaymentStatus.COMPLETED,
-      });
+      await service.findByBusiness(
+        "business-123",
+        { status: PaymentStatus.COMPLETED },
+        pagination
+      );
 
-      expect(mockRepo.find).toHaveBeenCalledWith({
-        where: { businessId: "business-123", status: PaymentStatus.COMPLETED },
-        order: { createdAt: "DESC" },
-      });
+      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            businessId: "business-123",
+            status: PaymentStatus.COMPLETED,
+          },
+        })
+      );
     });
 
     it("debería filtrar por rango de fechas", async () => {
-      mockRepo.find.mockResolvedValue([mockPayment]);
+      mockRepo.findAndCount.mockResolvedValue([[mockPayment], 1]);
 
-      await service.findByBusiness("business-123", {
-        from: "2024-01-01",
-        to: "2024-01-31",
-      });
+      await service.findByBusiness(
+        "business-123",
+        { from: "2024-01-01", to: "2024-01-31" },
+        pagination
+      );
 
-      expect(mockRepo.find).toHaveBeenCalledWith({
-        where: {
-          businessId: "business-123",
-          createdAt: expect.any(Object),
-        },
-        order: { createdAt: "DESC" },
-      });
+      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            businessId: "business-123",
+            createdAt: expect.any(Object),
+          },
+        })
+      );
     });
   });
 
@@ -245,20 +276,23 @@ describe("PaymentsService", () => {
   });
 
   describe("getDailySummary", () => {
-    it("debería retornar resumen diario de pagos", async () => {
-      const payment1 = {
-        ...mockPayment,
-        method: PaymentMethod.CASH,
-        amount: 50,
-        generateId: () => {},
-      } as any;
-      const payment2 = {
-        ...mockPayment,
-        method: PaymentMethod.CARD,
-        amount: 30,
-        generateId: () => {},
-      } as any;
-      mockRepo.find.mockResolvedValue([payment1, payment2] as any);
+    const mockQueryBuilder = (rows: unknown[]) => ({
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue(rows),
+    });
+
+    it("agrega por método vía SQL (SUM/COUNT + GROUP BY)", async () => {
+      // pg devuelve SUM/COUNT como strings; el servicio los convierte a number.
+      mockRepo.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder([
+          { method: "CASH", total: "50", count: "1" },
+          { method: "CARD", total: "30", count: "1" },
+        ]) as any
+      );
 
       const result = await service.getDailySummary(
         "business-123",
@@ -272,7 +306,7 @@ describe("PaymentsService", () => {
     });
 
     it("debería retornar resumen vacío si no hay pagos", async () => {
-      mockRepo.find.mockResolvedValue([]);
+      mockRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder([]) as any);
 
       const result = await service.getDailySummary(
         "business-123",

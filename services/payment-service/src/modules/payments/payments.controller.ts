@@ -3,6 +3,7 @@ import { PaymentsService } from "./payments.service";
 import { IsString, IsNumber, IsEnum, IsOptional } from "class-validator";
 import { PaymentMethod, PaymentStatus, Role } from "@beautyspot/shared-types";
 import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
+import { parsePaginationQuery } from "@beautyspot/shared-utils";
 
 class CreatePaymentDto {
   @IsOptional() @IsString() appointmentId?: string;
@@ -40,7 +41,17 @@ export class PaymentsController {
     @BusinessId() businessId: string,
     @Query() query: Record<string, unknown>
   ) {
-    return this.service.findByBusiness(businessId, query as any);
+    const pagination = parsePaginationQuery(query, ["createdAt", "amount"]);
+    return this.service.findByBusiness(
+      businessId,
+      {
+        method: query.method as PaymentMethod,
+        status: query.status as PaymentStatus,
+        from: query.from as string,
+        to: query.to as string,
+      },
+      pagination
+    );
   }
 
   @Get("daily-summary")
