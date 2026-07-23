@@ -1,16 +1,12 @@
-import { Controller, Get, Post, Body, Query, Req } from "@nestjs/common";
+import { Controller, Get, Post, Body, Query } from "@nestjs/common";
 import { MetricsService } from "./metrics.service";
-import { Roles } from "@beautyspot/nest-common";
+import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import {
   IncrementDailyMetricDto,
   IncrementProfessionalMetricDto,
 } from "./dto/metric.dto";
 import { DateRangeQueryDto } from "../reports/dto/report-query.dto";
-
-interface AuthenticatedRequest {
-  businessId: string;
-}
 
 @Controller("metrics")
 @Roles(Role.SUPER_ADMIN, Role.OWNER, Role.ADMIN)
@@ -19,20 +15,20 @@ export class MetricsController {
 
   @Post("daily/increment")
   async incrementDaily(
-    @Req() req: AuthenticatedRequest,
+    @BusinessId() businessId: string,
     @Body() dto: IncrementDailyMetricDto
   ) {
-    await this.service.incrementDailyMetric(req.businessId, dto.date, dto);
+    await this.service.incrementDailyMetric(businessId, dto.date, dto);
     return { message: "Métrica diaria actualizada" };
   }
 
   @Post("professional/increment")
   async incrementProfessional(
-    @Req() req: AuthenticatedRequest,
+    @BusinessId() businessId: string,
     @Body() dto: IncrementProfessionalMetricDto
   ) {
     await this.service.incrementProfessionalMetric(
-      req.businessId,
+      businessId,
       dto.professionalId,
       dto.date,
       dto
@@ -42,9 +38,9 @@ export class MetricsController {
 
   @Get()
   async getMetrics(
-    @Req() req: AuthenticatedRequest,
+    @BusinessId() businessId: string,
     @Query() query: DateRangeQueryDto
   ) {
-    return this.service.getMetrics(req.businessId, query.from, query.to);
+    return this.service.getMetrics(businessId, query.from, query.to);
   }
 }

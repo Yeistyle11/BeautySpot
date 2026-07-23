@@ -1,6 +1,6 @@
-import { Controller, Get, Query, Req } from "@nestjs/common";
+import { Controller, Get, Query } from "@nestjs/common";
 import { DashboardService } from "./dashboard.service";
-import { Roles } from "@beautyspot/nest-common";
+import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { TopProfessionalsQueryDto, RevenueChartQueryDto } from "./dto/dashboard-query.dto";
 
@@ -10,17 +10,17 @@ export class DashboardController {
   constructor(private readonly service: DashboardService) {}
 
   @Get("kpis")
-  async getKPIs(@Req() req: any) {
-    return this.service.getKPIs(req.businessId);
+  async getKPIs(@BusinessId() businessId: string) {
+    return this.service.getKPIs(businessId);
   }
 
   @Get("top-professionals")
-  async getTopProfessionals(@Req() req: any, @Query() query: TopProfessionalsQueryDto) {
-    return this.service.getTopProfessionals(req.businessId, query.limit ?? 10);
+  async getTopProfessionals(@BusinessId() businessId: string, @Query() query: TopProfessionalsQueryDto) {
+    return this.service.getTopProfessionals(businessId, query.limit ?? 10);
   }
 
   @Get("revenue-chart")
-  async getRevenueChart(@Req() req: any, @Query() query: RevenueChartQueryDto) {
-    return this.service.getRevenueChart(req.businessId, query.days ?? 30);
+  async getRevenueChart(@BusinessId() businessId: string, @Query() query: RevenueChartQueryDto) {
+    return this.service.getRevenueChart(businessId, query.days ?? 30);
   }
 }

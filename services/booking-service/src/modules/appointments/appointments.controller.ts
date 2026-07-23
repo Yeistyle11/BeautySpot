@@ -6,11 +6,10 @@ import {
   Param,
   Body,
   Query,
-  Req,
 } from "@nestjs/common";
 import { AppointmentsService } from "./appointments.service";
 import { AppointmentStatus, Role } from "@beautyspot/shared-types";
-import { Roles, Public } from "@beautyspot/nest-common";
+import { Roles, Public, BusinessId, CurrentUser } from "@beautyspot/nest-common";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import {
   CreateAppointmentDto,
@@ -24,22 +23,26 @@ export class AppointmentsController {
 
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Post()
-  async create(@Req() req: any, @Body() dto: CreateAppointmentDto) {
-    return this.service.create(req.businessId, {
+  async create(
+    @BusinessId() businessId: string,
+    @CurrentUser("userId") userId: string,
+    @Body() dto: CreateAppointmentDto
+  ) {
+    return this.service.create(businessId, {
       ...dto,
-      createdBy: req.user?.userId,
+      createdBy: userId,
     });
   }
 
   @Get("availability")
   async getAvailability(
-    @Req() req: any,
+    @BusinessId() businessId: string,
     @Query("professionalId") professionalId: string,
     @Query("date") date: string,
     @Query("duration") duration: string
   ) {
     return this.service.findAvailableSlots(
-      req.businessId,
+      businessId,
       professionalId,
       date,
       Number(duration)
@@ -49,20 +52,21 @@ export class AppointmentsController {
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
   @Get()
   async findAll(
-    @Req() req: any,
+    @BusinessId() businessId: string,
+    @Query() query: Record<string, unknown>,
     @Query("status") status?: AppointmentStatus,
     @Query("date") date?: string,
     @Query("professionalId") professionalId?: string,
     @Query("clientId") clientId?: string
   ) {
-    const pagination = parsePaginationQuery(req.query, [
+    const pagination = parsePaginationQuery(query, [
       "date",
       "startTime",
       "createdAt",
       "updatedAt",
     ]);
     return this.service.findByBusiness(
-      req.businessId,
+      businessId,
       { status, date, professionalId, clientId },
       pagination
     );
@@ -70,63 +74,53 @@ export class AppointmentsController {
 
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
   @Get(":id")
-  async findById(@Param("id") id: string, @Req() req: any) {
-    return this.service.findById(id, req.businessId);
+  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+    return this.service.findById(id, businessId);
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL)
   @Post(":id/confirm")
-  async confirm(@Param("id") id: string, @Req() req: any) {
-    return this.service.confirm(id, req.businessId);
+  async confirm(@Param("id") id: string, @BusinessId() businessId: string) {
+    return this.service.confirm(id, businessId);
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL)
   @Post(":id/start")
-  async start(@Param("id") id: string, @Req() req: any) {
-    return this.service.startService(id, req.businessId);
+  async start(@Param("id") id: string, @BusinessId() businessId: string) {
+    return this.service.startService(id, businessId);
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL)
   @Post(":id/complete")
-  async complete(@Param("id") id: string, @Req() req: any) {
-    return this.service.complete(id, req.businessId);
+  async complete(@Param("id") id: string, @BusinessId() businessId: string) {
+    return this.service.complete(id, businessId);
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Post(":id/cancel")
   async cancel(
     @Param("id") id: string,
-    @Req() req: any,
+    @BusinessId() businessId: string,
+    @CurrentUser("userId") userId: string,
     @Body() dto: CancelDto
   ) {
-    return this.service.cancel(
-      id,
-      req.businessId,
-      dto.reason,
-      req.user?.userId
-    );
+    return this.service.cancel(id, businessId, dto.reason, userId);
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL)
   @Post(":id/no-show")
-  async noShow(@Param("id") id: string, @Req() req: any) {
-    return this.service.markNoShow(id, req.businessId);
+  async noShow(@Param("id") id: string, @BusinessId() businessId: string) {
+    return this.service.markNoShow(id, businessId);
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Patch(":id/reschedule")
   async reschedule(
     @Param("id") id: string,
-    @Req() req: any,
+    @BusinessId() businessId: string,
     @Body() dto: RescheduleDto
   ) {
-    return this.service.reschedule(
-      id,
-      req.businessId,
-      dto.date,
-      dto.startTime,
-      30
-    );
+    return this.service.reschedule(id, businessId, dto.date, dto.startTime, 30);
   }
 }
 

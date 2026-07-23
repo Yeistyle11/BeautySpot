@@ -1,11 +1,11 @@
-import { Controller, Get, Post, Put, Param, Body, Req } from "@nestjs/common";
+import { Controller, Get, Post, Put, Param, Body } from "@nestjs/common";
 import { ProfessionalProfilesService } from "./professional-profiles.service";
 import {
   SyncProfessionalDto,
   UpdateProfessionalProfileDto,
   ToggleProfessionalVisibilityDto,
 } from "./dto/professional-profile.dto";
-import { Roles, Public } from "@beautyspot/nest-common";
+import { Roles, Public, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
 @Controller("professional-profiles")
@@ -17,9 +17,9 @@ export class ProfessionalProfilesController {
   async updateProfile(
     @Param("professionalId") professionalId: string,
     @Body() dto: UpdateProfessionalProfileDto,
-    @Req() req: any
+    @BusinessId() businessId: string
   ) {
-    return this.service.updateProfile(professionalId, req.businessId, dto);
+    return this.service.updateProfile(professionalId, businessId, dto);
   }
 
   @Put(":professionalId/visibility")
@@ -27,11 +27,11 @@ export class ProfessionalProfilesController {
   async toggleVisibility(
     @Param("professionalId") professionalId: string,
     @Body() dto: ToggleProfessionalVisibilityDto,
-    @Req() req: any
+    @BusinessId() businessId: string
   ) {
     return this.service.toggleVisibility(
       professionalId,
-      req.businessId,
+      businessId,
       dto.visibleOnProfile
     );
   }

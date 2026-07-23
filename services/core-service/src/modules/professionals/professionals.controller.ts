@@ -1,15 +1,6 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
-  Body,
-  Req,
-} from "@nestjs/common";
+import { Controller, Get, Post, Patch, Delete, Param, Body } from "@nestjs/common";
 import { ProfessionalsService } from "./professionals.service";
-import { Roles } from "@beautyspot/nest-common";
+import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import {
   CreateProfessionalDto,
@@ -23,8 +14,8 @@ export class ProfessionalsController {
   constructor(private readonly service: ProfessionalsService) {}
 
   @Post()
-  async create(@Req() req: any, @Body() dto: CreateProfessionalDto) {
-    return this.service.create(req.businessId, dto);
+  async create(@BusinessId() businessId: string, @Body() dto: CreateProfessionalDto) {
+    return this.service.create(businessId, dto);
   }
 
   @Roles(
@@ -35,57 +26,57 @@ export class ProfessionalsController {
     Role.RECEPTIONIST
   )
   @Get()
-  async findAll(@Req() req: any) {
-    return this.service.findByBusiness(req.businessId);
+  async findAll(@BusinessId() businessId: string) {
+    return this.service.findByBusiness(businessId);
   }
 
   @Get(":id")
-  async findById(@Param("id") id: string, @Req() req: any) {
-    return this.service.findById(id, req.businessId);
+  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+    return this.service.findById(id, businessId);
   }
 
   @Patch(":id")
   async update(
     @Param("id") id: string,
-    @Req() req: any,
+    @BusinessId() businessId: string,
     @Body() dto: UpdateProfessionalDto
   ) {
-    return this.service.update(id, req.businessId, dto);
+    return this.service.update(id, businessId, dto);
   }
 
   @Post(":id/services")
   async assignService(
-    @Req() req: any,
+    @BusinessId() businessId: string,
     @Param("id") id: string,
     @Body() dto: AssignServiceDto
   ) {
     return this.service.assignService(
       id,
       dto.serviceId,
-      req.businessId,
+      businessId,
       dto.customPrice,
       dto.customDuration
     );
   }
 
   @Get(":id/services")
-  async getServices(@Req() req: any, @Param("id") id: string) {
-    return this.service.getServices(id, req.businessId);
+  async getServices(@BusinessId() businessId: string, @Param("id") id: string) {
+    return this.service.getServices(id, businessId);
   }
 
   @Delete(":id/services/:serviceId")
   async removeService(
-    @Req() req: any,
+    @BusinessId() businessId: string,
     @Param("id") id: string,
     @Param("serviceId") serviceId: string
   ) {
-    await this.service.removeServiceAssignment(id, serviceId, req.businessId);
+    await this.service.removeServiceAssignment(id, serviceId, businessId);
     return { message: "Servicio desasignado" };
   }
 
   @Delete(":id")
-  async remove(@Param("id") id: string, @Req() req: any) {
-    await this.service.remove(id, req.businessId);
+  async remove(@Param("id") id: string, @BusinessId() businessId: string) {
+    await this.service.remove(id, businessId);
     return { message: "Profesional eliminado" };
   }
 
@@ -98,17 +89,17 @@ export class ProfessionalsController {
   @Patch(":id/link-user")
   async linkUser(
     @Param("id") id: string,
-    @Req() req: any,
+    @BusinessId() businessId: string,
     @Body() body: { userId: string }
   ) {
-    return this.service.linkUser(id, req.businessId, body.userId);
+    return this.service.linkUser(id, businessId, body.userId);
   }
 
   /**
    * Desvincula la cuenta de usuario de un profesional.
    */
   @Patch(":id/unlink-user")
-  async unlinkUser(@Param("id") id: string, @Req() req: any) {
-    return this.service.unlinkUser(id, req.businessId);
+  async unlinkUser(@Param("id") id: string, @BusinessId() businessId: string) {
+    return this.service.unlinkUser(id, businessId);
   }
 }

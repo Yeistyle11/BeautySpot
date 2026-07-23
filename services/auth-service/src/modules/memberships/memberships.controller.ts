@@ -1,15 +1,6 @@
-import {
-  Controller,
-  Post,
-  Patch,
-  Delete,
-  Get,
-  Param,
-  Body,
-  Req,
-} from "@nestjs/common";
+import { Controller, Post, Patch, Delete, Get, Param, Body } from "@nestjs/common";
 import { MembershipsService, MembershipActor } from "./memberships.service";
-import { Roles } from "@beautyspot/nest-common";
+import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { CreateMembershipDto, UpdateRoleDto } from "./dto/membership.dto";
 
@@ -19,20 +10,23 @@ export class MembershipsController {
 
   @Post()
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
-  async create(@Body() dto: CreateMembershipDto, @Req() req: any) {
-    const actor: MembershipActor = {
-      userId: req.user.userId,
-      role: req.user.role,
-      businessId: req.businessId,
-    };
-    const businessId =
-      req.user.role === Role.SUPER_ADMIN ? dto.businessId : req.businessId;
+  async create(
+    @Body() dto: CreateMembershipDto,
+    @CurrentUser("userId") userId: string,
+    @CurrentUser("role") role: Role,
+    @BusinessId() businessId: string
+  ) {
+    const actor: MembershipActor = { userId, role, businessId };
+    // El SUPER_ADMIN puede crear membresías en cualquier negocio; el resto queda
+    // acotado a su propio businessId.
+    const targetBusinessId =
+      role === Role.SUPER_ADMIN ? dto.businessId : businessId;
     return this.membershipsService.create(
       {
         userId: dto.userId,
-        businessId,
+        businessId: targetBusinessId,
         role: dto.role,
-        invitedBy: req.user.userId,
+        invitedBy: userId,
       },
       actor
     );
@@ -43,24 +37,23 @@ export class MembershipsController {
   async updateRole(
     @Param("id") id: string,
     @Body() dto: UpdateRoleDto,
-    @Req() req: any
+    @CurrentUser("userId") userId: string,
+    @CurrentUser("role") role: Role,
+    @BusinessId() businessId: string
   ) {
-    const actor: MembershipActor = {
-      userId: req.user.userId,
-      role: req.user.role,
-      businessId: req.businessId,
-    };
+    const actor: MembershipActor = { userId, role, businessId };
     return this.membershipsService.updateRole(id, dto.role, actor);
   }
 
   @Delete(":id")
   @Roles(Role.OWNER, Role.SUPER_ADMIN)
-  async deactivate(@Param("id") id: string, @Req() req: any) {
-    const actor: MembershipActor = {
-      userId: req.user.userId,
-      role: req.user.role,
-      businessId: req.businessId,
-    };
+  async deactivate(
+    @Param("id") id: string,
+    @CurrentUser("userId") userId: string,
+    @CurrentUser("role") role: Role,
+    @BusinessId() businessId: string
+  ) {
+    const actor: MembershipActor = { userId, role, businessId };
     await this.membershipsService.deactivate(id, actor);
     return { message: "Membresía desactivada" };
   }
@@ -68,15 +61,13 @@ export class MembershipsController {
   @Get("business/:businessId")
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   async findByBusiness(
-    @Param("businessId") businessId: string,
-    @Req() req: any
+    @Param("businessId") targetBusinessId: string,
+    @CurrentUser("userId") userId: string,
+    @CurrentUser("role") role: Role,
+    @BusinessId() businessId: string
   ) {
-    const actor: MembershipActor = {
-      userId: req.user.userId,
-      role: req.user.role,
-      businessId: req.businessId,
-    };
-    return this.membershipsService.findByBusiness(businessId, actor);
+    const actor: MembershipActor = { userId, role, businessId };
+    return this.membershipsService.findByBusiness(targetBusinessId, actor);
   }
 }
 
