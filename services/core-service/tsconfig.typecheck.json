@@ -1,0 +1,10 @@
+{
+  // Chequeo de tipos que SI cubre los tests. El tsconfig principal los
+  // excluye a proposito, porque ahi `tsc` tambien emite y los .spec no deben
+  // acabar en dist; aqui solo se verifica (noEmit), asi que se incluyen para
+  // que el CI vea lo mismo que el editor.
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}

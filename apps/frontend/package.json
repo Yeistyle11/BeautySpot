@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.0",
