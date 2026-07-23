@@ -13,7 +13,7 @@ import { BlockedSlot } from "../../entities/blocked-slot.entity";
 import { AppointmentStatus, IPaginatedResponse } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
 import {
-  EventBusService,
+  OutboxService,
   withSerializableRetry,
 } from "@beautyspot/nest-common";
 import { paginate, PaginateParams } from "@beautyspot/database";
@@ -34,7 +34,7 @@ export class AppointmentsService {
     @InjectRepository(BlockedSlot)
     private readonly blockRepo: Repository<BlockedSlot>,
     @InjectDataSource() private dataSource: DataSource,
-    private readonly eventBus: EventBusService
+    private readonly outbox: OutboxService
   ) {}
 
   /** Crear cita verificando disponibilidad (transacción) */
@@ -136,6 +136,25 @@ export class AppointmentsService {
         );
         await manager.save(AppointmentServiceEntity, apptServices);
 
+        // El evento se persiste en la MISMA transacción que la cita (outbox):
+        // si la tx hace rollback, no queda ni cita ni evento. El
+        // OutboxRelayWorker lo publica a RabbitMQ una vez confirmado el commit.
+        await this.outbox.enqueue(manager, {
+          eventType: EventNames.BOOKING_APPOINTMENT_CREATED,
+          aggregateType: "appointment",
+          aggregateId: saved.id,
+          payload: {
+            appointmentId: saved.id,
+            businessId,
+            clientId: data.clientId,
+            professionalId: data.professionalId,
+            date: data.date,
+            startTime: data.startTime,
+            endTime,
+            totalAmount,
+          },
+        });
+
         const result = await manager.findOne(Appointment, {
           where: { id: saved.id },
           relations: ["appointmentServices"],
@@ -143,19 +162,6 @@ export class AppointmentsService {
         return result!;
       })
     );
-
-    // El evento se emite despues de confirmarse el commit: emitirlo dentro de
-    // la transaccion publicaria una cita que un rollback posterior deshace.
-    this.eventBus.emit(EventNames.BOOKING_APPOINTMENT_CREATED, {
-      appointmentId: appointment.id,
-      businessId,
-      clientId: data.clientId,
-      professionalId: data.professionalId,
-      date: data.date,
-      startTime: data.startTime,
-      endTime,
-      totalAmount,
-    });
 
     return appointment;
   }
@@ -202,21 +208,28 @@ export class AppointmentsService {
       );
     }
     const pointsEarned = Math.round(appt.totalAmount * 0.1);
-    await this.apptRepo.update(
-      { id, businessId },
-      { status: AppointmentStatus.COMPLETED, pointsEarned }
-    );
-
-    this.eventBus.emit(EventNames.BOOKING_APPOINTMENT_COMPLETED, {
-      appointmentId: id,
-      businessId,
-      clientId: appt.clientId,
-      professionalId: appt.professionalId,
-      date: appt.date,
-      startTime: appt.startTime,
-      endTime: appt.endTime,
-      totalAmount: appt.totalAmount,
-      pointsEarned,
+    await this.dataSource.transaction(async (manager) => {
+      await manager.update(
+        Appointment,
+        { id, businessId },
+        { status: AppointmentStatus.COMPLETED, pointsEarned }
+      );
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.BOOKING_APPOINTMENT_COMPLETED,
+        aggregateType: "appointment",
+        aggregateId: id,
+        payload: {
+          appointmentId: id,
+          businessId,
+          clientId: appt.clientId,
+          professionalId: appt.professionalId,
+          date: appt.date,
+          startTime: appt.startTime,
+          endTime: appt.endTime,
+          totalAmount: appt.totalAmount,
+          pointsEarned,
+        },
+      });
     });
 
     return this.findById(id, businessId);
@@ -250,21 +263,28 @@ export class AppointmentsService {
       );
     }
 
-    await this.apptRepo.update(
-      { id, businessId },
-      { status: AppointmentStatus.CANCELLED, cancelReason: reason }
-    );
-
-    this.eventBus.emit(EventNames.BOOKING_APPOINTMENT_CANCELLED, {
-      appointmentId: id,
-      businessId,
-      clientId: appt.clientId,
-      professionalId: appt.professionalId,
-      date: appt.date,
-      startTime: appt.startTime,
-      endTime: appt.endTime,
-      totalAmount: appt.totalAmount,
-      cancelReason: reason,
+    await this.dataSource.transaction(async (manager) => {
+      await manager.update(
+        Appointment,
+        { id, businessId },
+        { status: AppointmentStatus.CANCELLED, cancelReason: reason }
+      );
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.BOOKING_APPOINTMENT_CANCELLED,
+        aggregateType: "appointment",
+        aggregateId: id,
+        payload: {
+          appointmentId: id,
+          businessId,
+          clientId: appt.clientId,
+          professionalId: appt.professionalId,
+          date: appt.date,
+          startTime: appt.startTime,
+          endTime: appt.endTime,
+          totalAmount: appt.totalAmount,
+          cancelReason: reason,
+        },
+      });
     });
 
     return this.findById(id, businessId);

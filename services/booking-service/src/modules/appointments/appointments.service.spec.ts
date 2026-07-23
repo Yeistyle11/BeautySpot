@@ -12,7 +12,8 @@ import {
   BadRequestException,
   ForbiddenException,
 } from "@nestjs/common";
-import { EventBusService } from "@beautyspot/nest-common";
+import { OutboxService } from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
 
 describe("AppointmentsService", () => {
   let service: AppointmentsService;
@@ -20,7 +21,7 @@ describe("AppointmentsService", () => {
   let mockAvailRepo: jest.Mocked<Repository<Availability>>;
   let mockBlockRepo: jest.Mocked<Repository<BlockedSlot>>;
   let mockDataSource: jest.Mocked<DataSource>;
-  let mockEventBus: any;
+  let mockOutbox: any;
 
   const mockAppointment: Appointment = {
     id: "appt-123",
@@ -117,8 +118,8 @@ describe("AppointmentsService", () => {
         ),
     } as any;
 
-    mockEventBus = {
-      emit: jest.fn().mockResolvedValue(undefined),
+    mockOutbox = {
+      enqueue: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -141,8 +142,8 @@ describe("AppointmentsService", () => {
           useValue: mockDataSource,
         },
         {
-          provide: EventBusService,
-          useValue: mockEventBus,
+          provide: OutboxService,
+          useValue: mockOutbox,
         },
       ],
     }).compile();
@@ -182,7 +183,7 @@ describe("AppointmentsService", () => {
         },
       });
       expect(mockDataSource.transaction).toHaveBeenCalled();
-      expect(mockEventBus.emit).toHaveBeenCalled();
+      expect(mockOutbox.enqueue).toHaveBeenCalled();
     });
 
     it("debería lanzar BadRequestException si el horario no está disponible", async () => {
@@ -412,11 +413,17 @@ describe("AppointmentsService", () => {
 
       await service.complete("appt-123", "business-123");
 
-      expect(mockApptRepo.update).toHaveBeenCalledWith(
-        { id: "appt-123", businessId: "business-123" },
-        { status: AppointmentStatus.COMPLETED, pointsEarned: 5000 }
+      // El cambio de estado y el evento se encolan en la misma transacción;
+      // el enqueue del outbox captura la intención (con los puntos calculados).
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.BOOKING_APPOINTMENT_COMPLETED,
+          aggregateType: "appointment",
+          aggregateId: "appt-123",
+          payload: expect.objectContaining({ pointsEarned: 5000 }),
+        })
       );
-      expect(mockEventBus.emit).toHaveBeenCalled();
     });
 
     it("debería lanzar BadRequestException si la cita no está en estado válido", async () => {
@@ -443,9 +450,11 @@ describe("AppointmentsService", () => {
 
       await service.complete("appt-123", "business-123");
 
-      expect(mockApptRepo.update).toHaveBeenCalledWith(
-        { id: "appt-123", businessId: "business-123" },
-        expect.objectContaining({ status: AppointmentStatus.COMPLETED })
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.BOOKING_APPOINTMENT_COMPLETED,
+        })
       );
     });
   });
@@ -473,14 +482,16 @@ describe("AppointmentsService", () => {
         "user-123"
       );
 
-      expect(mockApptRepo.update).toHaveBeenCalledWith(
-        { id: "appt-123", businessId: "business-123" },
-        {
-          status: AppointmentStatus.CANCELLED,
-          cancelReason: "Cambio de planes",
-        }
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.BOOKING_APPOINTMENT_CANCELLED,
+          aggregateId: "appt-123",
+          payload: expect.objectContaining({
+            cancelReason: "Cambio de planes",
+          }),
+        })
       );
-      expect(mockEventBus.emit).toHaveBeenCalled();
     });
 
     it("debería lanzar ForbiddenException con menos de 2 horas de anticipación", async () => {
