@@ -666,23 +666,23 @@ jobs:
 
 ```typescript
 // services/auth-service/jest.config.ts
-import type { Config } from 'jest';
+import type { Config } from "jest";
 
 const config: Config = {
-  moduleFileExtensions: ['js', 'json', 'ts'],
-  rootDir: 'src',
-  testRegex: '.*\\.spec\\.ts$',
+  moduleFileExtensions: ["js", "json", "ts"],
+  rootDir: "src",
+  testRegex: ".*\\.spec\\.ts$",
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    "^.+\\.(t|j)s$": "ts-jest",
   },
   collectCoverageFrom: [
-    '**/*.(t|j)s',
-    '!**/node_modules/**',
-    '!**/dist/**',
-    '!**/main.ts',
+    "**/*.(t|j)s",
+    "!**/node_modules/**",
+    "!**/dist/**",
+    "!**/main.ts",
   ],
-  coverageDirectory: '../coverage',
-  testEnvironment: 'node',
+  coverageDirectory: "../coverage",
+  testEnvironment: "node",
   coverageThreshold: {
     global: {
       branches: 70,
@@ -700,38 +700,44 @@ export default config;
 
 ```typescript
 // services/booking-service/src/domain/availability/availability.service.spec.ts
-describe('AvailabilityService', () => {
+describe("AvailabilityService", () => {
   let service: AvailabilityService;
 
   beforeEach(() => {
     service = new AvailabilityService();
   });
 
-  describe('calcularSlotsDisponibles', () => {
-    it('debe retornar slots de 30 minutos dentro del horario laboral', () => {
+  describe("calcularSlotsDisponibles", () => {
+    it("debe retornar slots de 30 minutos dentro del horario laboral", () => {
       const resultado = service.calcularSlotsDisponibles(
-        '09:00', '18:00', 30, []
+        "09:00",
+        "18:00",
+        30,
+        []
       );
       expect(resultado).toHaveLength(18); // 9 horas / 30 min
     });
 
-    it('debe excluir slots ocupados', () => {
-      const citasExistentes = [
-        { startTime: '10:00', endTime: '11:00' },
-      ];
+    it("debe excluir slots ocupados", () => {
+      const citasExistentes = [{ startTime: "10:00", endTime: "11:00" }];
       const resultado = service.calcularSlotsDisponibles(
-        '09:00', '18:00', 60, citasExistentes
+        "09:00",
+        "18:00",
+        60,
+        citasExistentes
       );
-      expect(resultado).not.toContain('10:00');
+      expect(resultado).not.toContain("10:00");
     });
 
-    it('debe respetar buffer entre citas', () => {
+    it("debe respetar buffer entre citas", () => {
       const resultado = service.calcularSlotsDisponibles(
-        '09:00', '11:00', 30,
-        [{ startTime: '09:30', endTime: '10:00' }],
+        "09:00",
+        "11:00",
+        30,
+        [{ startTime: "09:30", endTime: "10:00" }],
         15 // buffer de 15 min
       );
-      expect(resultado).not.toContain('10:00');
+      expect(resultado).not.toContain("10:00");
     });
   });
 });
@@ -741,12 +747,12 @@ describe('AvailabilityService', () => {
 
 ```typescript
 // services/auth-service/src/auth.controller.integration-spec.ts
-import { Test } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
-import { AppModule } from './app.module';
+import { Test } from "@nestjs/testing";
+import { INestApplication } from "@nestjs/common";
+import * as request from "supertest";
+import { AppModule } from "./app.module";
 
-describe('AuthController (integracion)', () => {
+describe("AuthController (integracion)", () => {
   let app: INestApplication;
 
   beforeAll(async () => {
@@ -762,31 +768,31 @@ describe('AuthController (integracion)', () => {
     await app.close();
   });
 
-  describe('POST /auth/register', () => {
-    it('debe registrar un nuevo usuario', () => {
+  describe("POST /auth/register", () => {
+    it("debe registrar un nuevo usuario", () => {
       return request(app.getHttpServer())
-        .post('/auth/register')
+        .post("/auth/register")
         .send({
-          email: 'test@beautyspot.co',
-          password: 'SecurePass123!',
-          nombre: 'Juan Test',
-          role: 'CLIENT',
+          email: "test@beautyspot.co",
+          password: "SecurePass123!",
+          nombre: "Juan Test",
+          role: "CLIENT",
         })
         .expect(201)
         .expect((res) => {
           expect(res.body.access_token).toBeDefined();
-          expect(res.body.user.email).toBe('test@beautyspot.co');
+          expect(res.body.user.email).toBe("test@beautyspot.co");
         });
     });
 
-    it('debe rechazar email duplicado', () => {
+    it("debe rechazar email duplicado", () => {
       return request(app.getHttpServer())
-        .post('/auth/register')
+        .post("/auth/register")
         .send({
-          email: 'test@beautyspot.co', // ya existe
-          password: 'SecurePass123!',
-          nombre: 'Juan Test 2',
-          role: 'CLIENT',
+          email: "test@beautyspot.co", // ya existe
+          password: "SecurePass123!",
+          nombre: "Juan Test 2",
+          role: "CLIENT",
         })
         .expect(409);
     });
@@ -798,16 +804,20 @@ describe('AuthController (integracion)', () => {
 
 ```typescript
 // services/booking-service/test/e2e/booking-flow.e2e-spec.ts
-import { GenericContainer, StartedTestContainer } from 'testcontainers';
-import * as request from 'supertest';
+import { GenericContainer, StartedTestContainer } from "testcontainers";
+import * as request from "supertest";
 
-describe('Flujo de Reserva E2E', () => {
+describe("Flujo de Reserva E2E", () => {
   let postgresContainer: StartedTestContainer;
   let app: INestApplication;
 
   beforeAll(async () => {
-    postgresContainer = await new GenericContainer('postgres:16-alpine')
-      .withEnvironment({ POSTGRES_USER: 'test', POSTGRES_PASSWORD: 'test', POSTGRES_DB: 'beautyspot_booking_test' })
+    postgresContainer = await new GenericContainer("postgres:16-alpine")
+      .withEnvironment({
+        POSTGRES_USER: "test",
+        POSTGRES_PASSWORD: "test",
+        POSTGRES_DB: "beautyspot_booking_test",
+      })
       .withExposedPorts(5432)
       .start();
 
@@ -828,15 +838,15 @@ describe('Flujo de Reserva E2E', () => {
     await postgresContainer.stop();
   });
 
-  it('flujo completo: crear cita, confirmar, completar', async () => {
+  it("flujo completo: crear cita, confirmar, completar", async () => {
     // 1. Crear cita
     const crearRes = await request(app.getHttpServer())
-      .post('/appointments')
+      .post("/appointments")
       .send({
-        professionalId: 'prof-001',
-        serviceIds: ['svc-001'],
-        date: '2026-05-15',
-        startTime: '10:00',
+        professionalId: "prof-001",
+        serviceIds: ["svc-001"],
+        date: "2026-05-15",
+        startTime: "10:00",
       })
       .expect(201);
 
@@ -857,7 +867,7 @@ describe('Flujo de Reserva E2E', () => {
       .get(`/appointments/${citaId}`)
       .expect(200);
 
-    expect(consultaRes.body.status).toBe('COMPLETED');
+    expect(consultaRes.body.status).toBe("COMPLETED");
   });
 });
 ```
@@ -965,25 +975,25 @@ JWT_SECRET=${SM_JWT_SECRET}
 
 ```typescript
 // packages/shared/src/logger/logger.service.ts
-import { LoggerService as NestLoggerService, LogLevel } from '@nestjs/common';
+import { LoggerService as NestLoggerService, LogLevel } from "@nestjs/common";
 
 export class BeautySpotLogger implements NestLoggerService {
   private context: string;
 
   constructor(context?: string) {
-    this.context = context || 'Application';
+    this.context = context || "Application";
   }
 
   log(message: string, meta?: Record<string, any>) {
-    this.emit('info', message, meta);
+    this.emit("info", message, meta);
   }
 
   error(message: string, trace?: string, meta?: Record<string, any>) {
-    this.emit('error', message, { ...meta, trace });
+    this.emit("error", message, { ...meta, trace });
   }
 
   warn(message: string, meta?: Record<string, any>) {
-    this.emit('warn', message, meta);
+    this.emit("warn", message, meta);
   }
 
   private emit(level: string, message: string, meta?: Record<string, any>) {
@@ -1006,39 +1016,44 @@ export class BeautySpotLogger implements NestLoggerService {
 ```typescript
 // Cada microservicio expone /health
 // services/auth-service/src/health/health.controller.ts
-import { Controller, Get } from '@nestjs/common';
-import { HealthCheck, HealthCheckService, TypeOrmHealthIndicator, RedisHealthIndicator } from '@nestjs/terminus';
+import { Controller, Get } from "@nestjs/common";
+import {
+  HealthCheck,
+  HealthCheckService,
+  TypeOrmHealthIndicator,
+  RedisHealthIndicator,
+} from "@nestjs/terminus";
 
-@Controller('health')
+@Controller("health")
 export class HealthController {
   constructor(
     private health: HealthCheckService,
     private db: TypeOrmHealthIndicator,
-    private redis: RedisHealthIndicator,
+    private redis: RedisHealthIndicator
   ) {}
 
   @Get()
   @HealthCheck()
   check() {
     return this.health.check([
-      () => this.db.pingCheck('database'),
-      () => this.redis.pingCheck('redis'),
+      () => this.db.pingCheck("database"),
+      () => this.redis.pingCheck("redis"),
     ]);
   }
 
-  @Get('ready')
+  @Get("ready")
   @HealthCheck()
   readiness() {
     return this.health.check([
-      () => this.db.pingCheck('database'),
-      () => this.redis.pingCheck('redis'),
+      () => this.db.pingCheck("database"),
+      () => this.redis.pingCheck("redis"),
       // Verificar conexion a RabbitMQ
     ]);
   }
 
-  @Get('live')
+  @Get("live")
   liveness() {
-    return { status: 'ok', timestamp: new Date().toISOString() };
+    return { status: "ok", timestamp: new Date().toISOString() };
   }
 }
 ```
@@ -1047,14 +1062,14 @@ export class HealthController {
 
 ```typescript
 // packages/shared/src/metrics/metrics.module.ts
-import { Module } from '@nestjs/common';
-import { PrometheusModule } from '@willsoto/nestjs-prometheus';
+import { Module } from "@nestjs/common";
+import { PrometheusModule } from "@willsoto/nestjs-prometheus";
 
 @Module({
   imports: [
     PrometheusModule.register({
       defaultMetrics: { enabled: true },
-      path: '/metrics',
+      path: "/metrics",
     }),
   ],
   exports: [PrometheusModule],
@@ -1251,10 +1266,10 @@ Formato: `{timestamp}-{DescripcionEnPascalCase}.ts`
 
 ```typescript
 // services/auth-service/src/migrations/20260510000000-InicialCrearTablas.ts
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class InicialCrearTablas1700000000000 implements MigrationInterface {
-  name = 'InicialCrearTablas1700000000000';
+  name = "InicialCrearTablas1700000000000";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
