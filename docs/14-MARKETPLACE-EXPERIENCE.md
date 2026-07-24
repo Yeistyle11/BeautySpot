@@ -459,10 +459,12 @@ export class ProfessionalProfileEntity {
     title?: string;
     category?: string;
   }[];
-  @Column({ name: "social_instagram", nullable: true }) socialInstagram!: string;
+  @Column({ name: "social_instagram", nullable: true })
+  socialInstagram!: string;
 
   // Metricas (calculadas)
-  @Column({ type: "decimal", precision: 3, scale: 2, default: 0 }) rating!: number;
+  @Column({ type: "decimal", precision: 3, scale: 2, default: 0 })
+  rating!: number;
   @Column({ name: "total_reviews", default: 0 }) totalReviews!: number;
 
   @Column({ default: true }) active!: boolean;
@@ -470,7 +472,9 @@ export class ProfessionalProfileEntity {
   @UpdateDateColumn({ name: "updated_at" }) updatedAt!: Date;
 
   @BeforeInsert()
-  generateId(): void { if (!this.id) this.id = uuidv4(); }
+  generateId(): void {
+    if (!this.id) this.id = uuidv4();
+  }
 }
 ```
 
@@ -490,7 +494,9 @@ export class ReviewHelpfulEntity {
   @CreateDateColumn({ name: "created_at" }) createdAt!: Date;
 
   @BeforeInsert()
-  generateId(): void { if (!this.id) this.id = uuidv4(); }
+  generateId(): void {
+    if (!this.id) this.id = uuidv4();
+  }
 }
 ```
 

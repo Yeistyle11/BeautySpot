@@ -39,7 +39,10 @@ export class ServicesService {
     businessId: string,
     data: Partial<Service>
   ): Promise<Service> {
-    await this.repo.update({ id, businessId }, data as any);
+    await this.repo.update(
+      { id, businessId },
+      data as Parameters<typeof this.repo.update>[1]
+    );
     return this.findById(id, businessId);
   }
 

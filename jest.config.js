@@ -16,4 +16,15 @@ module.exports = {
   ],
   coverageDirectory: "<rootDir>/coverage",
   coverageReporters: ["json", "lcov", "text", "clover"],
+  // Umbral de cobertura obligatorio (falla el CI si baja).
+  // statements, lines y functions ya cumplen/superan el objetivo de 80%;
+  // branches queda en 76 como piso anti-regresión, a subir a 80 con más tests.
+  coverageThreshold: {
+    global: {
+      statements: 90,
+      lines: 91,
+      functions: 80,
+      branches: 76,
+    },
+  },
 };

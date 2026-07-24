@@ -486,10 +486,10 @@ export class BusinessScopeGuard implements CanActivate {
     const user = request.user;
 
     // SUPER_ADMIN no requiere membresía
-    if (user.role === 'SUPER_ADMIN') return true;
+    if (user.role === "SUPER_ADMIN") return true;
 
     // CLIENT no requiere membresía (acceso vía marketplace)
-    if (user.role === 'CLIENT') return true;
+    if (user.role === "CLIENT") return true;
 
     // Verificar membresía activa
     const membership = await this.membershipRepo.findOne({
@@ -516,7 +516,7 @@ export class BusinessScopeGuard implements CanActivate {
 export class RolesGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.get<Role[]>(
-      'roles',
+      "roles",
       context.getHandler()
     );
     if (!requiredRoles) return true;
@@ -556,8 +556,8 @@ Todas las consultas a la base de datos aplican automáticamente el filtro de ten
 ```typescript
 // Prisma middleware que filtra por businessId automáticamente
 prisma.$use(async (params, next) => {
-  if (params.model && !['User', 'Membership'].includes(params.model)) {
-    if (params.action === 'findMany' || params.action === 'findFirst') {
+  if (params.model && !["User", "Membership"].includes(params.model)) {
+    if (params.action === "findMany" || params.action === "findFirst") {
       params.args.where = {
         ...params.args.where,
         businessId: currentContext.businessId,
