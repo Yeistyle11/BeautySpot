@@ -3,12 +3,16 @@
 
 FROM node:20-alpine AS builder
 WORKDIR /app
+# libc6-compat: el compilador SWC de Next requiere glibc en Alpine (musl);
+# sin él, `next build` falla con "Failed to load SWC binary".
+RUN apk add --no-cache libc6-compat
 COPY . .
 RUN npm install --legacy-peer-deps
 RUN npx turbo run build --filter=@beautyspot/frontend
 
 FROM node:20-alpine
 WORKDIR /app/apps/frontend
+RUN apk add --no-cache libc6-compat
 ENV NODE_ENV=production
 ENV PORT=8080
 # node_modules en la raíz (workspaces con hoisting) + artefactos de Next.
