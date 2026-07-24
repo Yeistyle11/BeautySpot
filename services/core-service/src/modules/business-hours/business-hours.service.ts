@@ -54,7 +54,10 @@ export class BusinessHoursService {
     businessId: string,
     data: Partial<BusinessHours>
   ): Promise<BusinessHours> {
-    await this.repo.update({ id, businessId }, data as any);
+    await this.repo.update(
+      { id, businessId },
+      data as Parameters<typeof this.repo.update>[1]
+    );
     const hour = await this.repo.findOne({ where: { id, businessId } });
     if (!hour) throw new Error("Horario no encontrado");
     return hour;

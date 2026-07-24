@@ -1,5 +1,5 @@
 import { NestFactory, Reflector } from "@nestjs/core";
-import { Logger, ValidationPipe } from "@nestjs/common";
+import { Logger, ValidationPipe, type Type } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import helmet from "helmet";
 import { JwtAuthGuard } from "../guards/jwt-auth.guard";
@@ -25,7 +25,7 @@ const DEFAULT_PORT = 3000;
  */
 export async function createMicroserviceApp(AppModule: unknown): Promise<void> {
   const logger = new Logger("Bootstrap");
-  const app = await NestFactory.create(AppModule as any);
+  const app = await NestFactory.create(AppModule as Type<unknown>);
 
   const configService = app.get(ConfigService);
 

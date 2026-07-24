@@ -188,10 +188,12 @@ export class PublicBookingService {
       );
     }
 
-    const client =
+    const payload =
       typeof data === "object" && data !== null && "success" in data
-        ? (data as any).data
+        ? (data as Record<string, unknown>).data
         : data;
+
+    const client = payload as { id?: unknown } | null | undefined;
 
     if (!client || typeof client.id !== "string" || client.id.length === 0) {
       throw new InternalServerErrorException(

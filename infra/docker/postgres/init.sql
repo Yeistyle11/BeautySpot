@@ -1,6 +1,11 @@
 -- Inicialización de bases de datos por servicio
 -- Cada microservicio tiene su propia base de datos PostgreSQL
 
+-- Rol de aplicación usado por algunos servicios en su DATABASE_URL
+-- (analytics, marketplace, notification, payment). Superusuario solo en local:
+-- simplifica el desarrollo; en producción cada servicio usa credenciales acotadas.
+CREATE USER beautyspot WITH PASSWORD 'beautyspot' SUPERUSER;
+
 CREATE DATABASE beautyspot_auth;
 CREATE DATABASE beautyspot_core;
 CREATE DATABASE beautyspot_booking;
