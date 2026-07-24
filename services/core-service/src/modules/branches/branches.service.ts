@@ -37,7 +37,10 @@ export class BranchesService {
     businessId: string,
     data: Partial<Branch>
   ): Promise<Branch> {
-    await this.repo.update({ id, businessId }, data as any);
+    await this.repo.update(
+      { id, businessId },
+      data as Parameters<typeof this.repo.update>[1]
+    );
     return this.findById(id, businessId);
   }
 

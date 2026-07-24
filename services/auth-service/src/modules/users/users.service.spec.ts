@@ -6,9 +6,15 @@ import { UsersService } from "./users.service";
 import { User } from "../../entities/user.entity";
 import { Membership } from "../../entities/membership.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
-import { NotFoundException } from "@nestjs/common";
+import {
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { Role } from "@beautyspot/shared-types";
 import { TokenVersionStore } from "@beautyspot/nest-common";
+import { CreateStaffDto } from "./dto/create-staff.dto";
+import { UpdateStaffDto } from "./dto/update-staff.dto";
 
 describe("UsersService", () => {
   let service: UsersService;
@@ -401,6 +407,255 @@ describe("UsersService", () => {
       await expect(
         service.updateProfile("non-existent", { name: "Test" })
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("findByBusiness", () => {
+    it("mapea las membresías a usuarios seguros con datos de membresía", async () => {
+      mockMembershipRepository.find.mockResolvedValue([
+        { ...mockMembership, user: mockUser, acceptedAt: null },
+      ]);
+
+      const result = await service.findByBusiness("business-123");
+
+      expect(mockMembershipRepository.find).toHaveBeenCalledWith({
+        where: { businessId: "business-123", active: true },
+        relations: ["user"],
+      });
+      expect(result[0]).toMatchObject({
+        membershipId: "membership-123",
+        role: Role.OWNER,
+        membershipActive: true,
+      });
+      expect(result[0]).not.toHaveProperty("password");
+    });
+  });
+
+  describe("findByIdAndBusiness", () => {
+    it("devuelve el usuario con su rol cuando existe la membresía", async () => {
+      mockMembershipRepository.findOne.mockResolvedValue({
+        ...mockMembership,
+        user: mockUser,
+      });
+
+      const result = await service.findByIdAndBusiness(
+        "user-123",
+        "business-123"
+      );
+
+      expect(result).toMatchObject({
+        role: Role.OWNER,
+        membershipId: "membership-123",
+      });
+    });
+
+    it("lanza NotFound si no hay membresía", async () => {
+      mockMembershipRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.findByIdAndBusiness("user-123", "business-123")
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("createStaff", () => {
+    const dto = {
+      email: "nuevo@example.com",
+      password: "Secreta123",
+      name: "Nuevo Staff",
+      phone: "+573000000000",
+      role: Role.ADMIN,
+    } as CreateStaffDto;
+
+    it("crea usuario y membresía cuando el email no existe", async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockUserRepository.create.mockReturnValue(mockUser);
+      mockUserRepository.save.mockResolvedValue(mockUser);
+      mockMembershipRepository.create.mockReturnValue(mockMembership);
+      mockMembershipRepository.save.mockResolvedValue(mockMembership);
+      mockAuditLogRepository.create.mockReturnValue({});
+      mockAuditLogRepository.save.mockResolvedValue({});
+
+      const result = await service.createStaff("business-123", dto);
+
+      expect(mockUserRepository.save).toHaveBeenCalled();
+      expect(mockMembershipRepository.save).toHaveBeenCalled();
+      expect(result).toMatchObject({
+        membershipId: "membership-123",
+        role: Role.OWNER,
+      });
+    });
+
+    it("lanza Conflict si el email ya está registrado", async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+
+      await expect(service.createStaff("business-123", dto)).rejects.toThrow(
+        ConflictException
+      );
+    });
+  });
+
+  describe("updateStaff", () => {
+    const nonOwner = { ...mockMembership, role: Role.ADMIN };
+
+    it("lanza NotFound si el usuario no pertenece al negocio", async () => {
+      mockMembershipRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.updateStaff("user-123", "business-123", {
+          name: "X",
+        } as UpdateStaffDto)
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("lanza Conflict si el email ya lo usa otro usuario", async () => {
+      mockMembershipRepository.findOne.mockResolvedValue(nonOwner);
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        id: "otro-usuario",
+      });
+
+      await expect(
+        service.updateStaff("user-123", "business-123", {
+          email: "dup@example.com",
+        } as UpdateStaffDto)
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it("devuelve el usuario sin tocar la BD cuando no hay cambios", async () => {
+      mockMembershipRepository.findOne.mockResolvedValue(nonOwner);
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+
+      const result = await service.updateStaff(
+        "user-123",
+        "business-123",
+        {} as UpdateStaffDto
+      );
+
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
+      expect(result).not.toHaveProperty("password");
+    });
+
+    it("actualiza los campos indicados dentro de una transacción", async () => {
+      mockMembershipRepository.findOne.mockResolvedValue(nonOwner);
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as never);
+      mockAuditLogRepository.create.mockReturnValue({});
+      mockAuditLogRepository.save.mockResolvedValue({});
+
+      const result = await service.updateStaff("user-123", "business-123", {
+        name: "Editado",
+      } as UpdateStaffDto);
+
+      expect(mockUserRepository.update).toHaveBeenCalledWith("user-123", {
+        name: "Editado",
+      });
+      expect(result).not.toHaveProperty("password");
+    });
+  });
+
+  describe("adminResetPassword", () => {
+    it("lanza NotFound si no hay membresía", async () => {
+      mockMembershipRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.adminResetPassword("user-123", "business-123", "NuevaClave1")
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("prohíbe resetear la contraseña del dueño (OWNER)", async () => {
+      mockMembershipRepository.findOne.mockResolvedValue(mockMembership); // OWNER
+
+      await expect(
+        service.adminResetPassword("user-123", "business-123", "NuevaClave1")
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("actualiza la contraseña e invalida sesiones para un no-OWNER", async () => {
+      mockMembershipRepository.findOne.mockResolvedValue({
+        ...mockMembership,
+        role: Role.RECEPTIONIST,
+      });
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as never);
+      mockAuditLogRepository.create.mockReturnValue({});
+      mockAuditLogRepository.save.mockResolvedValue({});
+
+      const result = await service.adminResetPassword(
+        "user-123",
+        "business-123",
+        "NuevaClave1"
+      );
+
+      expect(mockTokenVersionStore.bumpVersion).toHaveBeenCalledWith(
+        "user-123"
+      );
+      expect(result.message).toContain("actualizada");
+    });
+  });
+
+  describe("toggleActive", () => {
+    const nonOwner = { ...mockMembership, role: Role.PROFESSIONAL };
+
+    it("lanza NotFound si no hay membresía", async () => {
+      mockMembershipRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.toggleActive("user-123", "business-123", false)
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("prohíbe desactivar al dueño (OWNER)", async () => {
+      mockMembershipRepository.findOne.mockResolvedValue(mockMembership); // OWNER
+
+      await expect(
+        service.toggleActive("user-123", "business-123", false)
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("desactiva cuenta y membresía e invalida sesiones", async () => {
+      mockMembershipRepository.findOne.mockResolvedValue(nonOwner);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as never);
+      mockMembershipRepository.update.mockResolvedValue({
+        affected: 1,
+      } as never);
+      mockAuditLogRepository.create.mockReturnValue({});
+      mockAuditLogRepository.save.mockResolvedValue({});
+
+      const result = await service.toggleActive(
+        "user-123",
+        "business-123",
+        false
+      );
+
+      expect(mockUserRepository.update).toHaveBeenCalledWith("user-123", {
+        active: false,
+      });
+      expect(mockTokenVersionStore.bumpVersion).toHaveBeenCalledWith(
+        "user-123"
+      );
+      expect(result.message).toContain("desactivada");
+    });
+
+    it("reactiva la cuenta sin invalidar sesiones", async () => {
+      mockMembershipRepository.findOne.mockResolvedValue(nonOwner);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as never);
+      mockMembershipRepository.update.mockResolvedValue({
+        affected: 1,
+      } as never);
+      mockAuditLogRepository.create.mockReturnValue({});
+      mockAuditLogRepository.save.mockResolvedValue({});
+
+      const result = await service.toggleActive(
+        "user-123",
+        "business-123",
+        true
+      );
+
+      expect(mockUserRepository.update).toHaveBeenCalledWith("user-123", {
+        active: true,
+      });
+      expect(mockTokenVersionStore.bumpVersion).not.toHaveBeenCalled();
+      expect(result.message).toContain("activada");
     });
   });
 

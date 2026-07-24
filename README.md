@@ -6,7 +6,7 @@ Plataforma SaaS multi-tenant para gestión de barberías, salones de belleza, sp
 
 **Stack Tecnológico:**
 
-- **Backend**: NestJS 10 + TypeORM + TypeScript (8 microservicios)
+- **Backend**: NestJS 11 + TypeORM + TypeScript (8 microservicios)
 - **Frontend**: Next.js 14 (App Router) + TypeScript + TailwindCSS
 - **Base de Datos**: PostgreSQL 16 (8 bases de datos, una por servicio)
 - **Caché**: Redis 7
@@ -85,35 +85,30 @@ cd BeautySpot
 # 2. Instalar dependencias
 npm install --legacy-peer-deps
 
-# 3. Iniciar infraestructura
-docker compose up -d postgres redis rabbitmq
+# 3. Iniciar infraestructura (Postgres 16 + Redis + RabbitMQ)
+npm run docker:up
 
 # 4. Configurar bases de datos
-# Las bases de datos se crean automáticamente al iniciar PostgreSQL
+# Las 7 bases por servicio se crean solas en el primer arranque
+# (infra/docker/postgres/init.sql). Postgres queda expuesto en el host en el 5433.
 
-# 5. Iniciar microservicios (modo desarrollo)
-turbo dev
+# 5. Copiar los .env de cada servicio (valores por defecto ya alineados al compose)
+#    cp services/<svc>/.env.example services/<svc>/.env
 
-# 6. Iniciar frontend (en otra terminal)
-cd apps/frontend && npm run dev
+# 6. Iniciar microservicios + frontend (modo desarrollo)
+npm run dev
 ```
 
 La aplicación corre en:
 
 - **Frontend**: http://localhost:8080
 - **API Gateway**: http://localhost:3000
+- **Panel RabbitMQ**: http://localhost:15672 (beautyspot / beautyspot123)
 
-### Instalación con Docker completo
-
-```bash
-# Iniciar todos los servicios
-docker compose up -d
-
-# Iniciar infraestructura + microservicios
-docker compose up -d postgres redis rabbitmq \
-  api-gateway auth-service core-service booking-service \
-  payment-service notification-service marketplace-service analytics-service
-```
+> Nota: `docker compose` provee la **infraestructura** (Postgres, Redis, RabbitMQ).
+> Los microservicios corren con `npm run dev` (Turborepo). Cada servicio tiene su
+> propio `Dockerfile` para empaquetado/CI; la orquestación en contenedores de toda
+> la app se construye a partir de esos Dockerfiles.
 
 ## Scripts
 

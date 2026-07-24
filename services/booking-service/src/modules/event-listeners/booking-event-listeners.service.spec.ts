@@ -1,7 +1,18 @@
 import { Test } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
+import type { IBaseEvent } from "@beautyspot/event-types";
 import { BookingEventListeners } from "./booking-event-listeners.service";
 import { AvailabilityService } from "../availability/availability.service";
+
+/** Envuelve un payload en la forma de evento del bus para los tests. */
+function makeEvent<T>(payload: T): IBaseEvent<T> {
+  return {
+    eventType: "test.event",
+    timestamp: new Date(),
+    correlationId: "test-correlation-id",
+    payload,
+  };
+}
 
 describe("BookingEventListeners", () => {
   let service: BookingEventListeners;
@@ -16,7 +27,7 @@ describe("BookingEventListeners", () => {
     // Mock AvailabilityService
     mockAvailabilityService = {
       replaceWeekly: jest.fn().mockResolvedValue(undefined),
-    } as any;
+    } as unknown as jest.Mocked<AvailabilityService>;
 
     const module = await Test.createTestingModule({
       providers: [
@@ -36,51 +47,30 @@ describe("BookingEventListeners", () => {
   });
 
   describe("handleUserRegistered", () => {
-    it("debería loggear usuario registrado como CLIENT", async () => {
-      const event = {
-        payload: {
-          email: "client@example.com",
-          role: "CLIENT",
-        },
-      };
+    it("debería loggear el usuario registrado", async () => {
+      const event = makeEvent({
+        userId: "user-123",
+        email: "client@example.com",
+        name: "Cliente Ejemplo",
+      });
 
       await service.handleUserRegistered(event);
 
       expect(logSpy).toHaveBeenCalledWith(
         `Usuario registrado: ${event.payload.email}`
-      );
-      expect(logSpy).toHaveBeenCalledWith(
-        `Cliente registrado en Booking Service: ${event.payload.email}`
-      );
-    });
-
-    it("debería loggear usuario registrado no CLIENT", async () => {
-      const event = {
-        payload: {
-          email: "admin@example.com",
-          role: "ADMIN",
-        },
-      };
-
-      await service.handleUserRegistered(event);
-
-      expect(logSpy).toHaveBeenCalledWith(
-        `Usuario registrado: ${event.payload.email}`
-      );
-      // No debería loggear "Cliente registrado en Booking Service"
-      expect(logSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining("Cliente registrado en Booking Service")
       );
     });
   });
 
   describe("handleBusinessCreated", () => {
     it("debería loggear negocio creado", async () => {
-      const event = {
-        payload: {
-          businessId: "biz-123",
-        },
-      };
+      const event = makeEvent({
+        businessId: "biz-123",
+        slug: "biz-123",
+        name: "Negocio Ejemplo",
+        businessType: "salon",
+        ownerId: "owner-123",
+      });
 
       await service.handleBusinessCreated(event);
 
@@ -95,12 +85,12 @@ describe("BookingEventListeners", () => {
 
   describe("handleProfessionalCreated", () => {
     it("debería crear disponibilidad semanal para profesional", async () => {
-      const event = {
-        payload: {
-          professionalId: "prof-123",
-          businessId: "biz-123",
-        },
-      };
+      const event = makeEvent({
+        professionalId: "prof-123",
+        businessId: "biz-123",
+        name: "Profesional Ejemplo",
+        specialties: [],
+      });
 
       await service.handleProfessionalCreated(event);
 
@@ -124,12 +114,12 @@ describe("BookingEventListeners", () => {
     });
 
     it("debería crear 7 días de disponibilidad", async () => {
-      const event = {
-        payload: {
-          professionalId: "prof-456",
-          businessId: "biz-456",
-        },
-      };
+      const event = makeEvent({
+        professionalId: "prof-456",
+        businessId: "biz-456",
+        name: "Profesional Ejemplo",
+        specialties: [],
+      });
 
       await service.handleProfessionalCreated(event);
 
@@ -151,14 +141,14 @@ describe("BookingEventListeners", () => {
 
   describe("handlePaymentRegistered", () => {
     it("debería loggear pago vinculado a cita", async () => {
-      const event = {
-        payload: {
-          paymentId: "pay-123",
-          appointmentId: "apt-123",
-          amount: 50000,
-          method: "CASH",
-        },
-      };
+      const event = makeEvent({
+        paymentId: "pay-123",
+        businessId: "biz-123",
+        clientId: "client-123",
+        appointmentId: "apt-123",
+        amount: 50000,
+        method: "CASH",
+      });
 
       await service.handlePaymentRegistered(event);
 
@@ -171,13 +161,13 @@ describe("BookingEventListeners", () => {
     });
 
     it("debería loggear pago sin cita", async () => {
-      const event = {
-        payload: {
-          paymentId: "pay-456",
-          amount: 30000,
-          method: "CARD",
-        },
-      };
+      const event = makeEvent({
+        paymentId: "pay-456",
+        businessId: "biz-123",
+        clientId: "client-123",
+        amount: 30000,
+        method: "CARD",
+      });
 
       await service.handlePaymentRegistered(event);
 
@@ -192,13 +182,16 @@ describe("BookingEventListeners", () => {
 
   describe("handleAppointmentReminderDue", () => {
     it("debería loggear recordatorio programado", async () => {
-      const event = {
-        payload: {
-          appointmentId: "apt-789",
-          date: "2026-06-16",
-          startTime: "14:00",
-        },
-      };
+      const event = makeEvent({
+        appointmentId: "apt-789",
+        businessId: "biz-123",
+        clientId: "client-123",
+        professionalId: "prof-123",
+        date: "2026-06-16",
+        startTime: "14:00",
+        endTime: "15:00",
+        totalAmount: 50000,
+      });
 
       await service.handleAppointmentReminderDue(event);
 

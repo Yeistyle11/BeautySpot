@@ -321,4 +321,259 @@ describe("BusinessProfilesService", () => {
       );
     });
   });
+
+  describe("findById", () => {
+    it("devuelve el perfil por id", async () => {
+      mockRepo.findOne.mockResolvedValue(mockBusinessProfile);
+      const result = await service.findById("profile-123");
+      expect(result).toEqual(mockBusinessProfile);
+    });
+
+    it("lanza NotFound si no existe", async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+      await expect(service.findById("x")).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("findProfessionalBySlug", () => {
+    it("devuelve el profesional cuando pertenece al negocio", async () => {
+      mockRepo.findOne.mockResolvedValue(mockBusinessProfile);
+      mockProfessionalService.findBySlug.mockResolvedValue(mockProfessional);
+
+      const result = await service.findProfessionalBySlug(
+        "elite-barbers",
+        "juan-perez"
+      );
+
+      expect(result).toEqual(mockProfessional);
+    });
+
+    it("lanza NotFound si el negocio no existe o no está publicado", async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+      await expect(service.findProfessionalBySlug("x", "y")).rejects.toThrow(
+        NotFoundException
+      );
+    });
+
+    it("lanza NotFound si la sección de equipo está deshabilitada", async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockBusinessProfile,
+        sectionConfig: { sections: [{ id: "team", enabled: false, order: 3 }] },
+      } as any);
+      await expect(
+        service.findProfessionalBySlug("elite-barbers", "juan-perez")
+      ).rejects.toThrow("Seccion de equipo no disponible");
+    });
+
+    it("lanza NotFound si el profesional es de otro negocio", async () => {
+      mockRepo.findOne.mockResolvedValue(mockBusinessProfile);
+      mockProfessionalService.findBySlug.mockResolvedValue({
+        ...mockProfessional,
+        businessId: "otro-negocio",
+      });
+      await expect(
+        service.findProfessionalBySlug("elite-barbers", "juan-perez")
+      ).rejects.toThrow("Profesional no encontrado en este negocio");
+    });
+  });
+
+  describe("updateConfig", () => {
+    it("actualiza los campos del perfil inmersivo y recalcula completitud", async () => {
+      const profile = { ...mockBusinessProfile } as any;
+      mockRepo.findOne.mockResolvedValue(profile);
+      mockRepo.save.mockImplementation(async (p) => p as any);
+      mockProfessionalService.findVisibleByBusiness.mockResolvedValue([]);
+
+      const result = await service.updateConfig("business-123", {
+        tagline: "Tu estilo, nuestra pasión",
+        storyTitle: "Nuestra historia",
+        storyText: "Texto",
+        storyImage: "story.jpg",
+        foundedYear: 2015,
+        founders: "Juan y Ana",
+        socialLinks: { instagram: "@x" },
+        sectionConfig: [{ id: "story", enabled: true, order: 1 }],
+      } as any);
+
+      expect(result.tagline).toBe("Tu estilo, nuestra pasión");
+      expect(result.sectionConfig).toEqual({
+        sections: [{ id: "story", enabled: true, order: 1 }],
+      });
+      expect(mockRepo.save).toHaveBeenCalled();
+    });
+  });
+
+  describe("updateGalleryImage", () => {
+    it("actualiza los metadatos de una imagen por índice", async () => {
+      const profile = {
+        ...mockBusinessProfile,
+        galleryImages: [{ url: "img1.jpg", title: "viejo" }],
+      } as any;
+      mockRepo.findOne.mockResolvedValue(profile);
+      mockRepo.save.mockImplementation(async (p) => p as any);
+
+      const result = await service.updateGalleryImage("business-123", {
+        index: 0,
+        title: "nuevo",
+        featured: true,
+      } as any);
+
+      expect(result.galleryImages![0].title).toBe("nuevo");
+      expect(result.galleryImages![0].featured).toBe(true);
+    });
+
+    it("lanza BadRequest si el índice es inválido", async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockBusinessProfile,
+        galleryImages: [],
+      } as any);
+      await expect(
+        service.updateGalleryImage("business-123", { index: 0 } as any)
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe("findPublished", () => {
+    it("ordena por rating por defecto y filtra por ciudad y tipo", async () => {
+      const qb = mockRepo.createQueryBuilder() as any;
+      qb.getManyAndCount.mockResolvedValue([[mockBusinessProfile], 1]);
+
+      const result = await service.findPublished({
+        city: "Bogotá",
+        businessType: "barbería",
+      });
+
+      expect(result).toEqual({ items: [mockBusinessProfile], total: 1 });
+      expect(qb.orderBy).toHaveBeenCalledWith("bp.rating", "DESC");
+    });
+
+    it("ordena por fecha cuando orderBy es createdAt", async () => {
+      const qb = mockRepo.createQueryBuilder() as any;
+      qb.getManyAndCount.mockResolvedValue([[], 0]);
+
+      await service.findPublished({ orderBy: "createdAt" });
+
+      expect(qb.orderBy).toHaveBeenCalledWith("bp.created_at", "DESC");
+    });
+
+    it("aplica filtro y orden por distancia con lat/lng", async () => {
+      const qb = mockRepo.createQueryBuilder() as any;
+      qb.getManyAndCount.mockResolvedValue([[mockBusinessProfile], 1]);
+
+      await service.findPublished({ lat: 4.7, lng: -74.0, radius: 5 });
+
+      expect(qb.setParameters).toHaveBeenCalled();
+    });
+  });
+
+  describe("findRecent", () => {
+    it("devuelve perfiles recientes priorizando los más completos", async () => {
+      const qb = mockRepo.createQueryBuilder() as any;
+      qb.getMany.mockResolvedValue([mockBusinessProfile]);
+
+      const result = await service.findRecent(30, 10);
+
+      expect(result).toEqual([mockBusinessProfile]);
+      expect(qb.orderBy).toHaveBeenCalledWith(
+        "bp.profile_completeness",
+        "DESC"
+      );
+    });
+  });
+
+  describe("updateRating", () => {
+    const ratingQb = (avg: string | null, count: string) => ({
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({ avg, count }),
+    });
+
+    it("calcula media y total de reseñas y actualiza el perfil", async () => {
+      (mockRepo.manager.createQueryBuilder as any).mockReturnValue(
+        ratingQb("4.5", "10")
+      );
+
+      await service.updateRating("business-123");
+
+      expect(mockRepo.update).toHaveBeenCalledWith(
+        { businessId: "business-123" },
+        { rating: 4.5, totalReviews: 10 }
+      );
+    });
+
+    it("deja rating en 0 cuando no hay reseñas", async () => {
+      (mockRepo.manager.createQueryBuilder as any).mockReturnValue(
+        ratingQb(null, "0")
+      );
+
+      await service.updateRating("business-123");
+
+      expect(mockRepo.update).toHaveBeenCalledWith(
+        { businessId: "business-123" },
+        { rating: 0, totalReviews: 0 }
+      );
+    });
+
+    it("usa el manager de la transacción cuando se pasa", async () => {
+      const managerUpdate = jest.fn();
+      const managerQb = {
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ avg: "5", count: "2" }),
+      };
+      const manager: any = {
+        getRepository: jest.fn().mockReturnValue({ update: managerUpdate }),
+        createQueryBuilder: jest.fn().mockReturnValue(managerQb),
+      };
+
+      await service.updateRating("business-123", manager);
+
+      expect(managerUpdate).toHaveBeenCalledWith(
+        { businessId: "business-123" },
+        { rating: 5, totalReviews: 2 }
+      );
+    });
+  });
+
+  describe("createOrUpdate (perfil completo)", () => {
+    it("calcula alta completitud para un perfil con todos los bloques", async () => {
+      const rich = {
+        businessId: "business-999",
+        name: "Completo",
+        description: "desc",
+        logo: "logo.jpg",
+        coverImage: "cover.jpg",
+        storyText: "x".repeat(150),
+        storyImage: "story.jpg",
+        galleryImages: Array.from({ length: 6 }, (_, i) => ({
+          url: `g${i}.jpg`,
+        })),
+        socialLinks: { instagram: "@x", facebook: "fb" },
+        address: "Calle 1",
+        city: "Bogotá",
+        lat: 4.7,
+        lng: -74.0,
+        sectionConfig: { sections: [] },
+        isPublished: true,
+        tagline: "lema",
+      } as any;
+
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockReturnValue(rich);
+      mockRepo.save.mockImplementation(async (p) => p as any);
+      mockProfessionalService.findVisibleByBusiness.mockResolvedValue([
+        mockProfessional,
+        mockProfessional,
+        mockProfessional,
+      ]);
+
+      const result = await service.createOrUpdate(rich);
+
+      expect(result.profileCompleteness).toBeGreaterThan(80);
+    });
+  });
 });

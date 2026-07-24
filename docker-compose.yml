@@ -1,24 +1,71 @@
 version: "3.8"
 
+# Infraestructura de desarrollo local de BeautySpot: Postgres, Redis y RabbitMQ.
+# Levantar con `npm run docker:up`; los puertos y credenciales coinciden con los
+# valores por defecto de los .env.example de cada servicio.
 services:
   postgres:
-    image: postgres:14-alpine
+    image: postgres:16-alpine
     container_name: beautyspot-postgres
     restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: beautyspot
+      POSTGRES_DB: postgres
     ports:
-      - "5432:5432"
+      # 5433 en el host para no chocar con un Postgres local en 5432
+      # (los .env.example apuntan a 5433).
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Crea las 7 bases por servicio en el primer arranque del volumen.
+      - ./infra/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: beautyspot-redis
+    restart: always
+    # La contraseña coincide con REDIS_PASSWORD de los .env.example.
+    command: redis-server --requirepass redis123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: beautyspot-rabbitmq
+    restart: always
+    # Usuario/clave y vhost por defecto que forman el RABBITMQ_URL de los .env.example
+    # (amqp://beautyspot:beautyspot123@localhost:5672).
+    environment:
+      RABBITMQ_DEFAULT_USER: beautyspot
+      RABBITMQ_DEFAULT_PASS: beautyspot123
+    ports:
+      - "5672:5672"
+      - "15672:15672" # panel de administración
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  rabbitmq_data:
     driver: local

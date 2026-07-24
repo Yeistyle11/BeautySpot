@@ -65,7 +65,7 @@ export class EmailService {
   async sendEmail(
     to: string,
     templateName: string,
-    context: any
+    context: Record<string, unknown> = {}
   ): Promise<{ messageId: string }> {
     const template = this.templates.get(templateName);
     if (!template) {
@@ -76,7 +76,9 @@ export class EmailService {
     const info = await this.transporter.sendMail({
       from: this.configService.get<string>("EMAIL_FROM"),
       to,
-      subject: context.subject || `BeautySpot - ${templateName}`,
+      subject:
+        (context.subject as string | undefined) ||
+        `BeautySpot - ${templateName}`,
       html,
       text: html.replace(/<[^>]*>/g, "").trim(),
     });

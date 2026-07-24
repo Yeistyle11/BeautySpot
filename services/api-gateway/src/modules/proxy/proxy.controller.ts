@@ -112,7 +112,11 @@ export class ProxyController {
       headers["authorization"] = req.headers["authorization"] as string;
     }
 
-    const user = (req as any).user;
+    const user = (
+      req as Request & {
+        user?: { businessId?: string; businessIds?: string[] };
+      }
+    ).user;
     if (user?.businessId) {
       headers["x-business-id"] = user.businessId;
     } else if (user?.businessIds?.length) {

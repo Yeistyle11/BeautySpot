@@ -38,7 +38,10 @@ export class InvoicesController {
     @BusinessId() businessId: string,
     @Query() query: Record<string, unknown>
   ) {
-    return this.service.findByBusiness(businessId, query as any);
+    return this.service.findByBusiness(
+      businessId,
+      query as Parameters<typeof this.service.findByBusiness>[1]
+    );
   }
 
   /** Obtiene una factura por id. */

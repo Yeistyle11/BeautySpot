@@ -359,9 +359,15 @@ export class AuthService {
 
   /** Deriva el rol, negocio principal y lista de negocios activos para el payload del token. */
   private getMembershipsData(user: User) {
-    const memberships = (user as any).memberships as
-      | Array<{ businessId: string; role: string; active: boolean }>
-      | undefined;
+    const memberships = (
+      user as User & {
+        memberships?: Array<{
+          businessId: string;
+          role: string;
+          active: boolean;
+        }>;
+      }
+    ).memberships;
     if (!memberships || memberships.length === 0) {
       return {
         role: Role.CLIENT,

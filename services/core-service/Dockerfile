@@ -1,14 +1,20 @@
+# @beautyspot/core-service — build multi-stage desde la RAÍZ del monorepo.
+# Construir con:  docker build -f services/core-service/Dockerfile -t core-service .
+# El contexto debe ser la raíz del repo para acceder a los workspaces @beautyspot/*.
+
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
 COPY . .
-RUN npm run build
+RUN npm install --legacy-peer-deps
+# turbo construye el servicio y, por dependsOn ^build, sus paquetes compartidos.
+RUN npx turbo run build --filter=@beautyspot/core-service
 
 FROM node:20-alpine
 WORKDIR /app
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package*.json ./
-RUN npm ci --only=production
+ENV NODE_ENV=production
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/services/core-service ./services/core-service
+WORKDIR /app/services/core-service
 EXPOSE 3002
 CMD ["node", "dist/main.js"]

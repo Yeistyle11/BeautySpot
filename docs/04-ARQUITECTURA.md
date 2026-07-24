@@ -372,25 +372,25 @@ Cada servicio aplica un **guard de tenant** que verifica que:
 export class TenantGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
-    const businessId = request.headers['x-business-id'];
-    const userRole = request.headers['x-user-role'];
+    const businessId = request.headers["x-business-id"];
+    const userRole = request.headers["x-user-role"];
 
     // SUPER_ADMIN no requiere businessId para operaciones globales
-    if (userRole === 'SUPER_ADMIN' && !businessId) {
+    if (userRole === "SUPER_ADMIN" && !businessId) {
       return true;
     }
 
     if (!businessId) {
-      throw new ForbiddenException('Business context required');
+      throw new ForbiddenException("Business context required");
     }
 
     // Verificar membresia del usuario en el negocio
     const memberships = JSON.parse(
-      Buffer.from(request.headers['x-user-memberships'], 'base64').toString()
+      Buffer.from(request.headers["x-user-memberships"], "base64").toString()
     );
-    const hasAccess = memberships.some(m => m.businessId === businessId);
+    const hasAccess = memberships.some((m) => m.businessId === businessId);
     if (!hasAccess) {
-      throw new ForbiddenException('Access denied to this business');
+      throw new ForbiddenException("Access denied to this business");
     }
 
     request.businessId = businessId;

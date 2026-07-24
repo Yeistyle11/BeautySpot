@@ -58,7 +58,10 @@ export class ProfessionalsService {
     businessId: string,
     data: Partial<Professional>
   ): Promise<Professional> {
-    await this.repo.update({ id, businessId }, data as any);
+    await this.repo.update(
+      { id, businessId },
+      data as Parameters<typeof this.repo.update>[1]
+    );
     return this.findById(id, businessId);
   }
 
@@ -170,7 +173,9 @@ export class ProfessionalsService {
       );
     }
 
-    await this.repo.update({ id, businessId }, { userId: null as any });
+    await this.repo.update({ id, businessId }, {
+      userId: null,
+    } as unknown as Parameters<typeof this.repo.update>[1]);
     return this.findById(id, businessId);
   }
 
@@ -239,10 +244,18 @@ export class ProfessionalsService {
       );
     }
 
-    const result =
+    const result = (
       typeof data === "object" && data !== null && "data" in data
-        ? (data as any).data
-        : data;
+        ? (data as Record<string, unknown>).data
+        : data
+    ) as
+      | {
+          totalAppointments?: unknown;
+          completedAppointments?: unknown;
+          hasHistory?: unknown;
+        }
+      | null
+      | undefined;
 
     // Coercion segura: valores faltantes/no-numericos se tratan como 0
     const totalAppointments = Number(result?.totalAppointments) || 0;

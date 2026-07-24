@@ -2,6 +2,14 @@ import { Injectable, OnModuleDestroy, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { IBaseEvent } from "@beautyspot/event-types";
 import { v4 as uuidv4 } from "uuid";
+import type { ChannelModel, Channel } from "amqplib";
+
+/** Mensaje enviado a la Dead Letter Queue: el evento original más el detalle del fallo. */
+type DlqMessage = IBaseEvent<unknown> & {
+  error: string;
+  failedAt: Date;
+  stackTrace?: string;
+};
 
 /**
  * Publica eventos de dominio en RabbitMQ con entrega confiable.
@@ -15,10 +23,10 @@ import { v4 as uuidv4 } from "uuid";
 @Injectable()
 export class EventBusService implements OnModuleDestroy {
   private readonly logger = new Logger(EventBusService.name);
-  private connection: any = null;
-  private channel: any = null;
+  private connection: ChannelModel | null = null;
+  private channel: Channel | null = null;
   private connecting = false;
-  private deadLetterChannel: any = null;
+  private deadLetterChannel: Channel | null = null;
   private readonly DLX_EXCHANGE = "beautyspot.dlx";
   private readonly RETRY_EXCHANGE = "beautyspot.events";
   private readonly MAX_RETRIES = 3;
@@ -38,44 +46,49 @@ export class EventBusService implements OnModuleDestroy {
     try {
       this.connecting = true;
       const amqp = await import("amqplib");
-      this.connection = await (amqp as any).default.connect(url);
-      this.channel = await this.connection.createChannel();
+      // amqplib es CommonJS: bajo el import dinámico el acceso al connect vive en
+      // `.default`, que las definiciones de tipos no exponen en el namespace.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const connection: ChannelModel = await (amqp as any).default.connect(url);
+      this.connection = connection;
+      this.channel = await connection.createChannel();
 
-      await this.setupExchangesAndQueues();
+      await this.setupExchangesAndQueues(this.channel, connection);
 
       this.connecting = false;
       this.logger.log("RabbitMQ conectado exitosamente");
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.connecting = false;
       this.channel = null;
       this.deadLetterChannel = null;
-      this.logger.error(
-        `Error conectando a RabbitMQ: ${error.message}`,
-        error.stack
-      );
+      const { message, stack } = this.describeError(error);
+      this.logger.error(`Error conectando a RabbitMQ: ${message}`, stack);
     }
   }
 
-  private async setupExchangesAndQueues(): Promise<void> {
+  private async setupExchangesAndQueues(
+    channel: Channel,
+    connection: ChannelModel
+  ): Promise<void> {
     const { DLX_EXCHANGE, RETRY_EXCHANGE } = this;
 
-    await this.channel.assertExchange(DLX_EXCHANGE, "topic", { durable: true });
-    await this.channel.assertExchange(RETRY_EXCHANGE, "topic", {
+    await channel.assertExchange(DLX_EXCHANGE, "topic", { durable: true });
+    await channel.assertExchange(RETRY_EXCHANGE, "topic", {
       durable: true,
     });
 
     // Cola terminal de Dead Letter: los mensajes aqui NO se reenvian al
     // exchange de retries (eso crearia un loop infinito). Se quedan para
     // inspeccion/reprocesamiento manual.
-    await this.channel.assertQueue("beautyspot.dlx.dead", {
+    await channel.assertQueue("beautyspot.dlx.dead", {
       durable: true,
     });
-    await this.channel.bindQueue("beautyspot.dlx.dead", DLX_EXCHANGE, "#");
+    await channel.bindQueue("beautyspot.dlx.dead", DLX_EXCHANGE, "#");
 
     // Canal dedicado para publicar a la DLQ, independiente del canal principal.
     // Si el canal principal muere, este canal sigue operativo para enrutar
     // el evento fallido a la DLQ.
-    this.deadLetterChannel = await this.connection.createChannel();
+    this.deadLetterChannel = await connection.createChannel();
   }
 
   async emit<T>(
@@ -122,7 +135,7 @@ export class EventBusService implements OnModuleDestroy {
           `Evento ${eventType} reenviado exitosamente (intento ${retryCount + 1})`
         );
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // retryCount + 1 < MAX_RETRIES => reintenta (el intento inicial cuenta).
       // Total de intentos antes de DLQ = MAX_RETRIES.
       if (retryCount + 1 < this.MAX_RETRIES) {
@@ -134,9 +147,10 @@ export class EventBusService implements OnModuleDestroy {
         return this.emit(eventType, payload, correlationId, retryCount + 1);
       }
 
+      const { stack } = this.describeError(error);
       this.logger.error(
         `Evento ${eventType} falló después de ${this.MAX_RETRIES} intentos, enviando a DLQ`,
-        error.stack
+        stack
       );
 
       await this.publishToDLQ(message, error);
@@ -147,14 +161,15 @@ export class EventBusService implements OnModuleDestroy {
   }
 
   private async publishToDLQ(
-    message: IBaseEvent<any>,
+    message: IBaseEvent<unknown>,
     error: unknown
   ): Promise<void> {
-    const dlqMessage = {
+    const { message: errorMessage, stack } = this.describeError(error);
+    const dlqMessage: DlqMessage = {
       ...message,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage,
       failedAt: new Date(),
-      stackTrace: error instanceof Error ? error.stack : undefined,
+      stackTrace: stack,
     };
 
     const published = await this.tryPublishToDLQ(dlqMessage, message.eventType);
@@ -173,7 +188,7 @@ export class EventBusService implements OnModuleDestroy {
   }
 
   private async tryPublishToDLQ(
-    dlqMessage: any,
+    dlqMessage: DlqMessage,
     eventType: string
   ): Promise<boolean> {
     if (!this.deadLetterChannel) {
@@ -192,17 +207,18 @@ export class EventBusService implements OnModuleDestroy {
       );
       this.logger.log(`Evento ${eventType} enviado a Dead Letter Queue`);
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const { message, stack } = this.describeError(err);
       this.logger.error(
-        `Error publicando evento a Dead Letter Queue: ${err.message}`,
-        err.stack
+        `Error publicando evento a Dead Letter Queue: ${message}`,
+        stack
       );
       return false;
     }
   }
 
   private async tryPublishToDLQWithFreshConnection(
-    dlqMessage: any,
+    dlqMessage: DlqMessage,
     eventType: string
   ): Promise<void> {
     const url = this.configService.get("RABBITMQ_URL");
@@ -214,7 +230,8 @@ export class EventBusService implements OnModuleDestroy {
     }
     try {
       const amqp = await import("amqplib");
-      const conn = await (amqp as any).default.connect(url);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const conn: ChannelModel = await (amqp as any).default.connect(url);
       const ch = await conn.createChannel();
       await ch.assertExchange(this.DLX_EXCHANGE, "topic", { durable: true });
       await ch.publish(
@@ -228,12 +245,21 @@ export class EventBusService implements OnModuleDestroy {
       );
       await ch.close();
       await conn.close();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const { message, stack } = this.describeError(err);
       this.logger.error(
-        `No se pudo salvar evento en DLQ (conexion de emergencia fallo): ${err.message}. Evento perdido permanentemente`,
-        err.stack
+        `No se pudo salvar evento en DLQ (conexion de emergencia fallo): ${message}. Evento perdido permanentemente`,
+        stack
       );
     }
+  }
+
+  /** Extrae mensaje y traza de un error de tipo desconocido para loguearlo con seguridad. */
+  private describeError(error: unknown): { message: string; stack?: string } {
+    if (error instanceof Error) {
+      return { message: error.message, stack: error.stack };
+    }
+    return { message: String(error) };
   }
 
   private delay(ms: number): Promise<void> {
@@ -246,8 +272,9 @@ export class EventBusService implements OnModuleDestroy {
       if (this.channel) await this.channel.close();
       if (this.connection) await this.connection.close();
       this.logger.log("RabbitMQ desconectado exitosamente");
-    } catch (error: any) {
-      this.logger.error(`Error cerrando conexión RabbitMQ: ${error.message}`);
+    } catch (error: unknown) {
+      const { message } = this.describeError(error);
+      this.logger.error(`Error cerrando conexión RabbitMQ: ${message}`);
     }
   }
 }

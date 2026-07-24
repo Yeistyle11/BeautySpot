@@ -144,7 +144,7 @@ export class BusinessesService {
     callerRole?: Role
   ): Promise<Business> {
     await this.findById(id, callerBusinessId, callerRole);
-    await this.repo.update(id, data as any);
+    await this.repo.update(id, data as Parameters<typeof this.repo.update>[1]);
     return this.findById(id, callerBusinessId, callerRole);
   }
 

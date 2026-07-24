@@ -43,7 +43,7 @@ export class PdfService {
   async generateInvoicePdf(data: InvoiceData): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
-      const doc = new PDFDocument({ size: "A4", margin: 50 }) as any;
+      const doc = new PDFDocument({ size: "A4", margin: 50 });
 
       doc.on("data", (chunk: Buffer) => chunks.push(chunk));
       doc.on("end", () => resolve(Buffer.concat(chunks)));
@@ -61,7 +61,10 @@ export class PdfService {
   }
 
   /** Dibuja el encabezado: nombre del negocio, número de factura y fechas. */
-  private addInvoiceHeader(doc: any, data: InvoiceData): void {
+  private addInvoiceHeader(
+    doc: InstanceType<typeof PDFDocument>,
+    data: InvoiceData
+  ): void {
     const logoPath = data.business.logo;
     if (logoPath) {
       doc.fontSize(20).text(data.business.name, 50, 50, { width: 400 });
@@ -86,7 +89,10 @@ export class PdfService {
   }
 
   /** Dibuja los datos fiscales y de contacto de la empresa emisora. */
-  private addInvoiceInfo(doc: any, data: InvoiceData): void {
+  private addInvoiceInfo(
+    doc: InstanceType<typeof PDFDocument>,
+    data: InvoiceData
+  ): void {
     doc
       .fontSize(10)
       .fillColor("#666")
@@ -99,7 +105,10 @@ export class PdfService {
   }
 
   /** Dibuja los datos del cliente destinatario de la factura. */
-  private addClientInfo(doc: any, data: InvoiceData): void {
+  private addClientInfo(
+    doc: InstanceType<typeof PDFDocument>,
+    data: InvoiceData
+  ): void {
     doc.fontSize(10).fillColor("#666").text("Cliente", 350, 130);
 
     doc.fillColor("#000").text(data.client.name, 350, 150);
@@ -119,7 +128,10 @@ export class PdfService {
   }
 
   /** Dibuja la tabla de líneas con descripción, cantidad, precio y total. */
-  private addItemsTable(doc: any, data: InvoiceData): void {
+  private addItemsTable(
+    doc: InstanceType<typeof PDFDocument>,
+    data: InvoiceData
+  ): void {
     const startY = 250;
     const itemWidth = 280;
     const quantityWidth = 60;
@@ -157,7 +169,10 @@ export class PdfService {
   }
 
   /** Dibuja subtotal, IVA y total, más el método de pago y las notas. */
-  private addTotals(doc: any, data: InvoiceData): void {
+  private addTotals(
+    doc: InstanceType<typeof PDFDocument>,
+    data: InvoiceData
+  ): void {
     let y = 300;
 
     doc.fontSize(10);
@@ -197,7 +212,7 @@ export class PdfService {
   }
 
   /** Dibuja el pie con los datos legales del emisor y el mensaje de cortesía. */
-  private addFooter(doc: any): void {
+  private addFooter(doc: InstanceType<typeof PDFDocument>): void {
     const pageHeight = doc.page.height;
 
     doc

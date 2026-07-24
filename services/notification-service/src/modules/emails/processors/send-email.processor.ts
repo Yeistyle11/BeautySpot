@@ -9,7 +9,7 @@ export interface EmailJobData {
   to: string;
   subject: string;
   template: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   priority?: "high" | "normal" | "low";
   retryCount?: number;
 }
@@ -36,7 +36,7 @@ export class SendEmailProcessor extends WorkerHost {
 
   /** Al completarse un trabajo, publica el evento email.sent con el messageId. */
   @OnWorkerEvent("completed")
-  onCompleted(job: Job<EmailJobData>, result: any) {
+  onCompleted(job: Job<EmailJobData>, result: { messageId?: string }) {
     this.logger.debug(
       `Job ${job.id} completado exitosamente. Resultado: ${JSON.stringify(result)}`
     );

@@ -73,8 +73,8 @@ El sistema aprende de los datos de cada negocio y adapta sus sugerencias en tiem
 interface SlotRecommendation {
   startTime: Date;
   professionalId: string;
-  score: number;        // 0.0 - 1.0, probabilidad de asistencia
-  reasons: string[];    // Explicación de la recomendación
+  score: number; // 0.0 - 1.0, probabilidad de asistencia
+  reasons: string[]; // Explicación de la recomendación
 }
 
 // Factores del scoring:
@@ -86,7 +86,7 @@ interface SlotRecommendation {
 
 // Feature store por cliente:
 interface ClientFeatures {
-  noShowRate: number;           // Tasa de no-show histórica
+  noShowRate: number; // Tasa de no-show histórica
   preferredTimeSlots: string[]; // Top 5 horarios frecuentes
   preferredProfessional: string;
   averageBookingFrequency: number; // Días entre reservas
@@ -552,7 +552,7 @@ enum TransactionType {
 class LoyaltyEngine {
   // Calcular puntos ganados por un pago
   calculateEarnedPoints(paymentAmount: number, tier: Tier): number {
-    const baseRate = 0.10; // 10% del valor
+    const baseRate = 0.1; // 10% del valor
     const multiplier = this.getTierMultiplier(tier);
     const points = Math.floor(paymentAmount * baseRate * multiplier);
     return points;
@@ -573,10 +573,10 @@ class LoyaltyEngine {
 
   // Calcular nivel basado en puntos históricos
   private calculateTier(lifetimePoints: number): Tier {
-    if (lifetimePoints >= 5000) return 'DIAMOND';
-    if (lifetimePoints >= 1500) return 'GOLD';
-    if (lifetimePoints >= 500) return 'SILVER';
-    return 'BRONZE';
+    if (lifetimePoints >= 5000) return "DIAMOND";
+    if (lifetimePoints >= 1500) return "GOLD";
+    if (lifetimePoints >= 500) return "SILVER";
+    return "BRONZE";
   }
 
   // Canjear puntos por descuento
@@ -586,11 +586,17 @@ class LoyaltyEngine {
     appointmentId: string
   ): Promise<number> {
     const account = await this.getAccount(accountId);
-    if (account.points < points) throw new Error('Puntos insuficientes');
+    if (account.points < points) throw new Error("Puntos insuficientes");
 
     const discountAmount = points * 10; // 100 pts = $1,000 COP
 
-    await this.createTransaction(accountId, 'REDEEM', -points, 'Canje descuento', appointmentId);
+    await this.createTransaction(
+      accountId,
+      "REDEEM",
+      -points,
+      "Canje descuento",
+      appointmentId
+    );
     await this.updatePoints(accountId, -points);
 
     return discountAmount;
@@ -788,7 +794,11 @@ class PredictionEngine {
         const trendFactor = historicalData.trend;
 
         const predictedDemand = avgDemand * seasonalFactor * trendFactor;
-        const confidence = this.calculateConfidence(historicalData, dayOfWeek, hour);
+        const confidence = this.calculateConfidence(
+          historicalData,
+          dayOfWeek,
+          hour
+        );
 
         predictions.push({
           businessId,
@@ -819,9 +829,9 @@ class PredictionEngine {
     let score = 0;
     score += clientFeatures.noShowRate * 0.35;
     score += this.morningPenalty(appointment.startTime) * 0.15;
-    score += this.advanceBookingPenalty(appointment) * 0.20;
-    score += this.dayOfWeekPenalty(appointment.startTime) * 0.10;
-    score += clientFeatures.recentNoShowRate * 0.10;
+    score += this.advanceBookingPenalty(appointment) * 0.2;
+    score += this.dayOfWeekPenalty(appointment.startTime) * 0.1;
+    score += clientFeatures.recentNoShowRate * 0.1;
     // Clima: se omite en MVP
 
     return Math.min(score, 1.0); // Clamp 0-1
@@ -941,7 +951,7 @@ class SmartReminderEngine {
   // Calcular el momento óptimo para enviar un recordatorio
   calculateOptimalSendTime(
     appointmentTime: Date,
-    reminderOffsetHours: number,  // 24 o 2
+    reminderOffsetHours: number, // 24 o 2
     clientEngagementProfile: ClientEngagementProfile
   ): Date {
     const targetTime = new Date(
@@ -965,9 +975,9 @@ class SmartReminderEngine {
 
     // Orden de preferencia basado en tasa de respuesta del cliente
     const channelPerformance = [
-      { channel: 'WHATSAPP', responseRate: profile.whatsappResponseRate },
-      { channel: 'PUSH', responseRate: profile.pushResponseRate },
-      { channel: 'EMAIL', responseRate: profile.emailResponseRate },
+      { channel: "WHATSAPP", responseRate: profile.whatsappResponseRate },
+      { channel: "PUSH", responseRate: profile.pushResponseRate },
+      { channel: "EMAIL", responseRate: profile.emailResponseRate },
     ];
 
     channelPerformance.sort((a, b) => b.responseRate - a.responseRate);
@@ -977,11 +987,11 @@ class SmartReminderEngine {
 
 interface ClientEngagementProfile {
   clientId: string;
-  bestHour: number;              // Hora con mayor tasa de apertura
-  bestDayPart: 'morning' | 'afternoon' | 'evening';
-  whatsappResponseRate: number;  // 0.0 - 1.0
-  pushResponseRate: number;      // 0.0 - 1.0
-  emailResponseRate: number;     // 0.0 - 1.0
+  bestHour: number; // Hora con mayor tasa de apertura
+  bestDayPart: "morning" | "afternoon" | "evening";
+  whatsappResponseRate: number; // 0.0 - 1.0
+  pushResponseRate: number; // 0.0 - 1.0
+  emailResponseRate: number; // 0.0 - 1.0
   preferredChannel: ReminderChannel;
   avgResponseTimeMinutes: number;
 }
@@ -992,16 +1002,16 @@ interface ClientEngagementProfile {
 ```typescript
 // Flujo de escalamiento para un recordatorio de 24h
 const ESCALATION_FLOW = [
-  { channel: 'WHATSAPP', delay: '0h',  waitForResponse: '4h' },
-  { channel: 'PUSH',     delay: '4h',  waitForResponse: '4h' },
-  { channel: 'EMAIL',    delay: '8h',  waitForResponse: '4h' },
-  { channel: 'SMS',      delay: '12h', waitForResponse: 'until appointment' },
+  { channel: "WHATSAPP", delay: "0h", waitForResponse: "4h" },
+  { channel: "PUSH", delay: "4h", waitForResponse: "4h" },
+  { channel: "EMAIL", delay: "8h", waitForResponse: "4h" },
+  { channel: "SMS", delay: "12h", waitForResponse: "until appointment" },
 ];
 
 // Flujo de escalamiento para un recordatorio de 2h (más urgente)
 const URGENT_ESCALATION_FLOW = [
-  { channel: 'WHATSAPP', delay: '0m',  waitForResponse: '30m' },
-  { channel: 'SMS',      delay: '30m', waitForResponse: 'until appointment' },
+  { channel: "WHATSAPP", delay: "0m", waitForResponse: "30m" },
+  { channel: "SMS", delay: "30m", waitForResponse: "until appointment" },
 ];
 ```
 
@@ -1102,19 +1112,31 @@ sostenible para los negocios.
 
 ```html
 <title>Barbería Elite | Cortes y Barba en Bogotá | BeautySpot</title>
-<meta name="description" content="Barbería Elite en Bogotá. Cortes desde $25.000. Calificación 4.7 con 124 reseñas. Reserva tu cita online." />
+<meta
+  name="description"
+  content="Barbería Elite en Bogotá. Cortes desde $25.000. Calificación 4.7 con 124 reseñas. Reserva tu cita online."
+/>
 
 <!-- Open Graph -->
 <meta property="og:title" content="Barbería Elite | Bogotá" />
-<meta property="og:description" content="Cortes desde $25.000. Calificación 4.7. Reserva online." />
-<meta property="og:image" content="https://cdn.beautyspot.co/businesses/elite/og-image.jpg" />
+<meta
+  property="og:description"
+  content="Cortes desde $25.000. Calificación 4.7. Reserva online."
+/>
+<meta
+  property="og:image"
+  content="https://cdn.beautyspot.co/businesses/elite/og-image.jpg"
+/>
 <meta property="og:url" content="https://barberia-elite.beautyspot.co" />
 <meta property="og:type" content="business.business" />
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Barbería Elite | Bogotá" />
-<meta name="twitter:description" content="Cortes desde $25.000. Reserva online." />
+<meta
+  name="twitter:description"
+  content="Cortes desde $25.000. Reserva online."
+/>
 ```
 
 #### Generación de Sitemap
@@ -1209,13 +1231,13 @@ conflictos de doble reserva y proporciona una experiencia fluida al cliente.
 #### Implementación con WebSockets
 
 ```typescript
-@WebSocketGateway({ namespace: '/availability', cors: true })
+@WebSocketGateway({ namespace: "/availability", cors: true })
 class AvailabilityGateway {
   @WebSocketServer()
   server: Server;
 
   // Suscribirse a la agenda de un negocio
-  @SubscribeMessage('subscribe')
+  @SubscribeMessage("subscribe")
   async handleSubscribe(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { businessId: string; date: string }
@@ -1228,7 +1250,7 @@ class AvailabilityGateway {
       data.businessId,
       new Date(data.date)
     );
-    client.emit('availability:update', slots);
+    client.emit("availability:update", slots);
   }
 
   // Notificar cambio de disponibilidad (llamado internamente)
@@ -1238,7 +1260,7 @@ class AvailabilityGateway {
     change: AvailabilityChange
   ) {
     const room = `availability:${businessId}:${date}`;
-    this.server.to(room).emit('availability:changed', change);
+    this.server.to(room).emit("availability:changed", change);
   }
 }
 ```
@@ -1260,29 +1282,36 @@ class AvailabilityService {
     const lockAcquired = await this.redis.set(
       lockKey,
       clientId,
-      'NX',
-      'EX',
+      "NX",
+      "EX",
       300 // 5 minutos
     );
 
     if (!lockAcquired) {
-      throw new ConflictException('Este horario acaba de ser reservado por otra persona');
+      throw new ConflictException(
+        "Este horario acaba de ser reservado por otra persona"
+      );
     }
 
     return {
       lockKey,
       clientId,
       expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-      status: 'LOCKED',
+      status: "LOCKED",
     };
   }
 
   // Confirmar la reserva (al completar el checkout)
-  async confirmReservation(lockKey: string, appointmentId: string): Promise<void> {
+  async confirmReservation(
+    lockKey: string,
+    appointmentId: string
+  ): Promise<void> {
     // Verificar que el lock sigue activo
     const lockValue = await this.redis.get(lockKey);
     if (!lockValue) {
-      throw new ConflictException('Tu reserva temporal ha expirado. Intenta de nuevo.');
+      throw new ConflictException(
+        "Tu reserva temporal ha expirado. Intenta de nuevo."
+      );
     }
 
     // Crear la cita en la base de datos
@@ -1303,9 +1332,9 @@ class AvailabilityService {
     // Notificar a todos los suscriptores
     await this.availabilityGateway.notifyAvailabilityChange(
       businessId,
-      startTime.toISOString().split('T')[0],
+      startTime.toISOString().split("T")[0],
       {
-        type: 'SLOT_RELEASED',
+        type: "SLOT_RELEASED",
         professionalId,
         startTime,
       }

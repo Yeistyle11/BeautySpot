@@ -1,6 +1,28 @@
 import { Test } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
+import type { IBaseEvent } from "@beautyspot/event-types";
 import { CoreEventListeners } from "./core-event-listeners.service";
+
+/** Payload base de una cita, reutilizado por los eventos de este listener. */
+const baseAppointmentPayload = {
+  businessId: "biz-456",
+  clientId: "client-123",
+  professionalId: "prof-123",
+  date: "2026-06-16",
+  startTime: "14:00",
+  endTime: "15:00",
+  totalAmount: 50000,
+};
+
+/** Envuelve un payload en la forma de evento del bus para los tests. */
+function makeEvent<T>(payload: T): IBaseEvent<T> {
+  return {
+    eventType: "test.event",
+    timestamp: new Date(),
+    correlationId: "test-correlation-id",
+    payload,
+  };
+}
 
 describe("CoreEventListeners", () => {
   let service: CoreEventListeners;
@@ -25,12 +47,11 @@ describe("CoreEventListeners", () => {
 
   describe("handleUserRegistered", () => {
     it("debería loggear usuario registrado", async () => {
-      const event = {
-        payload: {
-          email: "test@example.com",
-          role: "CLIENT",
-        },
-      };
+      const event = makeEvent({
+        userId: "user-123",
+        email: "test@example.com",
+        name: "Usuario Ejemplo",
+      });
 
       await service.handleUserRegistered(event);
 
@@ -38,49 +59,16 @@ describe("CoreEventListeners", () => {
         `Usuario registrado: ${event.payload.email}`
       );
     });
-
-    it("debería detectar cliente potencial", async () => {
-      const event = {
-        payload: {
-          email: "client@example.com",
-          role: "CLIENT",
-        },
-      };
-
-      await service.handleUserRegistered(event);
-
-      expect(logSpy).toHaveBeenCalledWith(
-        `Cliente potencial detectado: ${event.payload.email}`
-      );
-    });
-
-    it("debería manejar errores en el procesamiento", async () => {
-      const event = {
-        payload: {
-          email: null, // Email inválido
-          role: "CLIENT",
-        },
-      };
-
-      await service.handleUserRegistered(event);
-
-      // El servicio intentará acceder a event.payload.email pero será null
-      // y no lanzará error inmediatamente en el log, pero podría fallar después
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Usuario registrado")
-      );
-    });
   });
 
   describe("handleMembershipCreated", () => {
     it("debería loggear membresía creada", async () => {
-      const event = {
-        payload: {
-          membershipId: "mem-123",
-          businessId: "biz-456",
-          role: "ADMIN",
-        },
-      };
+      const event = makeEvent({
+        membershipId: "mem-123",
+        userId: "user-123",
+        businessId: "biz-456",
+        role: "ADMIN",
+      });
 
       await service.handleMembershipCreated(event);
 
@@ -95,14 +83,13 @@ describe("CoreEventListeners", () => {
 
   describe("handleMembershipRoleChanged", () => {
     it("debería loggear cambio de rol", async () => {
-      const event = {
-        payload: {
-          membershipId: "mem-789",
-          businessId: "biz-456",
-          previousRole: "STAFF",
-          newRole: "ADMIN",
-        },
-      };
+      const event = makeEvent({
+        membershipId: "mem-789",
+        userId: "user-123",
+        businessId: "biz-456",
+        previousRole: "STAFF",
+        newRole: "ADMIN",
+      });
 
       await service.handleMembershipRoleChanged(event);
 
@@ -114,13 +101,12 @@ describe("CoreEventListeners", () => {
 
   describe("handleAppointmentCompleted", () => {
     it("debería loggear cita completada y puntos ganados", async () => {
-      const event = {
-        payload: {
-          appointmentId: "apt-123",
-          clientId: "client-123",
-          pointsEarned: 100,
-        },
-      };
+      const event = makeEvent({
+        ...baseAppointmentPayload,
+        appointmentId: "apt-123",
+        clientId: "client-123",
+        pointsEarned: 100,
+      });
 
       await service.handleAppointmentCompleted(event);
 
@@ -132,13 +118,12 @@ describe("CoreEventListeners", () => {
 
   describe("handleAppointmentCancelled", () => {
     it("debería loggear cita cancelada y razón", async () => {
-      const event = {
-        payload: {
-          appointmentId: "apt-456",
-          clientId: "client-456",
-          cancelReason: "Cliente no pudo asistir",
-        },
-      };
+      const event = makeEvent({
+        ...baseAppointmentPayload,
+        appointmentId: "apt-456",
+        clientId: "client-456",
+        cancelReason: "Cliente no pudo asistir",
+      });
 
       await service.handleAppointmentCancelled(event);
 

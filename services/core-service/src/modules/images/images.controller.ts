@@ -181,7 +181,7 @@ export class ImagesController {
     @CurrentUser("role") role: string,
     @BusinessId() tenantBusinessId: string,
     @Body() dto: GenerateUploadSignatureDto
-  ): Promise<{ success: true; data: any }> {
+  ) {
     const expiresIn = dto.expiresIn ? parseInt(dto.expiresIn) : 3600;
 
     // Mapea el tipo de recurso a su prefijo en S3 y verifica el acceso al recurso.
