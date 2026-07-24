@@ -6,4 +6,5 @@ import { ServiceUrlsConfig } from "../../config/service-urls";
   providers: [TenantService, ServiceUrlsConfig],
   exports: [TenantService],
 })
+/** Expone el TenantService que resuelve el negocio a partir del subdominio. */
 export class TenantModule {}

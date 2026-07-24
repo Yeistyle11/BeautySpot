@@ -2,6 +2,7 @@ import { Entity, Column, ManyToOne, JoinColumn } from "typeorm";
 import { TenantEntity } from "@beautyspot/database";
 import { Business } from "./business.entity";
 
+/** Sede o local físico de un negocio, con su dirección y ubicación. */
 @Entity("branches")
 export class Branch extends TenantEntity {
   @Column() name!: string;
@@ -9,8 +10,10 @@ export class Branch extends TenantEntity {
   @Column({ nullable: true }) city!: string;
   @Column({ nullable: true }) state!: string;
   @Column({ nullable: true }) country!: string;
-  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true }) latitude!: number;
-  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true }) longitude!: number;
+  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true })
+  latitude!: number;
+  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true })
+  longitude!: number;
   @Column({ nullable: true }) phone!: string;
   @Column({ default: true }) active!: boolean;
 

@@ -1,4 +1,6 @@
 "use client";
+
+// Pestana de cuenta: edicion de los datos personales del usuario.
 import { Loader2, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

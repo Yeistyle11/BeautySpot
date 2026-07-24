@@ -1,4 +1,6 @@
 "use client";
+
+// Pagina de servicios: catalogo de servicios del negocio con alta, edicion y baja.
 import { useState, useMemo } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";

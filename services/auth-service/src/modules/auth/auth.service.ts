@@ -29,10 +29,15 @@ import {
 } from "@beautyspot/nest-common";
 import { toSafeUser, SafeUser } from "../users/dto/user-response.dto";
 
+/** SHA-256 del token de recuperación: en la BD solo se guarda el hash, nunca el token en claro. */
 function hashResetToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+/**
+ * Gestiona el ciclo de autenticación: registro, login, emisión y refresco de
+ * tokens JWT, y recuperación/cambio de contraseña, con auditoría de cada acción.
+ */
 @Injectable()
 export class AuthService {
   /** Promesa memoizada del hash señuelo (ver getDecoyHash). */
@@ -53,6 +58,7 @@ export class AuthService {
     private readonly tokenVersionStore: TokenVersionStore
   ) {}
 
+  /** Crea la cuenta (rechazando emails duplicados), la audita y devuelve el par de tokens. */
   async register(
     dto: RegisterDto
   ): Promise<{ user: SafeUser; accessToken: string; refreshToken: string }> {
@@ -63,7 +69,10 @@ export class AuthService {
       throw new ConflictException("El email ya está registrado");
     }
 
-    const hashedPassword = await bcrypt.hash(dto.password, this.getSaltRounds());
+    const hashedPassword = await bcrypt.hash(
+      dto.password,
+      this.getSaltRounds()
+    );
 
     const user = await this.dataSource.transaction(async (manager) => {
       const userRepo = manager.getRepository(User);
@@ -94,6 +103,7 @@ export class AuthService {
     return { user: toSafeUser(user), accessToken, refreshToken };
   }
 
+  /** Valida credenciales y emite un nuevo par de tokens para el usuario. */
   async login(dto: LoginDto): Promise<{
     user: SafeUser;
     accessToken: string;
@@ -149,6 +159,10 @@ export class AuthService {
     return this.generateTokens(user);
   }
 
+  /**
+   * Genera un token de recuperación y encola el correo con instrucciones.
+   * Devuelve siempre el mismo mensaje genérico para no revelar si el email existe.
+   */
   async forgotPassword(email: string): Promise<{ message: string }> {
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
@@ -241,6 +255,7 @@ export class AuthService {
     return { message: "Contraseña actualizada correctamente" };
   }
 
+  /** Cambia la contraseña verificando la actual y revoca las sesiones abiertas. */
   async changePassword(
     userId: string,
     dto: ChangePasswordDto
@@ -258,7 +273,10 @@ export class AuthService {
       throw new UnauthorizedException("Contraseña actual incorrecta");
     }
 
-    const hashedPassword = await bcrypt.hash(dto.newPassword, this.getSaltRounds());
+    const hashedPassword = await bcrypt.hash(
+      dto.newPassword,
+      this.getSaltRounds()
+    );
 
     await this.dataSource.transaction(async (manager) => {
       const userRepo = manager.getRepository(User);
@@ -275,12 +293,14 @@ export class AuthService {
     return { message: "Contraseña actualizada correctamente" };
   }
 
+  /** Cierra la sesión invalidando los tokens vigentes (sube la versión de token). */
   async logout(userId: string): Promise<{ message: string }> {
     await this.tokenVersionStore.bumpVersion(userId);
     await this.logAction(userId, "USER_LOGGED_OUT", "users", userId);
     return { message: "Sesión cerrada correctamente" };
   }
 
+  /** Devuelve el perfil del usuario autenticado junto con sus membresías. */
   async getMe(userId: string): Promise<SafeUser> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
@@ -337,6 +357,7 @@ export class AuthService {
     return Number(this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12"));
   }
 
+  /** Deriva el rol, negocio principal y lista de negocios activos para el payload del token. */
   private getMembershipsData(user: User) {
     const memberships = (user as any).memberships as
       | Array<{ businessId: string; role: string; active: boolean }>
@@ -358,6 +379,7 @@ export class AuthService {
     };
   }
 
+  /** Firma el par access/refresh incluyendo rol, negocios y la versión de token vigente. */
   private async generateTokens(user: User): Promise<{
     accessToken: string;
     refreshToken: string;
@@ -401,6 +423,7 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  /** Escribe una entrada en el log de auditoría, opcionalmente dentro de una transacción. */
   private async logAction(
     userId: string,
     action: string,

@@ -30,8 +30,11 @@ function useCrudMutations<T>(basePath: string, reload: () => Promise<unknown>) {
   return { reload, create, update, remove };
 }
 
-// Para colecciones acotadas cuyo endpoint devuelve un array plano
-// (services, professionals, categorias...).
+/**
+ * Hook CRUD para colecciones acotadas cuyo endpoint devuelve un array plano
+ * (servicios, profesionales, categorías...). Expone los items y las operaciones
+ * create/update/remove, revalidando la lista tras cada mutación.
+ */
 export function useCrudResource<T>({
   listKey,
   basePath,

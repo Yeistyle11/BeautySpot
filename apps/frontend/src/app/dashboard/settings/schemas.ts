@@ -1,3 +1,4 @@
+// Esquemas Zod y tipos de la configuracion (cuenta, negocio y horarios).
 import { z } from "zod";
 
 export const businessDataSchema = z.object({

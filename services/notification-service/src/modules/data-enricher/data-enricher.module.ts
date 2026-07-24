@@ -5,4 +5,5 @@ import { DataEnricherService } from "./data-enricher.service";
   providers: [DataEnricherService],
   exports: [DataEnricherService],
 })
+/** Expone el DataEnricherService que resuelve ids a nombres vía el core. */
 export class DataEnricherModule {}

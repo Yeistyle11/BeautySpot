@@ -1,4 +1,6 @@
 "use client";
+
+// Pagina de clientes: alta, edicion y listado de la base de clientes del negocio.
 import { useState } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";

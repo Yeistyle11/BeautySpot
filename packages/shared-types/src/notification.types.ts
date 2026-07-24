@@ -1,3 +1,4 @@
+/** Tipos de notificación que el sistema puede generar hacia los usuarios. */
 export enum NotificationType {
   APPOINTMENT_CONFIRMED = "APPOINTMENT_CONFIRMED",
   APPOINTMENT_REMINDER = "APPOINTMENT_REMINDER",
@@ -9,6 +10,7 @@ export enum NotificationType {
   PROMOTION = "PROMOTION",
 }
 
+/** Canales por los que se puede entregar una notificación. */
 export enum NotificationChannel {
   IN_APP = "IN_APP",
   EMAIL = "EMAIL",

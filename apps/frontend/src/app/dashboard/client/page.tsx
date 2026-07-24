@@ -1,4 +1,6 @@
 "use client";
+
+// Panel del cliente: resumen de sus proximas citas y accesos rapidos.
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

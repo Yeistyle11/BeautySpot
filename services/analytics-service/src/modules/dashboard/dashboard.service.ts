@@ -4,6 +4,7 @@ import { Repository, Between } from "typeorm";
 import { DailyMetricEntity } from "../../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
 
+/** Fila del ranking de profesionales: citas, ingresos y valoración media agregados. */
 export interface TopProfessionalResult {
   professionalId: string;
   totalAppointments: string;
@@ -11,6 +12,7 @@ export interface TopProfessionalResult {
   avgRating: string;
 }
 
+/** Calcula los KPIs del dashboard a partir de las métricas agregadas del negocio. */
 @Injectable()
 export class DashboardService {
   constructor(
@@ -20,6 +22,7 @@ export class DashboardService {
     private readonly profRepo: Repository<ProfessionalMetricEntity>
   ) {}
 
+  /** KPIs del negocio: cifras de hoy y agregados/tasas de los últimos 30 días. */
   async getKPIs(businessId: string): Promise<{
     today: Pick<
       DailyMetricEntity,
@@ -132,6 +135,7 @@ export class DashboardService {
     };
   }
 
+  /** Ranking de profesionales por ingresos en los últimos 30 días. */
   async getTopProfessionals(
     businessId: string,
     limit = 10
@@ -157,6 +161,7 @@ export class DashboardService {
     return rows;
   }
 
+  /** Serie diaria de métricas para la gráfica de ingresos de los últimos N días. */
   async getRevenueChart(
     businessId: string,
     days = 30
@@ -169,6 +174,7 @@ export class DashboardService {
     });
   }
 
+  /** Devuelve la fecha de hoy y la de hace N días en formato YYYY-MM-DD. */
   private dateRange(days: number): {
     today: string;
     from: string;
@@ -181,6 +187,7 @@ export class DashboardService {
     return { today, from, thirtyDaysAgo: from };
   }
 
+  /** Porcentaje entero de `part` sobre `total`; 0 si el total es cero. */
   private percentage(part: number, total: number): number {
     return total > 0 ? Math.round((part / total) * 100) : 0;
   }

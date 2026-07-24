@@ -16,4 +16,5 @@ import {
   providers: [ProfessionalProfilesService],
   exports: [ProfessionalProfilesService],
 })
+/** Cablea la gestión del perfil público de los profesionales. */
 export class ProfessionalProfilesModule {}

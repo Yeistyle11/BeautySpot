@@ -1,3 +1,4 @@
+// Placeholder animado para estados de carga.
 import { cn } from "@/lib/utils";
 
 function Skeleton({

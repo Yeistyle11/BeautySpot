@@ -17,6 +17,10 @@ import { toSafeUser, SafeUser } from "./dto/user-response.dto";
 import { Role } from "@beautyspot/shared-types";
 import { TokenVersionStore } from "@beautyspot/nest-common";
 
+/**
+ * Gestiona las cuentas de usuario y el staff de cada negocio: consultas,
+ * perfil propio y operaciones administrativas (alta, edición, reseteo y baja).
+ */
 @Injectable()
 export class UsersService {
   constructor(
@@ -33,6 +37,7 @@ export class UsersService {
 
   // --- Consultas ---
 
+  /** Busca un usuario por id; lanza 404 si no existe. */
   async findById(id: string): Promise<User> {
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) {
@@ -41,6 +46,7 @@ export class UsersService {
     return user;
   }
 
+  /** Busca un usuario por email; devuelve null si no existe. */
   async findByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { email } });
   }
@@ -96,6 +102,7 @@ export class UsersService {
 
   // --- Perfil propio ---
 
+  /** Actualiza el perfil del propio usuario (nombre, teléfono, avatar). */
   async updateProfile(
     id: string,
     data: { name?: string; phone?: string; avatar?: string }
@@ -105,10 +112,12 @@ export class UsersService {
     return toSafeUser(user);
   }
 
+  /** Desactiva la propia cuenta (baja lógica). */
   async deactivate(id: string): Promise<void> {
     await this.userRepository.update(id, { active: false });
   }
 
+  /** Devuelve las membresías activas de un usuario. */
   async getUserMemberships(userId: string): Promise<Membership[]> {
     return this.membershipRepository.find({
       where: { userId, active: true },
@@ -347,6 +356,7 @@ export class UsersService {
 
   // --- Audit logging ---
 
+  /** Escribe una entrada de auditoría de usuarios, opcionalmente dentro de una transacción. */
   private async logAction(
     userId: string,
     action: string,

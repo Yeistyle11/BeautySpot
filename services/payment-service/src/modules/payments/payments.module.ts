@@ -10,4 +10,5 @@ import { PaymentEntity } from "./payment.entity";
   providers: [PaymentsService],
   exports: [PaymentsService],
 })
+/** Cablea el registro y reembolso de pagos. */
 export class PaymentsModule {}

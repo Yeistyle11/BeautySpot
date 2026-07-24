@@ -1,3 +1,4 @@
+// Pagina publica del marketplace (server component): carga el feed inicial de negocios y define la metadata SEO.
 import type { Metadata } from "next";
 import { fetchPublic } from "@/lib/api-server";
 import MarketplaceFeed, {

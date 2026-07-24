@@ -1,4 +1,6 @@
 "use client";
+
+// Pestana de galeria: gestion de las imagenes del perfil publico.
 import Image from "next/image";
 import { Camera, Plus, Trash2, Image as ImageIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

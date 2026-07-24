@@ -1,9 +1,17 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import { SearchService, SearchFilters } from "./search.service";
-import { IsOptional, IsNumber, IsString, IsIn, Min, Max } from "class-validator";
+import {
+  IsOptional,
+  IsNumber,
+  IsString,
+  IsIn,
+  Min,
+  Max,
+} from "class-validator";
 import { Type } from "class-transformer";
 import { Public } from "@beautyspot/nest-common";
 
+/** Parámetros de la búsqueda pública: texto, ubicación, tipo, valoración mínima y paginación. */
 class SearchQueryDto {
   @IsOptional() @IsString() q?: string;
   @IsOptional() @IsString() city?: string;
@@ -11,17 +19,27 @@ class SearchQueryDto {
   @IsOptional() @Type(() => Number) @IsNumber() lat?: number;
   @IsOptional() @Type(() => Number) @IsNumber() lng?: number;
   @IsOptional() @Type(() => Number) @IsNumber() radius?: number;
-  @IsOptional() @Type(() => Number) @IsNumber() @Min(1) @Max(5) ratingMin?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(5)
+  ratingMin?: number;
   @IsOptional() @Type(() => Number) @IsNumber() page?: number;
   @IsOptional() @Type(() => Number) @IsNumber() limit?: number;
-  @IsOptional() @IsString() @IsIn(["business", "professional", "all"]) type?: "business" | "professional" | "all";
+  @IsOptional() @IsString() @IsIn(["business", "professional", "all"]) type?:
+    | "business"
+    | "professional"
+    | "all";
 }
 
+/** Endpoint público de búsqueda de negocios y profesionales en el marketplace. */
 @Controller("search")
 @Public()
 export class SearchController {
   constructor(private readonly service: SearchService) {}
 
+  /** Ejecuta la búsqueda con los filtros recibidos. */
   @Get()
   async search(@Query() dto: SearchQueryDto) {
     return this.service.search(dto as SearchFilters);

@@ -3,17 +3,32 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { BusinessHours } from "../../entities/business-hours.entity";
 
+/** Gestiona el horario semanal de apertura de un negocio (opcionalmente por sede). */
 @Injectable()
 export class BusinessHoursService {
-  constructor(@InjectRepository(BusinessHours) private readonly repo: Repository<BusinessHours>) {}
+  constructor(
+    @InjectRepository(BusinessHours)
+    private readonly repo: Repository<BusinessHours>
+  ) {}
 
-  async findByBusiness(businessId: string, branchId?: string): Promise<BusinessHours[]> {
+  /** Devuelve los tramos horarios del negocio (o de una sede), ordenados por día y hora. */
+  async findByBusiness(
+    businessId: string,
+    branchId?: string
+  ): Promise<BusinessHours[]> {
     const where: Record<string, unknown> = { businessId };
     if (branchId) where.branchId = branchId;
-    return this.repo.find({ where, order: { dayOfWeek: "ASC", openTime: "ASC" } });
+    return this.repo.find({
+      where,
+      order: { dayOfWeek: "ASC", openTime: "ASC" },
+    });
   }
 
-  async batchUpsert(businessId: string, items: Partial<BusinessHours>[]): Promise<BusinessHours[]> {
+  /** Reemplaza por completo el horario del negocio por el conjunto recibido. */
+  async batchUpsert(
+    businessId: string,
+    items: Partial<BusinessHours>[]
+  ): Promise<BusinessHours[]> {
     const existing = await this.repo.find({ where: { businessId } });
     if (existing.length > 0) {
       await this.repo.remove(existing);
@@ -33,7 +48,12 @@ export class BusinessHoursService {
     return this.repo.save(hours);
   }
 
-  async updateOne(id: string, businessId: string, data: Partial<BusinessHours>): Promise<BusinessHours> {
+  /** Actualiza un único tramo horario del negocio. */
+  async updateOne(
+    id: string,
+    businessId: string,
+    data: Partial<BusinessHours>
+  ): Promise<BusinessHours> {
     await this.repo.update({ id, businessId }, data as any);
     const hour = await this.repo.findOne({ where: { id, businessId } });
     if (!hour) throw new Error("Horario no encontrado");

@@ -19,6 +19,7 @@ import {
 } from "./dto/profile.dto";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
 
+/** Secciones del perfil inmersivo activas por defecto, en su orden inicial. */
 const DEFAULT_SECTIONS: SectionConfig[] = [
   { id: "story", enabled: true, order: 1 },
   { id: "services", enabled: true, order: 2 },
@@ -28,6 +29,10 @@ const DEFAULT_SECTIONS: SectionConfig[] = [
   { id: "location", enabled: true, order: 6 },
 ];
 
+/**
+ * Gestiona el perfil público de un negocio en el marketplace: sincronización
+ * desde el core, configuración del escaparate, galería, publicación y métricas.
+ */
 @Injectable()
 export class BusinessProfilesService {
   constructor(
@@ -38,6 +43,7 @@ export class BusinessProfilesService {
 
   // --- Sincronizacion desde core-service ---
 
+  /** Crea o actualiza el perfil de un negocio y recalcula su completitud. */
   async createOrUpdate(dto: UpsertProfileDto): Promise<BusinessProfileEntity> {
     const existing = await this.repo.findOne({
       where: { businessId: dto.businessId },
@@ -60,6 +66,7 @@ export class BusinessProfilesService {
 
   // --- Lectura publica ---
 
+  /** Devuelve el perfil publicado por slug junto con su equipo, si la sección "team" está activa. */
   async findBySlug(slug: string): Promise<{
     profile: BusinessProfileEntity;
     professionals: ProfessionalProfileEntity[];
@@ -86,6 +93,7 @@ export class BusinessProfilesService {
     return { profile, professionals };
   }
 
+  /** Devuelve un profesional por slug validando que pertenezca al negocio y que su equipo sea visible. */
   async findProfessionalBySlug(
     businessSlug: string,
     professionalSlug: string
@@ -115,6 +123,7 @@ export class BusinessProfilesService {
     return professional;
   }
 
+  /** Obtiene un perfil por su id; lanza 404 si no existe. */
   async findById(id: string): Promise<BusinessProfileEntity> {
     const profile = await this.repo.findOne({ where: { id } });
     if (!profile)
@@ -122,6 +131,7 @@ export class BusinessProfilesService {
     return profile;
   }
 
+  /** Obtiene el perfil asociado a un negocio; lanza 404 si no existe. */
   async findByBusinessId(businessId: string): Promise<BusinessProfileEntity> {
     const profile = await this.repo.findOne({ where: { businessId } });
     if (!profile)
@@ -131,6 +141,7 @@ export class BusinessProfilesService {
 
   // --- Configuracion del perfil inmersivo ---
 
+  /** Actualiza los campos del perfil inmersivo (historia, redes, secciones) y recalcula la completitud. */
   async updateConfig(
     businessId: string,
     dto: UpdateProfileConfigDto
@@ -155,6 +166,7 @@ export class BusinessProfilesService {
 
   // --- Galeria ---
 
+  /** Añade imágenes a la galería del perfil. */
   async addGalleryImages(
     businessId: string,
     dto: AddGalleryImagesDto
@@ -166,6 +178,7 @@ export class BusinessProfilesService {
     return this.repo.save(profile);
   }
 
+  /** Actualiza los metadatos de una imagen de la galería por su índice. */
   async updateGalleryImage(
     businessId: string,
     dto: UpdateGalleryImageDto
@@ -185,6 +198,7 @@ export class BusinessProfilesService {
     return this.repo.save(profile);
   }
 
+  /** Elimina una imagen de la galería por su índice y recalcula la completitud. */
   async removeGalleryImage(
     businessId: string,
     index: number
@@ -204,6 +218,7 @@ export class BusinessProfilesService {
 
   // --- Publicacion ---
 
+  /** Publica el perfil (lo hace visible en el marketplace); exige nombre y slug. */
   async publish(businessId: string): Promise<BusinessProfileEntity> {
     const profile = await this.findByBusinessId(businessId);
     if (!profile.name || !profile.slug) {
@@ -215,6 +230,7 @@ export class BusinessProfilesService {
     return this.repo.save(profile);
   }
 
+  /** Retira el perfil del marketplace (deja de estar publicado). */
   async unpublish(businessId: string): Promise<BusinessProfileEntity> {
     const profile = await this.findByBusinessId(businessId);
     profile.isPublished = false;
@@ -223,6 +239,7 @@ export class BusinessProfilesService {
 
   // --- Rating ---
 
+  /** Recalcula la media de calificación y el total de reseñas del negocio a partir de sus reviews. */
   async updateRating(
     businessId: string,
     manager?: EntityManager
@@ -251,6 +268,7 @@ export class BusinessProfilesService {
 
   // --- Feed helpers ---
 
+  /** Lista perfiles publicados con filtros por ciudad/tipo y orden por cercanía, rating o novedad. */
   async findPublished(options: {
     city?: string;
     businessType?: string;
@@ -301,6 +319,7 @@ export class BusinessProfilesService {
     return { items, total };
   }
 
+  /** Devuelve los perfiles publicados mejor valorados. */
   async findTopRated(limit: number): Promise<BusinessProfileEntity[]> {
     return this.repo.find({
       where: { active: true, isPublished: true },
@@ -309,6 +328,7 @@ export class BusinessProfilesService {
     });
   }
 
+  /** Devuelve los perfiles publicados recientemente, priorizando los más completos. */
   async findRecent(
     days: number,
     limit: number
@@ -328,6 +348,7 @@ export class BusinessProfilesService {
 
   // --- Completitud ---
 
+  /** Puntúa de 0 a 100 lo completo que está el perfil, sumando puntos por cada bloque relleno. */
   private async calculateCompleteness(
     profile: BusinessProfileEntity
   ): Promise<number> {

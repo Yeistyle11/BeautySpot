@@ -22,4 +22,5 @@ import { ProfessionalProfilesModule } from "../professional-profiles/professiona
   providers: [BusinessProfilesService],
   exports: [BusinessProfilesService],
 })
+/** Cablea la gestión del perfil público de los negocios. */
 export class BusinessProfilesModule {}

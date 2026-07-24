@@ -2,9 +2,11 @@ import { Entity, Column, ManyToOne, JoinColumn } from "typeorm";
 import { TenantEntity } from "@beautyspot/database";
 import { Business } from "./business.entity";
 
+/** Horario de apertura de un negocio (o sede) para un día de la semana. */
 @Entity("business_hours")
 export class BusinessHours extends TenantEntity {
-  @Column({ type: "uuid", name: "branch_id", nullable: true }) branchId!: string;
+  @Column({ type: "uuid", name: "branch_id", nullable: true })
+  branchId!: string;
   @Column({ name: "day_of_week" }) dayOfWeek!: number;
   @Column({ name: "open_time" }) openTime!: string;
   @Column({ name: "close_time" }) closeTime!: string;

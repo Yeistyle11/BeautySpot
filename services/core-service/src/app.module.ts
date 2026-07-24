@@ -65,4 +65,5 @@ const entities = [
     CoreEventListenersModule,
   ],
 })
+/** Módulo raíz del core-service: agrupa negocios, sedes, servicios, profesionales, clientes e imágenes. */
 export class AppModule {}

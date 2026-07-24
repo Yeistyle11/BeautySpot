@@ -6,10 +6,11 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --noEmit -p tsconfig.typecheck.json",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:cov": "jest --coverage"
+    "test:cov": "jest --coverage",
+    "lint": "eslint src --ext .ts"
   },
   "devDependencies": {
     "@types/jest": "^29.5.11",

@@ -1,6 +1,7 @@
 import { Entity, Column, Index } from "typeorm";
 import { TenantEntity, numericTransformer } from "@beautyspot/database";
 
+/** Métricas agregadas de un negocio por día: citas, ingresos y clientes nuevos/recurrentes. */
 @Entity("daily_metrics")
 @Index(["businessId", "date"], { unique: true })
 export class DailyMetricEntity extends TenantEntity {

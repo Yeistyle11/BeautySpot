@@ -1,5 +1,8 @@
+// Esquemas de validación y utilidades de sesión: decodifican y validan el JWT
+// del backend antes de que su contenido alimente el estado y los permisos.
 import { z } from "zod";
 
+/** Nombre de la cookie que espeja el token para que middleware.ts pueda leerlo en el Edge. */
 export const AUTH_COOKIE_NAME = "bs_token";
 
 const ROLES = [
@@ -65,6 +68,7 @@ function base64UrlDecode(segment: string): string {
   throw new Error("No hay mecanismo disponible para decodificar base64");
 }
 
+/** Decodifica y valida el payload del JWT; devuelve null si es inválido o no matchea el esquema. */
 export function decodeJwt(token: string): JwtPayload | null {
   try {
     const parts = token.split(".");
@@ -77,10 +81,12 @@ export function decodeJwt(token: string): JwtPayload | null {
   }
 }
 
+/** Extrae el rol del token, o null si no está presente o el token es inválido. */
 export function getRoleFromToken(token: string): JwtPayload["role"] | null {
   return decodeJwt(token)?.role ?? null;
 }
 
+/** Extrae el businessId del token, o null si no está presente o el token es inválido. */
 export function getBusinessIdFromToken(token: string): string | null {
   return decodeJwt(token)?.businessId ?? null;
 }

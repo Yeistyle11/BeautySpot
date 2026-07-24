@@ -18,4 +18,5 @@ import { CoreEventListeners } from "./core-event-listeners.service";
   providers: [CoreEventListeners],
   exports: [CoreEventListeners],
 })
+/** Registra los listeners de eventos de RabbitMQ del core. */
 export class CoreEventListenersModule {}

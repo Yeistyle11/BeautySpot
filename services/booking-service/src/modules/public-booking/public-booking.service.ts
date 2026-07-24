@@ -18,6 +18,10 @@ import {
   timesOverlap,
 } from "@beautyspot/shared-utils";
 
+/**
+ * Permite reservar citas desde el marketplace sin autenticación, resolviendo al
+ * cliente invitado contra el core-service y validando la disponibilidad.
+ */
 @Injectable()
 export class PublicBookingService {
   constructor(
@@ -32,6 +36,10 @@ export class PublicBookingService {
     private configService: ConfigService
   ) {}
 
+  /**
+   * Crea una cita a partir de los datos de un invitado: resuelve/crea el cliente,
+   * valida disponibilidad y conflictos, y registra la cita en estado PENDING.
+   */
   async createPublicAppointment(data: {
     businessId: string;
     professionalId: string;
@@ -43,7 +51,7 @@ export class PublicBookingService {
     guestEmail?: string;
     guestPhone?: string;
   }) {
-    // 1. Find or create guest client via core-service internal endpoint
+    // 1. Resolver o crear el cliente invitado vía el endpoint interno del core-service.
     const clientId = await this.findOrCreateGuestClient(
       data.businessId,
       data.guestName,
@@ -51,7 +59,7 @@ export class PublicBookingService {
       data.guestPhone
     );
 
-    // 2. Calculate endTime
+    // 2. Calcular la hora de fin sumando la duración de los servicios.
     const totalDuration = data.serviceIds.reduce(
       (sum, s) => sum + s.duration,
       0
@@ -59,7 +67,7 @@ export class PublicBookingService {
     const totalAmount = data.serviceIds.reduce((sum, s) => sum + s.price, 0);
     const endTime = calculateEndTime(data.startTime, totalDuration);
 
-    // 3. Check availability
+    // 3. Verificar disponibilidad del horario.
     const dayOfWeek = new Date(data.date + "T12:00:00").getDay();
     const available = await this.isSlotAvailable(
       data.businessId,
@@ -86,7 +94,7 @@ export class PublicBookingService {
       throw new BadRequestException("Ya existe una cita en ese horario");
     }
 
-    // 4. Create appointment
+    // 4. Crear la cita con sus servicios.
     const appointment = this.apptRepo.create({
       businessId: data.businessId,
       clientId,
@@ -122,6 +130,7 @@ export class PublicBookingService {
     };
   }
 
+  /** Pide al core-service el cliente que coincida o uno nuevo; falla si el servicio no responde. */
   private async findOrCreateGuestClient(
     businessId: string,
     name: string,
@@ -193,6 +202,7 @@ export class PublicBookingService {
     return client.id;
   }
 
+  /** Comprueba que el slot cae dentro del horario del profesional y no choca con un bloqueo. */
   private async isSlotAvailable(
     businessId: string,
     professionalId: string,
@@ -221,6 +231,7 @@ export class PublicBookingService {
     return true;
   }
 
+  /** Indica si ya existe una cita pendiente que se solape con el horario dado. */
   private async hasTimeConflict(
     businessId: string,
     professionalId: string,

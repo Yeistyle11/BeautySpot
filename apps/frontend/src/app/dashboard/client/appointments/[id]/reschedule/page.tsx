@@ -1,5 +1,7 @@
 "use client";
 
+// Reprogramacion de una cita: seleccion de nueva fecha y horario disponibles.
+
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { z } from "zod";

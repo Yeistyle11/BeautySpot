@@ -8,6 +8,13 @@ import {
 } from "@nestjs/common";
 import { Response } from "express";
 
+/**
+ * Filtro global que normaliza cualquier excepción a un cuerpo de error uniforme
+ * ({ success:false, error:{ code, message, details }, statusCode, timestamp }).
+ *
+ * Traduce los errores de validación (mensajes en arreglo) y los estados HTTP más
+ * comunes a códigos estables, y solo registra en el log los fallos 5xx.
+ */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
@@ -45,7 +52,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     if (statusCode >= 500) {
-      this.logger.error(exception instanceof Error ? exception.stack : String(exception));
+      this.logger.error(
+        exception instanceof Error ? exception.stack : String(exception)
+      );
     }
 
     response.status(statusCode).json({

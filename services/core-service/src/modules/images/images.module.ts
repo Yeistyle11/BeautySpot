@@ -19,4 +19,5 @@ import { ServicesModule } from "../services/services.module";
   providers: [ImagesService],
   exports: [ImagesService],
 })
+/** Cablea la subida y gestión de imágenes en S3. */
 export class ImagesModule {}

@@ -4,6 +4,7 @@ import { BaseEntity } from "@beautyspot/database";
 import { Membership } from "./membership.entity";
 import { PasswordReset } from "./password-reset.entity";
 
+/** Cuenta de usuario de la plataforma: credenciales, perfil y sus membresías a negocios. */
 @Entity("users")
 export class User extends BaseEntity {
   @Column({ unique: true })

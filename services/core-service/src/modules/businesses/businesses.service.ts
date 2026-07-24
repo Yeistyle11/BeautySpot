@@ -14,6 +14,10 @@ import {
 } from "@beautyspot/shared-utils";
 import { Role } from "@beautyspot/shared-types";
 
+/**
+ * CRUD de negocios con control de acceso por tenant: cada llamante solo ve y
+ * modifica su propio negocio, salvo SUPER_ADMIN que accede a todos.
+ */
 @Injectable()
 export class BusinessesService {
   constructor(
@@ -21,6 +25,7 @@ export class BusinessesService {
     private readonly repo: Repository<Business>
   ) {}
 
+  /** Crea un negocio generando un slug único a partir del nombre. */
   async create(data: Partial<Business>): Promise<Business> {
     const slug = generateSlug(data.name!);
     const existing = await this.repo.findOne({ where: { slug } });
@@ -53,7 +58,7 @@ export class BusinessesService {
       .leftJoinAndSelect("b.services", "services")
       .leftJoinAndSelect("b.professionals", "professionals");
 
-    // IDOR fix: non-SUPER_ADMIN scoped to own business
+    // Los llamantes que no son SUPER_ADMIN quedan acotados a su propio negocio.
     if (callerRole !== Role.SUPER_ADMIN && callerBusinessId) {
       qb.andWhere("b.id = :bid", { bid: callerBusinessId });
     }
@@ -131,6 +136,7 @@ export class BusinessesService {
     return business;
   }
 
+  /** Actualiza un negocio tras verificar el acceso del llamante. */
   async update(
     id: string,
     data: Partial<Business>,
@@ -142,6 +148,7 @@ export class BusinessesService {
     return this.findById(id, callerBusinessId, callerRole);
   }
 
+  /** Da de baja (baja lógica) un negocio tras verificar el acceso del llamante. */
   async deactivate(
     id: string,
     callerBusinessId?: string,

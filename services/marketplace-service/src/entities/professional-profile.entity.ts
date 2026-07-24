@@ -1,15 +1,18 @@
 import { Entity, Column, Index } from "typeorm";
 import { TenantEntity, numericTransformer } from "@beautyspot/database";
 
+/** Elemento del portafolio de un profesional: imagen con título y categoría. */
 export interface PortfolioItem {
   url: string;
   title?: string;
   category?: string;
 }
 
+/** Perfil público de un profesional en el marketplace, sincronizado desde core-service y ampliado por el negocio. */
 @Entity("professional_profiles")
 export class ProfessionalProfileEntity extends TenantEntity {
-  @Column({ type: "uuid", name: "professional_id" }) @Index()
+  @Column({ type: "uuid", name: "professional_id" })
+  @Index()
   professionalId!: string;
 
   // Datos basicos sincronizados desde core-service
@@ -28,7 +31,8 @@ export class ProfessionalProfileEntity extends TenantEntity {
 
   @Column({ type: "jsonb", nullable: true }) portfolio!: PortfolioItem[] | null;
 
-  @Column({ name: "social_instagram", nullable: true }) socialInstagram!: string;
+  @Column({ name: "social_instagram", nullable: true })
+  socialInstagram!: string;
 
   // Slug para URL publica SEO-friendly
   @Column({ unique: true, nullable: true }) slug!: string;
@@ -38,7 +42,14 @@ export class ProfessionalProfileEntity extends TenantEntity {
   visibleOnProfile!: boolean;
 
   // Metricas calculadas
-  @Column({ type: "decimal", precision: 3, scale: 2, transformer: numericTransformer, default: 0 }) rating!: number;
+  @Column({
+    type: "decimal",
+    precision: 3,
+    scale: 2,
+    transformer: numericTransformer,
+    default: 0,
+  })
+  rating!: number;
 
   @Column({ name: "total_reviews", default: 0 }) totalReviews!: number;
 

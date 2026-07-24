@@ -2,6 +2,7 @@ import { Injectable, ExecutionContext } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { Request } from "express";
 
+/** Rutas accesibles sin token: login, registro y recuperación de contraseña. */
 const PUBLIC_PATHS = [
   "/api/v1/auth/login",
   "/api/v1/auth/register",
@@ -16,6 +17,7 @@ const PUBLIC_PATHS = [
   "/health",
 ];
 
+/** Prefijos del marketplace público accesibles sin token, solo por GET. */
 const PUBLIC_MARKETPLACE_PREFIXES = [
   "/api/v1/marketplace/profiles/",
   "/api/v1/marketplace/search",
@@ -29,6 +31,10 @@ const PUBLIC_MARKETPLACE_PREFIXES = [
   "/api/v1/marketplace-service/reviews/",
 ];
 
+/**
+ * Guard JWT global del gateway: deja pasar las rutas públicas y el marketplace
+ * de solo lectura, y exige token válido para todo lo demás.
+ */
 @Injectable()
 export class AuthGatewayGuard extends AuthGuard("jwt") {
   canActivate(context: ExecutionContext) {
@@ -37,8 +43,9 @@ export class AuthGatewayGuard extends AuthGuard("jwt") {
 
     const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
 
-    const isPublicMarketplace = PUBLIC_MARKETPLACE_PREFIXES.some((p) => path.startsWith(p))
-      && request.method === "GET";
+    const isPublicMarketplace =
+      PUBLIC_MARKETPLACE_PREFIXES.some((p) => path.startsWith(p)) &&
+      request.method === "GET";
 
     if (isPublic || isPublicMarketplace) {
       return true;

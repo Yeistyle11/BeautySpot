@@ -13,5 +13,17 @@
     "@typescript-eslint/no-explicit-any": "warn",
     "@typescript-eslint/explicit-module-boundary-types": "off",
     "no-console": ["warn", { "allow": ["warn", "error"] }]
-  }
+  },
+  "overrides": [
+    {
+      // En los tests, require() no es un descuido: es la unica forma de
+      // reevaluar un modulo despues de mockearlo o de cambiar el entorno
+      // (jest.isolateModules, jest.mock). Un import estatico se cachea y el
+      // mock no llegaria a aplicarse.
+      "files": ["**/*.spec.ts", "**/*.test.ts", "**/*.test.tsx"],
+      "rules": {
+        "@typescript-eslint/no-require-imports": "off"
+      }
+    }
+  ]
 }

@@ -1,5 +1,7 @@
 "use client";
 
+// Pagina de categorias de profesionales: reutiliza CategoryManager con su configuracion.
+
 import { Tag, GripVertical } from "lucide-react";
 import {
   CategoryManager,

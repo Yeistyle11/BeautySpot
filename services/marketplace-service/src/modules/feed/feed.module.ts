@@ -10,4 +10,5 @@ import { ProfessionalProfilesModule } from "../professional-profiles/professiona
   providers: [FeedService],
   exports: [FeedService],
 })
+/** Cablea el feed de la home del marketplace. */
 export class FeedModule {}

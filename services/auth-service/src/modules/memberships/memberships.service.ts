@@ -10,12 +10,17 @@ import { AuditLog } from "../../entities/audit-log.entity";
 import { Role } from "@beautyspot/shared-types";
 import { TokenVersionStore } from "@beautyspot/nest-common";
 
+/** Usuario que ejecuta la acción; su rol y negocio determinan qué membresías puede tocar. */
 export interface MembershipActor {
   userId: string;
   role: Role;
   businessId?: string;
 }
 
+/**
+ * Gestiona las membresías usuario–negocio (alta, cambio de rol, baja) aplicando
+ * las reglas de permisos y revocando las sesiones del afectado cuando cambia su rol.
+ */
 @Injectable()
 export class MembershipsService {
   constructor(
@@ -27,6 +32,7 @@ export class MembershipsService {
     private readonly tokenVersionStore: TokenVersionStore
   ) {}
 
+  /** Añade a un usuario a un negocio; rechaza si ya es miembro activo. */
   async create(
     data: {
       userId: string;
@@ -67,6 +73,7 @@ export class MembershipsService {
     });
   }
 
+  /** Cambia el rol de una membresía; solo un Super Admin puede tocar al dueño. */
   async updateRole(
     membershipId: string,
     newRole: Role,
@@ -104,6 +111,7 @@ export class MembershipsService {
     });
   }
 
+  /** Desactiva una membresía (baja lógica); no se permite dar de baja al dueño. */
   async deactivate(
     membershipId: string,
     actor: MembershipActor
@@ -135,6 +143,7 @@ export class MembershipsService {
     });
   }
 
+  /** Busca la membresía activa de un usuario en un negocio concreto. */
   async findByUserAndBusiness(
     userId: string,
     businessId: string
@@ -144,6 +153,7 @@ export class MembershipsService {
     });
   }
 
+  /** Lista los miembros activos de un negocio; exige que el actor pertenezca a él (salvo Super Admin). */
   async findByBusiness(
     businessId: string,
     actor?: MembershipActor
@@ -165,6 +175,7 @@ export class MembershipsService {
     });
   }
 
+  /** Carga una membresía restringiéndola al negocio del actor (salvo Super Admin). */
   private async findForActor(
     membershipId: string,
     actor: MembershipActor
@@ -181,6 +192,7 @@ export class MembershipsService {
     return membership;
   }
 
+  /** Escribe una entrada de auditoría de membresías, opcionalmente dentro de una transacción. */
   private async logAction(
     userId: string,
     action: string,

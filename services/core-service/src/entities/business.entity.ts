@@ -7,6 +7,7 @@ import { Client } from "./client.entity";
 import { BusinessConfig } from "./business-config.entity";
 import { BusinessHours } from "./business-hours.entity";
 
+/** Negocio (tenant): datos de contacto, ubicación y ajustes regionales; raíz de sedes, servicios y clientes. */
 @Entity("businesses")
 export class Business extends BaseEntity {
   @Column({ unique: true }) slug!: string;

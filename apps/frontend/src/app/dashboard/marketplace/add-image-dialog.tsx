@@ -1,4 +1,6 @@
 "use client";
+
+// Dialogo para anadir una imagen a la galeria del perfil publico.
 import Image from "next/image";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";

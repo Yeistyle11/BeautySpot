@@ -1,9 +1,19 @@
-import { IsString, IsOptional, IsNumber, IsEmail, IsUrl, IsArray, ValidateNested, IsBoolean } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsEmail,
+  IsUrl,
+  IsArray,
+  ValidateNested,
+  IsBoolean,
+} from "class-validator";
 import { Type } from "class-transformer";
 import { SocialLinks } from "../../../entities/business-profile.entity";
 
 // --- Perfil basico (sincronizacion desde core-service) ---
 
+/** Datos que el core envía para crear o actualizar el perfil de un negocio. */
 export class UpsertProfileDto {
   @IsString() businessId!: string;
   @IsString() slug!: string;
@@ -25,6 +35,7 @@ export class UpsertProfileDto {
 
 // --- Configuracion del perfil inmersivo ---
 
+/** Configuración de una sección del perfil: id, si se muestra, orden y título. */
 export class SectionConfigDto {
   @IsString() id!: string;
   @IsBoolean() enabled!: boolean;
@@ -32,6 +43,7 @@ export class SectionConfigDto {
   @IsOptional() @IsString() customTitle?: string;
 }
 
+/** Campos editables del perfil inmersivo: historia, redes, fundación y secciones. */
 export class UpdateProfileConfigDto {
   @IsOptional() @IsString() tagline?: string;
 
@@ -52,6 +64,7 @@ export class UpdateProfileConfigDto {
 
 // --- Galeria ---
 
+/** Una imagen de la galería: URL, título, categoría y marca de destacada. */
 export class GalleryImageDto {
   @IsUrl() url!: string;
   @IsOptional() @IsString() title?: string;
@@ -59,6 +72,7 @@ export class GalleryImageDto {
   @IsOptional() @IsBoolean() featured?: boolean;
 }
 
+/** Conjunto de imágenes a añadir a la galería del perfil. */
 export class AddGalleryImagesDto {
   @IsArray()
   @ValidateNested({ each: true })
@@ -66,6 +80,7 @@ export class AddGalleryImagesDto {
   images!: GalleryImageDto[];
 }
 
+/** Datos para actualizar una imagen de la galería identificada por su índice. */
 export class UpdateGalleryImageDto {
   @IsNumber() index!: number;
   @IsOptional() @IsString() title?: string;

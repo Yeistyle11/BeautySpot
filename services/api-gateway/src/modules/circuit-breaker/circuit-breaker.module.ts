@@ -5,4 +5,5 @@ import { CircuitBreakerService } from "./circuit-breaker.service";
   providers: [CircuitBreakerService],
   exports: [CircuitBreakerService],
 })
+/** Expone el CircuitBreakerService para envolver las llamadas del proxy a los backends. */
 export class CircuitBreakerModule {}

@@ -1,4 +1,6 @@
 "use client";
+
+// Paso de seleccion de profesional en el flujo de reserva.
 import Image from "next/image";
 import { Scissors } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

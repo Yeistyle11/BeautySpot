@@ -4,21 +4,32 @@ import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { CreateBlockedSlotDto } from "./dto/blocked-slot.dto";
 
+/** Endpoints de los bloqueos de agenda de un profesional, para dueños y administradores. */
 @Roles(Role.OWNER, Role.ADMIN)
 @Controller("professionals/:professionalId/blocked-slots")
 export class BlockedSlotsController {
   constructor(private readonly service: BlockedSlotsService) {}
 
+  /** Lista los bloqueos de agenda del profesional. */
   @Get()
-  async findAll(@Param("professionalId") professionalId: string, @BusinessId() businessId: string) {
+  async findAll(
+    @Param("professionalId") professionalId: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.findByProfessional(businessId, professionalId);
   }
 
+  /** Crea un bloqueo de agenda para el profesional. */
   @Post()
-  async create(@Param("professionalId") professionalId: string, @BusinessId() businessId: string, @Body() dto: CreateBlockedSlotDto) {
+  async create(
+    @Param("professionalId") professionalId: string,
+    @BusinessId() businessId: string,
+    @Body() dto: CreateBlockedSlotDto
+  ) {
     return this.service.create(businessId, professionalId, dto);
   }
 
+  /** Elimina un bloqueo de agenda. */
   @Delete(":id")
   async remove(@Param("id") id: string, @BusinessId() businessId: string) {
     await this.service.remove(id, businessId);

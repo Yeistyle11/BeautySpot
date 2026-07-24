@@ -10,4 +10,5 @@ import { CategoriesController } from "./categories.controller";
   providers: [CategoriesService],
   exports: [CategoriesService],
 })
+/** Cablea el CRUD de categorías de profesionales. */
 export class CategoriesModule {}

@@ -1,5 +1,6 @@
 /**
- * Generate a URL-safe slug from text.
+ * Genera un slug seguro para URLs a partir de un texto: minúsculas, sin acentos,
+ * con guiones en lugar de caracteres no alfanuméricos y truncado a 100 caracteres.
  */
 export function generateSlug(text: string): string {
   return text
@@ -11,7 +12,10 @@ export function generateSlug(text: string): string {
     .substring(0, 100);
 }
 
-/** Parse pagination parameters from a query object. */
+/**
+ * Normaliza los parámetros de paginación recibidos por query string: acota página
+ * y límite a rangos válidos y solo admite ordenar por campos de la lista permitida.
+ */
 export function parsePaginationQuery(
   query: Record<string, unknown>,
   allowedSortFields: string[] = ["createdAt", "updatedAt"]
@@ -38,8 +42,8 @@ export function parsePaginationQuery(
 }
 
 /**
- * Generate time slots between start and end times.
- * Returns array of "HH:MM" strings.
+ * Genera los tramos horarios entre una hora de inicio y una de fin, cada uno de
+ * `durationMinutes`. Devuelve un arreglo de cadenas "HH:MM".
  */
 export function getTimeSlots(
   start: string,
@@ -64,13 +68,13 @@ export function getTimeSlots(
   return slots;
 }
 
-/** Convert "HH:MM" to total minutes. */
+/** Convierte una hora "HH:MM" al total de minutos desde medianoche. */
 export function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
 }
 
-/** Calculate end time given a start time "HH:MM" and duration in minutes. */
+/** Calcula la hora de fin "HH:MM" a partir de una hora de inicio y una duración en minutos. */
 export function calculateEndTime(
   startTime: string,
   durationMinutes: number
@@ -81,7 +85,7 @@ export function calculateEndTime(
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
-/** Check if two time ranges overlap. All times in "HH:MM" format. */
+/** Indica si dos rangos horarios se solapan. Todas las horas en formato "HH:MM". */
 export function timesOverlap(
   start1: string,
   end1: string,
@@ -95,7 +99,7 @@ export function timesOverlap(
   return s1 < e2 && s2 < e1;
 }
 
-/** Escape SQL LIKE wildcards (%, _, \) for safe ILIKE patterns. */
+/** Escapa los comodines de SQL LIKE (%, _, \) para construir patrones ILIKE seguros. */
 export function escapeLikePattern(input: string): string {
   return input.replace(/[%_\\]/g, "\\$&");
 }

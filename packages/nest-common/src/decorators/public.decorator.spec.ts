@@ -1,15 +1,15 @@
-import { Public, IS_PUBLIC_KEY } from './public.decorator';
+import { Public, IS_PUBLIC_KEY } from "./public.decorator";
 
-describe('Public Decorator', () => {
-  it('debería ser una función', () => {
-    expect(typeof Public).toBe('function');
+describe("Public Decorator", () => {
+  it("debería ser una función", () => {
+    expect(typeof Public).toBe("function");
   });
 
-  it('debería funcionar con la constante IS_PUBLIC_KEY exportada', () => {
-    expect(IS_PUBLIC_KEY).toBe('isPublic');
+  it("debería funcionar con la constante IS_PUBLIC_KEY exportada", () => {
+    expect(IS_PUBLIC_KEY).toBe("isPublic");
   });
 
-  it('debería funcionar cuando se aplica a una clase', () => {
+  it("debería funcionar cuando se aplica a una clase", () => {
     @Public()
     class TestClass {}
 
@@ -17,7 +17,7 @@ describe('Public Decorator', () => {
     expect(metadata).toBe(true);
   });
 
-  it('debería funcionar múltiples veces en diferentes clases', () => {
+  it("debería funcionar múltiples veces en diferentes clases", () => {
     @Public()
     class TestClass1 {}
 

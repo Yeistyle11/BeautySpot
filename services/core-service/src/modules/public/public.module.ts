@@ -12,4 +12,5 @@ import { PublicService } from "./public.service";
   providers: [PublicService],
   exports: [PublicService],
 })
+/** Cablea los endpoints públicos del escaparate de negocios. */
 export class PublicModule {}

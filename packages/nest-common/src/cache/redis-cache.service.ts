@@ -2,6 +2,10 @@ import { Injectable, OnModuleDestroy } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import Redis from "ioredis";
 
+/**
+ * Envoltorio delgado sobre un cliente Redis para operaciones de caché básicas
+ * (get/set con TTL, incr, del, exists). Cierra la conexión al destruir el módulo.
+ */
 @Injectable()
 export class RedisCacheService implements OnModuleDestroy {
   private readonly client: Redis;

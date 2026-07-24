@@ -9,6 +9,7 @@ import * as path from "path";
 
 type EmailPriority = "low" | "normal" | "high";
 
+/** Parámetros para encolar un correo: destinatario, plantilla, datos, asunto y prioridad. */
 interface QueueEmailInput {
   to: string;
   template: string;
@@ -19,6 +20,10 @@ interface QueueEmailInput {
   currencyFields?: string[];
 }
 
+/**
+ * Compone y envía los correos transaccionales con plantillas Handlebars y SMTP.
+ * Ofrece envío directo y encolado (BullMQ) para cada tipo de correo del sistema.
+ */
 @Injectable()
 export class EmailService {
   private transporter: nodemailer.Transporter;
@@ -41,6 +46,7 @@ export class EmailService {
     this.loadTemplates();
   }
 
+  /** Compila y cachea todas las plantillas .hbs de la carpeta templates al arrancar. */
   private loadTemplates() {
     const templatesDir = path.join(__dirname, "templates");
     if (!fs.existsSync(templatesDir)) return;
@@ -55,6 +61,7 @@ export class EmailService {
 
   // ─── Core send/queue ──────────────────────────────────────
 
+  /** Renderiza la plantilla indicada y envía el correo por SMTP de inmediato. */
   async sendEmail(
     to: string,
     templateName: string,
@@ -76,6 +83,7 @@ export class EmailService {
     return { messageId: info.messageId };
   }
 
+  /** Encola el correo en BullMQ para que el worker lo envíe de forma asíncrona. */
   private async queueEmail(input: QueueEmailInput): Promise<{ jobId: string }> {
     const context = { ...input.data, subject: input.subject };
     const job = await this.emailQueue.add("send", {
@@ -90,6 +98,7 @@ export class EmailService {
 
   // ─── Direct send methods ──────────────────────────────────
 
+  /** Envía el correo de confirmación de una cita. */
   async sendAppointmentConfirmation(
     to: string,
     data: {
@@ -109,6 +118,7 @@ export class EmailService {
     });
   }
 
+  /** Envía el recordatorio de cita con 24 horas de antelación. */
   async sendAppointmentReminder24h(
     to: string,
     data: {
@@ -127,6 +137,7 @@ export class EmailService {
     });
   }
 
+  /** Envía el recordatorio de cita con 1 hora de antelación. */
   async sendAppointmentReminder1h(
     to: string,
     data: {
@@ -143,6 +154,7 @@ export class EmailService {
     });
   }
 
+  /** Envía el aviso de cita cancelada. */
   async sendAppointmentCancelled(
     to: string,
     data: {
@@ -160,6 +172,7 @@ export class EmailService {
     });
   }
 
+  /** Envía la factura por correo, adjuntando el PDF si se proporciona una ruta válida. */
   async sendInvoice(
     to: string,
     data: {
@@ -194,6 +207,7 @@ export class EmailService {
     return this.sendEmail(to, "invoice-generated", context);
   }
 
+  /** Envía el correo con el enlace para restablecer la contraseña. */
   async sendPasswordReset(
     to: string,
     data: { clientName: string; resetLink: string; expiryHours: number }
@@ -204,6 +218,7 @@ export class EmailService {
     });
   }
 
+  /** Envía el correo de bienvenida a un nuevo usuario. */
   async sendWelcomeEmail(
     to: string,
     data: { clientName: string; businessName?: string }
@@ -214,6 +229,7 @@ export class EmailService {
     });
   }
 
+  /** Envía el reporte mensual del negocio (ingresos, citas y servicio top). */
   async sendMonthlyReport(
     to: string,
     data: {
@@ -237,6 +253,7 @@ export class EmailService {
 
   // ─── Queue methods (thin wrappers over queueEmail) ────────
 
+  /** Encola el correo de confirmación de cita (prioridad alta). */
   async queueAppointmentConfirmation(
     to: string,
     data: {
@@ -259,6 +276,7 @@ export class EmailService {
     });
   }
 
+  /** Encola el recordatorio de cita de 24 horas. */
   async queueAppointmentReminder24h(
     to: string,
     data: {
@@ -280,6 +298,7 @@ export class EmailService {
     });
   }
 
+  /** Encola el recordatorio de cita de 1 hora (prioridad alta). */
   async queueAppointmentReminder1h(
     to: string,
     data: {
@@ -299,6 +318,7 @@ export class EmailService {
     });
   }
 
+  /** Encola el aviso de cita cancelada. */
   async queueAppointmentCancelled(
     to: string,
     data: {
@@ -319,6 +339,7 @@ export class EmailService {
     });
   }
 
+  /** Encola el envío de una factura (con su PDF opcional). */
   async queueInvoice(
     to: string,
     data: {
@@ -341,6 +362,7 @@ export class EmailService {
     });
   }
 
+  /** Encola el correo de restablecimiento de contraseña (prioridad alta). */
   async queuePasswordReset(
     to: string,
     data: { clientName: string; resetLink: string; expiryHours: number }
@@ -354,6 +376,7 @@ export class EmailService {
     });
   }
 
+  /** Encola el correo de bienvenida (prioridad baja). */
   async queueWelcomeEmail(
     to: string,
     data: { clientName: string; businessName?: string }
@@ -367,6 +390,7 @@ export class EmailService {
     });
   }
 
+  /** Encola el reporte mensual del negocio (prioridad baja). */
   async queueMonthlyReport(
     to: string,
     data: {
@@ -393,6 +417,7 @@ export class EmailService {
     });
   }
 
+  /** Formatea un importe como moneda colombiana (COP) sin decimales. */
   private formatCurrency(amount: number): string {
     return new Intl.NumberFormat("es-CO", {
       style: "currency",

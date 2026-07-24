@@ -1,5 +1,6 @@
-import { IsString, IsOptional, MaxLength, Matches } from 'class-validator';
+import { IsString, IsOptional, MaxLength, Matches } from "class-validator";
 
+/** Datos para subir el logo de un negocio: id, tipo de imagen y nombre opcional. */
 export class UploadBusinessLogoDto {
   @IsString()
   @MaxLength(50)
@@ -14,6 +15,7 @@ export class UploadBusinessLogoDto {
   fileName?: string;
 }
 
+/** Datos para subir la foto de un profesional: id, tipo de imagen y nombre opcional. */
 export class UploadProfessionalPhotoDto {
   @IsString()
   @MaxLength(50)
@@ -28,6 +30,7 @@ export class UploadProfessionalPhotoDto {
   fileName?: string;
 }
 
+/** Datos para subir la imagen de un servicio: id, tipo de imagen y nombre opcional. */
 export class UploadServiceImageDto {
   @IsString()
   @MaxLength(50)
@@ -42,9 +45,10 @@ export class UploadServiceImageDto {
   fileName?: string;
 }
 
+/** Datos para pedir una URL presignada: tipo y id del recurso, tipo de imagen y vencimiento. */
 export class GenerateUploadSignatureDto {
   @Matches(/^(business-logo|professional-photo|service-image)$/)
-  resourceType: 'business-logo' | 'professional-photo' | 'service-image';
+  resourceType: "business-logo" | "professional-photo" | "service-image";
 
   @IsString()
   @MaxLength(50)
@@ -59,6 +63,7 @@ export class GenerateUploadSignatureDto {
   expiresIn?: string;
 }
 
+/** Clave de S3 de la imagen a eliminar. */
 export class DeleteImageDto {
   @IsString()
   key: string;

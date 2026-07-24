@@ -1,19 +1,22 @@
-import 'reflect-metadata';
+import "reflect-metadata";
+
+// Configuracion global de Jest: mockea dependencias externas (Redis, RabbitMQ,
+// config y SDKs) para que las pruebas unitarias corran aisladas de la infraestructura.
 
 // Mock de uuid
-jest.mock('uuid', () => ({
+jest.mock("uuid", () => ({
   v4: jest.fn(),
 }));
 
 // Mock de ConfigService
-jest.mock('@nestjs/config', () => ({
+jest.mock("@nestjs/config", () => ({
   ConfigService: jest.fn().mockImplementation(() => ({
     get: jest.fn((key: string) => {
       const config: Record<string, string> = {
-        AWS_REGION: 'us-east-1',
-        AWS_ACCESS_KEY_ID: 'test-key',
-        AWS_SECRET_ACCESS_KEY: 'test-secret',
-        AWS_S3_BUCKET: 'test-bucket',
+        AWS_REGION: "us-east-1",
+        AWS_ACCESS_KEY_ID: "test-key",
+        AWS_SECRET_ACCESS_KEY: "test-secret",
+        AWS_S3_BUCKET: "test-bucket",
       };
       return config[key];
     }),
@@ -21,7 +24,7 @@ jest.mock('@nestjs/config', () => ({
 }));
 
 // Mock de IoRedis
-jest.mock('ioredis', () => {
+jest.mock("ioredis", () => {
   const mockRedis = {
     get: jest.fn(),
     set: jest.fn(),
@@ -37,12 +40,12 @@ jest.mock('ioredis', () => {
 });
 
 // Mock de amqplib (RabbitMQ)
-jest.mock('amqplib', () => ({
+jest.mock("amqplib", () => ({
   connect: jest.fn(),
 }));
 
 // Mock de EventBusService
-jest.mock('@beautyspot/nest-common', () => ({
+jest.mock("@beautyspot/nest-common", () => ({
   EventBusService: jest.fn().mockImplementation(() => ({
     emit: jest.fn().mockResolvedValue(undefined),
     on: jest.fn().mockReturnValue(undefined),
@@ -50,7 +53,7 @@ jest.mock('@beautyspot/nest-common', () => ({
 }));
 
 // Mock de AWS S3
-jest.mock('@aws-sdk/client-s3', () => ({
+jest.mock("@aws-sdk/client-s3", () => ({
   S3Client: jest.fn().mockImplementation(() => ({
     send: jest.fn(),
   })),
@@ -59,8 +62,8 @@ jest.mock('@aws-sdk/client-s3', () => ({
   GetObjectCommand: jest.fn(),
 }));
 
-jest.mock('@aws-sdk/s3-request-presigner', () => ({
-  getSignedUrl: jest.fn().mockResolvedValue('https://test-signed-url.com'),
+jest.mock("@aws-sdk/s3-request-presigner", () => ({
+  getSignedUrl: jest.fn().mockResolvedValue("https://test-signed-url.com"),
 }));
 
 // Configuración global de timeouts

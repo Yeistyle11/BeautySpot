@@ -1,5 +1,7 @@
 "use client";
 
+// Interruptor on/off (Radix Switch).
+
 import * as SwitchPrimitives from "@radix-ui/react-switch";
 import { cn } from "@/lib/utils";
 

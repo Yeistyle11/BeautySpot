@@ -14,4 +14,5 @@ import { AuditLog } from "../../entities/audit-log.entity";
   providers: [MembershipsService],
   exports: [MembershipsService],
 })
+/** Cablea los controladores (público e interno) y el servicio de membresías. */
 export class MembershipsModule {}

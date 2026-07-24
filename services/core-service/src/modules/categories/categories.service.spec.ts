@@ -82,10 +82,10 @@ describe("CategoriesService", () => {
       mockRepo.findOne.mockResolvedValue(mockCategory);
 
       await expect(service.create("business-123", dto)).rejects.toThrow(
-        ConflictException,
+        ConflictException
       );
       await expect(service.create("business-123", dto)).rejects.toThrow(
-        'La categoría "Barbero" ya existe',
+        'La categoría "Barbero" ya existe'
       );
     });
 
@@ -95,7 +95,7 @@ describe("CategoriesService", () => {
       mockRepo.save.mockRejectedValue(new Error("Database error"));
 
       await expect(
-        service.create("business-123", { name: "Nueva" }),
+        service.create("business-123", { name: "Nueva" })
       ).rejects.toThrow("Database error");
     });
   });
@@ -114,7 +114,11 @@ describe("CategoriesService", () => {
     });
 
     it("debería retornar todas las categorías (incluyendo inactivas)", async () => {
-      const inactiveCategory = { ...mockCategory, id: "cat-2", active: false } as any;
+      const inactiveCategory = {
+        ...mockCategory,
+        id: "cat-2",
+        active: false,
+      } as any;
       mockRepo.find.mockResolvedValue([mockCategory, inactiveCategory]);
 
       const result = await service.findByBusiness("business-123", false);
@@ -152,10 +156,10 @@ describe("CategoriesService", () => {
       mockRepo.findOne.mockResolvedValue(null);
 
       await expect(
-        service.findById("non-existent", "business-123"),
+        service.findById("non-existent", "business-123")
       ).rejects.toThrow(NotFoundException);
       await expect(
-        service.findById("non-existent", "business-123"),
+        service.findById("non-existent", "business-123")
       ).rejects.toThrow("Categoría no encontrada");
     });
   });
@@ -174,12 +178,12 @@ describe("CategoriesService", () => {
       const result = await service.update(
         "category-123",
         "business-123",
-        updateDto,
+        updateDto
       );
 
       expect(mockRepo.update).toHaveBeenCalledWith(
         { id: "category-123", businessId: "business-123" },
-        updateDto,
+        updateDto
       );
       expect(result.name).toBe("Barbero Senior");
       expect(result.color).toBe("#EF4444");
@@ -187,14 +191,18 @@ describe("CategoriesService", () => {
 
     it("debería lanzar ConflictException si el nuevo nombre ya existe", async () => {
       const updateDto = { name: "Estilista" };
-      const duplicate = { ...mockCategory, id: "other-id", name: "Estilista" } as any;
+      const duplicate = {
+        ...mockCategory,
+        id: "other-id",
+        name: "Estilista",
+      } as any;
 
       mockRepo.findOne
         .mockResolvedValueOnce(mockCategory) // findById
         .mockResolvedValueOnce(duplicate); // unique check finds duplicate
 
       await expect(
-        service.update("category-123", "business-123", updateDto),
+        service.update("category-123", "business-123", updateDto)
       ).rejects.toThrow(ConflictException);
     });
 
@@ -210,7 +218,7 @@ describe("CategoriesService", () => {
       const result = await service.update(
         "category-123",
         "business-123",
-        updateDto,
+        updateDto
       );
 
       expect(result.color).toBe("#10B981");
@@ -228,7 +236,7 @@ describe("CategoriesService", () => {
       const result = await service.update(
         "category-123",
         "business-123",
-        updateDto,
+        updateDto
       );
 
       expect(result.sortOrder).toBe(5);
@@ -244,7 +252,7 @@ describe("CategoriesService", () => {
 
       expect(mockRepo.update).toHaveBeenCalledWith(
         { id: "category-123", businessId: "business-123" },
-        { active: false },
+        { active: false }
       );
     });
 
@@ -252,7 +260,7 @@ describe("CategoriesService", () => {
       mockRepo.findOne.mockResolvedValue(null);
 
       await expect(
-        service.remove("non-existent", "business-123"),
+        service.remove("non-existent", "business-123")
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -266,14 +274,11 @@ describe("CategoriesService", () => {
         .mockResolvedValueOnce(deactivated); // findById after toggle (active: false)
       mockRepo.update.mockResolvedValue({ affected: 1 } as any);
 
-      const result = await service.toggleActive(
-        "category-123",
-        "business-123",
-      );
+      const result = await service.toggleActive("category-123", "business-123");
 
       expect(mockRepo.update).toHaveBeenCalledWith(
         { id: "category-123", businessId: "business-123" },
-        { active: false },
+        { active: false }
       );
       expect(result.active).toBe(false);
     });
@@ -287,14 +292,11 @@ describe("CategoriesService", () => {
         .mockResolvedValueOnce(reactivated);
       mockRepo.update.mockResolvedValue({ affected: 1 } as any);
 
-      const result = await service.toggleActive(
-        "category-123",
-        "business-123",
-      );
+      const result = await service.toggleActive("category-123", "business-123");
 
       expect(mockRepo.update).toHaveBeenCalledWith(
         { id: "category-123", businessId: "business-123" },
-        { active: true },
+        { active: true }
       );
       expect(result.active).toBe(true);
     });
@@ -321,9 +323,9 @@ describe("CategoriesService", () => {
 
       mockRepo.findOne.mockResolvedValue(null);
 
-      await expect(
-        service.reorder("business-123", items),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.reorder("business-123", items)).rejects.toThrow(
+        NotFoundException
+      );
     });
   });
 
@@ -334,7 +336,7 @@ describe("CategoriesService", () => {
 
       const count = await service.countProfessionals(
         "category-123",
-        "business-123",
+        "business-123"
       );
 
       expect(count).toBe(5);
@@ -344,7 +346,7 @@ describe("CategoriesService", () => {
       mockRepo.findOne.mockResolvedValue(null);
 
       await expect(
-        service.countProfessionals("non-existent", "business-123"),
+        service.countProfessionals("non-existent", "business-123")
       ).rejects.toThrow(NotFoundException);
     });
   });

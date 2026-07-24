@@ -16,7 +16,10 @@ const entities = [NotificationEntity, NotificationPreferenceEntity];
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: path.join(__dirname, "..", ".env") }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: path.join(__dirname, "..", ".env"),
+    }),
     TypeOrmModule.forRootAsync({
       useFactory: () => createTypeOrmModuleOptions(entities),
     }),
@@ -43,4 +46,5 @@ const entities = [NotificationEntity, NotificationPreferenceEntity];
     EventListenersModule,
   ],
 })
+/** Módulo raíz del notification-service: notificaciones in-app, correos y listeners de eventos. */
 export class AppModule {}

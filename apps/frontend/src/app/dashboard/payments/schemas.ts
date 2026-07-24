@@ -1,3 +1,4 @@
+// Esquemas Zod y tipos de los pagos.
 import { z } from "zod";
 
 export const paymentSchema = z.object({

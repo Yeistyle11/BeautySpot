@@ -1,4 +1,6 @@
 "use client";
+
+// Tarjeta de un pago en la lista, con su metodo, estado y accion de editar.
 import {
   Banknote,
   CreditCard,

@@ -9,7 +9,8 @@ import { Reflector } from "@nestjs/core";
 import { Role } from "@beautyspot/shared-types";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /**
  * Valida el header X-Business-Id y verifica que el usuario autenticado
@@ -30,7 +31,8 @@ export class BusinessScopeGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest();
-    if (request.url === "/health" || request.url.startsWith("/internal")) return true;
+    if (request.url === "/health" || request.url.startsWith("/internal"))
+      return true;
 
     const businessId = request.headers["x-business-id"];
     if (!businessId || typeof businessId !== "string") {
@@ -38,18 +40,21 @@ export class BusinessScopeGuard implements CanActivate {
     }
 
     if (!UUID_REGEX.test(businessId)) {
-      throw new BadRequestException("Header X-Business-Id debe ser un UUID válido");
+      throw new BadRequestException(
+        "Header X-Business-Id debe ser un UUID válido"
+      );
     }
 
     const user = request.user;
     if (user) {
       // SUPER_ADMIN: acceso completo a cualquier negocio
       if (user.role !== Role.SUPER_ADMIN) {
-        const allowed = Array.isArray(user.businessIds) && user.businessIds.length > 0
-          ? user.businessIds
-          : user.businessId
-            ? [user.businessId]
-            : [];
+        const allowed =
+          Array.isArray(user.businessIds) && user.businessIds.length > 0
+            ? user.businessIds
+            : user.businessId
+              ? [user.businessId]
+              : [];
         if (!allowed.includes(businessId)) {
           throw new ForbiddenException("No tienes acceso a este negocio");
         }

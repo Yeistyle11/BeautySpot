@@ -51,7 +51,11 @@ describe("ServiceCategoriesService", () => {
 
   describe("create", () => {
     it("debería crear una categoría de servicio exitosamente", async () => {
-      const dto = { name: "Cortes", description: "Servicios de corte", color: "#3B82F6" };
+      const dto = {
+        name: "Cortes",
+        description: "Servicios de corte",
+        color: "#3B82F6",
+      };
 
       mockRepo.findOne.mockResolvedValue(null);
       mockRepo.create.mockReturnValue(mockCategory);
@@ -62,14 +66,19 @@ describe("ServiceCategoriesService", () => {
       expect(mockRepo.findOne).toHaveBeenCalledWith({
         where: { name: "Cortes", businessId: "business-123", active: true },
       });
-      expect(mockRepo.create).toHaveBeenCalledWith({ ...dto, businessId: "business-123" });
+      expect(mockRepo.create).toHaveBeenCalledWith({
+        ...dto,
+        businessId: "business-123",
+      });
       expect(result).toEqual(mockCategory);
     });
 
     it("debería lanzar ConflictException si la categoría ya existe", async () => {
       mockRepo.findOne.mockResolvedValue(mockCategory);
 
-      await expect(service.create("business-123", { name: "Cortes" })).rejects.toThrow(ConflictException);
+      await expect(
+        service.create("business-123", { name: "Cortes" })
+      ).rejects.toThrow(ConflictException);
     });
   });
 
@@ -111,7 +120,9 @@ describe("ServiceCategoriesService", () => {
 
     it("debería lanzar NotFoundException cuando no existe", async () => {
       mockRepo.findOne.mockResolvedValue(null);
-      await expect(service.findById("x", "business-123")).rejects.toThrow(NotFoundException);
+      await expect(service.findById("x", "business-123")).rejects.toThrow(
+        NotFoundException
+      );
     });
   });
 
@@ -124,7 +135,9 @@ describe("ServiceCategoriesService", () => {
         .mockResolvedValueOnce(updated);
       mockRepo.update.mockResolvedValue({ affected: 1 } as any);
 
-      const result = await service.update("scat-123", "business-123", { name: "Cortes Premium" });
+      const result = await service.update("scat-123", "business-123", {
+        name: "Cortes Premium",
+      });
       expect(result.name).toBe("Cortes Premium");
     });
 
@@ -134,7 +147,9 @@ describe("ServiceCategoriesService", () => {
         .mockResolvedValueOnce(mockCategory)
         .mockResolvedValueOnce(duplicate);
 
-      await expect(service.update("scat-123", "business-123", { name: "Barba" })).rejects.toThrow(ConflictException);
+      await expect(
+        service.update("scat-123", "business-123", { name: "Barba" })
+      ).rejects.toThrow(ConflictException);
     });
   });
 
@@ -147,7 +162,7 @@ describe("ServiceCategoriesService", () => {
 
       expect(mockRepo.update).toHaveBeenCalledWith(
         { id: "scat-123", businessId: "business-123" },
-        { active: false },
+        { active: false }
       );
     });
   });
@@ -167,7 +182,10 @@ describe("ServiceCategoriesService", () => {
 
   describe("reorder", () => {
     it("debería reordenar las categorías", async () => {
-      const items = [{ id: "scat-1", sortOrder: 0 }, { id: "scat-2", sortOrder: 1 }];
+      const items = [
+        { id: "scat-1", sortOrder: 0 },
+        { id: "scat-2", sortOrder: 1 },
+      ];
       mockRepo.findOne.mockResolvedValue(mockCategory);
       mockRepo.update.mockResolvedValue({ affected: 1 } as any);
 
@@ -177,7 +195,9 @@ describe("ServiceCategoriesService", () => {
 
     it("debería lanzar NotFoundException si una categoría no existe", async () => {
       mockRepo.findOne.mockResolvedValue(null);
-      await expect(service.reorder("business-123", [{ id: "x", sortOrder: 0 }])).rejects.toThrow(NotFoundException);
+      await expect(
+        service.reorder("business-123", [{ id: "x", sortOrder: 0 }])
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

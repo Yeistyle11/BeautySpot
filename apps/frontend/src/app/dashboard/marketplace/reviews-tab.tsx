@@ -1,4 +1,6 @@
 "use client";
+
+// Pestana de resenas: listado de valoraciones y respuesta a los clientes.
 import { MessageSquare, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

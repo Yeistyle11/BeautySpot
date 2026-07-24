@@ -1,6 +1,7 @@
 import { Entity, Column, Index } from "typeorm";
 import { TenantEntity, numericTransformer } from "@beautyspot/database";
 
+/** Enlaces a redes sociales del negocio. */
 export interface SocialLinks {
   instagram?: string;
   facebook?: string;
@@ -8,6 +9,7 @@ export interface SocialLinks {
   website?: string;
 }
 
+/** Configuración de una sección del perfil inmersivo: si se muestra, su orden y título. */
 export interface SectionConfig {
   id: string;
   enabled: boolean;
@@ -15,6 +17,7 @@ export interface SectionConfig {
   customTitle?: string;
 }
 
+/** Imagen de la galería del perfil, con su categoría y marca de destacada. */
 export interface GalleryImage {
   url: string;
   title?: string;
@@ -22,6 +25,7 @@ export interface GalleryImage {
   featured?: boolean;
 }
 
+/** Perfil público del negocio en el marketplace: escaparate, historia, galería y métricas. */
 @Entity("business_profiles")
 @Index(["active", "isPublished"])
 @Index(["city"])
@@ -48,11 +52,20 @@ export class BusinessProfileEntity extends TenantEntity {
 
   @Column({ nullable: true }) country!: string;
 
-  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true }) lat!: number;
+  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true })
+  lat!: number;
 
-  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true }) lng!: number;
+  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true })
+  lng!: number;
 
-  @Column({ type: "decimal", precision: 3, scale: 2, transformer: numericTransformer, default: 0 }) rating!: number;
+  @Column({
+    type: "decimal",
+    precision: 3,
+    scale: 2,
+    transformer: numericTransformer,
+    default: 0,
+  })
+  rating!: number;
 
   @Column({ name: "total_reviews", default: 0 }) totalReviews!: number;
 

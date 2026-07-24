@@ -8,8 +8,16 @@ import { PublicBookingController } from "./public-booking.controller";
 import { PublicBookingService } from "./public-booking.service";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Appointment, AppointmentServiceEntity, Availability, BlockedSlot])],
+  imports: [
+    TypeOrmModule.forFeature([
+      Appointment,
+      AppointmentServiceEntity,
+      Availability,
+      BlockedSlot,
+    ]),
+  ],
   controllers: [PublicBookingController],
   providers: [PublicBookingService],
 })
+/** Cablea el endpoint público de reservas para invitados del marketplace. */
 export class PublicBookingModule {}

@@ -13,6 +13,10 @@ import { ServiceUrlsConfig } from "../../config/service-urls";
 const TENANT_CACHE_TTL_SECONDS = 300;
 const TENANT_FETCH_TIMEOUT_MS = 5000;
 
+/**
+ * Resuelve el tenant (businessId) a partir del subdominio o slug del negocio,
+ * cacheando el resultado en Redis para no consultar al core en cada petición.
+ */
 @Injectable()
 export class TenantService {
   constructor(
@@ -21,6 +25,7 @@ export class TenantService {
     @Inject(REDIS_CLIENT) private redis: Redis
   ) {}
 
+  /** Extrae el slug del host ({slug}.beautyspot.co) y lo resuelve; null si no aplica. */
   async resolveFromSubdomain(host: string): Promise<string | null> {
     const domain = this.configService.get<string>(
       "APP_DOMAIN",
@@ -34,6 +39,10 @@ export class TenantService {
     return this.resolveSlug(subdomain);
   }
 
+  /**
+   * Traduce un slug a su businessId consultando al core service (endpoint
+   * interno) y guardando el resultado en caché. Lanza 404/502/503 según el fallo.
+   */
   async resolveSlug(slug: string): Promise<string> {
     const cacheKey = `tenant:${slug}`;
     const cached = await this.redis.get(cacheKey);
@@ -80,6 +89,7 @@ export class TenantService {
     return businessId;
   }
 
+  /** Invalida el tenant cacheado de un slug (p. ej. al cambiar de dueño o slug). */
   async clearCache(slug: string): Promise<void> {
     await this.redis.del(`tenant:${slug}`);
   }

@@ -1,3 +1,5 @@
+// Cliente HTTP del frontend contra el API Gateway. Centraliza el token de sesión,
+// el parseo defensivo de respuestas y el manejo global del 401.
 import { ApiError } from "./api-error";
 
 const API_BASE =
@@ -15,6 +17,7 @@ function getAuthToken(): string | null {
   return cachedToken;
 }
 
+/** Actualiza el token en memoria y en localStorage (o lo borra si es null). */
 export function setCachedToken(token: string | null): void {
   cachedToken = token;
   tokenCacheInitialized = true;
@@ -54,6 +57,11 @@ async function parseBody(res: Response): Promise<Record<string, unknown>> {
   }
 }
 
+/**
+ * Ejecuta una petición al gateway: adjunta el token salvo en modo público,
+ * dispara el handler de 401 y normaliza el error a {@link ApiError}. Devuelve el
+ * campo `data` del sobre estándar o el cuerpo tal cual si no viene envuelto.
+ */
 async function request<T>(
   path: string,
   options?: RequestInit,
@@ -85,6 +93,7 @@ async function request<T>(
   return (data.success !== undefined ? data.data : data) as T;
 }
 
+/** API autenticada: añade el token Bearer a cada petición. */
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body: unknown) =>
@@ -96,6 +105,7 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
 
+/** API pública: sin token, para endpoints como el marketplace o el login. */
 export const apiPublic = {
   get: <T>(path: string) => request<T>(path, undefined, true),
   post: <T>(path: string, body: unknown) =>

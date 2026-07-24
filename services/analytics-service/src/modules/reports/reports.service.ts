@@ -4,6 +4,7 @@ import { Repository, Between } from "typeorm";
 import { DailyMetricEntity } from "../../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
 
+/** Fila agregada por profesional para el reporte: citas, ingresos, valoración y días activos. */
 interface ProfessionalAggRow {
   professionalId: string;
   appointments: string;
@@ -12,6 +13,7 @@ interface ProfessionalAggRow {
   days: string;
 }
 
+/** Genera los reportes del negocio (ingresos, profesionales y citas) por rango de fechas. */
 @Injectable()
 export class ReportsService {
   constructor(
@@ -21,6 +23,7 @@ export class ReportsService {
     private readonly profRepo: Repository<ProfessionalMetricEntity>
   ) {}
 
+  /** Reporte de ingresos: total, número de citas, ticket medio y serie diaria del periodo. */
   async getRevenueReport(businessId: string, from: string, to: string) {
     const [aggregates, daily, dayCount] = await Promise.all([
       this.dailyRepo
@@ -54,6 +57,7 @@ export class ReportsService {
     };
   }
 
+  /** Reporte por profesional: citas, ingresos, valoración media y días activos en el periodo. */
   async getProfessionalsReport(businessId: string, from: string, to: string) {
     const rows = await this.profRepo
       .createQueryBuilder("pm")
@@ -80,6 +84,7 @@ export class ReportsService {
     };
   }
 
+  /** Reporte de citas: totales por estado, tasas de cumplimiento/cancelación/no-show y serie diaria. */
   async getAppointmentsReport(businessId: string, from: string, to: string) {
     const [aggregates, daily] = await Promise.all([
       this.dailyRepo
@@ -117,6 +122,7 @@ export class ReportsService {
     };
   }
 
+  /** Porcentaje entero de `part` sobre `total`; 0 si el total es cero. */
   private percentage(part: number, total: number): number {
     return total > 0 ? Math.round((part / total) * 100) : 0;
   }

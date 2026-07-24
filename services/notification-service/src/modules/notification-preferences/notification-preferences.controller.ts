@@ -1,10 +1,14 @@
 import { Controller, Get, Post, Body, Headers } from "@nestjs/common";
 import { NotificationPreferencesService } from "./notification-preferences.service";
 import { IsBoolean, IsEnum, IsString } from "class-validator";
-import { NotificationType, NotificationChannel } from "@beautyspot/shared-types";
+import {
+  NotificationType,
+  NotificationChannel,
+} from "@beautyspot/shared-types";
 import { Roles } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
+/** Datos para fijar una preferencia: tipo de notificación, canal y si está habilitada. */
 class UpsertPreferenceDto {
   @IsString()
   @IsEnum(NotificationType)
@@ -18,21 +22,27 @@ class UpsertPreferenceDto {
   enabled!: boolean;
 }
 
+/** Endpoints con los que el usuario consulta y ajusta sus preferencias de notificación. */
 @Controller("notification-preferences")
 @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL)
 export class NotificationPreferencesController {
   constructor(private readonly service: NotificationPreferencesService) {}
 
+  /** Lista las preferencias del usuario. */
   @Get()
-  findByUser(@Headers("x-user-id") userId: string, @Headers("x-business-id") businessId: string) {
+  findByUser(
+    @Headers("x-user-id") userId: string,
+    @Headers("x-business-id") businessId: string
+  ) {
     return this.service.findByUser(userId, businessId);
   }
 
+  /** Crea o actualiza una preferencia del usuario. */
   @Post()
   upsert(
     @Body() dto: UpsertPreferenceDto,
     @Headers("x-user-id") userId: string,
-    @Headers("x-business-id") businessId: string,
+    @Headers("x-business-id") businessId: string
   ) {
     return this.service.upsert({ ...dto, userId, businessId });
   }

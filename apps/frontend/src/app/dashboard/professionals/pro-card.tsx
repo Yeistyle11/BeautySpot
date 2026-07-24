@@ -1,4 +1,6 @@
 "use client";
+
+// Tarjeta de un profesional en la rejilla, con sus datos y acciones.
 import { memo } from "react";
 import Image from "next/image";
 import { Star, Briefcase, Eye, Pencil, Trash2, Clock } from "lucide-react";

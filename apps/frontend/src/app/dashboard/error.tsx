@@ -1,5 +1,7 @@
 "use client";
 
+// Error boundary del dashboard: aviso de seccion no cargada con opcion de reintentar.
+
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";

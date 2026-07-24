@@ -2,6 +2,7 @@ import { Entity, Column, OneToMany, Index } from "typeorm";
 import { TenantEntity } from "@beautyspot/database";
 import { Service } from "./service.entity";
 
+/** Categoría para agrupar servicios dentro de un negocio (con icono, color y orden). */
 @Entity("service_categories")
 @Index(["businessId", "active"])
 export class ServiceCategoryEntity extends TenantEntity {

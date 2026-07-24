@@ -3,6 +3,15 @@ import { ConfigService } from "@nestjs/config";
 import { IBaseEvent } from "@beautyspot/event-types";
 import { v4 as uuidv4 } from "uuid";
 
+/**
+ * Publica eventos de dominio en RabbitMQ con entrega confiable.
+ *
+ * Los mensajes se emiten como persistentes sobre el exchange de eventos y se
+ * reintentan con backoff exponencial; agotados los intentos, van a la Dead Letter
+ * Queue (con un canal DLQ dedicado, e incluso una conexión de emergencia) para no
+ * perderlos. Ante un fallo de canal, `emit` lanza en vez de descartar en silencio,
+ * de modo que quien publica (p. ej. {@link OutboxRelayWorker}) pueda reintentar.
+ */
 @Injectable()
 export class EventBusService implements OnModuleDestroy {
   private readonly logger = new Logger(EventBusService.name);

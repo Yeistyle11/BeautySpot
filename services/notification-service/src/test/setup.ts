@@ -1,7 +1,10 @@
-import 'reflect-metadata';
+import "reflect-metadata";
+
+// Configuracion global de Jest: mockea dependencias externas (Redis, RabbitMQ,
+// config y SDKs) para que las pruebas unitarias corran aisladas de la infraestructura.
 
 // Mock de IoRedis
-jest.mock('ioredis', () => {
+jest.mock("ioredis", () => {
   const mockRedis = {
     get: jest.fn(),
     set: jest.fn(),
@@ -17,12 +20,12 @@ jest.mock('ioredis', () => {
 });
 
 // Mock de amqplib (RabbitMQ)
-jest.mock('amqplib', () => ({
+jest.mock("amqplib", () => ({
   connect: jest.fn(),
 }));
 
 // Mock de nodemailer
-jest.mock('nodemailer', () => ({
+jest.mock("nodemailer", () => ({
   createTransport: jest.fn(() => ({
     sendMail: jest.fn(),
   })),

@@ -1,4 +1,6 @@
 "use client";
+
+// Paso de datos del cliente (invitado) en el flujo de reserva.
 import { User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

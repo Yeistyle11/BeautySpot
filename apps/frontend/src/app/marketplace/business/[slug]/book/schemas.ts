@@ -1,3 +1,4 @@
+// Esquemas Zod y tipos del flujo de reserva publica.
 import { z } from "zod";
 
 export const profileSchema = z.object({

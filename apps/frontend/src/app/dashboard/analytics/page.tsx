@@ -1,4 +1,6 @@
 "use client";
+
+// Pagina de reportes: KPIs del negocio (ingresos, clientes, citas) leidos del analytics-service.
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, Calendar } from "lucide-react";

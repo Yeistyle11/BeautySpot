@@ -3,6 +3,7 @@ import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { AnalyticsEventListeners } from "./analytics-event-listeners.service";
 import { MetricsModule } from "../metrics/metrics.module";
 
+/** Módulo que suscribe el analytics-service a los eventos de RabbitMQ para alimentar las métricas. */
 @Module({
   imports: [
     MetricsModule,

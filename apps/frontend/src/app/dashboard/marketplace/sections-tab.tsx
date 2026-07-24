@@ -1,4 +1,6 @@
 "use client";
+
+// Pestana de secciones: activacion y edicion de los bloques de la ficha publica.
 import { useId } from "react";
 import { ChevronDown, ChevronUp, Loader2, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

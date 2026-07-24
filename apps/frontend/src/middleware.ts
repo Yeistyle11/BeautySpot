@@ -1,7 +1,12 @@
+// Middleware de Edge: guarda las rutas /dashboard antes de renderizar. Lee el rol
+// de la cookie de sesión para redirigir a login si no hay sesión válida, o a la
+// página por defecto del rol si intenta entrar a una sección sin permiso. La
+// autorización real la sigue validando el api-gateway; esto solo mejora la UX.
 import { NextResponse, type NextRequest } from "next/server";
 import { decodeJwt, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { canAccess, getDefaultPath } from "@/lib/permissions";
 
+/** Redirige según sesión y rol antes de servir /dashboard y /login. */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;

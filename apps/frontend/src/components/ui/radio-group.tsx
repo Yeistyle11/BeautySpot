@@ -1,3 +1,4 @@
+// Grupo de opciones de radio (Radix RadioGroup).
 import { cn } from "@/lib/utils";
 
 interface RadioGroupProps {

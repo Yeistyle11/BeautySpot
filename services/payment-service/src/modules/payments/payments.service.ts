@@ -15,8 +15,13 @@ import { OutboxService } from "@beautyspot/nest-common";
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { EventNames } from "@beautyspot/event-types";
 
+/** Días desde el pago dentro de los que se admite un reembolso. */
 const REFUND_WINDOW_DAYS = 30;
 
+/**
+ * Registra pagos manuales y sus reembolsos, publicando cada operación vía Outbox
+ * y protegiendo los reembolsos contra dobles aplicaciones concurrentes.
+ */
 @Injectable()
 export class PaymentsService {
   constructor(
@@ -27,6 +32,7 @@ export class PaymentsService {
     private readonly outbox: OutboxService
   ) {}
 
+  /** Registra un pago y emite el evento PAYMENT_REGISTERED en la misma transacción. */
   async create(
     businessId: string,
     data: {
@@ -63,6 +69,7 @@ export class PaymentsService {
     });
   }
 
+  /** Lista los pagos del negocio con filtros (método, estado, rango de fechas) y paginación. */
   async findByBusiness(
     businessId: string,
     filters: {
@@ -82,12 +89,14 @@ export class PaymentsService {
     return paginate(this.repo, pagination, { where });
   }
 
+  /** Obtiene un pago del negocio por id; lanza 404 si no existe. */
   async findById(id: string, businessId: string): Promise<PaymentEntity> {
     const payment = await this.repo.findOne({ where: { id, businessId } });
     if (!payment) throw new NotFoundException("Pago no encontrado");
     return payment;
   }
 
+  /** Cambia el estado de un pago. */
   async updateStatus(
     id: string,
     businessId: string,
@@ -147,7 +156,10 @@ export class PaymentsService {
   ): Promise<PaymentEntity> {
     const payment = await this.loadRefundablePayment(id, businessId);
     this.validateRefundWindow(payment);
-    const finalAmount = this.calculateRefundAmount(payment, options.refundAmount);
+    const finalAmount = this.calculateRefundAmount(
+      payment,
+      options.refundAmount
+    );
     const finalReason = options.reason || "Reembolso solicitado";
 
     return this.dataSource.transaction(async (manager) => {
@@ -168,6 +180,7 @@ export class PaymentsService {
     });
   }
 
+  /** Carga el pago y verifica que esté COMPLETED (única situación reembolsable). */
   private async loadRefundablePayment(
     id: string,
     businessId: string
@@ -181,6 +194,7 @@ export class PaymentsService {
     return payment;
   }
 
+  /** Verifica que el pago siga dentro de la ventana de reembolso. */
   private validateRefundWindow(payment: PaymentEntity): void {
     const refundWindowMs = REFUND_WINDOW_DAYS * 24 * 60 * 60 * 1000;
     if (Date.now() - payment.createdAt.getTime() > refundWindowMs) {
@@ -190,6 +204,7 @@ export class PaymentsService {
     }
   }
 
+  /** Resuelve el monto a reembolsar (total por defecto) validando que sea válido. */
   private calculateRefundAmount(
     payment: PaymentEntity,
     requested?: number
@@ -203,6 +218,7 @@ export class PaymentsService {
     return amount;
   }
 
+  /** Aplica el reembolso con un UPDATE condicionado al estado, evitando dobles reembolsos. */
   private async applyRefund(
     manager: EntityManager,
     payment: PaymentEntity,
@@ -235,6 +251,7 @@ export class PaymentsService {
     });
   }
 
+  /** Encola el evento PAYMENT_REFUND_PROCESSED dentro de la transacción del reembolso. */
   private async enqueueRefundEvent(
     manager: EntityManager,
     refundedPayment: PaymentEntity,

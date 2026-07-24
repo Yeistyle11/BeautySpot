@@ -3,8 +3,10 @@ import { ConfigService } from "@nestjs/config";
 type OriginCallback = (err: Error | null, allow?: boolean) => void;
 
 /** Orígenes de desarrollo local aceptados fuera de producción. */
-const LOCAL_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+const LOCAL_ORIGIN_PATTERN =
+  /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 
+/** Política CORS resultante: callback que autoriza el origen y flag de credenciales. */
 export interface CorsOptions {
   origin: (origin: string | undefined, callback: OriginCallback) => void;
   credentials: boolean;

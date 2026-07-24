@@ -51,7 +51,7 @@ describe("EventBusService", () => {
     if (service && typeof (service as any).onModuleDestroy === "function") {
       try {
         await (service as any).onModuleDestroy();
-      } catch (error) {}
+      } catch {}
     }
   });
 

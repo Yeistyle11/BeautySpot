@@ -10,4 +10,5 @@ import { Availability } from "../../entities/availability.entity";
   providers: [AvailabilityService],
   exports: [AvailabilityService],
 })
+/** Cablea la gestión de la disponibilidad semanal de los profesionales. */
 export class AvailabilityModule {}

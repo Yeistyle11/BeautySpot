@@ -26,6 +26,10 @@ interface OwnershipContext {
   businessId?: string;
 }
 
+/**
+ * Endpoints de subida y borrado de imágenes (logo, foto de profesional, imagen
+ * de servicio), verificando que el recurso pertenezca al negocio del usuario.
+ */
 @Controller("images")
 export class ImagesController {
   constructor(
@@ -71,7 +75,7 @@ export class ImagesController {
   ): Promise<void> {
     if (ctx.role === Role.SUPER_ADMIN) return;
 
-    // Key format: businesses/{id}/logo/{uuid} | professionals/{id}/photo/{uuid} | services/{id}/image/{uuid}
+    // Formato del key: {tipo}/{id}/... — p. ej. businesses/{id}/logo/{uuid}.
     const parts = key.split("/");
     if (parts.length < 2) {
       throw new ForbiddenException("Key de imagen no válido");
@@ -80,6 +84,7 @@ export class ImagesController {
     await this.verifyResourceOwnership(parts[0], parts[1], ctx);
   }
 
+  /** Sube el logo de un negocio (multipart) tras validar acceso y tipo/tamaño. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post("businesses/:businessId/logo-upload")
   @UseInterceptors(FileInterceptor("file"))
@@ -109,6 +114,7 @@ export class ImagesController {
     return { success: true, data: result };
   }
 
+  /** Sube la foto de un profesional (multipart) tras validar acceso y tipo/tamaño. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post("professionals/:professionalId/photo-upload")
   @UseInterceptors(FileInterceptor("file"))
@@ -138,6 +144,7 @@ export class ImagesController {
     return { success: true, data: result };
   }
 
+  /** Sube la imagen de un servicio (multipart) tras validar acceso y tipo/tamaño. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post("services/:serviceId/image-upload")
   @UseInterceptors(FileInterceptor("file"))
@@ -167,6 +174,7 @@ export class ImagesController {
     return { success: true, data: result };
   }
 
+  /** Genera una URL presignada para que el cliente suba la imagen directo a S3. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Get("upload-signature")
   async generateUploadSignature(
@@ -176,7 +184,7 @@ export class ImagesController {
   ): Promise<{ success: true; data: any }> {
     const expiresIn = dto.expiresIn ? parseInt(dto.expiresIn) : 3600;
 
-    // Map resourceType to S3 key prefix + verify ownership
+    // Mapea el tipo de recurso a su prefijo en S3 y verifica el acceso al recurso.
     const resourceMap: Record<string, { prefix: string; verifyAs: string }> = {
       "business-logo": { prefix: "businesses", verifyAs: "businesses" },
       "professional-photo": {
@@ -229,6 +237,7 @@ export class ImagesController {
     return { success: true, data: result };
   }
 
+  /** Borra una imagen de S3 tras verificar que su key pertenezca al negocio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Delete(":publicId")
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -244,6 +253,7 @@ export class ImagesController {
     await this.imagesService.deleteImage(dto.key);
   }
 
+  /** Devuelve una URL presignada de lectura para una imagen del negocio. */
   @Roles(
     Role.OWNER,
     Role.ADMIN,

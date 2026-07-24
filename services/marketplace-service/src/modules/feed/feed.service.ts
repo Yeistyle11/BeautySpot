@@ -4,6 +4,7 @@ import { ProfessionalProfilesService } from "../professional-profiles/profession
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
 import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
 
+/** Sección del feed: un bloque (carrusel o rejilla) de negocios o profesionales. */
 export interface FeedSection {
   id: string;
   title: string;
@@ -12,6 +13,7 @@ export interface FeedSection {
   items: BusinessProfileEntity[] | ProfessionalProfileEntity[];
 }
 
+/** Categoría del feed (tipo de negocio) con su recuento de perfiles publicados. */
 export interface FeedCategory {
   id: string;
   name: string;
@@ -19,11 +21,13 @@ export interface FeedCategory {
   count: number;
 }
 
+/** Respuesta del feed de la home del marketplace: categorías y secciones curadas. */
 export interface FeedResponse {
   categories: FeedCategory[];
   sections: FeedSection[];
 }
 
+/** Compone el feed de la home del marketplace a partir de varias consultas curadas. */
 @Injectable()
 export class FeedService {
   constructor(
@@ -31,6 +35,7 @@ export class FeedService {
     private readonly professionalProfilesService: ProfessionalProfilesService
   ) {}
 
+  /** Arma el feed (categorías y secciones), personalizando "populares" por ubicación si se da. */
   async getFeed(
     lat?: number,
     lng?: number,
@@ -92,6 +97,7 @@ export class FeedService {
     return { categories, sections };
   }
 
+  /** Devuelve las categorías de negocio con su número de perfiles publicados. */
   private async getCategories(): Promise<FeedCategory[]> {
     const categoryConfigs = [
       { id: "BARBERIA", name: "Barberías", icon: "scissors" },
@@ -111,6 +117,7 @@ export class FeedService {
     return categories;
   }
 
+  /** Negocios populares (mejor valorados) dentro de un radio de la ubicación o ciudad. */
   private async getPopularNearby(
     lat?: number,
     lng?: number,
@@ -128,14 +135,17 @@ export class FeedService {
     return items;
   }
 
+  /** Los negocios mejor calificados de la plataforma. */
   private async getTopRated(): Promise<BusinessProfileEntity[]> {
     return this.profilesService.findTopRated(6);
   }
 
+  /** Los negocios llegados en los últimos 30 días. */
   private async getRecent(): Promise<BusinessProfileEntity[]> {
     return this.profilesService.findRecent(30, 6);
   }
 
+  /** Los profesionales destacados de la plataforma. */
   private async getTopProfessionals(): Promise<ProfessionalProfileEntity[]> {
     return this.professionalProfilesService.findTopRated(6);
   }

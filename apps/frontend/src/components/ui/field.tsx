@@ -1,4 +1,6 @@
 "use client";
+
+// Envoltorio de campo de formulario: etiqueta, control y mensaje de error.
 import { Children, cloneElement, isValidElement, useId } from "react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";

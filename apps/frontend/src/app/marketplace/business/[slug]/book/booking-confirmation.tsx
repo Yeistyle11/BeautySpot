@@ -1,4 +1,6 @@
 "use client";
+
+// Pantalla de confirmacion mostrada tras completar una reserva.
 import Link from "next/link";
 import { CheckCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";

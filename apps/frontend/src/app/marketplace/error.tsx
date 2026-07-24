@@ -1,5 +1,7 @@
 "use client";
 
+// Error boundary del marketplace publico.
+
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";

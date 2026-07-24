@@ -12,16 +12,19 @@ import {
 } from "@beautyspot/event-types";
 import { MetricsService } from "../metrics/metrics.service";
 
+/** Fecha de hoy en UTC en formato YYYY-MM-DD, usada como clave de las métricas diarias. */
 function todayUtc(): string {
   return new Date().toISOString().split("T")[0];
 }
 
+/** Escucha los eventos de dominio y acumula las métricas diarias y por profesional del negocio. */
 @Injectable()
 export class AnalyticsEventListeners {
   private readonly logger = new Logger(AnalyticsEventListeners.name);
 
   constructor(private readonly metricsService: MetricsService) {}
 
+  /** Cuenta la cita creada y suma su importe a los ingresos del día. */
   @EventPattern(EventNames.BOOKING_APPOINTMENT_CREATED)
   async handleAppointmentCreated(
     @Payload() event: AppointmentCreatedEvent
@@ -37,6 +40,7 @@ export class AnalyticsEventListeners {
     );
   }
 
+  /** Suma la cita confirmada a las métricas del profesional. */
   @EventPattern(EventNames.BOOKING_APPOINTMENT_CONFIRMED)
   async handleAppointmentConfirmed(
     @Payload() event: AppointmentConfirmedEvent
@@ -55,6 +59,7 @@ export class AnalyticsEventListeners {
     });
   }
 
+  /** Cuenta la cita completada en el día y en las métricas del profesional. */
   @EventPattern(EventNames.BOOKING_APPOINTMENT_COMPLETED)
   async handleAppointmentCompleted(
     @Payload() event: AppointmentCompletedEvent
@@ -76,6 +81,7 @@ export class AnalyticsEventListeners {
     });
   }
 
+  /** Cuenta la cita cancelada en el día y en las métricas del profesional. */
   @EventPattern(EventNames.BOOKING_APPOINTMENT_CANCELLED)
   async handleAppointmentCancelled(
     @Payload() event: AppointmentCancelledEvent
@@ -97,6 +103,7 @@ export class AnalyticsEventListeners {
     });
   }
 
+  /** Cuenta el no-show en el día y en las métricas del profesional. */
   @EventPattern(EventNames.BOOKING_APPOINTMENT_NO_SHOWED)
   async handleAppointmentNoShowed(
     @Payload() event: AppointmentNoShowedEvent
@@ -118,6 +125,7 @@ export class AnalyticsEventListeners {
     });
   }
 
+  /** Suma el importe del pago a los ingresos del día. */
   @EventPattern(EventNames.PAYMENT_PAYMENT_REGISTERED)
   async handlePaymentRegistered(
     @Payload() event: PaymentRegisteredEvent
@@ -132,6 +140,7 @@ export class AnalyticsEventListeners {
     );
   }
 
+  /** Fija la valoración del profesional en la métrica del día a partir de la reseña. */
   @EventPattern(EventNames.MARKETPLACE_REVIEW_CREATED)
   async handleReviewCreated(
     @Payload() event: ReviewCreatedEvent
@@ -149,6 +158,7 @@ export class AnalyticsEventListeners {
     );
   }
 
+  /** Ejecuta la actualización de métricas capturando errores, para que un fallo no tumbe el consumidor. */
   private async safeIncrement(
     context: string,
     op: Promise<unknown> | (() => Promise<unknown>)

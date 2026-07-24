@@ -20,4 +20,5 @@ import { AvailabilityModule } from "../availability/availability.module";
   providers: [BookingEventListeners],
   exports: [BookingEventListeners],
 })
+/** Registra los listeners de eventos de RabbitMQ del booking-service. */
 export class BookingEventListenersModule {}

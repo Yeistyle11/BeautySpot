@@ -20,4 +20,5 @@ import { RedisModule } from "./modules/redis/redis.module";
     RateLimitModule,
   ],
 })
+/** Módulo raíz del gateway: reúne configuración, Redis y los módulos de enrutado y seguridad. */
 export class AppModule {}

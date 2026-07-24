@@ -1,6 +1,14 @@
-import { IsEmail, IsString, IsNumber, IsOptional, IsArray, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsEmail,
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+} from "class-validator";
+import { Type } from "class-transformer";
 
+/** Datos del correo de confirmación de cita. */
 export class SendAppointmentConfirmationDto {
   @IsEmail()
   to: string;
@@ -30,6 +38,7 @@ export class SendAppointmentConfirmationDto {
   businessPhone: string;
 }
 
+/** Datos del recordatorio de cita de 24 horas. */
 export class SendAppointmentReminder24hDto {
   @IsEmail()
   to: string;
@@ -56,6 +65,7 @@ export class SendAppointmentReminder24hDto {
   businessAddress: string;
 }
 
+/** Datos del recordatorio de cita de 1 hora. */
 export class SendAppointmentReminder1hDto {
   @IsEmail()
   to: string;
@@ -76,6 +86,7 @@ export class SendAppointmentReminder1hDto {
   businessName: string;
 }
 
+/** Datos del aviso de cita cancelada. */
 export class SendAppointmentCancelledDto {
   @IsEmail()
   to: string;
@@ -99,6 +110,7 @@ export class SendAppointmentCancelledDto {
   businessName: string;
 }
 
+/** Línea de servicio incluida en el correo de una factura. */
 export class InvoiceServiceDto {
   @IsString()
   name: string;
@@ -107,6 +119,7 @@ export class InvoiceServiceDto {
   price: number;
 }
 
+/** Datos del correo de factura, con la ruta opcional del PDF a adjuntar. */
 export class SendInvoiceDto {
   @IsEmail()
   to: string;
@@ -136,6 +149,7 @@ export class SendInvoiceDto {
   pdfPath?: string;
 }
 
+/** Datos del correo de restablecimiento de contraseña. */
 export class SendPasswordResetDto {
   @IsEmail()
   to: string;
@@ -150,6 +164,7 @@ export class SendPasswordResetDto {
   expiryHours: number;
 }
 
+/** Datos del correo de bienvenida. */
 export class SendWelcomeEmailDto {
   @IsEmail()
   to: string;
@@ -162,6 +177,7 @@ export class SendWelcomeEmailDto {
   businessName?: string;
 }
 
+/** Datos del correo de reporte mensual del negocio. */
 export class SendMonthlyReportDto {
   @IsEmail()
   to: string;

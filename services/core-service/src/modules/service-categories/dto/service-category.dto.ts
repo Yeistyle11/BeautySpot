@@ -1,5 +1,14 @@
-import { IsString, IsOptional, IsBoolean, IsNumber, Min, Max, MaxLength } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsNumber,
+  Min,
+  Max,
+  MaxLength,
+} from "class-validator";
 
+/** Datos para crear una categoría de servicio: nombre, icono, color y orden. */
 export class CreateServiceCategoryDto {
   @IsString()
   @MaxLength(100)
@@ -27,6 +36,7 @@ export class CreateServiceCategoryDto {
   sortOrder?: number;
 }
 
+/** Campos editables de una categoría de servicio (todos opcionales). */
 export class UpdateServiceCategoryDto {
   @IsOptional()
   @IsString()

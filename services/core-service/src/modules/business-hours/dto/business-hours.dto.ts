@@ -10,6 +10,7 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 
+/** Un tramo horario: día de la semana (0-6) y horas de apertura y cierre. */
 export class BusinessHourItemDto {
   @IsOptional() @IsString() branchId?: string;
 
@@ -22,6 +23,7 @@ export class BusinessHourItemDto {
   @IsOptional() @IsBoolean() active?: boolean;
 }
 
+/** Campos editables de un tramo horario (todos opcionales). */
 export class UpdateBusinessHoursDto {
   @IsOptional() @IsString() branchId?: string;
 
@@ -39,6 +41,7 @@ export class UpdateBusinessHoursDto {
   @IsOptional() @IsBoolean() active?: boolean;
 }
 
+/** Conjunto completo de tramos horarios que reemplaza el horario del negocio. */
 export class BatchUpsertDto {
   @ValidateNested({ each: true })
   @Type(() => BusinessHourItemDto)

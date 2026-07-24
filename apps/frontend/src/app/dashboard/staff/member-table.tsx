@@ -1,4 +1,6 @@
 "use client";
+
+// Tabla de miembros del equipo, con ordenamiento, exportacion a CSV y acciones por fila.
 import { Pencil, Trash2, Download, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

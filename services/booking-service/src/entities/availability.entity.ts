@@ -1,6 +1,7 @@
 import { Entity, Column, Index } from "typeorm";
 import { TenantEntity } from "@beautyspot/database";
 
+/** Franja horaria recurrente en que un profesional atiende, por día de la semana. */
 @Entity("availabilities")
 @Index(["businessId", "professionalId", "dayOfWeek"])
 export class Availability extends TenantEntity {

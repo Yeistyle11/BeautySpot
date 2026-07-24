@@ -1,4 +1,12 @@
-import { IsString, IsOptional, IsNumber, IsArray, IsUrl, IsBoolean, MaxLength } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsArray,
+  IsUrl,
+  IsBoolean,
+  MaxLength,
+} from "class-validator";
 import { Type } from "class-transformer";
 
 class PortfolioItemDto {
@@ -7,6 +15,7 @@ class PortfolioItemDto {
   @IsOptional() @IsString() category?: string;
 }
 
+/** Datos que el core envía para sincronizar el perfil de un profesional. */
 export class SyncProfessionalDto {
   @IsString() professionalId!: string;
   @IsString() businessId!: string;
@@ -18,6 +27,7 @@ export class SyncProfessionalDto {
   @IsOptional() @IsNumber() yearsExp?: number;
 }
 
+/** Campos del perfil que el negocio puede editar: tagline, portafolio, redes y visibilidad. */
 export class UpdateProfessionalProfileDto {
   @IsOptional() @IsString() @MaxLength(60) tagline?: string;
 
@@ -31,6 +41,7 @@ export class UpdateProfessionalProfileDto {
   @IsOptional() @IsBoolean() visibleOnProfile?: boolean;
 }
 
+/** Indica si el profesional debe mostrarse en el perfil público del negocio. */
 export class ToggleProfessionalVisibilityDto {
   @IsBoolean() visibleOnProfile!: boolean;
 }

@@ -1,4 +1,6 @@
 "use client";
+
+// Pagina del equipo: lista de profesionales con alta, edicion, detalle, horario y baja.
 import { useState, useMemo, useCallback } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";

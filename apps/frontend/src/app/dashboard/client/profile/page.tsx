@@ -1,4 +1,6 @@
 "use client";
+
+// Perfil del cliente: edicion de sus datos personales.
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";

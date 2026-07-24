@@ -1,4 +1,6 @@
 "use client";
+
+// Dialogo para configurar el horario semanal de un profesional.
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";

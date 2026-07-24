@@ -1,4 +1,6 @@
 "use client";
+
+// Pagina de configuracion: pestanas de cuenta, negocio y horarios.
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

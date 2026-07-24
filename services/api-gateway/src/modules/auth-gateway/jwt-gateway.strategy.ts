@@ -4,6 +4,7 @@ import { ExtractJwt, Strategy } from "passport-jwt";
 import { ConfigService } from "@nestjs/config";
 import { assertJwtSecret } from "@beautyspot/nest-common";
 
+/** Estrategia Passport que valida el JWT (firma y expiración) en el gateway. */
 @Injectable()
 export class JwtGatewayStrategy extends PassportStrategy(Strategy) {
   constructor(configService: ConfigService) {
@@ -18,7 +19,14 @@ export class JwtGatewayStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: { sub: string; email: string; role: string; businessId?: string; businessIds?: string[] }) {
+  /** Convierte el payload del token en el objeto `user` que se adjunta a la petición. */
+  validate(payload: {
+    sub: string;
+    email: string;
+    role: string;
+    businessId?: string;
+    businessIds?: string[];
+  }) {
     return {
       userId: payload.sub,
       email: payload.email,

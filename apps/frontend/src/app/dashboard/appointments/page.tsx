@@ -1,4 +1,6 @@
 "use client";
+
+// Pagina de agenda: lista y calendario de citas, con busqueda, paginacion y acciones de crear/confirmar/cancelar/completar.
 import { useState, useMemo, useDeferredValue } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";

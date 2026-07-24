@@ -1,4 +1,6 @@
 "use client";
+
+// Dialogo para editar un miembro: datos, rol, estado y vinculo con un profesional.
 import { Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

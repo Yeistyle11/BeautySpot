@@ -1,4 +1,6 @@
 "use client";
+
+// Dialogo para crear un miembro del equipo.
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";

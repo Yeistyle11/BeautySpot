@@ -1,3 +1,4 @@
+// Esquemas Zod, tipos y constantes de los profesionales.
 import { z } from "zod";
 
 export const professionalSchema = z.object({

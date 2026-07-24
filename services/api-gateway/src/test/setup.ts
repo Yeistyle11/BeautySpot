@@ -1,5 +1,8 @@
+// Configuracion global de Jest: mockea dependencias externas (Redis, RabbitMQ,
+// config y SDKs) para que las pruebas unitarias corran aisladas de la infraestructura.
+
 // Mock de IoRedis
-jest.mock('ioredis', () => {
+jest.mock("ioredis", () => {
   const mockRedis = {
     get: jest.fn(),
     set: jest.fn(),

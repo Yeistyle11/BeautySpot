@@ -1,3 +1,4 @@
+// Barra de progreso.
 import { cn } from "@/lib/utils";
 
 interface ProgressProps {

@@ -1,6 +1,7 @@
 import { FindManyOptions, Repository, ObjectLiteral } from "typeorm";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
 
+/** Parámetros de paginación ya validados que consume {@link paginate}. */
 export interface PaginateParams {
   page: number;
   limit: number;
@@ -9,10 +10,14 @@ export interface PaginateParams {
   order: "ASC" | "DESC";
 }
 
+/**
+ * Ejecuta una consulta paginada sobre un repositorio y devuelve los datos junto
+ * con la metadata estándar de paginación ({@link IPaginatedResponse}).
+ */
 export async function paginate<T extends ObjectLiteral>(
   repository: Repository<T>,
   params: PaginateParams,
-  findOptions?: FindManyOptions<T>,
+  findOptions?: FindManyOptions<T>
 ): Promise<IPaginatedResponse<T>> {
   // Un `order` explícito en findOptions tiene prioridad (permite ordenar por
   // varios campos, ej. date DESC + startTime ASC); si no se pasa, se usa el

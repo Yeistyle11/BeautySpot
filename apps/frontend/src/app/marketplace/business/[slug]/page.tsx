@@ -1,3 +1,4 @@
+// Pagina publica de un negocio (server component): obtiene el perfil por slug, arma la metadata y delega en BusinessProfile.
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchPublic } from "@/lib/api-server";

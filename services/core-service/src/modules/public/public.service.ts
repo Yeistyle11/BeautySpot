@@ -6,6 +6,10 @@ import { Business } from "../../entities/business.entity";
 import { Service } from "../../entities/service.entity";
 import { Professional } from "../../entities/professional.entity";
 
+/**
+ * Consultas públicas (sin autenticación) de negocios, servicios y profesionales,
+ * devolviendo solo los campos aptos para mostrar en el marketplace.
+ */
 @Injectable()
 export class PublicService {
   constructor(
@@ -17,6 +21,7 @@ export class PublicService {
     private readonly proRepo: Repository<Professional>
   ) {}
 
+  /** Lista negocios activos con filtro opcional por nombre y ciudad (máx. 50). */
   async listBusinesses(q?: string, city?: string) {
     const qb = this.businessRepo
       .createQueryBuilder("b")
@@ -43,6 +48,7 @@ export class PublicService {
     return qb.limit(50).getMany();
   }
 
+  /** Devuelve el perfil público de un negocio activo por su slug. */
   async getBusinessBySlug(slug: string) {
     const business = await this.businessRepo.findOne({
       where: { slug, active: true },
@@ -65,6 +71,7 @@ export class PublicService {
     return business;
   }
 
+  /** Lista los servicios activos de un negocio para su perfil público. */
   async getBusinessServices(businessId: string) {
     return this.serviceRepo.find({
       where: { businessId, active: true },
@@ -72,6 +79,7 @@ export class PublicService {
     });
   }
 
+  /** Lista los profesionales activos de un negocio para su perfil público. */
   async getBusinessProfessionals(businessId: string) {
     return this.proRepo.find({
       where: { businessId, active: true },

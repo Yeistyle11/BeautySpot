@@ -7,4 +7,5 @@ import { InternalClientsController } from "./internal-clients.controller";
   imports: [TypeOrmModule.forFeature([Client])],
   controllers: [InternalClientsController],
 })
+/** Cablea el endpoint interno para resolver/crear clientes de reservas. */
 export class InternalClientsModule {}

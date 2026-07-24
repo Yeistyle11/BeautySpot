@@ -1,3 +1,4 @@
+// Esquemas Zod y tipos del perfil publico (galeria, secciones, resenas).
 import { z } from "zod";
 
 export const galleryImageSchema = z.object({

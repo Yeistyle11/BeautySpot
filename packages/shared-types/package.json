@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src --ext .ts"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

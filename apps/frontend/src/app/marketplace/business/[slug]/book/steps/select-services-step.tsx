@@ -1,4 +1,6 @@
 "use client";
+
+// Paso de seleccion de servicios en el flujo de reserva.
 import { Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

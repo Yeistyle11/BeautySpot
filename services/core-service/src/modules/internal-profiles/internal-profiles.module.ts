@@ -9,4 +9,5 @@ import { InternalProfilesController } from "./internal-profiles.controller";
   imports: [TypeOrmModule.forFeature([Client, Professional, Business])],
   controllers: [InternalProfilesController],
 })
+/** Cablea el endpoint interno que resuelve ids a nombres de cliente/profesional/negocio. */
 export class InternalProfilesModule {}

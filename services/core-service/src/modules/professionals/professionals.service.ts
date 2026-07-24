@@ -12,6 +12,10 @@ import { ConfigService } from "@nestjs/config";
 import { Professional } from "../../entities/professional.entity";
 import { ProfessionalService } from "../../entities/professional-service.entity";
 
+/**
+ * Gestiona el equipo de profesionales de un negocio: su ficha, los servicios
+ * que presta cada uno y el vínculo con una cuenta de usuario.
+ */
 @Injectable()
 export class ProfessionalsService {
   constructor(
@@ -22,6 +26,7 @@ export class ProfessionalsService {
     private readonly configService: ConfigService
   ) {}
 
+  /** Da de alta un profesional en el negocio. */
   async create(
     businessId: string,
     data: Partial<Professional>
@@ -30,6 +35,7 @@ export class ProfessionalsService {
     return this.repo.save(professional);
   }
 
+  /** Lista los profesionales del negocio (por defecto solo los activos). */
   async findByBusiness(
     businessId: string,
     activeOnly = true
@@ -39,12 +45,14 @@ export class ProfessionalsService {
     return this.repo.find({ where, order: { createdAt: "ASC" as const } });
   }
 
+  /** Obtiene un profesional del negocio por id; lanza 404 si no existe. */
   async findById(id: string, businessId: string): Promise<Professional> {
     const professional = await this.repo.findOne({ where: { id, businessId } });
     if (!professional) throw new NotFoundException("Profesional no encontrado");
     return professional;
   }
 
+  /** Actualiza la ficha de un profesional. */
   async update(
     id: string,
     businessId: string,
@@ -54,6 +62,7 @@ export class ProfessionalsService {
     return this.findById(id, businessId);
   }
 
+  /** Asigna un servicio a un profesional, con precio/duración propios opcionales. */
   async assignService(
     professionalId: string,
     serviceId: string,
@@ -61,7 +70,7 @@ export class ProfessionalsService {
     customPrice?: number,
     customDuration?: number
   ): Promise<ProfessionalService> {
-    // IDOR fix: verify professional belongs to caller's business
+    // Verifica que el profesional pertenezca al negocio del llamante.
     await this.findById(professionalId, businessId);
 
     const ps = this.psRepo.create({
@@ -73,21 +82,23 @@ export class ProfessionalsService {
     return this.psRepo.save(ps);
   }
 
+  /** Quita la asignación de un servicio a un profesional. */
   async removeServiceAssignment(
     professionalId: string,
     serviceId: string,
     businessId: string
   ): Promise<void> {
-    // IDOR fix: verify professional belongs to caller's business
+    // Verifica que el profesional pertenezca al negocio del llamante.
     await this.findById(professionalId, businessId);
     await this.psRepo.delete({ professionalId, serviceId });
   }
 
+  /** Lista los servicios que presta un profesional. */
   async getServices(
     professionalId: string,
     businessId: string
   ): Promise<ProfessionalService[]> {
-    // IDOR fix: verify professional belongs to caller's business
+    // Verifica que el profesional pertenezca al negocio del llamante.
     await this.findById(professionalId, businessId);
     return this.psRepo.find({ where: { professionalId } });
   }

@@ -15,6 +15,10 @@ import {
   EventNames,
 } from "@beautyspot/event-types";
 
+/**
+ * Escucha los eventos de dominio de otros servicios y, según cada uno, enriquece
+ * los datos y encola el correo correspondiente (bienvenida, recordatorios, etc.).
+ */
 @Injectable()
 export class NotificationEventListeners {
   private readonly logger = new Logger(NotificationEventListeners.name);
@@ -26,6 +30,7 @@ export class NotificationEventListeners {
     private readonly dataEnricher: DataEnricherService
   ) {}
 
+  /** Al registrarse un usuario, encola el correo de bienvenida. */
   @EventPattern(EventNames.AUTH_USER_REGISTERED)
   async handleUserRegistered(@Payload() event: UserRegisteredEvent) {
     this.logger.log(`Usuario registrado: ${event.payload.email}`);
@@ -46,6 +51,7 @@ export class NotificationEventListeners {
     }
   }
 
+  /** Ante una solicitud de reset, arma el enlace con vencimiento y encola el correo. */
   @EventPattern(EventNames.AUTH_PASSWORD_RESET_REQUESTED)
   async handlePasswordResetRequested(
     @Payload() event: PasswordResetRequestedEvent
@@ -81,6 +87,7 @@ export class NotificationEventListeners {
     }
   }
 
+  /** Al confirmarse una cita, encola el correo de confirmación con los datos enriquecidos. */
   @EventPattern(EventNames.BOOKING_APPOINTMENT_CONFIRMED)
   async handleAppointmentConfirmed(
     @Payload() event: AppointmentConfirmedEvent
@@ -128,6 +135,7 @@ export class NotificationEventListeners {
     }
   }
 
+  /** Al cancelarse una cita, encola el correo de cancelación al cliente. */
   @EventPattern(EventNames.BOOKING_APPOINTMENT_CANCELLED)
   async handleAppointmentCancelled(
     @Payload() event: AppointmentCancelledEvent
@@ -175,6 +183,7 @@ export class NotificationEventListeners {
     }
   }
 
+  /** Ante un recordatorio pendiente, decide si es de 24h o 1h y encola el correo adecuado. */
   @EventPattern(EventNames.BOOKING_APPOINTMENT_REMINDER_DUE)
   async handleAppointmentReminder(
     @Payload() event: AppointmentReminderDueEvent
@@ -244,6 +253,7 @@ export class NotificationEventListeners {
     }
   }
 
+  /** Al generarse una factura, encola su envío por correo al cliente. */
   @EventPattern(EventNames.PAYMENT_INVOICE_GENERATED)
   async handleInvoiceGenerated(@Payload() event: InvoiceGeneratedEvent) {
     const { invoiceId, number, total, clientId, businessId } = event.payload;
@@ -276,6 +286,7 @@ export class NotificationEventListeners {
     }
   }
 
+  /** Ante un pago en efectivo o transferencia, encola el recibo por correo. */
   @EventPattern(EventNames.PAYMENT_PAYMENT_REGISTERED)
   async handlePaymentRegistered(@Payload() event: PaymentRegisteredEvent) {
     this.logger.log(`Pago registrado: ${event.payload.paymentId}`);
@@ -312,6 +323,7 @@ export class NotificationEventListeners {
     }
   }
 
+  /** Decide si el recordatorio corresponde a la ventana de 24h, la de 1h, o ninguna. */
   private determineReminderType(
     appointmentDate: string,
     appointmentTime: string
@@ -332,6 +344,7 @@ export class NotificationEventListeners {
     return null;
   }
 
+  /** Publica en RabbitMQ el evento de correo encolado, para trazabilidad. */
   private async emitEmailQueuedEvent(
     jobId: string,
     to: string,
@@ -354,6 +367,7 @@ export class NotificationEventListeners {
     }
   }
 
+  /** Registra en log un error de envío de correo con su contexto. */
   private logError(context: string, error: unknown): void {
     const message =
       error instanceof Error ? error.message : "Error desconocido";

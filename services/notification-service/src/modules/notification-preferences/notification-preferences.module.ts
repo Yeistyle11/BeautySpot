@@ -10,4 +10,5 @@ import { NotificationPreferencesController } from "./notification-preferences.co
   providers: [NotificationPreferencesService],
   exports: [NotificationPreferencesService],
 })
+/** Cablea la gestión de preferencias de notificación por usuario. */
 export class NotificationPreferencesModule {}

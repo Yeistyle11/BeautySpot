@@ -1,4 +1,6 @@
 "use client";
+
+// Resumen de pagos agrupados por metodo (efectivo, tarjeta, transferencia).
 import { Banknote, CreditCard, Smartphone, Wallet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";

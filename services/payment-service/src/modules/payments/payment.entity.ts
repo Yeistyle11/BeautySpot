@@ -2,13 +2,20 @@ import { Entity, Column, Index } from "typeorm";
 import { TenantEntity, numericTransformer } from "@beautyspot/database";
 import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
 
+/** Pago manual de un cliente (opcionalmente ligado a una cita), con sus datos de devolución. */
 @Entity("payments")
 @Index(["businessId", "createdAt"])
 export class PaymentEntity extends TenantEntity {
   @Column({ type: "uuid", name: "appointment_id", nullable: true })
   appointmentId!: string;
   @Column({ type: "uuid", name: "client_id" }) clientId!: string;
-  @Column({ type: "decimal", precision: 10, scale: 2, transformer: numericTransformer }) amount!: number;
+  @Column({
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    transformer: numericTransformer,
+  })
+  amount!: number;
   @Column({ type: "enum", enum: PaymentMethod }) method!: PaymentMethod;
   @Column({
     type: "enum",
@@ -26,7 +33,8 @@ export class PaymentEntity extends TenantEntity {
   @Column({
     type: "decimal",
     precision: 10,
-    scale: 2, transformer: numericTransformer,
+    scale: 2,
+    transformer: numericTransformer,
     name: "refund_amount",
     nullable: true,
   })

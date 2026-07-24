@@ -1,6 +1,16 @@
-import { IsString, IsNumber, IsOptional, Min, Max, IsArray, IsUrl, MaxLength } from "class-validator";
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  Min,
+  Max,
+  IsArray,
+  IsUrl,
+  MaxLength,
+} from "class-validator";
 import { Type } from "class-transformer";
 
+/** Datos para crear una reseña: negocio/profesional, cita, calificación, comentario y fotos. */
 export class CreateReviewDto {
   @IsString() businessId!: string;
 
@@ -25,10 +35,12 @@ export class CreateReviewDto {
   photos?: string[];
 }
 
+/** Texto de la respuesta del negocio a una reseña. */
 export class RespondReviewDto {
   @IsString() @MaxLength(500) response!: string;
 }
 
+/** Filtros de listado de reseñas: página, estrellas, profesional y si tienen fotos. */
 export class ReviewQueryDto {
   @IsOptional() @Type(() => Number) @IsNumber() @Min(1) page?: number;
 

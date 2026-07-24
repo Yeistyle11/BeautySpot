@@ -6,6 +6,7 @@ import {
   MaxLength,
 } from "class-validator";
 
+/** Datos para registrar un cliente: nombre, contacto, notas y etiquetas. */
 export class CreateClientDto {
   @IsString() @MaxLength(200) name!: string;
   @IsOptional() @IsString() @MaxLength(255) email?: string;
@@ -15,6 +16,7 @@ export class CreateClientDto {
   @IsOptional() @IsArray() tags?: string[];
 }
 
+/** Campos editables de un cliente (todos opcionales). */
 export class UpdateClientDto {
   @IsOptional() @IsString() @MaxLength(200) name?: string;
   @IsOptional() @IsString() @MaxLength(255) email?: string;

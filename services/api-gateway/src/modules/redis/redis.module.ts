@@ -2,6 +2,7 @@ import { Module, Global } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import Redis from "ioredis";
 
+/** Token de inyección para el cliente Redis compartido del gateway. */
 export const REDIS_CLIENT = Symbol("REDIS_CLIENT");
 
 @Global()
@@ -21,4 +22,5 @@ export const REDIS_CLIENT = Symbol("REDIS_CLIENT");
   ],
   exports: [REDIS_CLIENT],
 })
+/** Provee un cliente Redis global (rate limit, caché de tenants) desde configuración. */
 export class RedisModule {}

@@ -1,4 +1,6 @@
 "use client";
+
+// Dialogo con el detalle completo de un profesional.
 import Image from "next/image";
 import { Star, Briefcase, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";

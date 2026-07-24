@@ -1,5 +1,6 @@
 import { IsEmail, IsString, MinLength, IsOptional } from "class-validator";
 
+/** Datos para registrar una cuenta nueva: email, contraseña, nombre y teléfono. */
 export class RegisterDto {
   @IsEmail()
   email!: string;

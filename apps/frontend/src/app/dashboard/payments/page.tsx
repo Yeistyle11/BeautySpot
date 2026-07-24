@@ -1,4 +1,6 @@
 "use client";
+
+// Pagina de pagos: lista de pagos registrados con resumen, busqueda por fecha y paginacion.
 import { useState, useMemo } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";

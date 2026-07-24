@@ -1,3 +1,6 @@
+// Mapea cada estado de cita a su etiqueta en español y sus clases de color, tanto
+// para los badges como para los chips densos del calendario. Fuente única para que
+// el mismo estado se vea igual en toda la app.
 export type AppointmentStatus =
   | "PENDING"
   | "CONFIRMED"
@@ -68,6 +71,7 @@ const DEFAULT_STATUS: StatusInfo = {
   variant: "secondary",
 };
 
+/** Devuelve la presentación (etiqueta y colores) de un estado de cita; usa un valor por defecto si es desconocido. */
 export function getAppointmentStatus(status: string): StatusInfo {
   return APPOINTMENT_STATUS[status as AppointmentStatus] ?? DEFAULT_STATUS;
 }

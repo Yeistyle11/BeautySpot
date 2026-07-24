@@ -4,6 +4,7 @@ import { Repository, DataSource, Between } from "typeorm";
 import { DailyMetricEntity } from "../../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
 
+/** Incrementos a aplicar sobre los contadores de la métrica diaria de un negocio. */
 export interface DailyMetricIncrements {
   totalAppointments?: number;
   completedAppointments?: number;
@@ -14,11 +15,16 @@ export interface DailyMetricIncrements {
   returningClients?: number;
 }
 
+/** Incrementos a aplicar sobre los contadores de la métrica de un profesional. */
 export interface ProfessionalMetricIncrements {
   appointments?: number;
   revenue?: number;
 }
 
+/**
+ * Acumula las métricas diarias del negocio y de cada profesional de forma atómica
+ * (INSERT ... ON CONFLICT), y las consulta por rango de fechas para los reportes.
+ */
 @Injectable()
 export class MetricsService {
   constructor(
@@ -110,6 +116,7 @@ export class MetricsService {
     );
   }
 
+  /** Devuelve las métricas diarias del negocio y de sus profesionales en un rango de fechas. */
   async getMetrics(businessId: string, from: string, to: string) {
     const [daily, professional] = await Promise.all([
       this.dailyRepo.find({
@@ -126,6 +133,7 @@ export class MetricsService {
     return { daily, professional };
   }
 
+  /** Traduce los incrementos diarios recibidos a pares [columna, valor] no vacíos. */
   private buildDailyIncrementColumns(
     inc: DailyMetricIncrements
   ): [string, number][] {
@@ -145,6 +153,7 @@ export class MetricsService {
     return cols;
   }
 
+  /** Traduce los incrementos de profesional recibidos a pares [columna, valor] no vacíos. */
   private buildProfIncrementColumns(
     inc: ProfessionalMetricIncrements
   ): [string, number][] {

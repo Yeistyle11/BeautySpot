@@ -8,12 +8,17 @@ import {
 } from "typeorm";
 import { v4 as uuidv4 } from "uuid";
 
+/** Estado de un mensaje del outbox: pendiente, ya publicado o descartado tras agotar reintentos. */
 export enum OutboxStatus {
   PENDING = "PENDING",
   PROCESSED = "PROCESSED",
   DEAD = "DEAD",
 }
 
+/**
+ * Evento persistido a la espera de ser publicado en RabbitMQ (patrón Transactional
+ * Outbox). Guarda el payload, el agregado de origen y el conteo de intentos.
+ */
 @Entity("outbox_messages")
 @Index(["status", "createdAt"])
 export class OutboxMessageEntity {
