@@ -25,21 +25,11 @@ export class CoreEventListeners {
   /** Reacciona a la creación de una membresía en un negocio. */
   @EventPattern(EventNames.AUTH_MEMBERSHIP_CREATED)
   async handleMembershipCreated(@Payload() event: MembershipCreatedEvent) {
-    this.logger.log(`Membresia creada: ${event.payload.membershipId}`);
-    try {
-      const { businessId, role } = event.payload;
-      this.logger.log(
-        `Membresia creada en negocio ${businessId} con rol ${role}`
-      );
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Error desconocido";
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(
-        `Error procesando membresia creada: ${errorMessage}`,
-        errorStack
-      );
-    }
+    const { membershipId, businessId, role } = event.payload;
+    this.logger.log(`Membresia creada: ${membershipId}`);
+    this.logger.log(
+      `Membresia creada en negocio ${businessId} con rol ${role}`
+    );
   }
 
   /** Reacciona al cambio de rol de una membresía. */
@@ -47,21 +37,11 @@ export class CoreEventListeners {
   async handleMembershipRoleChanged(
     @Payload() event: MembershipRoleChangedEvent
   ) {
-    this.logger.log(`Rol de membresia cambiado: ${event.payload.membershipId}`);
-    try {
-      const { businessId, previousRole, newRole } = event.payload;
-      this.logger.log(
-        `Usuario cambió de rol ${previousRole} a ${newRole} en negocio ${businessId}`
-      );
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Error desconocido";
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(
-        `Error procesando cambio de rol: ${errorMessage}`,
-        errorStack
-      );
-    }
+    const { membershipId, businessId, previousRole, newRole } = event.payload;
+    this.logger.log(`Rol de membresia cambiado: ${membershipId}`);
+    this.logger.log(
+      `Usuario cambió de rol ${previousRole} a ${newRole} en negocio ${businessId}`
+    );
   }
 
   /** Reacciona a una cita completada (p. ej. puntos de fidelidad ganados). */
@@ -69,21 +49,11 @@ export class CoreEventListeners {
   async handleAppointmentCompleted(
     @Payload() event: AppointmentCompletedEvent
   ) {
-    this.logger.log(`Cita completada: ${event.payload.appointmentId}`);
-    try {
-      const { appointmentId, clientId, pointsEarned } = event.payload;
-      this.logger.log(
-        `Cita ${appointmentId} completada. Cliente ${clientId} ganó ${pointsEarned} puntos`
-      );
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Error desconocido";
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(
-        `Error procesando cita completada: ${errorMessage}`,
-        errorStack
-      );
-    }
+    const { appointmentId, clientId, pointsEarned } = event.payload;
+    this.logger.log(`Cita completada: ${appointmentId}`);
+    this.logger.log(
+      `Cita ${appointmentId} completada. Cliente ${clientId} ganó ${pointsEarned} puntos`
+    );
   }
 
   /** Reacciona a una cita cancelada. */
@@ -91,20 +61,10 @@ export class CoreEventListeners {
   async handleAppointmentCancelled(
     @Payload() event: AppointmentCancelledEvent
   ) {
-    this.logger.log(`Cita cancelada: ${event.payload.appointmentId}`);
-    try {
-      const { appointmentId, clientId, cancelReason } = event.payload;
-      this.logger.log(
-        `Cita ${appointmentId} cancelada por cliente ${clientId}. Razon: ${cancelReason}`
-      );
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Error desconocido";
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(
-        `Error procesando cita cancelada: ${errorMessage}`,
-        errorStack
-      );
-    }
+    const { appointmentId, clientId, cancelReason } = event.payload;
+    this.logger.log(`Cita cancelada: ${appointmentId}`);
+    this.logger.log(
+      `Cita ${appointmentId} cancelada por cliente ${clientId}. Razon: ${cancelReason}`
+    );
   }
 }
