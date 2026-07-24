@@ -3,6 +3,7 @@ import { BaseEntity, numericTransformer } from "@beautyspot/database";
 import { Professional } from "./professional.entity";
 import { Service } from "./service.entity";
 
+/** Relación profesional–servicio: qué servicios presta cada profesional, con precio/duración propios opcionales. */
 @Entity("professional_services")
 @Unique(["professionalId", "serviceId"])
 export class ProfessionalService extends BaseEntity {

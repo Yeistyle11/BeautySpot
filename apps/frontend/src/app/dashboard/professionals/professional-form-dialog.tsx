@@ -1,4 +1,6 @@
 "use client";
+
+// Formulario de alta/edicion de un profesional.
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";

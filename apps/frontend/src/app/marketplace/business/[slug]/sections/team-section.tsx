@@ -1,4 +1,6 @@
 "use client";
+
+// Seccion de equipo del perfil publico, con enlace a reservar con cada profesional.
 import Image from "next/image";
 import Link from "next/link";
 import { Calendar, Star, Users } from "lucide-react";

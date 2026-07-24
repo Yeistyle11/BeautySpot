@@ -12,4 +12,5 @@ import { AuditLog } from "../../entities/audit-log.entity";
   providers: [UsersService],
   exports: [UsersService],
 })
+/** Cablea el controlador y servicio de usuarios y gestión de staff. */
 export class UsersModule {}

@@ -1,5 +1,7 @@
 "use client";
 
+// Pagina de categorias de servicios: reutiliza CategoryManager con su configuracion.
+
 import { Scissors } from "lucide-react";
 import {
   CategoryManager,

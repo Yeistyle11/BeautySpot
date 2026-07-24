@@ -2,10 +2,12 @@ import { Injectable, Logger } from "@nestjs/common";
 import { EventPattern, Payload } from "@nestjs/microservices";
 import { EventNames } from "@beautyspot/event-types";
 
+/** Escucha los eventos de citas para seguir su estado de cobro dentro del payment-service. */
 @Injectable()
 export class PaymentEventListeners {
   private readonly logger = new Logger(PaymentEventListeners.name);
 
+  /** Reacciona a una cita creada (queda pendiente de pago). */
   @EventPattern(EventNames.BOOKING_APPOINTMENT_CREATED)
   async handleAppointmentCreated(@Payload() event: any) {
     this.logger.log(`Cita creada: ${event.payload.appointmentId}`);
@@ -25,6 +27,7 @@ export class PaymentEventListeners {
     }
   }
 
+  /** Reacciona a una cita confirmada (a la espera de pago). */
   @EventPattern(EventNames.BOOKING_APPOINTMENT_CONFIRMED)
   async handleAppointmentConfirmed(@Payload() event: any) {
     this.logger.log(`Cita confirmada: ${event.payload.appointmentId}`);
@@ -42,6 +45,7 @@ export class PaymentEventListeners {
     }
   }
 
+  /** Reacciona a una cita completada (queda con pago pendiente de registrar). */
   @EventPattern(EventNames.BOOKING_APPOINTMENT_COMPLETED)
   async handleAppointmentCompleted(@Payload() event: any) {
     this.logger.log(`Cita completada: ${event.payload.appointmentId}`);
@@ -59,6 +63,7 @@ export class PaymentEventListeners {
     }
   }
 
+  /** Reacciona a una cita cancelada. */
   @EventPattern(EventNames.BOOKING_APPOINTMENT_CANCELLED)
   async handleAppointmentCancelled(@Payload() event: any) {
     this.logger.log(`Cita cancelada: ${event.payload.appointmentId}`);

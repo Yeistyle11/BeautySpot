@@ -3,6 +3,7 @@ import { TenantEntity, numericTransformer } from "@beautyspot/database";
 import { InvoiceStatus } from "@beautyspot/shared-types";
 import { InvoiceItemEntity } from "./invoice-item.entity";
 
+/** Factura de un cliente: numeración por negocio, importe, estado y sus líneas. */
 @Entity("invoices")
 @Index(["businessId", "number"], { unique: true })
 export class InvoiceEntity extends TenantEntity {

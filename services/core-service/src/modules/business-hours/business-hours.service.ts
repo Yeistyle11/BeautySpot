@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { BusinessHours } from "../../entities/business-hours.entity";
 
+/** Gestiona el horario semanal de apertura de un negocio (opcionalmente por sede). */
 @Injectable()
 export class BusinessHoursService {
   constructor(
@@ -10,6 +11,7 @@ export class BusinessHoursService {
     private readonly repo: Repository<BusinessHours>
   ) {}
 
+  /** Devuelve los tramos horarios del negocio (o de una sede), ordenados por día y hora. */
   async findByBusiness(
     businessId: string,
     branchId?: string
@@ -22,6 +24,7 @@ export class BusinessHoursService {
     });
   }
 
+  /** Reemplaza por completo el horario del negocio por el conjunto recibido. */
   async batchUpsert(
     businessId: string,
     items: Partial<BusinessHours>[]
@@ -45,6 +48,7 @@ export class BusinessHoursService {
     return this.repo.save(hours);
   }
 
+  /** Actualiza un único tramo horario del negocio. */
   async updateOne(
     id: string,
     businessId: string,

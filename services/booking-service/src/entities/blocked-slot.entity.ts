@@ -1,6 +1,7 @@
 import { Entity, Column, Index } from "typeorm";
 import { TenantEntity } from "@beautyspot/database";
 
+/** Bloqueo puntual de la agenda de un profesional (vacaciones, descanso) que impide reservar. */
 @Entity("blocked_slots")
 @Index(["businessId", "professionalId", "date"])
 export class BlockedSlot extends TenantEntity {

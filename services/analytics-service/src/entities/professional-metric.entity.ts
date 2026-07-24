@@ -1,6 +1,7 @@
 import { Entity, Column, Index } from "typeorm";
 import { TenantEntity, numericTransformer } from "@beautyspot/database";
 
+/** Métricas de un profesional por día: citas, ingresos, valoración y tiempo medio de servicio. */
 @Entity("professional_metrics")
 @Index(["businessId", "professionalId", "date"], { unique: true })
 export class ProfessionalMetricEntity extends TenantEntity {

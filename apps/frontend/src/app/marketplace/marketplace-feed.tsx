@@ -1,4 +1,6 @@
 "use client";
+
+// Feed del marketplace: buscador y rejilla de negocios publicos.
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";

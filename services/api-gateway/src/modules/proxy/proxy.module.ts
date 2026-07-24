@@ -9,4 +9,5 @@ import { CircuitBreakerModule } from "../circuit-breaker/circuit-breaker.module"
   controllers: [ProxyController],
   providers: [ProxyService, ServiceUrlsConfig],
 })
+/** Cablea el controlador y servicio que reenvían las peticiones a los microservicios. */
 export class ProxyModule {}

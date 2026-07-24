@@ -1,3 +1,4 @@
+/** Estados por los que pasa una cita a lo largo de su ciclo de vida. */
 export enum AppointmentStatus {
   PENDING = "PENDING",
   CONFIRMED = "CONFIRMED",

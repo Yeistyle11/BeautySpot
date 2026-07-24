@@ -13,6 +13,7 @@ import {
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
 
+/** CRUD de las categorías de servicios de un negocio, con orden y activación. */
 @Injectable()
 export class ServiceCategoriesService {
   constructor(
@@ -20,6 +21,7 @@ export class ServiceCategoriesService {
     private readonly repo: Repository<ServiceCategoryEntity>
   ) {}
 
+  /** Crea una categoría de servicio rechazando nombres duplicados en el negocio. */
   async create(
     businessId: string,
     dto: CreateServiceCategoryDto
@@ -36,6 +38,7 @@ export class ServiceCategoriesService {
     return this.repo.save(category);
   }
 
+  /** Lista las categorías de servicio del negocio (por defecto solo activas), ordenadas. */
   async findByBusiness(
     businessId: string,
     activeOnly = true
@@ -48,6 +51,7 @@ export class ServiceCategoriesService {
     });
   }
 
+  /** Lista las categorías de servicio con paginación y búsqueda por nombre. */
   async findPaginated(
     businessId: string,
     params: PaginateParams,
@@ -64,6 +68,7 @@ export class ServiceCategoriesService {
     });
   }
 
+  /** Obtiene una categoría de servicio por id; lanza 404 si no existe. */
   async findById(
     id: string,
     businessId: string
@@ -74,6 +79,7 @@ export class ServiceCategoriesService {
     return category;
   }
 
+  /** Actualiza una categoría de servicio rechazando un nombre que ya use otra. */
   async update(
     id: string,
     businessId: string,
@@ -96,11 +102,13 @@ export class ServiceCategoriesService {
     return this.findById(id, businessId);
   }
 
+  /** Da de baja (baja lógica) una categoría de servicio. */
   async remove(id: string, businessId: string): Promise<void> {
     await this.findById(id, businessId);
     await this.repo.update({ id, businessId }, { active: false });
   }
 
+  /** Alterna el estado activo/inactivo de una categoría de servicio. */
   async toggleActive(
     id: string,
     businessId: string
@@ -113,6 +121,7 @@ export class ServiceCategoriesService {
     return this.findById(id, businessId);
   }
 
+  /** Reordena las categorías de servicio aplicando el nuevo sortOrder de cada una. */
   async reorder(
     businessId: string,
     items: { id: string; sortOrder: number }[]

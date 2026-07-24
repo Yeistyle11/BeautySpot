@@ -16,6 +16,10 @@ import {
 import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 
+/**
+ * Gestiona el arqueo de caja: apertura y cierre de sesiones (una abierta por
+ * negocio), registro de movimientos y cálculo del total esperado.
+ */
 @Injectable()
 export class CashRegisterService {
   constructor(
@@ -75,6 +79,7 @@ export class CashRegisterService {
     );
   }
 
+  /** Cierra la sesión, calcula los totales de movimientos y emite el evento de cierre. */
   async closeSession(
     sessionId: string,
     businessId: string,
@@ -132,6 +137,7 @@ export class CashRegisterService {
     });
   }
 
+  /** Registra un ingreso o egreso en una sesión abierta; rechaza si ya está cerrada. */
   async registerMovement(
     sessionId: string,
     businessId: string,
@@ -158,6 +164,7 @@ export class CashRegisterService {
     );
   }
 
+  /** Devuelve el detalle de una sesión con sus movimientos y el total esperado. */
   async getSessionSummary(sessionId: string, businessId: string) {
     const session = await this.sessionRepo.findOne({
       where: { id: sessionId, businessId },
@@ -193,6 +200,7 @@ export class CashRegisterService {
     };
   }
 
+  /** Devuelve la sesión de caja abierta del negocio, o null si no hay ninguna. */
   async getActiveSession(
     businessId: string
   ): Promise<CashSessionEntity | null> {
@@ -203,6 +211,7 @@ export class CashRegisterService {
     });
   }
 
+  /** Lista las últimas 50 sesiones de caja del negocio, de la más reciente a la más antigua. */
   async getSessionHistory(businessId: string): Promise<CashSessionEntity[]> {
     return this.sessionRepo.find({
       where: { businessId },

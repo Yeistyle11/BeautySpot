@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Availability } from "../../entities/availability.entity";
 
+/** Gestiona la disponibilidad horaria semanal de cada profesional. */
 @Injectable()
 export class AvailabilityService {
   constructor(
@@ -10,6 +11,7 @@ export class AvailabilityService {
     private readonly repo: Repository<Availability>
   ) {}
 
+  /** Devuelve las franjas de disponibilidad activas de un profesional, ordenadas por día. */
   async findByProfessional(
     businessId: string,
     professionalId: string

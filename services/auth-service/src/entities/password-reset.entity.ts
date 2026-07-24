@@ -2,6 +2,7 @@ import { Entity, Column, ManyToOne } from "typeorm";
 import { BaseEntity } from "@beautyspot/database";
 import { User } from "./user.entity";
 
+/** Token de recuperación de contraseña (solo su hash), con vencimiento y marca de uso. */
 @Entity("password_resets")
 export class PasswordReset extends BaseEntity {
   @Column({ type: "uuid", name: "user_id" })

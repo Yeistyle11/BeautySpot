@@ -24,6 +24,11 @@ import {
   timesOverlap,
 } from "@beautyspot/shared-utils";
 
+/**
+ * Orquesta el ciclo de vida de las citas (creación, confirmación, ejecución,
+ * cancelación y reagendado) evitando el doble-booking con transacciones
+ * SERIALIZABLE y publicando cada cambio vía el patrón Outbox.
+ */
 @Injectable()
 export class AppointmentsService {
   constructor(
@@ -447,6 +452,7 @@ export class AppointmentsService {
     });
   }
 
+  /** Obtiene una cita del negocio con sus servicios; lanza 404 si no existe. */
   async findById(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.apptRepo.findOne({
       where: { id, businessId },
@@ -458,6 +464,7 @@ export class AppointmentsService {
     return appt;
   }
 
+  /** Lista las citas del negocio con filtros (estado, fecha, profesional, cliente) y paginación. */
   async findByBusiness(
     businessId: string,
     filters: {

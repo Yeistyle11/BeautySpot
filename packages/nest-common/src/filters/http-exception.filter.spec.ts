@@ -1,11 +1,8 @@
-import { Test, TestingModule } from "@nestjs/testing";
-import { ArgumentsHost } from "@nestjs/common";
 import { HttpException, HttpStatus } from "@nestjs/common";
 import { HttpExceptionFilter } from "./http-exception.filter";
 
 describe("HttpExceptionFilter", () => {
   let filter: HttpExceptionFilter;
-  let mockArgumentsHost: ArgumentsHost;
 
   beforeEach(() => {
     filter = new HttpExceptionFilter();

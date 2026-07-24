@@ -11,4 +11,5 @@ import { CashRegisterController } from "./cash-register.controller";
   providers: [CashRegisterService],
   exports: [CashRegisterService],
 })
+/** Cablea la gestión del arqueo de caja. */
 export class CashRegisterModule {}

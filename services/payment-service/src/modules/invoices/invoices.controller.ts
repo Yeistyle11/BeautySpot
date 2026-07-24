@@ -16,11 +16,13 @@ import { CreateInvoiceDto, UpdateInvoiceStatusDto } from "./dto/invoice.dto";
 import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
+/** Endpoints de facturación del negocio (crear, consultar, cambiar estado y descargar PDF). */
 @Controller("invoices")
 @Roles(Role.OWNER, Role.ADMIN)
 export class InvoicesController {
   constructor(private readonly service: InvoicesService) {}
 
+  /** Crea una factura para un cliente. */
   @Post()
   async create(
     @BusinessId() businessId: string,
@@ -29,6 +31,7 @@ export class InvoicesController {
     return this.service.create(businessId, dto);
   }
 
+  /** Lista las facturas del negocio con filtros opcionales. */
   @Get()
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   async findAll(
@@ -38,11 +41,13 @@ export class InvoicesController {
     return this.service.findByBusiness(businessId, query as any);
   }
 
+  /** Obtiene una factura por id. */
   @Get(":id")
   async findById(@Param("id") id: string, @BusinessId() businessId: string) {
     return this.service.findById(id, businessId);
   }
 
+  /** Cambia el estado de una factura. */
   @Patch(":id/status")
   async updateStatus(
     @Param("id") id: string,
@@ -52,6 +57,7 @@ export class InvoicesController {
     return this.service.updateStatus(id, businessId, dto.status);
   }
 
+  /** Genera y descarga el PDF de una factura. */
   @Get(":id/pdf")
   @HttpCode(HttpStatus.OK)
   async generatePdf(

@@ -1,3 +1,4 @@
+/** Medios de pago admitidos para registrar un cobro. */
 export enum PaymentMethod {
   CASH = "CASH",
   CARD = "CARD",
@@ -5,6 +6,7 @@ export enum PaymentMethod {
   OTHER = "OTHER",
 }
 
+/** Estados por los que pasa un pago. */
 export enum PaymentStatus {
   PENDING = "PENDING",
   COMPLETED = "COMPLETED",
@@ -12,6 +14,7 @@ export enum PaymentStatus {
   CANCELLED = "CANCELLED",
 }
 
+/** Estados por los que pasa una factura. */
 export enum InvoiceStatus {
   DRAFT = "DRAFT",
   SENT = "SENT",
@@ -19,6 +22,7 @@ export enum InvoiceStatus {
   CANCELLED = "CANCELLED",
 }
 
+/** Sentido de un movimiento de caja: entrada o salida de efectivo. */
 export enum CashMovementType {
   IN = "IN",
   OUT = "OUT",

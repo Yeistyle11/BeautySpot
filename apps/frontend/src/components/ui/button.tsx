@@ -1,3 +1,4 @@
+// Boton con variantes de estilo y tamano (CVA); soporta asChild via Slot.
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";

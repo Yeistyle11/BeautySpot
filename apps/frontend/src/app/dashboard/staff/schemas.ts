@@ -1,3 +1,4 @@
+// Esquemas Zod, tipos y formularios de los miembros del equipo.
 import { z } from "zod";
 
 export const staffMemberSchema = z.object({

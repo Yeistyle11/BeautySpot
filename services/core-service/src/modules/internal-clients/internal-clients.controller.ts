@@ -4,12 +4,14 @@ import { Repository } from "typeorm";
 import { Client } from "../../entities/client.entity";
 import { FindOrCreateClientDto } from "./dto/find-or-create-client.dto";
 
+/** Endpoint interno (servicio-a-servicio) para resolver el cliente de una reserva. */
 @Controller("internal/clients")
 export class InternalClientsController {
   constructor(
     @InjectRepository(Client) private readonly clientRepo: Repository<Client>
   ) {}
 
+  /** Devuelve el cliente existente que coincida por email/teléfono, o lo crea si no hay ninguno. */
   @Post("find-or-create")
   async findOrCreate(@Body() dto: FindOrCreateClientDto): Promise<Client> {
     const existing = await this.findExistingClient(dto);
@@ -17,6 +19,7 @@ export class InternalClientsController {
     return this.createNewClient(dto);
   }
 
+  /** Busca un cliente del negocio por email y luego por teléfono; null si no hay coincidencia. */
   private async findExistingClient(
     dto: FindOrCreateClientDto
   ): Promise<Client | null> {
@@ -35,6 +38,7 @@ export class InternalClientsController {
     return null;
   }
 
+  /** Crea un cliente mínimo en el negocio a partir de los datos de la reserva. */
   private async createNewClient(dto: FindOrCreateClientDto): Promise<Client> {
     const client = new Client();
     client.businessId = dto.businessId;

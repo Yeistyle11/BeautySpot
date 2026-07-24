@@ -2,6 +2,7 @@ import { Entity, Column, ManyToOne, JoinColumn } from "typeorm";
 import { TenantEntity } from "@beautyspot/database";
 import { Business } from "./business.entity";
 
+/** Sede o local físico de un negocio, con su dirección y ubicación. */
 @Entity("branches")
 export class Branch extends TenantEntity {
   @Column() name!: string;

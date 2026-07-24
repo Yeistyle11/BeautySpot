@@ -1,4 +1,6 @@
 "use client";
+
+// Pagina de usuarios: gestion de miembros del equipo (alta, edicion, baja y exportacion).
 import { useMemo, useState, useDeferredValue } from "react";
 import { mutate } from "swr";
 import { z } from "zod";

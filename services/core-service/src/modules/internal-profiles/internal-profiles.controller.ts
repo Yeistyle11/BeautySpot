@@ -20,13 +20,17 @@ export interface ResolvedBusiness {
   phone: string;
 }
 
+/** Datos resueltos de cliente, profesional y negocio para enriquecer notificaciones/documentos. */
 export interface ProfileResolution {
   client: ResolvedClient | null;
   professional: ResolvedProfessional | null;
   business: ResolvedBusiness | null;
 }
 
-/** Internal endpoint — protegido por InternalSecretGuard (requiere header x-internal-secret) */
+/**
+ * Endpoint interno (protegido por InternalSecretGuard) que traduce ids de
+ * cliente, profesional y negocio a sus nombres y datos de contacto.
+ */
 @Controller("internal/profiles")
 export class InternalProfilesController {
   constructor(
@@ -38,6 +42,7 @@ export class InternalProfilesController {
     private readonly businessRepo: Repository<Business>
   ) {}
 
+  /** Resuelve en paralelo los datos de los ids recibidos; cada campo es null si no se pidió o no existe. */
   @Get("resolve")
   async resolve(
     @Query("clientId") clientId?: string,
@@ -53,6 +58,7 @@ export class InternalProfilesController {
     return { client, professional, business };
   }
 
+  /** Nombre y email del cliente indicado. */
   private async resolveClient(id: string): Promise<ResolvedClient | null> {
     const c = await this.clientRepo.findOne({
       where: { id },
@@ -62,6 +68,7 @@ export class InternalProfilesController {
     return { name: c.name, email: c.email ?? "" };
   }
 
+  /** Nombre del profesional indicado. */
   private async resolveProfessional(
     id: string
   ): Promise<ResolvedProfessional | null> {
@@ -73,6 +80,7 @@ export class InternalProfilesController {
     return { name: p.name };
   }
 
+  /** Nombre y datos de contacto del negocio indicado. */
   private async resolveBusiness(id: string): Promise<ResolvedBusiness | null> {
     const b = await this.businessRepo.findOne({
       where: { id },

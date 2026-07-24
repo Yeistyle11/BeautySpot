@@ -13,10 +13,12 @@ import { CreateCategoryDto, UpdateCategoryDto } from "./dto/category.dto";
 import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
+/** Endpoints de categorías de profesionales; la lectura la comparten todos los roles del negocio. */
 @Controller("categories")
 export class CategoriesController {
   constructor(private readonly service: CategoriesService) {}
 
+  /** Crea una categoría de profesionales. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post()
   async create(
@@ -26,6 +28,7 @@ export class CategoriesController {
     return this.service.create(businessId, dto);
   }
 
+  /** Lista las categorías; usa modo paginado si llegan page/limit, o completo si no. */
   @Roles(
     Role.OWNER,
     Role.ADMIN,
@@ -59,7 +62,7 @@ export class CategoriesController {
       );
     }
 
-    // Sin paginación: listar todas (comportamiento anterior)
+    // Sin paginación: listar todas las categorías del negocio.
     return this.service.findByBusiness(businessId, active !== "false");
   }
 
@@ -70,11 +73,13 @@ export class CategoriesController {
     Role.PROFESSIONAL,
     Role.RECEPTIONIST
   )
+  /** Obtiene una categoría por id. */
   @Get(":id")
   async findById(@Param("id") id: string, @BusinessId() businessId: string) {
     return this.service.findById(id, businessId);
   }
 
+  /** Actualiza una categoría. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Patch(":id")
   async update(
@@ -85,6 +90,7 @@ export class CategoriesController {
     return this.service.update(id, businessId, dto);
   }
 
+  /** Da de baja una categoría. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Delete(":id")
   async remove(@Param("id") id: string, @BusinessId() businessId: string) {
@@ -92,6 +98,7 @@ export class CategoriesController {
     return { message: "Categoría desactivada" };
   }
 
+  /** Alterna el estado activo/inactivo de una categoría. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Patch(":id/toggle")
   async toggleActive(
@@ -101,6 +108,7 @@ export class CategoriesController {
     return this.service.toggleActive(id, businessId);
   }
 
+  /** Devuelve cuántos profesionales tiene asignados la categoría. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Patch(":id/professionals-count")
   async getProfessionalsCount(
@@ -111,6 +119,7 @@ export class CategoriesController {
     return { count };
   }
 
+  /** Aplica un nuevo orden a las categorías. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post("reorder")
   async reorder(

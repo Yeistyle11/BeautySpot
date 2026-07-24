@@ -13,4 +13,5 @@ import { Business } from "../../entities/business.entity";
   providers: [BusinessesService],
   exports: [BusinessesService],
 })
+/** Cablea el CRUD de negocios (público e interno). */
 export class BusinessesModule {}

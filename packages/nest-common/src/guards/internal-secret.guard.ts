@@ -7,9 +7,15 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { timingSafeEqual } from "crypto";
 
+/** Header que transporta el secreto compartido en las llamadas internas entre servicios. */
 export const INTERNAL_API_SECRET_HEADER = "x-internal-secret";
 const INTERNAL_PATH_PREFIX = "/internal";
 
+/**
+ * Protege los endpoints internos (`/internal/*`) exigiendo un secreto compartido.
+ * La comparación usa {@link timingSafeEqual} para no filtrar información por el
+ * tiempo de respuesta (ataques de temporización). El resto de rutas pasa sin tocar.
+ */
 @Injectable()
 export class InternalSecretGuard implements CanActivate {
   constructor(private configService: ConfigService) {}

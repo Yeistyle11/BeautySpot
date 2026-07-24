@@ -1,4 +1,6 @@
 "use client";
+
+// Perfil publico de un negocio: compone las secciones activas y el acceso a reservar.
 import { useState } from "react";
 
 import Link from "next/link";

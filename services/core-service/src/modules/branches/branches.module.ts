@@ -10,4 +10,5 @@ import { Branch } from "../../entities/branch.entity";
   providers: [BranchesService],
   exports: [BranchesService],
 })
+/** Cablea el CRUD de sedes del negocio. */
 export class BranchesModule {}

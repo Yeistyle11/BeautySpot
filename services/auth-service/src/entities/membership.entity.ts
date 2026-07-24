@@ -3,6 +3,7 @@ import { TenantEntity } from "@beautyspot/database";
 import { Role } from "@beautyspot/shared-types";
 import { User } from "./user.entity";
 
+/** Vínculo usuario–negocio con su rol; un usuario puede pertenecer a varios negocios. */
 @Entity("memberships")
 @Unique(["userId", "businessId"])
 export class Membership extends TenantEntity {

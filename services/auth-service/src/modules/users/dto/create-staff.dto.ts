@@ -7,6 +7,7 @@ import {
 } from "class-validator";
 import { Role } from "@beautyspot/shared-types";
 
+/** Datos para que un admin cree una cuenta de staff y su membresía en el negocio. */
 export class CreateStaffDto {
   @IsEmail({}, { message: "El email no es valido" })
   email!: string;

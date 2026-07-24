@@ -1,5 +1,6 @@
 import { IsString, MinLength } from "class-validator";
 
+/** Nueva contraseña que un administrador fija para un miembro del staff. */
 export class AdminResetPasswordDto {
   @IsString()
   @MinLength(8, {

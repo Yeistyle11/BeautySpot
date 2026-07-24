@@ -23,4 +23,5 @@ import { BlockedSlot } from "../../entities/blocked-slot.entity";
   providers: [AppointmentsService],
   exports: [AppointmentsService],
 })
+/** Cablea la gestión de citas (controlador público e interno y su servicio). */
 export class AppointmentsModule {}

@@ -1,10 +1,12 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+/** Combina clases condicionales (clsx) y resuelve conflictos de Tailwind (twMerge). */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Formatea un monto como moneda colombiana (COP) sin decimales. */
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("es-CO", {
     style: "currency",
@@ -13,6 +15,7 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+/** Formatea una fecha "YYYY-MM-DD" o ISO como "5 mar 2026" en locale es-CO. */
 export function formatDate(date: string): string {
   // Las fechas sin hora ("YYYY-MM-DD") se parsean como medianoche UTC; sin
   // el mediodia fijo, en timezones negativos se mostraria el dia anterior.
@@ -36,6 +39,7 @@ export function toLocalDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/** Convierte una hora "HH:MM" (24h) a formato de 12h con am/pm. */
 export function formatTime(time: string): string {
   const [h, m] = time.split(":");
   const hour = parseInt(h);
@@ -44,10 +48,12 @@ export function formatTime(time: string): string {
   return `${displayHour}:${m} ${ampm}`;
 }
 
+/** Combina fecha y hora ya formateadas en una sola cadena legible. */
 export function formatDateTime(date: string, time: string): string {
   return `${formatDate(date)} ${formatTime(time)}`;
 }
 
+/** Formatea un timestamp ISO como fecha + hora local (es-CO). */
 export function formatDateTimeStamp(isoTimestamp: string): string {
   return new Date(isoTimestamp).toLocaleDateString("es-CO", {
     day: "numeric",
@@ -58,6 +64,7 @@ export function formatDateTimeStamp(isoTimestamp: string): string {
   });
 }
 
+/** Formatea solo la hora (HH:MM local) de un timestamp ISO. */
 export function formatTimeStamp(isoTimestamp: string): string {
   return new Date(isoTimestamp).toLocaleTimeString("es-CO", {
     hour: "2-digit",
@@ -65,6 +72,7 @@ export function formatTimeStamp(isoTimestamp: string): string {
   });
 }
 
+/** Extrae un mensaje legible de un error de tipo desconocido, con texto de reserva. */
 export function getErrorMessage(err: unknown, fallback = "Error"): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;

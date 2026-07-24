@@ -3,6 +3,7 @@ import { AuditableEntity, numericTransformer } from "@beautyspot/database";
 import { AppointmentStatus } from "@beautyspot/shared-types";
 import { AppointmentServiceEntity } from "./appointment-service.entity";
 
+/** Cita: reserva de un cliente con un profesional en una fecha/hora, su estado y los servicios incluidos. */
 @Entity("appointments")
 @Index(["businessId", "date"])
 @Index(["professionalId", "date"])

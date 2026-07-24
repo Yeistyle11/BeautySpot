@@ -22,4 +22,5 @@ import { DataEnricherModule } from "../data-enricher/data-enricher.module";
   providers: [NotificationEventListeners],
   exports: [NotificationEventListeners],
 })
+/** Registra los listeners de eventos que disparan el envío de correos. */
 export class EventListenersModule {}

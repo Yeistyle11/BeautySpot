@@ -2,6 +2,7 @@ import { Entity, Column, Index } from "typeorm";
 import { TenantEntity, numericTransformer } from "@beautyspot/database";
 import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
 
+/** Pago manual de un cliente (opcionalmente ligado a una cita), con sus datos de devolución. */
 @Entity("payments")
 @Index(["businessId", "createdAt"])
 export class PaymentEntity extends TenantEntity {

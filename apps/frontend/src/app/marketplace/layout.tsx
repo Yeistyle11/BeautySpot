@@ -1,4 +1,6 @@
 "use client";
+
+// Layout publico del marketplace: barra superior con acceso o identidad del usuario.
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Scissors, LogIn, User, LogOut } from "lucide-react";

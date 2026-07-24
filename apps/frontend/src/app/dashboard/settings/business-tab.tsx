@@ -1,4 +1,6 @@
 "use client";
+
+// Pestana de negocio: edicion de los datos y la informacion de contacto del negocio.
 import { Loader2, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

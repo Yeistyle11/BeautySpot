@@ -1,3 +1,4 @@
+// Punto único de reexportación de las utilidades de base de datos compartidas.
 export { BaseEntity } from "./entities/base.entity";
 export { TenantEntity } from "./entities/tenant.entity";
 export { AuditableEntity } from "./entities/audit.entity";

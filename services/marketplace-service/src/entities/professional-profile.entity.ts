@@ -1,12 +1,14 @@
 import { Entity, Column, Index } from "typeorm";
 import { TenantEntity, numericTransformer } from "@beautyspot/database";
 
+/** Elemento del portafolio de un profesional: imagen con título y categoría. */
 export interface PortfolioItem {
   url: string;
   title?: string;
   category?: string;
 }
 
+/** Perfil público de un profesional en el marketplace, sincronizado desde core-service y ampliado por el negocio. */
 @Entity("professional_profiles")
 export class ProfessionalProfileEntity extends TenantEntity {
   @Column({ type: "uuid", name: "professional_id" })

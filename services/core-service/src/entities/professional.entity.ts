@@ -4,6 +4,7 @@ import { Business } from "./business.entity";
 import { Branch } from "./branch.entity";
 import { ProfessionalCategoryEntity } from "./category.entity";
 
+/** Profesional del negocio: perfil, especialidades, categoría y valoración media. */
 @Entity("professionals")
 @Index(["businessId", "active"])
 export class Professional extends TenantEntity {

@@ -5,4 +5,5 @@ import { RateLimitGuard } from "./rate-limit.guard";
   providers: [RateLimitGuard],
   exports: [RateLimitGuard],
 })
+/** Expone el guard de rate limiting basado en Redis. */
 export class RateLimitModule {}

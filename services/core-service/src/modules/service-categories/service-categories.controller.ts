@@ -16,10 +16,12 @@ import {
 import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
+/** Endpoints de categorías de servicios; la lectura la comparten todos los roles del negocio. */
 @Controller("service-categories")
 export class ServiceCategoriesController {
   constructor(private readonly service: ServiceCategoriesService) {}
 
+  /** Crea una categoría de servicio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post()
   async create(
@@ -29,6 +31,7 @@ export class ServiceCategoriesController {
     return this.service.create(businessId, dto);
   }
 
+  /** Lista las categorías de servicio; modo paginado si llegan page/limit, o completo si no. */
   @Roles(
     Role.OWNER,
     Role.ADMIN,
@@ -71,11 +74,20 @@ export class ServiceCategoriesController {
     Role.PROFESSIONAL,
     Role.RECEPTIONIST
   )
+  /** Obtiene una categoría de servicio por id. */
+  @Roles(
+    Role.OWNER,
+    Role.ADMIN,
+    Role.SUPER_ADMIN,
+    Role.PROFESSIONAL,
+    Role.RECEPTIONIST
+  )
   @Get(":id")
   async findById(@Param("id") id: string, @BusinessId() businessId: string) {
     return this.service.findById(id, businessId);
   }
 
+  /** Actualiza una categoría de servicio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Patch(":id")
   async update(
@@ -86,6 +98,7 @@ export class ServiceCategoriesController {
     return this.service.update(id, businessId, dto);
   }
 
+  /** Da de baja una categoría de servicio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Delete(":id")
   async remove(@Param("id") id: string, @BusinessId() businessId: string) {
@@ -93,6 +106,7 @@ export class ServiceCategoriesController {
     return { message: "Categoría de servicio desactivada" };
   }
 
+  /** Alterna el estado activo/inactivo de una categoría de servicio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Patch(":id/toggle")
   async toggleActive(
@@ -102,6 +116,7 @@ export class ServiceCategoriesController {
     return this.service.toggleActive(id, businessId);
   }
 
+  /** Aplica un nuevo orden a las categorías de servicio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post("reorder")
   async reorder(

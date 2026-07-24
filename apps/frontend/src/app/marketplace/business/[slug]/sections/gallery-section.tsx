@@ -1,4 +1,6 @@
 "use client";
+
+// Seccion de galeria del perfil publico de un negocio.
 import Image from "next/image";
 import { Camera } from "lucide-react";
 import { Badge } from "@/components/ui/badge";

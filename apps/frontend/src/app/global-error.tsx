@@ -1,5 +1,7 @@
 "use client";
 
+// Error boundary de ultimo recurso: reemplaza html/body cuando falla el propio layout raiz.
+
 import { useEffect } from "react";
 
 export default function GlobalError({

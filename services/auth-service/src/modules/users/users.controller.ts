@@ -8,18 +8,21 @@ import { UpdateStaffDto } from "./dto/update-staff.dto";
 import { AdminResetPasswordDto } from "./dto/admin-reset-password.dto";
 import { toSafeUser } from "./dto/user-response.dto";
 
+/** Endpoints de perfil propio y de administración del staff de un negocio. */
 @Controller("users")
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   // --- Perfil propio ---
 
+  /** Devuelve el perfil del usuario autenticado. */
   @Get("me")
   async getMe(@CurrentUser("userId") userId: string) {
     const user = await this.usersService.findById(userId);
     return toSafeUser(user);
   }
 
+  /** Actualiza el perfil del usuario autenticado. */
   @Patch("me")
   async updateProfile(
     @CurrentUser("userId") userId: string,
@@ -28,6 +31,7 @@ export class UsersController {
     return this.usersService.updateProfile(userId, dto);
   }
 
+  /** Lista las membresías (negocios y roles) del usuario autenticado. */
   @Get("memberships")
   async getMemberships(@CurrentUser("userId") userId: string) {
     return this.usersService.getUserMemberships(userId);
@@ -58,9 +62,8 @@ export class UsersController {
   }
 
   /**
-   * Crea una nueva cuenta de usuario y la asocia al negocio con un rol.
-   * El admin proporciona email, contrasena, nombre y rol.
-   * Opcionalmente puede indicar un professionalId para vincular.
+   * Crea una cuenta de staff (email, contraseña, nombre y rol) y la asocia al
+   * negocio actual mediante una nueva membresía.
    */
   @Post("staff")
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)

@@ -1,4 +1,6 @@
 "use client";
+
+// Pagina de entrada: redirige al dashboard si hay sesion o al marketplace publico si no.
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 

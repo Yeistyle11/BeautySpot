@@ -1,6 +1,7 @@
 import { Entity, Column, Index } from "typeorm";
 import { TenantEntity } from "@beautyspot/database";
 
+/** Reseña de un cliente sobre un negocio/profesional, con su calificación, respuesta y datos enriquecidos. */
 @Entity("reviews")
 export class ReviewEntity extends TenantEntity {
   @Column({ type: "uuid", name: "appointment_id", nullable: true })

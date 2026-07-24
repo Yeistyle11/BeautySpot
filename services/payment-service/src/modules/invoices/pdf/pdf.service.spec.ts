@@ -47,7 +47,7 @@ describe("PdfService", () => {
   beforeEach(async () => {
     // Mock de PDFKit dentro de beforeEach
     mockDoc = {
-      on: jest.fn((event: string, callback: Function) => {
+      on: jest.fn((event: string, callback: (chunk?: Buffer) => void) => {
         if (event === "data") callback(Buffer.from("pdf-data"));
         if (event === "end") callback();
       }),
@@ -123,7 +123,7 @@ describe("PdfService", () => {
 
       // Mock completo de PDFDocument para evitar errores de fs
       const PDFDocumentMock = jest.fn().mockImplementation(() => ({
-        on: jest.fn((event: string, callback: Function) => {
+        on: jest.fn((event: string, callback: (chunk?: Buffer) => void) => {
           if (event === "data") callback(Buffer.from("pdf-data"));
           if (event === "end") callback(Buffer.from("pdf-data"));
         }),

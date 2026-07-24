@@ -1,5 +1,6 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
+/** Crea la tabla del patrón Outbox transaccional del payment-service. */
 export class OutboxMessages1700000000002 implements MigrationInterface {
   name = "OutboxMessages1700000000002";
 

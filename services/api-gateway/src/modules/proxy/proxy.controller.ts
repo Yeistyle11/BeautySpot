@@ -14,6 +14,10 @@ import { PROXY_TIMEOUT_MS } from "@beautyspot/shared-constants";
 
 const SERVER_ERROR_THRESHOLD = 500;
 
+/**
+ * Reenvía cualquier petición /api/v1/:service/* al microservicio correspondiente,
+ * protegida por el circuit breaker para no insistir contra un backend caído.
+ */
 @Controller("api/v1")
 export class ProxyController {
   constructor(
@@ -24,6 +28,7 @@ export class ProxyController {
   // Express 5 (path-to-regexp v8) exige nombrar el comodín: "*" suelto ya no es
   // válido. "*splat" captura el resto de la ruta; no se consume por nombre
   // porque buildTargetUrl reconstruye el path desde req.path.
+  /** Valida que el servicio exista y ejecuta el reenvío bajo el circuit breaker. */
   @All(":service/*splat")
   async proxyRequest(
     @Param("service") service: string,
@@ -42,6 +47,7 @@ export class ProxyController {
     );
   }
 
+  /** Ejecuta el fetch reenviado con timeout y propaga la respuesta del backend. */
   private async proxiedRequest(
     service: string,
     req: Request,
@@ -79,6 +85,7 @@ export class ProxyController {
     }
   }
 
+  /** Reescribe la ruta del gateway a la ruta interna esperada por el servicio destino. */
   private buildTargetUrl(service: string, req: Request): string {
     const serviceUrl = this.proxyService.getServiceUrl(service);
     let path = req.path;
@@ -97,6 +104,7 @@ export class ProxyController {
     return `${serviceUrl}${path}`;
   }
 
+  /** Propaga el token de autorización e inyecta el tenant (x-business-id) al backend. */
   private buildForwardedHeaders(req: Request): Record<string, string> {
     const headers: Record<string, string> = {};
 
@@ -118,6 +126,7 @@ export class ProxyController {
     return headers;
   }
 
+  /** Parsea el cuerpo de la respuesta tolerando 204, cuerpo vacío o texto no-JSON. */
   private async parseResponseBody(
     response: globalThis.Response
   ): Promise<unknown> {
@@ -131,6 +140,7 @@ export class ProxyController {
     }
   }
 
+  /** Traduce fallos de red o timeouts del fetch en errores HTTP de gateway (502/504/503). */
   private mapProxyError(service: string, error: unknown): HttpException {
     if (error instanceof HttpException) return error;
 

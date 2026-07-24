@@ -14,6 +14,7 @@ import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { CreateReviewDto, ReviewQueryDto } from "./dto/review.dto";
 
+/** Conteo de reseñas por número de estrellas (1 a 5). */
 export interface RatingDistribution {
   5: number;
   4: number;
@@ -22,12 +23,17 @@ export interface RatingDistribution {
   1: number;
 }
 
+/** Resumen de reseñas de un negocio: promedio, total y distribución por estrellas. */
 export interface ReviewSummary {
   average: number;
   total: number;
   distribution: RatingDistribution;
 }
 
+/**
+ * Gestiona las reseñas del marketplace: alta con reglas de negocio, respuestas,
+ * votos de utilidad y actualización de las calificaciones agregadas.
+ */
 @Injectable()
 export class ReviewsService {
   constructor(
@@ -42,6 +48,10 @@ export class ReviewsService {
     private readonly outbox: OutboxService
   ) {}
 
+  /**
+   * Crea una reseña (una por cita, comentario obligatorio si baja de 4 estrellas),
+   * recalcula las medias del negocio y el profesional y emite el evento REVIEW_CREATED.
+   */
   async create(dto: CreateReviewDto): Promise<ReviewEntity> {
     // Validar una reseña por cita
     if (dto.appointmentId) {
@@ -98,6 +108,7 @@ export class ReviewsService {
     });
   }
 
+  /** Lista las reseñas de un negocio con filtros (estrellas, profesional, con fotos) y paginación. */
   async findByBusiness(
     businessId: string,
     query: ReviewQueryDto
@@ -165,12 +176,14 @@ export class ReviewsService {
     };
   }
 
+  /** Obtiene una reseña por id; lanza 404 si no existe. */
   async findById(id: string): Promise<ReviewEntity> {
     const review = await this.repo.findOne({ where: { id } });
     if (!review) throw new NotFoundException("Reseña no encontrada");
     return review;
   }
 
+  /** Registra la respuesta del negocio a una reseña; rechaza si ya tenía una. */
   async respond(id: string, response: string): Promise<ReviewEntity> {
     const review = await this.findById(id);
     if (review.response)
@@ -180,6 +193,7 @@ export class ReviewsService {
     return this.repo.save(review);
   }
 
+  /** Marca una reseña como útil por parte de un usuario (idempotente). */
   async markHelpful(reviewId: string, userId: string): Promise<void> {
     const existing = await this.helpfulRepo.findOne({
       where: { reviewId, userId },
@@ -191,6 +205,7 @@ export class ReviewsService {
     await this.repo.increment({ id: reviewId }, "helpfulCount", 1);
   }
 
+  /** Quita el voto de "útil" de un usuario sobre una reseña (idempotente). */
   async unmarkHelpful(reviewId: string, userId: string): Promise<void> {
     const existing = await this.helpfulRepo.findOne({
       where: { reviewId, userId },

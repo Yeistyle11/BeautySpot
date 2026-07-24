@@ -13,6 +13,7 @@ import { PaymentMethod, PaymentStatus, Role } from "@beautyspot/shared-types";
 import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
 
+/** Datos para registrar un pago: cliente, monto, método y referencia/cita opcionales. */
 class CreatePaymentDto {
   @IsOptional() @IsString() appointmentId?: string;
   @IsString() clientId!: string;
@@ -22,14 +23,17 @@ class CreatePaymentDto {
   @IsOptional() @IsString() notes?: string;
 }
 
+/** Nuevo estado a asignar a un pago. */
 class UpdateStatusDto {
   @IsEnum(PaymentStatus) status!: PaymentStatus;
 }
 
+/** Endpoints de registro, consulta y reembolso de pagos del negocio. */
 @Controller("payments")
 export class PaymentsController {
   constructor(private readonly service: PaymentsService) {}
 
+  /** Registra un pago a nombre del usuario autenticado. */
   @Post()
   @Roles(Role.ADMIN, Role.RECEPTIONIST)
   async create(
@@ -43,6 +47,7 @@ export class PaymentsController {
     });
   }
 
+  /** Lista los pagos del negocio con filtros y paginación. */
   @Get()
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   async findAll(
@@ -62,6 +67,7 @@ export class PaymentsController {
     );
   }
 
+  /** Devuelve el resumen de pagos completados de un día, agregado por método. */
   @Get("daily-summary")
   @Roles(Role.OWNER, Role.ADMIN)
   async dailySummary(
@@ -71,12 +77,14 @@ export class PaymentsController {
     return this.service.getDailySummary(businessId, date);
   }
 
+  /** Obtiene un pago por id. */
   @Get(":id")
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   async findById(@Param("id") id: string, @BusinessId() businessId: string) {
     return this.service.findById(id, businessId);
   }
 
+  /** Cambia el estado de un pago. */
   @Patch(":id/status")
   @Roles(Role.OWNER, Role.ADMIN)
   async updateStatus(
@@ -87,6 +95,7 @@ export class PaymentsController {
     return this.service.updateStatus(id, businessId, dto.status);
   }
 
+  /** Reembolsa un pago (total o parcial) a nombre del usuario autenticado. */
   @Post(":id/refund")
   @Roles(Role.OWNER, Role.ADMIN)
   async refund(

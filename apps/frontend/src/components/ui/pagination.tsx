@@ -1,5 +1,7 @@
 "use client";
 
+// Controles de paginacion: anterior/siguiente e indicador de pagina.
+
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PaginationMeta } from "@/lib/swr";

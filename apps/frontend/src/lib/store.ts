@@ -91,6 +91,11 @@ function clearAuthCookie(): void {
   document.cookie = `${AUTH_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
 }
 
+/**
+ * Store global de sesión (Zustand). Es la fuente de verdad del token, usuario,
+ * negocio y rol activos, y los sincroniza con localStorage y la cookie de sesión.
+ * `hydrate` rehidrata el estado desde localStorage al cargar la app en el cliente.
+ */
 export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   user: null,

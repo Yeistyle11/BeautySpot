@@ -4,6 +4,7 @@ import { Job } from "bullmq";
 import { EmailService } from "../email.service";
 import { AmqpConnection } from "@golevelup/nestjs-rabbitmq";
 
+/** Datos de un trabajo de la cola de emails: destinatario, plantilla, contexto y prioridad. */
 export interface EmailJobData {
   to: string;
   subject: string;
@@ -13,6 +14,7 @@ export interface EmailJobData {
   retryCount?: number;
 }
 
+/** Worker de BullMQ que envía los correos encolados y publica eventos de éxito o fallo. */
 @Processor("emails")
 export class SendEmailProcessor extends WorkerHost {
   private readonly logger = new Logger(SendEmailProcessor.name);
@@ -24,6 +26,7 @@ export class SendEmailProcessor extends WorkerHost {
     super();
   }
 
+  /** Registra en log cuando un trabajo empieza a procesarse. */
   @OnWorkerEvent("active")
   onActive(job: Job<EmailJobData>) {
     this.logger.debug(
@@ -31,6 +34,7 @@ export class SendEmailProcessor extends WorkerHost {
     );
   }
 
+  /** Al completarse un trabajo, publica el evento email.sent con el messageId. */
   @OnWorkerEvent("completed")
   onCompleted(job: Job<EmailJobData>, result: any) {
     this.logger.debug(
@@ -47,6 +51,7 @@ export class SendEmailProcessor extends WorkerHost {
     }
   }
 
+  /** Al fallar un trabajo, registra el error y publica el evento email.failed. */
   @OnWorkerEvent("failed")
   onFailed(job: Job<EmailJobData>, error: Error) {
     this.logger.error(
@@ -62,6 +67,7 @@ export class SendEmailProcessor extends WorkerHost {
     );
   }
 
+  /** Procesa un trabajo de la cola enviando el correo; relanza el error para que BullMQ reintente. */
   async process(job: Job<EmailJobData>) {
     const { to, subject, template, context } = job.data;
 
@@ -96,6 +102,7 @@ export class SendEmailProcessor extends WorkerHost {
     }
   }
 
+  /** Publica en RabbitMQ el evento de correo enviado con éxito. */
   private async emitEmailSentEvent(
     messageId: string,
     to: string,
@@ -129,6 +136,7 @@ export class SendEmailProcessor extends WorkerHost {
     }
   }
 
+  /** Publica en RabbitMQ el evento de correo fallido. */
   private async emitEmailFailedEvent(
     jobId: string,
     to: string,

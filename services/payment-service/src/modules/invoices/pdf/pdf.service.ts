@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import PDFDocument from "pdfkit";
 
+/** Datos que necesita el PDF de una factura: emisor, cliente, líneas y totales. */
 export interface InvoiceData {
   invoiceNumber: string;
   invoiceDate: Date;
@@ -33,10 +34,12 @@ export interface InvoiceData {
   notes?: string;
 }
 
+/** Genera el PDF de una factura con pdfkit, montando cada sección del documento. */
 @Injectable()
 export class PdfService {
   constructor(private readonly configService: ConfigService) {}
 
+  /** Construye el PDF completo de la factura y lo devuelve como Buffer. */
   async generateInvoicePdf(data: InvoiceData): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
@@ -57,6 +60,7 @@ export class PdfService {
     });
   }
 
+  /** Dibuja el encabezado: nombre del negocio, número de factura y fechas. */
   private addInvoiceHeader(doc: any, data: InvoiceData): void {
     const logoPath = data.business.logo;
     if (logoPath) {
@@ -81,6 +85,7 @@ export class PdfService {
     doc.moveTo(50, 110).lineTo(550, 110).stroke();
   }
 
+  /** Dibuja los datos fiscales y de contacto de la empresa emisora. */
   private addInvoiceInfo(doc: any, data: InvoiceData): void {
     doc
       .fontSize(10)
@@ -93,6 +98,7 @@ export class PdfService {
     doc.text(`Email: ${data.business.email}`, 50, 195);
   }
 
+  /** Dibuja los datos del cliente destinatario de la factura. */
   private addClientInfo(doc: any, data: InvoiceData): void {
     doc.fontSize(10).fillColor("#666").text("Cliente", 350, 130);
 
@@ -112,6 +118,7 @@ export class PdfService {
     }
   }
 
+  /** Dibuja la tabla de líneas con descripción, cantidad, precio y total. */
   private addItemsTable(doc: any, data: InvoiceData): void {
     const startY = 250;
     const itemWidth = 280;
@@ -149,6 +156,7 @@ export class PdfService {
     doc.moveTo(50, y).lineTo(550, y).stroke();
   }
 
+  /** Dibuja subtotal, IVA y total, más el método de pago y las notas. */
   private addTotals(doc: any, data: InvoiceData): void {
     let y = 300;
 
@@ -188,6 +196,7 @@ export class PdfService {
     }
   }
 
+  /** Dibuja el pie con los datos legales del emisor y el mensaje de cortesía. */
   private addFooter(doc: any): void {
     const pageHeight = doc.page.height;
 
@@ -210,6 +219,7 @@ export class PdfService {
     );
   }
 
+  /** Formatea una fecha en español de Colombia (día, mes y año). */
   private formatDate(date: Date): string {
     return date.toLocaleDateString("es-CO", {
       year: "numeric",
@@ -218,6 +228,7 @@ export class PdfService {
     });
   }
 
+  /** Formatea un importe como moneda colombiana (COP) sin decimales. */
   private formatCurrency(amount: number): string {
     return new Intl.NumberFormat("es-CO", {
       style: "currency",
@@ -226,6 +237,7 @@ export class PdfService {
     }).format(amount);
   }
 
+  /** Escribe el PDF en disco bajo la ruta configurada y devuelve la ruta del archivo. */
   async savePdfToBuffer(pdfBuffer: Buffer, filename: string): Promise<string> {
     const uploadPath = this.configService.get<string>(
       "PDF_STORAGE_PATH",

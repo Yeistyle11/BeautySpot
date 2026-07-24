@@ -40,4 +40,5 @@ const entities = [
     BookingEventListenersModule,
   ],
 })
+/** Módulo raíz del booking-service: citas, disponibilidad, bloqueos y reservas públicas. */
 export class AppModule {}

@@ -8,6 +8,10 @@ import {
   UpdateProfessionalProfileDto,
 } from "./dto/professional-profile.dto";
 
+/**
+ * Gestiona el perfil público de los profesionales en el marketplace: sincronía
+ * desde el core, ajustes del negocio, visibilidad y métricas de valoración.
+ */
 @Injectable()
 export class ProfessionalProfilesService {
   constructor(
@@ -17,6 +21,7 @@ export class ProfessionalProfilesService {
 
   // --- Sincronizacion desde core-service ---
 
+  /** Crea o actualiza el perfil de un profesional con los datos del core, generándole un slug único. */
   async syncFromCore(
     dto: SyncProfessionalDto
   ): Promise<ProfessionalProfileEntity> {
@@ -46,6 +51,7 @@ export class ProfessionalProfilesService {
     );
   }
 
+  /** Oculta y desactiva el perfil cuando el profesional se da de baja en el core. */
   async deactivateFromCore(professionalId: string): Promise<void> {
     await this.repo.update(
       { professionalId },
@@ -55,6 +61,7 @@ export class ProfessionalProfilesService {
 
   // --- Actualizacion desde el panel del negocio ---
 
+  /** Actualiza los campos que el negocio controla del perfil (tagline, portafolio, redes, visibilidad). */
   async updateProfile(
     professionalId: string,
     businessId: string,
@@ -78,6 +85,7 @@ export class ProfessionalProfilesService {
 
   // --- Visibilidad en el marketplace ---
 
+  /** Muestra u oculta al profesional en el perfil público del negocio. */
   async toggleVisibility(
     professionalId: string,
     businessId: string,
@@ -95,6 +103,7 @@ export class ProfessionalProfilesService {
 
   // --- Consultas publicas ---
 
+  /** Lista los profesionales activos y visibles de un negocio, mejor valorados primero. */
   async findVisibleByBusiness(
     businessId: string
   ): Promise<ProfessionalProfileEntity[]> {
@@ -104,6 +113,7 @@ export class ProfessionalProfilesService {
     });
   }
 
+  /** Devuelve un perfil visible por su slug; lanza 404 si no existe. */
   async findBySlug(slug: string): Promise<ProfessionalProfileEntity> {
     const profile = await this.repo.findOne({
       where: { slug, active: true, visibleOnProfile: true },
@@ -115,6 +125,7 @@ export class ProfessionalProfilesService {
 
   // --- Consultas internas ---
 
+  /** Lista todos los profesionales activos de un negocio (incluidos los no visibles), para uso interno. */
   async findByBusiness(
     businessId: string
   ): Promise<ProfessionalProfileEntity[]> {
@@ -124,6 +135,7 @@ export class ProfessionalProfilesService {
     });
   }
 
+  /** Obtiene un perfil activo por su id; lanza 404 si no existe. */
   async findById(id: string): Promise<ProfessionalProfileEntity> {
     const profile = await this.repo.findOne({ where: { id, active: true } });
     if (!profile)
@@ -133,6 +145,7 @@ export class ProfessionalProfilesService {
 
   // --- Feed: profesionales destacados ---
 
+  /** Devuelve los profesionales visibles mejor valorados para el feed. */
   async findTopRated(limit: number): Promise<ProfessionalProfileEntity[]> {
     return this.repo.find({
       where: { active: true, visibleOnProfile: true },
@@ -143,6 +156,7 @@ export class ProfessionalProfilesService {
 
   // --- Metricas ---
 
+  /** Recalcula la media de calificación y el total de reseñas del profesional a partir de sus reviews. */
   async updateRating(
     professionalId: string,
     manager?: EntityManager
@@ -176,6 +190,7 @@ export class ProfessionalProfilesService {
 
   // --- Helpers ---
 
+  /** Genera un slug a partir del nombre, añadiendo un sufijo numérico si ya está en uso. */
   private async ensureUniqueSlug(
     name: string,
     _businessId: string

@@ -11,6 +11,7 @@ import { AuthGatewayGuard } from "./modules/auth-gateway/auth-gateway.guard";
 import { RateLimitGuard } from "./modules/rate-limit/rate-limit.guard";
 import helmet from "helmet";
 
+/** Arranca el API Gateway: seguridad, CORS, validación, guards globales y escucha. */
 async function bootstrap() {
   const logger = new Logger("Bootstrap");
   const app = await NestFactory.create(AppModule);

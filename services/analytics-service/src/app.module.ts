@@ -12,6 +12,7 @@ import { AnalyticsEventListenersModule } from "./modules/event-listeners/analyti
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
 const entities = [DailyMetricEntity, ProfessionalMetricEntity];
 
+/** Módulo raíz del analytics-service: configura la BD y agrupa métricas, reportes, dashboard y listeners de eventos. */
 @Module({
   imports: [
     ConfigModule.forRoot({

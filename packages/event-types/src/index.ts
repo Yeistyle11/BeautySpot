@@ -1,4 +1,4 @@
-/** Base event contract for the event bus. */
+/** Contrato base de todos los eventos que viajan por el bus (RabbitMQ). */
 export interface IBaseEvent<T = unknown> {
   eventType: string;
   timestamp: Date;
@@ -224,6 +224,10 @@ export type EmailFailedEvent = IBaseEvent<EmailFailedPayload>;
 
 // ─── Event Name Constants ─────────────────────────────────────
 
+/**
+ * Nombres canónicos de los eventos (routing keys de RabbitMQ). Compartirlos aquí
+ * garantiza que productores y consumidores usen exactamente la misma cadena.
+ */
 export const EventNames = {
   AUTH_USER_REGISTERED: "auth.user.registered",
   AUTH_USER_LOGGED_IN: "auth.user.logged-in",

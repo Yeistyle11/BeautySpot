@@ -1,4 +1,6 @@
 "use client";
+
+// Tarjeta de una cita en la lista, con su estado y las acciones disponibles segun permisos.
 import { Calendar, Clock, User } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

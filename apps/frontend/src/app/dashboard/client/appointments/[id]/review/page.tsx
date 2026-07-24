@@ -1,5 +1,7 @@
 "use client";
 
+// Resena de una cita completada: calificacion y comentario del cliente.
+
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { z } from "zod";

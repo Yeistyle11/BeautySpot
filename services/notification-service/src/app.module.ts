@@ -46,4 +46,5 @@ const entities = [NotificationEntity, NotificationPreferenceEntity];
     EventListenersModule,
   ],
 })
+/** Módulo raíz del notification-service: notificaciones in-app, correos y listeners de eventos. */
 export class AppModule {}

@@ -10,4 +10,5 @@ import { ServiceCategoriesController } from "./service-categories.controller";
   providers: [ServiceCategoriesService],
   exports: [ServiceCategoriesService],
 })
+/** Cablea el CRUD de categorías de servicios. */
 export class ServiceCategoriesModule {}

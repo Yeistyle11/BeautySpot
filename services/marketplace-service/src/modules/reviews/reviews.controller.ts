@@ -16,22 +16,26 @@ import {
 import { Roles, Public, CurrentUser } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
+/** Endpoints de reseñas del marketplace; la lectura y el alta son públicas, la respuesta la da el negocio. */
 @Controller("reviews")
 export class ReviewsController {
   constructor(private readonly service: ReviewsService) {}
 
+  /** Crea una reseña. */
   @Post()
   @Public()
   async create(@Body() dto: CreateReviewDto) {
     return this.service.create(dto);
   }
 
+  /** Devuelve el resumen de reseñas (promedio y distribución) de un negocio. */
   @Get("business/:businessId/summary")
   @Public()
   async getSummary(@Param("businessId") businessId: string) {
     return this.service.getSummary(businessId);
   }
 
+  /** Lista las reseñas de un negocio con filtros. */
   @Get("business/:businessId")
   @Public()
   async findByBusiness(
@@ -41,18 +45,21 @@ export class ReviewsController {
     return this.service.findByBusiness(businessId, query);
   }
 
+  /** Obtiene una reseña por id. */
   @Get(":id")
   @Public()
   async findById(@Param("id") id: string) {
     return this.service.findById(id);
   }
 
+  /** Publica la respuesta del negocio a una reseña. */
   @Post(":id/respond")
   @Roles(Role.OWNER, Role.ADMIN)
   async respond(@Param("id") id: string, @Body() dto: RespondReviewDto) {
     return this.service.respond(id, dto.response);
   }
 
+  /** Marca una reseña como útil. */
   @Post(":id/helpful")
   @Public()
   async markHelpful(
@@ -63,6 +70,7 @@ export class ReviewsController {
     return { marked: true };
   }
 
+  /** Quita el voto de "útil" de una reseña. */
   @Delete(":id/helpful")
   @Public()
   async unmarkHelpful(

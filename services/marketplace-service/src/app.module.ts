@@ -40,4 +40,5 @@ const entities = [
     FeedModule,
   ],
 })
+/** Módulo raíz del marketplace-service: perfiles públicos, reseñas, feed y búsqueda. */
 export class AppModule {}

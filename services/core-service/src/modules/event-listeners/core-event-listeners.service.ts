@@ -2,10 +2,12 @@ import { Injectable, Logger } from "@nestjs/common";
 import { EventPattern, Payload } from "@nestjs/microservices";
 import { EventNames } from "@beautyspot/event-types";
 
+/** Escucha los eventos de RabbitMQ relevantes para el core (usuarios, membresías y citas). */
 @Injectable()
 export class CoreEventListeners {
   private readonly logger = new Logger(CoreEventListeners.name);
 
+  /** Reacciona al alta de un usuario (p. ej. para detectar clientes potenciales). */
   @EventPattern(EventNames.AUTH_USER_REGISTERED)
   async handleUserRegistered(@Payload() event: any) {
     this.logger.log(`Usuario registrado: ${event.payload.email}`);
@@ -25,6 +27,7 @@ export class CoreEventListeners {
     }
   }
 
+  /** Reacciona a la creación de una membresía en un negocio. */
   @EventPattern(EventNames.AUTH_MEMBERSHIP_CREATED)
   async handleMembershipCreated(@Payload() event: any) {
     this.logger.log(`Membresia creada: ${event.payload.membershipId}`);
@@ -44,6 +47,7 @@ export class CoreEventListeners {
     }
   }
 
+  /** Reacciona al cambio de rol de una membresía. */
   @EventPattern(EventNames.AUTH_MEMBERSHIP_ROLE_CHANGED)
   async handleMembershipRoleChanged(@Payload() event: any) {
     this.logger.log(`Rol de membresia cambiado: ${event.payload.membershipId}`);
@@ -63,6 +67,7 @@ export class CoreEventListeners {
     }
   }
 
+  /** Reacciona a una cita completada (p. ej. puntos de fidelidad ganados). */
   @EventPattern(EventNames.BOOKING_APPOINTMENT_COMPLETED)
   async handleAppointmentCompleted(@Payload() event: any) {
     this.logger.log(`Cita completada: ${event.payload.appointmentId}`);
@@ -82,6 +87,7 @@ export class CoreEventListeners {
     }
   }
 
+  /** Reacciona a una cita cancelada. */
   @EventPattern(EventNames.BOOKING_APPOINTMENT_CANCELLED)
   async handleAppointmentCancelled(@Payload() event: any) {
     this.logger.log(`Cita cancelada: ${event.payload.appointmentId}`);

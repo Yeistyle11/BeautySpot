@@ -17,4 +17,5 @@ import { ProfessionalProfilesModule } from "../professional-profiles/professiona
   providers: [ReviewsService],
   exports: [ReviewsService],
 })
+/** Cablea la gestión de reseñas y votos de utilidad. */
 export class ReviewsModule {}

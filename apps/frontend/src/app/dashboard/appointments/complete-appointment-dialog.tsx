@@ -1,4 +1,6 @@
 "use client";
+
+// Dialogo para completar una cita registrando el pago (metodo y monto).
 import {
   Banknote,
   Calendar,

@@ -7,6 +7,7 @@ import {
   MaxLength,
 } from "class-validator";
 
+/** Datos para crear un servicio: nombre, descripción, precio, duración y categoría. */
 export class CreateServiceDto {
   @IsString() @MaxLength(200) name!: string;
   @IsString() @MaxLength(1000) description!: string;
@@ -16,6 +17,7 @@ export class CreateServiceDto {
   @IsOptional() @IsString() image?: string;
 }
 
+/** Campos editables de un servicio (todos opcionales). */
 export class UpdateServiceDto {
   @IsOptional() @IsString() @MaxLength(200) name?: string;
   @IsOptional() @IsString() @MaxLength(1000) description?: string;

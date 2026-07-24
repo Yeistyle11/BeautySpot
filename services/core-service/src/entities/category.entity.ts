@@ -2,6 +2,7 @@ import { Entity, Column, OneToMany, Index } from "typeorm";
 import { TenantEntity } from "@beautyspot/database";
 import { Professional } from "./professional.entity";
 
+/** Categoría para agrupar profesionales dentro de un negocio (con icono, color y orden). */
 @Entity("professional_categories")
 @Index(["businessId", "active"])
 export class ProfessionalCategoryEntity extends TenantEntity {

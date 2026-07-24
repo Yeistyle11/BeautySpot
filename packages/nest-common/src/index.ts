@@ -1,3 +1,5 @@
+// API pública del módulo compartido de NestJS: guards, decoradores, interceptores,
+// filtros, bus de eventos, outbox, caché y utilidades de seguridad reutilizables.
 export { JwtAuthGuard } from "./guards/jwt-auth.guard";
 export { BusinessScopeGuard } from "./guards/business-scope.guard";
 export { RolesGuard } from "./guards/roles.guard";

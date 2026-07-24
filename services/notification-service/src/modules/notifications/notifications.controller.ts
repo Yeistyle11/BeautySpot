@@ -8,16 +8,19 @@ import { Roles, CurrentUser, BusinessId } from "@beautyspot/nest-common";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import { Role } from "@beautyspot/shared-types";
 
+/** Endpoints de las notificaciones in-app del usuario autenticado. */
 @Controller("notifications")
 @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL, Role.CLIENT)
 export class NotificationsController {
   constructor(private readonly service: NotificationsService) {}
 
+  /** Crea una notificación. */
   @Post()
   create(@Body() dto: CreateNotificationDto) {
     return this.service.create(dto);
   }
 
+  /** Lista las notificaciones del usuario, con opción de solo no leídas. */
   @Get()
   findByUser(
     @CurrentUser("userId") userId: string,
@@ -33,6 +36,7 @@ export class NotificationsController {
     );
   }
 
+  /** Devuelve el número de notificaciones no leídas del usuario. */
   @Get("unread-count")
   getUnreadCount(
     @CurrentUser("userId") userId: string,
@@ -41,11 +45,13 @@ export class NotificationsController {
     return this.service.getUnreadCount(userId, businessId);
   }
 
+  /** Marca una notificación como leída. */
   @Post(":id/read")
   markAsRead(@Param("id") id: string, @CurrentUser("userId") userId: string) {
     return this.service.markAsRead(id, userId);
   }
 
+  /** Marca todas las notificaciones del usuario como leídas. */
   @Post("mark-all-read")
   markAllAsRead(
     @CurrentUser("userId") userId: string,

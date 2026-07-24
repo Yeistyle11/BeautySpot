@@ -42,4 +42,5 @@ import { NotificationPreferencesModule } from "../notification-preferences/notif
   providers: [EmailService, SendEmailProcessor],
   exports: [EmailService],
 })
+/** Cablea el envío de correos, su cola BullMQ y el worker de envío. */
 export class EmailsModule {}

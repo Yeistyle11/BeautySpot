@@ -1,5 +1,9 @@
+// Control de acceso del frontend basado en roles: qué páginas ve cada rol (PAGES)
+// y qué acciones puede ejecutar (ACTIONS). Espeja la autorización del backend, que
+// es la que realmente decide; aquí solo se ajusta la UI (menús, botones, rutas).
 import type { Role } from "./store";
 
+/** Página del dashboard con su ruta, etiqueta, icono y los roles que pueden acceder. */
 export interface PageAccess {
   path: string;
   label: string;
@@ -7,6 +11,7 @@ export interface PageAccess {
   roles: Role[];
 }
 
+/** Catálogo de páginas del dashboard con los roles autorizados en cada una. */
 export const PAGES: PageAccess[] = [
   {
     path: "/dashboard",
@@ -112,6 +117,7 @@ export const PAGES: PageAccess[] = [
   },
 ];
 
+/** Acciones sensibles y los roles autorizados a ejecutarlas (usado por canDo). */
 export const ACTIONS = {
   services_create: ["OWNER", "ADMIN"],
   services_edit: ["OWNER", "ADMIN"],
@@ -146,6 +152,7 @@ export const ACTIONS = {
   settings_edit: ["OWNER"],
 } as const;
 
+/** Indica si el rol puede acceder a una ruta (gana el prefijo más específico de PAGES). */
 export function canAccess(role: Role | null, path: string): boolean {
   if (!role) return false;
   // Ordenamos por longitud de path descendente para que el prefijo mas
@@ -160,6 +167,7 @@ export function canAccess(role: Role | null, path: string): boolean {
   return page.roles.includes(role);
 }
 
+/** Indica si el rol está autorizado a ejecutar una acción concreta de {@link ACTIONS}. */
 export function canDo(
   role: Role | null,
   action: keyof typeof ACTIONS
@@ -170,11 +178,13 @@ export function canDo(
   );
 }
 
+/** Devuelve las páginas visibles para el rol (para construir el menú lateral). */
 export function getPagesForRole(role: Role | null): PageAccess[] {
   if (!role) return [];
   return PAGES.filter((p) => p.roles.includes(role));
 }
 
+/** Ruta a la que redirigir tras el login: la primera página disponible para el rol. */
 export function getDefaultPath(role: Role | null): string {
   const pages = getPagesForRole(role);
   return pages.length > 0 ? pages[0].path : "/dashboard";

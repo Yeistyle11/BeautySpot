@@ -11,8 +11,8 @@ describe("RolesGuard", () => {
 
   const mockExecutionContext = (
     user?: any,
-    handlerRoles?: Role[],
-    classRoles?: Role[]
+    _handlerRoles?: Role[],
+    _classRoles?: Role[]
   ) => {
     const context = {
       getHandler: jest.fn(),

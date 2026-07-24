@@ -9,6 +9,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
 
+/** Resultado de una subida a S3: URL pública, clave interna e identificadores. */
 export interface UploadResult {
   url: string;
   key: string;
@@ -16,6 +17,7 @@ export interface UploadResult {
   bucket: string;
 }
 
+/** URL presignada para que el cliente suba el archivo directo a S3, con su vencimiento. */
 export interface PresignedUploadUrlResult {
   uploadUrl: string;
   publicId: string;
@@ -23,6 +25,10 @@ export interface PresignedUploadUrlResult {
   expiresAt: Date;
 }
 
+/**
+ * Encapsula el almacenamiento de imágenes en S3: subida directa desde el
+ * backend, generación de URLs presignadas para el cliente, borrado y validación.
+ */
 @Injectable()
 export class ImagesService {
   private readonly s3Client: S3Client;
@@ -50,6 +56,7 @@ export class ImagesService {
     });
   }
 
+  /** Sube un archivo a S3 bajo `key/{uuid}` y devuelve su URL (CDN si está configurada). */
   async uploadFile(
     file: Buffer,
     key: string,
@@ -89,6 +96,7 @@ export class ImagesService {
     }
   }
 
+  /** Sube el logo de un negocio a su carpeta en S3. */
   async uploadBusinessLogo(
     businessId: string,
     file: Buffer,
@@ -100,6 +108,7 @@ export class ImagesService {
     });
   }
 
+  /** Sube la foto de un profesional a su carpeta en S3. */
   async uploadProfessionalPhoto(
     professionalId: string,
     file: Buffer,
@@ -116,6 +125,7 @@ export class ImagesService {
     );
   }
 
+  /** Sube la imagen de un servicio a su carpeta en S3. */
   async uploadServiceImage(
     serviceId: string,
     file: Buffer,
@@ -127,6 +137,7 @@ export class ImagesService {
     });
   }
 
+  /** Genera una URL presignada para que el cliente suba el archivo directo a S3. */
   async generatePresignedUploadUrl(
     key: string,
     contentType: string,
@@ -162,6 +173,7 @@ export class ImagesService {
     }
   }
 
+  /** URL presignada para subir el logo de un negocio. */
   async generatePresignedUploadUrlForBusinessLogo(
     businessId: string,
     contentType: string,
@@ -174,6 +186,7 @@ export class ImagesService {
     );
   }
 
+  /** URL presignada para subir la foto de un profesional. */
   async generatePresignedUploadUrlForProfessionalPhoto(
     professionalId: string,
     contentType: string,
@@ -186,6 +199,7 @@ export class ImagesService {
     );
   }
 
+  /** URL presignada para subir la imagen de un servicio. */
   async generatePresignedUploadUrlForServiceImage(
     serviceId: string,
     contentType: string,
@@ -198,6 +212,7 @@ export class ImagesService {
     );
   }
 
+  /** Borra un objeto de S3 por su clave. */
   async deleteImage(key: string): Promise<void> {
     try {
       const command = new DeleteObjectCommand({
@@ -215,6 +230,7 @@ export class ImagesService {
     }
   }
 
+  /** Devuelve una URL presignada de lectura para un objeto privado de S3. */
   async getImageUrl(key: string, expiresIn: number = 3600): Promise<string> {
     try {
       const command = new GetObjectCommand({
@@ -234,6 +250,7 @@ export class ImagesService {
     }
   }
 
+  /** Valida que el archivo sea una imagen de tipo permitido y no exceda 5MB. */
   validateImageFile(file: Buffer, contentType: string): void {
     const allowedTypes = [
       "image/jpeg",
@@ -258,6 +275,7 @@ export class ImagesService {
     }
   }
 
+  /** Formatea un tamaño en bytes a una cadena legible (KB, MB, GB). */
   private formatFileSize(bytes: number): string {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -266,6 +284,7 @@ export class ImagesService {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   }
 
+  /** Extrae la clave de S3 a partir de una URL pública o de CDN. */
   extractKeyFromUrl(url: string): string {
     const urlWithoutDomain = url.replace(/^https?:\/\/[^\/]+/, "");
     const urlWithoutBucket = urlWithoutDomain.replace(

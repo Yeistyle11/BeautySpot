@@ -48,4 +48,5 @@ import { AuditLog } from "./entities/audit-log.entity";
     MembershipsModule,
   ],
 })
+/** Módulo raíz del auth-service: configura BD, eventos y los módulos de auth, usuarios y membresías. */
 export class AppModule {}

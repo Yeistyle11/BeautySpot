@@ -1,4 +1,6 @@
 "use client";
+
+// Pagina de gestion del perfil publico: pestanas para editar la ficha del negocio en el marketplace.
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";

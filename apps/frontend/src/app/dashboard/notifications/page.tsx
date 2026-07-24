@@ -1,4 +1,6 @@
 "use client";
+
+// Pagina de notificaciones: bandeja del usuario con marcado de leidas y paginacion.
 import { useCallback } from "react";
 import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";

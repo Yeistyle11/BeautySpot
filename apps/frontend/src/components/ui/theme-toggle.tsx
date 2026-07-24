@@ -1,4 +1,6 @@
 "use client";
+
+// Boton para alternar entre tema claro y oscuro.
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "@/lib/use-theme";
 import { cn } from "@/lib/utils";

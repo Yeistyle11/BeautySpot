@@ -11,6 +11,7 @@ import {
   NotificationChannel,
 } from "@beautyspot/shared-types";
 
+/** Datos para crear una notificación: usuario, tipo, título, mensaje y canal. */
 export class CreateNotificationDto {
   @IsUUID()
   businessId!: string;
@@ -36,6 +37,7 @@ export class CreateNotificationDto {
   channel?: NotificationChannel;
 }
 
+/** Filtros del listado de notificaciones (p. ej. solo no leídas). */
 export class QueryNotificationsDto {
   @IsOptional()
   @IsBoolean()

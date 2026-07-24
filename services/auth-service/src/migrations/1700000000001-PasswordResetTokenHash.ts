@@ -1,5 +1,6 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
+/** Reemplaza el token de reset en claro por su hash en la tabla password_resets. */
 export class PasswordResetTokenHash1700000000001 implements MigrationInterface {
   name = "PasswordResetTokenHash1700000000001";
 

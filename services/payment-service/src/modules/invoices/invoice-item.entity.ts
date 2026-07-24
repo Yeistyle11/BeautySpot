@@ -2,6 +2,7 @@ import { Entity, Column, ManyToOne, JoinColumn } from "typeorm";
 import { BaseEntity, numericTransformer } from "@beautyspot/database";
 import { InvoiceEntity } from "./invoice.entity";
 
+/** Línea de una factura: descripción, cantidad, precio unitario y total. */
 @Entity("invoice_items")
 export class InvoiceItemEntity extends BaseEntity {
   @Column({ type: "uuid", name: "invoice_id" }) invoiceId!: string;

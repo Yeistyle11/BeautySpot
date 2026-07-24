@@ -1,4 +1,6 @@
 "use client";
+
+// Dialogos para registrar y editar un pago (metodo, monto y notas).
 import { Banknote, CreditCard, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

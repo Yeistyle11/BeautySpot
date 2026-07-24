@@ -1,4 +1,6 @@
 "use client";
+
+// Dialogo de confirmacion para acciones destructivas, con estado de carga y error.
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 

@@ -18,4 +18,5 @@ import { PaymentEventListeners } from "./payment-event-listeners.service";
   providers: [PaymentEventListeners],
   exports: [PaymentEventListeners],
 })
+/** Registra los listeners de eventos de RabbitMQ del payment-service. */
 export class PaymentEventListenersModule {}

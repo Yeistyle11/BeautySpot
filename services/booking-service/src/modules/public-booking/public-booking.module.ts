@@ -19,4 +19,5 @@ import { PublicBookingService } from "./public-booking.service";
   controllers: [PublicBookingController],
   providers: [PublicBookingService],
 })
+/** Cablea el endpoint público de reservas para invitados del marketplace. */
 export class PublicBookingModule {}

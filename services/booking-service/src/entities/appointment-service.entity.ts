@@ -2,6 +2,7 @@ import { Entity, Column, ManyToOne, JoinColumn, Unique } from "typeorm";
 import { BaseEntity, numericTransformer } from "@beautyspot/database";
 import { Appointment } from "./appointment.entity";
 
+/** Servicio incluido en una cita, con su precio y duración congelados al momento de reservar. */
 @Entity("appointment_services")
 @Unique(["appointmentId", "serviceId"])
 export class AppointmentServiceEntity extends BaseEntity {

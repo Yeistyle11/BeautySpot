@@ -1,4 +1,6 @@
 "use client";
+
+// Layout del dashboard: rehidrata la sesion, exige token y monta el sidebar alrededor de las paginas.
 import { useEffect } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { useAuthStore } from "@/lib/store";

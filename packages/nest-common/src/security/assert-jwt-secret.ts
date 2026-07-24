@@ -9,6 +9,11 @@ const DEFAULT_WEAK_SECRETS = [
 
 const MIN_SECRET_LENGTH = 16;
 
+/**
+ * Valida el JWT secret al arrancar y aborta si es inseguro: ausente, con un valor
+ * por defecto conocido o demasiado corto. Falla rápido en el bootstrap en vez de
+ * dejar el servicio firmando tokens con un secreto adivinable.
+ */
 export function assertJwtSecret(
   secret: string | undefined,
   envVarName: string

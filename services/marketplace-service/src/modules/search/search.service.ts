@@ -5,6 +5,7 @@ import { escapeLikePattern } from "@beautyspot/shared-utils";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
 import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
 
+/** Filtros de búsqueda del marketplace: texto, ubicación, tipo, valoración mínima y paginación. */
 export interface SearchFilters {
   q?: string;
   city?: string;
@@ -18,6 +19,7 @@ export interface SearchFilters {
   type?: "business" | "professional" | "all";
 }
 
+/** Resultado paginado de una búsqueda, con los ítems y el tipo consultado. */
 export interface SearchResult {
   items: (BusinessProfileEntity | ProfessionalProfileEntity)[];
   total: number;
@@ -26,6 +28,7 @@ export interface SearchResult {
   type: "business" | "professional" | "all";
 }
 
+/** Busca negocios y/o profesionales publicados aplicando texto, filtros y cercanía geográfica. */
 @Injectable()
 export class SearchService {
   constructor(
@@ -35,6 +38,7 @@ export class SearchService {
     private readonly proRepo: Repository<ProfessionalProfileEntity>
   ) {}
 
+  /** Enruta la búsqueda a negocios, profesionales o ambos según el tipo pedido. */
   async search(filters: SearchFilters): Promise<SearchResult> {
     const type = filters.type || "business";
 
@@ -59,6 +63,7 @@ export class SearchService {
     return { ...(await this.searchBusinesses(filters)), type };
   }
 
+  /** Busca negocios publicados por texto, ciudad, tipo y valoración, ordenando por cercanía o rating. */
   private async searchBusinesses(
     filters: SearchFilters
   ): Promise<Omit<SearchResult, "type">> {
@@ -115,6 +120,7 @@ export class SearchService {
     return { items, total, page, limit };
   }
 
+  /** Busca profesionales visibles por texto y valoración, filtrando por ciudad vía el perfil del negocio. */
   private async searchProfessionals(
     filters: SearchFilters
   ): Promise<Omit<SearchResult, "type">> {

@@ -10,4 +10,5 @@ import { BlockedSlot } from "../../entities/blocked-slot.entity";
   providers: [BlockedSlotsService],
   exports: [BlockedSlotsService],
 })
+/** Cablea la gestión de bloqueos de agenda de los profesionales. */
 export class BlockedSlotsModule {}

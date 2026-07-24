@@ -1,4 +1,6 @@
 "use client";
+
+// Seccion de resenas del perfil publico, con la distribucion de calificaciones.
 import Image from "next/image";
 import { Heart, MessageSquare, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";

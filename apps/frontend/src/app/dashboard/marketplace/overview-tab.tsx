@@ -1,4 +1,6 @@
 "use client";
+
+// Pestana de resumen: estado de publicacion y completitud del perfil publico.
 import { CheckCircle, Eye, EyeOff } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

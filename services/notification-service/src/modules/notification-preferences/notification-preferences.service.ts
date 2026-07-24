@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { NotificationPreferenceEntity } from "./notification-preference.entity";
 
+/** Gestiona las preferencias de notificación por usuario (qué tipos recibir y por qué canal). */
 @Injectable()
 export class NotificationPreferencesService {
   constructor(
@@ -10,6 +11,7 @@ export class NotificationPreferencesService {
     private readonly repo: Repository<NotificationPreferenceEntity>
   ) {}
 
+  /** Devuelve todas las preferencias del usuario en el negocio. */
   async findByUser(
     userId: string,
     businessId: string
@@ -17,6 +19,7 @@ export class NotificationPreferencesService {
     return this.repo.find({ where: { userId, businessId } });
   }
 
+  /** Crea o actualiza la preferencia de un tipo+canal para el usuario. */
   async upsert(data: {
     businessId: string;
     userId: string;
@@ -41,6 +44,7 @@ export class NotificationPreferencesService {
     return this.repo.save(this.repo.create(data));
   }
 
+  /** Indica si el usuario acepta ese tipo+canal; por defecto true si no hay preferencia. */
   async isNotificationEnabled(
     userId: string,
     businessId: string,

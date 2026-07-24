@@ -1,6 +1,7 @@
 import { ConfigService } from "@nestjs/config";
 import { Injectable } from "@nestjs/common";
 
+/** URL base de cada microservicio al que el gateway puede enrutar. */
 export interface ServiceUrls {
   auth: string;
   core: string;
@@ -11,6 +12,10 @@ export interface ServiceUrls {
   analytics: string;
 }
 
+/**
+ * Registro central de las URLs de los microservicios, leídas de variables de
+ * entorno con un valor por defecto de localhost para desarrollo.
+ */
 @Injectable()
 export class ServiceUrlsConfig {
   private urls: ServiceUrls;
@@ -42,14 +47,17 @@ export class ServiceUrlsConfig {
     };
   }
 
+  /** URL del servicio indicado; recae en core si el nombre no está registrado. */
   getUrl(service: string): string {
     return this.urls[service as keyof ServiceUrls] || this.urls.core;
   }
 
+  /** Indica si el nombre corresponde a un servicio registrado. */
   hasUrl(service: string): boolean {
     return service in this.urls;
   }
 
+  /** Todas las URLs; usado por el health check para recorrer cada servicio. */
   getAll(): ServiceUrls {
     return this.urls;
   }

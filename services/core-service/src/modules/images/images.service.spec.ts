@@ -5,9 +5,11 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { BadRequestException } from "@nestjs/common";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ImagesService } from "./images.service";
+
+jest.mock("@aws-sdk/s3-request-presigner");
 
 describe("ImagesService", () => {
   let service: ImagesService;
@@ -19,15 +21,14 @@ describe("ImagesService", () => {
   beforeEach(async () => {
     mockS3Send = jest.fn().mockResolvedValue({ ETag: '"test-etag"' });
 
-    mockGetSignedUrl = jest
-      .fn()
-      .mockImplementation(async (_client, _command, options) => {
-        if (options?.expiresIn) {
-          return `https://presigned-url.com?expires=${options.expiresIn}`;
-        }
-        return "https://presigned-url.com";
-      });
-    (getSignedUrl as jest.Mock) = mockGetSignedUrl;
+    mockGetSignedUrl = getSignedUrl as jest.Mock;
+    mockGetSignedUrl.mockReset();
+    mockGetSignedUrl.mockImplementation(async (_client, _command, options) => {
+      if (options?.expiresIn) {
+        return `https://presigned-url.com?expires=${options.expiresIn}`;
+      }
+      return "https://presigned-url.com";
+    });
 
     mockS3Client = {
       send: mockS3Send,

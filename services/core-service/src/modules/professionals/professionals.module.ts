@@ -11,4 +11,5 @@ import { ProfessionalService } from "../../entities/professional-service.entity"
   providers: [ProfessionalsService],
   exports: [ProfessionalsService],
 })
+/** Cablea el CRUD de profesionales y su relación con servicios. */
 export class ProfessionalsModule {}

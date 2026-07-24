@@ -2,6 +2,13 @@ import { DataSourceOptions, LogLevel } from "typeorm";
 
 export type ServiceType = "read" | "write" | "default";
 
+/**
+ * Clase de entidad de TypeORM. Se tipa como constructor en vez de `Function`
+ * porque `Function` admite cualquier invocable (una funcion suelta, un metodo)
+ * y aqui solo tienen sentido las clases decoradas con @Entity.
+ */
+export type EntityClass = abstract new (...args: never[]) => unknown;
+
 export interface PoolConfig {
   max: number;
   idleTimeoutMillis: number;
@@ -42,7 +49,7 @@ export function getPoolConfig(
 
 export function createTypeOrmConfig(
   databaseUrl: string,
-  entities: Function[],
+  entities: EntityClass[],
   serviceType: ServiceType = "default",
   synchronize = false
 ): DataSourceOptions {
@@ -71,7 +78,7 @@ export function createTypeOrmConfig(
 }
 
 export function createTypeOrmModuleOptions(
-  entities: Function[],
+  entities: EntityClass[],
   serviceType: ServiceType = "default"
 ): DataSourceOptions {
   const databaseUrl = process.env.DATABASE_URL;

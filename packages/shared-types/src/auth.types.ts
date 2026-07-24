@@ -1,3 +1,4 @@
+/** Roles del sistema, de mayor a menor privilegio (ver jerarquía en CLAUDE.md). */
 export enum Role {
   SUPER_ADMIN = "SUPER_ADMIN",
   OWNER = "OWNER",
@@ -7,6 +8,7 @@ export enum Role {
   CLIENT = "CLIENT",
 }
 
+/** Contenido del JWT emitido por auth-service y validado en el API Gateway. */
 export interface IJwtPayload {
   sub: string;
   email: string;

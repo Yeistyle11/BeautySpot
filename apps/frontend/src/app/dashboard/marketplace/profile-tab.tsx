@@ -1,4 +1,6 @@
 "use client";
+
+// Pestana de perfil: edicion de la descripcion, redes y datos de la ficha publica.
 import { useId } from "react";
 import Image from "next/image";
 import { Globe, Instagram, Link2, Loader2, Save } from "lucide-react";

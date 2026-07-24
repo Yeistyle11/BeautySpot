@@ -10,4 +10,5 @@ import { Service } from "../../entities/service.entity";
   providers: [ServicesService],
   exports: [ServicesService],
 })
+/** Cablea el CRUD del catálogo de servicios. */
 export class ServicesModule {}

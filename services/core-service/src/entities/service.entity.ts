@@ -3,6 +3,7 @@ import { TenantEntity, numericTransformer } from "@beautyspot/database";
 import { Business } from "./business.entity";
 import { ServiceCategoryEntity } from "./service-category.entity";
 
+/** Servicio ofertado por un negocio: precio, duración y categoría. */
 @Entity("services")
 @Index(["businessId", "category"])
 @Index(["businessId", "active"])

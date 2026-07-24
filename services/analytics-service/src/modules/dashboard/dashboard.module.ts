@@ -5,6 +5,7 @@ import { ProfessionalMetricEntity } from "../../entities/professional-metric.ent
 import { DashboardService } from "./dashboard.service";
 import { DashboardController } from "./dashboard.controller";
 
+/** Módulo del dashboard: expone los KPIs agregados para la vista de analítica. */
 @Module({
   imports: [
     TypeOrmModule.forFeature([DailyMetricEntity, ProfessionalMetricEntity]),

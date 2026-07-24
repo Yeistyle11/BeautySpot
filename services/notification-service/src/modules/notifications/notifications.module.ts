@@ -14,4 +14,5 @@ import { NotificationPreferencesModule } from "../notification-preferences/notif
   providers: [NotificationsService],
   exports: [NotificationsService],
 })
+/** Cablea la gestión de notificaciones in-app. */
 export class NotificationsModule {}

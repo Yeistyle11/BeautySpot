@@ -1,4 +1,6 @@
 "use client";
+
+// Seccion de historia/presentacion del perfil publico.
 import Image from "next/image";
 import { Clock, Quote } from "lucide-react";
 import { imageUnoptimized } from "@/lib/image";

@@ -11,7 +11,8 @@
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "type-check": "tsc --noEmit -p tsconfig.typecheck.json"
+    "type-check": "tsc --noEmit -p tsconfig.typecheck.json",
+    "lint": "eslint src --ext .ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1057.0",

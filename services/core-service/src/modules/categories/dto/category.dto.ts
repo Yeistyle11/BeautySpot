@@ -8,6 +8,7 @@ import {
   MaxLength,
 } from "class-validator";
 
+/** Datos para crear una categoría de profesionales: nombre, icono, color y orden. */
 export class CreateCategoryDto {
   @IsString()
   @MaxLength(100)
@@ -35,6 +36,7 @@ export class CreateCategoryDto {
   sortOrder?: number;
 }
 
+/** Campos editables de una categoría (todos opcionales). */
 export class UpdateCategoryDto {
   @IsOptional()
   @IsString()

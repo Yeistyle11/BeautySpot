@@ -14,6 +14,14 @@ const DEFAULT_POLL_INTERVAL_MS = 2000;
 const DEFAULT_BATCH_SIZE = 50;
 const DEFAULT_MAX_ATTEMPTS = 5;
 
+/**
+ * Sondea periódicamente la tabla outbox y publica en RabbitMQ los eventos pendientes.
+ *
+ * Reclama lotes con bloqueo pesimista y `SKIP LOCKED` para que varias instancias
+ * puedan procesar en paralelo sin pisarse. Cada evento se reintenta hasta
+ * `OUTBOX_MAX_ATTEMPTS`; superado el límite queda marcado como DEAD para revisión.
+ * Se puede desactivar con OUTBOX_RELAY_ENABLED=false.
+ */
 @Injectable()
 export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OutboxRelayWorker.name);

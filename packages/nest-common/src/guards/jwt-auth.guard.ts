@@ -14,6 +14,14 @@ import {
   TOKEN_VERSION_DEFAULT,
 } from "../security/token-version.store";
 
+/**
+ * Verifica el JWT (HS256) de cada petición y publica el usuario en `request.user`.
+ *
+ * Deja pasar las rutas marcadas con @Public, `/health` y las internas `/internal`.
+ * Además de validar firma y expiración, compara la `tokenVersion` del token con la
+ * almacenada para poder invalidar sesiones remotamente (logout global, cambio de
+ * contraseña); si no coinciden, la sesión se considera revocada.
+ */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(

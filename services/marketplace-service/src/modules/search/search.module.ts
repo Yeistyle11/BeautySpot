@@ -16,4 +16,5 @@ import { SearchController } from "./search.controller";
   providers: [SearchService],
   exports: [SearchService],
 })
+/** Cablea la búsqueda de negocios y profesionales. */
 export class SearchModule {}

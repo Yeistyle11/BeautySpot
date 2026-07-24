@@ -5,4 +5,5 @@ import { PdfService } from "./pdf.service";
   providers: [PdfService],
   exports: [PdfService],
 })
+/** Expone el PdfService para generar facturas en PDF. */
 export class PdfModule {}

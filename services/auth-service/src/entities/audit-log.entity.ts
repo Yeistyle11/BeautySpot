@@ -1,6 +1,7 @@
 import { Entity, Column } from "typeorm";
 import { BaseEntity } from "@beautyspot/database";
 
+/** Registro de auditoría: quién hizo qué acción sobre qué entidad, con contexto de la petición. */
 @Entity("audit_logs")
 export class AuditLog extends BaseEntity {
   @Column({ type: "uuid", name: "user_id" })

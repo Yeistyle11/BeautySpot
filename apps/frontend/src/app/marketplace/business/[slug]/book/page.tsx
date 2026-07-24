@@ -1,4 +1,6 @@
 "use client";
+
+// Flujo de reserva publica: asistente por pasos (servicios, profesional, horario y datos) hasta confirmar la cita.
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";

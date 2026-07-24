@@ -6,6 +6,7 @@ import {
   MaxLength,
 } from "class-validator";
 
+/** Datos para crear un negocio: nombre, contacto, ubicación y preferencias regionales. */
 export class CreateBusinessDto {
   @IsString() @MaxLength(200) name!: string;
   @IsOptional() @IsString() @MaxLength(1000) description?: string;
@@ -24,6 +25,7 @@ export class CreateBusinessDto {
   @IsOptional() @IsString() @MaxLength(50) businessType?: string;
 }
 
+/** Campos editables de un negocio, incluido su estado activo (todos opcionales). */
 export class UpdateBusinessDto {
   @IsOptional() @IsString() @MaxLength(200) name?: string;
   @IsOptional() @IsString() @MaxLength(1000) description?: string;

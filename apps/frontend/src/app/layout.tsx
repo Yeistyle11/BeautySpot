@@ -1,3 +1,4 @@
+// Layout raiz: aplica la fuente, los estilos globales, los Providers y la metadata base para SEO.
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";

@@ -13,11 +13,13 @@ import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { CreateServiceDto, UpdateServiceDto } from "./dto/service.dto";
 
+/** Endpoints del catálogo de servicios; la lectura la comparten todos los roles del negocio. */
 @Roles(Role.OWNER, Role.ADMIN)
 @Controller("services")
 export class ServicesController {
   constructor(private readonly service: ServicesService) {}
 
+  /** Crea un servicio en el catálogo del negocio. */
   @Post()
   async create(
     @BusinessId() businessId: string,
@@ -26,6 +28,7 @@ export class ServicesController {
     return this.service.create(businessId, dto);
   }
 
+  /** Lista los servicios del negocio (opcionalmente solo los activos). */
   @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL, Role.RECEPTIONIST)
   @Get()
   async findAll(
@@ -35,11 +38,13 @@ export class ServicesController {
     return this.service.findByBusiness(businessId, active === "true");
   }
 
+  /** Obtiene un servicio por id. */
   @Get(":id")
   async findById(@Param("id") id: string, @BusinessId() businessId: string) {
     return this.service.findById(id, businessId);
   }
 
+  /** Actualiza un servicio. */
   @Patch(":id")
   async update(
     @Param("id") id: string,
@@ -49,6 +54,7 @@ export class ServicesController {
     return this.service.update(id, businessId, dto);
   }
 
+  /** Da de baja un servicio del catálogo. */
   @Delete(":id")
   async remove(@Param("id") id: string, @BusinessId() businessId: string) {
     await this.service.softDelete(id, businessId);

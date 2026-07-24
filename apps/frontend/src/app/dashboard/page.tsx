@@ -1,4 +1,6 @@
 "use client";
+
+// Pagina principal del dashboard: resumen del dia con KPIs y proximas citas.
 import { useEffect, useMemo } from "react";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

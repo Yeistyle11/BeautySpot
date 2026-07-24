@@ -6,6 +6,7 @@ import {
   Min,
 } from "class-validator";
 
+/** Fecha e incrementos a aplicar sobre la métrica diaria del negocio. */
 export class IncrementDailyMetricDto {
   @IsDateString() date!: string;
   @IsOptional() @IsNumber() @Min(0) totalAppointments?: number;
@@ -17,6 +18,7 @@ export class IncrementDailyMetricDto {
   @IsOptional() @IsNumber() @Min(0) returningClients?: number;
 }
 
+/** Profesional, fecha e incrementos a aplicar sobre su métrica. */
 export class IncrementProfessionalMetricDto {
   @IsString() professionalId!: string;
   @IsDateString() date!: string;

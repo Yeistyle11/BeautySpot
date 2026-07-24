@@ -6,6 +6,7 @@ import {
   IsEmail,
 } from "class-validator";
 
+/** Datos de una reserva pública: negocio, profesional, servicios, horario y datos del invitado. */
 export class PublicBookingDto {
   @IsString() businessId!: string;
   @IsString() professionalId!: string;

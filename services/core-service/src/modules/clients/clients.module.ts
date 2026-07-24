@@ -10,4 +10,5 @@ import { Client } from "../../entities/client.entity";
   providers: [ClientsService],
   exports: [ClientsService],
 })
+/** Cablea el CRUD de clientes del negocio. */
 export class ClientsModule {}

@@ -50,6 +50,11 @@ function getWeekDates(referenceDate: Date): Date[] {
   });
 }
 
+/**
+ * Vista semanal de la agenda: distribuye las citas en una rejilla de días (lun-dom)
+ * por franja horaria, permite navegar entre semanas y, al seleccionar una cita,
+ * muestra su detalle con las acciones de confirmar, completar o cancelar según permisos.
+ */
 export function CalendarView({
   appointments,
   onComplete,

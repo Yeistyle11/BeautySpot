@@ -1,4 +1,6 @@
 "use client";
+
+// Pagina de caja: apertura, cierre y movimientos de la sesion de caja del dia.
 import { useState } from "react";
 import { mutate } from "swr";
 import { z } from "zod";

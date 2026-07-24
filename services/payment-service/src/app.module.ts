@@ -39,4 +39,5 @@ const entities = [
     PaymentEventListenersModule,
   ],
 })
+/** Módulo raíz del payment-service: pagos, caja, facturas y sus eventos. */
 export class AppModule {}

@@ -7,6 +7,7 @@ import { InvoiceStatus } from "@beautyspot/shared-types";
 import { CreateInvoiceDto } from "./dto/invoice.dto";
 import { PdfService } from "./pdf/pdf.service";
 
+/** Gestiona las facturas del negocio: creación con numeración propia, consulta y generación de PDF. */
 @Injectable()
 export class InvoicesService {
   constructor(
@@ -17,6 +18,7 @@ export class InvoicesService {
     private readonly pdfService: PdfService
   ) {}
 
+  /** Crea una factura calculando los totales de sus líneas y asignándole un número. */
   async create(
     businessId: string,
     dto: CreateInvoiceDto
@@ -52,6 +54,7 @@ export class InvoicesService {
     return this.invoiceRepo.save(invoice);
   }
 
+  /** Lista las facturas del negocio con sus líneas, opcionalmente filtradas por estado. */
   async findByBusiness(
     businessId: string,
     filters?: { status?: InvoiceStatus; from?: string; to?: string }
@@ -66,6 +69,7 @@ export class InvoicesService {
     });
   }
 
+  /** Obtiene una factura con sus líneas; lanza 404 si no existe. */
   async findById(id: string, businessId: string): Promise<InvoiceEntity> {
     const invoice = await this.invoiceRepo.findOne({
       where: { id, businessId },
@@ -75,6 +79,7 @@ export class InvoicesService {
     return invoice;
   }
 
+  /** Cambia el estado de una factura (borrador, emitida, pagada, etc.). */
   async updateStatus(
     id: string,
     businessId: string,
@@ -84,6 +89,7 @@ export class InvoicesService {
     return this.findById(id, businessId);
   }
 
+  /** Compone los datos de la factura y delega en PdfService para generar el PDF. */
   async generateInvoicePdf(
     invoiceId: string,
     businessId: string
@@ -120,6 +126,7 @@ export class InvoicesService {
     return this.pdfService.generateInvoicePdf(invoiceData);
   }
 
+  /** Genera el número correlativo de factura del negocio con el formato INV-{año}-{secuencia}. */
   private async generateInvoiceNumber(businessId: string): Promise<string> {
     const count = await this.invoiceRepo.count({ where: { businessId } });
     const seq = String(count + 1).padStart(6, "0");
@@ -127,6 +134,7 @@ export class InvoicesService {
     return `INV-${year}-${seq}`;
   }
 
+  /** Fecha de vencimiento por defecto: 30 días desde hoy. */
   private getDefaultDueDate(): string {
     const due = new Date();
     due.setDate(due.getDate() + 30);

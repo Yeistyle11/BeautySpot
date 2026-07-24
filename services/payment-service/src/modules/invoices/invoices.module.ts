@@ -15,4 +15,5 @@ import { PdfModule } from "./pdf/pdf.module";
   providers: [InvoicesService],
   exports: [InvoicesService],
 })
+/** Cablea la gestión de facturas y su generación en PDF. */
 export class InvoicesModule {}

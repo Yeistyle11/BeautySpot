@@ -1,5 +1,7 @@
 "use client";
 
+// Mis citas: historial y proximas citas del cliente.
+
 import { useState } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";

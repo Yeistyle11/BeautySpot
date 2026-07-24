@@ -33,4 +33,5 @@ import { EventBusModule } from "@beautyspot/nest-common";
   providers: [AuthService],
   exports: [AuthService, JwtModule],
 })
+/** Cablea el controlador, servicio y estrategia JWT de autenticación. */
 export class AuthModule {}

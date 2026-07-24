@@ -9,6 +9,7 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 
+/** Un servicio incluido en la cita, con su id, nombre, precio y duración. */
 export class AppointmentServiceItemDto {
   @IsString() id!: string;
   @IsString() name!: string;
@@ -16,6 +17,7 @@ export class AppointmentServiceItemDto {
   @IsNumber() @Min(5) duration!: number;
 }
 
+/** Datos para crear una cita: profesional, cliente, servicios, fecha y hora de inicio. */
 export class CreateAppointmentDto {
   @IsString() professionalId!: string;
   @IsString() clientId!: string;
@@ -29,10 +31,12 @@ export class CreateAppointmentDto {
   @IsOptional() @IsString() branchId?: string;
 }
 
+/** Motivo de cancelación de una cita. */
 export class CancelDto {
   @IsString() reason!: string;
 }
 
+/** Nueva fecha y hora de inicio para reagendar una cita. */
 export class RescheduleDto {
   @IsDateString() date!: string;
   @IsString() startTime!: string;

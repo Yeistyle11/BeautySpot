@@ -1,5 +1,6 @@
 import { IsEmail, IsString, IsOptional, MinLength } from "class-validator";
 
+/** Campos editables de un miembro del staff: nombre, email, teléfono y avatar. */
 export class UpdateStaffDto {
   @IsOptional()
   @IsString()

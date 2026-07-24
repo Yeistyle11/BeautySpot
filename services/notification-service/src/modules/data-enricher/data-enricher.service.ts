@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
+/** Datos legibles de los participantes de una cita, listos para plantillas de correo. */
 export interface EnrichedProfileData {
   clientName: string;
   clientEmail: string;
@@ -10,12 +11,14 @@ export interface EnrichedProfileData {
   businessPhone: string;
 }
 
+/** Respuesta cruda del core al resolver ids a nombres; cada campo es null si no se pudo. */
 interface ProfileResolution {
   client: { name: string; email: string } | null;
   professional: { name: string } | null;
   business: { name: string; address: string; phone: string } | null;
 }
 
+/** Valores por defecto cuando el core no puede resolver un perfil, para no romper el correo. */
 const FALLBACK = {
   clientName: "Cliente",
   clientEmail: "",
@@ -25,12 +28,17 @@ const FALLBACK = {
   businessPhone: "",
 };
 
+/**
+ * Traduce los ids de una cita (cliente, profesional, negocio) a nombres y datos
+ * de contacto consultando al core-service, con valores por defecto ante fallos.
+ */
 @Injectable()
 export class DataEnricherService {
   private readonly logger = new Logger(DataEnricherService.name);
 
   constructor(private readonly configService: ConfigService) {}
 
+  /** Devuelve los datos legibles de los tres participantes de una cita. */
   async enrichAppointmentParticipants(
     clientId: string,
     professionalId: string,
@@ -53,11 +61,13 @@ export class DataEnricherService {
     };
   }
 
+  /** Devuelve el email de un cliente, o cadena vacía si no se pudo resolver. */
   async enrichClientEmail(clientId: string): Promise<string> {
     const resolution = await this.resolveProfiles({ clientId });
     return resolution.client?.email ?? "";
   }
 
+  /** Devuelve el nombre y datos de contacto de un negocio. */
   async enrichBusinessData(businessId: string): Promise<{
     businessName: string;
     businessAddress: string;
@@ -71,6 +81,7 @@ export class DataEnricherService {
     };
   }
 
+  /** Llama al endpoint interno del core para resolver los ids indicados; devuelve nulls ante error. */
   private async resolveProfiles(ids: {
     clientId?: string;
     professionalId?: string;

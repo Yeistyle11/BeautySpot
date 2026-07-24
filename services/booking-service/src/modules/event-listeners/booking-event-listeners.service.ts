@@ -3,12 +3,14 @@ import { EventPattern, Payload } from "@nestjs/microservices";
 import { EventNames } from "@beautyspot/event-types";
 import { AvailabilityService } from "../availability/availability.service";
 
+/** Escucha eventos de RabbitMQ que afectan a las reservas (altas, pagos y recordatorios). */
 @Injectable()
 export class BookingEventListeners {
   private readonly logger = new Logger(BookingEventListeners.name);
 
   constructor(private readonly availabilityService: AvailabilityService) {}
 
+  /** Reacciona al alta de un usuario. */
   @EventPattern(EventNames.AUTH_USER_REGISTERED)
   async handleUserRegistered(@Payload() event: any) {
     this.logger.log(`Usuario registrado: ${event.payload.email}`);
@@ -29,6 +31,7 @@ export class BookingEventListeners {
     }
   }
 
+  /** Reacciona a la creación de un negocio. */
   @EventPattern(EventNames.CORE_BUSINESS_CREATED)
   async handleBusinessCreated(@Payload() event: any) {
     this.logger.log(`Negocio creado: ${event.payload.businessId}`);
@@ -46,6 +49,7 @@ export class BookingEventListeners {
     }
   }
 
+  /** Al crearse un profesional, le inicializa una disponibilidad semanal por defecto (L-D, 09:00–18:00). */
   @EventPattern(EventNames.CORE_PROFESSIONAL_CREATED)
   async handleProfessionalCreated(@Payload() event: any) {
     this.logger.log(`Profesional creado: ${event.payload.professionalId}`);
@@ -78,6 +82,7 @@ export class BookingEventListeners {
     }
   }
 
+  /** Reacciona a un pago registrado, vinculándolo a su cita cuando aplica. */
   @EventPattern(EventNames.PAYMENT_PAYMENT_REGISTERED)
   async handlePaymentRegistered(@Payload() event: any) {
     this.logger.log(`Pago registrado: ${event.payload.paymentId}`);
@@ -100,6 +105,7 @@ export class BookingEventListeners {
     }
   }
 
+  /** Reacciona a un recordatorio de cita que toca enviar. */
   @EventPattern(EventNames.BOOKING_APPOINTMENT_REMINDER_DUE)
   async handleAppointmentReminderDue(@Payload() event: any) {
     this.logger.log(

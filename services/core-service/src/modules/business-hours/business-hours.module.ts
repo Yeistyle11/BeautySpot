@@ -10,4 +10,5 @@ import { BusinessHours } from "../../entities/business-hours.entity";
   providers: [BusinessHoursService],
   exports: [BusinessHoursService],
 })
+/** Cablea la gestión del horario de apertura del negocio. */
 export class BusinessHoursModule {}

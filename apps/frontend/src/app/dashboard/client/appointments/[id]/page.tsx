@@ -1,5 +1,7 @@
 "use client";
 
+// Detalle de una cita del cliente, con sus acciones (reprogramar, resenar, cancelar).
+
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { mutate } from "swr";

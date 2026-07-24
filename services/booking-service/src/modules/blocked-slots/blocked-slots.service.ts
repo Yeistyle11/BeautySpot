@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, MoreThanOrEqual } from "typeorm";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
 
+/** Gestiona los bloqueos puntuales de agenda de un profesional (vacaciones, descansos). */
 @Injectable()
 export class BlockedSlotsService {
   constructor(
@@ -10,6 +11,7 @@ export class BlockedSlotsService {
     private readonly repo: Repository<BlockedSlot>
   ) {}
 
+  /** Lista los bloqueos de un profesional (por defecto solo los futuros). */
   async findByProfessional(
     businessId: string,
     professionalId: string,
@@ -21,6 +23,7 @@ export class BlockedSlotsService {
     return this.repo.find({ where, order: { date: "ASC", startTime: "ASC" } });
   }
 
+  /** Crea un bloqueo de agenda para el profesional. */
   async create(
     businessId: string,
     professionalId: string,
@@ -30,6 +33,7 @@ export class BlockedSlotsService {
     return this.repo.save(slot);
   }
 
+  /** Elimina un bloqueo del negocio; lanza 404 si no existe. */
   async remove(id: string, businessId: string): Promise<void> {
     const result = await this.repo.delete({ id, businessId });
     if (!result.affected) throw new NotFoundException("Bloqueo no encontrado");

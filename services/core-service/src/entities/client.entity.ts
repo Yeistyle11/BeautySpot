@@ -2,6 +2,7 @@ import { Entity, Column, ManyToOne, JoinColumn, Index } from "typeorm";
 import { TenantEntity } from "@beautyspot/database";
 import { Business } from "./business.entity";
 
+/** Cliente de un negocio: datos de contacto, notas, puntos de fidelidad y etiquetas. */
 @Entity("clients")
 @Index(["businessId", "email"])
 @Index(["businessId", "phone"])
