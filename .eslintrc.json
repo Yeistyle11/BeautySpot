@@ -24,6 +24,7 @@
         "**/*.spec.ts",
         "**/*.test.ts",
         "**/*.test.tsx",
+        "**/*.int-test.ts",
         "**/test/setup.ts",
         "**/test-setup.ts"
       ],

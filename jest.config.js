@@ -16,4 +16,16 @@ module.exports = {
   ],
   coverageDirectory: "<rootDir>/coverage",
   coverageReporters: ["json", "lcov", "text", "clover"],
+  // Umbral de cobertura obligatorio (falla el CI si baja).
+  // statements y lines ya superan el objetivo de 80%; branches y functions
+  // fijan un piso anti-regresión que se irá subiendo hasta 80% conforme se
+  // añaden tests (ver tests de integración en docker-compose.test.yml).
+  coverageThreshold: {
+    global: {
+      statements: 85,
+      lines: 86,
+      functions: 76,
+      branches: 68,
+    },
+  },
 };
