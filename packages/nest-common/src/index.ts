@@ -28,6 +28,10 @@ export type {
   ResultadoSalud,
   EstadoDependencia,
 } from "./modules/health/health.service";
+export { IdempotencyModule } from "./modules/idempotency/idempotency.module";
+export { ProcessedEventsStore } from "./modules/idempotency/processed-events.store";
+export type { EventoEntrante } from "./modules/idempotency/processed-events.store";
+export { ProcessedEventEntity } from "./modules/idempotency/processed-event.entity";
 export { RedisCacheService } from "./cache/redis-cache.service";
 export { RedisCacheModule } from "./cache/redis-cache.module";
 export {

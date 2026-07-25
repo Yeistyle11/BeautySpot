@@ -19,6 +19,7 @@ function makeEvent<T>(payload: T): IBaseEvent<T> {
   return {
     eventType: "test.event",
     timestamp: new Date(),
+    eventId: "test-evtelation-id",
     correlationId: "test-correlation-id",
     payload,
   };

@@ -3,7 +3,11 @@ import { ConfigModule } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
-import { OutboxModule, HealthModule } from "@beautyspot/nest-common";
+import {
+  OutboxModule,
+  HealthModule,
+  IdempotencyModule,
+} from "@beautyspot/nest-common";
 import { entities } from "./orm-entities";
 import { PaymentsModule } from "./modules/payments/payments.module";
 import { InvoicesModule } from "./modules/invoices/invoices.module";
@@ -18,6 +22,7 @@ import { PaymentEventListenersModule } from "./modules/event-listeners/payment-e
     TypeOrmModule.forRootAsync({
       useFactory: () => createTypeOrmModuleOptions(entities),
     }),
+    IdempotencyModule,
     HealthModule,
     OutboxModule,
     PaymentsModule,

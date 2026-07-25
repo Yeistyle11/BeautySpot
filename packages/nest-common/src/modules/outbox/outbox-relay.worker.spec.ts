@@ -98,10 +98,13 @@ describe("OutboxRelayWorker", () => {
 
       await worker.poll();
 
+      // El eventId tiene que ser el id de la fila del outbox, no el del
+      // agregado: es lo único estable entre reintentos de publicación, y es lo
+      // que permite al consumidor descartar la reentrega.
       expect(mockEventBus.emit).toHaveBeenCalledWith(
         "payment.registered",
         { amount: 100 },
-        "agg-1"
+        { eventId: "msg-1", correlationId: "agg-1" }
       );
       expect(mockRepo.update).toHaveBeenCalledWith(
         "msg-1",

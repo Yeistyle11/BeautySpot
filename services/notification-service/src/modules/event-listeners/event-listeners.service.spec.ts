@@ -14,6 +14,7 @@ describe("NotificationEventListeners", () => {
 
   const mockUserRegisteredEvent = {
     eventType: "auth.user.registered",
+    eventId: "evt-123",
     correlationId: "corr-123",
     timestamp: new Date(),
     payload: {
@@ -25,6 +26,7 @@ describe("NotificationEventListeners", () => {
 
   const mockPasswordResetEvent = {
     eventType: "auth.password-reset.requested",
+    eventId: "evt-129",
     correlationId: "corr-129",
     timestamp: new Date(),
     payload: {
@@ -38,6 +40,7 @@ describe("NotificationEventListeners", () => {
 
   const mockAppointmentConfirmedEvent = {
     eventType: "booking.appointment.confirmed",
+    eventId: "evt-124",
     correlationId: "corr-124",
     timestamp: new Date(),
     payload: {
@@ -54,6 +57,7 @@ describe("NotificationEventListeners", () => {
 
   const mockAppointmentCancelledEvent = {
     eventType: "booking.appointment.cancelled",
+    eventId: "evt-125",
     correlationId: "corr-125",
     timestamp: new Date(),
     payload: {
@@ -71,6 +75,7 @@ describe("NotificationEventListeners", () => {
 
   const mockAppointmentReminderEvent = {
     eventType: "booking.appointment.reminder_due",
+    eventId: "evt-126",
     correlationId: "corr-126",
     timestamp: new Date(),
     payload: {
@@ -87,6 +92,7 @@ describe("NotificationEventListeners", () => {
 
   const mockInvoiceGeneratedEvent = {
     eventType: "payment.invoice.generated",
+    eventId: "evt-127",
     correlationId: "corr-127",
     timestamp: new Date(),
     payload: {
@@ -101,6 +107,7 @@ describe("NotificationEventListeners", () => {
 
   const mockPaymentRegisteredEvent = {
     eventType: "payment.payment.registered",
+    eventId: "evt-128",
     correlationId: "corr-128",
     timestamp: new Date(),
     payload: {

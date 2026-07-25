@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
-import { Repository, DataSource, Between } from "typeorm";
+import { Repository, DataSource, EntityManager, Between } from "typeorm";
 import { DailyMetricEntity } from "../../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
 
@@ -36,14 +36,19 @@ export class MetricsService {
   ) {}
 
   /**
-   * Incrementa atomically contadores de la métrica diaria.
-   * Usa INSERT ... ON CONFLICT DO UPDATE (atomic, race-free).
-   * El unique constraint (business_id, date) garantiza idempotencia del target.
+   * Incrementa los contadores de la métrica diaria con INSERT ... ON CONFLICT
+   * DO UPDATE, de forma atómica y sin carreras entre escritores concurrentes.
+   *
+   * El unique (business_id, date) evita filas duplicadas, pero **no hace
+   * idempotente el incremento**: aplicar dos veces el mismo evento suma dos
+   * veces. De eso se ocupa quien llama, marcando el evento como procesado
+   * dentro de esta misma transacción; para eso admite un `manager`.
    */
   async incrementDailyMetric(
     businessId: string,
     date: string,
-    increments: DailyMetricIncrements
+    increments: DailyMetricIncrements,
+    manager?: EntityManager
   ): Promise<void> {
     const cols = this.buildDailyIncrementColumns(increments);
     if (cols.length === 0) return;
@@ -52,7 +57,7 @@ export class MetricsService {
       ([col]) => `${col} = COALESCE(daily_metrics.${col}, 0) + EXCLUDED.${col}`
     );
 
-    await this.dataSource.query(
+    await (manager ?? this.dataSource).query(
       `INSERT INTO daily_metrics (id, business_id, date, ${cols
         .map(([col]) => col)
         .join(", ")})
@@ -66,15 +71,17 @@ export class MetricsService {
   }
 
   /**
-   * Incrementa atomically contadores de la métrica profesional.
-   * Usa INSERT ... ON CONFLICT DO UPDATE (atomic, race-free).
-   * El unique constraint (business_id, professional_id, date) garantiza idempotencia del target.
+   * Incrementa los contadores de la métrica de un profesional con
+   * INSERT ... ON CONFLICT DO UPDATE. Mismo matiz que
+   * {@link incrementDailyMetric}: el unique evita filas duplicadas, no
+   * incrementos repetidos.
    */
   async incrementProfessionalMetric(
     businessId: string,
     professionalId: string,
     date: string,
-    increments: ProfessionalMetricIncrements
+    increments: ProfessionalMetricIncrements,
+    manager?: EntityManager
   ): Promise<void> {
     const cols = this.buildProfIncrementColumns(increments);
     if (cols.length === 0) return;
@@ -84,7 +91,7 @@ export class MetricsService {
         `${col} = COALESCE(professional_metrics.${col}, 0) + EXCLUDED.${col}`
     );
 
-    await this.dataSource.query(
+    await (manager ?? this.dataSource).query(
       `INSERT INTO professional_metrics (id, business_id, professional_id, date, ${cols
         .map(([col]) => col)
         .join(", ")})
@@ -105,9 +112,10 @@ export class MetricsService {
     businessId: string,
     professionalId: string,
     date: string,
-    rating: number
+    rating: number,
+    manager?: EntityManager
   ): Promise<void> {
-    await this.dataSource.query(
+    await (manager ?? this.dataSource).query(
       `INSERT INTO professional_metrics (id, business_id, professional_id, date, rating)
        VALUES (gen_random_uuid(), $1, $2, $3, $4)
        ON CONFLICT (business_id, professional_id, date) DO UPDATE SET
