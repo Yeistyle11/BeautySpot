@@ -1,20 +1,13 @@
 #!/bin/bash
-# Inicialización de las bases de datos de BeautySpot: una por microservicio, con
-# su propio usuario.
+# Inicialización de las bases de datos de BeautySpot: una por microservicio.
 #
-# Antes esto era un .sql que creaba un único rol `beautyspot` SUPERUSER con la
-# contraseña puesta en claro y sin un solo GRANT: funcionaba precisamente porque
-# era superusuario, de modo que cualquier servicio podía leer y escribir en las
-# bases de los otros siete y administrar el clúster entero. Creaba además la base
-# y el usuario de SonarQube, que ningún compose del repo levanta.
-#
-# Ahora cada servicio recibe un usuario que es OWNER solo de su base, sin
-# SUPERUSER, y se revoca el CONNECT a PUBLIC para que los demás no puedan
-# siquiera conectarse a ella.
+# Cada servicio recibe un usuario que es OWNER solo de su base y sin SUPERUSER,
+# y se revoca el CONNECT a PUBLIC, de modo que un servicio comprometido no
+# alcanza los datos de los otros seis ni puede administrar el clúster.
 #
 # Es un .sh y no un .sql porque el entrypoint de la imagen de Postgres no
-# sustituye variables en los .sql: así las contraseñas pueden venir del entorno
-# en lugar de estar escritas en el repositorio.
+# sustituye variables en los .sql: así las contraseñas vienen del entorno en
+# lugar de estar escritas en el repositorio.
 set -euo pipefail
 
 servicios="auth core booking payment notification marketplace analytics"

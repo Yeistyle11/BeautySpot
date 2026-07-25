@@ -7,18 +7,12 @@ microservicios NestJS, frontend Next.js 14, PostgreSQL 16, Redis 7 y RabbitMQ 3.
 
 ---
 
-## ⛔ Bloqueantes antes del primer despliegue
-
-Estos puntos **no son opcionales**: con el código tal como está hoy, un despliegue
-a producción no funcionaría. Están listados primero a propósito.
-
-### 1. ~~Faltan las migraciones de 4 servicios~~ — resuelto
+## Esquema de base de datos
 
 `synchronize` de TypeORM está deshabilitado cuando `NODE_ENV=production`
-(`packages/database/src/config/typeorm.config.ts`: `synchronize: !isProduction && synchronize`).
-Eso es correcto —no se quiere que el ORM altere el esquema en producción—, pero
-significa que **el esquema tiene que crearlo una migración**. Los siete servicios
-con base de datos tienen ya su esquema completo en migraciones:
+(`packages/database/src/config/typeorm.config.ts`: `synchronize: !isProduction && synchronize`):
+en producción el esquema lo crea **exclusivamente** una migración. Los siete
+servicios con base de datos tienen el suyo completo:
 
 | Servicio               | Migraciones | Contenido                               |
 | ---------------------- | ----------- | --------------------------------------- |
@@ -30,77 +24,55 @@ con base de datos tienen ya su esquema completo en migraciones:
 | `booking-service`      | 2           | Outbox + esquema                        |
 | `payment-service`      | 3           | Esquema + outbox + índice único de caja |
 
-Las migraciones se escribieron a partir de los metadatos del propio TypeORM, de
-modo que reproducen literalmente lo que `synchronize` genera —incluidos los
-nombres autogenerados de índices y constraints (`IDX_…`, `FK_…`, `UQ_…`,
-`PK_…`), que no se pueden inventar: si no coinciden, el ORM los toma por objetos
-distintos.
+Las migraciones reproducen literalmente lo que genera `synchronize`, incluidos
+los nombres autogenerados de índices y constraints (`IDX_…`, `FK_…`, `UQ_…`,
+`PK_…`). Esos nombres no se pueden inventar: si no coinciden, el ORM los toma
+por objetos distintos y el esquema queda desincronizado aunque a la vista sea
+idéntico.
 
-Cada servicio tiene un test de integración `schema-migrations.int-test.ts` que
-levanta el esquema desde cero **sólo con las migraciones** y comprueba que
-`synchronize` no tendría después ningún cambio pendiente. Es lo que impide que
-una migración se desvíe de las entidades sin que nadie se entere hasta el
-despliegue.
+Cada servicio tiene un `schema-migrations.int-test.ts` que levanta el esquema
+desde cero **sólo con las migraciones** y comprueba que a `synchronize` no le
+queda después ningún cambio pendiente. Es lo que impide que una migración se
+desvíe de las entidades sin que nadie se entere hasta el despliegue: en
+desarrollo y en los tests el esquema lo crea `synchronize`, así que un error en
+el DDL no se nota antes.
 
-### 2. ~~No hay forma de ejecutar las migraciones~~ — resuelto
-
-Los siete servicios con base de datos tienen ya el mecanismo completo:
-
-- `createTypeOrmConfig` declara `migrations` y **`migrationsRun: false`**
-  (`packages/database/src/config/typeorm.config.ts`).
-- Cada servicio tiene un `src/data-source.ts` que el CLI de TypeORM consume.
-- Cada `package.json` expone `migration:run`, `migration:revert` y
-  `migration:generate`.
+### Ejecutar las migraciones
 
 ```bash
-# aplicar las migraciones pendientes de un servicio
+# aplicar las pendientes de un servicio
 npm run migration:run --workspace @beautyspot/core-service
 
-# generar una migración nueva tras cambiar entidades (necesita la BD viva)
+# generar una nueva tras cambiar entidades (necesita la BD viva)
 npm run migration:generate --workspace @beautyspot/core-service -- src/migrations/NombreDescriptivo
 ```
 
-**Las migraciones no se ejecutan al arrancar**, y es deliberado: con varias
-réplicas del mismo servicio todas competirían por migrar a la vez, y un fallo de
-migración dejaría al servicio sin arrancar en lugar de fallar en un paso de
-despliegue visible. Hay que ejecutar `migration:run` de los siete servicios
-**antes** de levantar los contenedores.
+**No se ejecutan al arrancar** (`migrationsRun: false`), y es deliberado: con
+varias réplicas del mismo servicio todas competirían por migrar a la vez, y un
+fallo de migración dejaría al servicio sin arrancar en lugar de fallar en un
+paso de despliegue visible. Hay que lanzar `migration:run` de los siete
+servicios **antes** de levantar los contenedores.
 
 La lista de entidades de cada servicio vive en un único `src/orm-entities.ts`
-que comparten `app.module.ts` y `data-source.ts`. No dupliques la lista: si las
-dos divergen, `migration:generate` compara el esquema contra una lista
-incompleta y propone borrar las tablas que le falten.
+que comparten `app.module.ts` y `data-source.ts`. No la dupliques: si las dos
+divergen, `migration:generate` compara el esquema contra una lista incompleta y
+propone borrar las tablas que le falten.
 
-### 3. No hay artefacto de orquestación para producción
+---
 
-El repositorio contiene:
+## Salud de los servicios
 
-- `docker-compose.yml` — **sólo infraestructura de desarrollo** (Postgres, Redis,
-  RabbitMQ). No levanta los servicios.
-- `docker-compose.test.yml` — infraestructura para los tests de integración.
-- Un `Dockerfile` por servicio y otro para el frontend (9 en total), validados en CI.
+Los ocho servicios exponen `GET /health` y los nueve Dockerfile declaran
+`HEALTHCHECK` contra él.
 
-Falta un `docker-compose.prod.yml` (o manifiestos de Kubernetes) que orqueste los
-9 contenedores más la infraestructura. La sección
-[Orquestación](#3-orquestación-de-la-aplicación) propone uno.
-
-### 4. ~~Los microservicios no tienen healthcheck~~ — resuelto
-
-Los ocho servicios exponen `GET /health`, y los nueve Dockerfile declaran
-`HEALTHCHECK`.
-
-- Los 7 microservicios usan el `HealthModule` compartido de
-  `@beautyspot/nest-common`, que comprueba las dependencias que cada uno tenga
-  —Postgres con un `SELECT 1`, Redis con un `PING`, RabbitMQ mirando si hay
-  canal abierto— y responde **200 si todas están arriba y 503 si alguna está
-  caída**. El código es lo único que miran las _readiness probes_: devolver 200
-  con un `"unhealthy"` en el cuerpo dejaría al orquestador enviando tráfico a un
-  servicio que no puede atender.
-- El gateway conserva su health agregado, que consulta el `/health` de los 7 y
-  devuelve `healthy` o `degraded`. **Ese endpoint no funcionaba**: el
-  controlador existía pero no estaba declarado en ningún módulo, así que
-  respondía 404 pese a que esta misma guía lo daba por operativo. Ahora se
-  registra en `HealthModule` del gateway.
+- Los 7 microservicios usan el `HealthModule` de `@beautyspot/nest-common`, que
+  comprueba las dependencias que cada uno tenga —Postgres con un `SELECT 1`,
+  Redis con un `PING`, RabbitMQ mirando si hay canal abierto— y responde **200
+  si todas están arriba y 503 si alguna está caída**. El código de estado es lo
+  único que miran las _readiness probes_: un 200 con `"unhealthy"` en el cuerpo
+  dejaría al orquestador enviando tráfico a un servicio que no puede atender.
+- El gateway expone además un health agregado, que consulta el `/health` de los
+  siete y devuelve `healthy` o `degraded`.
 
 El endpoint es público por diseño: `@Public()` lo exime de `JwtAuthGuard` y de
 `BusinessScopeGuard`, `RolesGuard` lo deja pasar al no llevar `@Roles`, y
@@ -161,77 +133,43 @@ El CI ya valida que las nueve imágenes construyen en cada cambio relevante; ver
 
 ## 3. Orquestación de la aplicación
 
-Este fichero **no existe todavía** en el repositorio (ver bloqueante 3). Esta es la
-forma mínima de `docker-compose.prod.yml`, con los puertos y variables que los
-servicios esperan de verdad:
+`docker-compose.prod.yml` levanta los 12 contenedores: los 8 servicios, el
+frontend, Postgres, Redis y RabbitMQ.
 
-```yaml
-services:
-  postgres:
-    image: postgres:16-alpine
-    restart: always
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./infra/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
-    # Sin `ports`: sólo accesible desde la red interna de Docker.
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 10s
+```bash
+cp .env.prod.example .env                                   # secretos de infraestructura
+for f in env/*.env.example; do cp "$f" "${f%.example}"; done # uno por contenedor
+# rellenar todo lo que ponga CAMBIAR (ver env/README.md)
 
-  redis:
-    image: redis:7-alpine
-    restart: always
-    command: redis-server --requirepass ${REDIS_PASSWORD}
-    volumes:
-      - redis_data:/data
+docker compose -f docker-compose.prod.yml up -d
+```
 
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    restart: always
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
+Orden de arranque: **primero la infraestructura, después las migraciones y sólo
+entonces los servicios.** Las migraciones no se aplican solas:
 
-  auth-service:
-    image: beautyspot-auth-service:${VERSION}
-    restart: always
-    env_file: ./env/auth-service.env
-    depends_on:
-      postgres: { condition: service_healthy }
-
-  # ... repetir para core, booking, payment, notification, marketplace, analytics
-
-  api-gateway:
-    image: beautyspot-api-gateway:${VERSION}
-    restart: always
-    env_file: ./env/api-gateway.env
-    ports:
-      - "127.0.0.1:3000:3000" # sólo local; expuesto vía reverse proxy
-
-  frontend:
-    image: beautyspot-frontend:${VERSION}
-    restart: always
-    ports:
-      - "127.0.0.1:8080:8080"
-
-volumes:
-  postgres_data:
-  redis_data:
-  rabbitmq_data:
+```bash
+docker compose -f docker-compose.prod.yml up -d postgres redis rabbitmq
+for s in auth core booking payment notification marketplace analytics; do
+  npm run migration:run --workspace "@beautyspot/$s-service"
+done
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 Puntos importantes:
 
-- **Sólo el gateway y el frontend publican puertos**, y sólo en `127.0.0.1`. Postgres,
-  Redis, RabbitMQ y los 7 microservicios no deben ser accesibles desde internet.
-- Dentro de la red de Docker las URLs entre servicios usan el nombre del contenedor
-  (`http://auth-service:3001`), no `localhost`.
-- El panel de RabbitMQ (15672) **no debe publicarse** en producción.
+- **Sólo el gateway y el frontend publican puertos**, y sólo en `127.0.0.1`:
+  se espera un reverse proxy con TLS por delante. Postgres, Redis, RabbitMQ y los
+  7 microservicios no son accesibles desde fuera del host.
+- Dentro de la red de Docker las URLs entre servicios usan el nombre del
+  contenedor (`http://auth-service:3001`), no `localhost`. La excepción es
+  `NEXT_PUBLIC_API_URL`: la resuelve el navegador, así que es la URL pública.
+- Los `depends_on` esperan a `service_healthy`, no a que el contenedor arranque.
+  Por eso importa el `HEALTHCHECK` de los 9 Dockerfile: sin él, el gateway
+  empezaría a proxear hacia servicios que todavía no han abierto su conexión a
+  la base de datos.
+- El panel de RabbitMQ (15672) **no se publica**.
+- El CI valida en cada cambio que el fichero parsea y que no le falta ninguna
+  variable, con `docker compose config`.
 
 ### Usuarios de base de datos
 
@@ -249,16 +187,9 @@ Las contraseñas se pasan por entorno —`BEAUTYSPOT_AUTH_PASSWORD`,
 porque el valor por defecto (el propio nombre del usuario) sólo sirve para
 desarrollo local.
 
-> Antes este fichero era un `.sql` que creaba un único rol `beautyspot`
-> SUPERUSER con la contraseña en claro y sin un solo `GRANT`: funcionaba
-> justamente por ser superusuario, con lo que cualquier servicio podía leer y
-> escribir en las bases de los otros siete y administrar el clúster. Creaba
-> además la base y el usuario de SonarQube (`sonar`/`sonar123`), que ningún
-> compose del repositorio levanta. Ambas cosas están eliminadas.
->
 > El script sólo se ejecuta en el **primer arranque del volumen**. Sobre un
-> volumen ya creado no tiene efecto: hay que recrearlo con
-> `docker volume rm beautyspot_postgres_data`.
+> volumen ya creado no tiene efecto: para aplicar un cambio hay que recrearlo
+> con `docker volume rm beautyspot_postgres_data`.
 
 ---
 
@@ -282,11 +213,9 @@ Redis se configura **siempre** con `REDIS_HOST`, `REDIS_PORT` y
 `REDIS_PASSWORD`. Es la única forma que lee el código (`RedisCacheService`, el
 `RedisModule` del gateway y BullMQ en notification).
 
-> `analytics`, `marketplace` y `payment` declaraban en su lugar un `REDIS_URL`
-> que **no se lee en ninguna parte del código**. No es que usaran otra forma:
-> caían al valor por defecto `localhost:6379` sin contraseña, es decir, no se
-> conectaban al Redis configurado. Ya está unificado, igual que el usuario de
-> base de datos, que ahora es uno por servicio.
+> `REDIS_URL` no se lee en ninguna parte: si un servicio la define creyendo que
+> basta con eso, se conecta al `localhost:6379` por defecto y sin contraseña, no
+> al Redis configurado.
 
 ### Específicas por servicio
 
@@ -359,7 +288,7 @@ control de versiones (los `.env` están en `.gitignore`; sólo se versiona `.env
 Las dependencias importan:
 
 1. **Postgres, Redis y RabbitMQ**, y esperar a que estén _healthy_.
-2. **Migraciones** de cada servicio (ver bloqueante 2).
+2. **Migraciones** de cada servicio (ver [Ejecutar las migraciones](#ejecutar-las-migraciones)).
 3. **Los 7 microservicios**. Se pueden arrancar en paralelo: se comunican por
    RabbitMQ y toleran que el destinatario no esté listo, porque los publicadores
    críticos usan el patrón Outbox.
@@ -546,16 +475,9 @@ de aplicación, no la del usuario.
 
 ## Checklist de despliegue
 
-Bloqueantes (secciones anteriores):
-
-- [x] Migraciones iniciales creadas para core, marketplace, notification y analytics
-- [x] `data-source.ts` y scripts `migration:*` en cada servicio con base de datos
-- [ ] `docker-compose.prod.yml` (o manifiestos de Kubernetes) escrito
-- [x] Endpoint `/health` en los 7 microservicios
-
 Infraestructura:
 
-- [x] Postgres 16 con las 7 bases y un usuario acotado por servicio (sin `SUPERUSER`)
+- [ ] Postgres 16 con las 7 bases y un usuario acotado por servicio (sin `SUPERUSER`)
 - [ ] Las 7 contraseñas `BEAUTYSPOT_<SERVICIO>_PASSWORD` definidas en el entorno
 - [ ] Redis 7 con contraseña
 - [ ] RabbitMQ 3 con usuario propio y panel no expuesto
@@ -568,7 +490,6 @@ Configuración:
 - [ ] `JWT_SECRET` idéntico en gateway y auth-service
 - [ ] `INTERNAL_API_SECRET` idéntico en los 8 servicios
 - [ ] `CORS_ORIGINS` con el dominio real
-- [x] Variables de Redis unificadas en `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD`
 - [ ] `NEXT_PUBLIC_API_URL` apuntando al gateway público
 
 Despliegue:

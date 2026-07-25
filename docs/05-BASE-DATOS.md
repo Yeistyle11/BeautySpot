@@ -1064,23 +1064,16 @@ Se usan las **migraciones de TypeORM**, gestionadas por cada servicio de forma
 independiente. Los ficheros viven en `services/<servicio>/src/migrations/` y
 exportan una clase que implementa `MigrationInterface` con `up()` y `down()`.
 
-> ⚠️ **Estado real (2026-07): esto está a medio implementar y bloquea el
-> despliegue a producción.**
+> Los siete servicios con base de datos tienen su esquema completo en
+> migraciones. Se ejecutan con `npm run migration:run --workspace @beautyspot/<servicio>`;
+> **no se aplican al arrancar**, es un paso explícito del despliegue.
 >
-> Sólo 3 de los 7 servicios con base de datos tienen migraciones: `auth-service`
-> (3), `payment-service` (2) y `booking-service` (1). **`core-service`, con 10
-> entidades, no tiene ninguna**, igual que `marketplace`, `notification` y
-> `analytics`.
->
-> Además, la configuración de TypeORM **no declara `migrations` ni
-> `migrationsRun`**, no existe ningún `data-source.ts` para la CLI y ningún
-> `package.json` tiene scripts `migration:*`. Es decir: ni siquiera las 6
-> migraciones que existen se pueden ejecutar hoy.
->
-> En desarrollo no se nota porque `synchronize` crea el esquema desde las
-> entidades, pero en producción `synchronize` está desactivado
-> (`packages/database/src/config/typeorm.config.ts`). Ver los bloqueantes de
-> [../DEPLOY.md](../DEPLOY.md).
+> Un `schema-migrations.int-test.ts` por servicio comprueba contra Postgres real
+> que las migraciones reproducen el esquema de las entidades. Hace falta porque
+> en desarrollo y en los tests el esquema lo crea `synchronize`, mientras que en
+> producción está desactivado
+> (`packages/database/src/config/typeorm.config.ts`) y la migración es la única
+> fuente. Ver [../DEPLOY.md](../DEPLOY.md).
 
 ### 12.2 Flujo de Migracion
 

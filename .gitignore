@@ -29,6 +29,11 @@ yarn-error.log*
 .env
 .env*.local
 
+# Ficheros de entorno de producción que consume docker-compose.prod.yml.
+# La regla `.env` de arriba no los cubre: se llaman <servicio>.env, no .env.
+# Sólo se versionan las plantillas .env.example.
+env/*.env
+
 # Vercel
 .vercel
 

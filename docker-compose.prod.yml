@@ -1,0 +1,173 @@
+# Orquestación de producción: los 8 servicios, el frontend y la infraestructura.
+#
+# Antes de levantarlo:
+#   1. Construir las 9 imágenes con la raíz del monorepo como contexto (DEPLOY.md §2).
+#   2. Rellenar `.env` a partir de `.env.prod.example` y los `env/*.env`.
+#   3. Aplicar las migraciones: `npm run migration:run` de los 7 servicios con
+#      base de datos. NO se ejecutan al arrancar (ver DEPLOY.md, bloqueante 2).
+#
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Sólo el gateway y el frontend publican puertos, y sólo en 127.0.0.1: se espera
+# un reverse proxy con TLS por delante. Postgres, Redis, RabbitMQ y los siete
+# microservicios no son accesibles desde fuera del host.
+services:
+  # ─── Infraestructura ──────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+      # Contraseña de cada usuario de servicio; las lee init.sh en el primer
+      # arranque del volumen. Sin definirlas, cae al default de desarrollo.
+      BEAUTYSPOT_AUTH_PASSWORD: ${BEAUTYSPOT_AUTH_PASSWORD}
+      BEAUTYSPOT_CORE_PASSWORD: ${BEAUTYSPOT_CORE_PASSWORD}
+      BEAUTYSPOT_BOOKING_PASSWORD: ${BEAUTYSPOT_BOOKING_PASSWORD}
+      BEAUTYSPOT_PAYMENT_PASSWORD: ${BEAUTYSPOT_PAYMENT_PASSWORD}
+      BEAUTYSPOT_NOTIFICATION_PASSWORD: ${BEAUTYSPOT_NOTIFICATION_PASSWORD}
+      BEAUTYSPOT_MARKETPLACE_PASSWORD: ${BEAUTYSPOT_MARKETPLACE_PASSWORD}
+      BEAUTYSPOT_ANALYTICS_PASSWORD: ${BEAUTYSPOT_ANALYTICS_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      # Sin -a devuelve NOAUTH y el contenedor nunca llega a healthy.
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "-a",
+          "${REDIS_PASSWORD}",
+          "--no-auth-warning",
+          "ping",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    # El panel de gestión (15672) NO se publica.
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Microservicios ───────────────────────────────────────────────────────
+  auth-service:
+    image: beautyspot-auth-service:${VERSION}
+    restart: unless-stopped
+    env_file: ./env/auth-service.env
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+
+  core-service:
+    image: beautyspot-core-service:${VERSION}
+    restart: unless-stopped
+    env_file: ./env/core-service.env
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+
+  booking-service:
+    image: beautyspot-booking-service:${VERSION}
+    restart: unless-stopped
+    env_file: ./env/booking-service.env
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+
+  payment-service:
+    image: beautyspot-payment-service:${VERSION}
+    restart: unless-stopped
+    env_file: ./env/payment-service.env
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+
+  notification-service:
+    image: beautyspot-notification-service:${VERSION}
+    restart: unless-stopped
+    env_file: ./env/notification-service.env
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+
+  marketplace-service:
+    image: beautyspot-marketplace-service:${VERSION}
+    restart: unless-stopped
+    env_file: ./env/marketplace-service.env
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+
+  analytics-service:
+    image: beautyspot-analytics-service:${VERSION}
+    restart: unless-stopped
+    env_file: ./env/analytics-service.env
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+
+  # ─── Borde: lo único accesible desde el host ──────────────────────────────
+  api-gateway:
+    image: beautyspot-api-gateway:${VERSION}
+    restart: unless-stopped
+    env_file: ./env/api-gateway.env
+    ports:
+      # Sólo el loopback: el TLS y la exposición pública los pone el reverse proxy.
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      redis: { condition: service_healthy }
+      # Espera a que los backends respondan a su /health, no sólo a que el
+      # contenedor arranque: el gateway proxea desde la primera petición.
+      auth-service: { condition: service_healthy }
+      core-service: { condition: service_healthy }
+      booking-service: { condition: service_healthy }
+      payment-service: { condition: service_healthy }
+      notification-service: { condition: service_healthy }
+      marketplace-service: { condition: service_healthy }
+      analytics-service: { condition: service_healthy }
+
+  frontend:
+    image: beautyspot-frontend:${VERSION}
+    restart: unless-stopped
+    env_file: ./env/frontend.env
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      api-gateway: { condition: service_healthy }
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:

@@ -43,6 +43,17 @@ jobs:
       - name: Type check
         run: npm run type-check
 
+      # El compose de producción no se puede levantar en CI (haría falta un
+      # registro con las 9 imágenes), pero sí comprobar que parsea y que todas
+      # las variables que interpola están declaradas en las plantillas. Sin
+      # esto, un fallo del fichero no se descubriría hasta el despliegue.
+      - name: Validar docker-compose.prod.yml
+        run: |
+          set -euo pipefail
+          cp .env.prod.example .env
+          for f in env/*.env.example; do cp "$f" "${f%.example}"; done
+          docker compose -f docker-compose.prod.yml config --quiet
+
   # ─── Tests unitarios y de integración con cobertura ──────────────────────
   test:
     runs-on: ubuntu-latest
