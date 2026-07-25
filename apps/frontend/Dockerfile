@@ -19,5 +19,6 @@ COPY --from=builder /app/apps/frontend/next.config.js ./next.config.js
 EXPOSE 8080
 
 # El frontend no expone /health: basta con que Next sirva la portada.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \n  CMD node -e "fetch('http://127.0.0.1:8080/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:8080/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["npx", "next", "start", "-p", "8080"]
