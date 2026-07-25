@@ -7,6 +7,7 @@ import {
   OutboxModule,
   SecurityModule,
   TOKEN_VERSION_RESOLVER,
+  HealthModule,
 } from "@beautyspot/nest-common";
 import { DbTokenVersionResolver } from "./security/db-token-version.resolver";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -31,6 +32,7 @@ import { User } from "./entities/user.entity";
         useClass: DbTokenVersionResolver,
       },
     }),
+    HealthModule,
     OutboxModule,
     AuthModule,
     UsersModule,

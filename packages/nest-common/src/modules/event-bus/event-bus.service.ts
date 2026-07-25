@@ -266,6 +266,15 @@ export class EventBusService implements OnModuleDestroy {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  /**
+   * Indica si hay un canal abierto contra RabbitMQ. Lo consulta el health
+   * check: `connect()` falla en silencio (deja el canal a null y loguea), así
+   * que sin esto un servicio con el bus caído seguiría reportándose sano.
+   */
+  isConnected(): boolean {
+    return this.channel !== null;
+  }
+
   async onModuleDestroy(): Promise<void> {
     try {
       if (this.deadLetterChannel) await this.deadLetterChannel.close();

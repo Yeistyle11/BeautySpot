@@ -21,6 +21,13 @@ export {
   OutboxMessageEntity,
   OutboxStatus,
 } from "./modules/outbox/outbox-message.entity";
+export { HealthModule } from "./modules/health/health.module";
+export { HealthController } from "./modules/health/health.controller";
+export { HealthService } from "./modules/health/health.service";
+export type {
+  ResultadoSalud,
+  EstadoDependencia,
+} from "./modules/health/health.service";
 export { RedisCacheService } from "./cache/redis-cache.service";
 export { RedisCacheModule } from "./cache/redis-cache.module";
 export {

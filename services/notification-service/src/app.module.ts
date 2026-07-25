@@ -5,6 +5,7 @@ import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { BullModule } from "@nestjs/bullmq";
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
+import { HealthModule } from "@beautyspot/nest-common";
 import { entities } from "./orm-entities";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { EmailsModule } from "./modules/emails/emails.module";
@@ -37,6 +38,7 @@ import { EventListenersModule } from "./modules/event-listeners/event-listeners.
         password: process.env.REDIS_PASSWORD || undefined,
       },
     }),
+    HealthModule,
     EmailsModule,
     NotificationPreferencesModule,
     NotificationsModule,

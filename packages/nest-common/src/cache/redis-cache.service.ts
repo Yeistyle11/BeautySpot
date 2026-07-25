@@ -47,6 +47,16 @@ export class RedisCacheService implements OnModuleDestroy {
     return result === 1;
   }
 
+  /**
+   * Comprueba que el servidor responde. Se usa desde el health check: no vale
+   * mirar el estado del socket, porque ioredis reconecta en segundo plano y
+   * puede parecer conectado mientras Redis rechaza los comandos.
+   */
+  async ping(): Promise<boolean> {
+    const respuesta = await this.client.ping();
+    return respuesta === "PONG";
+  }
+
   onModuleDestroy(): void {
     this.client.disconnect();
   }

@@ -4,7 +4,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
-import { OutboxModule } from "@beautyspot/nest-common";
+import { OutboxModule, HealthModule } from "@beautyspot/nest-common";
 import { entities } from "./orm-entities";
 import { BusinessProfilesModule } from "./modules/business-profiles/business-profiles.module";
 import { SearchModule } from "./modules/search/search.module";
@@ -20,6 +20,7 @@ import { FeedModule } from "./modules/feed/feed.module";
     TypeOrmModule.forRootAsync({
       useFactory: () => createTypeOrmModuleOptions(entities),
     }),
+    HealthModule,
     OutboxModule,
     BusinessProfilesModule,
     SearchModule,

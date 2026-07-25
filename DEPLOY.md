@@ -84,12 +84,27 @@ Falta un `docker-compose.prod.yml` (o manifiestos de Kubernetes) que orqueste lo
 9 contenedores más la infraestructura. La sección
 [Orquestación](#3-orquestación-de-la-aplicación) propone uno.
 
-### 4. Los microservicios no tienen healthcheck
+### 4. ~~Los microservicios no tienen healthcheck~~ — resuelto
 
-Sólo el API Gateway expone `GET /health` (y comprueba los 7 servicios). Los
-servicios en sí no tienen endpoint de salud, así que un orquestador no puede saber
-si están listos. Conviene añadir un `/health` a cada uno antes de depender de
-reinicios automáticos o de _readiness probes_.
+Los ocho servicios exponen `GET /health`, y los nueve Dockerfile declaran
+`HEALTHCHECK`.
+
+- Los 7 microservicios usan el `HealthModule` compartido de
+  `@beautyspot/nest-common`, que comprueba las dependencias que cada uno tenga
+  —Postgres con un `SELECT 1`, Redis con un `PING`, RabbitMQ mirando si hay
+  canal abierto— y responde **200 si todas están arriba y 503 si alguna está
+  caída**. El código es lo único que miran las _readiness probes_: devolver 200
+  con un `"unhealthy"` en el cuerpo dejaría al orquestador enviando tráfico a un
+  servicio que no puede atender.
+- El gateway conserva su health agregado, que consulta el `/health` de los 7 y
+  devuelve `healthy` o `degraded`. **Ese endpoint no funcionaba**: el
+  controlador existía pero no estaba declarado en ningún módulo, así que
+  respondía 404 pese a que esta misma guía lo daba por operativo. Ahora se
+  registra en `HealthModule` del gateway.
+
+El endpoint es público por diseño: `@Public()` lo exime de `JwtAuthGuard` y de
+`BusinessScopeGuard`, `RolesGuard` lo deja pasar al no llevar `@Roles`, y
+`InternalSecretGuard` sólo protege `/internal`.
 
 ---
 
@@ -525,7 +540,7 @@ Bloqueantes (secciones anteriores):
 - [x] Migraciones iniciales creadas para core, marketplace, notification y analytics
 - [x] `data-source.ts` y scripts `migration:*` en cada servicio con base de datos
 - [ ] `docker-compose.prod.yml` (o manifiestos de Kubernetes) escrito
-- [ ] Endpoint `/health` en los 7 microservicios
+- [x] Endpoint `/health` en los 7 microservicios
 
 Infraestructura:
 

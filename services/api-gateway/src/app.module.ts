@@ -6,6 +6,7 @@ import { AuthGatewayModule } from "./modules/auth-gateway/auth-gateway.module";
 import { TenantModule } from "./modules/tenant/tenant.module";
 import { RateLimitModule } from "./modules/rate-limit/rate-limit.module";
 import { RedisModule } from "./modules/redis/redis.module";
+import { HealthModule } from "./common/health/health.module";
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { RedisModule } from "./modules/redis/redis.module";
       envFilePath: path.join(__dirname, "..", ".env"),
     }),
     RedisModule,
+    HealthModule,
     ProxyModule,
     AuthGatewayModule,
     TenantModule,
