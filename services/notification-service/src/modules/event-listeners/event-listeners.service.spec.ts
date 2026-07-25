@@ -3,6 +3,7 @@ import { AmqpConnection } from "@golevelup/nestjs-rabbitmq";
 import { ConfigService } from "@nestjs/config";
 import { EmailService } from "../emails/email.service";
 import { DataEnricherService } from "../data-enricher/data-enricher.service";
+import { ProcessedEventsStore } from "@beautyspot/nest-common";
 import { NotificationEventListeners } from "./event-listeners.service";
 
 describe("NotificationEventListeners", () => {
@@ -176,6 +177,19 @@ describe("NotificationEventListeners", () => {
         { provide: AmqpConnection, useValue: mockAmqpConnection },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: DataEnricherService, useValue: mockDataEnricher },
+        {
+          // El store real se prueba aparte; aquí basta con que deje pasar el
+          // trabajo, que es el comportamiento cuando el evento es nuevo.
+          provide: ProcessedEventsStore,
+          useValue: {
+            once: jest.fn(
+              async (_e: unknown, _h: string, trabajo: () => Promise<void>) => {
+                await trabajo();
+                return true;
+              }
+            ),
+          },
+        },
       ],
     }).compile();
 

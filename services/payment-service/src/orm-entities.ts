@@ -1,7 +1,4 @@
-import {
-  OutboxMessageEntity,
-  ProcessedEventEntity,
-} from "@beautyspot/nest-common";
+import { OutboxMessageEntity } from "@beautyspot/nest-common";
 import { PaymentEntity } from "./modules/payments/payment.entity";
 import { InvoiceEntity } from "./modules/invoices/invoice.entity";
 import { InvoiceItemEntity } from "./modules/invoices/invoice-item.entity";
@@ -16,7 +13,6 @@ import { CashMovementEntity } from "./modules/cash-register/cash-movement.entity
  * incompleta y propondría borrar las tablas que le faltasen.
  */
 export const entities = [
-  ProcessedEventEntity,
   PaymentEntity,
   InvoiceEntity,
   InvoiceItemEntity,

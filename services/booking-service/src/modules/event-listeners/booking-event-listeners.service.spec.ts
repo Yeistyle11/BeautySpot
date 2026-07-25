@@ -1,6 +1,7 @@
 import { Test } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import type { IBaseEvent } from "@beautyspot/event-types";
+import { ProcessedEventsStore } from "@beautyspot/nest-common";
 import { BookingEventListeners } from "./booking-event-listeners.service";
 import { AvailabilityService } from "../availability/availability.service";
 
@@ -36,6 +37,19 @@ describe("BookingEventListeners", () => {
         {
           provide: AvailabilityService,
           useValue: mockAvailabilityService,
+        },
+        {
+          // El store real se prueba aparte; aquí basta con que deje pasar el
+          // trabajo, que es el comportamiento cuando el evento es nuevo.
+          provide: ProcessedEventsStore,
+          useValue: {
+            once: jest.fn(
+              async (_e: unknown, _h: string, trabajo: () => Promise<void>) => {
+                await trabajo();
+                return true;
+              }
+            ),
+          },
         },
       ],
     }).compile();

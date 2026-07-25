@@ -1,4 +1,3 @@
-import { ProcessedEventEntity } from "@beautyspot/nest-common";
 import { Business } from "./entities/business.entity";
 import { Branch } from "./entities/branch.entity";
 import { Professional } from "./entities/professional.entity";
@@ -18,7 +17,6 @@ import { ServiceCategoryEntity } from "./entities/service-category.entity";
  * incompleta y propondría borrar las tablas que le faltasen.
  */
 export const entities = [
-  ProcessedEventEntity,
   Business,
   Branch,
   Professional,
