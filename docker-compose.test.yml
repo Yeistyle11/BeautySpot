@@ -32,7 +32,10 @@ services:
     volumes:
       - redis_test_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      # El servidor arranca con --requirepass, así que el healthcheck tiene que
+      # autenticarse; sin -a devolvía NOAUTH y el contenedor no llegaba a healthy.
+      test:
+        ["CMD", "redis-cli", "-a", "redis_test", "--no-auth-warning", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
