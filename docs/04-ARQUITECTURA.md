@@ -1007,7 +1007,6 @@ beautyspot/
 +-- docs/                             # Documentacion del proyecto
 |   +-- 01-REQUISITOS.md
 |   +-- 02-MODULOS.md
-|   +-- 03-HISTORIAS-USUARIO.md
 |   +-- 04-ARQUITECTURA.md
 |   +-- 05-BASE-DATOS.md
 |

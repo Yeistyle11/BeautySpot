@@ -32,17 +32,16 @@ cambia cómo hay que interpretar cada documento:
 
 ## Producto y negocio
 
-| Documento                                                    | Tipo | Contenido                                        |
-| ------------------------------------------------------------ | ---- | ------------------------------------------------ |
-| [01-REQUISITOS.md](01-REQUISITOS.md)                         | 🔵   | Requisitos funcionales y no funcionales          |
-| [02-MODULOS.md](02-MODULOS.md)                               | 🔵   | Desglose funcional por módulo                    |
-| [03-HISTORIAS-USUARIO.md](03-HISTORIAS-USUARIO.md)           | 🔵   | Historias de usuario con criterios de aceptación |
-| [06-ROADMAP.md](06-ROADMAP.md)                               | 🔵   | Plan de evolución por fases                      |
-| [07-UX.md](07-UX.md)                                         | 🔵   | Diseño de experiencia y sistema visual           |
-| [09-DIFERENCIADORES.md](09-DIFERENCIADORES.md)               | 🔵   | Diferenciadores frente a la competencia          |
-| [11-MVP.md](11-MVP.md)                                       | 🔵   | Alcance del producto mínimo                      |
-| [12-MODELO-NEGOCIO.md](12-MODELO-NEGOCIO.md)                 | 🔵   | Modelo de negocio, planes y precios              |
-| [14-MARKETPLACE-EXPERIENCE.md](14-MARKETPLACE-EXPERIENCE.md) | 🔵   | Experiencia del marketplace público              |
+| Documento                                                    | Tipo | Contenido                               |
+| ------------------------------------------------------------ | ---- | --------------------------------------- |
+| [01-REQUISITOS.md](01-REQUISITOS.md)                         | 🔵   | Requisitos funcionales y no funcionales |
+| [02-MODULOS.md](02-MODULOS.md)                               | 🔵   | Desglose funcional por módulo           |
+| [06-ROADMAP.md](06-ROADMAP.md)                               | 🔵   | Plan de evolución por fases             |
+| [07-UX.md](07-UX.md)                                         | 🔵   | Diseño de experiencia y sistema visual  |
+| [09-DIFERENCIADORES.md](09-DIFERENCIADORES.md)               | 🔵   | Diferenciadores frente a la competencia |
+| [11-MVP.md](11-MVP.md)                                       | 🔵   | Alcance del producto mínimo             |
+| [12-MODELO-NEGOCIO.md](12-MODELO-NEGOCIO.md)                 | 🔵   | Modelo de negocio, planes y precios     |
+| [14-MARKETPLACE-EXPERIENCE.md](14-MARKETPLACE-EXPERIENCE.md) | 🔵   | Experiencia del marketplace público     |
 
 ## Preguntas frecuentes
 
