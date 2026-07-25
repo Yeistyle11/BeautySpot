@@ -137,6 +137,51 @@ describe("BookingEventListeners", () => {
         ])
       );
     });
+
+    // El listener no debe propagar el fallo: si lo hiciera, el mensaje se
+    // reencolaría en RabbitMQ y se reintentaría la creación en bucle.
+    it("registra el error y no propaga si falla la disponibilidad", async () => {
+      const errorSpy = jest.spyOn(Logger.prototype, "error");
+      const fallo = new Error("base de datos caída");
+      mockAvailabilityService.replaceWeekly.mockRejectedValueOnce(fallo);
+
+      const event = makeEvent({
+        professionalId: "prof-789",
+        businessId: "biz-789",
+        name: "Profesional Ejemplo",
+        specialties: [],
+      });
+
+      await expect(
+        service.handleProfessionalCreated(event)
+      ).resolves.toBeUndefined();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        "Error creando disponibilidad: base de datos caída",
+        fallo.stack
+      );
+    });
+
+    it("tolera un rechazo que no es Error", async () => {
+      const errorSpy = jest.spyOn(Logger.prototype, "error");
+      mockAvailabilityService.replaceWeekly.mockRejectedValueOnce("boom");
+
+      const event = makeEvent({
+        professionalId: "prof-000",
+        businessId: "biz-000",
+        name: "Profesional Ejemplo",
+        specialties: [],
+      });
+
+      await expect(
+        service.handleProfessionalCreated(event)
+      ).resolves.toBeUndefined();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        "Error creando disponibilidad: Error desconocido",
+        undefined
+      );
+    });
   });
 
   describe("handlePaymentRegistered", () => {

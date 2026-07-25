@@ -1,4 +1,4 @@
-// Configuración de tests de INTEGRACIÓN de booking-service.
+// Configuración de tests de INTEGRACIÓN de auth-service.
 //
 // A diferencia de los unit tests (*.spec.ts, que mockean Redis/RabbitMQ/BD),
 // estos corren contra infraestructura real y solo incluyen archivos *.int-test.ts.

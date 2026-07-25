@@ -28,19 +28,9 @@ export class BookingEventListeners {
   /** Reacciona a la creación de un negocio. */
   @EventPattern(EventNames.CORE_BUSINESS_CREATED)
   async handleBusinessCreated(@Payload() event: BusinessCreatedEvent) {
-    this.logger.log(`Negocio creado: ${event.payload.businessId}`);
-    try {
-      const { businessId } = event.payload;
-      this.logger.log(`Negocio ${businessId} creado en Booking Service`);
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Error desconocido";
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(
-        `Error procesando negocio creado: ${errorMessage}`,
-        errorStack
-      );
-    }
+    const { businessId } = event.payload;
+    this.logger.log(`Negocio creado: ${businessId}`);
+    this.logger.log(`Negocio ${businessId} creado en Booking Service`);
   }
 
   /** Al crearse un profesional, le inicializa una disponibilidad semanal por defecto (L-D, 09:00–18:00). */
@@ -79,22 +69,13 @@ export class BookingEventListeners {
   /** Reacciona a un pago registrado, vinculándolo a su cita cuando aplica. */
   @EventPattern(EventNames.PAYMENT_PAYMENT_REGISTERED)
   async handlePaymentRegistered(@Payload() event: PaymentRegisteredEvent) {
-    this.logger.log(`Pago registrado: ${event.payload.paymentId}`);
-    try {
-      const { appointmentId, amount, method } = event.payload;
+    const { paymentId, appointmentId, amount, method } = event.payload;
+    this.logger.log(`Pago registrado: ${paymentId}`);
 
-      if (appointmentId) {
-        this.logger.log(
-          `Pago vinculado a cita ${appointmentId}: ${amount} COP (${method})`
-        );
-      }
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Error desconocido";
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(
-        `Error procesando pago registrado: ${errorMessage}`,
-        errorStack
+    // Un pago puede no estar ligado a una cita (p. ej. venta de producto).
+    if (appointmentId) {
+      this.logger.log(
+        `Pago vinculado a cita ${appointmentId}: ${amount} COP (${method})`
       );
     }
   }
@@ -104,22 +85,10 @@ export class BookingEventListeners {
   async handleAppointmentReminderDue(
     @Payload() event: AppointmentReminderDueEvent
   ) {
+    const { appointmentId, date, startTime } = event.payload;
+    this.logger.log(`Recordatorio de cita pendiente: ${appointmentId}`);
     this.logger.log(
-      `Recordatorio de cita pendiente: ${event.payload.appointmentId}`
+      `Recordatorio programado para cita ${appointmentId} el ${date} a las ${startTime}`
     );
-    try {
-      const { appointmentId, date, startTime } = event.payload;
-      this.logger.log(
-        `Recordatorio programado para cita ${appointmentId} el ${date} a las ${startTime}`
-      );
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Error desconocido";
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(
-        `Error programando recordatorio: ${errorMessage}`,
-        errorStack
-      );
-    }
   }
 }
