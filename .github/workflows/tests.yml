@@ -143,6 +143,13 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
+      # Imprescindible: ts-jest type-checa los *.int-test.ts, y aunque el
+      # moduleNameMapper resuelve @beautyspot/* a los fuentes en ejecución, los
+      # TIPOS se resuelven por node_modules -> dist/index.d.ts. Sin este paso,
+      # cualquier test que importe de un paquete compartido falla con TS2307.
+      - name: Build shared packages
+        run: npm run build --workspace packages/shared-types --workspace packages/shared-utils --workspace packages/event-types --workspace packages/shared-constants --workspace packages/database --workspace packages/nest-common
+
       # --wait bloquea hasta que los tres healthchecks pasan a healthy.
       - name: Levantar infraestructura de test
         run: docker compose -f docker-compose.test.yml up -d --wait
@@ -256,7 +263,10 @@ jobs:
     # Ningún Dockerfile ni código de servicio tocado: nada que construir.
     if: needs.changes.outputs.images != '[]'
     strategy:
-      fail-fast: false
+      # En cuanto una imagen falla se cancelan las demás: el fallo casi siempre
+      # es del build compartido (lockfile, packages/*) y afectaría a todas, así
+      # que seguir construyendo las otras 8 solo gasta minutos.
+      fail-fast: true
       matrix:
         image: ${{ fromJSON(needs.changes.outputs.images) }}
     steps:
