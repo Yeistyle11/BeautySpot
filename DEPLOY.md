@@ -12,26 +12,35 @@ microservicios NestJS, frontend Next.js 14, PostgreSQL 16, Redis 7 y RabbitMQ 3.
 Estos puntos **no son opcionales**: con el código tal como está hoy, un despliegue
 a producción no funcionaría. Están listados primero a propósito.
 
-### 1. Faltan las migraciones de 4 servicios
+### 1. ~~Faltan las migraciones de 4 servicios~~ — resuelto
 
 `synchronize` de TypeORM está deshabilitado cuando `NODE_ENV=production`
 (`packages/database/src/config/typeorm.config.ts`: `synchronize: !isProduction && synchronize`).
 Eso es correcto —no se quiere que el ORM altere el esquema en producción—, pero
-significa que **el esquema tiene que crearlo una migración**. El estado actual:
+significa que **el esquema tiene que crearlo una migración**. Los siete servicios
+con base de datos tienen ya su esquema completo en migraciones:
 
-| Servicio               | Entidades | Migraciones | Estado                        |
-| ---------------------- | --------- | ----------- | ----------------------------- |
-| `auth-service`         | 4         | 3           | Cubierto                      |
-| `booking-service`      | 4         | 1           | Sólo la tabla del outbox      |
-| `payment-service`      | 5         | 2           | Outbox + índice de caja       |
-| `core-service`         | **10**    | **0**       | **Sin esquema en producción** |
-| `marketplace-service`  | 4         | **0**       | **Sin esquema en producción** |
-| `notification-service` | 2         | **0**       | **Sin esquema en producción** |
-| `analytics-service`    | 2         | **0**       | **Sin esquema en producción** |
+| Servicio               | Migraciones | Contenido                               |
+| ---------------------- | ----------- | --------------------------------------- |
+| `auth-service`         | 1           | Esquema completo, outbox incluido       |
+| `core-service`         | 1           | Esquema completo (10 tablas)            |
+| `marketplace-service`  | 1           | Esquema completo, outbox incluido       |
+| `notification-service` | 1           | Esquema completo                        |
+| `analytics-service`    | 1           | Esquema completo                        |
+| `booking-service`      | 2           | Outbox + esquema                        |
+| `payment-service`      | 3           | Esquema + outbox + índice único de caja |
 
-En desarrollo no se nota porque `synchronize` crea las tablas a partir de las
-entidades. En producción esos cuatro servicios arrancarían contra una base vacía y
-fallaría cualquier consulta.
+Las migraciones se escribieron a partir de los metadatos del propio TypeORM, de
+modo que reproducen literalmente lo que `synchronize` genera —incluidos los
+nombres autogenerados de índices y constraints (`IDX_…`, `FK_…`, `UQ_…`,
+`PK_…`), que no se pueden inventar: si no coinciden, el ORM los toma por objetos
+distintos.
+
+Cada servicio tiene un test de integración `schema-migrations.int-test.ts` que
+levanta el esquema desde cero **sólo con las migraciones** y comprueba que
+`synchronize` no tendría después ningún cambio pendiente. Es lo que impide que
+una migración se desvíe de las entidades sin que nadie se entere hasta el
+despliegue.
 
 ### 2. ~~No hay forma de ejecutar las migraciones~~ — resuelto
 
@@ -513,7 +522,7 @@ de aplicación, no la del usuario.
 
 Bloqueantes (secciones anteriores):
 
-- [ ] Migraciones iniciales creadas para core, marketplace, notification y analytics
+- [x] Migraciones iniciales creadas para core, marketplace, notification y analytics
 - [x] `data-source.ts` y scripts `migration:*` en cada servicio con base de datos
 - [ ] `docker-compose.prod.yml` (o manifiestos de Kubernetes) escrito
 - [ ] Endpoint `/health` en los 7 microservicios
