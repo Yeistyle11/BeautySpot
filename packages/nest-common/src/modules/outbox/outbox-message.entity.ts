@@ -20,7 +20,10 @@ export enum OutboxStatus {
  * Outbox). Guarda el payload, el agregado de origen y el conteo de intentos.
  */
 @Entity("outbox_messages")
-@Index(["status", "createdAt"])
+// El nombre es explícito para que coincida con el de las migraciones. Sin él,
+// TypeORM espera un `IDX_<hash>` y trata el índice de la migración como un
+// objeto ajeno: lo borraría y lo recrearía en cuanto alguien sincronizase.
+@Index("idx_outbox_messages_status_created_at", ["status", "createdAt"])
 export class OutboxMessageEntity {
   @PrimaryColumn("uuid")
   id!: string;

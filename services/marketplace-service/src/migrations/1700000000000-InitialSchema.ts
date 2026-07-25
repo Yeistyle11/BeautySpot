@@ -162,7 +162,7 @@ export class InitialSchema1700000000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_619e9741bb7812292f54d1670a"
+      CREATE INDEX IF NOT EXISTS "idx_outbox_messages_status_created_at"
       ON "outbox_messages" ("status", "created_at")
     `);
 
