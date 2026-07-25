@@ -159,19 +159,17 @@ describe("ProxyController (reenvío)", () => {
   });
 
   describe("construcción de la URL destino", () => {
-    it("quita el prefijo /api/v1/{service} y antepone el nombre de módulo", async () => {
+    it("quita el prefijo /api/v1/{service}", async () => {
       fetchMock.mockResolvedValue(fakeResponse(200, "{}"));
       const { res } = fakeResponseOut();
 
       await controller.proxyRequest(
-        "core-service",
-        fakeRequest({ path: "/api/v1/core-service/businesses/1" }),
+        "core",
+        fakeRequest({ path: "/api/v1/core/businesses/1" }),
         res
       );
 
-      expect(fetchMock.mock.calls[0][0]).toBe(
-        `${SERVICE_URL}/core/businesses/1`
-      );
+      expect(fetchMock.mock.calls[0][0]).toBe(`${SERVICE_URL}/businesses/1`);
     });
 
     it("acepta también el prefijo /v1/{service}", async () => {
@@ -179,15 +177,31 @@ describe("ProxyController (reenvío)", () => {
       const { res } = fakeResponseOut();
 
       await controller.proxyRequest(
-        "core-service",
-        fakeRequest({ path: "/v1/core-service/businesses" }),
+        "core",
+        fakeRequest({ path: "/v1/core/businesses" }),
         res
       );
 
-      expect(fetchMock.mock.calls[0][0]).toBe(`${SERVICE_URL}/core/businesses`);
+      expect(fetchMock.mock.calls[0][0]).toBe(`${SERVICE_URL}/businesses`);
     });
 
-    it("deja la ruta intacta si el servicio no lleva sufijo -service", async () => {
+    // Regresión: la forma larga producía /marketplace/feed en vez de /feed, así
+    // que TODA petición con sufijo -service devolvía 404. Los microservicios no
+    // definen setGlobalPrefix: sus controladores cuelgan de la raíz.
+    it("resuelve igual la forma larga {service}-service", async () => {
+      fetchMock.mockResolvedValue(fakeResponse(200, "{}"));
+      const { res } = fakeResponseOut();
+
+      await controller.proxyRequest(
+        "marketplace-service",
+        fakeRequest({ path: "/api/v1/marketplace-service/feed" }),
+        res
+      );
+
+      expect(fetchMock.mock.calls[0][0]).toBe(`${SERVICE_URL}/feed`);
+    });
+
+    it("deja la ruta intacta con el nombre corto", async () => {
       fetchMock.mockResolvedValue(fakeResponse(200, "{}"));
       const { res } = fakeResponseOut();
 
