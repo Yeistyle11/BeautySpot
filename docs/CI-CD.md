@@ -103,9 +103,12 @@ Comportamiento verificado:
 | 4 servicios + `jest.config.js`       | 4                   |
 | Lockfile, `packages/*` o el workflow | 9                   |
 
-La matriz usa `fail-fast: true`: en cuanto una imagen falla se cancelan las demás,
-porque el fallo casi siempre viene del contexto compartido y afectaría a todas.
-El coste es que sólo ves el primer fallo por run.
+La matriz usa `fail-fast: false`: cada imagen se construye hasta el final aunque
+otra falle, de modo que un run da el diagnóstico completo. Cancelar a la primera
+ahorra minutos cuando el fallo es del contexto compartido y afecta a todas por
+igual, pero no permite distinguir ese caso de uno con varias imágenes rotas por
+motivos distintos, y convierte un fallo transitorio del registro en la
+cancelación de builds sin relación.
 
 ### `ci` — el check agregado
 
