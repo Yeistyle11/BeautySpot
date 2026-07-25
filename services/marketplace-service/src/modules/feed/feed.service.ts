@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
+import { RedisCacheService } from "@beautyspot/nest-common";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
 import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
@@ -27,16 +28,65 @@ export interface FeedResponse {
   sections: FeedSection[];
 }
 
+/**
+ * Vigencia del feed en caché.
+ *
+ * Más corta que la del perfil: el feed ordena por popularidad y novedad, así que
+ * un negocio recién publicado debe aparecer pronto. No se invalida en las
+ * escrituras porque cualquier alta o cambio de valoración afectaría a todas las
+ * claves por ubicación; a este ritmo de cambio, caducar sale más barato que
+ * recalcular.
+ */
+const FEED_TTL_SEGUNDOS = 60;
+
 /** Compone el feed de la home del marketplace a partir de varias consultas curadas. */
 @Injectable()
 export class FeedService {
+  /** Prefijo de las claves de caché del feed. */
+  private static readonly PREFIJO_CACHE = "marketplace:feed:";
+
   constructor(
     private readonly profilesService: BusinessProfilesService,
-    private readonly professionalProfilesService: ProfessionalProfilesService
+    private readonly professionalProfilesService: ProfessionalProfilesService,
+    private readonly cache: RedisCacheService
   ) {}
 
-  /** Arma el feed (categorías y secciones), personalizando "populares" por ubicación si se da. */
+  /**
+   * Arma el feed (categorías y secciones), personalizando "populares" por
+   * ubicación si se da.
+   *
+   * Es la portada del marketplace: la lectura más repetida del sistema,
+   * idéntica para todos los visitantes de una misma zona, y son cinco consultas
+   * por visita. Va cacheada.
+   */
   async getFeed(
+    lat?: number,
+    lng?: number,
+    city?: string
+  ): Promise<FeedResponse> {
+    return this.cache.remember(
+      `${FeedService.PREFIJO_CACHE}${this.claveUbicacion(lat, lng, city)}`,
+      FEED_TTL_SEGUNDOS,
+      () => this.componerFeed(lat, lng, city)
+    );
+  }
+
+  /**
+   * Clave de caché por ubicación.
+   *
+   * Las coordenadas se redondean a dos decimales (~1 km) a propósito: sin
+   * redondear, cada visitante tendría su propia entrada y la caché no serviría
+   * de nada, porque nunca habría dos peticiones con la misma clave.
+   */
+  private claveUbicacion(lat?: number, lng?: number, city?: string): string {
+    if (lat !== undefined && lng !== undefined) {
+      return `geo:${lat.toFixed(2)}:${lng.toFixed(2)}`;
+    }
+    return city ? `ciudad:${city.toLowerCase()}` : "global";
+  }
+
+  /** Composición real del feed, sin pasar por la caché. */
+  private async componerFeed(
     lat?: number,
     lng?: number,
     city?: string

@@ -17,7 +17,19 @@ import {
   AddGalleryImagesDto,
   UpdateGalleryImageDto,
 } from "./dto/profile.dto";
+import { RedisCacheService } from "@beautyspot/nest-common";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
+
+/**
+ * Vigencia de un perfil público en caché.
+ *
+ * Cinco minutos es un compromiso: las escrituras invalidan explícitamente, así
+ * que el TTL sólo cubre los cambios que llegan por otra vía (eventos de otro
+ * servicio, escrituras directas en la base). Un perfil de negocio que tarde unos
+ * minutos en reflejar un cambio no rompe nada; que la portada consulte la base
+ * en cada visita, sí se nota.
+ */
+const PERFIL_TTL_SEGUNDOS = 300;
 
 /** Secciones del perfil inmersivo activas por defecto, en su orden inicial. */
 const DEFAULT_SECTIONS: SectionConfig[] = [
@@ -38,8 +50,12 @@ export class BusinessProfilesService {
   constructor(
     @InjectRepository(BusinessProfileEntity)
     private readonly repo: Repository<BusinessProfileEntity>,
-    private readonly professionalProfilesService: ProfessionalProfilesService
+    private readonly professionalProfilesService: ProfessionalProfilesService,
+    private readonly cache: RedisCacheService
   ) {}
+
+  /** Prefijo de las claves de caché de este servicio, para poder invalidarlas juntas. */
+  private static readonly PREFIJO_CACHE = "marketplace:perfil:";
 
   // --- Sincronizacion desde core-service ---
 
@@ -52,7 +68,7 @@ export class BusinessProfilesService {
     if (existing) {
       Object.assign(existing, { ...dto, id: existing.id });
       existing.profileCompleteness = await this.calculateCompleteness(existing);
-      return this.repo.save(existing);
+      return this.guardar(existing);
     }
 
     const profile = this.repo.create({
@@ -61,13 +77,25 @@ export class BusinessProfilesService {
       profileCompleteness: 0,
     });
     profile.profileCompleteness = await this.calculateCompleteness(profile);
-    return this.repo.save(profile);
+    return this.guardar(profile);
   }
 
   // --- Lectura publica ---
 
   /** Devuelve el perfil publicado por slug junto con su equipo, si la sección "team" está activa. */
   async findBySlug(slug: string): Promise<{
+    profile: BusinessProfileEntity;
+    professionals: ProfessionalProfileEntity[];
+  }> {
+    return this.cache.remember(
+      `${BusinessProfilesService.PREFIJO_CACHE}slug:${slug}`,
+      PERFIL_TTL_SEGUNDOS,
+      () => this.cargarPorSlug(slug)
+    );
+  }
+
+  /** Lectura real del perfil publicado y su equipo, sin pasar por la caché. */
+  private async cargarPorSlug(slug: string): Promise<{
     profile: BusinessProfileEntity;
     professionals: ProfessionalProfileEntity[];
   }> {
@@ -161,7 +189,7 @@ export class BusinessProfilesService {
     }
 
     profile.profileCompleteness = await this.calculateCompleteness(profile);
-    return this.repo.save(profile);
+    return this.guardar(profile);
   }
 
   // --- Galeria ---
@@ -175,7 +203,7 @@ export class BusinessProfilesService {
     const current = profile.galleryImages || [];
     profile.galleryImages = [...current, ...dto.images];
     profile.profileCompleteness = await this.calculateCompleteness(profile);
-    return this.repo.save(profile);
+    return this.guardar(profile);
   }
 
   /** Actualiza los metadatos de una imagen de la galería por su índice. */
@@ -195,7 +223,7 @@ export class BusinessProfilesService {
     if (dto.featured !== undefined) images[dto.index].featured = dto.featured;
 
     profile.galleryImages = images;
-    return this.repo.save(profile);
+    return this.guardar(profile);
   }
 
   /** Elimina una imagen de la galería por su índice y recalcula la completitud. */
@@ -213,7 +241,7 @@ export class BusinessProfilesService {
     images.splice(index, 1);
     profile.galleryImages = images;
     profile.profileCompleteness = await this.calculateCompleteness(profile);
-    return this.repo.save(profile);
+    return this.guardar(profile);
   }
 
   // --- Publicacion ---
@@ -227,14 +255,14 @@ export class BusinessProfilesService {
       );
     }
     profile.isPublished = true;
-    return this.repo.save(profile);
+    return this.guardar(profile);
   }
 
   /** Retira el perfil del marketplace (deja de estar publicado). */
   async unpublish(businessId: string): Promise<BusinessProfileEntity> {
     const profile = await this.findByBusinessId(businessId);
     profile.isPublished = false;
-    return this.repo.save(profile);
+    return this.guardar(profile);
   }
 
   // --- Rating ---
@@ -264,6 +292,11 @@ export class BusinessProfilesService {
         : 0;
 
     await repo.update({ businessId }, { rating, totalReviews });
+
+    // No pasa por `guardar` porque puede correr dentro de la transacción de la
+    // reseña, así que la invalidación se hace aquí explícitamente. La valoración
+    // es de lo más visible del perfil público.
+    await this.cache.delByPrefix(BusinessProfilesService.PREFIJO_CACHE);
   }
 
   // --- Feed helpers ---
@@ -349,6 +382,27 @@ export class BusinessProfilesService {
   // --- Completitud ---
 
   /** Puntúa de 0 a 100 lo completo que está el perfil, sumando puntos por cada bloque relleno. */
+  /**
+   * Persiste el perfil e invalida la caché pública.
+   *
+   * Todas las escrituras pasan por aquí para que no haya que acordarse de
+   * invalidar en cada una: si alguien añade mañana otro método que guarde y lo
+   * olvida, el marketplace serviría datos viejos hasta que caducase el TTL.
+   *
+   * Se invalida el prefijo entero y no una clave concreta porque el mismo perfil
+   * se sirve bajo varias claves, y afinar más obligaría a saber en cada
+   * escritura cuáles existen.
+   */
+  private async guardar(
+    profile: BusinessProfileEntity
+  ): Promise<BusinessProfileEntity> {
+    const guardado = await this.repo.save(profile);
+    // Mejor esfuerzo: un fallo al invalidar no debe tumbar una escritura que ya
+    // ha tenido éxito. Las entradas caducan solas por TTL.
+    await this.cache.delByPrefix(BusinessProfilesService.PREFIJO_CACHE);
+    return guardado;
+  }
+
   private async calculateCompleteness(
     profile: BusinessProfileEntity
   ): Promise<number> {
