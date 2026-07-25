@@ -1,9 +1,17 @@
-import { Entity, Column, OneToMany, BeforeInsert } from "typeorm";
+import { Entity, Column, Index, OneToMany, BeforeInsert } from "typeorm";
 import { TenantEntity, numericTransformer } from "@beautyspot/database";
 import { CashMovementEntity } from "./cash-movement.entity";
 
 /** Sesión de caja (arqueo): apertura con saldo inicial, cierre con saldo final y sus movimientos. */
 @Entity("cash_sessions")
+// Un negocio no puede tener dos cajas abiertas a la vez. El índice lo crea la
+// migración CashSessionSingleOpen1700000000003 en las bases existentes; hay que
+// declararlo también aquí, con el MISMO nombre, para que el esquema generado por
+// `synchronize` (el que usan los tests) no divergiera del de producción.
+@Index("uq_cash_sessions_open_per_business", ["businessId"], {
+  unique: true,
+  where: '"closed_at" IS NULL',
+})
 export class CashSessionEntity extends TenantEntity {
   @Column({ type: "uuid", name: "branch_id", nullable: true })
   branchId!: string;

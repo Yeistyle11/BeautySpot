@@ -21,4 +21,13 @@ module.exports = {
   // abierto impediría que jest termine, y en CI el job se colgaría hasta el
   // límite de 6 horas en lugar de fallar.
   forceExit: true,
+  // En serie, obligatorio: todos los ficheros de un servicio comparten UNA sola
+  // base de datos. En paralelo, dos que hagan `synchronize` chocan creando el
+  // esquema ("duplicate key ... pg_type_typname_nsp_index") y el TRUNCATE de
+  // preparación de uno borra las tablas que el otro está usando.
+  maxWorkers: 1,
+  // Para al primer fichero que falle en vez de seguir con el resto: contra
+  // infraestructura compartida, un fallo temprano suele invalidar lo que venga
+  // después (esquema a medias, datos sucios) y solo añade ruido al log.
+  bail: 1,
 };
