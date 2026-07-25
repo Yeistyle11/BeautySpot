@@ -1,3 +1,4 @@
+import { StructuredLogger } from "../observability/structured.logger";
 import { createMicroserviceApp } from "./create-app.factory";
 import { ValidationPipe } from "@nestjs/common";
 
@@ -56,10 +57,13 @@ describe("createAppFactory", () => {
   });
 
   describe("constructor", () => {
-    it("debería crear aplicación NestJS", async () => {
+    it("debería crear aplicación NestJS con el logger estructurado", async () => {
       await createMicroserviceApp({} as any);
 
-      expect(NestFactoryMock.create).toHaveBeenCalledWith({} as any);
+      expect(NestFactoryMock.create).toHaveBeenCalledWith(
+        {} as any,
+        expect.objectContaining({ logger: expect.any(StructuredLogger) })
+      );
     });
   });
 

@@ -414,14 +414,33 @@ que importa es que las migraciones se apliquen antes de arrancar la versión nue
 
 ### Logs
 
-En producción el logging de TypeORM se limita a `error` y `warn`, y
-`maxQueryExecutionTime` es de 1000 ms: las consultas más lentas aparecen en el log
-como aviso, lo cual es la vía más rápida para detectar una consulta degradada.
+Con `NODE_ENV=production` cada línea es un JSON con `nivel`, `hora`, `contexto`,
+`mensaje` y **`requestId`**, listo para que un agregador lo indexe sin parsear
+texto libre. En desarrollo el formato es el legible de Nest, con el
+identificador abreviado como prefijo.
+
+El `requestId` nace en el gateway, viaja a los backends en la cabecera
+`x-request-id` y se devuelve al cliente en la respuesta. Es lo que permite
+reconstruir una petición que atravesó cuatro servicios sin cruzar logs por marca
+de tiempo; si un cliente reporta un fallo, ese identificador basta para
+encontrarlo. Si la cabecera llega desde fuera se respeta, así que un balanceador
+que ya asigne el suyo sigue funcionando.
 
 ```bash
 docker compose -f docker-compose.prod.yml logs -f api-gateway
-docker compose -f docker-compose.prod.yml logs --tail 100 core-service
+
+# todo lo que ocurrió en una petición concreta, en todos los servicios
+docker compose -f docker-compose.prod.yml logs --no-log-prefix \
+  | grep '"requestId":"<id>"'
 ```
+
+El logging de TypeORM se limita a `error` y `warn`, y `maxQueryExecutionTime` es
+de 1000 ms: las consultas más lentas aparecen como aviso, que es la vía más
+rápida para detectar una consulta degradada.
+
+> Lo que sigue faltando es traza distribuida y métricas. Con el `requestId` se
+> puede reconstruir el recorrido de una petición a mano; no hay latencias por
+> tramo ni percentiles.
 
 ### Ajustes que ya aplica el código en producción
 

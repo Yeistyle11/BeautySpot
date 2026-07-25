@@ -32,6 +32,14 @@ export { IdempotencyModule } from "./modules/idempotency/idempotency.module";
 export { ProcessedEventsStore } from "./modules/idempotency/processed-events.store";
 export type { EventoEntrante } from "./modules/idempotency/processed-events.store";
 export { ProcessedEventEntity } from "./modules/idempotency/processed-event.entity";
+export {
+  requestContextMiddleware,
+  requestIdActual,
+  conContextoPeticion,
+  REQUEST_ID_HEADER,
+} from "./observability/request-context";
+export type { ContextoPeticion } from "./observability/request-context";
+export { StructuredLogger } from "./observability/structured.logger";
 export { RedisCacheService } from "./cache/redis-cache.service";
 export { RedisCacheModule } from "./cache/redis-cache.module";
 export {

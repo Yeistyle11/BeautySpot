@@ -11,6 +11,8 @@ import { InternalSecretGuard } from "../guards/internal-secret.guard";
 import { RedisCacheService } from "../cache/redis-cache.service";
 import { TokenVersionStore } from "../security/token-version.store";
 import { buildCorsOptions } from "./cors.options";
+import { requestContextMiddleware } from "../observability/request-context";
+import { StructuredLogger } from "../observability/structured.logger";
 
 const DEFAULT_PORT = 3000;
 
@@ -25,10 +27,15 @@ const DEFAULT_PORT = 3000;
  */
 export async function createMicroserviceApp(AppModule: unknown): Promise<void> {
   const logger = new Logger("Bootstrap");
-  const app = await NestFactory.create(AppModule as Type<unknown>);
+  const app = await NestFactory.create(AppModule as Type<unknown>, {
+    logger: new StructuredLogger(),
+  });
 
   const configService = app.get(ConfigService);
 
+  // Antes que nada: todo lo que se registre después debe poder citar el
+  // identificador de la petición.
+  app.use(requestContextMiddleware);
   app.use(helmet());
   app.enableCors(buildCorsOptions(configService));
 
