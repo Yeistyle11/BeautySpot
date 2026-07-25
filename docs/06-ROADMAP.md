@@ -87,7 +87,7 @@ divide en 5 fases distribuidas en 22 semanas de desarrollo iterativo e increment
   - 6 roles definidos con jerarquía
   - Guards de autorización (`RolesGuard`, `BusinessScopeGuard`)
   - Claims JWT con rol, tenant y permisos
-- Migraciones de base de datos con Prisma para Auth
+- Migraciones de base de datos con TypeORM para Auth
 
 #### Semana 3-4: Core Service Básico
 

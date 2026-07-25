@@ -362,7 +362,7 @@ Cada servicio aplica un **guard de tenant** que verifica que:
 
 1. El header `X-Business-Id` esta presente en toda solicitud que no sea global (SUPER_ADMIN)
 2. El usuario autenticado tiene membresia activa en el negocio solicitado
-3. Todas las queries Prisma incluyen `where: { businessId }` para entidades de negocio
+3. Todas las queries de TypeORM incluyen `where: { businessId }` para entidades de negocio
 
 **Implementacion en NestJS**:
 
@@ -793,9 +793,7 @@ beautyspot/
 |   |   |   +-- guards/               # Auth guards
 |   |   |   +-- decorators/           # Custom decorators (@CurrentUser, @Roles)
 |   |   |   +-- events/               # Publicadores de eventos RabbitMQ
-|   |   |   +-- prisma/               # Prisma schema y service
-|   |   |   |   +-- schema.prisma
-|   |   |   |   +-- migrations/
+|   |   |   +-- migrations/           # Migraciones de TypeORM
 |   |   |   +-- common/
 |   |   |   +-- config/
 |   |   |   +-- app.module.ts
@@ -817,9 +815,7 @@ beautyspot/
 |   |   |   +-- services/
 |   |   |   +-- clients/
 |   |   |   +-- events/
-|   |   |   +-- prisma/
-|   |   |   |   +-- schema.prisma
-|   |   |   |   +-- migrations/
+|   |   |   +-- migrations/           # Migraciones de TypeORM
 |   |   |   +-- common/
 |   |   |   +-- config/
 |   |   |   +-- app.module.ts
@@ -839,9 +835,7 @@ beautyspot/
 |   |   |   +-- blocked-slots/
 |   |   |   +-- reminders/            # Cron jobs para recordatorios
 |   |   |   +-- events/
-|   |   |   +-- prisma/
-|   |   |   |   +-- schema.prisma
-|   |   |   |   +-- migrations/
+|   |   |   +-- migrations/           # Migraciones de TypeORM
 |   |   |   +-- common/
 |   |   |   +-- config/
 |   |   |   +-- app.module.ts
@@ -857,9 +851,7 @@ beautyspot/
 |   |   |   |   +-- cash-sessions/
 |   |   |   |   +-- cash-movements/
 |   |   |   +-- events/
-|   |   |   +-- prisma/
-|   |   |   |   +-- schema.prisma
-|   |   |   |   +-- migrations/
+|   |   |   +-- migrations/           # Migraciones de TypeORM
 |   |   |   +-- common/
 |   |   |   +-- config/
 |   |   |   +-- app.module.ts
@@ -875,9 +867,7 @@ beautyspot/
 |   |   |   +-- push/                 # Proveedor push (post-MVP)
 |   |   |   +-- templates/            # Templates de email
 |   |   |   +-- events/               # Consumidores de eventos RabbitMQ
-|   |   |   +-- prisma/
-|   |   |   |   +-- schema.prisma
-|   |   |   |   +-- migrations/
+|   |   |   +-- migrations/           # Migraciones de TypeORM
 |   |   |   +-- common/
 |   |   |   +-- config/
 |   |   |   +-- app.module.ts
@@ -891,9 +881,7 @@ beautyspot/
 |   |   |   +-- search/               # Busqueda
 |   |   |   +-- reviews/
 |   |   |   +-- events/
-|   |   |   +-- prisma/
-|   |   |   |   +-- schema.prisma
-|   |   |   |   +-- migrations/
+|   |   |   +-- migrations/           # Migraciones de TypeORM
 |   |   |   +-- common/
 |   |   |   +-- config/
 |   |   |   +-- app.module.ts
@@ -910,9 +898,7 @@ beautyspot/
 |   |   |   |   +-- professional-metrics/
 |   |   |   +-- jobs/                 # Cron jobs de calculo de metricas
 |   |   |   +-- events/               # Consumidores de eventos
-|   |   |   +-- prisma/
-|   |   |   |   +-- schema.prisma
-|   |   |   |   +-- migrations/
+|   |   |   +-- migrations/           # Migraciones de TypeORM
 |   |   |   +-- common/
 |   |   |   +-- config/
 |   |   |   +-- app.module.ts
@@ -984,8 +970,8 @@ beautyspot/
 |   |   +-- package.json
 |   |   +-- tsconfig.json
 |   |
-|   +-- database/                     # Prisma shared config
-|   |   +-- base-schema.prisma        # Campos base (id, timestamps, soft delete)
+|   +-- database/                     # Config compartida de TypeORM
+|   |   +-- entities/                 # BaseEntity y TenantEntity (id, timestamps, businessId)
 |   +-- eslint-config/                # ESLint config compartida
 |   +-- prettier-config/              # Prettier config compartida
 |   +-- tsconfig/                     # TypeScript configs compartidos
@@ -1021,12 +1007,11 @@ beautyspot/
 +-- docs/                             # Documentacion del proyecto
 |   +-- 01-REQUISITOS.md
 |   +-- 02-MODULOS.md
-|   +-- 03-HISTORIAS-USUARIO.md
 |   +-- 04-ARQUITECTURA.md
 |   +-- 05-BASE-DATOS.md
 |
 +-- turbo.json                        # Configuracion de Turborepo
-+-- pnpm-workspace.yaml               # Workspace de pnpm
++-- turbo.json                        # Pipeline de Turborepo (workspaces npm en package.json)
 +-- package.json                       # Package.json raiz (scripts, devDeps)
 +-- tsconfig.base.json                # TypeScript config base
 +-- .env.example                      # Variables de entorno ejemplo
@@ -1114,7 +1099,7 @@ Todos los logs son en formato JSON:
 
 **Contexto**: Se necesita un framework robusto para construir los microservicios.
 **Decision**: NestJS para todos los servicios backend.
-**Rationale**: NestJS provee una arquitectura modular con DI, decorators, guards, interceptors, y excelente integracion con Prisma, RabbitMQ, y Redis. La curva de aprendizaje es baja para desarrolladores familiarizados con Angular o TypeScript.
+**Rationale**: NestJS provee una arquitectura modular con DI, decorators, guards, interceptors, y excelente integracion con TypeORM, RabbitMQ, y Redis. La curva de aprendizaje es baja para desarrolladores familiarizados con Angular o TypeScript.
 
 ### ADR-005: Next.js para el frontend
 

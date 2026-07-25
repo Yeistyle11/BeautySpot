@@ -669,121 +669,26 @@ CREATE INDEX idx_prof_metrics_business ON professional_metrics(business_id, date
 
 ---
 
-## Datos Seed (Demo)
+## Datos iniciales
 
-```sql
--- ============================================
--- beautyspot_core: Negocio demo
--- ============================================
+El sistema arranca **en blanco**. No se cargan negocios, profesionales, servicios,
+clientes ni citas de ejemplo: sólo se crean las bases de datos vacías y, en
+desarrollo, el esquema que genera `synchronize` a partir de las entidades.
 
-INSERT INTO businesses (id, slug, name, description, phone, email, address, city, country, lat, lng, business_type, active, verified)
-VALUES (
-  'a0000000-0000-0000-0000-000000000001',
-  'elite-barbers',
-  'Elite Barbershop',
-  'Barbería premium con los mejores profesionales de la ciudad',
-  '+57 300 123 4567',
-  'info@elitebarbers.co',
-  'Calle 80 #15-20, Bogotá',
-  'Bogotá',
-  'Colombia',
-  4.6766670,
-  -74.0483000,
-  'barbershop',
-  TRUE,
-  TRUE
-);
+Los **roles no se siembran**: son un `enum` de TypeScript
+(`packages/shared-types/src/auth.types.ts`), no filas de una tabla. El rol efectivo
+de cada usuario vive en la columna `role` de `memberships`.
 
-INSERT INTO branches (id, business_id, name, address, city, country, lat, lng, phone)
-VALUES (
-  'b0000000-0000-0000-0000-000000000001',
-  'a0000000-0000-0000-0000-000000000001',
-  'Sede Principal',
-  'Calle 80 #15-20, Bogotá',
-  'Bogotá',
-  'Colombia',
-  4.6766670,
-  -74.0483000,
-  '+57 300 123 4567'
-);
+La primera cuenta se crea con el registro normal (`POST /api/v1/auth/register`),
+que da de alta al usuario junto con su negocio y le asigna el rol `OWNER`.
 
--- Profesionales
-INSERT INTO professionals (id, business_id, branch_id, name_bio_specialties_years_exp_rating_total_reviews_active) VALUES
-('c0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'Carlos Pérez', 'Especialista en cortes modernos y fades', 'corte clásico,fade,barba', 8, 4.80, 45, TRUE),
-('c0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'María López', 'Experta en colorimetría y tratamientos capilares', 'tinte,mechas,tratamiento', 5, 4.65, 30, TRUE);
-
--- Nota: El INSERT real requiere columnas separadas. Se simplifica para referencia.
-
-INSERT INTO services (id, business_id, name, description, price, duration, category, active) VALUES
-('d0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'Corte Clásico', 'Corte tradicional con máquina y tijera', 25000, 30, 'Cortes', TRUE),
-('d0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'Corte + Barba', 'Corte completo con diseño de barba', 35000, 45, 'Paquetes', TRUE),
-('d0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000001', 'Fade', 'Degradado americano premium', 30000, 40, 'Cortes', TRUE),
-('d0000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000001', 'Diseño de Barba', 'Perfilado y diseño de barba con navaja', 15000, 20, 'Barba', TRUE),
-('d0000000-0000-0000-0000-000000000005', 'a0000000-0000-0000-0000-000000000001', 'Tratamiento Capilar', 'Hidratación profunda con productos premium', 40000, 30, 'Tratamientos', TRUE);
-
-INSERT INTO clients (id, business_id, name, email, phone, loyalty_points, active) VALUES
-('e0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'Juan García', 'juan@email.com', '+57 310 111 2222', 150, TRUE),
-('e0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'Ana Martínez', 'ana@email.com', '+57 310 333 4444', 75, TRUE);
-
-INSERT INTO business_hours (business_id, branch_id, day_of_week, open_time, close_time, active) VALUES
-('a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 1, '09:00', '19:00', TRUE),
-('a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 2, '09:00', '19:00', TRUE),
-('a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 3, '09:00', '19:00', TRUE),
-('a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 4, '09:00', '19:00', TRUE),
-('a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 5, '09:00', '19:00', TRUE),
-('a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 6, '10:00', '17:00', TRUE);
-
--- ============================================
--- beautyspot_marketplace: Perfil público
--- ============================================
-
-INSERT INTO business_profiles (business_id, slug, name, description, phone, email, address, city, country, lat, lng, rating, total_reviews, business_type, active, verified)
-VALUES (
-  'a0000000-0000-0000-0000-000000000001',
-  'elite-barbers',
-  'Elite Barbershop',
-  'Barbería premium con los mejores profesionales de la ciudad',
-  '+57 300 123 4567',
-  'info@elitebarbers.co',
-  'Calle 80 #15-20, Bogotá',
-  'Bogotá',
-  'Colombia',
-  4.6766670,
-  -74.0483000,
-  4.75,
-  75,
-  'barbershop',
-  TRUE,
-  TRUE
-);
-
--- ============================================
--- beautyspot_auth: Usuario demo
--- ============================================
-
--- Password: "password123" hasheado con bcrypt
-INSERT INTO users (id, email, password, name, phone, email_verified, active)
-VALUES (
-  'f0000000-0000-0000-0000-000000000001',
-  'admin@elitebarbers.co',
-  '$2a$10$placeholder_bcrypt_hash_here',
-  'Admin Elite Barbers',
-  '+57 300 123 4567',
-  TRUE,
-  TRUE
-);
-
-INSERT INTO memberships (user_id, business_id, role, active, accepted_at)
-VALUES (
-  'f0000000-0000-0000-0000-000000000001',
-  'a0000000-0000-0000-0000-000000000001',
-  'OWNER',
-  TRUE,
-  NOW()
-);
-```
-
----
+> **Pendiente**: no existe hoy ninguna cuenta de superadministrador ni forma de
+> crearla. El rol `SUPER_ADMIN` está definido en el enum y se comprueba en los
+> guards, pero no se puede asignar: `memberships` hereda de `TenantEntity`, así que
+> `business_id` es NOT NULL, y el rol del JWT se deriva de la primera membresía
+> activa. Un administrador de plataforma no pertenece a ningún negocio, de modo que
+> asignarlo exigiría un cambio de modelo (una columna en `users`, hacer
+> `business_id` nullable, o un negocio sentinela).
 
 ## Convenciones de Migración
 

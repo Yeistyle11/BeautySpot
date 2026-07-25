@@ -230,7 +230,7 @@ El MVP se enfoca en la gestion integral de un negocio individual (barberia, salo
 | NFR-SEC-004 | Tokens JWT                      | Access token firmado con RS256, rotacion de claves                                |
 | NFR-SEC-005 | RBAC                            | Control de acceso basado en roles en cada endpoint                                |
 | NFR-SEC-006 | Aislamiento multi-tenant        | Filtro obligatorio de businessId en todas las queries de negocio                  |
-| NFR-SEC-007 | Proteccion contra inyeccion SQL | Uso exclusivo de ORM (Prisma) con queries parametrizadas                          |
+| NFR-SEC-007 | Proteccion contra inyeccion SQL | Uso exclusivo de ORM (TypeORM) con queries parametrizadas                         |
 | NFR-SEC-008 | Proteccion XSS                  | Sanitizacion de inputs, CSP headers                                               |
 | NFR-SEC-009 | Rate limiting                   | Limites por IP y por usuario en endpoints sensibles                               |
 | NFR-SEC-010 | Logs de auditoria               | Registro de todas las operaciones sensibles (creacion, modificacion, eliminacion) |
@@ -278,22 +278,22 @@ El MVP se enfoca en la gestion integral de un negocio individual (barberia, salo
 
 ### 4.1 Stack Tecnologico
 
-| Componente        | Tecnologia     | Version | Justificacion                                         |
-| ----------------- | -------------- | ------- | ----------------------------------------------------- |
-| Lenguaje          | TypeScript     | 5.x     | Tipado estatico, ecosistema amplio, productividad     |
-| Backend Framework | NestJS         | 10.x    | Arquitectura modular, DI, decorators, escalable       |
-| ORM               | Prisma         | 5.x     | Type-safe, migraciones, excelente DX                  |
-| Base de datos     | PostgreSQL     | 16.x    | Relacional robusta, JSON support, performance         |
-| Cache             | Redis          | 7.x     | Cache, sesiones, rate limiting, pub/sub               |
-| Message Broker    | RabbitMQ       | 3.13.x  | Comunicacion async entre servicios, reliable delivery |
-| Contenedores      | Docker         | 24.x    | Estandar de contenedores, reproducibilidad            |
-| Orquestacion      | Docker Compose | 2.x     | Desarrollo local multi-contenedor                     |
-| Monorepo          | Turborepo      | Latest  | Build caching, gestion de dependencias                |
-| Package Manager   | pnpm           | 8.x     | Eficiente, workspace support, strict mode             |
-| Validacion        | Zod            | 3.x     | Runtime type validation, inferencia TS                |
-| Testing           | Jest           | 29.x    | Standard de testing en JS/TS                          |
-| Linting           | ESLint         | 8.x     | Calidad de codigo                                     |
-| Formateo          | Prettier       | 3.x     | Consistencia de estilo                                |
+| Componente        | Tecnologia     | Version | Justificacion                                          |
+| ----------------- | -------------- | ------- | ------------------------------------------------------ |
+| Lenguaje          | TypeScript     | 5.x     | Tipado estatico, ecosistema amplio, productividad      |
+| Backend Framework | NestJS         | 11.x    | Arquitectura modular, DI, decorators, escalable        |
+| ORM               | TypeORM        | 0.3.x   | Decorators, migraciones, integracion nativa con NestJS |
+| Base de datos     | PostgreSQL     | 16.x    | Relacional robusta, JSON support, performance          |
+| Cache             | Redis          | 7.x     | Cache, sesiones, rate limiting, pub/sub                |
+| Message Broker    | RabbitMQ       | 3.13.x  | Comunicacion async entre servicios, reliable delivery  |
+| Contenedores      | Docker         | 24.x    | Estandar de contenedores, reproducibilidad             |
+| Orquestacion      | Docker Compose | 2.x     | Desarrollo local multi-contenedor                      |
+| Monorepo          | Turborepo      | Latest  | Build caching, gestion de dependencias                 |
+| Package Manager   | npm            | 10.x    | workspaces, sin dependencias extra de tooling          |
+| Validacion        | Zod            | 3.x     | Runtime type validation, inferencia TS                 |
+| Testing           | Jest           | 29.x    | Standard de testing en JS/TS                           |
+| Linting           | ESLint         | 8.x     | Calidad de codigo                                      |
+| Formateo          | Prettier       | 3.x     | Consistencia de estilo                                 |
 
 ### 4.2 Requisitos de Infraestructura
 
