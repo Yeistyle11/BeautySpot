@@ -14,6 +14,11 @@ module.exports = {
     "src/**/*.(t|j)s",
     "!src/**/*.dto.ts",
     "!src/**/*.entity.ts",
+    "!src/orm-entities.ts",
+    // Las migraciones son DDL: se validan ejecutándolas contra Postgres en los
+    // tests de integración, no invocando up()/down() desde un unit test.
+    "!src/migrations/**",
+    "!src/data-source.ts",
     "!src/**/*.interface.ts",
     "!src/**/main.ts",
     "!src/**/common/**",

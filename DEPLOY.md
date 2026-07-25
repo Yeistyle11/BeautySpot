@@ -33,29 +33,34 @@ En desarrollo no se nota porque `synchronize` crea las tablas a partir de las
 entidades. En producción esos cuatro servicios arrancarían contra una base vacía y
 fallaría cualquier consulta.
 
-### 2. No hay forma de ejecutar las migraciones
+### 2. ~~No hay forma de ejecutar las migraciones~~ — resuelto
 
-Aunque existen 6 ficheros de migración, hoy no se pueden aplicar:
+Los siete servicios con base de datos tienen ya el mecanismo completo:
 
-- La configuración de TypeORM **no declara `migrations` ni `migrationsRun`**, así
-  que el ORM no conoce esos ficheros.
-- No existe ningún `data-source.ts` para la CLI de TypeORM.
-- Ningún `package.json` tiene scripts de tipo `migration:run` / `migration:generate`.
+- `createTypeOrmConfig` declara `migrations` y **`migrationsRun: false`**
+  (`packages/database/src/config/typeorm.config.ts`).
+- Cada servicio tiene un `src/data-source.ts` que el CLI de TypeORM consume.
+- Cada `package.json` expone `migration:run`, `migration:revert` y
+  `migration:generate`.
 
-**Qué hace falta** (por servicio con base de datos):
+```bash
+# aplicar las migraciones pendientes de un servicio
+npm run migration:run --workspace @beautyspot/core-service
 
-1. Un `src/data-source.ts` que exporte un `DataSource` con `entities` y
-   `migrations: ["dist/migrations/*.js"]`.
-2. Scripts en su `package.json`:
-   ```json
-   "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/data-source.ts",
-   "migration:run": "typeorm-ts-node-commonjs migration:run -d src/data-source.ts",
-   "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/data-source.ts"
-   ```
-3. Generar la migración inicial de los 4 servicios que no la tienen, partiendo del
-   esquema que `synchronize` produce hoy en desarrollo.
-4. Un paso de despliegue que ejecute `migration:run` **antes** de arrancar cada
-   servicio.
+# generar una migración nueva tras cambiar entidades (necesita la BD viva)
+npm run migration:generate --workspace @beautyspot/core-service -- src/migrations/NombreDescriptivo
+```
+
+**Las migraciones no se ejecutan al arrancar**, y es deliberado: con varias
+réplicas del mismo servicio todas competirían por migrar a la vez, y un fallo de
+migración dejaría al servicio sin arrancar en lugar de fallar en un paso de
+despliegue visible. Hay que ejecutar `migration:run` de los siete servicios
+**antes** de levantar los contenedores.
+
+La lista de entidades de cada servicio vive en un único `src/orm-entities.ts`
+que comparten `app.module.ts` y `data-source.ts`. No dupliques la lista: si las
+dos divergen, `migration:generate` compara el esquema contra una lista
+incompleta y propone borrar las tablas que le falten.
 
 ### 3. No hay artefacto de orquestación para producción
 
@@ -509,7 +514,7 @@ de aplicación, no la del usuario.
 Bloqueantes (secciones anteriores):
 
 - [ ] Migraciones iniciales creadas para core, marketplace, notification y analytics
-- [ ] `data-source.ts` y scripts `migration:*` en cada servicio con base de datos
+- [x] `data-source.ts` y scripts `migration:*` en cada servicio con base de datos
 - [ ] `docker-compose.prod.yml` (o manifiestos de Kubernetes) escrito
 - [ ] Endpoint `/health` en los 7 microservicios
 

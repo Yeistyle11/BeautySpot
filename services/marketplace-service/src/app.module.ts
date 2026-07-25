@@ -4,25 +4,13 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
-import { OutboxModule, OutboxMessageEntity } from "@beautyspot/nest-common";
+import { OutboxModule } from "@beautyspot/nest-common";
+import { entities } from "./orm-entities";
 import { BusinessProfilesModule } from "./modules/business-profiles/business-profiles.module";
 import { SearchModule } from "./modules/search/search.module";
 import { ReviewsModule } from "./modules/reviews/reviews.module";
 import { ProfessionalProfilesModule } from "./modules/professional-profiles/professional-profiles.module";
 import { FeedModule } from "./modules/feed/feed.module";
-import { BusinessProfileEntity } from "./entities/business-profile.entity";
-import { ReviewEntity } from "./entities/review.entity";
-import { ProfessionalProfileEntity } from "./entities/professional-profile.entity";
-import { ReviewHelpfulEntity } from "./entities/review-helpful.entity";
-
-const entities = [
-  BusinessProfileEntity,
-  ReviewEntity,
-  ProfessionalProfileEntity,
-  ReviewHelpfulEntity,
-  OutboxMessageEntity,
-];
-
 @Module({
   imports: [
     ConfigModule.forRoot({

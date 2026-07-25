@@ -14,6 +14,11 @@ module.exports = {
     "src/**/*.(t|j)s",
     "!src/**/*.dto.ts",
     "!src/**/*.entity.ts",
+    "!src/orm-entities.ts",
+    // Las migraciones son DDL: se validan ejecutándolas contra Postgres en los
+    // tests de integración, no invocando up()/down() desde un unit test.
+    "!src/migrations/**",
+    "!src/data-source.ts",
     "!src/**/*.interface.ts",
     "!src/**/main.ts",
     "!src/**/common/**",
@@ -23,10 +28,8 @@ module.exports = {
   moduleDirectories: ["node_modules", "<rootDir>/../../node_modules"],
   moduleNameMapper: {
     "^@beautyspot/database$": "<rootDir>/../../packages/database/src",
-    "^@beautyspot/shared-types$":
-      "<rootDir>/../../packages/shared-types/src",
-    "^@beautyspot/shared-utils$":
-      "<rootDir>/../../packages/shared-utils/src",
+    "^@beautyspot/shared-types$": "<rootDir>/../../packages/shared-types/src",
+    "^@beautyspot/shared-utils$": "<rootDir>/../../packages/shared-utils/src",
     "^@beautyspot/event-types$": "<rootDir>/../../packages/event-types/src",
     "^@beautyspot/shared-constants$":
       "<rootDir>/../../packages/shared-constants/src",

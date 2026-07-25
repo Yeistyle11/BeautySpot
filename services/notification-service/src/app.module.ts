@@ -5,14 +5,11 @@ import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { BullModule } from "@nestjs/bullmq";
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
-import { NotificationEntity } from "./modules/notifications/notification.entity";
-import { NotificationPreferenceEntity } from "./modules/notification-preferences/notification-preference.entity";
+import { entities } from "./orm-entities";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { EmailsModule } from "./modules/emails/emails.module";
 import { NotificationPreferencesModule } from "./modules/notification-preferences/notification-preferences.module";
 import { EventListenersModule } from "./modules/event-listeners/event-listeners.module";
-
-const entities = [NotificationEntity, NotificationPreferenceEntity];
 
 @Module({
   imports: [
