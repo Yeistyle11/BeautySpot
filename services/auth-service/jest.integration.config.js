@@ -17,4 +17,8 @@ module.exports = {
   setupFilesAfterEnv: [],
   // Las conexiones reales pueden tardar más que un unit test.
   testTimeout: 30000,
+  // Red de seguridad: un cliente de BD/Redis que deje un socket o un timer
+  // abierto impediría que jest termine, y en CI el job se colgaría hasta el
+  // límite de 6 horas en lugar de fallar.
+  forceExit: true,
 };

@@ -11,16 +11,30 @@ import Redis from "ioredis";
 describe("Integración: conexión a Redis de test", () => {
   let redis: Redis;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     redis = new Redis({
       host: process.env.REDIS_HOST,
       port: Number(process.env.REDIS_PORT),
       password: process.env.REDIS_PASSWORD,
+      // Por defecto ioredis reintenta la conexión indefinidamente y encola las
+      // órdenes, así que sin infraestructura el proceso de jest no termina
+      // nunca. Aquí interesa fallar rápido y con un error claro.
+      lazyConnect: true,
+      retryStrategy: () => null,
+      maxRetriesPerRequest: 1,
+      enableOfflineQueue: false,
     });
+    await redis.connect();
   });
 
   afterAll(async () => {
-    await redis?.quit();
+    if (!redis) return;
+    try {
+      await redis.quit();
+    } catch {
+      // Si la conexión ya está caída, quit() rechaza; basta con soltar el socket.
+      redis.disconnect();
+    }
   });
 
   it("responde al PING", async () => {

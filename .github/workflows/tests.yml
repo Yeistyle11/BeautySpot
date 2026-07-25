@@ -115,12 +115,56 @@ jobs:
         run: npm run test:coverage
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         if: always()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info,./packages/*/coverage/lcov.info,./services/*/coverage/lcov.info
           fail_ci_if_error: false
+
+  # ─── Tests de integración contra infraestructura real ─────────────────────
+  #
+  # Los *.int-test.ts corren contra Postgres/Redis/RabbitMQ de verdad, no contra
+  # mocks. Se levanta la infraestructura con el propio docker-compose.test.yml
+  # en vez de con bloques `services:` para no duplicar puertos y credenciales:
+  # los .env.test de cada servicio ya apuntan a ese compose.
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20.x
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      # --wait bloquea hasta que los tres healthchecks pasan a healthy.
+      - name: Levantar infraestructura de test
+        run: docker compose -f docker-compose.test.yml up -d --wait
+
+      - name: Tests de integración de los 8 servicios
+        run: |
+          set -euo pipefail
+          for servicio in api-gateway auth-service core-service booking-service \
+            payment-service notification-service marketplace-service \
+            analytics-service; do
+            echo "::group::$servicio"
+            npm run test:int --workspace "@beautyspot/$servicio"
+            echo "::endgroup::"
+          done
+
+      - name: Logs de la infraestructura
+        if: failure()
+        run: docker compose -f docker-compose.test.yml logs --tail 50
+
+      - name: Parar infraestructura
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
 
   # ─── Qué imágenes hay que construir según los ficheros cambiados ──────────
   #
@@ -220,10 +264,10 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build ${{ matrix.image.name }} image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ matrix.image.file }}
@@ -231,3 +275,36 @@ jobs:
           tags: beautyspot-${{ matrix.image.name }}:ci
           cache-from: type=gha,scope=${{ matrix.image.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}
+
+  # ─── Check agregado ───────────────────────────────────────────────────────
+  #
+  # ESTE es el único job que debe marcarse como required check en la protección
+  # de `main`. Los nombres de los jobs de docker-build dependen de la matriz
+  # dinámica y el job entero se omite cuando no hay imágenes que construir, así
+  # que exigirlos por nombre dejaría el check ausente y bloquearía el merge.
+  # Aquí un job omitido cuenta como correcto; solo fallan los fallos reales.
+  ci:
+    runs-on: ubuntu-latest
+    needs: [quality, test, integration, changes, docker-build]
+    if: always()
+    steps:
+      - name: Verificar el resultado de los jobs
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+
+          jobs = json.loads(os.environ["NEEDS"])
+          for nombre, datos in sorted(jobs.items()):
+              print(f"  {nombre}: {datos['result']}")
+
+          malos = sorted(
+              n for n, d in jobs.items() if d["result"] in ("failure", "cancelled")
+          )
+          if malos:
+              print(f"::error::Jobs fallidos o cancelados: {', '.join(malos)}")
+              sys.exit(1)
+
+          print("Todos los jobs han pasado (los omitidos no cuentan como fallo).")
+          PY
