@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 };
 
 export default async function MarketplacePage() {
-  const raw = await fetchPublic<unknown>("/marketplace-service/feed");
+  const raw = await fetchPublic<unknown>("/marketplace/feed");
   const parsed = raw ? feedResponseSchema.safeParse(raw) : null;
   const initialFeed: FeedResponse | null = parsed?.success ? parsed.data : null;
 

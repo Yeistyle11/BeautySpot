@@ -85,7 +85,15 @@ export class ProxyController {
     }
   }
 
-  /** Reescribe la ruta del gateway a la ruta interna esperada por el servicio destino. */
+  /**
+   * Reescribe la ruta del gateway a la ruta interna esperada por el servicio destino.
+   *
+   * Sólo hay que quitar el prefijo del gateway: los microservicios no definen
+   * `setGlobalPrefix`, así que sus controladores cuelgan de la raíz. Antes se
+   * anteponía el nombre de módulo cuando el servicio venía como "core-service",
+   * lo que producía rutas inexistentes (/core/businesses) y devolvía 404 para
+   * toda la forma larga, pese a que `isValidService` sí la acepta.
+   */
   private buildTargetUrl(service: string, req: Request): string {
     const serviceUrl = this.proxyService.getServiceUrl(service);
     let path = req.path;
@@ -94,11 +102,6 @@ export class ProxyController {
       path = path.replace(`/api/v1/${service}`, "");
     } else if (path.startsWith("/v1/")) {
       path = path.replace(`/v1/${service}`, "");
-    }
-
-    if (service.endsWith("-service")) {
-      const moduleName = service.replace("-service", "");
-      path = `/${moduleName}${path}`;
     }
 
     return `${serviceUrl}${path}`;

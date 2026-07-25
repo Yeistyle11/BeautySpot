@@ -97,7 +97,7 @@ export default function MarketplaceFeed({
   initialFeed: FeedResponse | null;
 }) {
   const { data: feed, isLoading: loading } = useApiPublic<FeedResponse>(
-    "/marketplace-service/feed",
+    "/marketplace/feed",
     initialFeed ? { fallbackData: initialFeed } : undefined,
     feedResponseSchema
   );
@@ -109,7 +109,7 @@ export default function MarketplaceFeed({
   if (activeCategory) searchParams.set("businessType", activeCategory);
   const searchKey =
     search || activeCategory
-      ? `/marketplace-service/search?${searchParams.toString()}`
+      ? `/marketplace/search?${searchParams.toString()}`
       : null;
   const { data: searchResults, isLoading: searching } =
     useApiPublic<SearchResult>(searchKey, undefined, searchResultSchema);
