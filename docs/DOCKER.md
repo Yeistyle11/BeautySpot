@@ -41,8 +41,9 @@ npm run docker:restart   # docker-compose restart
 ```
 
 En el **primer arranque del volumen** de Postgres se ejecuta
-`infra/docker/postgres/init.sql`, que crea las 7 bases por servicio y el rol
-`beautyspot`. Si el volumen ya existe, ese script **no** se vuelve a ejecutar: para
+`infra/docker/postgres/init.sh`, que crea las 7 bases por servicio, cada una con
+su propio usuario (`beautyspot_auth`, `beautyspot_core`, …) dueño únicamente de
+esa base. Si el volumen ya existe, ese script **no** se vuelve a ejecutar: para
 partir de cero hay que borrar el volumen.
 
 ```bash

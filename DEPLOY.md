@@ -233,23 +233,32 @@ Puntos importantes:
   (`http://auth-service:3001`), no `localhost`.
 - El panel de RabbitMQ (15672) **no debe publicarse** en producción.
 
-### Aviso sobre `init.sql`
+### Usuarios de base de datos
 
-`infra/docker/postgres/init.sql` está pensado para desarrollo y **no es apto para
-producción tal cual**:
+`infra/docker/postgres/init.sh` crea las 7 bases, cada una con **su propio
+usuario, dueño sólo de esa base y sin `SUPERUSER`**, y revoca el `CONNECT` a
+`PUBLIC` para que los demás servicios no puedan siquiera conectarse a ella.
 
-```sql
-CREATE USER beautyspot WITH PASSWORD 'beautyspot' SUPERUSER;
-```
-
-Crea un superusuario con contraseña conocida, y además una base y un usuario para
-SonarQube (`sonar` / `sonar123`) que no tienen por qué existir en el servidor de
-producción. Para producción hay que crear las 7 bases y **un usuario por servicio
-con permisos acotados a su propia base**, sin `SUPERUSER`.
-
-Las 7 bases son: `beautyspot_auth`, `beautyspot_core`, `beautyspot_booking`,
+Las 7 bases son `beautyspot_auth`, `beautyspot_core`, `beautyspot_booking`,
 `beautyspot_payment`, `beautyspot_notification`, `beautyspot_marketplace` y
-`beautyspot_analytics`. El `api-gateway` no tiene base de datos propia.
+`beautyspot_analytics`, y el usuario de cada una se llama igual. El
+`api-gateway` no tiene base de datos propia.
+
+Las contraseñas se pasan por entorno —`BEAUTYSPOT_AUTH_PASSWORD`,
+`BEAUTYSPOT_CORE_PASSWORD`, …—; **hay que definir las siete en producción**,
+porque el valor por defecto (el propio nombre del usuario) sólo sirve para
+desarrollo local.
+
+> Antes este fichero era un `.sql` que creaba un único rol `beautyspot`
+> SUPERUSER con la contraseña en claro y sin un solo `GRANT`: funcionaba
+> justamente por ser superusuario, con lo que cualquier servicio podía leer y
+> escribir en las bases de los otros siete y administrar el clúster. Creaba
+> además la base y el usuario de SonarQube (`sonar`/`sonar123`), que ningún
+> compose del repositorio levanta. Ambas cosas están eliminadas.
+>
+> El script sólo se ejecuta en el **primer arranque del volumen**. Sobre un
+> volumen ya creado no tiene efecto: hay que recrearlo con
+> `docker volume rm beautyspot_postgres_data`.
 
 ---
 
@@ -269,13 +278,15 @@ valores de desarrollo y sirven de plantilla.
 | `INTERNAL_API_SECRET` | Secreto compartido de las rutas `internal/*`. **El mismo en todos los servicios**                           |
 | `CORS_ORIGINS`        | Orígenes permitidos, separados por coma. En producción, el dominio real                                     |
 
-> **Inconsistencia a corregir**: no todos los servicios leen Redis igual. `auth`,
-> `core`, `booking`, `notification` y el gateway usan `REDIS_HOST` + `REDIS_PORT`
-> (+ `REDIS_PASSWORD`), mientras que `analytics`, `marketplace` y `payment` usan
-> `REDIS_URL`. Hay que definir ambas o unificarlas antes de desplegar.
->
-> Lo mismo con el usuario de base de datos en los `.env.example`: unos usan
-> `postgres:postgres` y otros `beautyspot:beautyspot`.
+Redis se configura **siempre** con `REDIS_HOST`, `REDIS_PORT` y
+`REDIS_PASSWORD`. Es la única forma que lee el código (`RedisCacheService`, el
+`RedisModule` del gateway y BullMQ en notification).
+
+> `analytics`, `marketplace` y `payment` declaraban en su lugar un `REDIS_URL`
+> que **no se lee en ninguna parte del código**. No es que usaran otra forma:
+> caían al valor por defecto `localhost:6379` sin contraseña, es decir, no se
+> conectaban al Redis configurado. Ya está unificado, igual que el usuario de
+> base de datos, que ahora es uno por servicio.
 
 ### Específicas por servicio
 
@@ -544,7 +555,8 @@ Bloqueantes (secciones anteriores):
 
 Infraestructura:
 
-- [ ] Postgres 16 con las 7 bases y un usuario acotado por servicio (sin `SUPERUSER`)
+- [x] Postgres 16 con las 7 bases y un usuario acotado por servicio (sin `SUPERUSER`)
+- [ ] Las 7 contraseñas `BEAUTYSPOT_<SERVICIO>_PASSWORD` definidas en el entorno
 - [ ] Redis 7 con contraseña
 - [ ] RabbitMQ 3 con usuario propio y panel no expuesto
 - [ ] Nada de infraestructura accesible desde internet
@@ -556,7 +568,7 @@ Configuración:
 - [ ] `JWT_SECRET` idéntico en gateway y auth-service
 - [ ] `INTERNAL_API_SECRET` idéntico en los 8 servicios
 - [ ] `CORS_ORIGINS` con el dominio real
-- [ ] Variables de Redis presentes en la forma que espera cada servicio (`REDIS_URL` vs `REDIS_HOST`)
+- [x] Variables de Redis unificadas en `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD`
 - [ ] `NEXT_PUBLIC_API_URL` apuntando al gateway público
 
 Despliegue:
