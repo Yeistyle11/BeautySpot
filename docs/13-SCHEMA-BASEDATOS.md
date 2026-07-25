@@ -680,7 +680,7 @@ INSERT INTO businesses (id, slug, name, description, phone, email, address, city
 VALUES (
   'a0000000-0000-0000-0000-000000000001',
   'elite-barbers',
-  'Elite Barbershop',
+  'BeautySpot Demo',
   'Barbería premium con los mejores profesionales de la ciudad',
   '+57 300 123 4567',
   'info@elitebarbers.co',
@@ -741,7 +741,7 @@ INSERT INTO business_profiles (business_id, slug, name, description, phone, emai
 VALUES (
   'a0000000-0000-0000-0000-000000000001',
   'elite-barbers',
-  'Elite Barbershop',
+  'BeautySpot Demo',
   'Barbería premium con los mejores profesionales de la ciudad',
   '+57 300 123 4567',
   'info@elitebarbers.co',

@@ -1060,16 +1060,38 @@ Las siguientes relaciones son por referencia (UUID almacenado sin foreign key), 
 
 ### 12.1 Herramienta
 
-Se usa **Prisma Migrate** para gestionar las migraciones de cada servicio de forma independiente.
+Se usan las **migraciones de TypeORM**, gestionadas por cada servicio de forma
+independiente. Los ficheros viven en `services/<servicio>/src/migrations/` y
+exportan una clase que implementa `MigrationInterface` con `up()` y `down()`.
+
+> ⚠️ **Estado real (2026-07): esto está a medio implementar y bloquea el
+> despliegue a producción.**
+>
+> Sólo 3 de los 7 servicios con base de datos tienen migraciones: `auth-service`
+> (3), `payment-service` (2) y `booking-service` (1). **`core-service`, con 10
+> entidades, no tiene ninguna**, igual que `marketplace`, `notification` y
+> `analytics`.
+>
+> Además, la configuración de TypeORM **no declara `migrations` ni
+> `migrationsRun`**, no existe ningún `data-source.ts` para la CLI y ningún
+> `package.json` tiene scripts `migration:*`. Es decir: ni siquiera las 6
+> migraciones que existen se pueden ejecutar hoy.
+>
+> En desarrollo no se nota porque `synchronize` crea el esquema desde las
+> entidades, pero en producción `synchronize` está desactivado
+> (`packages/database/src/config/typeorm.config.ts`). Ver los bloqueantes de
+> [../DEPLOY.md](../DEPLOY.md).
 
 ### 12.2 Flujo de Migracion
 
+Flujo objetivo, una vez añadidos el `data-source.ts` y los scripts:
+
 ```
-1. Desarrollador modifica schema.prisma del servicio correspondiente
-2. Ejecuta: npx prisma migrate dev --name descripcion_del_cambio
-3. Prisma genera el archivo SQL de migracion en prisma/migrations/
-4. El archivo SQL se revisa y commitea al repositorio
-5. En CI/CD se ejecuta: npx prisma migrate deploy (aplica migraciones pendientes)
+1. El desarrollador modifica la entidad del servicio correspondiente
+2. Ejecuta: npm run migration:generate --workspace @beautyspot/<servicio> -- src/migrations/<Nombre>
+3. TypeORM genera la migracion comparando entidades contra el esquema actual
+4. El fichero se revisa y se commitea al repositorio
+5. En el despliegue se ejecuta: npm run migration:run (aplica las pendientes)
 ```
 
 ### 12.3 Reglas de Migracion
@@ -1152,6 +1174,6 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 Toda consulta en las tablas de negocio debe incluir el filtro `business_id`. Para garantizar esto a nivel de aplicacion:
 
-1. **Prisma Middleware**: Un middleware global en cada servicio inyecta `where: { businessId }` en todas las queries de tablas de negocio
-2. **Tenant Guard**: Un guard de NestJS verifica que el `X-Business-Id` header este presente y que el usuario tenga acceso
+1. **Entidad base `TenantEntity`**: las tablas de negocio heredan de ella, que aporta la columna `business_id` indexada, y los servicios filtran por ella en cada consulta
+2. **Tenant Guard**: Un guard de NestJS verifica que el `x-business-id` header este presente y que el usuario tenga acceso. La cabecera la inyecta el API Gateway a partir del JWT, no el cliente
 3. **Test de verificacion**: Tests automaticos que verifican que ningun endpoint retorne datos de otro negocio

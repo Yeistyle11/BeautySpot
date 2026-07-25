@@ -549,24 +549,43 @@ async createAppointment(@Body() dto: CreateAppointmentDto, @CurrentUser() user: 
 }
 ```
 
-### Filtro Automático de Tenant
+### Filtro de Tenant
 
-Todas las consultas a la base de datos aplican automáticamente el filtro de tenant:
+El aislamiento entre negocios descansa en tres piezas:
+
+**1. La cabecera la pone el gateway, no el cliente.** El API Gateway lee el
+`businessId` del JWT (o el primero de `businessIds`) y lo reenvía al backend como
+`x-business-id`. Un cliente no puede falsificar el tenant porque la cabecera se
+construye a partir del token verificado.
+
+**2. La columna la aporta la entidad base.** Las tablas de negocio heredan de
+`TenantEntity` (`packages/database`), que añade `business_id` indexada:
 
 ```typescript
-// Prisma middleware que filtra por businessId automáticamente
-prisma.$use(async (params, next) => {
-  if (params.model && !["User", "Membership"].includes(params.model)) {
-    if (params.action === "findMany" || params.action === "findFirst") {
-      params.args.where = {
-        ...params.args.where,
-        businessId: currentContext.businessId,
-      };
-    }
-  }
-  return next(params);
-});
+export abstract class TenantEntity extends BaseEntity {
+  @Column({ type: "uuid", name: "business_id" })
+  @Index()
+  businessId!: string;
+}
 ```
+
+**3. Cada consulta filtra explícitamente.** Los servicios incluyen `businessId` en
+el `where` de las consultas de negocio:
+
+```typescript
+async findAll(businessId: string, paginacion: PaginationDto) {
+  return this.repo.findAndCount({
+    where: { businessId },
+    skip: (paginacion.page - 1) * paginacion.limit,
+    take: paginacion.limit,
+  });
+}
+```
+
+> Nota: el filtro es **explícito**, no automático. No hay un interceptor global que
+> lo inyecte, así que olvidarlo en una consulta nueva es un fallo de aislamiento
+> entre tenants que ninguna comprobación detecta hoy. Es el punto que más conviene
+> reforzar con tests de integración.
 
 ---
 

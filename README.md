@@ -1,223 +1,277 @@
 # BeautySpot
 
-Plataforma SaaS multi-tenant para gestión de barberías, salones de belleza, spas y centros estéticos en Latinoamérica. Arquitectura de microservicios con NestJS, PostgreSQL, Redis, RabbitMQ y Docker.
+Plataforma SaaS multi-tenant para gestión de barberías, salones de belleza, spas y
+centros estéticos en Latinoamérica. Monorepo con microservicios NestJS, frontend
+Next.js, PostgreSQL, Redis, RabbitMQ y Docker.
 
 ## Arquitectura
 
-**Stack Tecnológico:**
+**Stack**
 
-- **Backend**: NestJS 11 + TypeORM + TypeScript (8 microservicios)
-- **Frontend**: Next.js 14 (App Router) + TypeScript + TailwindCSS
-- **Base de Datos**: PostgreSQL 16 (8 bases de datos, una por servicio)
-- **Caché**: Redis 7
-- **Message Broker**: RabbitMQ 3
-- **Monorepo**: Turborepo + npm workspaces
-- **Contenedores**: Docker + Docker Compose
+| Capa           | Tecnología                                            |
+| -------------- | ----------------------------------------------------- |
+| Backend        | NestJS 11 + TypeORM + TypeScript (8 servicios)        |
+| Frontend       | Next.js 14 (App Router) + TailwindCSS + Zustand + SWR |
+| Base de datos  | PostgreSQL 16 — 7 bases, una por servicio             |
+| Caché/sesiones | Redis 7                                               |
+| Bus de eventos | RabbitMQ 3                                            |
+| Monorepo       | Turborepo + npm workspaces                            |
+| Contenedores   | Docker + Docker Compose                               |
 
-**Microservicios:**
-| Servicio | Puerto | Responsabilidad |
-|---------|--------|----------------|
-| API Gateway | 3000 | Routing, JWT validation, tenant resolution, rate limiting |
-| Auth Service | 3001 | Registro, login, JWT, memberships, password reset |
-| Core Service | 3002 | Negocios, sucursales, profesionales, servicios, clientes |
-| Booking Service | 3003 | Citas, disponibilidad, agenda, bloqueos |
-| Payment Service | 3004 | Pagos manuales, facturas, caja |
-| Notification Service | 3005 | Notificaciones in-app, preferencias |
-| Marketplace Service | 3006 | Búsqueda pública, perfiles, reseñas |
-| Analytics Service | 3007 | Dashboard KPIs, reportes, métricas |
+**Microservicios**
 
-## Funcionalidades
+| Servicio             | Puerto | Base de datos             | Responsabilidad                                                     |
+| -------------------- | ------ | ------------------------- | ------------------------------------------------------------------- |
+| api-gateway          | 3000   | — (sin base propia)       | Enrutado, validación de JWT, tenant, rate limiting, circuit breaker |
+| auth-service         | 3001   | `beautyspot_auth`         | Registro, login, JWT, personal, membresías                          |
+| core-service         | 3002   | `beautyspot_core`         | Negocios, sucursales, profesionales, servicios, clientes, imágenes  |
+| booking-service      | 3003   | `beautyspot_booking`      | Citas, disponibilidad, bloqueos, reserva pública                    |
+| payment-service      | 3004   | `beautyspot_payment`      | Pagos manuales, facturas, caja                                      |
+| notification-service | 3005   | `beautyspot_notification` | Notificaciones in-app, preferencias, correo                         |
+| marketplace-service  | 3006   | `beautyspot_marketplace`  | Perfiles públicos, búsqueda, feed, reseñas                          |
+| analytics-service    | 3007   | `beautyspot_analytics`    | KPIs, métricas, reportes                                            |
 
-**Gestión de Negocio:**
+En total **41 controladores y 170 rutas**, todas accesibles a través del gateway.
+Referencia completa en [docs/API.md](docs/API.md).
 
-- Multi-tenancy por subdominio ({slug}.beautyspot.co)
-- Gestión de negocios y sucursales
-- Perfiles profesionales y asignación de servicios
-- Categorías de servicios y catálogo completo
-- Gestión de clientes y base de datos
+**Decisiones de arquitectura destacadas**
 
-**Reservas y Agenda:**
+- **Multi-tenancy lógica** (ADR-002): columna `businessId` en las tablas de negocio.
+  El gateway inyecta el tenant en la cabecera `x-business-id` a partir del JWT, así
+  que el cliente no puede falsificarlo.
+- **Base de datos por servicio**: ningún servicio lee las tablas de otro.
+- **Transactional Outbox** en booking y payment: el evento se escribe en la misma
+  transacción que el cambio, y un worker lo publica después. Nunca hay un cambio sin
+  evento ni un evento sin cambio.
+- **Circuit breaker** por servicio en el gateway, que sólo abre ante errores 5xx.
+- **Invalidación de sesión cross-service**: el `tokenVersion` vive en Redis como
+  fuente de verdad, así que un logout invalida los tokens ya emitidos.
 
-- Sistema de citas con disponibilidad por horario
-- Gestión de disponibilidad y bloqueos
-- Flow de reserva pública con confirmación
-- Notificaciones automáticas y recordatorios
-- Sistema de reseñas y calificaciones
-
-**Pagos y Facturación:**
-
-- Pagos manuales (efectivo, transferencia)
-- Gestión de caja y sesiones de efectivo
-- Facturación automática con PDF
-- Registro de pagos y tracking
-
-**Análisis y Reportes:**
-
-- Dashboard con KPIs en tiempo real
-- Reportes de rendimiento de profesionales
-- Métricas de negocios y tendencias
-- Análisis de ocupación y revenue
-
-**Marketplace:**
-
-- Perfiles públicos de negocios y profesionales
-- Búsqueda y filtrado avanzado
-- Sistema de reseñas y valoraciones
-- Feed de actividad social
+Detalle en [docs/04-ARQUITECTURA.md](docs/04-ARQUITECTURA.md).
 
 ## Instalación
 
 ### Requisitos
 
-- Node.js 18+ (npm 10+)
-- PostgreSQL 16+
-- Docker y Docker Compose
-- Redis 7+
-- RabbitMQ 3+
+| Herramienta | Versión            |
+| ----------- | ------------------ |
+| Node.js     | 20.x               |
+| npm         | 10.x               |
+| Docker      | 24+ con Compose v2 |
+
+Docker sólo aporta la **infraestructura**; los servicios corren en el host con
+Turborepo.
 
 ### Pasos
 
 ```bash
-# 1. Clonar repositorio
+# 1. Clonar
 git clone https://github.com/Yeistyle11/BeautySpot.git
 cd BeautySpot
 
-# 2. Instalar dependencias
+# 2. Instalar (el flag es obligatorio en este monorepo)
 npm install --legacy-peer-deps
 
-# 3. Iniciar infraestructura (Postgres 16 + Redis + RabbitMQ)
+# 3. Infraestructura: Postgres 16 + Redis 7 + RabbitMQ 3
 npm run docker:up
 
-# 4. Configurar bases de datos
-# Las 7 bases por servicio se crean solas en el primer arranque
-# (infra/docker/postgres/init.sql). Postgres queda expuesto en el host en el 5433.
+# 4. Copiar los .env (los valores por defecto ya coinciden con el compose)
+for s in services/*/; do
+  [ -f "$s.env.example" ] && cp -n "$s.env.example" "$s.env"
+done
 
-# 5. Copiar los .env de cada servicio (valores por defecto ya alineados al compose)
-#    cp services/<svc>/.env.example services/<svc>/.env
-
-# 6. Iniciar microservicios + frontend (modo desarrollo)
+# 5. Arrancar los 8 servicios y el frontend
 npm run dev
 ```
 
-La aplicación corre en:
+Las 7 bases de datos se crean solas en el primer arranque del volumen de Postgres
+(`infra/docker/postgres/init.sql`). No hay que ejecutar migraciones en desarrollo:
+TypeORM arranca con `synchronize` activado y crea el esquema desde las entidades.
 
-- **Frontend**: http://localhost:8080
-- **API Gateway**: http://localhost:3000
-- **Panel RabbitMQ**: http://localhost:15672 (beautyspot / beautyspot123)
+La aplicación queda en:
 
-> Nota: `docker compose` provee la **infraestructura** (Postgres, Redis, RabbitMQ).
-> Los microservicios corren con `npm run dev` (Turborepo). Cada servicio tiene su
-> propio `Dockerfile` para empaquetado/CI; la orquestación en contenedores de toda
-> la app se construye a partir de esos Dockerfiles.
+- **Frontend**: <http://localhost:8080>
+- **API Gateway**: <http://localhost:3000>
+- **Panel de RabbitMQ**: <http://localhost:15672> (`beautyspot` / `beautyspot123`)
+
+> **Postgres se publica en el puerto 5433**, no en 5432, para no chocar con una
+> instalación local. Todos los `.env.example` apuntan ya a 5433.
+
+Guía detallada y solución de problemas en [docs/SETUP.md](docs/SETUP.md).
 
 ## Scripts
 
 ```bash
 # Desarrollo
-npm run dev                # turbo dev (microservicios + frontend)
-cd apps/frontend && npm run dev  # Frontend solo (puerto 8080)
+npm run dev                       # turbo dev: 8 servicios + frontend
+cd apps/frontend && npm run dev   # sólo frontend (8080)
 
 # Build
-npm run build              # turbo build (todos los servicios y packages)
+npm run build                     # turbo build de servicios y paquetes
 
 # Tests
-npm test                   # Ejecuta todos los tests Jest (12 proyectos)
-npm run test:coverage      # Tests con coverage
+npm test                          # 960 tests unitarios (12 proyectos Jest)
+npm run test:watch
+npm run test:coverage             # con cobertura y gate
 
-# Calidad de código
-npm run lint               # ESLint en todo el monorepo (turbo)
-npm run type-check         # TypeScript check (turbo)
-npm run format             # Prettier
-npm run format:check       # Prettier check
+# Calidad
+npm run lint
+npm run type-check
+npm run format
+npm run format:check
 
-# Docker
-npm run docker:up          # Inicia todos los servicios
-npm run docker:down        # Detiene todos los servicios
-npm run docker:logs        # Ver logs de todos los servicios
+# Infraestructura
+npm run docker:up
+npm run docker:down
+npm run docker:logs
+npm run docker:restart
 ```
 
-## Estructura del Proyecto
+Tests de un solo servicio: hay que entrar en su carpeta, porque los proyectos de
+Jest no tienen `displayName` y `--selectProjects` no funciona desde la raíz.
+
+```bash
+cd services/booking-service && npx jest appointments.service
+```
+
+## Estructura
 
 ```
 BeautySpot/
-├── services/               # 8 microservicios NestJS
-│   ├── api-gateway/         # API Gateway (puerto 3000)
-│   ├── auth-service/        # Auth Service (puerto 3001)
-│   ├── core-service/        # Core Service (puerto 3002)
-│   ├── booking-service/     # Booking Service (puerto 3003)
-│   ├── payment-service/     # Payment Service (puerto 3004)
-│   ├── notification-service/ # Notification Service (puerto 3005)
-│   ├── marketplace-service/  # Marketplace Service (puerto 3006)
-│   └── analytics-service/   # Analytics Service (puerto 3007)
-├── apps/                   # Aplicaciones frontend
-│   └── frontend/            # Next.js 14 frontend (puerto 8080)
-├── packages/               # Paquetes compartidos
-│   ├── database/            # TypeORM entities, pagination
-│   ├── event-types/         # Contratos de eventos RabbitMQ
-│   ├── nest-common/         # Decorators, guards, filters comunes
-│   ├── shared-constants/   # Constantes y enums
-│   ├── shared-types/        # Interfaces TypeScript compartidas
-│   └── shared-utils/        # Utilidades comunes
-├── scripts/                # Scripts de utilidad
-├── docs/                   # Documentación técnica
-└── infra/                  # Infraestructura Docker
-    └── docker/postgres/     # Scripts de inicialización
+├── services/                  # 8 microservicios NestJS
+│   ├── api-gateway/            # 3000 — enrutado y seguridad de borde
+│   ├── auth-service/           # 3001
+│   ├── core-service/           # 3002
+│   ├── booking-service/        # 3003
+│   ├── payment-service/        # 3004
+│   ├── notification-service/   # 3005
+│   ├── marketplace-service/    # 3006
+│   └── analytics-service/      # 3007
+├── apps/
+│   └── frontend/              # Next.js 14 (8080) — fuente de verdad de la UI
+├── packages/
+│   ├── database/              # Configuración TypeORM, entidades base, paginación
+│   ├── event-types/           # Contratos de los 27 eventos de RabbitMQ
+│   ├── nest-common/           # Módulo compartido: caché, event bus, outbox, filtros
+│   ├── shared-constants/      # Constantes y enums
+│   ├── shared-types/          # Interfaces compartidas
+│   └── shared-utils/          # Utilidades
+├── infra/docker/postgres/     # init.sql e init-test.sql
+├── docs/                      # Documentación (ver docs/00-INDICE.md)
+├── docker-compose.yml         # Infraestructura de desarrollo
+└── docker-compose.test.yml    # Infraestructura para tests de integración
 ```
 
-## Roles del Sistema
+## Funcionalidades
 
-| Rol          | Descripción                               | Dashboard                    |
-| ------------ | ----------------------------------------- | ---------------------------- |
-| SUPER_ADMIN  | Administrador de la plataforma completa   | Acceso a todos los servicios |
-| OWNER        | Propietario del negocio (incluye billing) | Gestión completa del negocio |
-| ADMIN        | Administrador del negocio (sin billing)   | Operaciones diarias          |
-| PROFESSIONAL | Profesional del negocio                   | Su agenda y perfil           |
-| RECEPTIONIST | Recepcionista                             | Citas, pagos, clientes       |
-| CLIENT       | Cliente final                             | Marketplace y sus citas      |
+**Gestión del negocio** — multi-tenancy por subdominio (`{slug}.beautyspot.co`),
+negocios y sucursales, profesionales y asignación de servicios, categorías y
+catálogo, base de clientes, horarios de atención.
 
-## Configuración de Entorno
+**Reservas y agenda** — citas con disponibilidad por horario, bloqueos, reserva
+pública sin cuenta desde el marketplace, ciclo completo (pendiente → confirmada →
+en curso → completada, con cancelación, no-show y reprogramación), recordatorios.
 
-Cada servicio requiere su archivo `.env`:
+**Pagos y facturación** — pagos manuales (efectivo, transferencia), sesiones de caja
+con arqueo, facturación con PDF, devoluciones, resumen diario.
+
+**Análisis** — KPIs, ranking de profesionales, gráfica de ingresos, informes de
+ingresos, profesionales y citas.
+
+**Marketplace** — perfiles públicos de negocios y profesionales, búsqueda con
+filtros, feed de actividad, reseñas con respuesta del negocio y marca de útil.
+
+## Roles
+
+| Rol            | Alcance                             |
+| -------------- | ----------------------------------- |
+| `SUPER_ADMIN`  | Toda la plataforma                  |
+| `OWNER`        | Su negocio, incluida la facturación |
+| `ADMIN`        | Su negocio, sin facturación         |
+| `PROFESSIONAL` | Su agenda y su perfil               |
+| `RECEPTIONIST` | Citas, pagos y clientes             |
+| `CLIENT`       | Marketplace y sus propias citas     |
+
+Matriz completa en [docs/08-ROLES-PERMISOS.md](docs/08-ROLES-PERMISOS.md).
+
+## Configuración de entorno
+
+Cada servicio lee su propio `.env`; se versiona sólo el `.env.example`. Ejemplo de
+`payment-service`:
 
 ```bash
-# Ejemplo para payment-service
 NODE_ENV=development
 PORT=3004
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/beautyspot_payment
-REDIS_HOST=localhost
-REDIS_PORT=6379
+DATABASE_URL=postgresql://beautyspot:beautyspot@localhost:5433/beautyspot_payment
+REDIS_URL=redis://localhost:6379
 RABBITMQ_URL=amqp://beautyspot:beautyspot123@localhost:5672
+INTERNAL_API_SECRET=<secreto compartido entre servicios>
+CORS_ORIGINS=http://localhost:3000
 ```
 
-## Desarrollo
+> Hay dos inconsistencias conocidas entre los `.env.example`: unos servicios leen
+> Redis como `REDIS_URL` y otros como `REDIS_HOST`+`REDIS_PORT`, y el usuario de
+> Postgres varía entre `postgres` y `beautyspot`. En desarrollo funciona porque
+> ambos usuarios existen; conviene unificarlo antes de desplegar. Ver
+> [DEPLOY.md](DEPLOY.md).
 
-### Código Limpio
+## Calidad
 
-- **Prettier**: Formateo automático con Prettier
-- **ESLint**: Linting con reglas personalizadas
-- **Husky**: Git hooks para pre-commit (ESLint + Prettier)
+**Convenciones**
 
-### Tests
+- **Prettier**: comillas dobles, punto y coma, comas ES5, ancho 80, saltos LF.
+- **ESLint**: TypeScript + Prettier. `no-explicit-any` es **error** en producción y
+  está desactivado en los ficheros de test. Variables sin usar permitidas con
+  prefijo `_`. `console.log` avisa (usar `console.warn`/`console.error`).
+- **Husky + lint-staged**: pre-commit con ESLint y Prettier.
+- **Idioma**: todo el texto de usuario, los comentarios y los mensajes de commit van
+  en español.
 
-- **Framework**: Jest con ts-jest
-- **Cobertura actual**: 259 tests passing, 83% coverage
-- **Infraestructura**: 8 setup.ts files con mocking completo
-- **Ejecución**: `npm test` en cada servicio
+**Tests**
 
-### Base de Datos
+|             | Cantidad                                                        |
+| ----------- | --------------------------------------------------------------- |
+| Unitarios   | **960 tests / 72 suites**                                       |
+| Integración | 11 tests / 10 suites (contra Postgres, Redis y RabbitMQ reales) |
 
-- **Sincronización**: TypeORM con modo synchronize en desarrollo
-- **Migraciones**: Usar migraciones en producción
-- **Tooling**: Prisma Studio para gestión visual
+Cobertura: **92,99 %** statements, **82,52 %** branches, **80,84 %** functions,
+**93,82 %** lines. El gate de `jest.config.js` falla el CI si baja de 92/80/80/93.
 
-## Deployment
+Detalle en [docs/TESTING.md](docs/TESTING.md).
 
-Ver [DEPLOY.md](DEPLOY.md) para guía completa de despliegue en producción.
+**Integración continua**
 
-## Soporte
+Un workflow (`.github/workflows/tests.yml`) con 6 jobs: `quality`, `test`,
+`integration`, `changes`, `docker-build` (matriz dinámica de hasta 9 imágenes) y
+`ci` como check agregado. Ver [docs/CI-CD.md](docs/CI-CD.md).
 
-Para issues, preguntas o contribuciones, por favor abre un issue en el repositorio.
+## Documentación
+
+Punto de entrada: **[docs/00-INDICE.md](docs/00-INDICE.md)**.
+
+Los más usados:
+
+| Documento                                          | Contenido                         |
+| -------------------------------------------------- | --------------------------------- |
+| [docs/SETUP.md](docs/SETUP.md)                     | Entorno de desarrollo paso a paso |
+| [docs/API.md](docs/API.md)                         | Referencia de las 170 rutas       |
+| [docs/04-ARQUITECTURA.md](docs/04-ARQUITECTURA.md) | Arquitectura y ADRs               |
+| [docs/05-BASE-DATOS.md](docs/05-BASE-DATOS.md)     | Modelo de datos                   |
+| [docs/TESTING.md](docs/TESTING.md)                 | Estrategia de tests               |
+| [docs/CI-CD.md](docs/CI-CD.md)                     | Pipeline de CI                    |
+| [DEPLOY.md](DEPLOY.md)                             | Despliegue en producción          |
+
+## Despliegue
+
+Ver [DEPLOY.md](DEPLOY.md).
+
+> **El proyecto no está listo para producción todavía.** Hay cuatro bloqueantes
+> conocidos y documentados: faltan las migraciones de 4 servicios (`synchronize`
+> está desactivado en producción), no hay forma de ejecutar las migraciones
+> existentes, no hay artefacto de orquestación para producción, y los
+> microservicios no tienen endpoint de salud. Están detallados al principio de
+> [DEPLOY.md](DEPLOY.md).
 
 ## Licencia
 
-Propiedad privada - Todos los derechos reservados.
+Propiedad privada — todos los derechos reservados.
