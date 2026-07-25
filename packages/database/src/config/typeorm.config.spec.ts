@@ -1,4 +1,5 @@
 import {
+  createMigrationDataSourceOptions,
   createTypeOrmConfig,
   createTypeOrmModuleOptions,
   getPoolConfig,
@@ -294,6 +295,83 @@ describe("TypeOrm Config", () => {
       expect(config.synchronize).toBe(true);
 
       process.env.NODE_ENV = originalEnv;
+    });
+  });
+
+  describe("migraciones", () => {
+    const mockDatabaseUrl = "postgresql://user:pass@localhost:5432/db";
+
+    it("no debería ejecutar migraciones al arrancar la aplicación", () => {
+      const config = createTypeOrmConfig(mockDatabaseUrl, mockEntities) as any;
+
+      expect(config.migrationsRun).toBe(false);
+    });
+
+    it("debería dejar la lista de migraciones vacía por defecto", () => {
+      const config = createTypeOrmConfig(mockDatabaseUrl, mockEntities) as any;
+
+      expect(config.migrations).toEqual([]);
+    });
+
+    it("debería propagar el patrón de migraciones recibido", () => {
+      const config = createTypeOrmConfig(
+        mockDatabaseUrl,
+        mockEntities,
+        "default",
+        false,
+        ["src/migrations/*.ts"]
+      ) as any;
+
+      expect(config.migrations).toEqual(["src/migrations/*.ts"]);
+    });
+  });
+
+  describe("createMigrationDataSourceOptions", () => {
+    const originalDatabaseUrl = process.env.DATABASE_URL;
+
+    beforeEach(() => {
+      process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/db";
+    });
+
+    afterEach(() => {
+      if (originalDatabaseUrl) {
+        process.env.DATABASE_URL = originalDatabaseUrl;
+      } else {
+        delete process.env.DATABASE_URL;
+      }
+    });
+
+    it("debería buscar migraciones .ts y .js bajo el directorio indicado", () => {
+      const config = createMigrationDataSourceOptions(
+        mockEntities,
+        "/app/src/migrations"
+      ) as any;
+
+      expect(config.migrations).toEqual(["/app/src/migrations/*.{ts,js}"]);
+    });
+
+    // Sincronizar por reflexión mientras se migra crearía el esquema por su
+    // cuenta y haría inútil la migración que se está ejecutando.
+    it("debería mantener synchronize desactivado incluso fuera de producción", () => {
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = "development";
+
+      const config = createMigrationDataSourceOptions(
+        mockEntities,
+        "/app/src/migrations"
+      ) as any;
+
+      expect(config.synchronize).toBe(false);
+
+      process.env.NODE_ENV = originalEnv;
+    });
+
+    it("debería lanzar error cuando DATABASE_URL no está configurado", () => {
+      delete process.env.DATABASE_URL;
+
+      expect(() =>
+        createMigrationDataSourceOptions(mockEntities, "/app/src/migrations")
+      ).toThrow("DATABASE_URL no está configurado");
     });
   });
 

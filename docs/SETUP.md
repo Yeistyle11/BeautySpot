@@ -88,9 +88,9 @@ No hay que ejecutar nada. En desarrollo TypeORM arranca con `synchronize`
 activado y crea las tablas a partir de las entidades en el primer arranque de cada
 servicio.
 
-> Ojo: en producción `synchronize` está **desactivado** y el esquema lo tienen que
-> crear migraciones. Hoy faltan las de 4 servicios; ver los bloqueantes en
-> [../DEPLOY.md](../DEPLOY.md).
+> Ojo: en producción `synchronize` está **desactivado** y el esquema lo crean las
+> migraciones, que se aplican como paso explícito del despliegue. Si cambias una
+> entidad, genera la migración correspondiente; ver [../DEPLOY.md](../DEPLOY.md).
 
 ## Arrancar
 

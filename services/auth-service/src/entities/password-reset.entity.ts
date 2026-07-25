@@ -1,4 +1,4 @@
-import { Entity, Column, ManyToOne } from "typeorm";
+import { Entity, Column, JoinColumn, ManyToOne } from "typeorm";
 import { BaseEntity } from "@beautyspot/database";
 import { User } from "./user.entity";
 
@@ -17,6 +17,10 @@ export class PasswordReset extends BaseEntity {
   @Column({ type: "timestamp", nullable: true, name: "used_at" })
   usedAt!: Date;
 
+  // Sin @JoinColumn, TypeORM no reutiliza `user_id`: genera una segunda columna
+  // "userId" y cuelga de ella la clave foránea, dejando la que sí usa el código
+  // sin integridad referencial.
   @ManyToOne(() => User)
+  @JoinColumn({ name: "user_id" })
   user!: User;
 }

@@ -1014,7 +1014,6 @@ beautyspot/
 +-- turbo.json                        # Pipeline de Turborepo (workspaces npm en package.json)
 +-- package.json                       # Package.json raiz (scripts, devDeps)
 +-- tsconfig.base.json                # TypeScript config base
-+-- .env.example                      # Variables de entorno ejemplo
 +-- .eslintrc.js                       # ESLint raiz
 +-- .prettierrc                        # Prettier raiz
 +-- .gitignore

@@ -4,16 +4,8 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
-import { Business } from "./entities/business.entity";
-import { Branch } from "./entities/branch.entity";
-import { Professional } from "./entities/professional.entity";
-import { ProfessionalService } from "./entities/professional-service.entity";
-import { Service } from "./entities/service.entity";
-import { Client } from "./entities/client.entity";
-import { BusinessHours } from "./entities/business-hours.entity";
-import { BusinessConfig } from "./entities/business-config.entity";
-import { ProfessionalCategoryEntity } from "./entities/category.entity";
-import { ServiceCategoryEntity } from "./entities/service-category.entity";
+import { HealthModule } from "@beautyspot/nest-common";
+import { entities } from "./orm-entities";
 import { BusinessesModule } from "./modules/businesses/businesses.module";
 import { BranchesModule } from "./modules/branches/branches.module";
 import { ProfessionalsModule } from "./modules/professionals/professionals.module";
@@ -28,19 +20,6 @@ import { CategoriesModule } from "./modules/categories/categories.module";
 import { ServiceCategoriesModule } from "./modules/service-categories/service-categories.module";
 import { CoreEventListenersModule } from "./modules/event-listeners/core-event-listeners.module";
 
-const entities = [
-  Business,
-  Branch,
-  Professional,
-  ProfessionalService,
-  Service,
-  Client,
-  BusinessHours,
-  BusinessConfig,
-  ProfessionalCategoryEntity,
-  ServiceCategoryEntity,
-];
-
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -50,6 +29,7 @@ const entities = [
     TypeOrmModule.forRootAsync({
       useFactory: () => createTypeOrmModuleOptions(entities),
     }),
+    HealthModule,
     BusinessesModule,
     BranchesModule,
     ProfessionalsModule,

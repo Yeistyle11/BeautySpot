@@ -202,18 +202,18 @@ Cada servicio lee su propio `.env`; se versiona sólo el `.env.example`. Ejemplo
 ```bash
 NODE_ENV=development
 PORT=3004
-DATABASE_URL=postgresql://beautyspot:beautyspot@localhost:5433/beautyspot_payment
-REDIS_URL=redis://localhost:6379
+DATABASE_URL=postgresql://beautyspot_payment:beautyspot_payment@localhost:5433/beautyspot_payment
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=redis123
 RABBITMQ_URL=amqp://beautyspot:beautyspot123@localhost:5672
 INTERNAL_API_SECRET=<secreto compartido entre servicios>
 CORS_ORIGINS=http://localhost:3000
 ```
 
-> Hay dos inconsistencias conocidas entre los `.env.example`: unos servicios leen
-> Redis como `REDIS_URL` y otros como `REDIS_HOST`+`REDIS_PORT`, y el usuario de
-> Postgres varía entre `postgres` y `beautyspot`. En desarrollo funciona porque
-> ambos usuarios existen; conviene unificarlo antes de desplegar. Ver
-> [DEPLOY.md](DEPLOY.md).
+> Cada servicio tiene su propio usuario de Postgres, dueño únicamente de su base.
+> Redis se configura siempre con `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD`: es la
+> única forma que lee el código.
 
 ## Calidad
 
@@ -265,11 +265,14 @@ Los más usados:
 
 Ver [DEPLOY.md](DEPLOY.md).
 
-> **El proyecto no está listo para producción todavía.** Hay cuatro bloqueantes
-> conocidos y documentados: faltan las migraciones de 4 servicios (`synchronize`
-> está desactivado en producción), no hay forma de ejecutar las migraciones
-> existentes, no hay artefacto de orquestación para producción, y los
-> microservicios no tienen endpoint de salud. Están detallados al principio de
+`docker-compose.prod.yml` levanta los 12 contenedores a partir de las 9 imágenes
+construidas. El esquema de base de datos lo crean las migraciones, que **no se
+ejecutan al arrancar**: hay que aplicarlas con `npm run migration:run` antes de
+levantar los servicios.
+
+> Lo que queda antes de un despliegue real es de operación: generar los
+> secretos, apuntar el DNS y montar el reverse proxy con el certificado wildcard
+> `*.beautyspot.co` (el tenant se resuelve por subdominio). Checklist completo en
 > [DEPLOY.md](DEPLOY.md).
 
 ## Licencia

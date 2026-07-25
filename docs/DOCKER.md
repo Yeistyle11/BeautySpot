@@ -2,19 +2,18 @@
 
 Qué hay, para qué sirve cada cosa y cómo se usa.
 
-## Los tres ficheros de Compose... son dos
+## Los tres ficheros de Compose
 
-| Fichero                   | Qué levanta                                       | Cuándo se usa                          |
-| ------------------------- | ------------------------------------------------- | -------------------------------------- |
-| `docker-compose.yml`      | Postgres 16, Redis 7, RabbitMQ 3 (**sólo infra**) | Desarrollo local (`npm run docker:up`) |
-| `docker-compose.test.yml` | La misma infra en **otros puertos**               | Tests de integración                   |
+| Fichero                   | Qué levanta                                          | Cuándo se usa                                 |
+| ------------------------- | ---------------------------------------------------- | --------------------------------------------- |
+| `docker-compose.yml`      | Postgres 16, Redis 7, RabbitMQ 3 (**sólo infra**)    | Desarrollo local (`npm run docker:up`)        |
+| `docker-compose.test.yml` | La misma infra en **otros puertos**                  | Tests de integración                          |
+| `docker-compose.prod.yml` | Los 8 servicios + frontend + infra (12 contenedores) | Producción (ver [../DEPLOY.md](../DEPLOY.md)) |
 
-**No existe un compose de producción.** Los Dockerfile están listos y el CI valida
-que las 9 imágenes construyen, pero la orquestación de la aplicación completa está
-pendiente; ver los bloqueantes de [../DEPLOY.md](../DEPLOY.md).
-
-Ninguno de los dos compose levanta los microservicios: en desarrollo corren en el
-host con `npm run dev`.
+Los dos de desarrollo **no levantan los microservicios**: en local corren en el
+host con `npm run dev`. El de producción sí, a partir de las 9 imágenes ya
+construidas, y sólo publica los puertos del gateway y del frontend, ambos en
+`127.0.0.1`.
 
 ### Puertos: desarrollo vs test
 
@@ -41,8 +40,9 @@ npm run docker:restart   # docker-compose restart
 ```
 
 En el **primer arranque del volumen** de Postgres se ejecuta
-`infra/docker/postgres/init.sql`, que crea las 7 bases por servicio y el rol
-`beautyspot`. Si el volumen ya existe, ese script **no** se vuelve a ejecutar: para
+`infra/docker/postgres/init.sh`, que crea las 7 bases por servicio, cada una con
+su propio usuario (`beautyspot_auth`, `beautyspot_core`, …) dueño únicamente de
+esa base. Si el volumen ya existe, ese script **no** se vuelve a ejecutar: para
 partir de cero hay que borrar el volumen.
 
 ```bash
@@ -140,7 +140,7 @@ lsof -i :5433                     # Linux/macOS
 ```
 
 **Las bases de datos no existen aunque el contenedor está arriba**
-`init.sql` sólo corre en el primer arranque del volumen. Recrear el volumen (arriba).
+`init.sh` sólo corre en el primer arranque del volumen. Recrear el volumen (arriba).
 
 **Un healthcheck no pasa a _healthy_**
 El de Redis necesita autenticarse porque el servidor arranca con `--requirepass`:

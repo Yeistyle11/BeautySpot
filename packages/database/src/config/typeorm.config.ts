@@ -51,7 +51,8 @@ export function createTypeOrmConfig(
   databaseUrl: string,
   entities: EntityClass[],
   serviceType: ServiceType = "default",
-  synchronize = false
+  synchronize = false,
+  migrations: string[] = []
 ): DataSourceOptions {
   const isProduction = process.env.NODE_ENV === "production";
   const poolConfig = getPoolConfig(serviceType, isProduction);
@@ -64,6 +65,13 @@ export function createTypeOrmConfig(
     type: "postgres",
     url: databaseUrl,
     entities,
+    migrations,
+    // Nunca al arrancar. Con varias réplicas del mismo servicio todas
+    // competirían por migrar a la vez, y un fallo de migración dejaría al
+    // servicio sin arrancar en lugar de fallar en un paso de despliegue
+    // visible. Las migraciones se aplican con `npm run migration:run` antes
+    // de levantar los contenedores (ver DEPLOY.md).
+    migrationsRun: false,
     synchronize: !isProduction && synchronize,
     logging: loggingOptions,
     maxQueryExecutionTime: isProduction ? 1000 : 0,
@@ -81,9 +89,32 @@ export function createTypeOrmModuleOptions(
   entities: EntityClass[],
   serviceType: ServiceType = "default"
 ): DataSourceOptions {
+  return createTypeOrmConfig(requireDatabaseUrl(), entities, serviceType, true);
+}
+
+/**
+ * Opciones del DataSource que usa el CLI de TypeORM para ejecutar migraciones.
+ *
+ * No es el mismo DataSource que usa la aplicación: aquí `synchronize` está
+ * siempre desactivado (crear el esquema por reflexión mientras se migra haría
+ * inútil la propia migración) y se declara el patrón donde buscar los ficheros.
+ * El patrón incluye `.ts` y `.js` porque el CLI corre sobre los fuentes con
+ * ts-node en desarrollo y sobre `dist/` en el servidor.
+ */
+export function createMigrationDataSourceOptions(
+  entities: EntityClass[],
+  migrationsDir: string
+): DataSourceOptions {
+  return createTypeOrmConfig(requireDatabaseUrl(), entities, "default", false, [
+    `${migrationsDir}/*.{ts,js}`,
+  ]);
+}
+
+/** Lee DATABASE_URL o falla con un mensaje explícito en vez de conectar a un destino vacío. */
+function requireDatabaseUrl(): string {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     throw new Error("DATABASE_URL no está configurado");
   }
-  return createTypeOrmConfig(databaseUrl, entities, serviceType, true);
+  return databaseUrl;
 }

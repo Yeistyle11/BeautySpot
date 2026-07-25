@@ -198,7 +198,10 @@ curl -s https://raw.githubusercontent.com/<repo>/<tag>/action.yml | grep -A4 '^r
 
 - **No despliega.** No hay job de deploy ni registro de imágenes: `docker-build`
   sólo valida que los Dockerfile construyen (`push: false`), no publica nada.
-- **No ejecuta migraciones** ni valida que el esquema de producción esté completo.
+- **No despliega migraciones.** Sí las ejecuta en el job `integration`: cada
+  servicio tiene un `schema-migrations.int-test.ts` que crea el esquema desde
+  cero con `migration:run` y comprueba que coincide con las entidades. Lo que no
+  hace el CI es aplicarlas a ningún entorno.
 - **No hay escaneo de seguridad** de dependencias ni de imágenes.
 - **No hay tests end-to-end.**
 

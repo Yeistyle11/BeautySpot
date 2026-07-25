@@ -27,7 +27,7 @@ cambia cómo hay que interpretar cada documento:
 | [08-ROLES-PERMISOS.md](08-ROLES-PERMISOS.md)     | 🟢/🔵 | Los 6 roles y la matriz de permisos                                                          |
 | [TESTING.md](TESTING.md)                         | 🟢    | Tests unitarios y de integración, cobertura, cómo escribir uno                               |
 | [CI-CD.md](CI-CD.md)                             | 🟢    | El workflow de GitHub Actions, sus 6 jobs y su coste                                         |
-| [../DEPLOY.md](../DEPLOY.md)                     | 🟢    | Despliegue en producción y **los bloqueantes pendientes**                                    |
+| [../DEPLOY.md](../DEPLOY.md)                     | 🟢    | Despliegue en producción: migraciones, compose de producción y checklist                     |
 | [10-DEVOPS.md](10-DEVOPS.md)                     | 🔵    | Estrategia DevOps objetivo (entornos, observabilidad, escalado)                              |
 
 ## Producto y negocio
@@ -59,9 +59,10 @@ gateway reescribe la ruta; está explicado en
 [SETUP.md](SETUP.md).
 
 **¿Puedo desplegar a producción ya?**
-No sin resolver antes cuatro bloqueantes. Están al principio de
-[../DEPLOY.md](../DEPLOY.md); el más serio es que faltan las migraciones de 4
-servicios y `synchronize` está desactivado en producción.
+El código está listo: hay migraciones para las siete bases, `docker-compose.prod.yml`
+y `/health` en los ocho servicios. Queda la parte de operación —secretos, DNS y
+reverse proxy con certificado wildcard—, en el checklist de
+[../DEPLOY.md](../DEPLOY.md).
 
 **¿Cómo ejecuto los tests? ¿Y los de integración?**
 [TESTING.md](TESTING.md).
