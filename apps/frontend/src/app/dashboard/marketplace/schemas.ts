@@ -1,9 +1,7 @@
 // Esquemas Zod y tipos del perfil publico (galeria, secciones, resenas).
 import { z } from "zod";
 
-// Los campos opcionales usan `nullish()`: el backend devuelve `null` en las
-// columnas sin rellenar, no las omite, y un `optional()` a secas descarta la
-// respuesta entera.
+// Los campos opcionales admiten null o ausencia.
 
 export const galleryImageSchema = z.object({
   url: z.string(),

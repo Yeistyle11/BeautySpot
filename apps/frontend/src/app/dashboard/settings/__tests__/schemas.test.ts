@@ -21,8 +21,6 @@ const negocioDeLaApi = {
 };
 
 describe("businessDataSchema", () => {
-  // Las columnas sin rellenar llegan como null. Un esquema que sólo admita la
-  // ausencia descarta la respuesta y la pestaña se queda cargando para siempre.
   it("acepta el negocio que devuelve la API, con nulos incluidos", () => {
     const result = businessDataSchema.safeParse(negocioDeLaApi);
 
