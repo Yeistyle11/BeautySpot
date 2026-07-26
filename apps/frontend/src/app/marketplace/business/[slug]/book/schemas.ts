@@ -19,7 +19,7 @@ export type Service = z.infer<typeof serviceSchema>;
 
 export const professionalSchema = z.object({
   id: z.string(),
-  professionalId: z.string().optional(),
+  professionalId: z.string().nullish(),
   name: z.string(),
   photo: z.string().nullable(),
   specialties: z.array(z.string()),

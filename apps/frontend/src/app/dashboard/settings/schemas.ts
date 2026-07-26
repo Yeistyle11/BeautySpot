@@ -1,25 +1,27 @@
 // Esquemas Zod y tipos de la configuracion (cuenta, negocio y horarios).
 import { z } from "zod";
 
+// Los campos opcionales admiten null o ausencia.
+
 export const businessDataSchema = z.object({
   id: z.string(),
   name: z.string(),
-  description: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().optional(),
-  website: z.string().optional(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  country: z.string().optional(),
-  businessType: z.string().optional(),
-  logo: z.string().optional(),
-  coverImage: z.string().optional(),
+  description: z.string().nullish(),
+  phone: z.string().nullish(),
+  email: z.string().nullish(),
+  website: z.string().nullish(),
+  address: z.string().nullish(),
+  city: z.string().nullish(),
+  state: z.string().nullish(),
+  country: z.string().nullish(),
+  businessType: z.string().nullish(),
+  logo: z.string().nullish(),
+  coverImage: z.string().nullish(),
 });
 export type BusinessData = z.infer<typeof businessDataSchema>;
 
 export const businessHourSchema = z.object({
-  id: z.string().optional(),
+  id: z.string().nullish(),
   dayOfWeek: z.number(),
   openTime: z.string(),
   closeTime: z.string(),

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+// Los campos opcionales admiten null o ausencia.
+
 // Contratos de las respuestas publicas del marketplace. Viven aparte porque
 // los usan tanto el server component (metadata + datos iniciales) como el
 // componente cliente que hidrata la pagina.
@@ -8,22 +10,22 @@ export const sectionConfigSchema = z.object({
   id: z.string(),
   enabled: z.boolean(),
   order: z.number(),
-  customTitle: z.string().optional(),
+  customTitle: z.string().nullish(),
 });
 
 export const galleryImageSchema = z.object({
   url: z.string(),
-  title: z.string().optional(),
-  category: z.string().optional(),
-  featured: z.boolean().optional(),
+  title: z.string().nullish(),
+  category: z.string().nullish(),
+  featured: z.boolean().nullish(),
 });
 export type GalleryImage = z.infer<typeof galleryImageSchema>;
 
 export const socialLinksSchema = z.object({
-  instagram: z.string().optional(),
-  facebook: z.string().optional(),
-  tiktok: z.string().optional(),
-  website: z.string().optional(),
+  instagram: z.string().nullish(),
+  facebook: z.string().nullish(),
+  tiktok: z.string().nullish(),
+  website: z.string().nullish(),
 });
 
 export const profileSchema = z.object({
@@ -77,8 +79,8 @@ export const professionalSchema = z.object({
     .array(
       z.object({
         url: z.string(),
-        title: z.string().optional(),
-        category: z.string().optional(),
+        title: z.string().nullish(),
+        category: z.string().nullish(),
       })
     )
     .nullable(),
