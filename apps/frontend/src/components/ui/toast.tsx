@@ -27,13 +27,7 @@ const Contexto = createContext<ContextoAvisos | null>(null);
 /** Cuánto permanece un aviso antes de retirarse solo. */
 const DURACION_MS = 6000;
 
-/**
- * Avisos efímeros de la interfaz.
- *
- * Los formularios del panel informan por aquí del resultado de guardar. Es un
- * punto único y no un estado por página porque el mismo mensaje hace falta en
- * las ~25 operaciones de creación, edición y borrado del dashboard.
- */
+/** Avisos efímeros de la interfaz, compartidos por todo el panel. */
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [avisos, setAvisos] = useState<Aviso[]>([]);
 
@@ -43,8 +37,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const añadir = useCallback(
     (tono: Tono, mensaje: string) => {
-      // El id sale de un contador monótono: dos avisos del mismo milisegundo
-      // compartirían clave si se usara la fecha.
       const id = siguienteId();
       setAvisos((actuales) => [...actuales, { id, tono, mensaje }]);
       setTimeout(() => retirar(id), DURACION_MS);
@@ -64,8 +56,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <Contexto.Provider value={valor}>
       {children}
       <div
-        // `assertive` para los errores de guardado: un lector de pantalla debe
-        // anunciarlos en cuanto aparecen, no al terminar lo que esté leyendo.
+        // `assertive` para los errores: el lector de pantalla los anuncia al aparecer.
         role="alert"
         aria-live="assertive"
         className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-2"
@@ -116,12 +107,7 @@ function siguienteId(): number {
   return contador;
 }
 
-/**
- * Acceso a los avisos.
- *
- * Fuera del proveedor devuelve funciones vacías en lugar de lanzar: un aviso
- * que no se pinta no debe tumbar la pantalla que intentaba mostrarlo.
- */
+/** Acceso a los avisos; fuera del proveedor devuelve funciones vacías. */
 export function useToast(): ContextoAvisos {
   const contexto = useContext(Contexto);
   return (
