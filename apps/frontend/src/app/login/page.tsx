@@ -17,7 +17,7 @@ import { Scissors, Eye, EyeOff } from "lucide-react";
 import { useAuthStore, type Role } from "@/lib/store";
 import { api } from "@/lib/api";
 import { canAccess, getDefaultPath } from "@/lib/permissions";
-import { decodeJwt, authResponseSchema } from "@/lib/auth";
+import { authResponseSchema } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/utils";
 
 function LoginPageInner() {
@@ -55,15 +55,14 @@ function LoginPageInner() {
         throw new Error("Respuesta invalida del servidor al iniciar sesion");
       }
       const data = parsed.data;
-      setAuth(data.accessToken, data.user);
+      setAuth(data.user);
+      // El token es httpOnly y no se puede descifrar aquí: el rol y el negocio
+      // con los que se entra los devuelve el gateway junto al usuario.
       let role: Role | null = null;
-      const payload = decodeJwt(data.accessToken);
-      if (payload) {
-        if (payload.businessId) setBusinessId(payload.businessId);
-        if (payload.role) {
-          setRole(payload.role);
-          role = payload.role;
-        }
+      if (data.session?.businessId) setBusinessId(data.session.businessId);
+      if (data.session?.role) {
+        setRole(data.session.role);
+        role = data.session.role;
       }
       const next = searchParams.get("next");
       router.push(next && canAccess(role, next) ? next : getDefaultPath(role));

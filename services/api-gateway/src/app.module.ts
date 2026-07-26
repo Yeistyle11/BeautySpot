@@ -6,6 +6,7 @@ import { AuthGatewayModule } from "./modules/auth-gateway/auth-gateway.module";
 import { TenantModule } from "./modules/tenant/tenant.module";
 import { RateLimitModule } from "./modules/rate-limit/rate-limit.module";
 import { RedisModule } from "./modules/redis/redis.module";
+import { SessionModule } from "./modules/session/session.module";
 import { HealthModule } from "./common/health/health.module";
 
 @Module({
@@ -15,6 +16,7 @@ import { HealthModule } from "./common/health/health.module";
       envFilePath: path.join(__dirname, "..", ".env"),
     }),
     RedisModule,
+    SessionModule,
     HealthModule,
     ProxyModule,
     AuthGatewayModule,

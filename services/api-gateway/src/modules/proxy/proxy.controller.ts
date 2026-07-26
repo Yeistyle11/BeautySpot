@@ -12,6 +12,7 @@ import { ProxyService } from "./proxy.service";
 import { CircuitBreakerService } from "../circuit-breaker/circuit-breaker.service";
 import { PROXY_TIMEOUT_MS } from "@beautyspot/shared-constants";
 import { REQUEST_ID_HEADER } from "@beautyspot/nest-common";
+import { SessionService } from "../session/session.service";
 
 const SERVER_ERROR_THRESHOLD = 500;
 
@@ -23,7 +24,8 @@ const SERVER_ERROR_THRESHOLD = 500;
 export class ProxyController {
   constructor(
     private proxyService: ProxyService,
-    private circuitBreaker: CircuitBreakerService
+    private circuitBreaker: CircuitBreakerService,
+    private sessionService: SessionService
   ) {}
 
   // Express 5 (path-to-regexp v8) exige nombrar el comodín: "*" suelto ya no es
@@ -61,17 +63,28 @@ export class ProxyController {
     const timeout = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
 
     try {
+      // En la renovación, el refresh token viaja en una cookie httpOnly que el
+      // frontend no puede leer: lo inyecta aquí el gateway.
+      const cuerpo = this.sessionService.cuerpoReenviado(req, req.body);
+
       const response = await fetch(targetUrl, {
         method: req.method,
         headers,
         body: ["GET", "HEAD"].includes(req.method)
           ? undefined
-          : JSON.stringify(req.body),
+          : JSON.stringify(cuerpo),
         signal: controller.signal,
       });
       clearTimeout(timeout);
 
-      const data = await this.parseResponseBody(response);
+      let data = await this.parseResponseBody(response);
+
+      // Login, registro, renovación y cierre de sesión se convierten aquí en
+      // cookies; el cuerpo sale ya sin tokens.
+      if (response.ok && this.sessionService.esRutaDeSesion(req.path)) {
+        data = this.sessionService.aplicarRespuesta(req, res, data);
+      }
+
       res.status(response.status).json(data);
 
       if (response.status >= SERVER_ERROR_THRESHOLD) {

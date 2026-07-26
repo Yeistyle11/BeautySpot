@@ -1,4 +1,4 @@
-import { api, setUnauthorizedHandler, setCachedToken } from "../api";
+import { api, setUnauthorizedHandler } from "../api";
 import { ApiError, isAuthError } from "../api-error";
 
 function jsonResponse(status: number, body: unknown) {
@@ -27,7 +27,6 @@ describe("api.request", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setUnauthorizedHandler(null);
-    setCachedToken(null);
   });
 
   afterAll(() => {

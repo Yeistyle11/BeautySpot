@@ -5,30 +5,6 @@ import { ApiError } from "./api-error";
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
 
-let cachedToken: string | null = null;
-let tokenCacheInitialized = false;
-
-function getAuthToken(): string | null {
-  if (typeof window === "undefined") return null;
-  if (!tokenCacheInitialized) {
-    cachedToken = localStorage.getItem("auth:v1:token");
-    tokenCacheInitialized = true;
-  }
-  return cachedToken;
-}
-
-/** Actualiza el token en memoria y en localStorage (o lo borra si es null). */
-export function setCachedToken(token: string | null): void {
-  cachedToken = token;
-  tokenCacheInitialized = true;
-  if (typeof window === "undefined") return;
-  if (token === null) {
-    localStorage.removeItem("auth:v1:token");
-  } else {
-    localStorage.setItem("auth:v1:token", token);
-  }
-}
-
 type UnauthorizedHandler = () => void;
 
 let onUnauthorized: UnauthorizedHandler | null = null;
@@ -58,30 +34,71 @@ async function parseBody(res: Response): Promise<Record<string, unknown>> {
 }
 
 /**
- * Ejecuta una petición al gateway: adjunta el token salvo en modo público,
- * dispara el handler de 401 y normaliza el error a {@link ApiError}. Devuelve el
- * campo `data` del sobre estándar o el cuerpo tal cual si no viene envuelto.
+ * Renovación en curso, para que varias peticiones que caduquen a la vez
+ * compartan una sola llamada.
+ *
+ * Sin esto, al expirar el token una pantalla con seis peticiones simultáneas
+ * dispararía seis renovaciones, y como el refresh token rota, las cinco últimas
+ * llegarían con uno ya consumido y cerrarían la sesión.
+ */
+let renovacionEnCurso: Promise<boolean> | null = null;
+
+/** Pide al gateway un token nuevo a partir de la cookie de refresco. */
+async function renovarSesion(): Promise<boolean> {
+  if (!renovacionEnCurso) {
+    renovacionEnCurso = fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    })
+      .then((res) => res.ok)
+      .catch(() => false)
+      .finally(() => {
+        renovacionEnCurso = null;
+      });
+  }
+  return renovacionEnCurso;
+}
+
+/**
+ * Ejecuta una petición al gateway y normaliza el error a {@link ApiError}.
+ * Devuelve el campo `data` del sobre estándar o el cuerpo tal cual si no viene
+ * envuelto.
+ *
+ * La sesión viaja en una cookie httpOnly, así que aquí no se adjunta ningún
+ * token: basta con `credentials: "include"` para que el navegador la envíe. El
+ * JavaScript de la página no puede leerla, que es justamente el objetivo.
+ *
+ * Ante un 401 se intenta renovar una sola vez y se repite la petición. Sólo si
+ * la renovación también falla se da la sesión por terminada: el access token
+ * dura minutos, así que caducar a media navegación es lo normal, no un error.
  */
 async function request<T>(
   path: string,
   options?: RequestInit,
-  publicMode = false
+  publicMode = false,
+  yaReintentado = false
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options?.headers as Record<string, string>),
   };
 
-  if (!publicMode) {
-    const token = getAuthToken();
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
   const data = await parseBody(res);
 
   if (!res.ok) {
-    if (res.status === 401 && !publicMode) onUnauthorized?.();
+    if (res.status === 401 && !publicMode) {
+      if (!yaReintentado && (await renovarSesion())) {
+        return request<T>(path, options, publicMode, true);
+      }
+      onUnauthorized?.();
+    }
     const error = data.error as { message?: string } | undefined;
     throw new ApiError(
       res.status,

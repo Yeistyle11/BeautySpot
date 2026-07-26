@@ -6,10 +6,11 @@ const API_BASE =
 /**
  * GET publico ejecutado en el servidor, para las paginas del marketplace.
  *
- * Existe aparte de `lib/api.ts` porque aquel lee el token de localStorage y
- * solo puede correr en el navegador. Aqui el objetivo es distinto: renderizar
- * el contenido en el HTML inicial para que los buscadores lo indexen y el
- * usuario no vea una pantalla vacia mientras carga.
+ * Existe aparte de `lib/api.ts` porque aquel se apoya en la cookie de sesion
+ * del navegador y en su manejo del 401. Aqui el objetivo es distinto:
+ * renderizar contenido publico en el HTML inicial para que los buscadores lo
+ * indexen y el usuario no vea una pantalla vacia mientras carga, sin sesion de
+ * por medio.
  *
  * Devuelve `null` en vez de lanzar: un perfil que no existe debe acabar en un
  * 404 de Next, no en una pagina de error.

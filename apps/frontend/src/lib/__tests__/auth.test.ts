@@ -93,14 +93,24 @@ describe("authResponseSchema", () => {
   it("acepta una respuesta valida de login/register", () => {
     const result = authResponseSchema.safeParse({
       user: { id: "u1", email: "a@b.com", name: "Ana" },
-      accessToken: "token123",
+      session: { role: "OWNER", businessId: "b1", expiresAt: 1893456000 },
     });
     expect(result.success).toBe(true);
   });
 
-  it("rechaza una respuesta sin accessToken", () => {
+  // La respuesta no lleva tokens: el gateway los convierte en cookies httpOnly
+  // antes de que llegue al navegador.
+  it("acepta una respuesta sin session", () => {
     const result = authResponseSchema.safeParse({
       user: { id: "u1", email: "a@b.com", name: "Ana" },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rechaza un rol desconocido en session", () => {
+    const result = authResponseSchema.safeParse({
+      user: { id: "u1", email: "a@b.com", name: "Ana" },
+      session: { role: "SUPERUSUARIO" },
     });
     expect(result.success).toBe(false);
   });
@@ -108,7 +118,6 @@ describe("authResponseSchema", () => {
   it("rechaza una respuesta con user incompleto", () => {
     const result = authResponseSchema.safeParse({
       user: { id: "u1" },
-      accessToken: "token123",
     });
     expect(result.success).toBe(false);
   });
