@@ -91,6 +91,25 @@ describe("api.request", () => {
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
   });
 
+  it("no renueva la sesion cuando el 401 viene del propio login", async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue(
+        jsonResponse(401, { error: { message: "Credenciales inválidas" } })
+      );
+    global.fetch = fetchMock;
+
+    await expect(
+      api.post("/auth/login", { email: "a@b.co", password: "mala" })
+    ).rejects.toMatchObject({ status: 401 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/auth/refresh"),
+      expect.anything()
+    );
+  });
+
   it("no dispara el handler en un 403 (autenticado, sin permisos)", async () => {
     const onUnauthorized = jest.fn();
     setUnauthorizedHandler(onUnauthorized);

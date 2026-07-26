@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Scissors, Eye, EyeOff } from "lucide-react";
 import { useAuthStore, type Role } from "@/lib/store";
-import { api } from "@/lib/api";
+import { apiPublic } from "@/lib/api";
 import { canAccess, getDefaultPath } from "@/lib/permissions";
 import { authResponseSchema } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/utils";
@@ -49,7 +49,7 @@ function LoginPageInner() {
             name: form.name,
             phone: form.phone,
           };
-      const raw = await api.post<unknown>(endpoint, body);
+      const raw = await apiPublic.post<unknown>(endpoint, body);
       const parsed = authResponseSchema.safeParse(raw);
       if (!parsed.success) {
         throw new Error("Respuesta invalida del servidor al iniciar sesion");

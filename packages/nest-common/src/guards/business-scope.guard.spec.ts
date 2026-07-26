@@ -4,6 +4,7 @@ import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { BusinessScopeGuard } from "./business-scope.guard";
 import { Role } from "@beautyspot/shared-types";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
+import { SKIP_BUSINESS_SCOPE_KEY } from "../decorators/skip-business-scope.decorator";
 
 describe("BusinessScopeGuard", () => {
   let guard: BusinessScopeGuard;
@@ -73,6 +74,16 @@ describe("BusinessScopeGuard", () => {
       mockReflector.getAllAndOverride.mockReturnValue(false);
 
       const context = mockExecutionContext("/internal/test");
+
+      expect(guard.canActivate(context)).toBe(true);
+    });
+
+    it("debería permitir rutas marcadas con @SkipBusinessScope", () => {
+      (mockReflector.getAllAndOverride as jest.Mock).mockImplementation(
+        (key: string) => key === SKIP_BUSINESS_SCOPE_KEY
+      );
+
+      const context = mockExecutionContext("/logout");
 
       expect(guard.canActivate(context)).toBe(true);
     });

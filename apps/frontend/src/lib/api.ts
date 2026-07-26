@@ -28,6 +28,10 @@ async function parseBody(res: Response): Promise<Record<string, unknown>> {
   }
 }
 
+// Rutas que establecen la sesión: un 401 suyo significa credenciales
+// rechazadas, no sesión caducada, y no se renueva.
+const RUTAS_DE_SESION = ["/auth/login", "/auth/register", "/auth/refresh"];
+
 /** Renovación en curso, compartida por las peticiones que caduquen a la vez. */
 let renovacionEnCurso: Promise<boolean> | null = null;
 
@@ -74,7 +78,8 @@ async function request<T>(
   const data = await parseBody(res);
 
   if (!res.ok) {
-    if (res.status === 401 && !publicMode) {
+    const esRutaDeSesion = RUTAS_DE_SESION.includes(path);
+    if (res.status === 401 && !publicMode && !esRutaDeSesion) {
       if (!yaReintentado && (await renovarSesion())) {
         return request<T>(path, options, publicMode, true);
       }
