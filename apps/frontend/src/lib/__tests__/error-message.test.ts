@@ -3,7 +3,6 @@ import { mensajeDeError } from "../error-message";
 
 describe("mensajeDeError", () => {
   describe("errores del cliente (4xx)", () => {
-    // El mensaje del backend describe el caso concreto y dice qué corregir.
     it("respeta el mensaje del backend", () => {
       expect(
         mensajeDeError(new ApiError(409, 'La categoría "Barbero" ya existe'))
@@ -13,8 +12,6 @@ describe("mensajeDeError", () => {
         mensajeDeError(new ApiError(400, "El correo ya está registrado"))
       ).toBe("El correo ya está registrado");
     });
-
-    // Estas frases traducen el código de estado, no lo que ha pasado.
     it.each([
       [403, "Forbidden", "permisos"],
       [404, "Not Found", "No se encontró"],
@@ -41,8 +38,6 @@ describe("mensajeDeError", () => {
   });
 
   describe("errores del servidor (5xx)", () => {
-    // El mensaje del backend nombra servicios internos: quien usa la
-    // aplicación no puede actuar sobre eso.
     it("usa el texto propio aunque el backend mande el suyo", () => {
       const mensaje = mensajeDeError(
         new ApiError(503, "Servicio marketplace no disponible")

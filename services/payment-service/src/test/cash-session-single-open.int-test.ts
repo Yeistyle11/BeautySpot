@@ -14,17 +14,9 @@ const NEGOCIO_B = "22222222-2222-4222-8222-222222222222";
 const USUARIO = "33333333-3333-4333-8333-333333333333";
 
 /**
- * Verifica contra Postgres real el índice único parcial
- * `uq_cash_sessions_open_per_business`, que impide que un negocio tenga dos
- * sesiones de caja abiertas a la vez.
- *
- * Esto NO se puede cubrir con un unit test: la comprobación en código
- * (cash-register.service busca una sesión abierta antes de insertar) es un
- * check-then-act, y con los repositorios mockeados siempre parece correcta. La
- * garantía real la da la base de datos, y solo se puede observar ejecutando el
- * INSERT de verdad.
- *
- * Requiere la infraestructura de test levantada; se ejecuta con `npm run test:int`.
+ * Comprueba contra Postgres real que el índice único parcial
+ * `uq_cash_sessions_open_per_business` impide dos cajas abiertas en un negocio.
+ * Requiere la infraestructura levantada; se ejecuta con `npm run test:int`.
  */
 describe("Integración: una sola caja abierta por negocio", () => {
   let dataSource: DataSource;

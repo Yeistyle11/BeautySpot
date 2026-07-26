@@ -10,17 +10,9 @@ const NEGOCIO = "44444444-4444-4444-8444-444444444444";
 const USUARIO = "55555555-5555-4555-8555-555555555555";
 
 /**
- * Verifica contra Postgres real la propiedad que justifica el patrón
- * Transactional Outbox: el cambio de negocio y el evento que lo anuncia se
- * escriben en la MISMA transacción, así que o persisten los dos o ninguno.
- *
- * Con repositorios mockeados esto es invisible: los mocks no tienen
- * transacciones, así que un `save` fuera del runner transaccional pasaría los
- * unit tests igual. La consecuencia en producción sería un evento publicado
- * para un cambio que se revirtió (o al contrario, un cambio sin evento), es
- * decir, servicios desincronizados de forma permanente.
- *
- * Requiere la infraestructura de test levantada; se ejecuta con `npm run test:int`.
+ * Comprueba contra Postgres real que el cambio de negocio y el evento del
+ * Outbox se escriben en la misma transacción.
+ * Requiere la infraestructura levantada; se ejecuta con `npm run test:int`.
  */
 describe("Integración: atomicidad del Outbox", () => {
   let dataSource: DataSource;

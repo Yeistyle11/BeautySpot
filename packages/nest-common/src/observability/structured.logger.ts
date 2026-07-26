@@ -12,13 +12,8 @@ interface LineaEstructurada {
 }
 
 /**
- * Logger que añade a cada línea el identificador de la petición en curso.
- *
- * En producción emite JSON por línea, que es lo que un agregador —Loki,
- * CloudWatch, Datadog— indexa sin tener que parsear texto libre: filtrar por
- * `requestId` deja de depender de una expresión regular sobre el mensaje. En
- * desarrollo delega en el logger de Nest, con su formato y colores, y sólo
- * antepone el identificador abreviado, porque ahí el lector es una persona.
+ * Logger que añade el identificador de la petición: JSON por línea en
+ * producción, formato de Nest con el identificador como prefijo en desarrollo.
  */
 export class StructuredLogger extends ConsoleLogger {
   private readonly enProduccion = process.env.NODE_ENV === "production";
@@ -81,10 +76,7 @@ export class StructuredLogger extends ConsoleLogger {
     return `[${requestId.slice(0, 8)}] ${mensaje}`;
   }
 
-  /**
-   * Nest pasa el contexto —y en `error()`, además la traza— como argumentos
-   * sueltos al final, así que hay que separarlos del mensaje para estructurarlos.
-   */
+  /** Separa el contexto y la traza de los argumentos sueltos que pasa Nest. */
   private separarArgumentos(resto: unknown[]): {
     contexto?: string;
     stack?: string;

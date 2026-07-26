@@ -4,13 +4,7 @@ import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { mensajeDeError } from "@/lib/error-message";
 
-/**
- * Aviso de que la lista no se pudo cargar, con opción de reintentar.
- *
- * Distingue "no se pudo cargar" de "no hay nada": son estados con causas y
- * salidas distintas, y una lista fallida presentada como lista vacía lleva a
- * buscar el problema en los datos.
- */
+/** Aviso de que la lista no se pudo cargar, con opción de reintentar. */
 export function ListLoadError({
   error,
   onRetry,

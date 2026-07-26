@@ -41,9 +41,8 @@ import { ReviewsSection } from "./sections/reviews-section";
 import { LocationSection } from "./sections/location-section";
 
 /**
- * Perfil publico de un negocio. Recibe `initialProfile` ya resuelto por el
- * server component: SWR lo usa como `fallbackData`, asi que el contenido va en
- * el HTML inicial (indexable) y desde ahi la pagina revalida en cliente.
+ * Perfil público de un negocio. `initialProfile` llega resuelto del servidor y
+ * SWR lo usa como `fallbackData` para revalidar en cliente.
  */
 export default function BusinessProfile({
   slug,

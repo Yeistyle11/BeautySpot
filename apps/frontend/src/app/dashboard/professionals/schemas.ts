@@ -10,8 +10,6 @@ export const professionalSchema = z.object({
   categoryId: z.string().nullable(),
   specialties: z.array(z.string()),
   yearsExp: z.number(),
-  // La entidad convierte el decimal a número al leerlo (numericTransformer),
-  // así que llega como number, igual que en el resto de los esquemas.
   rating: z.number(),
   totalReviews: z.number(),
   active: z.boolean(),

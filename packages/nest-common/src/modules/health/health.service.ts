@@ -13,13 +13,7 @@ export interface ResultadoSalud {
   timestamp: string;
 }
 
-/**
- * Comprueba las dependencias externas del servicio en el que está montado.
- *
- * Las tres se inyectan como opcionales a propósito: no todos los servicios
- * tienen las mismas (el gateway no usa base de datos, analytics no publica en el
- * bus), y un health check que exigiese las tres no se podría reutilizar.
- */
+/** Comprueba las dependencias que el servicio tenga inyectadas. */
 @Injectable()
 export class HealthService {
   private readonly logger = new Logger(HealthService.name);
@@ -69,13 +63,7 @@ export class HealthService {
     };
   }
 
-  /**
-   * Ejecuta una comprobación traduciendo cualquier fallo a "down".
-   *
-   * El health check nunca debe propagar la excepción: si lo hiciera, el
-   * orquestador recibiría un 500 genérico en vez del detalle de qué dependencia
-   * está caída, que es justo lo que se quiere poder leer.
-   */
+  /** Ejecuta una sonda y traduce cualquier fallo a "down". */
   private async comprobar(
     nombre: string,
     sonda: () => Promise<void>

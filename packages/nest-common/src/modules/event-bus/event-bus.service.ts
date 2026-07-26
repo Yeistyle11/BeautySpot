@@ -92,13 +92,8 @@ export class EventBusService implements OnModuleDestroy {
   }
 
   /**
-   * Publica un evento en el exchange de dominio.
-   *
-   * `eventId` debe ser el mismo en cada reintento del MISMO evento: es lo que
-   * permite al consumidor descartarlo si ya lo procesó. Quien publica desde el
-   * outbox pasa el id de la fila; quien publica directamente y no tiene un
-   * identificador estable recibe uno generado, con lo que un reintento suyo sí
-   * contaría como evento nuevo.
+   * Publica un evento en el exchange de dominio. `eventId` debe repetirse en
+   * cada reintento del mismo evento; si no se pasa, se genera uno.
    */
   async emit<T>(
     eventType: string,
@@ -285,11 +280,7 @@ export class EventBusService implements OnModuleDestroy {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  /**
-   * Indica si hay un canal abierto contra RabbitMQ. Lo consulta el health
-   * check: `connect()` falla en silencio (deja el canal a null y loguea), así
-   * que sin esto un servicio con el bus caído seguiría reportándose sano.
-   */
+  /** Indica si hay un canal abierto contra RabbitMQ. */
   isConnected(): boolean {
     return this.channel !== null;
   }

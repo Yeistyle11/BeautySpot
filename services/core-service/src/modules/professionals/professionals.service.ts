@@ -28,13 +28,7 @@ export class ProfessionalsService {
     private readonly categories: CategoriesService
   ) {}
 
-  /**
-   * Comprueba que la categoría pertenece al negocio antes de asociarla.
-   *
-   * La clave foránea garantiza que la categoría existe, no que sea del mismo
-   * negocio: el aislamiento entre negocios lo impone esta capa. `findById` acota
-   * por businessId y lanza 404 si la categoría es ajena.
-   */
+  /** Comprueba que la categoría pertenece al negocio antes de asociarla. */
   private async validarCategoria(
     categoryId: string | undefined,
     businessId: string

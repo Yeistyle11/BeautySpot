@@ -9,12 +9,7 @@ type UnauthorizedHandler = () => void;
 
 let onUnauthorized: UnauthorizedHandler | null = null;
 
-/**
- * Registra que hacer cuando el backend responde 401 (token expirado o
- * invalido). Vive aqui y no en cada pagina porque la sesion puede caducar
- * durante cualquier peticion: sin un punto unico, el usuario se queda en un
- * dashboard que ya no puede cargar nada y sin explicacion.
- */
+/** Registra qué hacer cuando el backend responde 401. */
 export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
   onUnauthorized = handler;
 }
@@ -33,14 +28,7 @@ async function parseBody(res: Response): Promise<Record<string, unknown>> {
   }
 }
 
-/**
- * Renovación en curso, para que varias peticiones que caduquen a la vez
- * compartan una sola llamada.
- *
- * Sin esto, al expirar el token una pantalla con seis peticiones simultáneas
- * dispararía seis renovaciones, y como el refresh token rota, las cinco últimas
- * llegarían con uno ya consumido y cerrarían la sesión.
- */
+/** Renovación en curso, compartida por las peticiones que caduquen a la vez. */
 let renovacionEnCurso: Promise<boolean> | null = null;
 
 /** Pide al gateway un token nuevo a partir de la cookie de refresco. */
@@ -64,15 +52,8 @@ async function renovarSesion(): Promise<boolean> {
 /**
  * Ejecuta una petición al gateway y normaliza el error a {@link ApiError}.
  * Devuelve el campo `data` del sobre estándar o el cuerpo tal cual si no viene
- * envuelto.
- *
- * La sesión viaja en una cookie httpOnly, así que aquí no se adjunta ningún
- * token: basta con `credentials: "include"` para que el navegador la envíe. El
- * JavaScript de la página no puede leerla, que es justamente el objetivo.
- *
- * Ante un 401 se intenta renovar una sola vez y se repite la petición. Sólo si
- * la renovación también falla se da la sesión por terminada: el access token
- * dura minutos, así que caducar a media navegación es lo normal, no un error.
+ * envuelto. La sesión viaja en la cookie httpOnly. Ante un 401 renueva una vez
+ * y repite la petición; si la renovación falla, cierra la sesión.
  */
 async function request<T>(
   path: string,

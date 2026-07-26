@@ -48,26 +48,15 @@ export class RedisCacheService implements OnModuleDestroy {
     return result === 1;
   }
 
-  /**
-   * Comprueba que el servidor responde. Se usa desde el health check: no vale
-   * mirar el estado del socket, porque ioredis reconecta en segundo plano y
-   * puede parecer conectado mientras Redis rechaza los comandos.
-   */
+  /** Comprueba que el servidor responde al PING. */
   async ping(): Promise<boolean> {
     const respuesta = await this.client.ping();
     return respuesta === "PONG";
   }
 
   /**
-   * Devuelve el valor cacheado o lo calcula y lo guarda (cache-aside).
-   *
-   * **Falla abierto**: si Redis no responde o el valor guardado no se puede
-   * interpretar, se recurre al origen. Una caché caída debe degradar el
-   * rendimiento, nunca convertir una lectura correcta en un error.
-   *
-   * Sólo para datos que se pueden servir ligeramente obsoletos. No usar para
-   * nada que dependa de permisos del usuario: la clave no distingue quién
-   * pregunta, así que dos usuarios distintos comparten la misma entrada.
+   * Devuelve el valor cacheado o lo calcula y lo guarda. Si Redis falla, recurre
+   * al origen. La clave no distingue usuario: no usar para datos por permisos.
    */
   async remember<T>(
     clave: string,
@@ -96,12 +85,7 @@ export class RedisCacheService implements OnModuleDestroy {
     return valor;
   }
 
-  /**
-   * Borra todas las claves que empiezan por el prefijo.
-   *
-   * Recorre con SCAN y no con KEYS: KEYS bloquea el servidor entero mientras
-   * recorre el espacio de claves, y aquí se llama desde peticiones de usuario.
-   */
+  /** Borra con SCAN todas las claves que empiezan por el prefijo. */
   async delByPrefix(prefijo: string): Promise<number> {
     let cursor = "0";
     let borradas = 0;

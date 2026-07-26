@@ -13,9 +13,6 @@ describe("useTheme", () => {
     expect(result.current.theme).toBe("light");
     expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
-
-  // El panel se usa a diario junto a otras herramientas: su aspecto no debe
-  // depender de cómo tenga configurado el sistema cada equipo.
   it("sigue en claro aunque el sistema operativo prefiera oscuro", () => {
     window.matchMedia = jest.fn().mockReturnValue({
       matches: true,

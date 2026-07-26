@@ -28,14 +28,7 @@ const RUTAS_LOGIN = ["/auth/login", "/auth/register"];
 const RUTA_REFRESH = "/auth/refresh";
 const RUTA_LOGOUT = "/auth/logout";
 
-/**
- * Convierte los tokens que emite auth-service en cookies de sesión.
- *
- * Vive en el gateway porque es el único servicio que habla con navegadores:
- * auth-service sigue devolviendo tokens en el cuerpo y puede seguir sirviendo a
- * un cliente que no use cookies. La política de cookies queda en un solo sitio,
- * en el borde.
- */
+/** Convierte los tokens que emite auth-service en cookies de sesión. */
 @Injectable()
 export class SessionService {
   constructor(private readonly configService: ConfigService) {}
@@ -50,13 +43,7 @@ export class SessionService {
     );
   }
 
-  /**
-   * Cuerpo que hay que reenviar a auth-service.
-   *
-   * En la renovación, el refresh token vive en una cookie httpOnly fuera del
-   * alcance del frontend, así que el gateway lo saca de ahí y lo inyecta en el
-   * cuerpo que auth-service espera.
-   */
+  /** Cuerpo a reenviar; en la renovación inyecta el refresh token de la cookie. */
   cuerpoReenviado(req: Request, cuerpoOriginal: unknown): unknown {
     if (this.normalizar(req.path) !== RUTA_REFRESH) return cuerpoOriginal;
 
@@ -64,14 +51,7 @@ export class SessionService {
     return { ...(cuerpoOriginal as object), refreshToken };
   }
 
-  /**
-   * Aplica el resultado de auth-service a la respuesta del navegador: fija o
-   * borra las cookies y devuelve el cuerpo ya sin tokens.
-   *
-   * El cuerpo sale sin tokens, y eso es tan necesario como la cookie: un token
-   * en el cuerpo lo puede leer el JavaScript de la página, con lo que marcar la
-   * cookie como httpOnly no protegería nada.
-   */
+  /** Fija o borra las cookies y devuelve el cuerpo sin tokens. */
   aplicarRespuesta(req: Request, res: Response, cuerpo: unknown): unknown {
     const ruta = this.normalizar(req.path);
 
@@ -112,14 +92,7 @@ export class SessionService {
     };
   }
 
-  /**
-   * Datos no sensibles del token para que el frontend pinte la interfaz sin
-   * tener que descifrar nada ni esperar a una llamada extra.
-   *
-   * Se lee el payload sin verificar la firma a propósito: aquí sólo alimenta la
-   * interfaz, y el token acaba de llegar de auth-service por la red interna. La
-   * decisión de autorización la toman los guards, que sí verifican.
-   */
+  /** Extrae del token los datos no sensibles de sesión, sin verificar la firma. */
   private pistaDe(accessToken: string): PistaSesion | undefined {
     const payload = this.payloadDe(accessToken);
     if (!payload) return undefined;

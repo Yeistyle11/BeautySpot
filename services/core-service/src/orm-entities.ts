@@ -9,13 +9,7 @@ import { BusinessConfig } from "./entities/business-config.entity";
 import { ProfessionalCategoryEntity } from "./entities/category.entity";
 import { ServiceCategoryEntity } from "./entities/service-category.entity";
 
-/**
- * Entidades que gestiona este servicio, en un módulo aparte para que el
- * app.module y el data-source de migraciones compartan la misma lista.
- *
- * Si divergieran, `migration:generate` compararía el esquema contra una lista
- * incompleta y propondría borrar las tablas que le faltasen.
- */
+/** Entidades que gestiona este servicio, compartidas por app.module y data-source. */
 export const entities = [
   Business,
   Branch,

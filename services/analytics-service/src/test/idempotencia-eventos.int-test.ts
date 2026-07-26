@@ -13,14 +13,9 @@ const NEGOCIO = "11111111-1111-4111-8111-111111111111";
 const PROFESIONAL = "22222222-2222-4222-8222-222222222222";
 
 /**
- * Verifica contra Postgres real que un evento entregado dos veces se contabiliza
- * una sola vez.
- *
- * Esto NO se puede cubrir con un unit test: la garantía la da la clave primaria
- * de `processed_events` y el hecho de que la marca y el incremento compartan
- * transacción. Con el store mockeado, un handler sin protección parece correcto.
- *
- * Requiere la infraestructura de test levantada; se ejecuta con `npm run test:int`.
+ * Comprueba contra Postgres real que un evento entregado dos veces se
+ * contabiliza una sola vez.
+ * Requiere la infraestructura levantada; se ejecuta con `npm run test:int`.
  */
 describe("Integración: los eventos duplicados no inflan las métricas", () => {
   let dataSource: DataSource;

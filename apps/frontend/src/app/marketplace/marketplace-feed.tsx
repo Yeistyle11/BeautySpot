@@ -40,9 +40,8 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 /**
- * Portada del marketplace. El feed llega ya resuelto desde el servidor
- * (`initialFeed`) para que los negocios aparezcan en el HTML inicial; la
- * busqueda y el filtro por categoria siguen siendo interactivos en cliente.
+ * Portada del marketplace. `initialFeed` llega resuelto del servidor; la
+ * búsqueda y el filtro por categoría se resuelven en cliente.
  */
 export default function MarketplaceFeed({
   initialFeed,

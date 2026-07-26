@@ -34,15 +34,8 @@ const OPACOS = new Set([
 const GENERICO = "Ocurrió un error inesperado. Vuelve a intentarlo.";
 
 /**
- * Texto que se le muestra al usuario ante un error de la API.
- *
- * En los 4xx manda el mensaje del backend: describe el caso concreto —«la
- * categoría "Barbero" ya existe», «el correo ya está registrado»— y con eso el
- * usuario sabe qué corregir. Sólo cuando ese mensaje es la frase seca del
- * protocolo se sustituye por uno propio.
- *
- * En los 5xx manda el texto propio: el del backend nombra servicios y detalles
- * internos sobre los que quien usa la aplicación no puede actuar.
+ * Texto que se le muestra al usuario ante un error de la API: el mensaje del
+ * backend en los 4xx y un texto propio en los 5xx y en los fallos de red.
  */
 export function mensajeDeError(error: unknown): string {
   if (isApiError(error)) {
@@ -57,8 +50,7 @@ export function mensajeDeError(error: unknown): string {
   }
 
   if (error instanceof Error) {
-    // Un fallo de red llega como TypeError de fetch; "Failed to fetch" no
-    // orienta a nadie.
+    // Un fallo de red llega como TypeError de fetch.
     if (error.name === "TypeError") {
       return "No se pudo conectar con el servidor. Comprueba tu conexión.";
     }

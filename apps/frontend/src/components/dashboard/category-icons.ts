@@ -21,14 +21,9 @@ export type CategoryIcon = ComponentType<{
 }>;
 
 /**
- * Iconos que una categoría puede tener, con su etiqueta en el selector.
- *
- * Es el único origen: de aquí salen tanto las opciones que se ofrecen al
- * elegir como el componente con el que se pinta después, de modo que ofrecer un
- * icono y saber dibujarlo son la misma lista.
- *
- * Se enumeran uno a uno en lugar de indexar `lucide-react` por nombre para que
- * el bundle sólo incluya estos doce y no la librería entera.
+ * Iconos que una categoría puede tener, con su etiqueta en el selector. De aquí
+ * salen tanto las opciones que se ofrecen como el componente con el que se
+ * pinta cada una.
  */
 const ICONOS: { value: string; label: string; Icon: CategoryIcon }[] = [
   { value: "Scissors", label: "Tijeras", Icon: Scissors },
@@ -54,11 +49,8 @@ export const CATEGORY_ICON_OPTIONS = ICONOS.map(({ value, label }) => ({
 const POR_NOMBRE = new Map(ICONOS.map(({ value, Icon }) => [value, Icon]));
 
 /**
- * Componente del icono guardado en la categoría.
- *
- * Devuelve `fallback` cuando la categoría no tiene icono o guarda un nombre que
- * no está en la lista, por ejemplo si se retira una opción que ya se había
- * usado.
+ * Componente del icono guardado en la categoría, o `fallback` si no tiene
+ * ninguno o el nombre no está en la lista.
  */
 export function resolveCategoryIcon(
   nombre: string | null | undefined,

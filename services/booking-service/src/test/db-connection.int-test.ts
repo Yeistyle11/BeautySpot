@@ -1,12 +1,8 @@
 import { DataSource } from "typeorm";
 
 /**
- * Smoke test de integración: verifica que el servicio puede conectarse a la base
- * de datos de test real (la de docker-compose.test.yml, vía DATABASE_URL de
- * .env.test). Sirve de plantilla para escribir tests de integración de verdad
- * (repositorios, Outbox, disponibilidad) contra Postgres/Redis/RabbitMQ reales.
- *
- * Requiere la infraestructura de test levantada; se ejecuta con `npm run test:int`.
+ * Smoke test: comprueba que el servicio conecta con la base de datos de test.
+ * Requiere la infraestructura levantada; se ejecuta con `npm run test:int`.
  */
 describe("Integración: conexión a la base de datos de test", () => {
   let dataSource: DataSource;

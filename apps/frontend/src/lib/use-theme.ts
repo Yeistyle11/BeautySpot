@@ -11,14 +11,8 @@ function applyTheme(theme: Theme) {
 }
 
 /**
- * Tema claro/oscuro. Tailwind esta configurado con `darkMode: ["class"]`, asi
- * que basta con poner o quitar la clase `dark` en <html>; los tokens de
- * globals.css hacen el resto.
- *
- * El panel arranca en claro y sólo pasa a oscuro si el usuario lo pide con el
- * conmutador; su eleccion queda guardada. La preferencia del sistema operativo
- * no se consulta: el panel se usa a diario junto a otras herramientas de
- * gestion y conviene que su aspecto sea el mismo en cualquier equipo.
+ * Tema claro/oscuro: pone o quita la clase `dark` en <html>. Arranca en claro y
+ * sólo pasa a oscuro si el usuario lo pide; su elección queda guardada.
  */
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>("light");
@@ -41,7 +35,6 @@ export function useTheme() {
     });
   }, []);
 
-  // `mounted` evita pintar el icono equivocado en el primer render del
-  // servidor, que no sabe que tema tiene guardado el usuario.
+  // `mounted` indica que ya se ha leído el tema guardado.
   return { theme, toggleTheme, mounted };
 }
