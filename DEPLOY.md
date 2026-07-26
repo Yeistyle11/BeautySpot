@@ -60,6 +60,49 @@ propone borrar las tablas que le falten.
 
 ---
 
+## Sesión y cookies
+
+La credencial **no la ve el JavaScript de la página**: el gateway convierte los
+tokens que emite `auth-service` en cookies `httpOnly` antes de que la respuesta
+llegue al navegador, y los quita del cuerpo. Es lo que impide que un XSS se lleve
+la sesión.
+
+| Cookie       | Contenido                            | `httpOnly` | Ruta                   |
+| ------------ | ------------------------------------ | ---------- | ---------------------- |
+| `bs_access`  | Access token                         | Sí         | `/`                    |
+| `bs_refresh` | Refresh token                        | Sí         | `/api/v1/auth/refresh` |
+| `bs_session` | Rol, negocio y caducidad (sin token) | **No**     | `/`                    |
+
+`bs_session` es legible a propósito: **no es una credencial**, sólo evita que la
+interfaz tenga que adivinar con qué permisos entra el usuario. Quien decide es
+siempre el backend, con el token de la cookie `httpOnly`.
+
+El refresh se acota a su propia ruta para que no viaje en cada petición. El
+frontend renueva sola la sesión al primer 401 y reintenta; varias peticiones que
+caduquen a la vez comparten una única renovación, porque el refresh token rota y
+si no las demás llegarían con uno ya consumido.
+
+**Variables**: `COOKIE_DOMAIN` debe ser el dominio padre (`.beautyspot.co`)
+porque el tenant va por subdominio y la sesión tiene que valer en todos.
+`JWT_EXPIRES_IN` y `JWT_REFRESH_EXPIRES_IN` deben coincidir con los de
+`auth-service`: el gateway calcula con ellos la vida de cada cookie. `secure` se
+activa solo con `NODE_ENV=production`, porque en `http://localhost` el navegador
+descarta las cookies seguras.
+
+### CSRF
+
+Autenticar por cookie significa que el navegador la adjunta sola, así que hay dos
+barreras: `SameSite=Lax`, que impide que se envíe en peticiones POST originadas
+en otro sitio, y `CsrfOriginGuard`, que rechaza las mutaciones cuyo `Origin` no
+esté en `CORS_ORIGINS`. El guard sólo actúa sobre peticiones autenticadas **por
+cookie**: una con cabecera `Authorization` no la puede provocar un sitio ajeno.
+
+`auth-service` sigue devolviendo tokens en el cuerpo y no sabe nada de cookies,
+de modo que un cliente que no sea un navegador —una app móvil, una
+integración— puede seguir usando `Authorization: Bearer`.
+
+---
+
 ## Salud de los servicios
 
 Los ocho servicios exponen `GET /health` y los nueve Dockerfile declaran

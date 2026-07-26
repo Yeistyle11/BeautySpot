@@ -5,6 +5,7 @@ const request = require("supertest");
 import { ProxyController } from "./proxy.controller";
 import { ProxyService } from "./proxy.service";
 import { CircuitBreakerService } from "../circuit-breaker/circuit-breaker.service";
+import { SessionService } from "../session/session.service";
 
 /**
  * Regresión de enrutado bajo Express 5: la ruta comodín del proxy cambió de
@@ -36,6 +37,17 @@ describe("ProxyController (enrutado Express 5)", () => {
       providers: [
         { provide: ProxyService, useValue: proxyServiceMock },
         { provide: CircuitBreakerService, useValue: circuitBreakerMock },
+        {
+          // El paso por sesión se prueba aparte; aquí sólo debe dejar el
+          // cuerpo y la respuesta tal cual para no enmascarar el enrutado.
+          provide: SessionService,
+          useValue: {
+            esRutaDeSesion: () => false,
+            cuerpoReenviado: (_req: unknown, cuerpo: unknown) => cuerpo,
+            aplicarRespuesta: (_req: unknown, _res: unknown, cuerpo: unknown) =>
+              cuerpo,
+          },
+        },
       ],
     }).compile();
 
@@ -150,6 +162,17 @@ describe("ProxyController (reenvío)", () => {
           provide: CircuitBreakerService,
           useValue: {
             execute: async (_service: string, fn: () => Promise<void>) => fn(),
+          },
+        },
+        {
+          // El paso por sesión se prueba aparte; aquí sólo debe dejar el
+          // cuerpo y la respuesta tal cual para no enmascarar el enrutado.
+          provide: SessionService,
+          useValue: {
+            esRutaDeSesion: () => false,
+            cuerpoReenviado: (_req: unknown, cuerpo: unknown) => cuerpo,
+            aplicarRespuesta: (_req: unknown, _res: unknown, cuerpo: unknown) =>
+              cuerpo,
           },
         },
       ],

@@ -11,7 +11,7 @@ export default function PublicLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { token, user, hydrate, logout, hydrated } = useAuthStore();
+  const { role, user, hydrate, logout, hydrated } = useAuthStore();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -32,7 +32,7 @@ export default function PublicLayout({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const isAuthenticated = hydrated && !!token && !!user;
+  const isAuthenticated = hydrated && !!role && !!user;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50">

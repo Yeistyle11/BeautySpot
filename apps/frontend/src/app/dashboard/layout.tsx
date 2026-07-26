@@ -1,6 +1,6 @@
 "use client";
 
-// Layout del dashboard: rehidrata la sesion, exige token y monta el sidebar alrededor de las paginas.
+// Layout del dashboard: rehidrata la sesion, exige sesion activa y monta el sidebar alrededor de las paginas.
 import { useEffect } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { useAuthStore } from "@/lib/store";
@@ -10,7 +10,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { hydrated, hydrate, token } = useAuthStore();
+  const { hydrated, hydrate, role } = useAuthStore();
 
   useEffect(() => {
     hydrate();
@@ -24,10 +24,11 @@ export default function DashboardLayout({
     );
   }
 
-  // Defensa en profundidad: middleware.ts ya redirige antes de renderizar
-  // si no hay token valido, pero cubrimos el caso de estado desincronizado
-  // (ej. cookie borrada manualmente sin recargar).
-  if (!token) return null;
+  // Defensa en profundidad: middleware.ts ya redirige antes de renderizar si
+  // no hay sesion valida, pero cubrimos el caso de estado desincronizado (ej.
+  // cookie borrada manualmente sin recargar). El rol es el indicio de sesion
+  // del que dispone el cliente: la credencial es httpOnly y no se puede leer.
+  if (!role) return null;
 
   return (
     <div className="bg-muted/30 min-h-screen">

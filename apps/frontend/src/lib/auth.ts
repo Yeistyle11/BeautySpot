@@ -2,8 +2,18 @@
 // del backend antes de que su contenido alimente el estado y los permisos.
 import { z } from "zod";
 
-/** Nombre de la cookie que espeja el token para que middleware.ts pueda leerlo en el Edge. */
-export const AUTH_COOKIE_NAME = "bs_token";
+/**
+ * Cookie httpOnly con el access token, emitida por el gateway. El JavaScript de
+ * la pagina no puede leerla; middleware.ts si, porque corre en el servidor.
+ */
+export const AUTH_COOKIE_NAME = "bs_access";
+
+/**
+ * Cookie legible con datos no sensibles de la sesion (rol, negocio, caducidad).
+ * No es una credencial: solo evita que la interfaz tenga que adivinar con que
+ * permisos entra el usuario. La autorizacion la decide siempre el backend.
+ */
+export const SESSION_HINT_COOKIE = "bs_session";
 
 const ROLES = [
   "SUPER_ADMIN",
@@ -46,9 +56,22 @@ const userSchema = z.object({
   avatar: z.string().optional(),
 });
 
+/**
+ * Respuesta de /auth/login y /auth/register.
+ *
+ * No trae tokens: el gateway los convierte en cookies httpOnly antes de que la
+ * respuesta llegue al navegador. En su lugar devuelve `session`, con los datos
+ * no sensibles que la interfaz necesita para saber qué pintar.
+ */
 export const authResponseSchema = z.object({
   user: userSchema,
-  accessToken: z.string(),
+  session: z
+    .object({
+      role: z.enum(ROLES).optional(),
+      businessId: z.string().optional(),
+      expiresAt: z.number().optional(),
+    })
+    .optional(),
 });
 
 export type AuthResponse = z.infer<typeof authResponseSchema>;

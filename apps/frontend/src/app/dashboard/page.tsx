@@ -1,7 +1,7 @@
 "use client";
 
 // Pagina principal del dashboard: resumen del dia con KPIs y proximas citas.
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,6 @@ import {
 } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
 import { useAuthStore } from "@/lib/store";
-import { decodeJwt } from "@/lib/auth";
 import { useApi } from "@/lib/swr";
 
 interface Appointment {
@@ -104,15 +103,7 @@ const clientRefListSchema = z.union([
 ]);
 
 export default function DashboardPage() {
-  const { businessId, setBusinessId, token } = useAuthStore();
-
-  // Tras un refresh el store puede quedarse sin businessId; se recupera del
-  // JWT porque sin el no se puede pedir nada al backend.
-  useEffect(() => {
-    if (businessId) return;
-    const payload = token ? decodeJwt(token) : null;
-    if (payload?.businessId) setBusinessId(payload.businessId);
-  }, [businessId, token, setBusinessId]);
+  const { businessId } = useAuthStore();
 
   const today = toLocalDateKey(new Date());
   const appointmentsKey = businessId

@@ -11,6 +11,7 @@ import {
 } from "@beautyspot/nest-common";
 import { AuthGatewayGuard } from "./modules/auth-gateway/auth-gateway.guard";
 import { RateLimitGuard } from "./modules/rate-limit/rate-limit.guard";
+import { CsrfOriginGuard } from "./modules/session/csrf-origin.guard";
 import helmet from "helmet";
 
 /** Arranca el API Gateway: seguridad, CORS, validación, guards globales y escucha. */
@@ -49,7 +50,13 @@ async function bootstrap() {
 
   // El rate limit va primero para que el abuso se corte antes de gastar
   // verificaciones de firma JWT en cada petición.
-  app.useGlobalGuards(app.get(RateLimitGuard), app.get(AuthGatewayGuard));
+  // El orden importa: primero se limita el ritmo, después se comprueba el
+  // origen —barato y sin tocar la sesión— y sólo entonces se valida el token.
+  app.useGlobalGuards(
+    app.get(RateLimitGuard),
+    app.get(CsrfOriginGuard),
+    app.get(AuthGatewayGuard)
+  );
 
   app.enableShutdownHooks();
 
