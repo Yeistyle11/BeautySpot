@@ -16,9 +16,9 @@ function desdeCookie(req: Request): string | null {
 export class JwtGatewayStrategy extends PassportStrategy(Strategy) {
   constructor(configService: ConfigService) {
     super({
-      // La cookie primero: es la vía del navegador. La cabecera Bearer se
-      // mantiene para clientes que no usan cookies (pruebas, integraciones,
-      // una app móvil futura), que no están expuestos a XSS del mismo modo.
+      // La cookie primero: es la vía del navegador. La cabecera Bearer sirve a
+      // los clientes que no usan cookies (pruebas, integraciones, una app
+      // móvil), que no están expuestos a XSS del mismo modo.
       jwtFromRequest: ExtractJwt.fromExtractors([
         desdeCookie,
         ExtractJwt.fromAuthHeaderAsBearerToken(),

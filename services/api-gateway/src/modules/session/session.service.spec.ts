@@ -96,8 +96,8 @@ describe("SessionService", () => {
       });
     });
 
-    // Es la mitad del cambio: con los tokens todavía en el cuerpo, el
-    // JavaScript de la página podría leerlos y la cookie httpOnly no serviría.
+    // Tan necesario como la cookie: un token en el cuerpo lo puede leer el
+    // JavaScript de la página, y marcar la cookie como httpOnly no protegería nada.
     it("elimina los tokens del cuerpo de la respuesta", () => {
       const { res } = respuesta();
 
@@ -187,8 +187,8 @@ describe("SessionService", () => {
   });
 
   describe("cuerpoReenviado", () => {
-    // El frontend ya no tiene el refresh token: lo pone el gateway desde la
-    // cookie, que es lo único que el navegador envía.
+    // El refresh token es inaccesible para el frontend: lo pone el gateway
+    // desde la cookie, que es lo único que el navegador envía.
     it("inyecta el refresh token de la cookie al renovar", () => {
       const req = peticion("/api/v1/auth/refresh", {
         cookie: `${REFRESH_COOKIE}=refresco-abc`,

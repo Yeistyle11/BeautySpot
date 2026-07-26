@@ -98,8 +98,8 @@ describe("authResponseSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  // La respuesta ya no lleva tokens: el gateway los convierte en cookies
-  // httpOnly antes de que llegue al navegador.
+  // La respuesta no lleva tokens: el gateway los convierte en cookies httpOnly
+  // antes de que llegue al navegador.
   it("acepta una respuesta sin session", () => {
     const result = authResponseSchema.safeParse({
       user: { id: "u1", email: "a@b.com", name: "Ana" },

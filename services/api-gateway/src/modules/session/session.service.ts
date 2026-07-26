@@ -53,8 +53,8 @@ export class SessionService {
   /**
    * Cuerpo que hay que reenviar a auth-service.
    *
-   * En la renovación el refresh token ya no lo tiene el frontend —vive en una
-   * cookie httpOnly—, así que el gateway lo saca de ahí y lo inyecta en el
+   * En la renovación, el refresh token vive en una cookie httpOnly fuera del
+   * alcance del frontend, así que el gateway lo saca de ahí y lo inyecta en el
    * cuerpo que auth-service espera.
    */
   cuerpoReenviado(req: Request, cuerpoOriginal: unknown): unknown {
@@ -68,9 +68,9 @@ export class SessionService {
    * Aplica el resultado de auth-service a la respuesta del navegador: fija o
    * borra las cookies y devuelve el cuerpo ya sin tokens.
    *
-   * Quitar los tokens del cuerpo es la mitad del cambio: si siguieran ahí, el
-   * JavaScript de la página podría leerlos igualmente y la cookie httpOnly no
-   * habría servido de nada.
+   * El cuerpo sale sin tokens, y eso es tan necesario como la cookie: un token
+   * en el cuerpo lo puede leer el JavaScript de la página, con lo que marcar la
+   * cookie como httpOnly no protegería nada.
    */
   aplicarRespuesta(req: Request, res: Response, cuerpo: unknown): unknown {
     const ruta = this.normalizar(req.path);
@@ -93,9 +93,8 @@ export class SessionService {
       pista
     );
 
-    // La pista va también en el cuerpo: el frontend ya no puede descifrar el
-    // token para saber con qué rol y negocio entra, y pedirlo en otra llamada
-    // solo añadiría un viaje más al login.
+    // La pista va también en el cuerpo: el token es opaco para el frontend, y
+    // pedir el rol y el negocio en otra llamada añadiría un viaje más al login.
     return this.sinTokens(cuerpo, pista);
   }
 

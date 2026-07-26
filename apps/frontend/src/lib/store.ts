@@ -91,9 +91,9 @@ function readSessionHint(): { role?: Role; businessId?: string } | null {
 /**
  * Store global de sesión (Zustand): usuario, negocio y rol activos.
  *
- * No custodia el token. La credencial vive en una cookie httpOnly que emite el
- * gateway, fuera del alcance de este código; aquí solo queda el estado que la
- * interfaz necesita para pintarse.
+ * La credencial vive en una cookie httpOnly que emite el gateway, fuera del
+ * alcance de este código: aquí solo está el estado que la interfaz necesita
+ * para pintarse.
  */
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
