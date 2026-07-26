@@ -118,10 +118,7 @@ export class ProxyController {
    */
   private buildForwardedHeaders(req: Request): Record<string, string> {
     const headers: Record<string, string> = {};
-
-    // El navegador se autentica con la cookie httpOnly, pero los servicios de
-    // detrás sólo leen la cabecera Authorization: si no se traduce aquí, llegan
-    // sin credencial y rechazan todo con 401.
+    // El navegador manda la cookie httpOnly; los servicios leen Authorization.
     const autorizacion =
       (req.headers["authorization"] as string | undefined) ??
       this.bearerDeCookie(req);
@@ -154,13 +151,7 @@ export class ProxyController {
     return headers;
   }
 
-  /**
-   * Convierte la cookie de sesión en una cabecera Bearer para los servicios.
-   *
-   * La cookie no se reenvía tal cual: los servicios internos no saben de
-   * cookies, y mantenerlos así permite que sigan sirviendo a clientes que se
-   * autentican con Authorization.
-   */
+  /** Convierte la cookie de sesión en una cabecera Bearer para los servicios. */
   private bearerDeCookie(req: Request): string | undefined {
     const token = leerCookie(req, ACCESS_COOKIE);
     return token ? `Bearer ${token}` : undefined;
