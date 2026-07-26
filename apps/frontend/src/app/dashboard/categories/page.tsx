@@ -7,21 +7,7 @@ import {
   CategoryManager,
   type CategoryManagerConfig,
 } from "@/components/dashboard/category-manager";
-
-const ICON_OPTIONS = [
-  { value: "Scissors", label: "Tijeras" },
-  { value: "Sparkles", label: "Destellos" },
-  { value: "Heart", label: "Corazón" },
-  { value: "Star", label: "Estrella" },
-  { value: "Palette", label: "Paleta" },
-  { value: "Wand2", label: "Varita" },
-  { value: "Droplet", label: "Gota" },
-  { value: "Sun", label: "Sol" },
-  { value: "Flower2", label: "Flor" },
-  { value: "Gem", label: "Gema" },
-  { value: "Crown", label: "Corona" },
-  { value: "Feather", label: "Pluma" },
-];
+import { CATEGORY_ICON_OPTIONS } from "@/components/dashboard/category-icons";
 
 const COLOR_PRESETS = [
   "#8B5CF6", // violeta
@@ -48,7 +34,7 @@ const CONFIG: CategoryManagerConfig = {
   cardIcon: GripVertical,
   defaultColor: "#8B5CF6",
   colorPresets: COLOR_PRESETS,
-  iconOptions: ICON_OPTIONS,
+  iconOptions: CATEGORY_ICON_OPTIONS,
   actions: {
     create: "categories_create",
     edit: "categories_edit",
@@ -56,7 +42,6 @@ const CONFIG: CategoryManagerConfig = {
   },
   deleteConfirmMessage:
     "¿Desactivar esta categoría? Los profesionales asignados perderán la asociación.",
-  showIconName: true,
 };
 
 export default function CategoriesPage() {

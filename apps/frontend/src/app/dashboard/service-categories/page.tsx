@@ -7,21 +7,7 @@ import {
   CategoryManager,
   type CategoryManagerConfig,
 } from "@/components/dashboard/category-manager";
-
-const ICON_OPTIONS = [
-  { value: "Scissors", label: "Tijeras" },
-  { value: "Sparkles", label: "Destellos" },
-  { value: "Heart", label: "Corazón" },
-  { value: "Star", label: "Estrella" },
-  { value: "Palette", label: "Paleta" },
-  { value: "Droplet", label: "Gota" },
-  { value: "Sun", label: "Sol" },
-  { value: "Flower2", label: "Flor" },
-  { value: "Gem", label: "Gema" },
-  { value: "Crown", label: "Corona" },
-  { value: "Feather", label: "Pluma" },
-  { value: "Wand2", label: "Varita" },
-];
+import { CATEGORY_ICON_OPTIONS } from "@/components/dashboard/category-icons";
 
 const COLOR_PRESETS = [
   "#3B82F6", // azul
@@ -47,7 +33,7 @@ const CONFIG: CategoryManagerConfig = {
   cardIcon: Scissors,
   defaultColor: "#3B82F6",
   colorPresets: COLOR_PRESETS,
-  iconOptions: ICON_OPTIONS,
+  iconOptions: CATEGORY_ICON_OPTIONS,
   actions: {
     create: "service_categories_create",
     edit: "service_categories_edit",
