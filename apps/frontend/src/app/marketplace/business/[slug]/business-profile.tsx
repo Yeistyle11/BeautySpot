@@ -20,18 +20,15 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { z } from "zod";
 import { useApiPublic } from "@/lib/swr";
 
 import {
   profileResponseSchema,
-  professionalSchema,
   reviewsResponseSchema,
   ratingDistributionSchema,
   SECTION_TITLES,
   type Profile,
   type ProfileResponse,
-  type Professional,
   type Review,
   type RatingDistribution,
 } from "./schemas";
@@ -52,21 +49,17 @@ export default function BusinessProfile({
   slug: string;
   initialProfile: Profile | null;
 }) {
-  // El endpoint devuelve { profile, professionals }; aquí sólo interesa el
-  // perfil, porque el equipo se pide aparte más abajo.
+  // El perfil y el equipo llegan juntos en esta respuesta, así que una llamada
+  // basta. El listado de profesionales por negocio sólo se expone bajo
+  // /internal, fuera del alcance de un visitante anónimo.
   const { data: respuesta, isLoading: loading } = useApiPublic<ProfileResponse>(
     `/marketplace/profiles/${slug}`,
     initialProfile ? { fallbackData: { profile: initialProfile } } : undefined,
     profileResponseSchema
   );
   const profile = respuesta?.profile;
-
+  const professionals = respuesta?.professionals;
   const bid = profile?.businessId;
-  const { data: professionals } = useApiPublic<Professional[]>(
-    bid ? `/marketplace/professional-profiles/business/${bid}` : null,
-    undefined,
-    z.array(professionalSchema)
-  );
   const { data: reviewsResp } = useApiPublic<{
     items: Review[];
     total: number;

@@ -37,8 +37,10 @@ const userSchema = z.object({
   id: z.string(),
   email: z.string(),
   name: z.string(),
-  phone: z.string().optional(),
-  avatar: z.string().optional(),
+  // Los campos que el usuario no ha rellenado llegan como `null`, no ausentes:
+  // el esquema tiene que admitirlo o rechaza toda la respuesta del login.
+  phone: z.string().nullable().optional(),
+  avatar: z.string().nullable().optional(),
 });
 
 /**
