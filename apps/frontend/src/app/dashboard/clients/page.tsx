@@ -19,6 +19,8 @@ import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { usePaginatedCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
+import { useToast } from "@/components/ui/toast";
+import { mensajeDeError } from "@/lib/error-message";
 import { getAppointmentStatus } from "@/lib/status";
 
 const clientSchema = z.object({
@@ -48,6 +50,7 @@ const emptyForm = { name: "", email: "", phone: "" };
 const CLIENTS_KEY = "/core/clients";
 
 export default function ClientsPage() {
+  const toast = useToast();
   const { role } = useAuthStore();
   const [search, setSearch] = useState("");
   const {
@@ -93,6 +96,7 @@ export default function ClientsPage() {
       setCreateDialog(false);
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setSavingCreate(false);
     }
@@ -136,6 +140,7 @@ export default function ClientsPage() {
       }
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setSavingEdit(false);
     }

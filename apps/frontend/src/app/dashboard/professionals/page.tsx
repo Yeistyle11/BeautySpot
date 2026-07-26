@@ -13,6 +13,9 @@ import { getErrorMessage } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
 import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
+import { useToast } from "@/components/ui/toast";
+import { mensajeDeError } from "@/lib/error-message";
+import { ListLoadError } from "@/components/dashboard/list-load-error";
 import { ProCard } from "./pro-card";
 import { ProfessionalFormDialog } from "./professional-form-dialog";
 import { ProfessionalDetailDialog } from "./professional-detail-dialog";
@@ -72,10 +75,13 @@ function ProfessionalGroup({
 }
 
 export default function ProfessionalsPage() {
+  const toast = useToast();
   const { role } = useAuthStore();
   const {
     items: professionals,
     isLoading: loading,
+    error: loadError,
+    reload,
     create: createProfessional,
     update: updateProfessional,
     remove: removeProfessional,
@@ -150,6 +156,7 @@ export default function ProfessionalsPage() {
       setScheduleDialog(false);
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setSavingSchedule(false);
     }
@@ -178,6 +185,7 @@ export default function ProfessionalsPage() {
       setForm(emptyForm);
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     }
   };
 
@@ -193,6 +201,7 @@ export default function ProfessionalsPage() {
       setForm(emptyForm);
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     }
   };
 
@@ -257,6 +266,8 @@ export default function ProfessionalsPage() {
 
       {loading ? (
         <p className="text-muted-foreground">Cargando...</p>
+      ) : loadError ? (
+        <ListLoadError error={loadError} onRetry={() => void reload()} />
       ) : professionals.length === 0 ? (
         <p className="text-muted-foreground">
           No hay profesionales registrados
