@@ -88,11 +88,8 @@ export const professionalSchema = z.object({
 export type Professional = z.infer<typeof professionalSchema>;
 
 /**
- * Forma real de `GET /marketplace/profiles/:slug`: el perfil llega envuelto
- * junto al equipo del negocio, no suelto.
- *
- * `professionals` es opcional porque el servicio sólo lo incluye si la sección
- * "team" del escaparate está activa.
+ * Respuesta de `GET /marketplace/profiles/:slug`: el perfil y, si la sección
+ * "team" del escaparate está activa, el equipo del negocio.
  */
 export const profileResponseSchema = z.object({
   profile: profileSchema,

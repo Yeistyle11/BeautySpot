@@ -49,9 +49,7 @@ export default function BusinessProfile({
   slug: string;
   initialProfile: Profile | null;
 }) {
-  // El perfil y el equipo llegan juntos en esta respuesta, así que una llamada
-  // basta. El listado de profesionales por negocio sólo se expone bajo
-  // /internal, fuera del alcance de un visitante anónimo.
+  // El perfil y el equipo llegan juntos en esta respuesta.
   const { data: respuesta, isLoading: loading } = useApiPublic<ProfileResponse>(
     `/marketplace/profiles/${slug}`,
     initialProfile ? { fallbackData: { profile: initialProfile } } : undefined,
