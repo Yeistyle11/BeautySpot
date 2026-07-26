@@ -257,10 +257,7 @@ describe("ProxyController (reenvío)", () => {
         "x-business-id": "negocio-1",
       });
     });
-
-    // El navegador manda la cookie httpOnly, no la cabecera. Los servicios de
-    // detrás sólo leen Authorization, así que sin esta traducción toda petición
-    // autenticada desde el navegador llega sin credencial y responden 401.
+    // El navegador manda la cookie httpOnly; los servicios leen Authorization.
     it("traduce la cookie de sesión a una cabecera Bearer", async () => {
       fetchMock.mockResolvedValue(fakeResponse(200, "{}"));
       const { res } = fakeResponseOut();
