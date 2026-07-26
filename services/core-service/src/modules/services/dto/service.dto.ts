@@ -5,6 +5,7 @@ import {
   Min,
   IsBoolean,
   MaxLength,
+  IsUUID,
 } from "class-validator";
 
 /** Datos para crear un servicio: nombre, descripción, precio, duración y categoría. */
@@ -14,6 +15,7 @@ export class CreateServiceDto {
   @IsNumber() @Min(0) price!: number;
   @IsNumber() @Min(5) duration!: number;
   @IsString() @MaxLength(100) category!: string;
+  @IsOptional() @IsUUID() categoryId?: string;
   @IsOptional() @IsString() image?: string;
 }
 
@@ -24,6 +26,7 @@ export class UpdateServiceDto {
   @IsOptional() @IsNumber() @Min(0) price?: number;
   @IsOptional() @IsNumber() @Min(5) duration?: number;
   @IsOptional() @IsString() @MaxLength(100) category?: string;
+  @IsOptional() @IsUUID() categoryId?: string;
   @IsOptional() @IsString() image?: string;
   @IsOptional() @IsBoolean() active?: boolean;
 }

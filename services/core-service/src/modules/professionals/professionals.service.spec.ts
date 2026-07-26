@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { ProfessionalsService } from "./professionals.service";
+import { CategoriesService } from "../categories/categories.service";
 import { Professional } from "../../entities/professional.entity";
 import { ProfessionalService } from "../../entities/professional-service.entity";
 import {
@@ -93,6 +94,11 @@ describe("ProfessionalsService", () => {
         {
           provide: getRepositoryToken(ProfessionalService),
           useValue: mockPsRepo,
+        },
+        {
+          // Categoría válida del negocio: findById devuelve sin lanzar.
+          provide: CategoriesService,
+          useValue: { findById: jest.fn().mockResolvedValue({ id: "cat-1" }) },
         },
         {
           provide: ConfigService,

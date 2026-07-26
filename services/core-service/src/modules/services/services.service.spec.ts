@@ -2,12 +2,14 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { ServicesService } from "./services.service";
+import { ServiceCategoriesService } from "../service-categories/service-categories.service";
 import { Service } from "../../entities/service.entity";
 import { NotFoundException } from "@nestjs/common";
 
 describe("ServicesService", () => {
   let service: ServicesService;
   let mockRepo: jest.Mocked<Repository<Service>>;
+  let mockCategories: jest.Mocked<ServiceCategoriesService>;
 
   const mockService: Service = {
     id: "service-123",
@@ -36,12 +38,21 @@ describe("ServicesService", () => {
       update: jest.fn(),
     } as any;
 
+    // Categoría válida del negocio: findById devuelve sin lanzar.
+    mockCategories = {
+      findById: jest.fn().mockResolvedValue({ id: "cat-1" }),
+    } as unknown as jest.Mocked<ServiceCategoriesService>;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ServicesService,
         {
           provide: getRepositoryToken(Service),
           useValue: mockRepo,
+        },
+        {
+          provide: ServiceCategoriesService,
+          useValue: mockCategories,
         },
       ],
     }).compile();
@@ -78,6 +89,64 @@ describe("ServicesService", () => {
       await expect(service.create("business-123", {})).rejects.toThrow(
         "Database error"
       );
+    });
+
+    it("asocia la categoría del catálogo cuando llega categoryId", async () => {
+      mockRepo.create.mockReturnValue(mockService);
+      mockRepo.save.mockResolvedValue(mockService);
+
+      await service.create("business-123", {
+        name: "Corte básico",
+        description: "Corte",
+        category: "Corte",
+        duration: 30,
+        price: 30000,
+        categoryId: "cat-1",
+      });
+
+      expect(mockCategories.findById).toHaveBeenCalledWith(
+        "cat-1",
+        "business-123"
+      );
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ categoryId: "cat-1" })
+      );
+    });
+
+    // La clave foránea no distingue de qué negocio es la categoría: el
+    // aislamiento lo impone el servicio.
+    it("rechaza una categoría que no es del negocio", async () => {
+      mockCategories.findById.mockRejectedValueOnce(
+        new NotFoundException("Categoría de servicio no encontrada")
+      );
+
+      await expect(
+        service.create("business-123", {
+          name: "Corte",
+          description: "x",
+          category: "Corte",
+          duration: 30,
+          price: 1000,
+          categoryId: "cat-de-otro-negocio",
+        })
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("no consulta categorías cuando no se envía categoryId", async () => {
+      mockRepo.create.mockReturnValue(mockService);
+      mockRepo.save.mockResolvedValue(mockService);
+
+      await service.create("business-123", {
+        name: "Corte",
+        description: "x",
+        category: "Corte",
+        duration: 30,
+        price: 1000,
+      });
+
+      expect(mockCategories.findById).not.toHaveBeenCalled();
     });
   });
 
