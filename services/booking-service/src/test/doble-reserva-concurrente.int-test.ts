@@ -85,14 +85,20 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
       'TRUNCATE TABLE "appointment_services", "appointments", "availabilities", "blocked_slots" CASCADE'
     );
     // El profesional atiende todos los días de 09:00 a 18:00.
-    await dataSource.getRepository(Availability).save(
-      Array.from({ length: 7 }, (_, dia) => ({
-        businessId: NEGOCIO,
-        professionalId: PROFESIONAL,
-        dayOfWeek: dia,
-        startTime: "09:00",
-        endTime: "18:00",
-      }))
+    //
+    // `create` es necesario: el id lo asigna el @BeforeInsert de BaseEntity, que
+    // sólo se ejecuta sobre instancias de la entidad.
+    const disponibilidades = dataSource.getRepository(Availability);
+    await disponibilidades.save(
+      Array.from({ length: 7 }, (_, dia) =>
+        disponibilidades.create({
+          businessId: NEGOCIO,
+          professionalId: PROFESIONAL,
+          dayOfWeek: dia,
+          startTime: "09:00",
+          endTime: "18:00",
+        })
+      )
     );
   });
 
