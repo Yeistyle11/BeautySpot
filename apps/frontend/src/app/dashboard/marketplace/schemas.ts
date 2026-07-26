@@ -42,9 +42,9 @@ export const profileSchema = z.object({
       tiktok: z.string().nullish(),
       website: z.string().nullish(),
     })
-    .optional(),
-  sectionConfig: z.object({ sections: z.array(sectionItemSchema) }).optional(),
-  galleryImages: z.array(galleryImageSchema).optional(),
+    .nullish(),
+  sectionConfig: z.object({ sections: z.array(sectionItemSchema) }).nullish(),
+  galleryImages: z.array(galleryImageSchema).nullish(),
   isPublished: z.boolean(),
   profileCompleteness: z.number(),
 });

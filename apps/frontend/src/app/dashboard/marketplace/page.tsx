@@ -12,6 +12,7 @@ import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
+import { ListLoadError } from "@/components/dashboard/list-load-error";
 import { cn } from "@/lib/utils";
 import { OverviewTab } from "./overview-tab";
 import { ProfileTab } from "./profile-tab";
@@ -52,6 +53,7 @@ export default function MarketplacePage() {
   const {
     data: profile,
     isLoading: loading,
+    error: profileError,
     mutate: mutateProfile,
   } = useApi<Profile | null>(PROFILE_KEY, undefined, profileSchema.nullable());
   const [saving, setSaving] = useState<string | null>(null);
@@ -199,6 +201,22 @@ export default function MarketplacePage() {
         <Card className="mt-4 border-0 shadow-sm">
           <CardContent className="text-muted-foreground p-8 text-center">
             Cargando perfil...
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (profileError) {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold">Marketplace</h1>
+        <Card className="mt-4 border-0 shadow-sm">
+          <CardContent className="p-8">
+            <ListLoadError
+              error={profileError}
+              onRetry={() => mutateProfile()}
+            />
           </CardContent>
         </Card>
       </div>
