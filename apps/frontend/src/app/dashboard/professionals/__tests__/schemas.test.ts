@@ -16,9 +16,6 @@ const profesionalDeLaApi = {
 };
 
 describe("professionalSchema", () => {
-  // La entidad aplica numericTransformer al decimal, así que rating llega como
-  // number. Un esquema que espere texto descarta la respuesta entera y la lista
-  // se queda vacía aunque los profesionales existan.
   it("acepta el profesional que devuelve la API", () => {
     const result = professionalSchema.safeParse(profesionalDeLaApi);
 
