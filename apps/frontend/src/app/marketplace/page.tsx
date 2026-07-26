@@ -1,10 +1,8 @@
 // Pagina publica del marketplace (server component): carga el feed inicial de negocios y define la metadata SEO.
 import type { Metadata } from "next";
 import { fetchPublic } from "@/lib/api-server";
-import MarketplaceFeed, {
-  feedResponseSchema,
-  type FeedResponse,
-} from "./marketplace-feed";
+import MarketplaceFeed from "./marketplace-feed";
+import { feedResponseSchema, type FeedResponse } from "./schemas";
 
 export const metadata: Metadata = {
   title: "Marketplace de belleza | BeautySpot",
