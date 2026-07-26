@@ -1,3 +1,4 @@
+import { RedisCacheService } from "@beautyspot/nest-common";
 import { Test } from "@nestjs/testing";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
@@ -66,6 +67,18 @@ describe("FeedService", () => {
         {
           provide: ProfessionalProfilesService,
           useValue: mockProfessionalService,
+        },
+        {
+          // Caché transparente: ejecuta siempre el cargador, de modo que los
+          // tests siguen verificando la composición real y no un valor servido.
+          provide: RedisCacheService,
+          useValue: {
+            remember: jest.fn(
+              (_clave: string, _ttl: number, cargar: () => Promise<unknown>) =>
+                cargar()
+            ),
+            delByPrefix: jest.fn().mockResolvedValue(0),
+          },
         },
       ],
     }).compile();

@@ -121,9 +121,28 @@ describe("EventBusService", () => {
 
     it("debería usar correlationId proporcionado", async () => {
       const correlationId = "test-correlation-id";
-      await service.emit(mockEventType, mockPayload, correlationId);
+      await service.emit(mockEventType, mockPayload, { correlationId });
 
-      expect(mockChannel.publish).toHaveBeenCalled();
+      const [, , cuerpo] = mockChannel.publish.mock.calls[0];
+      expect(JSON.parse(cuerpo.toString()).correlationId).toBe(correlationId);
+    });
+
+    it("debería usar el eventId proporcionado y publicarlo como messageId", async () => {
+      const eventId = "11111111-1111-4111-8111-111111111111";
+      await service.emit(mockEventType, mockPayload, { eventId });
+
+      const [, , cuerpo, opciones] = mockChannel.publish.mock.calls[0];
+      expect(JSON.parse(cuerpo.toString()).eventId).toBe(eventId);
+      expect(opciones.messageId).toBe(eventId);
+    });
+
+    // Sin eventId el consumidor no puede deduplicar, así que se genera uno en
+    // vez de publicar el evento sin identidad.
+    it("debería generar un eventId cuando no se proporciona", async () => {
+      await service.emit(mockEventType, mockPayload);
+
+      const [, , cuerpo] = mockChannel.publish.mock.calls[0];
+      expect(JSON.parse(cuerpo.toString()).eventId).toEqual(expect.any(String));
     });
 
     it("debería incluir timestamp en evento emitido", async () => {

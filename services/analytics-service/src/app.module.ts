@@ -9,7 +9,7 @@ import { ReportsModule } from "./modules/reports/reports.module";
 import { MetricsModule } from "./modules/metrics/metrics.module";
 import { AnalyticsEventListenersModule } from "./modules/event-listeners/analytics-event-listeners.module";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
-import { HealthModule } from "@beautyspot/nest-common";
+import { HealthModule, IdempotencyModule } from "@beautyspot/nest-common";
 
 /** Módulo raíz del analytics-service: configura la BD y agrupa métricas, reportes, dashboard y listeners de eventos. */
 @Module({
@@ -21,6 +21,7 @@ import { HealthModule } from "@beautyspot/nest-common";
     TypeOrmModule.forRootAsync({
       useFactory: () => createTypeOrmModuleOptions(entities),
     }),
+    IdempotencyModule,
     HealthModule,
     DashboardModule,
     ReportsModule,

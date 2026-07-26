@@ -1,3 +1,4 @@
+import { ProcessedEventEntity } from "@beautyspot/nest-common";
 import { DailyMetricEntity } from "./entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "./entities/professional-metric.entity";
 
@@ -8,4 +9,8 @@ import { ProfessionalMetricEntity } from "./entities/professional-metric.entity"
  * Si divergieran, `migration:generate` compararía el esquema contra una lista
  * incompleta y propondría borrar las tablas que le faltasen.
  */
-export const entities = [DailyMetricEntity, ProfessionalMetricEntity];
+export const entities = [
+  ProcessedEventEntity,
+  DailyMetricEntity,
+  ProfessionalMetricEntity,
+];

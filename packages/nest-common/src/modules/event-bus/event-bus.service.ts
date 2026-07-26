@@ -91,12 +91,22 @@ export class EventBusService implements OnModuleDestroy {
     this.deadLetterChannel = await connection.createChannel();
   }
 
+  /**
+   * Publica un evento en el exchange de dominio.
+   *
+   * `eventId` debe ser el mismo en cada reintento del MISMO evento: es lo que
+   * permite al consumidor descartarlo si ya lo procesó. Quien publica desde el
+   * outbox pasa el id de la fila; quien publica directamente y no tiene un
+   * identificador estable recibe uno generado, con lo que un reintento suyo sí
+   * contaría como evento nuevo.
+   */
   async emit<T>(
     eventType: string,
     payload: T,
-    correlationId?: string,
+    opciones: { eventId?: string; correlationId?: string } = {},
     retryCount = 0
   ): Promise<void> {
+    const { eventId, correlationId } = opciones;
     if (!this.channel && !this.connecting) {
       await this.connect();
     }
@@ -110,6 +120,7 @@ export class EventBusService implements OnModuleDestroy {
     }
 
     const message: IBaseEvent<T> = {
+      eventId: eventId || uuidv4(),
       eventType,
       timestamp: new Date(),
       correlationId: correlationId || uuidv4(),
@@ -126,7 +137,7 @@ export class EventBusService implements OnModuleDestroy {
           deliveryMode: 2,
           expiration: "300000",
           timestamp: Date.now(),
-          messageId: message.correlationId,
+          messageId: message.eventId,
         }
       );
 
@@ -144,7 +155,15 @@ export class EventBusService implements OnModuleDestroy {
         );
 
         await this.delay(this.RETRY_DELAY_MS * Math.pow(2, retryCount));
-        return this.emit(eventType, payload, correlationId, retryCount + 1);
+        // Se reenvía con el MISMO eventId: un reintento es el mismo evento, y
+        // si la primera publicación llegó a entregarse, el consumidor tiene que
+        // poder reconocerlo como duplicado.
+        return this.emit(
+          eventType,
+          payload,
+          { eventId: message.eventId, correlationId: message.correlationId },
+          retryCount + 1
+        );
       }
 
       const { stack } = this.describeError(error);

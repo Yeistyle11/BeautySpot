@@ -1,5 +1,16 @@
 /** Contrato base de todos los eventos que viajan por el bus (RabbitMQ). */
 export interface IBaseEvent<T = unknown> {
+  /**
+   * Identidad del evento, estable entre reentregas. Para los eventos que salen
+   * del outbox es el id de su fila, de modo que un reintento de publicación
+   * emite el mismo valor.
+   *
+   * Es la clave con la que los consumidores descartan lo que ya procesaron: la
+   * entrega es at-least-once, así que sin ella un evento reentregado se aplica
+   * dos veces. No confundir con `correlationId`, que identifica el agregado o
+   * la petición de origen y por tanto se repite entre eventos distintos.
+   */
+  eventId: string;
   eventType: string;
   timestamp: Date;
   correlationId: string;

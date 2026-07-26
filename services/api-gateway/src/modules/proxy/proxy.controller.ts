@@ -11,6 +11,7 @@ import { Request, Response } from "express";
 import { ProxyService } from "./proxy.service";
 import { CircuitBreakerService } from "../circuit-breaker/circuit-breaker.service";
 import { PROXY_TIMEOUT_MS } from "@beautyspot/shared-constants";
+import { REQUEST_ID_HEADER } from "@beautyspot/nest-common";
 
 const SERVER_ERROR_THRESHOLD = 500;
 
@@ -86,13 +87,13 @@ export class ProxyController {
   }
 
   /**
-   * Reescribe la ruta del gateway a la ruta interna esperada por el servicio destino.
+   * Reescribe la ruta del gateway a la ruta interna esperada por el servicio
+   * destino.
    *
    * Sólo hay que quitar el prefijo del gateway: los microservicios no definen
-   * `setGlobalPrefix`, así que sus controladores cuelgan de la raíz. Antes se
-   * anteponía el nombre de módulo cuando el servicio venía como "core-service",
-   * lo que producía rutas inexistentes (/core/businesses) y devolvía 404 para
-   * toda la forma larga, pese a que `isValidService` sí la acepta.
+   * `setGlobalPrefix`, así que sus controladores cuelgan de la raíz. No se
+   * antepone ningún nombre de módulo, ni siquiera cuando el servicio llega como
+   * "core-service": esa ruta no existe en el destino.
    */
   private buildTargetUrl(service: string, req: Request): string {
     const serviceUrl = this.proxyService.getServiceUrl(service);
@@ -107,12 +108,22 @@ export class ProxyController {
     return `${serviceUrl}${path}`;
   }
 
-  /** Propaga el token de autorización e inyecta el tenant (x-business-id) al backend. */
+  /**
+   * Propaga el token de autorización, el identificador de la petición y el
+   * tenant (x-business-id) al backend.
+   */
   private buildForwardedHeaders(req: Request): Record<string, string> {
     const headers: Record<string, string> = {};
 
     if (req.headers["authorization"]) {
       headers["authorization"] = req.headers["authorization"] as string;
+    }
+
+    // Sin esto cada servicio inventaría el suyo y la petición dejaría de ser
+    // seguible más allá del gateway.
+    const requestId = req.headers[REQUEST_ID_HEADER];
+    if (typeof requestId === "string") {
+      headers[REQUEST_ID_HEADER] = requestId;
     }
 
     const user = (

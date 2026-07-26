@@ -1,3 +1,4 @@
+import { ProcessedEventEntity } from "@beautyspot/nest-common";
 import { NotificationEntity } from "./modules/notifications/notification.entity";
 import { NotificationPreferenceEntity } from "./modules/notification-preferences/notification-preference.entity";
 
@@ -8,4 +9,8 @@ import { NotificationPreferenceEntity } from "./modules/notification-preferences
  * Si divergieran, `migration:generate` compararía el esquema contra una lista
  * incompleta y propondría borrar las tablas que le faltasen.
  */
-export const entities = [NotificationEntity, NotificationPreferenceEntity];
+export const entities = [
+  ProcessedEventEntity,
+  NotificationEntity,
+  NotificationPreferenceEntity,
+];

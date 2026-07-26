@@ -6,6 +6,8 @@ import {
   HttpExceptionFilter,
   TransformInterceptor,
   buildCorsOptions,
+  requestContextMiddleware,
+  StructuredLogger,
 } from "@beautyspot/nest-common";
 import { AuthGatewayGuard } from "./modules/auth-gateway/auth-gateway.guard";
 import { RateLimitGuard } from "./modules/rate-limit/rate-limit.guard";
@@ -14,8 +16,13 @@ import helmet from "helmet";
 /** Arranca el API Gateway: seguridad, CORS, validación, guards globales y escucha. */
 async function bootstrap() {
   const logger = new Logger("Bootstrap");
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: new StructuredLogger(),
+  });
 
+  // El gateway es la puerta de entrada: aquí nace el identificador que después
+  // acompaña a la petición por todos los servicios.
+  app.use(requestContextMiddleware);
   app.use(helmet());
 
   const configService = app.get(ConfigService);

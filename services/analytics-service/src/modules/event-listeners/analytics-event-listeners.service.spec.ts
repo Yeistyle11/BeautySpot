@@ -1,13 +1,19 @@
 import { Test } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
+import { ProcessedEventsStore } from "@beautyspot/nest-common";
+import { EntityManager } from "typeorm";
 import { AnalyticsEventListeners } from "./analytics-event-listeners.service";
 import { MetricsService } from "../metrics/metrics.service";
 
 describe("AnalyticsEventListeners", () => {
   let service: AnalyticsEventListeners;
   let mockMetricsService: jest.Mocked<MetricsService>;
+  let mockProcessedEvents: jest.Mocked<ProcessedEventsStore>;
   let logSpy: jest.SpyInstance;
   let errorSpy: jest.SpyInstance;
+
+  /** EntityManager de mentira: aquí sólo se comprueba que llega hasta el servicio. */
+  const managerFalso = {} as EntityManager;
 
   beforeEach(async () => {
     logSpy = jest.spyOn(Logger.prototype, "log").mockImplementation(() => {});
@@ -21,10 +27,27 @@ describe("AnalyticsEventListeners", () => {
       setProfessionalRating: jest.fn().mockResolvedValue(undefined),
     } as any;
 
+    // Por defecto el evento es nuevo: se ejecuta el trabajo y se da por aplicado.
+    mockProcessedEvents = {
+      once: jest
+        .fn()
+        .mockImplementation(
+          async (
+            _evento: unknown,
+            _handler: string,
+            trabajo: (m: EntityManager) => Promise<void>
+          ) => {
+            await trabajo(managerFalso);
+            return true;
+          }
+        ),
+    } as unknown as jest.Mocked<ProcessedEventsStore>;
+
     const module = await Test.createTestingModule({
       providers: [
         AnalyticsEventListeners,
         { provide: MetricsService, useValue: mockMetricsService },
+        { provide: ProcessedEventsStore, useValue: mockProcessedEvents },
       ],
     }).compile();
 
@@ -40,6 +63,7 @@ describe("AnalyticsEventListeners", () => {
       const event = {
         eventType: "booking.appointment.created",
         timestamp: new Date(),
+        eventId: "evt-1",
         correlationId: "corr-1",
         payload: {
           appointmentId: "apt-123",
@@ -59,7 +83,8 @@ describe("AnalyticsEventListeners", () => {
       expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
         "biz-123",
         expect.any(String),
-        { totalAppointments: 1, totalRevenue: 50000 }
+        { totalAppointments: 1, totalRevenue: 50000 },
+        managerFalso
       );
     });
 
@@ -88,6 +113,7 @@ describe("AnalyticsEventListeners", () => {
       const event = {
         eventType: "booking.appointment.confirmed",
         timestamp: new Date(),
+        eventId: "evt-2",
         correlationId: "corr-2",
         payload: {
           appointmentId: "apt-789",
@@ -105,10 +131,16 @@ describe("AnalyticsEventListeners", () => {
 
       expect(
         mockMetricsService.incrementProfessionalMetric
-      ).toHaveBeenCalledWith("biz-789", "prof-789", expect.any(String), {
-        appointments: 1,
-        revenue: 60000,
-      });
+      ).toHaveBeenCalledWith(
+        "biz-789",
+        "prof-789",
+        expect.any(String),
+        {
+          appointments: 1,
+          revenue: 60000,
+        },
+        managerFalso
+      );
     });
   });
 
@@ -117,6 +149,7 @@ describe("AnalyticsEventListeners", () => {
       const event = {
         eventType: "booking.appointment.completed",
         timestamp: new Date(),
+        eventId: "evt-3",
         correlationId: "corr-3",
         payload: {
           appointmentId: "apt-999",
@@ -136,14 +169,21 @@ describe("AnalyticsEventListeners", () => {
       expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
         "biz-999",
         expect.any(String),
-        { completedAppointments: 1 }
+        { completedAppointments: 1 },
+        managerFalso
       );
       expect(
         mockMetricsService.incrementProfessionalMetric
-      ).toHaveBeenCalledWith("biz-999", "prof-999", expect.any(String), {
-        appointments: 1,
-        revenue: 40000,
-      });
+      ).toHaveBeenCalledWith(
+        "biz-999",
+        "prof-999",
+        expect.any(String),
+        {
+          appointments: 1,
+          revenue: 40000,
+        },
+        managerFalso
+      );
     });
   });
 
@@ -152,6 +192,7 @@ describe("AnalyticsEventListeners", () => {
       const event = {
         eventType: "booking.appointment.cancelled",
         timestamp: new Date(),
+        eventId: "evt-4",
         correlationId: "corr-4",
         payload: {
           appointmentId: "apt-111",
@@ -171,13 +212,20 @@ describe("AnalyticsEventListeners", () => {
       expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
         "biz-111",
         expect.any(String),
-        { cancelledAppointments: 1 }
+        { cancelledAppointments: 1 },
+        managerFalso
       );
       expect(
         mockMetricsService.incrementProfessionalMetric
-      ).toHaveBeenCalledWith("biz-111", "prof-111", expect.any(String), {
-        appointments: 1,
-      });
+      ).toHaveBeenCalledWith(
+        "biz-111",
+        "prof-111",
+        expect.any(String),
+        {
+          appointments: 1,
+        },
+        managerFalso
+      );
     });
   });
 
@@ -186,6 +234,7 @@ describe("AnalyticsEventListeners", () => {
       const event = {
         eventType: "booking.appointment.no-showed",
         timestamp: new Date(),
+        eventId: "evt-5",
         correlationId: "corr-5",
         payload: {
           appointmentId: "apt-222",
@@ -204,13 +253,20 @@ describe("AnalyticsEventListeners", () => {
       expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
         "biz-222",
         expect.any(String),
-        { noShowAppointments: 1 }
+        { noShowAppointments: 1 },
+        managerFalso
       );
       expect(
         mockMetricsService.incrementProfessionalMetric
-      ).toHaveBeenCalledWith("biz-222", "prof-222", expect.any(String), {
-        appointments: 1,
-      });
+      ).toHaveBeenCalledWith(
+        "biz-222",
+        "prof-222",
+        expect.any(String),
+        {
+          appointments: 1,
+        },
+        managerFalso
+      );
     });
   });
 
@@ -219,6 +275,7 @@ describe("AnalyticsEventListeners", () => {
       const event = {
         eventType: "payment.payment.registered",
         timestamp: new Date(),
+        eventId: "evt-6",
         correlationId: "corr-6",
         payload: {
           paymentId: "pay-123",
@@ -234,7 +291,8 @@ describe("AnalyticsEventListeners", () => {
       expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
         "biz-333",
         expect.any(String),
-        { totalRevenue: 75000 }
+        { totalRevenue: 75000 },
+        managerFalso
       );
     });
   });
@@ -244,6 +302,7 @@ describe("AnalyticsEventListeners", () => {
       const event = {
         eventType: "marketplace.review.created",
         timestamp: new Date(),
+        eventId: "evt-7",
         correlationId: "corr-7",
         payload: {
           reviewId: "rev-123",
@@ -260,7 +319,8 @@ describe("AnalyticsEventListeners", () => {
         "biz-444",
         "prof-444",
         expect.any(String),
-        5
+        5,
+        managerFalso
       );
     });
   });

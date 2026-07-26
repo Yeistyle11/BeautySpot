@@ -1,7 +1,9 @@
+import { randomUUID } from "crypto";
 import { Injectable, Logger } from "@nestjs/common";
 import { EventPattern, Payload } from "@nestjs/microservices";
 import { AmqpConnection } from "@golevelup/nestjs-rabbitmq";
 import { ConfigService } from "@nestjs/config";
+import { ProcessedEventsStore } from "@beautyspot/nest-common";
 import { EmailService } from "../emails/email.service";
 import { DataEnricherService } from "../data-enricher/data-enricher.service";
 import {
@@ -27,7 +29,8 @@ export class NotificationEventListeners {
     private readonly emailService: EmailService,
     private readonly amqpConnection: AmqpConnection,
     private readonly configService: ConfigService,
-    private readonly dataEnricher: DataEnricherService
+    private readonly dataEnricher: DataEnricherService,
+    private readonly processedEvents: ProcessedEventsStore
   ) {}
 
   /** Al registrarse un usuario, encola el correo de bienvenida. */
@@ -35,16 +38,22 @@ export class NotificationEventListeners {
   async handleUserRegistered(@Payload() event: UserRegisteredEvent) {
     this.logger.log(`Usuario registrado: ${event.payload.email}`);
     try {
-      const { jobId } = await this.emailService.queueWelcomeEmail(
-        event.payload.email,
-        { clientName: event.payload.name }
-      );
+      await this.processedEvents.once(
+        event,
+        "notification:bienvenida",
+        async () => {
+          const { jobId } = await this.emailService.queueWelcomeEmail(
+            event.payload.email,
+            { clientName: event.payload.name }
+          );
 
-      await this.emitEmailQueuedEvent(
-        jobId,
-        event.payload.email,
-        "welcome-email",
-        "Bienvenido a BeautySpot"
+          await this.emitEmailQueuedEvent(
+            jobId,
+            event.payload.email,
+            "welcome-email",
+            "Bienvenido a BeautySpot"
+          );
+        }
       );
     } catch (error) {
       this.logError("bienvenida", error);
@@ -61,26 +70,32 @@ export class NotificationEventListeners {
     this.logger.log(`Solicitud de reset de contraseña para: ${email}`);
 
     try {
-      const appUrl = this.configService.get<string>(
-        "APP_URL",
-        "http://localhost:3000"
-      );
-      const resetLink = `${appUrl}/reset-password?token=${resetToken}`;
-      const expiryHours = Math.ceil(
-        (new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60)
-      );
+      await this.processedEvents.once(
+        event,
+        "notification:reset de contraseña",
+        async () => {
+          const appUrl = this.configService.get<string>(
+            "APP_URL",
+            "http://localhost:3000"
+          );
+          const resetLink = `${appUrl}/reset-password?token=${resetToken}`;
+          const expiryHours = Math.ceil(
+            (new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60)
+          );
 
-      const { jobId } = await this.emailService.queuePasswordReset(email, {
-        clientName: name,
-        resetLink,
-        expiryHours,
-      });
+          const { jobId } = await this.emailService.queuePasswordReset(email, {
+            clientName: name,
+            resetLink,
+            expiryHours,
+          });
 
-      await this.emitEmailQueuedEvent(
-        jobId,
-        email,
-        "password-reset",
-        "Restablecer contraseña - BeautySpot"
+          await this.emitEmailQueuedEvent(
+            jobId,
+            email,
+            "password-reset",
+            "Restablecer contraseña - BeautySpot"
+          );
+        }
       );
     } catch (error) {
       this.logError("reset de contraseña", error);
@@ -104,31 +119,38 @@ export class NotificationEventListeners {
     this.logger.log(`Cita confirmada: ${appointmentId}`);
 
     try {
-      const data = await this.dataEnricher.enrichAppointmentParticipants(
-        clientId,
-        professionalId,
-        businessId
-      );
+      await this.processedEvents.once(
+        event,
+        "notification:confirmación",
+        async () => {
+          const data = await this.dataEnricher.enrichAppointmentParticipants(
+            clientId,
+            professionalId,
+            businessId
+          );
 
-      const { jobId } = await this.emailService.queueAppointmentConfirmation(
-        data.clientEmail,
-        {
-          clientName: data.clientName,
-          professionalName: data.professionalName,
-          serviceName: "Servicio",
-          appointmentDate: date,
-          appointmentTime: startTime,
-          businessName: data.businessName,
-          businessAddress: data.businessAddress,
-          businessPhone: data.businessPhone,
+          const { jobId } =
+            await this.emailService.queueAppointmentConfirmation(
+              data.clientEmail,
+              {
+                clientName: data.clientName,
+                professionalName: data.professionalName,
+                serviceName: "Servicio",
+                appointmentDate: date,
+                appointmentTime: startTime,
+                businessName: data.businessName,
+                businessAddress: data.businessAddress,
+                businessPhone: data.businessPhone,
+              }
+            );
+
+          await this.emitEmailQueuedEvent(
+            jobId,
+            data.clientEmail,
+            "appointment-confirmed",
+            `Confirmación de cita en ${data.businessName}`
+          );
         }
-      );
-
-      await this.emitEmailQueuedEvent(
-        jobId,
-        data.clientEmail,
-        "appointment-confirmed",
-        `Confirmación de cita en ${data.businessName}`
       );
     } catch (error) {
       this.logError("confirmación", error);
@@ -154,29 +176,35 @@ export class NotificationEventListeners {
     );
 
     try {
-      const data = await this.dataEnricher.enrichAppointmentParticipants(
-        clientId,
-        professionalId,
-        businessId
-      );
+      await this.processedEvents.once(
+        event,
+        "notification:cancelación",
+        async () => {
+          const data = await this.dataEnricher.enrichAppointmentParticipants(
+            clientId,
+            professionalId,
+            businessId
+          );
 
-      const { jobId } = await this.emailService.queueAppointmentCancelled(
-        data.clientEmail,
-        {
-          clientName: data.clientName,
-          professionalName: data.professionalName,
-          serviceName: "Servicio",
-          cancelledDate: date,
-          reason: cancelReason || "Sin motivo",
-          businessName: data.businessName,
+          const { jobId } = await this.emailService.queueAppointmentCancelled(
+            data.clientEmail,
+            {
+              clientName: data.clientName,
+              professionalName: data.professionalName,
+              serviceName: "Servicio",
+              cancelledDate: date,
+              reason: cancelReason || "Sin motivo",
+              businessName: data.businessName,
+            }
+          );
+
+          await this.emitEmailQueuedEvent(
+            jobId,
+            data.clientEmail,
+            "appointment-cancelled",
+            `Cita cancelada - ${data.businessName}`
+          );
         }
-      );
-
-      await this.emitEmailQueuedEvent(
-        jobId,
-        data.clientEmail,
-        "appointment-cancelled",
-        `Cita cancelada - ${data.businessName}`
       );
     } catch (error) {
       this.logError("cancelación", error);
@@ -200,54 +228,62 @@ export class NotificationEventListeners {
     this.logger.log(`Recordatorio de cita pendiente: ${appointmentId}`);
 
     try {
-      const reminderType = this.determineReminderType(date, startTime);
-      if (!reminderType) return;
+      await this.processedEvents.once(
+        event,
+        "notification:recordatorio de cita",
+        async () => {
+          const reminderType = this.determineReminderType(date, startTime);
+          if (!reminderType) return;
 
-      const data = await this.dataEnricher.enrichAppointmentParticipants(
-        clientId,
-        professionalId,
-        businessId
+          const data = await this.dataEnricher.enrichAppointmentParticipants(
+            clientId,
+            professionalId,
+            businessId
+          );
+
+          if (reminderType === "24h") {
+            const { jobId } =
+              await this.emailService.queueAppointmentReminder24h(
+                data.clientEmail,
+                {
+                  clientName: data.clientName,
+                  professionalName: data.professionalName,
+                  serviceName: "Servicio",
+                  appointmentDate: date,
+                  appointmentTime: startTime,
+                  businessName: data.businessName,
+                  businessAddress: data.businessAddress,
+                }
+              );
+
+            await this.emitEmailQueuedEvent(
+              jobId,
+              data.clientEmail,
+              "appointment-reminder-24h",
+              `Recordatorio - Cita mañana en ${data.businessName}`
+            );
+          } else {
+            const { jobId } =
+              await this.emailService.queueAppointmentReminder1h(
+                data.clientEmail,
+                {
+                  clientName: data.clientName,
+                  professionalName: data.professionalName,
+                  serviceName: "Servicio",
+                  appointmentTime: startTime,
+                  businessName: data.businessName,
+                }
+              );
+
+            await this.emitEmailQueuedEvent(
+              jobId,
+              data.clientEmail,
+              "appointment-reminder-1h",
+              `Recordatorio - Cita en 1 hora en ${data.businessName}`
+            );
+          }
+        }
       );
-
-      if (reminderType === "24h") {
-        const { jobId } = await this.emailService.queueAppointmentReminder24h(
-          data.clientEmail,
-          {
-            clientName: data.clientName,
-            professionalName: data.professionalName,
-            serviceName: "Servicio",
-            appointmentDate: date,
-            appointmentTime: startTime,
-            businessName: data.businessName,
-            businessAddress: data.businessAddress,
-          }
-        );
-
-        await this.emitEmailQueuedEvent(
-          jobId,
-          data.clientEmail,
-          "appointment-reminder-24h",
-          `Recordatorio - Cita mañana en ${data.businessName}`
-        );
-      } else {
-        const { jobId } = await this.emailService.queueAppointmentReminder1h(
-          data.clientEmail,
-          {
-            clientName: data.clientName,
-            professionalName: data.professionalName,
-            serviceName: "Servicio",
-            appointmentTime: startTime,
-            businessName: data.businessName,
-          }
-        );
-
-        await this.emitEmailQueuedEvent(
-          jobId,
-          data.clientEmail,
-          "appointment-reminder-1h",
-          `Recordatorio - Cita en 1 hora en ${data.businessName}`
-        );
-      }
     } catch (error) {
       this.logError("recordatorio de cita", error);
     }
@@ -261,25 +297,31 @@ export class NotificationEventListeners {
     this.logger.log(`Factura generada: ${invoiceId}`);
 
     try {
-      const [clientEmail, businessData] = await Promise.all([
-        this.dataEnricher.enrichClientEmail(clientId),
-        this.dataEnricher.enrichBusinessData(businessId),
-      ]);
+      await this.processedEvents.once(
+        event,
+        "notification:factura",
+        async () => {
+          const [clientEmail, businessData] = await Promise.all([
+            this.dataEnricher.enrichClientEmail(clientId),
+            this.dataEnricher.enrichBusinessData(businessId),
+          ]);
 
-      const { jobId } = await this.emailService.queueInvoice(clientEmail, {
-        clientName: "Cliente",
-        invoiceNumber: number.toString(),
-        amount: total,
-        dueDate: new Date().toISOString().split("T")[0],
-        businessName: businessData.businessName,
-        services: [],
-      });
+          const { jobId } = await this.emailService.queueInvoice(clientEmail, {
+            clientName: "Cliente",
+            invoiceNumber: number.toString(),
+            amount: total,
+            dueDate: new Date().toISOString().split("T")[0],
+            businessName: businessData.businessName,
+            services: [],
+          });
 
-      await this.emitEmailQueuedEvent(
-        jobId,
-        clientEmail,
-        "invoice-generated",
-        `Factura #${number} - ${businessData.businessName}`
+          await this.emitEmailQueuedEvent(
+            jobId,
+            clientEmail,
+            "invoice-generated",
+            `Factura #${number} - ${businessData.businessName}`
+          );
+        }
       );
     } catch (error) {
       this.logError("factura", error);
@@ -292,32 +334,34 @@ export class NotificationEventListeners {
     this.logger.log(`Pago registrado: ${event.payload.paymentId}`);
 
     try {
-      if (
-        event.payload.method === "transfer" ||
-        event.payload.method === "efectivo"
-      ) {
-        const { clientId, businessId, paymentId, amount } = event.payload;
-        const [clientEmail, businessData] = await Promise.all([
-          this.dataEnricher.enrichClientEmail(clientId),
-          this.dataEnricher.enrichBusinessData(businessId),
-        ]);
+      await this.processedEvents.once(event, "notification:pago", async () => {
+        if (
+          event.payload.method === "transfer" ||
+          event.payload.method === "efectivo"
+        ) {
+          const { clientId, businessId, paymentId, amount } = event.payload;
+          const [clientEmail, businessData] = await Promise.all([
+            this.dataEnricher.enrichClientEmail(clientId),
+            this.dataEnricher.enrichBusinessData(businessId),
+          ]);
 
-        const { jobId } = await this.emailService.queueInvoice(clientEmail, {
-          clientName: "Cliente",
-          invoiceNumber: `REC-${paymentId}`,
-          amount,
-          dueDate: new Date().toISOString().split("T")[0],
-          businessName: businessData.businessName,
-          services: [{ name: "Servicio", price: amount }],
-        });
+          const { jobId } = await this.emailService.queueInvoice(clientEmail, {
+            clientName: "Cliente",
+            invoiceNumber: `REC-${paymentId}`,
+            amount,
+            dueDate: new Date().toISOString().split("T")[0],
+            businessName: businessData.businessName,
+            services: [{ name: "Servicio", price: amount }],
+          });
 
-        await this.emitEmailQueuedEvent(
-          jobId,
-          clientEmail,
-          "invoice-generated",
-          `Recibo de pago - ${businessData.businessName}`
-        );
-      }
+          await this.emitEmailQueuedEvent(
+            jobId,
+            clientEmail,
+            "invoice-generated",
+            `Recibo de pago - ${businessData.businessName}`
+          );
+        }
+      });
     } catch (error) {
       this.logError("pago", error);
     }
@@ -356,6 +400,10 @@ export class NotificationEventListeners {
         "beautyspot.events",
         "notification.email.queued",
         {
+          // Se publica directamente por AmqpConnection, sin pasar por
+          // EventBusService, así que el eventId hay que ponerlo aquí para
+          // cumplir el contrato de IBaseEvent.
+          eventId: randomUUID(),
           eventType: "notification.email.queued",
           timestamp: new Date(),
           correlationId: jobId,
