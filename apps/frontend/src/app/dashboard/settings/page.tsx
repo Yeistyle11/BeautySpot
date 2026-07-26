@@ -10,6 +10,8 @@ import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
+import { useToast } from "@/components/ui/toast";
+import { mensajeDeError } from "@/lib/error-message";
 import { getErrorMessage } from "@/lib/utils";
 import { AccountTab } from "./account-tab";
 import { BusinessTab } from "./business-tab";
@@ -25,6 +27,7 @@ import {
 } from "./schemas";
 
 export default function SettingsPage() {
+  const toast = useToast();
   const { user, businessId, role } = useAuthStore();
   const [saving, setSaving] = useState<string | null>(null);
 
@@ -108,6 +111,7 @@ export default function SettingsPage() {
       await api.patch("/auth/users/me", accountForm);
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setSaving(null);
     }
@@ -139,6 +143,7 @@ export default function SettingsPage() {
       });
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
       setPasswordFeedback({
         type: "error",
         message: getErrorMessage(err, "No se pudo actualizar la contrasena"),
@@ -156,6 +161,7 @@ export default function SettingsPage() {
       await mutateBusiness();
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setSaving(null);
     }
@@ -168,6 +174,7 @@ export default function SettingsPage() {
       await mutateHours();
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setSaving(null);
     }

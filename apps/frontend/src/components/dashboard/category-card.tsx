@@ -1,18 +1,18 @@
 "use client";
-import type { ComponentType } from "react";
 import { Edit, ToggleLeft, ToggleRight, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { CategoryEntity } from "./category-manager";
+import { resolveCategoryIcon, type CategoryIcon } from "./category-icons";
 
 interface CategoryCardProps {
   category: CategoryEntity;
-  icon: ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  /** Icono de reserva para las categorías que no tienen uno propio. */
+  icon: CategoryIcon;
   defaultColor: string;
   canEdit: boolean;
   canDelete: boolean;
-  showIconName?: boolean;
   onToggle: (category: CategoryEntity) => void;
   onEdit: (category: CategoryEntity) => void;
   onDelete: (id: string) => void;
@@ -21,16 +21,16 @@ interface CategoryCardProps {
 /** Tarjeta de una categoria en la rejilla. */
 export function CategoryCard({
   category,
-  icon: Icon,
+  icon: iconoPorDefecto,
   defaultColor,
   canEdit,
   canDelete,
-  showIconName,
   onToggle,
   onEdit,
   onDelete,
 }: CategoryCardProps) {
   const color = category.color || defaultColor;
+  const Icon = resolveCategoryIcon(category.icon, iconoPorDefecto);
 
   return (
     <Card
@@ -106,11 +106,6 @@ export function CategoryCard({
         {category.description && (
           <p className="text-muted-foreground mt-2 text-sm">
             {category.description}
-          </p>
-        )}
-        {showIconName && category.icon && (
-          <p className="text-muted-foreground/60 mt-1 text-xs">
-            Icono: {category.icon}
           </p>
         )}
       </CardContent>

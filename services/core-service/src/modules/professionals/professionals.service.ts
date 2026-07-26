@@ -10,6 +10,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { ConfigService } from "@nestjs/config";
 import { Professional } from "../../entities/professional.entity";
+import { CategoriesService } from "../categories/categories.service";
 import { ProfessionalService } from "../../entities/professional-service.entity";
 
 /**
@@ -23,14 +24,31 @@ export class ProfessionalsService {
     private readonly repo: Repository<Professional>,
     @InjectRepository(ProfessionalService)
     private readonly psRepo: Repository<ProfessionalService>,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly categories: CategoriesService
   ) {}
+
+  /**
+   * Comprueba que la categoría pertenece al negocio antes de asociarla.
+   *
+   * La clave foránea garantiza que la categoría existe, no que sea del mismo
+   * negocio: el aislamiento entre negocios lo impone esta capa. `findById` acota
+   * por businessId y lanza 404 si la categoría es ajena.
+   */
+  private async validarCategoria(
+    categoryId: string | undefined,
+    businessId: string
+  ): Promise<void> {
+    if (!categoryId) return;
+    await this.categories.findById(categoryId, businessId);
+  }
 
   /** Da de alta un profesional en el negocio. */
   async create(
     businessId: string,
     data: Partial<Professional>
   ): Promise<Professional> {
+    await this.validarCategoria(data.categoryId, businessId);
     const professional = this.repo.create({ ...data, businessId });
     return this.repo.save(professional);
   }
@@ -58,6 +76,7 @@ export class ProfessionalsService {
     businessId: string,
     data: Partial<Professional>
   ): Promise<Professional> {
+    await this.validarCategoria(data.categoryId, businessId);
     await this.repo.update(
       { id, businessId },
       data as Parameters<typeof this.repo.update>[1]

@@ -55,7 +55,6 @@ export interface CategoryManagerConfig {
     delete: keyof typeof ACTIONS;
   };
   deleteConfirmMessage: string;
-  showIconName?: boolean;
 }
 
 /**
@@ -79,7 +78,6 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
     iconOptions,
     actions,
     deleteConfirmMessage,
-    showIconName,
   } = config;
 
   const { data: categories, isLoading: loading } = useApi<CategoryEntity[]>(
@@ -271,7 +269,6 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
               defaultColor={defaultColor}
               canEdit={canDo(role, actions.edit)}
               canDelete={canDo(role, actions.delete)}
-              showIconName={showIconName}
               onToggle={handleToggle}
               onEdit={openEdit}
               onDelete={(id) => {

@@ -15,6 +15,8 @@ import { getErrorMessage } from "@/lib/utils";
 import { useApi, revalidatePrefix } from "@/lib/swr";
 import { usePaginatedList } from "@/lib/use-paginated-list";
 import { logger } from "@/lib/logger";
+import { useToast } from "@/components/ui/toast";
+import { mensajeDeError } from "@/lib/error-message";
 import { CalendarView } from "@/components/calendar-view";
 import { AppointmentForm } from "./appointment-form";
 import { AppointmentCard } from "./appointment-card";
@@ -41,6 +43,7 @@ import {
 } from "./schemas";
 
 export default function AppointmentsPage() {
+  const toast = useToast();
   const { role } = useAuthStore();
 
   const [search, setSearch] = useState("");
@@ -120,6 +123,7 @@ export default function AppointmentsPage() {
       await revalidatePrefix(APPOINTMENTS_KEY);
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     }
   };
 
@@ -150,6 +154,7 @@ export default function AppointmentsPage() {
       setCompletingAppt(null);
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setCompletingAction(false);
     }

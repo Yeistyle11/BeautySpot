@@ -10,6 +10,8 @@ import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
+import { useToast } from "@/components/ui/toast";
+import { mensajeDeError } from "@/lib/error-message";
 import { cn } from "@/lib/utils";
 import { OverviewTab } from "./overview-tab";
 import { ProfileTab } from "./profile-tab";
@@ -45,6 +47,7 @@ const TAB_LABELS: Record<string, string> = {
 const TAB_IDS = Object.keys(TAB_LABELS);
 
 export default function MarketplacePage() {
+  const toast = useToast();
   const { businessId, role } = useAuthStore();
   const {
     data: profile,
@@ -130,6 +133,7 @@ export default function MarketplacePage() {
       await mutateProfile();
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setSaving(null);
     }
@@ -143,6 +147,7 @@ export default function MarketplacePage() {
       await mutateProfile();
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     }
   };
 
@@ -156,6 +161,7 @@ export default function MarketplacePage() {
       setGalleryDialog(false);
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     }
   };
 
@@ -165,6 +171,7 @@ export default function MarketplacePage() {
       await mutateProfile();
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     }
   };
 
@@ -181,6 +188,7 @@ export default function MarketplacePage() {
       });
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     }
   };
 

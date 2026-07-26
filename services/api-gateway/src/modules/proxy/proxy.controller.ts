@@ -13,6 +13,7 @@ import { CircuitBreakerService } from "../circuit-breaker/circuit-breaker.servic
 import { PROXY_TIMEOUT_MS } from "@beautyspot/shared-constants";
 import { REQUEST_ID_HEADER } from "@beautyspot/nest-common";
 import { SessionService } from "../session/session.service";
+import { ACCESS_COOKIE, leerCookie } from "../session/session-cookies";
 
 const SERVER_ERROR_THRESHOLD = 500;
 
@@ -118,8 +119,14 @@ export class ProxyController {
   private buildForwardedHeaders(req: Request): Record<string, string> {
     const headers: Record<string, string> = {};
 
-    if (req.headers["authorization"]) {
-      headers["authorization"] = req.headers["authorization"] as string;
+    // El navegador se autentica con la cookie httpOnly, pero los servicios de
+    // detrás sólo leen la cabecera Authorization: si no se traduce aquí, llegan
+    // sin credencial y rechazan todo con 401.
+    const autorizacion =
+      (req.headers["authorization"] as string | undefined) ??
+      this.bearerDeCookie(req);
+    if (autorizacion) {
+      headers["authorization"] = autorizacion;
     }
 
     // Sin esto cada servicio inventaría el suyo y la petición dejaría de ser
@@ -145,6 +152,18 @@ export class ProxyController {
     }
 
     return headers;
+  }
+
+  /**
+   * Convierte la cookie de sesión en una cabecera Bearer para los servicios.
+   *
+   * La cookie no se reenvía tal cual: los servicios internos no saben de
+   * cookies, y mantenerlos así permite que sigan sirviendo a clientes que se
+   * autentican con Authorization.
+   */
+  private bearerDeCookie(req: Request): string | undefined {
+    const token = leerCookie(req, ACCESS_COOKIE);
+    return token ? `Bearer ${token}` : undefined;
   }
 
   /** Parsea el cuerpo de la respuesta tolerando 204, cuerpo vacío o texto no-JSON. */

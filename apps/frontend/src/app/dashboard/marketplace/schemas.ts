@@ -1,11 +1,13 @@
 // Esquemas Zod y tipos del perfil publico (galeria, secciones, resenas).
 import { z } from "zod";
 
+// Los campos opcionales admiten null o ausencia.
+
 export const galleryImageSchema = z.object({
   url: z.string(),
-  title: z.string().optional(),
-  category: z.string().optional(),
-  featured: z.boolean().optional(),
+  title: z.string().nullish(),
+  category: z.string().nullish(),
+  featured: z.boolean().nullish(),
 });
 export type GalleryImage = z.infer<typeof galleryImageSchema>;
 
@@ -13,7 +15,7 @@ export const sectionItemSchema = z.object({
   type: z.string(),
   enabled: z.boolean(),
   order: z.number(),
-  customTitle: z.string().optional(),
+  customTitle: z.string().nullish(),
 });
 export type SectionItem = z.infer<typeof sectionItemSchema>;
 
@@ -22,23 +24,23 @@ export const profileSchema = z.object({
   businessId: z.string(),
   slug: z.string(),
   name: z.string(),
-  description: z.string().optional(),
-  logo: z.string().optional(),
-  coverImage: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().optional(),
-  tagline: z.string().optional(),
-  storyTitle: z.string().optional(),
-  storyText: z.string().optional(),
-  storyImage: z.string().optional(),
-  foundedYear: z.number().optional(),
-  founders: z.string().optional(),
+  description: z.string().nullish(),
+  logo: z.string().nullish(),
+  coverImage: z.string().nullish(),
+  phone: z.string().nullish(),
+  email: z.string().nullish(),
+  tagline: z.string().nullish(),
+  storyTitle: z.string().nullish(),
+  storyText: z.string().nullish(),
+  storyImage: z.string().nullish(),
+  foundedYear: z.number().nullish(),
+  founders: z.string().nullish(),
   socialLinks: z
     .object({
-      instagram: z.string().optional(),
-      facebook: z.string().optional(),
-      tiktok: z.string().optional(),
-      website: z.string().optional(),
+      instagram: z.string().nullish(),
+      facebook: z.string().nullish(),
+      tiktok: z.string().nullish(),
+      website: z.string().nullish(),
     })
     .optional(),
   sectionConfig: z.object({ sections: z.array(sectionItemSchema) }).optional(),
@@ -52,12 +54,12 @@ export const reviewSchema = z.object({
   id: z.string(),
   clientId: z.string(),
   rating: z.number(),
-  comment: z.string().optional(),
-  response: z.string().optional(),
-  respondedAt: z.string().optional(),
+  comment: z.string().nullish(),
+  response: z.string().nullish(),
+  respondedAt: z.string().nullish(),
   createdAt: z.string(),
-  professionalName: z.string().optional(),
-  serviceName: z.string().optional(),
+  professionalName: z.string().nullish(),
+  serviceName: z.string().nullish(),
 });
 export type Review = z.infer<typeof reviewSchema>;
 

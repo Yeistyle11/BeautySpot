@@ -30,6 +30,8 @@ import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
+import { useToast } from "@/components/ui/toast";
+import { mensajeDeError } from "@/lib/error-message";
 
 const cashSessionSchema = z.object({
   id: z.string(),
@@ -72,6 +74,7 @@ const ACTIVE_KEY = "/payment/cash-register/active";
 const HISTORY_KEY = "/payment/cash-register/history";
 
 export default function CashRegisterPage() {
+  const toast = useToast();
   const { role } = useAuthStore();
   const {
     data: activeSession,
@@ -128,6 +131,7 @@ export default function CashRegisterPage() {
       await mutateActive();
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setOpening(false);
     }
@@ -148,6 +152,7 @@ export default function CashRegisterPage() {
       await mutate(movementsKey);
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setRegistering(false);
     }
@@ -167,6 +172,7 @@ export default function CashRegisterPage() {
       await Promise.all([mutateActive(), mutate(HISTORY_KEY)]);
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setClosing(false);
     }

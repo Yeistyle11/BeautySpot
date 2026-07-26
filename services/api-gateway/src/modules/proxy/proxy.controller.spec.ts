@@ -258,6 +258,56 @@ describe("ProxyController (reenvío)", () => {
       });
     });
 
+    // El navegador manda la cookie httpOnly, no la cabecera. Los servicios de
+    // detrás sólo leen Authorization, así que sin esta traducción toda petición
+    // autenticada desde el navegador llega sin credencial y responden 401.
+    it("traduce la cookie de sesión a una cabecera Bearer", async () => {
+      fetchMock.mockResolvedValue(fakeResponse(200, "{}"));
+      const { res } = fakeResponseOut();
+
+      await controller.proxyRequest(
+        "core-service",
+        fakeRequest({
+          headers: { cookie: "bs_access=token-de-cookie; otra=x" },
+          user: { businessId: "negocio-1" },
+        }),
+        res
+      );
+
+      expect(fetchMock.mock.calls[0][1].headers.authorization).toBe(
+        "Bearer token-de-cookie"
+      );
+    });
+
+    it("da preferencia a la cabecera Authorization sobre la cookie", async () => {
+      fetchMock.mockResolvedValue(fakeResponse(200, "{}"));
+      const { res } = fakeResponseOut();
+
+      await controller.proxyRequest(
+        "core-service",
+        fakeRequest({
+          headers: {
+            authorization: "Bearer de-cabecera",
+            cookie: "bs_access=de-cookie",
+          },
+        }),
+        res
+      );
+
+      expect(fetchMock.mock.calls[0][1].headers.authorization).toBe(
+        "Bearer de-cabecera"
+      );
+    });
+
+    it("no inventa cabecera de autorización si no hay ni cookie ni cabecera", async () => {
+      fetchMock.mockResolvedValue(fakeResponse(200, "{}"));
+      const { res } = fakeResponseOut();
+
+      await controller.proxyRequest("core-service", fakeRequest({}), res);
+
+      expect(fetchMock.mock.calls[0][1].headers.authorization).toBeUndefined();
+    });
+
     it("usa el primer businessIds cuando no hay businessId directo", async () => {
       fetchMock.mockResolvedValue(fakeResponse(200, "{}"));
       const { res } = fakeResponseOut();

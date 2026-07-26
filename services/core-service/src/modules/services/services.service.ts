@@ -2,16 +2,34 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Service } from "../../entities/service.entity";
+import { ServiceCategoriesService } from "../service-categories/service-categories.service";
 
 /** CRUD del catálogo de servicios ofertados por un negocio. */
 @Injectable()
 export class ServicesService {
   constructor(
-    @InjectRepository(Service) private readonly repo: Repository<Service>
+    @InjectRepository(Service) private readonly repo: Repository<Service>,
+    private readonly categories: ServiceCategoriesService
   ) {}
+
+  /**
+   * Comprueba que la categoría pertenece al negocio antes de asociarla.
+   *
+   * La clave foránea garantiza que la categoría existe, no que sea del mismo
+   * negocio: el aislamiento entre negocios lo impone esta capa. `findById` acota
+   * por businessId y lanza 404 si la categoría es ajena.
+   */
+  private async validarCategoria(
+    categoryId: string | undefined,
+    businessId: string
+  ): Promise<void> {
+    if (!categoryId) return;
+    await this.categories.findById(categoryId, businessId);
+  }
 
   /** Crea un servicio en el catálogo del negocio. */
   async create(businessId: string, data: Partial<Service>): Promise<Service> {
+    await this.validarCategoria(data.categoryId, businessId);
     const service = this.repo.create({ ...data, businessId });
     return this.repo.save(service);
   }
@@ -39,6 +57,7 @@ export class ServicesService {
     businessId: string,
     data: Partial<Service>
   ): Promise<Service> {
+    await this.validarCategoria(data.categoryId, businessId);
     await this.repo.update(
       { id, businessId },
       data as Parameters<typeof this.repo.update>[1]
