@@ -26,22 +26,9 @@ export function conContextoPeticion<T>(
 }
 
 /**
- * Asocia un identificador a cada petición y lo mantiene disponible durante todo
- * su procesamiento.
- *
- * Con ocho servicios y comunicación asíncrona, la pregunta operativa habitual no
- * es "¿qué pasó?" sino "¿qué pasó con ESTA petición?". Sin un identificador
- * común hay que cruzar a mano los logs de cuatro contenedores por marca de
- * tiempo.
- *
- * Se usa AsyncLocalStorage y no un parámetro explícito porque el identificador
- * tendría que atravesar controladores, servicios y repositorios sin que a
- * ninguno le importe: ensuciaría todas las firmas para que solo lo lea el
- * logger.
- *
- * Si la petición ya trae la cabecera —viene del gateway o de otro servicio— se
- * respeta; así el mismo identificador recorre todo el sistema. Se devuelve
- * también al cliente para que pueda citarlo al reportar un problema.
+ * Asocia un identificador a cada petición, lo mantiene disponible durante su
+ * procesamiento y lo devuelve en la respuesta. Respeta el que llegue en la
+ * cabecera.
  */
 export function requestContextMiddleware(
   req: Request,

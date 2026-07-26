@@ -119,9 +119,7 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
 
   private async processOne(message: OutboxMessageEntity): Promise<void> {
     try {
-      // El id de la fila del outbox identifica el evento: si la publicación se
-      // reintenta, o si el proceso muere entre publicar y marcar como
-      // procesado, se reemite el mismo valor y el consumidor lo descarta.
+      // El id de la fila identifica el evento y se repite en cada reintento.
       await this.eventBus.emit(message.eventType, message.payload, {
         eventId: message.id,
         correlationId: message.aggregateId,

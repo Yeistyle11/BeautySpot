@@ -16,17 +16,9 @@ const FECHA = "2026-08-03"; // lunes
 const HORA = "10:00";
 
 /**
- * Verifica contra Postgres real que dos clientes no pueden reservar el mismo
- * hueco del mismo profesional, ni siquiera pidiéndolo a la vez.
- *
- * Es la invariante de negocio más importante del producto y **no se puede
- * cubrir con un unit test**: la comprobación en código es un check-then-act, y
- * con los repositorios mockeados siempre parece correcta porque las dos
- * llamadas se serializan solas. La garantía real la da la transacción
- * SERIALIZABLE más el reintento de `withSerializableRetry`, y eso solo se
- * observa lanzando las dos reservas de verdad y en paralelo.
- *
- * Requiere la infraestructura de test levantada; se ejecuta con `npm run test:int`.
+ * Comprueba contra Postgres real que dos reservas simultáneas del mismo hueco y
+ * profesional no pueden confirmarse las dos.
+ * Requiere la infraestructura levantada; se ejecuta con `npm run test:int`.
  */
 describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
   let dataSource: DataSource;

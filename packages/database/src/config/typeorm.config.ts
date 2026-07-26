@@ -66,11 +66,7 @@ export function createTypeOrmConfig(
     url: databaseUrl,
     entities,
     migrations,
-    // Nunca al arrancar. Con varias réplicas del mismo servicio todas
-    // competirían por migrar a la vez, y un fallo de migración dejaría al
-    // servicio sin arrancar en lugar de fallar en un paso de despliegue
-    // visible. Las migraciones se aplican con `npm run migration:run` antes
-    // de levantar los contenedores (ver DEPLOY.md).
+    // Las migraciones se aplican con `npm run migration:run` (ver DEPLOY.md).
     migrationsRun: false,
     synchronize: !isProduction && synchronize,
     logging: loggingOptions,
@@ -93,13 +89,8 @@ export function createTypeOrmModuleOptions(
 }
 
 /**
- * Opciones del DataSource que usa el CLI de TypeORM para ejecutar migraciones.
- *
- * No es el mismo DataSource que usa la aplicación: aquí `synchronize` está
- * siempre desactivado (crear el esquema por reflexión mientras se migra haría
- * inútil la propia migración) y se declara el patrón donde buscar los ficheros.
- * El patrón incluye `.ts` y `.js` porque el CLI corre sobre los fuentes con
- * ts-node en desarrollo y sobre `dist/` en el servidor.
+ * Opciones del DataSource que usa el CLI de TypeORM: sin `synchronize` y con el
+ * patrón de migraciones en `.ts` y `.js`.
  */
 export function createMigrationDataSourceOptions(
   entities: EntityClass[],

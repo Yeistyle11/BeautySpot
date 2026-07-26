@@ -4,20 +4,10 @@ import { createMigrationDataSourceOptions } from "@beautyspot/database";
 import { entities } from "../orm-entities";
 
 /**
- * Verifica contra Postgres real que las migraciones reproducen EXACTAMENTE el
- * esquema que TypeORM deduce de las entidades.
- *
- * Es la única comprobación fiable de una migración escrita a mano: en
- * desarrollo y en los tests el esquema lo crea `synchronize`, así que un error
- * en el DDL no se nota hasta desplegar a producción, donde `synchronize` está
- * desactivado y la migración es la única fuente del esquema.
- *
- * `createSchemaBuilder().log()` devuelve las sentencias que `synchronize`
- * ejecutaría ahora mismo. Si la migración es fiel, esa lista está vacía; si
- * falta una columna, un índice o un default, aparece aquí el ALTER que lo
- * delata.
- *
- * Requiere la infraestructura de test levantada; se ejecuta con `npm run test:int`.
+ * Comprueba contra Postgres real que las migraciones reproducen el esquema que
+ * TypeORM deduce de las entidades: `createSchemaBuilder().log()` no devuelve
+ * ninguna sentencia pendiente.
+ * Requiere la infraestructura levantada; se ejecuta con `npm run test:int`.
  */
 describe("Integración: las migraciones reproducen el esquema de las entidades", () => {
   let dataSource: DataSource;

@@ -3,14 +3,7 @@ import type { Response } from "express";
 import { Public } from "../../decorators/public.decorator";
 import { HealthService, ResultadoSalud } from "./health.service";
 
-/**
- * Expone `GET /health` con el estado de las dependencias del servicio.
- *
- * Responde 200 cuando todas están arriba y **503 cuando alguna está caída**: es
- * el código que miran las readiness probes y los healthcheck de Docker, que no
- * interpretan el cuerpo. Devolver siempre 200 con un campo "unhealthy" dejaría
- * al orquestador enviando tráfico a un servicio que no puede atenderlo.
- */
+/** GET /health: 200 si todas las dependencias responden, 503 si alguna falla. */
 @Public()
 @Controller("health")
 export class HealthController {

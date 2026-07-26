@@ -2,17 +2,10 @@
 // del backend antes de que su contenido alimente el estado y los permisos.
 import { z } from "zod";
 
-/**
- * Cookie httpOnly con el access token, emitida por el gateway. El JavaScript de
- * la pagina no puede leerla; middleware.ts si, porque corre en el servidor.
- */
+/** Cookie httpOnly con el access token, emitida por el gateway. */
 export const AUTH_COOKIE_NAME = "bs_access";
 
-/**
- * Cookie legible con datos no sensibles de la sesion (rol, negocio, caducidad).
- * No es una credencial: solo evita que la interfaz tenga que adivinar con que
- * permisos entra el usuario. La autorizacion la decide siempre el backend.
- */
+/** Cookie legible con datos no sensibles de la sesión: rol, negocio y caducidad. */
 export const SESSION_HINT_COOKIE = "bs_session";
 
 const ROLES = [
@@ -24,12 +17,8 @@ const ROLES = [
   "CLIENT",
 ] as const;
 
-// Todos los campos son opcionales porque un JWT puede traer solo un
-// subconjunto (ej. durante refresh). Si un campo SI viene, debe tener la
-// forma correcta -- en particular `role`, que alimenta directamente
-// canAccess/canDo (lib/permissions.ts). Un payload que no matchea se
-// descarta entero (fail closed) en vez de dejar pasar un valor de rol
-// invalido silenciosamente.
+// Campos opcionales: un JWT puede traer solo un subconjunto. Un payload que no
+// encaja se descarta entero.
 const jwtPayloadSchema = z
   .object({
     sub: z.string(),
@@ -43,11 +32,7 @@ const jwtPayloadSchema = z
 
 export type JwtPayload = z.infer<typeof jwtPayloadSchema>;
 
-// La respuesta de /auth/login y /auth/register es el origen de todo el
-// estado de sesion/rol de la app (setAuth/setRole/setBusinessId en
-// lib/store.ts parten de aca). Se valida en runtime porque un cambio de
-// contrato del backend aca rompe silenciosamente cosas mas adelante
-// (ej. un `undefined.role`) en vez de fallar con un mensaje claro.
+// Usuario que devuelven /auth/login y /auth/register, validado en runtime.
 const userSchema = z.object({
   id: z.string(),
   email: z.string(),
@@ -57,11 +42,8 @@ const userSchema = z.object({
 });
 
 /**
- * Respuesta de /auth/login y /auth/register.
- *
- * No trae tokens: el gateway los convierte en cookies httpOnly antes de que la
- * respuesta llegue al navegador. En su lugar devuelve `session`, con los datos
- * no sensibles que la interfaz necesita para saber qué pintar.
+ * Respuesta de /auth/login y /auth/register: sin tokens y con `session`, los
+ * datos no sensibles que necesita la interfaz.
  */
 export const authResponseSchema = z.object({
   user: userSchema,

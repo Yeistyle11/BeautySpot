@@ -9,16 +9,7 @@ export interface EventoEntrante {
   eventType: string;
 }
 
-/**
- * Descarta los eventos que un handler ya aplicó.
- *
- * La entrega del bus es at-least-once: el relay del outbox reintenta si falla la
- * publicación, y RabbitMQ reentrega si el consumidor no confirma. Sin este
- * filtro, un evento entregado dos veces se aplica dos veces, y en los
- * consumidores que acumulan contadores eso corrompe los datos de forma
- * permanente y silenciosa: no hay forma de distinguir después un contador
- * inflado de uno legítimo.
- */
+/** Descarta los eventos que un handler ya aplicó. */
 @Injectable()
 export class ProcessedEventsStore {
   private readonly logger = new Logger(ProcessedEventsStore.name);
@@ -26,13 +17,8 @@ export class ProcessedEventsStore {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
   /**
-   * Ejecuta `trabajo` sólo si este handler no había procesado ya el evento.
-   *
-   * La marca se inserta y el trabajo se ejecuta **en la misma transacción**, y
-   * por eso `trabajo` recibe el EntityManager: si escribe fuera de él, la
-   * atomicidad se pierde y un fallo posterior deja el evento marcado sin
-   * haberse aplicado. La marca va primero para que dos entregas simultáneas del
-   * mismo evento choquen en la clave primaria en vez de duplicar el trabajo.
+   * Marca el evento y ejecuta `trabajo` en la misma transacción, sólo si este
+   * handler no lo había procesado.
    *
    * @returns true si se aplicó, false si ya estaba procesado.
    */

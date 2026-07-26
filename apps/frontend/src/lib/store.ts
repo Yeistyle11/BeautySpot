@@ -67,11 +67,7 @@ function readRole(): Role | null {
   return raw as Role;
 }
 
-/**
- * Lee la pista de sesion que emite el gateway: una cookie legible con rol y
- * negocio, sin el token. Sirve para rehidratar la interfaz cuando el
- * localStorage se ha limpiado pero la sesion del navegador sigue viva.
- */
+/** Lee de la cookie del gateway el rol y el negocio de la sesión. */
 function readSessionHint(): { role?: Role; businessId?: string } | null {
   if (typeof document === "undefined") return null;
   const entrada = document.cookie
@@ -88,13 +84,7 @@ function readSessionHint(): { role?: Role; businessId?: string } | null {
   }
 }
 
-/**
- * Store global de sesión (Zustand): usuario, negocio y rol activos.
- *
- * La credencial vive en una cookie httpOnly que emite el gateway, fuera del
- * alcance de este código: aquí solo está el estado que la interfaz necesita
- * para pintarse.
- */
+/** Store global de sesión (Zustand): usuario, negocio y rol activos. */
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   businessId: null,
@@ -125,11 +115,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.setItem(KEYS.role, role);
     set({ role });
   },
-  /**
-   * Limpia el estado local. Las cookies de sesión las borra el gateway al
-   * responder a /auth/logout: son httpOnly y el navegador no las puede tocar
-   * desde aquí.
-   */
+  /** Limpia el estado local; las cookies las borra el gateway en /auth/logout. */
   logout: () => {
     (Object.keys(KEYS) as (keyof typeof KEYS)[]).forEach((k) =>
       localStorage.removeItem(KEYS[k])

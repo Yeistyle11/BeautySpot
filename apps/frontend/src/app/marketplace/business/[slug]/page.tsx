@@ -18,11 +18,7 @@ async function getProfile(slug: string): Promise<Profile | null> {
   return parsed.success ? parsed.data : null;
 }
 
-/**
- * Metadata por negocio. Sin esto todos los perfiles compartian el titulo
- * generico del layout raiz, que para un marketplace significa no aparecer en
- * buscadores por el nombre del negocio.
- */
+/** Metadata propia de cada negocio: título, descripción e imagen del perfil. */
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {

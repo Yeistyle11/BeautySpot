@@ -15,12 +15,8 @@ function applyTheme(theme: Theme) {
 }
 
 /**
- * Tema claro/oscuro. Tailwind esta configurado con `darkMode: ["class"]`, asi
- * que basta con poner o quitar la clase `dark` en <html>; los tokens de
- * globals.css hacen el resto.
- *
- * La eleccion del usuario se guarda; si no ha elegido nada, se respeta la
- * preferencia del sistema operativo.
+ * Tema claro/oscuro: pone o quita la clase `dark` en <html>. Guarda la elección
+ * del usuario y, si no ha elegido, usa la preferencia del sistema.
  */
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>("light");

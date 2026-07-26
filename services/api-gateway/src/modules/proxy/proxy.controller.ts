@@ -28,9 +28,7 @@ export class ProxyController {
     private sessionService: SessionService
   ) {}
 
-  // Express 5 (path-to-regexp v8) exige nombrar el comodín: "*" suelto ya no es
-  // válido. "*splat" captura el resto de la ruta; no se consume por nombre
-  // porque buildTargetUrl reconstruye el path desde req.path.
+  // Express 5 exige nombrar el comodín: "*splat" captura el resto de la ruta.
   /** Valida que el servicio exista y ejecuta el reenvío bajo el circuit breaker. */
   @All(":service/*splat")
   async proxyRequest(
@@ -99,15 +97,7 @@ export class ProxyController {
     }
   }
 
-  /**
-   * Reescribe la ruta del gateway a la ruta interna esperada por el servicio
-   * destino.
-   *
-   * Sólo hay que quitar el prefijo del gateway: los microservicios no definen
-   * `setGlobalPrefix`, así que sus controladores cuelgan de la raíz. No se
-   * antepone ningún nombre de módulo, ni siquiera cuando el servicio llega como
-   * "core-service": esa ruta no existe en el destino.
-   */
+  /** Reescribe la ruta del gateway quitándole el prefijo `/api/v1/:service`. */
   private buildTargetUrl(service: string, req: Request): string {
     const serviceUrl = this.proxyService.getServiceUrl(service);
     let path = req.path;

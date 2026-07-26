@@ -4,16 +4,8 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
 
 /**
- * GET publico ejecutado en el servidor, para las paginas del marketplace.
- *
- * Existe aparte de `lib/api.ts` porque aquel se apoya en la cookie de sesion
- * del navegador y en su manejo del 401. Aqui el objetivo es distinto:
- * renderizar contenido publico en el HTML inicial para que los buscadores lo
- * indexen y el usuario no vea una pantalla vacia mientras carga, sin sesion de
- * por medio.
- *
- * Devuelve `null` en vez de lanzar: un perfil que no existe debe acabar en un
- * 404 de Next, no en una pagina de error.
+ * GET público ejecutado en el servidor, para las páginas del marketplace.
+ * Devuelve `null` si el recurso no existe, para que la página responda 404.
  */
 export async function fetchPublic<T>(
   path: string,

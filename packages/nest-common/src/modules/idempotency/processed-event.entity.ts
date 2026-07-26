@@ -1,12 +1,6 @@
 import { Column, CreateDateColumn, Entity, PrimaryColumn } from "typeorm";
 
-/**
- * Marca de que un handler concreto ya aplicó un evento.
- *
- * La clave primaria es (event_id, handler) y no solo el evento: varios handlers
- * del mismo servicio pueden reaccionar al mismo evento, y cada uno lleva su
- * propia cuenta.
- */
+/** Marca de que un handler ya aplicó un evento; la clave es (event_id, handler). */
 @Entity("processed_events")
 export class ProcessedEventEntity {
   @PrimaryColumn({ type: "uuid", name: "event_id" })

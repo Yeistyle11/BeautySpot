@@ -13,16 +13,8 @@ import { ACCESS_COOKIE, leerCookie } from "./session-cookies";
 const METODOS_MUTANTES = ["POST", "PUT", "PATCH", "DELETE"];
 
 /**
- * Rechaza las peticiones autenticadas por cookie que vengan de otro origen.
- *
- * Autenticar por cookie significa que el navegador la adjunta sola, así que un
- * formulario en un sitio ajeno podría disparar acciones en nombre del usuario.
- * `SameSite=Lax` ya lo impide en los navegadores actuales; esta comprobación es
- * la segunda barrera, y cubre los casos que Lax no alcanza.
- *
- * Sólo afecta a quien se autentica **por cookie**: una petición con cabecera
- * `Authorization` no la envía el navegador por su cuenta, así que no puede ser
- * falsificada de este modo y se deja pasar.
+ * Rechaza las peticiones autenticadas por cookie que vengan de otro origen. Las
+ * que llegan con cabecera `Authorization` pasan sin comprobación.
  */
 @Injectable()
 export class CsrfOriginGuard implements CanActivate {
@@ -63,10 +55,7 @@ export class CsrfOriginGuard implements CanActivate {
     }
   }
 
-  /**
-   * Comprueba el origen contra la misma lista que gobierna CORS, para que no
-   * haya dos listas de orígenes de confianza que puedan divergir.
-   */
+  /** Comprueba el origen contra la misma lista que gobierna CORS. */
   private permitido(origen: string): boolean {
     const configurados = (this.configService.get<string>("CORS_ORIGINS") ?? "")
       .split(",")
