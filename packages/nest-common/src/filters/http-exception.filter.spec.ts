@@ -102,6 +102,53 @@ describe("HttpExceptionFilter", () => {
       );
     });
 
+    it("debería conservar el código y el mensaje del sobre ya formado", () => {
+      const exception = new HttpException(
+        {
+          success: false,
+          error: {
+            code: "RATE_LIMIT_EXCEEDED",
+            message: "Demasiadas solicitudes",
+          },
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+        },
+        HttpStatus.TOO_MANY_REQUESTS
+      );
+      const response = mockResponse();
+      const host = createMockArgumentsHost(response);
+
+      filter.catch(exception, host);
+
+      expect(response.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: "RATE_LIMIT_EXCEEDED",
+            message: "Demasiadas solicitudes",
+          }),
+        })
+      );
+    });
+
+    it("debería manejar CONFLICT con código correcto", () => {
+      const exception = new HttpException(
+        "La categoría ya existe",
+        HttpStatus.CONFLICT
+      );
+      const response = mockResponse();
+      const host = createMockArgumentsHost(response);
+
+      filter.catch(exception, host);
+
+      expect(response.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: "CONFLICT",
+            message: "La categoría ya existe",
+          }),
+        })
+      );
+    });
+
     it("debería manejar BAD_REQUEST con código correcto", () => {
       const exception = new HttpException(
         "Bad request",
