@@ -1,16 +1,20 @@
 // Esquemas Zod y tipos de los pagos.
 import { z } from "zod";
 
+// Los campos opcionales usan `nullish()`: el backend devuelve `null` en las
+// columnas sin rellenar, no las omite, y un `optional()` a secas descarta la
+// respuesta entera.
+
 export const paymentSchema = z.object({
   id: z.string(),
   amount: z.string(),
   method: z.string(),
   status: z.string(),
   registeredAt: z.string(),
-  appointmentId: z.string().optional(),
-  clientId: z.string().optional(),
-  reference: z.string().optional(),
-  notes: z.string().optional(),
+  appointmentId: z.string().nullish(),
+  clientId: z.string().nullish(),
+  reference: z.string().nullish(),
+  notes: z.string().nullish(),
 });
 export type Payment = z.infer<typeof paymentSchema>;
 
