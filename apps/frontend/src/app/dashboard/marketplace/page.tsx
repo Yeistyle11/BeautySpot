@@ -130,7 +130,7 @@ export default function MarketplacePage() {
           tiktok: configForm.tiktok || undefined,
           website: configForm.website || undefined,
         },
-        sectionConfig: { sections },
+        sectionConfig: sections,
       });
       await mutateProfile();
     } catch (err) {

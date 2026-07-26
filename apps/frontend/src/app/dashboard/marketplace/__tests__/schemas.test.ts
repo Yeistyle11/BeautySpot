@@ -1,4 +1,4 @@
-import { profileSchema } from "../schemas";
+import { defaultSections, profileSchema, reorderSections } from "../schemas";
 
 /** Perfil tal y como lo devuelve GET /marketplace/business-profiles. */
 const perfilDeLaApi = {
@@ -18,7 +18,16 @@ const perfilDeLaApi = {
   foundedYear: null,
   founders: null,
   socialLinks: null,
-  sectionConfig: { sections: [] },
+  sectionConfig: {
+    sections: [
+      { id: "story", order: 1, enabled: true },
+      { id: "services", order: 2, enabled: true },
+      { id: "team", order: 3, enabled: true },
+      { id: "gallery", order: 4, enabled: true },
+      { id: "reviews", order: 5, enabled: true },
+      { id: "location", order: 6, enabled: true },
+    ],
+  },
   galleryImages: null,
   isPublished: true,
   profileCompleteness: 18,
@@ -39,5 +48,25 @@ describe("profileSchema del panel", () => {
     });
 
     expect(result.success).toBe(true);
+  });
+});
+
+describe("secciones del perfil", () => {
+  it("las secciones por defecto usan el mismo campo que el backend", () => {
+    expect(defaultSections.map((s) => s.id)).toEqual([
+      "story",
+      "services",
+      "team",
+      "gallery",
+      "reviews",
+      "location",
+    ]);
+  });
+
+  it("reordenar intercambia el orden de dos secciones", () => {
+    const movidas = reorderSections(defaultSections, "services", "up");
+
+    expect(movidas.find((s) => s.id === "services")?.order).toBe(1);
+    expect(movidas.find((s) => s.id === "story")?.order).toBe(2);
   });
 });

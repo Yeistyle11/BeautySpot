@@ -65,7 +65,7 @@ function SectionRow({
 interface SectionsTabProps {
   sections: SectionItem[];
   onChange: (sections: SectionItem[]) => void;
-  onMove: (type: string, direction: "up" | "down") => void;
+  onMove: (id: string, direction: "up" | "down") => void;
   onSave: () => void;
   saving: boolean;
   role: Role | null;
@@ -80,8 +80,8 @@ export function SectionsTab({
   saving,
   role,
 }: SectionsTabProps) {
-  const patch = (type: string, changes: Partial<SectionItem>) =>
-    onChange(sections.map((s) => (s.type === type ? { ...s, ...changes } : s)));
+  const patch = (id: string, changes: Partial<SectionItem>) =>
+    onChange(sections.map((s) => (s.id === id ? { ...s, ...changes } : s)));
 
   return (
     <Card className="border-0 shadow-sm">
@@ -93,15 +93,15 @@ export function SectionsTab({
           .sort((a, b) => a.order - b.order)
           .map((section) => (
             <SectionRow
-              key={section.type}
+              key={section.id}
               section={section}
               label={
-                SECTION_TYPES.find((s) => s.type === section.type)?.label ||
-                section.type
+                SECTION_TYPES.find((s) => s.id === section.id)?.label ||
+                section.id
               }
-              onMove={(direction) => onMove(section.type, direction)}
-              onToggle={(enabled) => patch(section.type, { enabled })}
-              onRename={(customTitle) => patch(section.type, { customTitle })}
+              onMove={(direction) => onMove(section.id, direction)}
+              onToggle={(enabled) => patch(section.id, { enabled })}
+              onRename={(customTitle) => patch(section.id, { customTitle })}
             />
           ))}
         {canDo(role, "marketplace_edit") && (
