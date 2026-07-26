@@ -6,10 +6,6 @@ export type Theme = "light" | "dark";
 
 const STORAGE_KEY = "ui:v1:theme";
 
-function prefersDark(): boolean {
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
-}
-
 function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
 }
@@ -19,8 +15,10 @@ function applyTheme(theme: Theme) {
  * que basta con poner o quitar la clase `dark` en <html>; los tokens de
  * globals.css hacen el resto.
  *
- * La eleccion del usuario se guarda; si no ha elegido nada, se respeta la
- * preferencia del sistema operativo.
+ * El panel arranca en claro y sólo pasa a oscuro si el usuario lo pide con el
+ * conmutador; su eleccion queda guardada. La preferencia del sistema operativo
+ * no se consulta: el panel se usa a diario junto a otras herramientas de
+ * gestion y conviene que su aspecto sea el mismo en cualquier equipo.
  */
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>("light");
@@ -28,7 +26,7 @@ export function useTheme() {
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    const initial: Theme = stored ?? (prefersDark() ? "dark" : "light");
+    const initial: Theme = stored === "dark" ? "dark" : "light";
     setTheme(initial);
     applyTheme(initial);
     setMounted(true);
