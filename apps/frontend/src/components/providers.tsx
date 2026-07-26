@@ -6,6 +6,7 @@ import { SWRConfig } from "swr";
 import { setUnauthorizedHandler } from "@/lib/api";
 import { isAuthError } from "@/lib/api-error";
 import { useAuthStore } from "@/lib/store";
+import { ToastProvider } from "@/components/ui/toast";
 
 /**
  * Cierra la sesion y manda a login cuando el backend rechaza el token.
@@ -42,7 +43,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         shouldRetryOnError: (err: unknown) => !isAuthError(err),
       }}
     >
-      {children}
+      <ToastProvider>{children}</ToastProvider>
     </SWRConfig>
   );
 }

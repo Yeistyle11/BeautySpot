@@ -29,6 +29,9 @@ import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
+import { useToast } from "@/components/ui/toast";
+import { mensajeDeError } from "@/lib/error-message";
+import { ListLoadError } from "@/components/dashboard/list-load-error";
 import { getErrorMessage } from "@/lib/utils";
 
 const serviceSchema = z.object({
@@ -65,10 +68,13 @@ const SERVICES_KEY = "/core/services";
 const CATEGORIES_KEY = "/core/service-categories";
 
 export default function ServicesPage() {
+  const toast = useToast();
   const { role } = useAuthStore();
   const {
     items: services,
     isLoading: loading,
+    error: loadError,
+    reload,
     create: createService,
     update: updateService,
     remove: removeService,
@@ -143,6 +149,7 @@ export default function ServicesPage() {
       setCreateDialog(false);
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setSavingCreate(false);
     }
@@ -185,6 +192,7 @@ export default function ServicesPage() {
       setEditId(null);
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setSavingEdit(false);
     }
@@ -199,6 +207,7 @@ export default function ServicesPage() {
       setDeleteId(null);
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
       setDeleteError(getErrorMessage(err, "No se pudo eliminar el servicio"));
     } finally {
       setDeleting(false);
@@ -257,6 +266,8 @@ export default function ServicesPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {loading ? (
           <p className="text-muted-foreground">Cargando...</p>
+        ) : loadError ? (
+          <ListLoadError error={loadError} onRetry={() => void reload()} />
         ) : (
           filtered.map((s) => (
             <Card

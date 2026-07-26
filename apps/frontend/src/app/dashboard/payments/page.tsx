@@ -15,6 +15,8 @@ import { canDo } from "@/lib/permissions";
 import { useApi, revalidatePrefix } from "@/lib/swr";
 import { usePaginatedList } from "@/lib/use-paginated-list";
 import { logger } from "@/lib/logger";
+import { useToast } from "@/components/ui/toast";
+import { mensajeDeError } from "@/lib/error-message";
 import { PaymentSummaryCards } from "./payment-summary";
 import { PaymentCard } from "./payment-card";
 import { CreatePaymentDialog, EditPaymentDialog } from "./payment-dialogs";
@@ -36,6 +38,7 @@ import {
 } from "./schemas";
 
 export default function PaymentsPage() {
+  const toast = useToast();
   const { role } = useAuthStore();
   const [filterMethod, setFilterMethod] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -135,6 +138,7 @@ export default function PaymentsPage() {
       await revalidatePrefix(PAYMENTS_KEY);
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setSavingCreate(false);
     }
@@ -167,6 +171,7 @@ export default function PaymentsPage() {
       await revalidatePrefix(PAYMENTS_KEY);
     } catch (err) {
       logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setSavingEdit(false);
     }
