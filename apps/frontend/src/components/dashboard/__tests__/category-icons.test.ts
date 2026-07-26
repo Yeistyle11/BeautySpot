@@ -24,8 +24,6 @@ describe("resolveCategoryIcon", () => {
 });
 
 describe("CATEGORY_ICON_OPTIONS", () => {
-  // Ofrecer un icono y saber dibujarlo salen de la misma lista; este test lo
-  // fija para que añadir una opción sin su componente falle aquí.
   it("cada opción ofrecida se resuelve a un icono propio", () => {
     for (const { value } of CATEGORY_ICON_OPTIONS) {
       expect(resolveCategoryIcon(value, Tag)).not.toBe(Tag);
