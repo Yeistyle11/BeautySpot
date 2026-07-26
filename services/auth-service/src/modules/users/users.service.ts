@@ -52,8 +52,8 @@ export class UsersService {
   }
 
   /**
-   * Lista todos los usuarios (staff) que pertenecen a un negocio
-   * a traves de sus membresias activas.
+   * Lista el staff del negocio, incluidos los desactivados: la interfaz los
+   * muestra con su estado y ofrece reactivarlos.
    */
   async findByBusiness(businessId: string): Promise<
     (SafeUser & {
@@ -64,7 +64,7 @@ export class UsersService {
     })[]
   > {
     const memberships = await this.membershipRepository.find({
-      where: { businessId, active: true },
+      where: { businessId },
       relations: ["user"],
     });
 
@@ -85,7 +85,7 @@ export class UsersService {
     businessId: string
   ): Promise<SafeUser & { role: string; membershipId: string }> {
     const membership = await this.membershipRepository.findOne({
-      where: { userId, businessId, active: true },
+      where: { userId, businessId },
       relations: ["user"],
     });
 
@@ -195,7 +195,7 @@ export class UsersService {
     dto: UpdateStaffDto
   ): Promise<SafeUser> {
     const membership = await this.membershipRepository.findOne({
-      where: { userId, businessId, active: true },
+      where: { userId, businessId },
     });
     if (!membership) {
       throw new NotFoundException("Usuario no encontrado en este negocio");
@@ -252,7 +252,7 @@ export class UsersService {
     newPassword: string
   ): Promise<{ message: string }> {
     const membership = await this.membershipRepository.findOne({
-      where: { userId, businessId, active: true },
+      where: { userId, businessId },
     });
     if (!membership) {
       throw new NotFoundException("Usuario no encontrado en este negocio");
@@ -303,7 +303,7 @@ export class UsersService {
     active: boolean
   ): Promise<{ message: string }> {
     const membership = await this.membershipRepository.findOne({
-      where: { userId, businessId, active: true },
+      where: { userId, businessId },
     });
     if (!membership) {
       throw new NotFoundException("Usuario no encontrado en este negocio");
