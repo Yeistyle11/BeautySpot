@@ -38,8 +38,8 @@ const userSchema = z.object({
   email: z.string(),
   name: z.string(),
   // Los campos que el usuario no ha rellenado llegan como `null`.
-  phone: z.string().nullable().optional(),
-  avatar: z.string().nullable().optional(),
+  phone: z.string().nullish(),
+  avatar: z.string().nullish(),
 });
 
 /**
