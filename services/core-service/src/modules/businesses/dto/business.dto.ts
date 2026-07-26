@@ -10,6 +10,8 @@ import {
 export class CreateBusinessDto {
   @IsString() @MaxLength(200) name!: string;
   @IsOptional() @IsString() @MaxLength(1000) description?: string;
+  @IsOptional() @IsString() @MaxLength(255) logo?: string;
+  @IsOptional() @IsString() @MaxLength(255) coverImage?: string;
   @IsOptional() @IsString() @MaxLength(30) phone?: string;
   @IsOptional() @IsString() @MaxLength(255) email?: string;
   @IsOptional() @IsString() @MaxLength(255) website?: string;
@@ -29,6 +31,8 @@ export class CreateBusinessDto {
 export class UpdateBusinessDto {
   @IsOptional() @IsString() @MaxLength(200) name?: string;
   @IsOptional() @IsString() @MaxLength(1000) description?: string;
+  @IsOptional() @IsString() @MaxLength(255) logo?: string;
+  @IsOptional() @IsString() @MaxLength(255) coverImage?: string;
   @IsOptional() @IsString() @MaxLength(30) phone?: string;
   @IsOptional() @IsString() @MaxLength(255) email?: string;
   @IsOptional() @IsString() @MaxLength(255) website?: string;
