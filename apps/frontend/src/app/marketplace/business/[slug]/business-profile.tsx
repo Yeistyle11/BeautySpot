@@ -24,12 +24,13 @@ import { z } from "zod";
 import { useApiPublic } from "@/lib/swr";
 
 import {
-  profileSchema,
+  profileResponseSchema,
   professionalSchema,
   reviewsResponseSchema,
   ratingDistributionSchema,
   SECTION_TITLES,
   type Profile,
+  type ProfileResponse,
   type Professional,
   type Review,
   type RatingDistribution,
@@ -51,11 +52,14 @@ export default function BusinessProfile({
   slug: string;
   initialProfile: Profile | null;
 }) {
-  const { data: profile, isLoading: loading } = useApiPublic<Profile>(
+  // El endpoint devuelve { profile, professionals }; aquí sólo interesa el
+  // perfil, porque el equipo se pide aparte más abajo.
+  const { data: respuesta, isLoading: loading } = useApiPublic<ProfileResponse>(
     `/marketplace/profiles/${slug}`,
-    initialProfile ? { fallbackData: initialProfile } : undefined,
-    profileSchema
+    initialProfile ? { fallbackData: { profile: initialProfile } } : undefined,
+    profileResponseSchema
   );
+  const profile = respuesta?.profile;
 
   const bid = profile?.businessId;
   const { data: professionals } = useApiPublic<Professional[]>(
