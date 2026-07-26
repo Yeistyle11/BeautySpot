@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchPublic } from "@/lib/api-server";
 import BusinessProfile from "./business-profile";
-import { profileSchema, type Profile } from "./schemas";
+import { profileResponseSchema, type Profile } from "./schemas";
 
 interface PageProps {
   params: { slug: string };
@@ -14,8 +14,8 @@ interface PageProps {
 async function getProfile(slug: string): Promise<Profile | null> {
   const raw = await fetchPublic<unknown>(`/marketplace/profiles/${slug}`);
   if (!raw) return null;
-  const parsed = profileSchema.safeParse(raw);
-  return parsed.success ? parsed.data : null;
+  const parsed = profileResponseSchema.safeParse(raw);
+  return parsed.success ? parsed.data.profile : null;
 }
 
 /** Metadata propia de cada negocio: título, descripción e imagen del perfil. */

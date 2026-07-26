@@ -87,6 +87,16 @@ export const professionalSchema = z.object({
 });
 export type Professional = z.infer<typeof professionalSchema>;
 
+/**
+ * Respuesta de `GET /marketplace/profiles/:slug`: el perfil y, si la sección
+ * "team" del escaparate está activa, el equipo del negocio.
+ */
+export const profileResponseSchema = z.object({
+  profile: profileSchema,
+  professionals: z.array(professionalSchema).optional(),
+});
+export type ProfileResponse = z.infer<typeof profileResponseSchema>;
+
 export const reviewSchema = z.object({
   id: z.string(),
   clientId: z.string(),

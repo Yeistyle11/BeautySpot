@@ -1,10 +1,5 @@
-// Esquemas de las respuestas públicas del marketplace (feed y búsqueda).
-//
-// Viven en un módulo sin "use client" para que los pueda usar tanto la página
-// —que renderiza en el servidor— como el componente interactivo. Un valor
-// importado desde un módulo cliente hacia el servidor no llega como el objeto
-// real, sino como una referencia: invocar `safeParse` sobre él lanza
-// "Attempted to call safeParse() from the server but safeParse is on the client".
+// Esquemas de las respuestas públicas del marketplace (feed y búsqueda), en un
+// módulo sin "use client" para que los use tanto la página como el componente.
 import { z } from "zod";
 
 export const profileSchema = z.object({

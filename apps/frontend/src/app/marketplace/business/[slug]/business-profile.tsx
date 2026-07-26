@@ -20,17 +20,15 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { z } from "zod";
 import { useApiPublic } from "@/lib/swr";
 
 import {
-  profileSchema,
-  professionalSchema,
+  profileResponseSchema,
   reviewsResponseSchema,
   ratingDistributionSchema,
   SECTION_TITLES,
   type Profile,
-  type Professional,
+  type ProfileResponse,
   type Review,
   type RatingDistribution,
 } from "./schemas";
@@ -51,18 +49,15 @@ export default function BusinessProfile({
   slug: string;
   initialProfile: Profile | null;
 }) {
-  const { data: profile, isLoading: loading } = useApiPublic<Profile>(
+  // El perfil y el equipo llegan juntos en esta respuesta.
+  const { data: respuesta, isLoading: loading } = useApiPublic<ProfileResponse>(
     `/marketplace/profiles/${slug}`,
-    initialProfile ? { fallbackData: initialProfile } : undefined,
-    profileSchema
+    initialProfile ? { fallbackData: { profile: initialProfile } } : undefined,
+    profileResponseSchema
   );
-
+  const profile = respuesta?.profile;
+  const professionals = respuesta?.professionals;
   const bid = profile?.businessId;
-  const { data: professionals } = useApiPublic<Professional[]>(
-    bid ? `/marketplace/professional-profiles/business/${bid}` : null,
-    undefined,
-    z.array(professionalSchema)
-  );
   const { data: reviewsResp } = useApiPublic<{
     items: Review[];
     total: number;
