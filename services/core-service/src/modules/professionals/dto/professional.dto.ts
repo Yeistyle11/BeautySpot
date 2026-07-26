@@ -6,6 +6,7 @@ import {
   IsUrl,
   IsBoolean,
   MaxLength,
+  IsUUID,
 } from "class-validator";
 
 /** Datos para dar de alta un profesional: nombre, bio, categoría y especialidades. */
@@ -15,6 +16,7 @@ export class CreateProfessionalDto {
   @IsString() @MaxLength(200) name!: string;
   @IsOptional() @IsString() @MaxLength(1000) bio?: string;
   @IsOptional() @IsString() @MaxLength(100) category?: string;
+  @IsOptional() @IsUUID() categoryId?: string;
   @IsArray() specialties!: string[];
   @IsOptional() @IsNumber() yearsExp?: number;
   @IsOptional() @IsUrl() photo?: string;
@@ -26,6 +28,7 @@ export class UpdateProfessionalDto {
   @IsOptional() @IsString() @MaxLength(200) name?: string;
   @IsOptional() @IsString() @MaxLength(1000) bio?: string;
   @IsOptional() @IsString() @MaxLength(100) category?: string;
+  @IsOptional() @IsUUID() categoryId?: string;
   @IsOptional() @IsArray() specialties?: string[];
   @IsOptional() @IsNumber() yearsExp?: number;
   @IsOptional() @IsUrl() photo?: string;
