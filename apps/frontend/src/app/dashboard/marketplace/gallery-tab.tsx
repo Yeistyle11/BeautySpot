@@ -70,7 +70,7 @@ export function GalleryTab({
                   </div>
                 )}
                 {canEdit && (
-                  // La capa de acciones aparece al pasar el raton, pero el
+                  // La carga de acciones mejora la expereicia al usuario pero
                   // boton sigue siendo alcanzable con teclado (focus-within).
                   <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
                     <Button
