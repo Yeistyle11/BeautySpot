@@ -1,4 +1,5 @@
 import {
+  ArrayNotEmpty,
   IsString,
   IsOptional,
   IsArray,
@@ -22,6 +23,7 @@ export class CreateAppointmentDto {
   @IsString() professionalId!: string;
   @IsString() clientId!: string;
   @IsArray()
+  @ArrayNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => AppointmentServiceItemDto)
   serviceIds!: AppointmentServiceItemDto[];
