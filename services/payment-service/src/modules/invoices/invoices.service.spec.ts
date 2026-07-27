@@ -1,6 +1,7 @@
 import { Test } from "@nestjs/testing";
+import { DataSource, Repository } from "typeorm";
+import { OutboxService } from "@beautyspot/nest-common";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import { InvoicesService } from "./invoices.service";
 import { InvoiceEntity } from "./invoice.entity";
 import { InvoiceItemEntity } from "./invoice-item.entity";
@@ -59,8 +60,18 @@ describe("InvoicesService", () => {
       generateInvoicePdf: jest.fn().mockResolvedValue(Buffer.from("PDF data")),
     } as any;
 
+    const mockOutboxSpec = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    const mockDataSourceSpec = {
+      // La transacción entrega el mismo repositorio simulado del test.
+      transaction: jest.fn((cb) =>
+        cb({ getRepository: jest.fn().mockReturnValue(mockInvoiceRepo) })
+      ),
+    };
+
     const module = await Test.createTestingModule({
       providers: [
+        { provide: DataSource, useValue: mockDataSourceSpec },
+        { provide: OutboxService, useValue: mockOutboxSpec },
         InvoicesService,
         {
           provide: getRepositoryToken(InvoiceEntity),

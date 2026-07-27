@@ -4,7 +4,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
-import { HealthModule } from "@beautyspot/nest-common";
+import { HealthModule, OutboxModule } from "@beautyspot/nest-common";
 import { entities } from "./orm-entities";
 import { BusinessesModule } from "./modules/businesses/businesses.module";
 import { BranchesModule } from "./modules/branches/branches.module";
@@ -30,6 +30,7 @@ import { CoreEventListenersModule } from "./modules/event-listeners/core-event-l
       useFactory: () => createTypeOrmModuleOptions(entities),
     }),
     HealthModule,
+    OutboxModule,
     BusinessesModule,
     BranchesModule,
     ProfessionalsModule,

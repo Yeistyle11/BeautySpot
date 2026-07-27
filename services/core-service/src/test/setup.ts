@@ -46,6 +46,7 @@ jest.mock("amqplib", () => ({
 
 // Mock de EventBusService
 jest.mock("@beautyspot/nest-common", () => ({
+  ...jest.requireActual("@beautyspot/nest-common"),
   EventBusService: jest.fn().mockImplementation(() => ({
     emit: jest.fn().mockResolvedValue(undefined),
     on: jest.fn().mockReturnValue(undefined),

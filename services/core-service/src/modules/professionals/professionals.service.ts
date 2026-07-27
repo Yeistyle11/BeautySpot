@@ -7,7 +7,9 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { OutboxService } from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
+import { Repository, DataSource } from "typeorm";
 import { ConfigService } from "@nestjs/config";
 import { Professional } from "../../entities/professional.entity";
 import { CategoriesService } from "../categories/categories.service";
@@ -25,7 +27,9 @@ export class ProfessionalsService {
     @InjectRepository(ProfessionalService)
     private readonly psRepo: Repository<ProfessionalService>,
     private readonly configService: ConfigService,
-    private readonly categories: CategoriesService
+    private readonly categories: CategoriesService,
+    private readonly dataSource: DataSource,
+    private readonly outbox: OutboxService
   ) {}
 
   /** Comprueba que la categoría pertenece al negocio antes de asociarla. */
@@ -44,7 +48,26 @@ export class ProfessionalsService {
   ): Promise<Professional> {
     await this.validarCategoria(data.categoryId, businessId);
     const professional = this.repo.create({ ...data, businessId });
-    return this.repo.save(professional);
+
+    return this.dataSource.transaction(async (manager) => {
+      const creado = await manager
+        .getRepository(Professional)
+        .save(professional);
+
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.CORE_PROFESSIONAL_CREATED,
+        aggregateType: "professional",
+        aggregateId: creado.id,
+        payload: {
+          professionalId: creado.id,
+          businessId,
+          name: creado.name,
+          specialties: creado.specialties ?? [],
+        },
+      });
+
+      return creado;
+    });
   }
 
   /** Lista los profesionales del negocio (por defecto solo los activos). */

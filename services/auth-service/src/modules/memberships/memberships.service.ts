@@ -8,7 +8,8 @@ import { DataSource, EntityManager, Repository } from "typeorm";
 import { Membership } from "../../entities/membership.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
 import { Role } from "@beautyspot/shared-types";
-import { TokenVersionStore } from "@beautyspot/nest-common";
+import { TokenVersionStore, OutboxService } from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
 
 /** Usuario que ejecuta la acción; su rol y negocio determinan qué membresías puede tocar. */
 export interface MembershipActor {
@@ -29,7 +30,8 @@ export class MembershipsService {
     @InjectRepository(AuditLog)
     private readonly auditLogRepository: Repository<AuditLog>,
     private readonly dataSource: DataSource,
-    private readonly tokenVersionStore: TokenVersionStore
+    private readonly tokenVersionStore: TokenVersionStore,
+    private readonly outboxService: OutboxService
   ) {}
 
   /** Añade a un usuario a un negocio; rechaza si ya es miembro activo. */
@@ -69,6 +71,20 @@ export class MembershipsService {
           manager
         );
       }
+
+      await this.outboxService.enqueue(manager, {
+        eventType: EventNames.AUTH_MEMBERSHIP_CREATED,
+        aggregateType: "memberships",
+        aggregateId: saved.id,
+        payload: {
+          membershipId: saved.id,
+          userId: data.userId,
+          businessId: data.businessId,
+          role: data.role,
+          invitedBy: data.invitedBy,
+        },
+      });
+
       return saved;
     });
   }
@@ -106,6 +122,19 @@ export class MembershipsService {
         },
         manager
       );
+      await this.outboxService.enqueue(manager, {
+        eventType: EventNames.AUTH_MEMBERSHIP_ROLE_CHANGED,
+        aggregateType: "memberships",
+        aggregateId: membershipId,
+        payload: {
+          membershipId,
+          userId: membership.userId,
+          businessId: membership.businessId,
+          previousRole,
+          newRole,
+        },
+      });
+
       await this.tokenVersionStore.bumpVersion(membership.userId);
       return updated;
     });

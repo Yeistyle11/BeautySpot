@@ -7,9 +7,10 @@ import {
 } from "./memberships.controller";
 import { Membership } from "../../entities/membership.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
+import { OutboxModule } from "@beautyspot/nest-common";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Membership, AuditLog])],
+  imports: [TypeOrmModule.forFeature([Membership, AuditLog]), OutboxModule],
   controllers: [MembershipsController, InternalMembershipsController],
   providers: [MembershipsService],
   exports: [MembershipsService],

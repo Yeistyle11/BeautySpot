@@ -12,7 +12,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { Role } from "@beautyspot/shared-types";
-import { TokenVersionStore } from "@beautyspot/nest-common";
+import { TokenVersionStore, OutboxService } from "@beautyspot/nest-common";
 import { CreateStaffDto } from "./dto/create-staff.dto";
 import { UpdateStaffDto } from "./dto/update-staff.dto";
 
@@ -91,8 +91,11 @@ describe("UsersService", () => {
       bumpVersion: jest.fn().mockResolvedValue(1),
     } as any;
 
+    const mockOutboxUsers = { enqueue: jest.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: OutboxService, useValue: mockOutboxUsers },
         UsersService,
         {
           provide: getRepositoryToken(User),

@@ -21,8 +21,11 @@ export class BusinessesController {
 
   /** Crea un negocio nuevo. */
   @Post()
-  async create(@Body() dto: CreateBusinessDto) {
-    return this.service.create(dto);
+  async create(
+    @Body() dto: CreateBusinessDto,
+    @CurrentUser("userId") userId: string
+  ) {
+    return this.service.create(dto, userId);
   }
 
   @Roles(

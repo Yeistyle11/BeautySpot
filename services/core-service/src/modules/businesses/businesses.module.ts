@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { OutboxModule } from "@beautyspot/nest-common";
 import { BusinessesService } from "./businesses.service";
 import {
   BusinessesController,
@@ -8,7 +9,7 @@ import {
 import { Business } from "../../entities/business.entity";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Business])],
+  imports: [TypeOrmModule.forFeature([Business]), OutboxModule],
   controllers: [BusinessesController, InternalBusinessesController],
   providers: [BusinessesService],
   exports: [BusinessesService],

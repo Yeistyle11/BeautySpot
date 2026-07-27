@@ -5,7 +5,9 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { OutboxService } from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
+import { Repository, DataSource } from "typeorm";
 import { Business } from "../../entities/business.entity";
 import {
   generateSlug,
@@ -22,11 +24,13 @@ import { Role } from "@beautyspot/shared-types";
 export class BusinessesService {
   constructor(
     @InjectRepository(Business)
-    private readonly repo: Repository<Business>
+    private readonly repo: Repository<Business>,
+    private readonly dataSource: DataSource,
+    private readonly outbox: OutboxService
   ) {}
 
   /** Crea un negocio generando un slug único a partir del nombre. */
-  async create(data: Partial<Business>): Promise<Business> {
+  async create(data: Partial<Business>, creadoPor = ""): Promise<Business> {
     const slug = generateSlug(data.name!);
     const existing = await this.repo.findOne({ where: { slug } });
     if (existing) {
@@ -34,7 +38,25 @@ export class BusinessesService {
     }
 
     const business = this.repo.create({ ...data, slug });
-    return this.repo.save(business);
+
+    return this.dataSource.transaction(async (manager) => {
+      const creado = await manager.getRepository(Business).save(business);
+
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.CORE_BUSINESS_CREATED,
+        aggregateType: "business",
+        aggregateId: creado.id,
+        payload: {
+          businessId: creado.id,
+          slug: creado.slug,
+          name: creado.name,
+          businessType: creado.businessType,
+          ownerId: creadoPor,
+        },
+      });
+
+      return creado;
+    });
   }
 
   /**

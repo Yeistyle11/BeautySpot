@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { DataSource, Repository } from "typeorm";
+import { OutboxService } from "@beautyspot/nest-common";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import { ProfessionalsService } from "./professionals.service";
 import { CategoriesService } from "../categories/categories.service";
 import { Professional } from "../../entities/professional.entity";
@@ -84,8 +85,18 @@ describe("ProfessionalsService", () => {
       delete: jest.fn(),
     } as any;
 
+    const mockOutboxSpec = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    const mockDataSourceSpec = {
+      // La transacción entrega el mismo repositorio simulado del test.
+      transaction: jest.fn((cb) =>
+        cb({ getRepository: jest.fn().mockReturnValue(mockRepo) })
+      ),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: DataSource, useValue: mockDataSourceSpec },
+        { provide: OutboxService, useValue: mockOutboxSpec },
         ProfessionalsService,
         {
           provide: getRepositoryToken(Professional),

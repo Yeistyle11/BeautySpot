@@ -15,7 +15,8 @@ import { CreateStaffDto } from "./dto/create-staff.dto";
 import { UpdateStaffDto } from "./dto/update-staff.dto";
 import { toSafeUser, SafeUser } from "./dto/user-response.dto";
 import { Role } from "@beautyspot/shared-types";
-import { TokenVersionStore } from "@beautyspot/nest-common";
+import { TokenVersionStore, OutboxService } from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
 
 /**
  * Gestiona las cuentas de usuario y el staff de cada negocio: consultas,
@@ -32,7 +33,8 @@ export class UsersService {
     private readonly auditLogRepository: Repository<AuditLog>,
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
-    private readonly tokenVersionStore: TokenVersionStore
+    private readonly tokenVersionStore: TokenVersionStore,
+    private readonly outboxService: OutboxService
   ) {}
 
   // --- Consultas ---
@@ -174,6 +176,29 @@ export class UsersService {
         businessId,
         manager
       );
+
+      await this.outboxService.enqueue(manager, {
+        eventType: EventNames.AUTH_USER_REGISTERED,
+        aggregateType: "users",
+        aggregateId: user.id,
+        payload: {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+        },
+      });
+
+      await this.outboxService.enqueue(manager, {
+        eventType: EventNames.AUTH_MEMBERSHIP_CREATED,
+        aggregateType: "memberships",
+        aggregateId: membership.id,
+        payload: {
+          membershipId: membership.id,
+          userId: user.id,
+          businessId,
+          role: membership.role,
+        },
+      });
 
       return {
         ...toSafeUser(user),

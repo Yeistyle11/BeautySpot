@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { DataSource, Repository } from "typeorm";
+import { OutboxService } from "@beautyspot/nest-common";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import { BusinessesService } from "./businesses.service";
 import { Business } from "../../entities/business.entity";
 import { NotFoundException, ConflictException } from "@nestjs/common";
@@ -60,8 +61,18 @@ describe("BusinessesService", () => {
       }),
     } as any;
 
+    const mockOutboxSpec = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    const mockDataSourceSpec = {
+      // La transacción entrega el mismo repositorio simulado del test.
+      transaction: jest.fn((cb) =>
+        cb({ getRepository: jest.fn().mockReturnValue(mockRepository) })
+      ),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: DataSource, useValue: mockDataSourceSpec },
+        { provide: OutboxService, useValue: mockOutboxSpec },
         BusinessesService,
         {
           provide: getRepositoryToken(Business),

@@ -1,3 +1,4 @@
+import { OutboxMessageEntity } from "@beautyspot/nest-common";
 import { Business } from "./entities/business.entity";
 import { Branch } from "./entities/branch.entity";
 import { Professional } from "./entities/professional.entity";
@@ -21,4 +22,5 @@ export const entities = [
   BusinessConfig,
   ProfessionalCategoryEntity,
   ServiceCategoryEntity,
+  OutboxMessageEntity,
 ];
