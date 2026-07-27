@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { NotificationEventListeners } from "./event-listeners.service";
 import { EmailsModule } from "../emails/emails.module";
@@ -8,15 +9,18 @@ import { DataEnricherModule } from "../data-enricher/data-enricher.module";
   imports: [
     EmailsModule,
     DataEnricherModule,
-    RabbitMQModule.forRoot({
-      exchanges: [
-        {
-          name: "beautyspot.events",
-          type: "topic",
-        },
-      ],
-      uri: process.env.RABBITMQ_URL || "amqp://localhost:5672",
-      connectionInitOptions: { wait: false },
+    RabbitMQModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        exchanges: [
+          {
+            name: "beautyspot.events",
+            type: "topic",
+          },
+        ],
+        uri: config.get<string>("RABBITMQ_URL") ?? "amqp://localhost:5672",
+        connectionInitOptions: { wait: false },
+      }),
     }),
   ],
   providers: [NotificationEventListeners],

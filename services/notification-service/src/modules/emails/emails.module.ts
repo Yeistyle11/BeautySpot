@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { BullModule } from "@nestjs/bullmq";
 import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { EmailsController } from "./emails.controller";
@@ -27,15 +28,18 @@ import { NotificationPreferencesModule } from "../notification-preferences/notif
         },
       },
     }),
-    RabbitMQModule.forRoot({
-      exchanges: [
-        {
-          name: "beautyspot.events",
-          type: "topic",
-        },
-      ],
-      uri: process.env.RABBITMQ_URL || "amqp://localhost:5672",
-      connectionInitOptions: { wait: false },
+    RabbitMQModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        exchanges: [
+          {
+            name: "beautyspot.events",
+            type: "topic",
+          },
+        ],
+        uri: config.get<string>("RABBITMQ_URL") ?? "amqp://localhost:5672",
+        connectionInitOptions: { wait: false },
+      }),
     }),
   ],
   controllers: [EmailsController],

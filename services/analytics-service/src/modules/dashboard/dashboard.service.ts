@@ -154,7 +154,9 @@ export class DashboardService {
         to: today,
       })
       .groupBy("pm.professional_id")
-      .orderBy("totalRevenue", "DESC")
+      // Se ordena por la expresión y no por el alias: Postgres pasa a
+      // minúsculas cualquier identificador sin comillas.
+      .orderBy("SUM(pm.revenue)", "DESC")
       .limit(limit)
       .getRawMany<TopProfessionalResult>();
 
