@@ -179,10 +179,28 @@ export class AppointmentsService {
         `No se puede confirmar una cita en estado ${appt.status}`
       );
     }
-    await this.apptRepo.update(
-      { id, businessId },
-      { status: AppointmentStatus.CONFIRMED }
-    );
+    await this.dataSource.transaction(async (manager) => {
+      await manager.update(
+        Appointment,
+        { id, businessId },
+        { status: AppointmentStatus.CONFIRMED }
+      );
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.BOOKING_APPOINTMENT_CONFIRMED,
+        aggregateType: "appointment",
+        aggregateId: id,
+        payload: {
+          appointmentId: id,
+          businessId,
+          clientId: appt.clientId,
+          professionalId: appt.professionalId,
+          date: appt.date,
+          startTime: appt.startTime,
+          endTime: appt.endTime,
+          totalAmount: appt.totalAmount,
+        },
+      });
+    });
     return this.findById(id, businessId);
   }
 
@@ -306,10 +324,28 @@ export class AppointmentsService {
         "Solo se puede marcar no-show en citas pendientes o confirmadas"
       );
     }
-    await this.apptRepo.update(
-      { id, businessId },
-      { status: AppointmentStatus.NO_SHOW }
-    );
+    await this.dataSource.transaction(async (manager) => {
+      await manager.update(
+        Appointment,
+        { id, businessId },
+        { status: AppointmentStatus.NO_SHOW }
+      );
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.BOOKING_APPOINTMENT_NO_SHOWED,
+        aggregateType: "appointment",
+        aggregateId: id,
+        payload: {
+          appointmentId: id,
+          businessId,
+          clientId: appt.clientId,
+          professionalId: appt.professionalId,
+          date: appt.date,
+          startTime: appt.startTime,
+          endTime: appt.endTime,
+          totalAmount: appt.totalAmount,
+        },
+      });
+    });
     return this.findById(id, businessId);
   }
 

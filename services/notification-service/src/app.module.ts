@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
+import { EVENTS_EXCHANGE, DEAD_LETTER_EXCHANGE } from "@beautyspot/event-types";
 import { BullModule } from "@nestjs/bullmq";
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
@@ -25,10 +26,8 @@ import { EventListenersModule } from "./modules/event-listeners/event-listeners.
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         exchanges: [
-          {
-            name: "beautyspot.events",
-            type: "topic",
-          },
+          { name: EVENTS_EXCHANGE, type: "topic" },
+          { name: DEAD_LETTER_EXCHANGE, type: "topic" },
         ],
         uri: config.get<string>("RABBITMQ_URL") ?? "amqp://localhost:5672",
         connectionInitOptions: { wait: false },

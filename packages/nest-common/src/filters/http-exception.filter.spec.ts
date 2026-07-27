@@ -16,8 +16,9 @@ describe("HttpExceptionFilter", () => {
     return res;
   };
 
-  const createMockArgumentsHost = (response: any) => {
+  const createMockArgumentsHost = (response: any, type = "http") => {
     return {
+      getType: jest.fn().mockReturnValue(type),
       switchToHttp: jest.fn().mockReturnValue({
         getResponse: jest.fn().mockReturnValue(response),
       }),
@@ -127,6 +128,15 @@ describe("HttpExceptionFilter", () => {
           }),
         })
       );
+    });
+
+    it("relanza cuando no es una petición HTTP", () => {
+      const exception = new Error("fallo al procesar el evento");
+      const response = mockResponse();
+      const host = createMockArgumentsHost(response, "rmq");
+
+      expect(() => filter.catch(exception, host)).toThrow(exception);
+      expect(response.json).not.toHaveBeenCalled();
     });
 
     it("debería manejar CONFLICT con código correcto", () => {

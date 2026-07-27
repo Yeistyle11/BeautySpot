@@ -20,6 +20,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost): void {
+    // Un manejador de eventos de RabbitMQ no tiene respuesta que escribir: se
+    // relanza para que el consumidor rechace el mensaje y acabe en la DLQ.
+    if (host.getType() !== "http") throw exception;
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 

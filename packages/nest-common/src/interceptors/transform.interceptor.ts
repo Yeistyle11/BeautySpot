@@ -20,12 +20,16 @@ export interface ApiResponse<T> {
 @Injectable()
 export class TransformInterceptor<T> implements NestInterceptor<
   T,
-  ApiResponse<T>
+  ApiResponse<T> | T
 > {
   intercept(
-    _context: ExecutionContext,
+    context: ExecutionContext,
     next: CallHandler
-  ): Observable<ApiResponse<T>> {
+  ): Observable<ApiResponse<T> | T> {
+    // Un manejador de eventos de RabbitMQ no devuelve una respuesta HTTP: el
+    // sobre no aplica y el consumidor avisa de que debería devolver void.
+    if (context.getType() !== "http") return next.handle();
+
     return next.handle().pipe(
       map((data) => ({
         success: true as const,

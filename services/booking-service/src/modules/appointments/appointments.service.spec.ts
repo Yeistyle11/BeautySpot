@@ -346,9 +346,14 @@ describe("AppointmentsService", () => {
         where: { id: "appt-123", businessId: "business-123" },
         relations: { appointmentServices: true },
       });
-      expect(mockApptRepo.update).toHaveBeenCalledWith(
-        { id: "appt-123", businessId: "business-123" },
-        { status: AppointmentStatus.CONFIRMED }
+      // El cambio de estado y el evento van en la misma transacción.
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.BOOKING_APPOINTMENT_CONFIRMED,
+          aggregateType: "appointment",
+          aggregateId: "appt-123",
+        })
       );
     });
 
@@ -533,9 +538,13 @@ describe("AppointmentsService", () => {
 
       await service.markNoShow("appt-123", "business-123");
 
-      expect(mockApptRepo.update).toHaveBeenCalledWith(
-        { id: "appt-123", businessId: "business-123" },
-        { status: AppointmentStatus.NO_SHOW }
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.BOOKING_APPOINTMENT_NO_SHOWED,
+          aggregateType: "appointment",
+          aggregateId: "appt-123",
+        })
       );
     });
 
