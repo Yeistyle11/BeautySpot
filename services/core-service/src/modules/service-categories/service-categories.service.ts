@@ -21,19 +21,26 @@ export class ServiceCategoriesService {
     private readonly repo: Repository<ServiceCategoryEntity>
   ) {}
 
+  /** Rechaza el nombre si ya lo usa otra categoría del negocio, activa o no. */
+  private async asegurarNombreLibre(
+    businessId: string,
+    name: string
+  ): Promise<void> {
+    const existente = await this.repo.findOne({ where: { name, businessId } });
+    if (!existente) return;
+    throw new ConflictException(
+      existente.active
+        ? `La categoría de servicio "${name}" ya existe`
+        : `La categoría de servicio "${name}" ya existe pero está desactivada; reactívala en lugar de crearla otra vez`
+    );
+  }
+
   /** Crea una categoría de servicio rechazando nombres duplicados en el negocio. */
   async create(
     businessId: string,
     dto: CreateServiceCategoryDto
   ): Promise<ServiceCategoryEntity> {
-    const existing = await this.repo.findOne({
-      where: { name: dto.name, businessId, active: true },
-    });
-    if (existing) {
-      throw new ConflictException(
-        `La categoría de servicio "${dto.name}" ya existe`
-      );
-    }
+    await this.asegurarNombreLibre(businessId, dto.name);
     const category = this.repo.create({ ...dto, businessId });
     return this.repo.save(category);
   }
@@ -88,14 +95,7 @@ export class ServiceCategoriesService {
     const category = await this.findById(id, businessId);
 
     if (dto.name && dto.name !== category.name) {
-      const existing = await this.repo.findOne({
-        where: { name: dto.name, businessId, active: true },
-      });
-      if (existing) {
-        throw new ConflictException(
-          `La categoría de servicio "${dto.name}" ya existe`
-        );
-      }
+      await this.asegurarNombreLibre(businessId, dto.name);
     }
 
     await this.repo.update({ id, businessId }, dto as Record<string, unknown>);

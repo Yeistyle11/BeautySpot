@@ -64,7 +64,7 @@ describe("ServiceCategoriesService", () => {
       const result = await service.create("business-123", dto);
 
       expect(mockRepo.findOne).toHaveBeenCalledWith({
-        where: { name: "Cortes", businessId: "business-123", active: true },
+        where: { name: "Cortes", businessId: "business-123" },
       });
       expect(mockRepo.create).toHaveBeenCalledWith({
         ...dto,
@@ -79,6 +79,19 @@ describe("ServiceCategoriesService", () => {
       await expect(
         service.create("business-123", { name: "Cortes" })
       ).rejects.toThrow(ConflictException);
+    });
+
+    it("debería rechazar el nombre de una categoría desactivada", async () => {
+      const inactiva = { ...mockCategory, active: false } as any;
+      // El repositorio solo devuelve la categoría si la consulta no filtra por activas
+      mockRepo.findOne.mockImplementation(({ where }: any) =>
+        where.active ? null : inactiva
+      );
+
+      await expect(
+        service.create("business-123", { name: "Cortes" })
+      ).rejects.toThrow("está desactivada");
+      expect(mockRepo.save).not.toHaveBeenCalled();
     });
   });
 
