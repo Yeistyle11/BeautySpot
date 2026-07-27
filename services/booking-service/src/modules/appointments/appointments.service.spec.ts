@@ -37,6 +37,8 @@ describe("AppointmentsService", () => {
     pointsEarned: 0,
     notes: "",
     cancelReason: "",
+    reminder24hSentAt: null,
+    reminder1hSentAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     appointmentServices: [],

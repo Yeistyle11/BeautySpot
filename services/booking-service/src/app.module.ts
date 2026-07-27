@@ -15,6 +15,7 @@ import { AvailabilityModule } from "./modules/availability/availability.module";
 import { BlockedSlotsModule } from "./modules/blocked-slots/blocked-slots.module";
 import { PublicBookingModule } from "./modules/public-booking/public-booking.module";
 import { BookingEventListenersModule } from "./modules/event-listeners/booking-event-listeners.module";
+import { RemindersModule } from "./modules/reminders/reminders.module";
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { BookingEventListenersModule } from "./modules/event-listeners/booking-e
     BlockedSlotsModule,
     PublicBookingModule,
     BookingEventListenersModule,
+    RemindersModule,
   ],
 })
 /** Módulo raíz del booking-service: citas, disponibilidad, bloqueos y reservas públicas. */
