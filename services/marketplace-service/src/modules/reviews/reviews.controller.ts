@@ -13,7 +13,12 @@ import {
   ReviewQueryDto,
   RespondReviewDto,
 } from "./dto/review.dto";
-import { Roles, Public, CurrentUser } from "@beautyspot/nest-common";
+import {
+  Roles,
+  Public,
+  CurrentUser,
+  SkipBusinessScope,
+} from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
 /** Endpoints de reseñas del marketplace; la lectura y el alta son públicas, la respuesta la da el negocio. */
@@ -59,25 +64,25 @@ export class ReviewsController {
     return this.service.respond(id, dto.response);
   }
 
-  /** Marca una reseña como útil. */
+  /** Marca una reseña como útil; el voto es único por usuario y reseña. */
   @Post(":id/helpful")
-  @Public()
+  @SkipBusinessScope()
   async markHelpful(
     @Param("id") id: string,
-    @CurrentUser("userId") userId: string | undefined
+    @CurrentUser("userId") userId: string
   ) {
-    await this.service.markHelpful(id, userId || "anonymous");
+    await this.service.markHelpful(id, userId);
     return { marked: true };
   }
 
   /** Quita el voto de "útil" de una reseña. */
   @Delete(":id/helpful")
-  @Public()
+  @SkipBusinessScope()
   async unmarkHelpful(
     @Param("id") id: string,
-    @CurrentUser("userId") userId: string | undefined
+    @CurrentUser("userId") userId: string
   ) {
-    await this.service.unmarkHelpful(id, userId || "anonymous");
+    await this.service.unmarkHelpful(id, userId);
     return { marked: false };
   }
 }

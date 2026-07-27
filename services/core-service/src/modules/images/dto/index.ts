@@ -63,8 +63,14 @@ export class GenerateUploadSignatureDto {
   expiresIn?: string;
 }
 
-/** Clave de S3 de la imagen a eliminar. */
-export class DeleteImageDto {
+/** Clave de S3 de la imagen y validez de la URL de lectura. */
+export class PresignedUrlQueryDto {
   @IsString()
+  @MaxLength(500)
   key: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  expiresIn?: string;
 }

@@ -3,7 +3,7 @@ import {
   Post,
   Delete,
   Get,
-  Body,
+  Query,
   Param,
   HttpCode,
   HttpStatus,
@@ -18,7 +18,7 @@ import { Role } from "@beautyspot/shared-types";
 import { ImagesService, UploadResult } from "./images.service";
 import { ProfessionalsService } from "../professionals/professionals.service";
 import { ServicesService } from "../services/services.service";
-import { GenerateUploadSignatureDto, DeleteImageDto } from "./dto";
+import { GenerateUploadSignatureDto, PresignedUrlQueryDto } from "./dto";
 
 /** Contexto de autorización derivado del usuario autenticado y su tenant. */
 interface OwnershipContext {
@@ -93,7 +93,7 @@ export class ImagesController {
     @CurrentUser("role") role: string,
     @BusinessId() tenantBusinessId: string,
     @UploadedFile() file: Express.Multer.File
-  ): Promise<{ success: true; data: UploadResult }> {
+  ): Promise<UploadResult> {
     if (!file) {
       throw new BadRequestException("Archivo no proporcionado");
     }
@@ -111,7 +111,7 @@ export class ImagesController {
       file.mimetype
     );
 
-    return { success: true, data: result };
+    return result;
   }
 
   /** Sube la foto de un profesional (multipart) tras validar acceso y tipo/tamaño. */
@@ -123,7 +123,7 @@ export class ImagesController {
     @CurrentUser("role") role: string,
     @BusinessId() tenantBusinessId: string,
     @UploadedFile() file: Express.Multer.File
-  ): Promise<{ success: true; data: UploadResult }> {
+  ): Promise<UploadResult> {
     if (!file) {
       throw new BadRequestException("Archivo no proporcionado");
     }
@@ -141,7 +141,7 @@ export class ImagesController {
       file.mimetype
     );
 
-    return { success: true, data: result };
+    return result;
   }
 
   /** Sube la imagen de un servicio (multipart) tras validar acceso y tipo/tamaño. */
@@ -153,7 +153,7 @@ export class ImagesController {
     @CurrentUser("role") role: string,
     @BusinessId() tenantBusinessId: string,
     @UploadedFile() file: Express.Multer.File
-  ): Promise<{ success: true; data: UploadResult }> {
+  ): Promise<UploadResult> {
     if (!file) {
       throw new BadRequestException("Archivo no proporcionado");
     }
@@ -171,7 +171,7 @@ export class ImagesController {
       file.mimetype
     );
 
-    return { success: true, data: result };
+    return result;
   }
 
   /** Genera una URL presignada para que el cliente suba la imagen directo a S3. */
@@ -180,7 +180,7 @@ export class ImagesController {
   async generateUploadSignature(
     @CurrentUser("role") role: string,
     @BusinessId() tenantBusinessId: string,
-    @Body() dto: GenerateUploadSignatureDto
+    @Query() dto: GenerateUploadSignatureDto
   ) {
     const expiresIn = dto.expiresIn ? parseInt(dto.expiresIn) : 3600;
 
@@ -234,7 +234,7 @@ export class ImagesController {
         throw new BadRequestException("Tipo de recurso no válido");
     }
 
-    return { success: true, data: result };
+    return result;
   }
 
   /** Borra una imagen de S3 tras verificar que su key pertenezca al negocio. */
@@ -244,13 +244,14 @@ export class ImagesController {
   async deleteImage(
     @CurrentUser("role") role: string,
     @BusinessId() tenantBusinessId: string,
-    @Body() dto: DeleteImageDto
+    @Param("publicId") publicId: string
   ): Promise<void> {
-    await this.verifyKeyOwnership(dto.key, {
+    const key = decodeURIComponent(publicId);
+    await this.verifyKeyOwnership(key, {
       role,
       businessId: tenantBusinessId,
     });
-    await this.imagesService.deleteImage(dto.key);
+    await this.imagesService.deleteImage(key);
   }
 
   /** Devuelve una URL presignada de lectura para una imagen del negocio. */
@@ -265,14 +266,14 @@ export class ImagesController {
   async getPresignedUrl(
     @CurrentUser("role") role: string,
     @BusinessId() tenantBusinessId: string,
-    @Body() body: { key: string; expiresIn?: string }
-  ): Promise<{ success: true; data: { url: string } }> {
-    await this.verifyKeyOwnership(body.key, {
+    @Query() query: PresignedUrlQueryDto
+  ): Promise<{ url: string }> {
+    await this.verifyKeyOwnership(query.key, {
       role,
       businessId: tenantBusinessId,
     });
-    const expiresIn = body.expiresIn ? parseInt(body.expiresIn) : 3600;
-    const url = await this.imagesService.getImageUrl(body.key, expiresIn);
-    return { success: true, data: { url } };
+    const expiresIn = query.expiresIn ? parseInt(query.expiresIn) : 3600;
+    const url = await this.imagesService.getImageUrl(query.key, expiresIn);
+    return { url };
   }
 }
