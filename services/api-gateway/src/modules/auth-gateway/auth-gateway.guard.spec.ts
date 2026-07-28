@@ -112,14 +112,16 @@ describe("AuthGatewayGuard", () => {
 
     it("exige token para las citas propias del cliente", () => {
       expect(
-        guard.canActivate(contextoDe("/api/v1/booking/appointments/mine", "GET"))
+        guard.canActivate(
+          contextoDe("/api/v1/booking/appointments/mine", "GET")
+        )
       ).toBe(false);
     });
 
     it("exige token para los clientes del negocio", () => {
-      expect(
-        guard.canActivate(contextoDe("/api/v1/core/clients", "GET"))
-      ).toBe(false);
+      expect(guard.canActivate(contextoDe("/api/v1/core/clients", "GET"))).toBe(
+        false
+      );
     });
   });
 });

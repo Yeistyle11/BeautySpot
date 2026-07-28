@@ -117,7 +117,13 @@ describe("PublicService", () => {
   describe("getBusinessProfessionals", () => {
     it("debería listar profesionales activos de un negocio", async () => {
       const mockPros = [
-        { id: "pro-1", name: "David", photo: null, bio: "Test", specialties: [] },
+        {
+          id: "pro-1",
+          name: "David",
+          photo: null,
+          bio: "Test",
+          specialties: [],
+        },
       ];
       mockProRepo.find.mockResolvedValue(mockPros);
 
