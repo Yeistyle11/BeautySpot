@@ -1,10 +1,7 @@
 // Esquemas Zod y tipos de las citas usados en la seccion de agenda.
 import { z } from "zod";
 
-export {
-  appointmentSchema,
-  type Appointment,
-} from "@/lib/schemas/appointment";
+export { appointmentSchema, type Appointment } from "@/lib/schemas/appointment";
 
 export const professionalSchema = z.object({
   id: z.string(),

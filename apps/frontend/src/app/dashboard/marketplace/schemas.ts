@@ -69,7 +69,7 @@ export const SECTION_TYPES = [
   { id: "services", label: "Servicios" },
   { id: "team", label: "Equipo" },
   { id: "gallery", label: "Galeria" },
-  { id: "reviews", label: "Resenas" },
+  { id: "reviews", label: "Reseñas" },
   { id: "location", label: "Ubicacion" },
 ];
 

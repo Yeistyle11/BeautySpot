@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { canDo } from "@/lib/permissions";
 import { imageUnoptimized } from "@/lib/image";
+import { formatAniosExperiencia } from "@/lib/utils";
 import type { Role } from "@/lib/store";
 import type { Category, Professional } from "./schemas";
 
@@ -116,7 +117,8 @@ export const ProCard = memo(function ProCard({
         )}
 
         <div className="text-muted-foreground mt-3 flex items-center gap-2 text-sm">
-          <Briefcase className="h-3.5 w-3.5" /> {p.yearsExp} anos de experiencia
+          <Briefcase className="h-3.5 w-3.5" />{" "}
+          {formatAniosExperiencia(p.yearsExp)}
         </div>
 
         <div className="mt-4 flex gap-2 border-t pt-3">

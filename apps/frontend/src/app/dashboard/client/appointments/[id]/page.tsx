@@ -296,7 +296,7 @@ export default function AppointmentDetailPage() {
                 >
                   <Button className="w-full gap-2">
                     <Star className="h-4 w-4" />
-                    Dejar resena
+                    Dejar reseña
                   </Button>
                 </Link>
               )}

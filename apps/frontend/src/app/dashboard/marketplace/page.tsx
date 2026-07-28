@@ -43,7 +43,7 @@ const TAB_LABELS: Record<string, string> = {
   profile: "Perfil",
   gallery: "Galeria",
   sections: "Secciones",
-  reviews: "Resenas",
+  reviews: "Reseñas",
 };
 const TAB_IDS = Object.keys(TAB_LABELS);
 

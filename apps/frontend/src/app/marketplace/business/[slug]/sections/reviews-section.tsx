@@ -44,7 +44,7 @@ export function ReviewsSection({
             ))}
           </div>
           <p className="text-muted-foreground mt-1 text-sm">
-            {totalReviews} {totalReviews === 1 ? "resena" : "resenas"}
+            {totalReviews} {totalReviews === 1 ? "reseña" : "reseñas"}
           </p>
         </div>
 
@@ -77,7 +77,7 @@ export function ReviewsSection({
       <div className="space-y-4">
         {reviews.length === 0 ? (
           <p className="text-muted-foreground py-8 text-center">
-            Aun no hay resenas
+            Aún no hay reseñas
           </p>
         ) : (
           reviews.map((r) => (

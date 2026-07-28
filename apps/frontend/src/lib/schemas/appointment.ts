@@ -1,8 +1,8 @@
 // Forma de una cita tal y como la devuelve `GET /booking/appointments`.
 //
 // Es el schema canonico: la agenda del panel, el historial del cliente y el
-// panel del rol CLIENT consumen el mismo endpoint, y mantener una copia por
-// pantalla hacia que se desincronizaran de una en una.
+// panel del rol CLIENT consumen el mismo endpoint, asi que comparten una sola
+// definicion en vez de una copia por pantalla.
 import { z } from "zod";
 
 export const appointmentServiceSchema = z.object({

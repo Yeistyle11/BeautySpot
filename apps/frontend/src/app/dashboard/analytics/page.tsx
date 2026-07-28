@@ -96,7 +96,8 @@ export default function AnalyticsPage() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tasa completado</span>
                 <span className="font-semibold">
-                  {Math.round(data.last30Days.completionRate * 100)}%
+                  {/* El backend ya devuelve el porcentaje, no la fracción. */}
+                  {data.last30Days.completionRate.toFixed(1)}%
                 </span>
               </div>
             </CardContent>

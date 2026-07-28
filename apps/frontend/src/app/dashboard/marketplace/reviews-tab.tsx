@@ -44,13 +44,13 @@ export function ReviewsTab({
   return (
     <Card className="border-0 shadow-sm">
       <CardHeader>
-        <CardTitle className="text-lg">Resenas ({reviews.length})</CardTitle>
+        <CardTitle className="text-lg">Reseñas ({reviews.length})</CardTitle>
       </CardHeader>
       <CardContent>
         {reviews.length === 0 ? (
           <div className="text-muted-foreground py-8 text-center">
             <Star className="mx-auto h-12 w-12 opacity-20" />
-            <p className="mt-2">Aun no tienes resenas</p>
+            <p className="mt-2">Aún no tienes reseñas</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -80,7 +80,7 @@ export function ReviewsTab({
                   canDo(role, "reviews_respond") && (
                     <div className="space-y-2">
                       <Textarea
-                        placeholder="Responder a esta resena..."
+                        placeholder="Responder a esta reseña..."
                         value={drafts[review.id] || ""}
                         onChange={(e) =>
                           onDraftChange({
@@ -89,7 +89,7 @@ export function ReviewsTab({
                           })
                         }
                         rows={2}
-                        aria-label="Respuesta a la resena"
+                        aria-label="Respuesta a la reseña"
                       />
                       <Button
                         size="sm"

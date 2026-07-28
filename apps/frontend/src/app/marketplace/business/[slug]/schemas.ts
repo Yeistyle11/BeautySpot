@@ -134,6 +134,6 @@ export const SECTION_TITLES: Record<string, string> = {
   services: "Servicios",
   team: "Nuestro Equipo",
   gallery: "Galeria",
-  reviews: "Resenas",
+  reviews: "Reseñas",
   location: "Ubicacion",
 };

@@ -48,7 +48,11 @@ function PublicBookingPageInner() {
     isLoading: loading,
     error: profileError,
     mutate: recargarPerfil,
-  } = useApiPublic(`/marketplace/profiles/${slug}`, undefined, profileResponseSchema);
+  } = useApiPublic(
+    `/marketplace/profiles/${slug}`,
+    undefined,
+    profileResponseSchema
+  );
   const profile: Profile | undefined = profileResponse?.profile;
   const { data: rawServices } = useApiPublic<Service[]>(
     profile?.businessId

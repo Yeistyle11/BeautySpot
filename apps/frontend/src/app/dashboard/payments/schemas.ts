@@ -38,6 +38,14 @@ export const METHOD_LABELS: Record<string, string> = {
 
 export const METHOD_FILTERS = ["all", "CASH", "CARD", "TRANSFER"];
 
+/** Estados de PaymentStatus, que la lista muestra tal cual si no se traducen. */
+export const STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pendiente",
+  COMPLETED: "Completado",
+  REFUNDED: "Reembolsado",
+  CANCELLED: "Cancelado",
+};
+
 export const emptyCreateForm = {
   clientId: "",
   amount: "",

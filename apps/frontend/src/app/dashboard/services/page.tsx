@@ -14,15 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import {
-  Scissors,
-  Plus,
-  DollarSign,
-  Clock,
-  Edit,
-  Trash2,
-  Tag,
-} from "lucide-react";
+import { Scissors, Plus, Clock, Edit, Trash2, Tag } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
@@ -320,8 +312,8 @@ export default function ServicesPage() {
                   </p>
                 )}
                 <div className="mt-3 flex items-center gap-4 text-sm">
-                  <span className="text-primary flex items-center gap-1 font-semibold">
-                    <DollarSign className="h-4 w-4" />
+                  {/* Sin icono de moneda: formatCurrency ya antepone el "$". */}
+                  <span className="text-primary font-semibold">
                     {formatCurrency(s.price)}
                   </span>
                   <span className="text-muted-foreground flex items-center gap-1">

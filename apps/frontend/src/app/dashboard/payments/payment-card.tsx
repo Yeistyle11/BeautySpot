@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDateTimeStamp } from "@/lib/utils";
-import { METHOD_LABELS, type Payment } from "./schemas";
+import { METHOD_LABELS, STATUS_LABELS, type Payment } from "./schemas";
 
 const METHOD_ICONS: Record<
   string,
@@ -72,7 +72,7 @@ export function PaymentCard({ payment, canEdit, onEdit }: PaymentCardProps) {
             <Badge
               variant={payment.status === "COMPLETED" ? "success" : "secondary"}
             >
-              {payment.status === "COMPLETED" ? "Completado" : payment.status}
+              {STATUS_LABELS[payment.status] ?? payment.status}
             </Badge>
           </div>
         </div>

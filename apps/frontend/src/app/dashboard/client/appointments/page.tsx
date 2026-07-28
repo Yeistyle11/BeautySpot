@@ -213,7 +213,7 @@ export default function AppointmentsPage() {
                               onClick={(e) => e.stopPropagation()}
                             >
                               <Star className="h-3 w-3" />
-                              Dejar resena
+                              Dejar reseña
                             </Link>
                           </span>
                         )}

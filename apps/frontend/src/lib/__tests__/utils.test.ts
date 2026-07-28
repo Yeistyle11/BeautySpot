@@ -1,5 +1,6 @@
 import {
   cn,
+  formatAniosExperiencia,
   formatCurrency,
   formatDate,
   formatTime,
@@ -117,5 +118,24 @@ describe("toLocalDateKey", () => {
 
   it("respeta el primer instante del dia", () => {
     expect(toLocalDateKey(new Date(2026, 11, 31, 0, 0, 0))).toBe("2026-12-31");
+  });
+});
+
+describe("formatAniosExperiencia", () => {
+  it("usa el singular con un solo año", () => {
+    expect(formatAniosExperiencia(1)).toBe("1 año de experiencia");
+  });
+
+  it("usa el plural con varios años", () => {
+    expect(formatAniosExperiencia(4)).toBe("4 años de experiencia");
+  });
+
+  it("trata el cero como plural", () => {
+    expect(formatAniosExperiencia(0)).toBe("0 años de experiencia");
+  });
+
+  it("escribe año con eñe, que es texto de cara al usuario", () => {
+    expect(formatAniosExperiencia(2)).toContain("años");
+    expect(formatAniosExperiencia(2)).not.toContain("anos");
   });
 });

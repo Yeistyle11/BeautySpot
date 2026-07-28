@@ -4,6 +4,7 @@ import {
   dailySummarySchema,
   METHOD_LABELS,
   METHOD_FILTERS,
+  STATUS_LABELS,
   emptyCreateForm,
   emptyEditForm,
   PAYMENTS_KEY,
@@ -98,6 +99,17 @@ describe("dailySummarySchema", () => {
   });
 });
 
+describe("estados de pago", () => {
+  // La interfaz va integramente en español: un estado sin traducir se muestra
+  // con el nombre crudo del enum.
+  it("traduce todos los estados que puede devolver la API", () => {
+    for (const estado of ["PENDING", "COMPLETED", "REFUNDED", "CANCELLED"]) {
+      expect(STATUS_LABELS[estado]).toBeTruthy();
+      expect(STATUS_LABELS[estado]).not.toBe(estado);
+    }
+  });
+});
+
 describe("constantes de la pantalla", () => {
   it("etiqueta en español cada método filtrable", () => {
     for (const method of METHOD_FILTERS.filter((m) => m !== "all")) {
@@ -119,7 +131,9 @@ describe("constantes de la pantalla", () => {
   it("pide los clientes de a lotes grandes, porque alimentan un desplegable", () => {
     // Con el limite por defecto (20) el desplegable esconde clientes sin avisar.
     expect(CLIENTS_KEY).toContain("limit=");
-    const limite = Number(new URLSearchParams(CLIENTS_KEY.split("?")[1]).get("limit"));
+    const limite = Number(
+      new URLSearchParams(CLIENTS_KEY.split("?")[1]).get("limit")
+    );
     expect(limite).toBeGreaterThanOrEqual(100);
   });
 });

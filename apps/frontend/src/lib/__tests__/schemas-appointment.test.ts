@@ -1,8 +1,5 @@
 import { paginatedSchema } from "@/lib/swr";
-import {
-  appointmentSchema,
-  APPOINTMENTS_KEY,
-} from "@/lib/schemas/appointment";
+import { appointmentSchema, APPOINTMENTS_KEY } from "@/lib/schemas/appointment";
 
 /** Una cita tal y como la devuelve GET /booking/appointments. */
 const citaDeLaApi = {
@@ -56,12 +53,12 @@ describe("appointmentSchema canónico", () => {
     expect(result.success).toBe(false);
   });
 
-  // Cinco pantallas duplicaban este schema y todas leían la lista como array
-  // pelado, lo que las dejaba permanentemente vacías.
+  // Varias pantallas comparten este schema: si alguna lee la lista como array
+  // pelado, se queda vacía sin avisar.
   it("se consume envuelto en { data, meta }, no como array pelado", () => {
-    expect(paginatedSchema(appointmentSchema).safeParse(respuestaPaginada).success).toBe(
-      true
-    );
+    expect(
+      paginatedSchema(appointmentSchema).safeParse(respuestaPaginada).success
+    ).toBe(true);
     expect(appointmentSchema.array().safeParse(respuestaPaginada).success).toBe(
       false
     );

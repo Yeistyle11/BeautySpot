@@ -61,7 +61,11 @@ export function TeamSection({
                     </div>
                   )}
                   <div className="text-muted-foreground mt-2 flex items-center gap-3 text-sm">
-                    {p.yearsExp > 0 && <span>{p.yearsExp} anos de exp.</span>}
+                    {p.yearsExp > 0 && (
+                      <span>
+                        {p.yearsExp} {p.yearsExp === 1 ? "año" : "años"} de exp.
+                      </span>
+                    )}
                     {Number(p.rating) > 0 && (
                       <span className="flex items-center gap-1">
                         <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />

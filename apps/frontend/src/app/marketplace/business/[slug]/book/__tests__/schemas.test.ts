@@ -45,7 +45,7 @@ describe("profileResponseSchema", () => {
   });
 
   it("rechaza el perfil plano, sin envolver", () => {
-    // Leerlo plano es lo que dejaba la reserva en "Negocio no encontrado".
+    // La reserva trata un perfil que no parsea como negocio inexistente.
     const result = profileResponseSchema.safeParse(respuestaDeLaApi.profile);
 
     expect(result.success).toBe(false);

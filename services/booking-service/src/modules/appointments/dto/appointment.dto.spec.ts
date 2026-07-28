@@ -77,8 +77,8 @@ describe("CreateAppointmentDto", () => {
     });
   });
 
-  // La reserva publica ofrece "cualquier profesional" y mandaba el literal
-  // "any", que llegaba hasta la consulta y salia como 500 en vez de 400.
+  // Un id que no sea UUID llega hasta la consulta y sale como 500: la
+  // validacion lo corta antes para que el error diga que pasa.
   it("rechaza un profesional que no sea un id valido", async () => {
     await expect(
       pipe.transform({ ...citaDelPanel, professionalId: "any" }, metadata)
