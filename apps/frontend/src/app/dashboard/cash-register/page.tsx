@@ -190,7 +190,9 @@ export default function CashRegisterPage() {
       <div>
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Caja Registradora</h1>
-          <p className="text-muted-foreground">Gestiona la caja de tu negocio</p>
+          <p className="text-muted-foreground">
+            Gestiona la caja de tu negocio
+          </p>
         </div>
         <ErrorDeCarga
           error={errorActive}

@@ -151,7 +151,9 @@ describe("AppointmentsService", () => {
         },
         {
           provide: ConfigService,
-          useValue: { get: jest.fn((_: string, fallback?: string) => fallback) },
+          useValue: {
+            get: jest.fn((_: string, fallback?: string) => fallback),
+          },
         },
       ],
     }).compile();
@@ -848,7 +850,10 @@ describe("AppointmentsService", () => {
     it("nunca consulta sin filtro cuando el usuario no tiene fichas", async () => {
       coreDevuelve([]);
 
-      const result = await service.findByClientUser("user-sin-fichas", pagination);
+      const result = await service.findByClientUser(
+        "user-sin-fichas",
+        pagination
+      );
 
       expect(mockApptRepo.findAndCount).not.toHaveBeenCalled();
       expect(result.data).toEqual([]);
@@ -858,7 +863,9 @@ describe("AppointmentsService", () => {
     it("avisa si core no responde, en vez de devolver una lista vacía", async () => {
       global.fetch = jest
         .fn()
-        .mockRejectedValue(new Error("conexión rechazada")) as unknown as typeof fetch;
+        .mockRejectedValue(
+          new Error("conexión rechazada")
+        ) as unknown as typeof fetch;
 
       await expect(
         service.findByClientUser("user-1", pagination)
