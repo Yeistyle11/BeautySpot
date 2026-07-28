@@ -1,7 +1,24 @@
+import { z } from "zod";
 import { ApiError } from "../api-error";
 import { mensajeDeError } from "../error-message";
 
 describe("mensajeDeError", () => {
+  describe("desajustes de schema", () => {
+    // El `message` de un ZodError es un volcado JSON con nombres de campo:
+    // util en consola, ilegible en pantalla.
+    it("no filtra el volcado de Zod a la pantalla", () => {
+      const error = z
+        .object({ totalAmount: z.number() })
+        .safeParse({ totalAmount: "30000" }).error!;
+
+      const mensaje = mensajeDeError(error);
+
+      expect(mensaje).not.toContain("totalAmount");
+      expect(mensaje).not.toContain("invalid_type");
+      expect(mensaje).toContain("formato esperado");
+    });
+  });
+
   describe("errores del cliente (4xx)", () => {
     it("respeta el mensaje del backend", () => {
       expect(

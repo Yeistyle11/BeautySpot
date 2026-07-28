@@ -32,6 +32,7 @@ import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import {
   cashSessionSchema,
   cashSummarySchema,
@@ -60,6 +61,7 @@ export default function CashRegisterPage() {
   const {
     data: activeSession,
     isLoading: loadingActive,
+    error: errorActive,
     mutate: mutateActive,
   } = useApi<CashSession | null>(
     ACTIVE_KEY,
@@ -177,6 +179,24 @@ export default function CashRegisterPage() {
             Cargando...
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  // Sin esta rama un fallo al pedir la sesion activa se pinta como "Caja
+  // cerrada", que es indistinguible de una caja que de verdad esta cerrada.
+  if (errorActive) {
+    return (
+      <div>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Caja Registradora</h1>
+          <p className="text-muted-foreground">Gestiona la caja de tu negocio</p>
+        </div>
+        <ErrorDeCarga
+          error={errorActive}
+          recurso="los datos de la caja"
+          onReintentar={() => mutateActive()}
+        />
       </div>
     );
   }

@@ -16,6 +16,7 @@ import { usePaginatedList } from "@/lib/use-paginated-list";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { PaymentSummaryCards } from "./payment-summary";
 import { PaymentCard } from "./payment-card";
 import { CreatePaymentDialog, EditPaymentDialog } from "./payment-dialogs";
@@ -58,6 +59,8 @@ export default function PaymentsPage() {
     meta,
     setPage,
     isLoading: loading,
+    error: loadError,
+    mutate: recargar,
   } = usePaginatedList<Payment>({
     basePath: PAYMENTS_KEY,
     itemSchema: paymentSchema,
@@ -236,6 +239,12 @@ export default function PaymentsPage() {
       <div className="space-y-3">
         {loading ? (
           <p className="text-muted-foreground">Cargando...</p>
+        ) : loadError ? (
+          <ErrorDeCarga
+            error={loadError}
+            recurso="los pagos"
+            onReintentar={() => recargar()}
+          />
         ) : payments.length === 0 ? (
           <Card className="border-0 shadow-sm">
             <CardContent className="text-muted-foreground p-8 text-center">

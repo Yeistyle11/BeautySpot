@@ -10,6 +10,7 @@ import { apiPublic, api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { getErrorMessage } from "@/lib/utils";
 import { useApiPublic, revalidatePrefix } from "@/lib/swr";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { BookingConfirmation } from "./booking-confirmation";
 import { SelectServicesStep } from "./steps/select-services-step";
 import { SelectProfessionalStep } from "./steps/select-professional-step";
@@ -38,11 +39,12 @@ function PublicBookingPageInner() {
   const { user, hydrated } = useAuthStore();
   const isAuthenticated = hydrated && !!user;
 
-  const { data: profileResponse, isLoading: loading } = useApiPublic(
-    `/marketplace/profiles/${slug}`,
-    undefined,
-    profileResponseSchema
-  );
+  const {
+    data: profileResponse,
+    isLoading: loading,
+    error: profileError,
+    mutate: recargarPerfil,
+  } = useApiPublic(`/marketplace/profiles/${slug}`, undefined, profileResponseSchema);
   const profile: Profile | undefined = profileResponse?.profile;
   const { data: rawServices } = useApiPublic<Service[]>(
     profile?.businessId
@@ -174,6 +176,20 @@ function PublicBookingPageInner() {
     return (
       <div className="flex justify-center py-20">
         <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+      </div>
+    );
+  }
+
+  // Un fallo de red o de contrato no significa que el negocio no exista; decir
+  // "no encontrado" manda al visitante de vuelta al marketplace por nada.
+  if (profileError) {
+    return (
+      <div className="mx-auto max-w-lg py-20">
+        <ErrorDeCarga
+          error={profileError}
+          recurso="los datos del negocio"
+          onReintentar={() => recargarPerfil()}
+        />
       </div>
     );
   }

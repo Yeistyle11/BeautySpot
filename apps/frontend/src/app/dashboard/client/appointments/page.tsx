@@ -10,32 +10,18 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, Scissors, Star, Plus } from "lucide-react";
 import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
-import { useApi } from "@/lib/swr";
+import { useApi, paginatedSchema } from "@/lib/swr";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import Link from "next/link";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-const appointmentSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  startTime: z.string(),
-  endTime: z.string(),
-  status: z.string(),
-  notes: z.string().nullable(),
-  totalAmount: z.string(),
-  professionalId: z.string(),
-  clientId: z.string(),
-  appointmentServices: z.array(
-    z.object({
-      serviceName: z.string(),
-      price: z.string(),
-      duration: z.number(),
-    })
-  ),
-});
-type Appointment = z.infer<typeof appointmentSchema>;
+import {
+  appointmentSchema,
+  type Appointment,
+} from "@/lib/schemas/appointment";
 
 const reviewSchema = z.object({
   id: z.string(),
@@ -86,11 +72,17 @@ function filterByTab(appointments: Appointment[], tab: TabKey): Appointment[] {
 /* ------------------------------------------------------------------ */
 
 export default function AppointmentsPage() {
-  const { data: appointments, isLoading: loading } = useApi<Appointment[]>(
+  const {
+    data: pagina,
+    isLoading: loading,
+    error: loadError,
+    mutate: recargar,
+  } = useApi(
     "/booking/appointments",
     undefined,
-    z.array(appointmentSchema)
+    paginatedSchema(appointmentSchema)
   );
+  const appointments: Appointment[] = pagina?.data ?? [];
   const { data: reviews } = useApi<Review[]>(
     "/marketplace/reviews/mine",
     undefined,
@@ -142,6 +134,12 @@ export default function AppointmentsPage() {
             Cargando citas...
           </CardContent>
         </Card>
+      ) : loadError ? (
+        <ErrorDeCarga
+          error={loadError}
+          recurso="tus citas"
+          onReintentar={() => recargar()}
+        />
       ) : filtered.length === 0 ? (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-8 text-center">
@@ -197,7 +195,7 @@ export default function AppointmentsPage() {
 
                       <div className="flex items-center gap-3 sm:shrink-0">
                         <span className="font-semibold">
-                          {formatCurrency(parseFloat(appt.totalAmount))}
+                          {formatCurrency(appt.totalAmount)}
                         </span>
                         <Badge className={status.color}>{status.label}</Badge>
                         {canReview && (

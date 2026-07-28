@@ -16,12 +16,16 @@ import { Plus, Search, Phone, Mail, Award, Calendar, Edit } from "lucide-react";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
-import { useApi } from "@/lib/swr";
+import { useApi, paginatedSchema } from "@/lib/swr";
 import { usePaginatedCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
 import { getAppointmentStatus } from "@/lib/status";
+import {
+  appointmentSchema,
+  type Appointment,
+} from "@/lib/schemas/appointment";
 
 const clientSchema = z.object({
   id: z.string(),
@@ -34,16 +38,6 @@ const clientSchema = z.object({
 });
 type Client = z.infer<typeof clientSchema>;
 
-const appointmentSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  startTime: z.string(),
-  endTime: z.string(),
-  status: z.string(),
-  totalAmount: z.string(),
-  appointmentServices: z.array(z.object({ serviceName: z.string() })),
-});
-type Appointment = z.infer<typeof appointmentSchema>;
 
 const emptyForm = { name: "", email: "", phone: "" };
 
@@ -149,9 +143,14 @@ export default function ClientsPage() {
   const detailKey = selectedClient
     ? `/booking/appointments?clientId=${selectedClient.id}`
     : null;
-  const { data: clientAppointments, isLoading: loadingDetail } = useApi<
-    Appointment[]
-  >(detailKey, undefined, z.array(appointmentSchema));
+  // El historial viene paginado; leerlo como array pelado lo dejaba siempre
+  // vacio.
+  const { data: historial, isLoading: loadingDetail } = useApi(
+    detailKey,
+    undefined,
+    paginatedSchema(appointmentSchema)
+  );
+  const clientAppointments: Appointment[] = historial?.data ?? [];
 
   return (
     <div>
@@ -373,7 +372,7 @@ export default function ClientsPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold">
-                          {formatCurrency(parseFloat(a.totalAmount))}
+                          {formatCurrency(a.totalAmount)}
                         </span>
                         <Badge
                           variant={getAppointmentStatus(a.status).variant}
