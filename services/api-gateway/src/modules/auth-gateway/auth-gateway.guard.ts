@@ -31,6 +31,10 @@ const PUBLIC_MARKETPLACE_PREFIXES = [
   "/api/v1/marketplace-service/reviews/",
   "/api/v1/core/public/",
   "/api/v1/core-service/public/",
+  // La reserva del marketplace consulta huecos libres antes de que exista
+  // sesion; solo devuelve horarios, nunca datos de las citas.
+  "/api/v1/booking/appointments/availability",
+  "/api/v1/booking-service/appointments/availability",
 ];
 
 /**

@@ -3,7 +3,9 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { Repository, DataSource, EntityManager, In } from "typeorm";
 import { Appointment } from "../../entities/appointment.entity";
@@ -39,7 +41,8 @@ export class AppointmentsService {
     @InjectRepository(BlockedSlot)
     private readonly blockRepo: Repository<BlockedSlot>,
     @InjectDataSource() private dataSource: DataSource,
-    private readonly outbox: OutboxService
+    private readonly outbox: OutboxService,
+    private readonly configService: ConfigService
   ) {}
 
   /** Crear cita verificando disponibilidad (transacción) */
@@ -424,6 +427,32 @@ export class AppointmentsService {
     return this.findById(id, businessId);
   }
 
+  /**
+   * Slots de un profesional resolviendo el negocio desde su propio horario.
+   *
+   * Lo usa la reserva del marketplace, donde quien consulta no pertenece al
+   * negocio y por tanto no llega ningún tenant en la petición. Un profesional
+   * pertenece a un único negocio, así que el horario lo determina sin
+   * ambigüedad. Solo expone huecos libres, nunca datos de las citas.
+   */
+  async findAvailableSlotsPublic(
+    professionalId: string,
+    date: string,
+    duration: number
+  ): Promise<{ startTime: string; endTime: string; available: boolean }[]> {
+    const horario = await this.availRepo.findOne({
+      where: { professionalId, active: true },
+    });
+    if (!horario) return [];
+
+    return this.findAvailableSlots(
+      horario.businessId,
+      professionalId,
+      date,
+      duration
+    );
+  }
+
   /** Obtener slots disponibles */
   async findAvailableSlots(
     businessId: string,
@@ -522,6 +551,88 @@ export class AppointmentsService {
       relations: ["appointmentServices"],
       order: { date: "DESC", startTime: "ASC" },
     });
+  }
+
+  /**
+   * Citas de un usuario cliente en todos los negocios donde haya reservado.
+   *
+   * Las citas guardan el id del cliente del negocio, no el del usuario, así que
+   * primero se traducen las fichas que core tiene atadas a ese usuario. Sin
+   * ninguna ficha no hay citas que mostrar, y devolver la lista vacía evita una
+   * consulta que filtraría por nada.
+   */
+  async findByClientUser(
+    userId: string,
+    pagination: PaginateParams
+  ): Promise<IPaginatedResponse<Appointment>> {
+    const clientIds = await this.clientIdsDelUsuario(userId);
+    if (clientIds.length === 0) {
+      return {
+        data: [],
+        meta: {
+          page: pagination.page,
+          limit: pagination.limit,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false,
+        },
+      };
+    }
+
+    return paginate(this.apptRepo, pagination, {
+      where: { clientId: In(clientIds) },
+      relations: ["appointmentServices"],
+      order: { date: "DESC", startTime: "ASC" },
+    });
+  }
+
+  /** Pregunta a core qué fichas de cliente pertenecen a este usuario. */
+  private async clientIdsDelUsuario(userId: string): Promise<string[]> {
+    const coreServiceUrl = this.configService.get<string>(
+      "CORE_SERVICE_URL",
+      "http://localhost:3002"
+    );
+    const internalSecret = this.configService.get<string>(
+      "INTERNAL_API_SECRET",
+      ""
+    );
+
+    let response: Response;
+    try {
+      response = await fetch(
+        `${coreServiceUrl}/internal/clients/by-user/${userId}`,
+        {
+          headers: { "x-internal-secret": internalSecret },
+          signal: AbortSignal.timeout(5000),
+        }
+      );
+    } catch (error) {
+      throw new ServiceUnavailableException(
+        `No se pudieron consultar tus citas (core-service no disponible). ` +
+          `Reintenta mas tarde. Error: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+      );
+    }
+
+    if (!response.ok) {
+      throw new ServiceUnavailableException(
+        `No se pudieron consultar tus citas (core-service respondio ${response.status}).`
+      );
+    }
+
+    const body = (await response.json()) as unknown;
+    const payload =
+      typeof body === "object" && body !== null && "success" in body
+        ? (body as Record<string, unknown>).data
+        : body;
+
+    return Array.isArray(payload)
+      ? payload
+          .map((c) => (c as { id?: unknown }).id)
+          .filter((id): id is string => typeof id === "string")
+      : [];
   }
 
   /**

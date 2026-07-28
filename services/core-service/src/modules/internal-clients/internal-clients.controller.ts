@@ -1,4 +1,4 @@
-import { Controller, Post, Body } from "@nestjs/common";
+import { Controller, Post, Get, Body, Param } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Client } from "../../entities/client.entity";
@@ -15,14 +15,40 @@ export class InternalClientsController {
   @Post("find-or-create")
   async findOrCreate(@Body() dto: FindOrCreateClientDto): Promise<Client> {
     const existing = await this.findExistingClient(dto);
-    if (existing) return existing;
+    if (existing) return this.vincularUsuario(existing, dto.userId);
     return this.createNewClient(dto);
   }
 
-  /** Busca un cliente del negocio por email y luego por teléfono; null si no hay coincidencia. */
+  /** Lista los clientes vinculados a un usuario, uno por cada negocio donde reservó. */
+  @Get("by-user/:userId")
+  async findByUser(@Param("userId") userId: string): Promise<Client[]> {
+    return this.clientRepo.find({ where: { userId } });
+  }
+
+  /**
+   * Ata la ficha al usuario que acaba de reservar. Un cliente creado antes como
+   * invitado ya existe por email/teléfono, y sin este enlace nunca aparecería
+   * en "Mis citas" al registrarse esa misma persona.
+   */
+  private async vincularUsuario(
+    client: Client,
+    userId?: string
+  ): Promise<Client> {
+    if (!userId || client.userId) return client;
+    client.userId = userId;
+    return this.clientRepo.save(client);
+  }
+
+  /** Busca un cliente del negocio por usuario, luego por email y luego por teléfono. */
   private async findExistingClient(
     dto: FindOrCreateClientDto
   ): Promise<Client | null> {
+    if (dto.userId) {
+      const byUser = await this.clientRepo.findOne({
+        where: { businessId: dto.businessId, userId: dto.userId },
+      });
+      if (byUser) return byUser;
+    }
     if (dto.email) {
       const byEmail = await this.clientRepo.findOne({
         where: { businessId: dto.businessId, email: dto.email },
@@ -45,7 +71,7 @@ export class InternalClientsController {
     client.name = dto.name;
     client.email = dto.email ?? "";
     client.phone = dto.phone ?? "";
-    client.userId = null as unknown as string;
+    client.userId = dto.userId ?? (null as unknown as string);
     client.tags = [];
     return this.clientRepo.save(client);
   }

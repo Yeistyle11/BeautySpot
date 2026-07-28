@@ -50,13 +50,15 @@ export class PublicBookingService {
     guestName: string;
     guestEmail?: string;
     guestPhone?: string;
+    userId?: string;
   }) {
     // 1. Resolver o crear el cliente invitado vía el endpoint interno del core-service.
     const clientId = await this.findOrCreateGuestClient(
       data.businessId,
       data.guestName,
       data.guestEmail,
-      data.guestPhone
+      data.guestPhone,
+      data.userId
     );
 
     // 2. Calcular la hora de fin sumando la duración de los servicios.
@@ -135,7 +137,8 @@ export class PublicBookingService {
     businessId: string,
     name: string,
     email?: string,
-    phone?: string
+    phone?: string,
+    userId?: string
   ): Promise<string> {
     const coreServiceUrl = this.configService.get<string>(
       "CORE_SERVICE_URL",
@@ -145,7 +148,7 @@ export class PublicBookingService {
       "INTERNAL_API_SECRET",
       ""
     );
-    const body = JSON.stringify({ businessId, name, email, phone });
+    const body = JSON.stringify({ businessId, name, email, phone, userId });
 
     let response: Response;
     try {

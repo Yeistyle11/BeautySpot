@@ -20,6 +20,7 @@ import Link from "next/link";
 
 import {
   appointmentSchema,
+  MY_APPOINTMENTS_KEY,
   type Appointment,
 } from "@/lib/schemas/appointment";
 
@@ -78,7 +79,7 @@ export default function AppointmentsPage() {
     error: loadError,
     mutate: recargar,
   } = useApi(
-    "/booking/appointments",
+    MY_APPOINTMENTS_KEY,
     undefined,
     paginatedSchema(appointmentSchema)
   );

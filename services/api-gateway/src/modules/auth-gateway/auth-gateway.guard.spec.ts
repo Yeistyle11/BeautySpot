@@ -53,6 +53,14 @@ describe("AuthGatewayGuard", () => {
       ).toBe(true);
     });
 
+    it("deja consultar horarios libres antes de tener sesión", () => {
+      expect(
+        guard.canActivate(
+          contextoDe("/api/v1/booking/appointments/availability", "GET")
+        )
+      ).toBe(true);
+    });
+
     it("acepta también el alias con sufijo -service", () => {
       expect(
         guard.canActivate(
@@ -91,6 +99,20 @@ describe("AuthGatewayGuard", () => {
         guard.canActivate(
           contextoDe("/api/v1/core/public/businesses/abc/services", "POST")
         )
+      ).toBe(false);
+    });
+
+    it("no deja escribir citas por la puerta de disponibilidad", () => {
+      expect(
+        guard.canActivate(
+          contextoDe("/api/v1/booking/appointments/availability", "POST")
+        )
+      ).toBe(false);
+    });
+
+    it("exige token para las citas propias del cliente", () => {
+      expect(
+        guard.canActivate(contextoDe("/api/v1/booking/appointments/mine", "GET"))
       ).toBe(false);
     });
 

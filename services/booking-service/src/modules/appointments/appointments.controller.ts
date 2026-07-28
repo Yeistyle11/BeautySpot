@@ -14,12 +14,14 @@ import {
   Public,
   BusinessId,
   CurrentUser,
+  SkipBusinessScope,
 } from "@beautyspot/nest-common";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import {
   CreateAppointmentDto,
   CancelDto,
   RescheduleDto,
+  AvailabilityQueryDto,
 } from "./dto/appointment.dto";
 
 /** Endpoints de gestión de citas del negocio (crear, listar y transiciones de estado). */
@@ -41,20 +43,42 @@ export class AppointmentsController {
     });
   }
 
-  /** Devuelve los slots disponibles de un profesional en una fecha para una duración. */
+  /**
+   * Devuelve los slots disponibles de un profesional en una fecha para una
+   * duración. Es público porque la reserva del marketplace la consulta antes
+   * de que exista sesión; el negocio se deduce del profesional, ya que quien
+   * reserva no pertenece a él y no puede aportar el tenant.
+   */
+  @Public()
   @Get("availability")
-  async getAvailability(
-    @BusinessId() businessId: string,
-    @Query("professionalId") professionalId: string,
-    @Query("date") date: string,
-    @Query("duration") duration: string
-  ) {
-    return this.service.findAvailableSlots(
-      businessId,
-      professionalId,
-      date,
-      Number(duration)
+  async getAvailability(@Query() query: AvailabilityQueryDto) {
+    return this.service.findAvailableSlotsPublic(
+      query.professionalId,
+      query.date,
+      query.duration
     );
+  }
+
+  /**
+   * Citas del cliente autenticado, de todos los negocios donde haya reservado.
+   *
+   * Va sin scope de negocio porque un CLIENT no pertenece a ninguno. El filtro
+   * sale del token, nunca de la query: el llamante no puede pedir las citas de
+   * otro cliente.
+   */
+  @Roles(Role.CLIENT)
+  @SkipBusinessScope()
+  @Get("mine")
+  async findMine(
+    @CurrentUser("userId") userId: string,
+    @Query() query: Record<string, unknown>
+  ) {
+    const pagination = parsePaginationQuery(query, [
+      "date",
+      "startTime",
+      "createdAt",
+    ]);
+    return this.service.findByClientUser(userId, pagination);
   }
 
   /** Lista las citas del negocio con filtros y paginación. */

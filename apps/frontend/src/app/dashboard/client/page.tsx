@@ -21,7 +21,7 @@ import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import Link from "next/link";
 import {
   appointmentSchema,
-  APPOINTMENTS_KEY,
+  MY_APPOINTMENTS_KEY,
   type Appointment,
 } from "@/lib/schemas/appointment";
 
@@ -32,7 +32,11 @@ export default function ClientDashboardPage() {
     isLoading: loading,
     error: loadError,
     mutate: recargar,
-  } = useApi(APPOINTMENTS_KEY, undefined, paginatedSchema(appointmentSchema));
+  } = useApi(
+    MY_APPOINTMENTS_KEY,
+    undefined,
+    paginatedSchema(appointmentSchema)
+  );
 
   const list: Appointment[] = pagina?.data ?? [];
   const upcoming = list

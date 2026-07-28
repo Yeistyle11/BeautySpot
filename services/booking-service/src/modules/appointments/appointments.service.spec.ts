@@ -1,7 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import { DataSource } from "typeorm";
+import { ServiceUnavailableException } from "@nestjs/common";
 import { AppointmentsService } from "./appointments.service";
 import { Appointment } from "../../entities/appointment.entity";
 import { Availability } from "../../entities/availability.entity";
@@ -146,6 +148,10 @@ describe("AppointmentsService", () => {
         {
           provide: OutboxService,
           useValue: mockOutbox,
+        },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn((_: string, fallback?: string) => fallback) },
         },
       ],
     }).compile();
@@ -799,6 +805,103 @@ describe("AppointmentsService", () => {
       await expect(
         service.findById("non-existent", "business-123")
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("findByClientUser", () => {
+    const pagination = {
+      page: 1,
+      limit: 20,
+      offset: 0,
+      sort: "date",
+      order: "DESC" as const,
+    };
+
+    afterEach(() => {
+      delete (global as { fetch?: unknown }).fetch;
+    });
+
+    /** Respuesta del endpoint interno de core que traduce usuario a fichas. */
+    function coreDevuelve(clients: { id: string }[]) {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, data: clients }),
+      }) as unknown as typeof fetch;
+    }
+
+    it("busca las citas de todas las fichas del usuario", async () => {
+      coreDevuelve([{ id: "cliente-a" }, { id: "cliente-b" }]);
+      mockApptRepo.findAndCount.mockResolvedValue([[mockAppointment], 1]);
+
+      const result = await service.findByClientUser("user-1", pagination);
+
+      expect(mockApptRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { clientId: In(["cliente-a", "cliente-b"]) },
+        })
+      );
+      expect(result.data).toEqual([mockAppointment]);
+    });
+
+    // El filtro sale del token; si se consultara sin el, la pagina mostraria
+    // las citas de todo el mundo.
+    it("nunca consulta sin filtro cuando el usuario no tiene fichas", async () => {
+      coreDevuelve([]);
+
+      const result = await service.findByClientUser("user-sin-fichas", pagination);
+
+      expect(mockApptRepo.findAndCount).not.toHaveBeenCalled();
+      expect(result.data).toEqual([]);
+      expect(result.meta.total).toBe(0);
+    });
+
+    it("avisa si core no responde, en vez de devolver una lista vacía", async () => {
+      global.fetch = jest
+        .fn()
+        .mockRejectedValue(new Error("conexión rechazada")) as unknown as typeof fetch;
+
+      await expect(
+        service.findByClientUser("user-1", pagination)
+      ).rejects.toThrow(ServiceUnavailableException);
+    });
+  });
+
+  describe("findAvailableSlotsPublic", () => {
+    it("deduce el negocio del horario del profesional", async () => {
+      mockAvailRepo.findOne.mockResolvedValue({
+        id: "avail-1",
+        businessId: "business-123",
+        professionalId: "pro-1",
+        dayOfWeek: 3,
+        startTime: "09:00",
+        endTime: "10:00",
+        active: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        generateId: () => {},
+      } as unknown as Availability);
+      mockBlockRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([]);
+
+      const slots = await service.findAvailableSlotsPublic(
+        "pro-1",
+        "2026-08-19",
+        30
+      );
+
+      expect(slots.length).toBeGreaterThan(0);
+    });
+
+    it("no devuelve horarios de un profesional sin agenda configurada", async () => {
+      mockAvailRepo.findOne.mockResolvedValue(null);
+
+      const slots = await service.findAvailableSlotsPublic(
+        "pro-desconocido",
+        "2026-08-19",
+        30
+      );
+
+      expect(slots).toEqual([]);
     });
   });
 

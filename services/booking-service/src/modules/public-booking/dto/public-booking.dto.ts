@@ -19,4 +19,9 @@ export class PublicBookingDto {
   @IsString() guestName!: string;
   @IsOptional() @IsEmail() guestEmail?: string;
   @IsOptional() @IsString() guestPhone?: string;
+  /**
+   * Usuario que reserva, si tenía sesión. Ata la ficha de cliente a su cuenta
+   * para que la cita aparezca luego en "Mis citas".
+   */
+  @IsOptional() @IsUUID() userId?: string;
 }

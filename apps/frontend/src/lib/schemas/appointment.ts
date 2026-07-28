@@ -30,3 +30,22 @@ export type Appointment = z.infer<typeof appointmentSchema>;
 
 /** El endpoint de citas siempre pagina: nunca devuelve un array pelado. */
 export const APPOINTMENTS_KEY = "/booking/appointments";
+
+/**
+ * Citas del cliente autenticado. Va por su propia ruta porque la de gestion
+ * esta limitada al personal del negocio y filtra por tenant, y un cliente no
+ * pertenece a ninguno.
+ */
+export const MY_APPOINTMENTS_KEY = "/booking/appointments/mine";
+
+/**
+ * Hueco devuelto por `GET /booking/appointments/availability`. El endpoint
+ * enumera toda la jornada marcando cuales quedan libres, no solo las horas
+ * disponibles.
+ */
+export const availabilitySlotSchema = z.object({
+  startTime: z.string(),
+  endTime: z.string(),
+  available: z.boolean(),
+});
+export type AvailabilitySlot = z.infer<typeof availabilitySlotSchema>;

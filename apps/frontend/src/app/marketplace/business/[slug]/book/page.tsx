@@ -6,11 +6,15 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { z } from "zod";
-import { apiPublic, api } from "@/lib/api";
+import { apiPublic } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { getErrorMessage } from "@/lib/utils";
 import { useApiPublic, revalidatePrefix } from "@/lib/swr";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
+import {
+  availabilitySlotSchema,
+  type AvailabilitySlot,
+} from "@/lib/schemas/appointment";
 import { BookingConfirmation } from "./booking-confirmation";
 import { SelectServicesStep } from "./steps/select-services-step";
 import { SelectProfessionalStep } from "./steps/select-professional-step";
@@ -102,13 +106,15 @@ function PublicBookingPageInner() {
     date && selectedProfessional && totalDuration > 0 && !isAnyProfessional
       ? `/booking/appointments/availability?professionalId=${selectedProfessional}&date=${date}&duration=${totalDuration}`
       : null;
-  const { data: rawSlots, isLoading: slotsLoading } = useApiPublic<string[]>(
-    slotsKey,
-    undefined,
-    z.array(z.string())
-  );
+  const { data: rawSlots, isLoading: slotsLoading } = useApiPublic<
+    AvailabilitySlot[]
+  >(slotsKey, undefined, z.array(availabilitySlotSchema));
+  // El endpoint enumera la jornada entera marcando cuales quedan libres; aqui
+  // solo interesan las horas que se pueden elegir.
   const availableSlots =
-    isAnyProfessional && date ? generateFallbackSlots() : (rawSlots ?? []);
+    isAnyProfessional && date
+      ? generateFallbackSlots()
+      : (rawSlots ?? []).filter((s) => s.available).map((s) => s.startTime);
 
   // Cambiar de fecha, profesional o servicios invalida la hora ya elegida.
   useEffect(() => {
@@ -136,7 +142,27 @@ function PublicBookingPageInner() {
     setError("");
     setSubmitting(true);
     try {
+      // Con o sin sesion se reserva por el mismo endpoint publico: el de
+      // gestion es solo para el personal del negocio, y quien reserva desde el
+      // marketplace no pertenece a el. Con sesion se manda el usuario para que
+      // el core ate la ficha de cliente a su cuenta y la cita salga luego en
+      // "Mis citas".
+      const identidad =
+        isAuthenticated && user
+          ? {
+              userId: user.id,
+              guestName: user.name,
+              guestEmail: user.email || undefined,
+              guestPhone: user.phone || undefined,
+            }
+          : {
+              guestName: guest.name,
+              guestEmail: guest.email || undefined,
+              guestPhone: guest.phone || undefined,
+            };
+
       const body: Record<string, unknown> = {
+        businessId: profile.businessId,
         professionalId: selectedProfessional,
         serviceIds: selectedServiceData.map((s) => ({
           id: s.id,
@@ -146,23 +172,13 @@ function PublicBookingPageInner() {
         })),
         date,
         startTime,
+        ...identidad,
       };
 
-      // Con sesion la cita se asocia al cliente y el negocio lo resuelve el
-      // gateway desde el token; sin ella viaja como invitado por un endpoint
-      // publico distinto, que si necesita el negocio explicito en el cuerpo.
-      if (isAuthenticated && user) {
-        body.clientId = user.id;
-      } else {
-        body.businessId = profile.businessId;
-        body.guestName = guest.name;
-        body.guestEmail = guest.email || undefined;
-        body.guestPhone = guest.phone || undefined;
-      }
-
-      const result = await (isAuthenticated
-        ? api.post<Confirmation>("/booking/appointments", body)
-        : apiPublic.post<Confirmation>("/booking/public/appointments", body));
+      const result = await apiPublic.post<Confirmation>(
+        "/booking/public/appointments",
+        body
+      );
       setConfirmation(result);
       await revalidatePrefix("/booking/appointments");
     } catch (err) {
