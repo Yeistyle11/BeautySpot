@@ -11,6 +11,7 @@ import { SearchModule } from "./modules/search/search.module";
 import { ReviewsModule } from "./modules/reviews/reviews.module";
 import { ProfessionalProfilesModule } from "./modules/professional-profiles/professional-profiles.module";
 import { FeedModule } from "./modules/feed/feed.module";
+import { MarketplaceEventListenersModule } from "./modules/event-listeners/marketplace-event-listeners.module";
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -27,6 +28,7 @@ import { FeedModule } from "./modules/feed/feed.module";
     ReviewsModule,
     ProfessionalProfilesModule,
     FeedModule,
+    MarketplaceEventListenersModule,
   ],
 })
 /** Módulo raíz del marketplace-service: perfiles públicos, reseñas, feed y búsqueda. */

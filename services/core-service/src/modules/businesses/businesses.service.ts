@@ -165,8 +165,27 @@ export class BusinessesService {
     callerBusinessId?: string,
     callerRole?: Role
   ): Promise<Business> {
-    await this.findById(id, callerBusinessId, callerRole);
-    await this.repo.update(id, data as Parameters<typeof this.repo.update>[1]);
+    const previo = await this.findById(id, callerBusinessId, callerRole);
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager
+        .getRepository(Business)
+        .update(id, data as Parameters<typeof this.repo.update>[1]);
+
+      // El marketplace guarda su propia copia de los datos de cabecera del
+      // perfil publico, asi que necesita enterarse de cada cambio.
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.CORE_BUSINESS_UPDATED,
+        aggregateType: "business",
+        aggregateId: id,
+        payload: {
+          businessId: id,
+          slug: previo.slug,
+          changes: data as Record<string, unknown>,
+        },
+      });
+    });
+
     return this.findById(id, callerBusinessId, callerRole);
   }
 

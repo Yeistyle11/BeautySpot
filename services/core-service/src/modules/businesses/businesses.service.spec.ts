@@ -9,6 +9,7 @@ import { NotFoundException, ConflictException } from "@nestjs/common";
 describe("BusinessesService", () => {
   let service: BusinessesService;
   let mockRepository: jest.Mocked<Repository<Business>>;
+  let mockOutbox: { enqueue: jest.Mock };
 
   const mockBusiness: Business = {
     id: "business-123",
@@ -61,7 +62,8 @@ describe("BusinessesService", () => {
       }),
     } as any;
 
-    const mockOutboxSpec = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    mockOutbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    const mockOutboxSpec = mockOutbox;
     const mockDataSourceSpec = {
       // La transacción entrega el mismo repositorio simulado del test.
       transaction: jest.fn((cb) =>
@@ -323,6 +325,33 @@ describe("BusinessesService", () => {
       expect(mockRepository.findOne).toHaveBeenCalled();
       expect(result.name).toBe("Updated Beauty Center");
       expect(result.description).toBe("Updated description");
+    });
+
+    // El marketplace guarda su propia copia de estos campos y solo se entera
+    // por este evento.
+    it("publica el cambio para que el marketplace lo replique", async () => {
+      const updateData = { logo: "https://cdn/logo.png" };
+
+      mockRepository.findOne.mockResolvedValue({
+        ...mockBusiness,
+        ...updateData,
+      } as any);
+      mockRepository.update.mockResolvedValue({ affected: 1 } as any);
+
+      await service.update("business-123", updateData);
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: "core.business.updated",
+          aggregateId: "business-123",
+          payload: expect.objectContaining({
+            businessId: "business-123",
+            slug: "test-beauty-center",
+            changes: updateData,
+          }),
+        })
+      );
     });
 
     it("debería manejar actualización parcial", async () => {
