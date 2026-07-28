@@ -11,11 +11,7 @@ import {
   CLIENTS_KEY,
 } from "../schemas";
 
-/**
- * Un pago tal y como lo devuelve /payment/payments. `amount` llega como número
- * (lo convierte el numericTransformer de la entidad) y la marca de tiempo es
- * `createdAt`: no existe ningún `registeredAt`, solo `registeredBy`.
- */
+/** Un pago tal y como lo devuelve `GET /payment/payments`. */
 const pagoDeLaApi = {
   id: "2dd37d5f-145f-4ac2-8c52-34cadc3af326",
   createdAt: "2026-07-28T05:25:55.581Z",
@@ -48,8 +44,6 @@ describe("paymentSchema", () => {
     expect(result.amount).toBe(15000);
   });
 
-  // Si el schema exigiera un campo que la API no manda, cada pago fallaría el
-  // parseo y la lista se pintaría vacía sin avisar de nada.
   it("no exige campos que la API no envía", () => {
     const result = paymentSchema.safeParse(pagoDeLaApi);
 
@@ -100,8 +94,6 @@ describe("dailySummarySchema", () => {
 });
 
 describe("estados de pago", () => {
-  // La interfaz va integramente en español: un estado sin traducir se muestra
-  // con el nombre crudo del enum.
   it("traduce todos los estados que puede devolver la API", () => {
     for (const estado of ["PENDING", "COMPLETED", "REFUNDED", "CANCELLED"]) {
       expect(STATUS_LABELS[estado]).toBeTruthy();
@@ -129,7 +121,6 @@ describe("constantes de la pantalla", () => {
   });
 
   it("pide los clientes de a lotes grandes, porque alimentan un desplegable", () => {
-    // Con el limite por defecto (20) el desplegable esconde clientes sin avisar.
     expect(CLIENTS_KEY).toContain("limit=");
     const limite = Number(
       new URLSearchParams(CLIENTS_KEY.split("?")[1]).get("limit")

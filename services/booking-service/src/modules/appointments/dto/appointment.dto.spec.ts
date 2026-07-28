@@ -58,8 +58,6 @@ describe("CreateAppointmentDto", () => {
     ).rejects.toThrow();
   });
 
-  // El servicio combina `date` con la hora para situar la cita en el huso del
-  // negocio; un ISO completo se concatenaba mal y acababa en un 500.
   it("rechaza una fecha con hora en vez del día suelto", async () => {
     const error = await pipe
       .transform(
@@ -77,8 +75,6 @@ describe("CreateAppointmentDto", () => {
     });
   });
 
-  // Un id que no sea UUID llega hasta la consulta y sale como 500: la
-  // validacion lo corta antes para que el error diga que pasa.
   it("rechaza un profesional que no sea un id valido", async () => {
     await expect(
       pipe.transform({ ...citaDelPanel, professionalId: "any" }, metadata)
@@ -97,8 +93,6 @@ describe("CreateAppointmentDto", () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  // El negocio lo resuelve el gateway desde el token: aceptarlo en el cuerpo
-  // dejaria reservar contra otro tenant.
   it("rechaza un businessId en el cuerpo", async () => {
     await expect(
       pipe.transform(

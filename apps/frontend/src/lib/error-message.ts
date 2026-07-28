@@ -34,11 +34,7 @@ const OPACOS = new Set([
 
 const GENERICO = "Ocurrió un error inesperado. Vuelve a intentarlo.";
 
-/**
- * Un fallo de validación de schema es un desajuste entre el frontend y la API,
- * no algo que el usuario pueda corregir. Su `message` es un volcado JSON de
- * Zod, asi que nunca debe llegar a pantalla.
- */
+/** Texto para un desajuste de schema, cuyo `message` es un volcado de Zod. */
 const CONTRATO =
   "La respuesta del servidor no tiene el formato esperado. Avisa al equipo si se repite.";
 

@@ -145,8 +145,6 @@ describe("PublicService", () => {
       });
     });
 
-    // Sin nombre ni foto el paso de "elegir profesional" de la reserva publica
-    // sale con tarjetas anonimas.
     it("incluye el nombre y la foto, que son lo que pinta la reserva", async () => {
       mockProRepo.find.mockResolvedValue([]);
 

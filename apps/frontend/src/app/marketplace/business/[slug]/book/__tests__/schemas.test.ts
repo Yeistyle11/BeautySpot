@@ -6,10 +6,7 @@ import {
   BOOKING_STEPS,
 } from "../schemas";
 
-/**
- * Respuesta real de GET /marketplace/profiles/:slug. El perfil viene envuelto
- * junto a los profesionales; leerlo plano deja la reserva sin negocio.
- */
+/** Respuesta real de `GET /marketplace/profiles/:slug`. */
 const respuestaDeLaApi = {
   profile: {
     id: "1f0a6d55-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
@@ -44,7 +41,6 @@ describe("profileResponseSchema", () => {
   });
 
   it("rechaza el perfil plano, sin envolver", () => {
-    // La reserva trata un perfil que no parsea como negocio inexistente.
     const result = profileResponseSchema.safeParse(respuestaDeLaApi.profile);
 
     expect(result.success).toBe(false);

@@ -31,17 +31,11 @@ const PUBLIC_MARKETPLACE_PREFIXES = [
   "/api/v1/marketplace-service/reviews/",
   "/api/v1/core/public/",
   "/api/v1/core-service/public/",
-  // La reserva del marketplace consulta huecos libres antes de que exista
-  // sesion; solo devuelve horarios, nunca datos de las citas.
   "/api/v1/booking/appointments/availability",
   "/api/v1/booking-service/appointments/availability",
 ];
 
-/**
- * Reserva de invitado: es el único POST sin token que admite el gateway, así
- * que se lista la ruta exacta en vez de un prefijo para no abrir de paso el
- * resto del servicio de agenda.
- */
+/** Rutas de reserva de invitado, accesibles sin token solo por POST. */
 const PUBLIC_BOOKING_PATHS = [
   "/api/v1/booking/public/appointments",
   "/api/v1/booking-service/public/appointments",

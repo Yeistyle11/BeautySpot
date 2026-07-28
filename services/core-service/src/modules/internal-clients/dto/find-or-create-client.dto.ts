@@ -18,7 +18,7 @@ export class FindOrCreateClientDto {
   @IsOptional()
   phone?: string;
 
-  /** Usuario autenticado que reserva; ausente en una reserva de invitado. */
+  /** Usuario que reserva; ausente en una reserva de invitado. */
   @IsUUID()
   @IsOptional()
   userId?: string;

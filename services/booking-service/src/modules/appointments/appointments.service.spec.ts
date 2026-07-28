@@ -845,8 +845,6 @@ describe("AppointmentsService", () => {
       expect(result.data).toEqual([mockAppointment]);
     });
 
-    // El filtro sale del token; si se consultara sin el, la pagina mostraria
-    // las citas de todo el mundo.
     it("nunca consulta sin filtro cuando el usuario no tiene fichas", async () => {
       coreDevuelve([]);
 
@@ -938,7 +936,6 @@ describe("AppointmentsService", () => {
           ?.where;
         return Promise.resolve(jornadaCorta(where!.professionalId!));
       });
-      // pro-a tiene ocupada la primera franja; pro-b la tiene libre.
       mockApptRepo.find.mockImplementation((options?: unknown) => {
         const where = (options as { where?: { professionalId?: string } })
           ?.where;

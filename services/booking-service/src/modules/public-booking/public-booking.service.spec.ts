@@ -223,7 +223,6 @@ describe("PublicBookingService", () => {
       it("salta al siguiente cuando el primero ya tiene una cita a esa hora", async () => {
         equipoDelDia(["prof-a", "prof-b"]);
         mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
-        // Solo prof-a arrastra una cita solapada.
         mockApptRepo.find.mockImplementation((options?: unknown) => {
           const where = (options as { where?: { professionalId?: string } })
             ?.where;

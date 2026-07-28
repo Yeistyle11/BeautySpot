@@ -13,7 +13,6 @@ import { BusinessProfileEntity } from "../../entities/business-profile.entity";
 
 /**
  * Campos del negocio que el perfil público duplica, y con qué nombre los guarda.
- * Lo que no aparece aquí (moneda, zona horaria, plan) no se muestra al público.
  */
 const CAMPOS_ESPEJADOS: Record<string, keyof BusinessProfileEntity> = {
   name: "name",
@@ -44,8 +43,7 @@ export class MarketplaceEventListeners {
   /**
    * Copia al perfil público los campos que hayan cambiado en el negocio.
    *
-   * El perfil nace desde el propio marketplace, no desde este evento: si el
-   * negocio aún no tiene uno, no hay nada que sincronizar.
+   * Si el negocio aún no tiene perfil, no hay nada que sincronizar.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
@@ -61,8 +59,6 @@ export class MarketplaceEventListeners {
       CAMPOS_ESPEJADOS
     )) {
       if (campoNegocio in changes) {
-        // El destino es heterogéneo (texto y decimales), y el origen viene del
-        // contrato como `unknown`: la forma la garantiza CAMPOS_ESPEJADOS.
         (parche as Record<string, unknown>)[campoPerfil] =
           changes[campoNegocio];
       }

@@ -53,8 +53,6 @@ describe("appointmentSchema canónico", () => {
     expect(result.success).toBe(false);
   });
 
-  // Varias pantallas comparten este schema: si alguna lee la lista como array
-  // pelado, se queda vacía sin avisar.
   it("se consume envuelto en { data, meta }, no como array pelado", () => {
     expect(
       paginatedSchema(appointmentSchema).safeParse(respuestaPaginada).success

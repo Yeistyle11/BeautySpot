@@ -312,7 +312,6 @@ export default function ServicesPage() {
                   </p>
                 )}
                 <div className="mt-3 flex items-center gap-4 text-sm">
-                  {/* Sin icono de moneda: formatCurrency ya antepone el "$". */}
                   <span className="text-primary font-semibold">
                     {formatCurrency(s.price)}
                   </span>

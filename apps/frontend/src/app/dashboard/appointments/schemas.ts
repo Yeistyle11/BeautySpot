@@ -36,5 +36,4 @@ export type AppointmentForm = typeof emptyForm;
 export const APPOINTMENTS_KEY = "/booking/appointments";
 export const PROFESSIONALS_KEY = "/core/professionals";
 export const SERVICES_KEY = "/core/services";
-// El endpoint pagina de 20 en 20; el desplegable necesita la lista completa.
 export const CLIENTS_KEY = "/core/clients?limit=100";

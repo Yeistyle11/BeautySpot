@@ -44,12 +44,7 @@ export class AppointmentsController {
     });
   }
 
-  /**
-   * Devuelve los slots disponibles de un profesional en una fecha para una
-   * duración. Es público porque la reserva del marketplace la consulta antes
-   * de que exista sesión; el negocio se deduce del profesional, ya que quien
-   * reserva no pertenece a él y no puede aportar el tenant.
-   */
+  /** Franjas de un profesional, o de todo el equipo si solo llega el negocio. */
   @Public()
   @Get("availability")
   async getAvailability(@Query() query: AvailabilityQueryDto) {
@@ -75,11 +70,8 @@ export class AppointmentsController {
   }
 
   /**
-   * Citas del cliente autenticado, de todos los negocios donde haya reservado.
-   *
-   * Va sin scope de negocio porque un CLIENT no pertenece a ninguno. El filtro
-   * sale del token, nunca de la query: el llamante no puede pedir las citas de
-   * otro cliente.
+   * Citas del cliente autenticado. El filtro sale del token, nunca de la
+   * query.
    */
   @Roles(Role.CLIENT)
   @SkipBusinessScope()

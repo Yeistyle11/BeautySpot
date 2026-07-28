@@ -25,11 +25,7 @@ export class InternalClientsController {
     return this.clientRepo.find({ where: { userId } });
   }
 
-  /**
-   * Ata la ficha al usuario que acaba de reservar. Un cliente creado antes como
-   * invitado ya existe por email/teléfono, y sin este enlace nunca aparecería
-   * en "Mis citas" al registrarse esa misma persona.
-   */
+  /** Ata la ficha al usuario que reserva, si aun no tiene ninguno. */
   private async vincularUsuario(
     client: Client,
     userId?: string

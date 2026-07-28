@@ -14,7 +14,6 @@ describe("AuthGatewayGuard", () => {
 
   beforeEach(() => {
     guard = new AuthGatewayGuard();
-    // Lo que interesa es si el guard cortocircuita o delega en el JWT de passport.
     superCanActivate = jest
       .spyOn(Object.getPrototypeOf(AuthGatewayGuard.prototype), "canActivate")
       .mockReturnValue(false);

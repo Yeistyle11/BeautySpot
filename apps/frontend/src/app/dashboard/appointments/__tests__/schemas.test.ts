@@ -11,11 +11,7 @@ import {
   SERVICES_KEY,
 } from "../schemas";
 
-/**
- * Una cita tal y como la devuelve /booking/appointments. Los decimales
- * (`totalAmount`, `price`) llegan como número porque la entidad los pasa por el
- * numericTransformer, y los recordatorios aun sin enviar llegan como null.
- */
+/** Una cita tal y como la devuelve `GET /booking/appointments`. */
 const citaDeLaApi = {
   id: "e9ecd7ed-e9ab-4516-ae3c-20bfe21e6840",
   createdAt: "2026-07-28T06:47:08.003Z",
@@ -157,7 +153,6 @@ describe("constantes de la pantalla", () => {
   });
 
   it("pide los clientes de a lotes grandes, porque alimentan un desplegable", () => {
-    // Con el limite por defecto (20) el desplegable esconde clientes sin avisar.
     const limite = Number(
       new URLSearchParams(CLIENTS_KEY.split("?")[1]).get("limit")
     );

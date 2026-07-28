@@ -4,8 +4,6 @@ import { mensajeDeError } from "../error-message";
 
 describe("mensajeDeError", () => {
   describe("desajustes de schema", () => {
-    // El `message` de un ZodError es un volcado JSON con nombres de campo:
-    // util en consola, ilegible en pantalla.
     it("no filtra el volcado de Zod a la pantalla", () => {
       const error = z
         .object({ totalAmount: z.number() })

@@ -9,8 +9,6 @@ const SOLO_FECHA = /^\d{4}-\d{2}-\d{2}$/;
  *
  * Las citas guardan la fecha en una columna `date` y el servicio la combina con
  * la hora (`${date}T${startTime}`) para situarla en el huso del negocio.
- * `@IsDateString()` acepta además un ISO completo, que al concatenarse produce
- * un `Invalid Date` y revienta con un 500 en vez de rechazarse con un 400.
  */
 export function EsFechaSola(): PropertyDecorator {
   return applyDecorators(

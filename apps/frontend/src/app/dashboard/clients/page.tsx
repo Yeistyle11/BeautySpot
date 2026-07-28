@@ -139,7 +139,6 @@ export default function ClientsPage() {
   const detailKey = selectedClient
     ? `/booking/appointments?clientId=${selectedClient.id}`
     : null;
-  // El historial viene paginado, en la forma { data, meta }.
   const { data: historial, isLoading: loadingDetail } = useApi(
     detailKey,
     undefined,

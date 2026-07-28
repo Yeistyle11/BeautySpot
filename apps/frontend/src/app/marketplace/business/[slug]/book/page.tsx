@@ -105,8 +105,6 @@ function PublicBookingPageInner() {
   const totalAmount = selectedServiceData.reduce((sum, s) => sum + s.price, 0);
 
   const isAnyProfessional = selectedProfessional === "any";
-  // Sin profesional elegido se consulta la agenda del negocio entero, que
-  // ofrece las franjas que tenga libres cualquiera del equipo.
   const alcanceSlots = isAnyProfessional
     ? `businessId=${profile?.businessId}`
     : `professionalId=${selectedProfessional}`;
@@ -117,8 +115,6 @@ function PublicBookingPageInner() {
   const { data: rawSlots, isLoading: slotsLoading } = useApiPublic<
     AvailabilitySlot[]
   >(slotsKey, undefined, z.array(availabilitySlotSchema));
-  // El endpoint enumera la jornada entera marcando cuales quedan libres; aqui
-  // solo interesan las horas que se pueden elegir.
   const availableSlots = (rawSlots ?? [])
     .filter((s) => s.available)
     .map((s) => s.startTime);
@@ -149,11 +145,6 @@ function PublicBookingPageInner() {
     setError("");
     setSubmitting(true);
     try {
-      // Con o sin sesion se reserva por el mismo endpoint publico: el de
-      // gestion es solo para el personal del negocio, y quien reserva desde el
-      // marketplace no pertenece a el. Con sesion se manda el usuario para que
-      // el core ate la ficha de cliente a su cuenta y la cita salga luego en
-      // "Mis citas".
       const identidad =
         isAuthenticated && user
           ? {
@@ -170,8 +161,6 @@ function PublicBookingPageInner() {
 
       const body: Record<string, unknown> = {
         businessId: profile.businessId,
-        // Omitirlo pide "cualquiera disponible": el backend asigna el primero
-        // del equipo que tenga libre la franja.
         professionalId: isAnyProfessional ? undefined : selectedProfessional,
         serviceIds: selectedServiceData.map((s) => ({
           id: s.id,
@@ -205,8 +194,6 @@ function PublicBookingPageInner() {
     );
   }
 
-  // Un fallo de red o de contrato no significa que el negocio no exista; decir
-  // "no encontrado" manda al visitante de vuelta al marketplace por nada.
   if (profileError) {
     return (
       <div className="mx-auto max-w-lg py-20">

@@ -183,8 +183,6 @@ export default function CashRegisterPage() {
     );
   }
 
-  // Sin esta rama un fallo al pedir la sesion activa se pinta como "Caja
-  // cerrada", que es indistinguible de una caja que de verdad esta cerrada.
   if (errorActive) {
     return (
       <div>

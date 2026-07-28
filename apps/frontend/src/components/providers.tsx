@@ -10,12 +10,7 @@ import { useAuthStore } from "@/lib/store";
 import { logger } from "@/lib/logger";
 import { ToastProvider } from "@/components/ui/toast";
 
-/**
- * Registra todo fallo de fetch. Un 401 no se traza porque ya lo gestiona el
- * redirect de sesion, y un desajuste de schema se detalla campo a campo: es un
- * bug de contrato entre el frontend y la API, y sin esto la pantalla solo se
- * queda vacia.
- */
+/** Traza los fallos de fetch, detallando los desajustes de schema. */
 function registrarFalloDeCarga(error: unknown, key: string) {
   if (isAuthError(error)) return;
 

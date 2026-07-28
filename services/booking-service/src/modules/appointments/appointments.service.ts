@@ -427,14 +427,7 @@ export class AppointmentsService {
     return this.findById(id, businessId);
   }
 
-  /**
-   * Slots de un profesional resolviendo el negocio desde su propio horario.
-   *
-   * Lo usa la reserva del marketplace, donde quien consulta no pertenece al
-   * negocio y por tanto no llega ningún tenant en la petición. Un profesional
-   * pertenece a un único negocio, así que el horario lo determina sin
-   * ambigüedad. Solo expone huecos libres, nunca datos de las citas.
-   */
+  /** Franjas de un profesional, con el negocio resuelto desde su horario. */
   async findAvailableSlotsPublic(
     professionalId: string,
     date: string,
@@ -454,12 +447,8 @@ export class AppointmentsService {
   }
 
   /**
-   * Franjas libres de un negocio: una franja se ofrece si la tiene libre al
-   * menos un profesional del equipo.
-   *
-   * Es lo que consulta la reserva cuando el cliente no elige profesional. Al
-   * confirmar se le asigna uno concreto, asi que aqui basta con saber que hay
-   * alguien que puede atender.
+   * Franjas de un negocio: una franja queda libre si la tiene libre al menos
+   * un profesional del equipo.
    */
   async findAvailableSlotsForBusiness(
     businessId: string,
@@ -479,7 +468,6 @@ export class AppointmentsService {
       )
     );
 
-    // Se unen por hora de inicio: la franja queda libre si alguien la tiene.
     const union = new Map<
       string,
       { startTime: string; endTime: string; available: boolean }
@@ -600,11 +588,8 @@ export class AppointmentsService {
 
   /**
    * Citas de un usuario cliente en todos los negocios donde haya reservado.
-   *
-   * Las citas guardan el id del cliente del negocio, no el del usuario, así que
-   * primero se traducen las fichas que core tiene atadas a ese usuario. Sin
-   * ninguna ficha no hay citas que mostrar, y devolver la lista vacía evita una
-   * consulta que filtraría por nada.
+   * Las citas guardan el id de la ficha del negocio, asi que primero se
+   * traducen las que core tiene atadas a ese usuario.
    */
   async findByClientUser(
     userId: string,

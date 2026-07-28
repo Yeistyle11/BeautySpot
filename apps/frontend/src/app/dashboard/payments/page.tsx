@@ -109,8 +109,6 @@ export default function PaymentsPage() {
         count: dailySummary.count,
       };
     }
-    // `createdAt` viaja en UTC, asi que se pasa a clave local antes de comparar:
-    // un pago de la tarde cae en el dia UTC siguiente y no contaria como de hoy.
     const todayPayments = payments.filter(
       (p) => toLocalDateKey(new Date(p.createdAt)) === today
     );

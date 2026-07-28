@@ -149,8 +149,6 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
       await mutate(queryKey);
     } catch (err) {
       logger.error(err);
-      // El backend distingue el nombre repetido del que existe desactivado, y
-      // ese mensaje dice que hacer, asi que se muestra tal cual.
       setCreateError(getErrorMessage(err, "No se pudo crear la categoría"));
     } finally {
       setSavingCreate(false);
@@ -196,7 +194,6 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
       await mutate(queryKey);
     } catch (err) {
       logger.error(err);
-      // Reactivar choca si mientras tanto nacio otra categoria con ese nombre.
       setToggleError(
         getErrorMessage(err, "No se pudo cambiar el estado de la categoría")
       );

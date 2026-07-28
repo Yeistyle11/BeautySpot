@@ -72,8 +72,6 @@ export class PublicBookingService {
     // 3. Verificar disponibilidad del horario.
     const dayOfWeek = new Date(data.date + "T12:00:00").getDay();
 
-    // Sin profesional pedido se asigna el primero del negocio que tenga libre
-    // la franja; con uno concreto se comprueba solo ese.
     const professionalId = data.professionalId
       ? await this.confirmarProfesionalLibre(
           data.businessId,
@@ -202,7 +200,7 @@ export class PublicBookingService {
     return client.id;
   }
 
-  /** Valida que el profesional pedido tenga libre la franja, o explica por que no. */
+  /** Valida que el profesional pedido tenga libre la franja. */
   private async confirmarProfesionalLibre(
     businessId: string,
     professionalId: string,
@@ -240,13 +238,8 @@ export class PublicBookingService {
   }
 
   /**
-   * Primer profesional del negocio con la franja libre, en el orden en que los
-   * devuelve la tabla de horarios.
-   *
-   * Solo entran los que tienen horario activo ese dia, asi que la lista ya
-   * excluye a quien no trabaja. Se comprueban de uno en uno y se devuelve el
-   * primero que pase: al reservar sin preferencia da igual cual sea, y recorrer
-   * el resto solo alargaria la espera.
+   * Primer profesional con horario activo ese dia y la franja libre, en el
+   * orden en que los devuelve la tabla de horarios.
    */
   private async primerProfesionalLibre(
     businessId: string,

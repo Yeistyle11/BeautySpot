@@ -14,11 +14,7 @@ interface ErrorDeCargaProps {
   onReintentar?: () => void;
 }
 
-/**
- * Distingue "no hay datos" de "no se pudieron cargar": sin esto un fallo de red
- * o un desajuste de schema se ven igual que una lista vacía, y el usuario cree
- * que no tiene nada cuando en realidad la pantalla está rota.
- */
+/** Estado de una lista o panel que no se pudo cargar, con opción de reintentar. */
 export function ErrorDeCarga({
   error,
   recurso,

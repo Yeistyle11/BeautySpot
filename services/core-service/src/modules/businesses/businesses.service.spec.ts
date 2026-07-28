@@ -327,8 +327,6 @@ describe("BusinessesService", () => {
       expect(result.description).toBe("Updated description");
     });
 
-    // El marketplace guarda su propia copia de estos campos y solo se entera
-    // por este evento.
     it("publica el cambio para que el marketplace lo replique", async () => {
       const updateData = { logo: "https://cdn/logo.png" };
 

@@ -21,9 +21,6 @@ export class AppointmentServiceItemDto {
 
 /** Datos para crear una cita: profesional, cliente, servicios, fecha y hora de inicio. */
 export class CreateAppointmentDto {
-  // Exige un profesional y un cliente concretos: un id que no sea UUID llegaría
-  // hasta la consulta y reventaría como error de servidor en vez de rechazarse
-  // aquí.
   @IsUUID() professionalId!: string;
   @IsUUID() clientId!: string;
   @IsArray()
@@ -55,7 +52,6 @@ export class AvailabilityQueryDto {
   /** Negocio entero: devuelve las franjas libres de cualquiera de su equipo. */
   @IsOptional() @IsUUID() businessId?: string;
   @EsFechaSola() date!: string;
-  // Llega por query, siempre como texto, asi que se convierte antes de validar.
   @Type(() => Number)
   @IsNumber()
   @Min(5)

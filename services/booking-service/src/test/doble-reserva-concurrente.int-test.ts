@@ -60,8 +60,6 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
     // no la publicación de eventos, que ya tiene su propio test.
     const outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
 
-    // La config solo la usa la consulta de citas del cliente, que no interviene
-    // en la exclusión mutua que se prueba aquí.
     const config = { get: jest.fn().mockReturnValue("") };
 
     citas = new AppointmentsService(

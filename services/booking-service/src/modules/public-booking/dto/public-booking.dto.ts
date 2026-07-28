@@ -10,10 +10,7 @@ import { EsFechaSola } from "../../../common/es-fecha-sola.decorator";
 /** Datos de una reserva pública: negocio, profesional, servicios, horario y datos del invitado. */
 export class PublicBookingDto {
   @IsUUID() businessId!: string;
-  /**
-   * Profesional pedido. Omitirlo significa "cualquiera disponible": el
-   * servicio asigna el primero del negocio que tenga libre esa franja.
-   */
+  /** Omitirlo pide "cualquiera disponible". */
   @IsOptional() @IsUUID() professionalId?: string;
   @IsArray() serviceIds!: {
     id: string;
@@ -27,9 +24,6 @@ export class PublicBookingDto {
   @IsString() guestName!: string;
   @IsOptional() @IsEmail() guestEmail?: string;
   @IsOptional() @IsString() guestPhone?: string;
-  /**
-   * Usuario que reserva, si tenía sesión. Ata la ficha de cliente a su cuenta
-   * para que la cita aparezca luego en "Mis citas".
-   */
+  /** Usuario que reserva, si tenía sesión. */
   @IsOptional() @IsUUID() userId?: string;
 }

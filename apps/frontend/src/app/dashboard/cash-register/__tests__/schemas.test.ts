@@ -8,8 +8,7 @@ import {
 
 /**
  * La sesión activa tal y como la devuelve /payment/cash-register/active. Una
- * caja abierta trae `closedAt` y `closingAmount` en null, no ausentes: por eso
- * esos campos son `.nullish()` y no `.optional()`.
+ * caja abierta trae `closedAt` y `closingAmount` en null.
  */
 const cajaAbiertaDeLaApi = {
   id: "ef352854-f990-495d-b4e3-da4ff00ccf3e",
