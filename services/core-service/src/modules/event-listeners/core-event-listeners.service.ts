@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { EventPattern, Payload } from "@nestjs/microservices";
+import { RabbitSubscribe } from "@golevelup/nestjs-rabbitmq";
 import {
   UserRegisteredEvent,
   MembershipCreatedEvent,
@@ -7,6 +7,9 @@ import {
   AppointmentCompletedEvent,
   AppointmentCancelledEvent,
   EventNames,
+  EVENTS_EXCHANGE,
+  DEAD_LETTER_EXCHANGE,
+  nombreDeCola,
 } from "@beautyspot/event-types";
 
 /** Escucha los eventos de RabbitMQ relevantes para el core (usuarios, membresías y citas). */
@@ -15,16 +18,26 @@ export class CoreEventListeners {
   private readonly logger = new Logger(CoreEventListeners.name);
 
   /** Reacciona al alta de un usuario. */
-  @EventPattern(EventNames.AUTH_USER_REGISTERED)
-  async handleUserRegistered(@Payload() event: UserRegisteredEvent) {
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.AUTH_USER_REGISTERED,
+    queue: nombreDeCola("core", EventNames.AUTH_USER_REGISTERED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleUserRegistered(event: UserRegisteredEvent) {
     // El contrato de AUTH_USER_REGISTERED no incluye `role`, por lo que aquí
     // no se puede distinguir el tipo de usuario (ver payload en event-types).
     this.logger.log(`Usuario registrado: ${event.payload.email}`);
   }
 
   /** Reacciona a la creación de una membresía en un negocio. */
-  @EventPattern(EventNames.AUTH_MEMBERSHIP_CREATED)
-  async handleMembershipCreated(@Payload() event: MembershipCreatedEvent) {
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.AUTH_MEMBERSHIP_CREATED,
+    queue: nombreDeCola("core", EventNames.AUTH_MEMBERSHIP_CREATED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleMembershipCreated(event: MembershipCreatedEvent) {
     const { membershipId, businessId, role } = event.payload;
     this.logger.log(`Membresia creada: ${membershipId}`);
     this.logger.log(
@@ -33,10 +46,13 @@ export class CoreEventListeners {
   }
 
   /** Reacciona al cambio de rol de una membresía. */
-  @EventPattern(EventNames.AUTH_MEMBERSHIP_ROLE_CHANGED)
-  async handleMembershipRoleChanged(
-    @Payload() event: MembershipRoleChangedEvent
-  ) {
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.AUTH_MEMBERSHIP_ROLE_CHANGED,
+    queue: nombreDeCola("core", EventNames.AUTH_MEMBERSHIP_ROLE_CHANGED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleMembershipRoleChanged(event: MembershipRoleChangedEvent) {
     const { membershipId, businessId, previousRole, newRole } = event.payload;
     this.logger.log(`Rol de membresia cambiado: ${membershipId}`);
     this.logger.log(
@@ -45,10 +61,13 @@ export class CoreEventListeners {
   }
 
   /** Reacciona a una cita completada (p. ej. puntos de fidelidad ganados). */
-  @EventPattern(EventNames.BOOKING_APPOINTMENT_COMPLETED)
-  async handleAppointmentCompleted(
-    @Payload() event: AppointmentCompletedEvent
-  ) {
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.BOOKING_APPOINTMENT_COMPLETED,
+    queue: nombreDeCola("core", EventNames.BOOKING_APPOINTMENT_COMPLETED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleAppointmentCompleted(event: AppointmentCompletedEvent) {
     const { appointmentId, clientId, pointsEarned } = event.payload;
     this.logger.log(`Cita completada: ${appointmentId}`);
     this.logger.log(
@@ -57,10 +76,13 @@ export class CoreEventListeners {
   }
 
   /** Reacciona a una cita cancelada. */
-  @EventPattern(EventNames.BOOKING_APPOINTMENT_CANCELLED)
-  async handleAppointmentCancelled(
-    @Payload() event: AppointmentCancelledEvent
-  ) {
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.BOOKING_APPOINTMENT_CANCELLED,
+    queue: nombreDeCola("core", EventNames.BOOKING_APPOINTMENT_CANCELLED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleAppointmentCancelled(event: AppointmentCancelledEvent) {
     const { appointmentId, clientId, cancelReason } = event.payload;
     this.logger.log(`Cita cancelada: ${appointmentId}`);
     this.logger.log(

@@ -3,7 +3,9 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { Repository, DataSource, EntityManager, In } from "typeorm";
 import { Appointment } from "../../entities/appointment.entity";
@@ -39,7 +41,8 @@ export class AppointmentsService {
     @InjectRepository(BlockedSlot)
     private readonly blockRepo: Repository<BlockedSlot>,
     @InjectDataSource() private dataSource: DataSource,
-    private readonly outbox: OutboxService
+    private readonly outbox: OutboxService,
+    private readonly configService: ConfigService
   ) {}
 
   /** Crear cita verificando disponibilidad (transacción) */
@@ -179,10 +182,28 @@ export class AppointmentsService {
         `No se puede confirmar una cita en estado ${appt.status}`
       );
     }
-    await this.apptRepo.update(
-      { id, businessId },
-      { status: AppointmentStatus.CONFIRMED }
-    );
+    await this.dataSource.transaction(async (manager) => {
+      await manager.update(
+        Appointment,
+        { id, businessId },
+        { status: AppointmentStatus.CONFIRMED }
+      );
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.BOOKING_APPOINTMENT_CONFIRMED,
+        aggregateType: "appointment",
+        aggregateId: id,
+        payload: {
+          appointmentId: id,
+          businessId,
+          clientId: appt.clientId,
+          professionalId: appt.professionalId,
+          date: appt.date,
+          startTime: appt.startTime,
+          endTime: appt.endTime,
+          totalAmount: appt.totalAmount,
+        },
+      });
+    });
     return this.findById(id, businessId);
   }
 
@@ -306,10 +327,28 @@ export class AppointmentsService {
         "Solo se puede marcar no-show en citas pendientes o confirmadas"
       );
     }
-    await this.apptRepo.update(
-      { id, businessId },
-      { status: AppointmentStatus.NO_SHOW }
-    );
+    await this.dataSource.transaction(async (manager) => {
+      await manager.update(
+        Appointment,
+        { id, businessId },
+        { status: AppointmentStatus.NO_SHOW }
+      );
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.BOOKING_APPOINTMENT_NO_SHOWED,
+        aggregateType: "appointment",
+        aggregateId: id,
+        payload: {
+          appointmentId: id,
+          businessId,
+          clientId: appt.clientId,
+          professionalId: appt.professionalId,
+          date: appt.date,
+          startTime: appt.startTime,
+          endTime: appt.endTime,
+          totalAmount: appt.totalAmount,
+        },
+      });
+    });
     return this.findById(id, businessId);
   }
 
@@ -386,6 +425,65 @@ export class AppointmentsService {
       );
     });
     return this.findById(id, businessId);
+  }
+
+  /** Franjas de un profesional, con el negocio resuelto desde su horario. */
+  async findAvailableSlotsPublic(
+    professionalId: string,
+    date: string,
+    duration: number
+  ): Promise<{ startTime: string; endTime: string; available: boolean }[]> {
+    const horario = await this.availRepo.findOne({
+      where: { professionalId, active: true },
+    });
+    if (!horario) return [];
+
+    return this.findAvailableSlots(
+      horario.businessId,
+      professionalId,
+      date,
+      duration
+    );
+  }
+
+  /**
+   * Franjas de un negocio: una franja queda libre si la tiene libre al menos
+   * un profesional del equipo.
+   */
+  async findAvailableSlotsForBusiness(
+    businessId: string,
+    date: string,
+    duration: number
+  ): Promise<{ startTime: string; endTime: string; available: boolean }[]> {
+    const dayOfWeek = new Date(date + "T12:00:00").getDay();
+    const horarios = await this.availRepo.find({
+      where: { businessId, dayOfWeek, active: true },
+    });
+    const profesionales = [...new Set(horarios.map((h) => h.professionalId))];
+    if (profesionales.length === 0) return [];
+
+    const porProfesional = await Promise.all(
+      profesionales.map((professionalId) =>
+        this.findAvailableSlots(businessId, professionalId, date, duration)
+      )
+    );
+
+    const union = new Map<
+      string,
+      { startTime: string; endTime: string; available: boolean }
+    >();
+    for (const slots of porProfesional) {
+      for (const slot of slots) {
+        const previo = union.get(slot.startTime);
+        if (!previo || (!previo.available && slot.available)) {
+          union.set(slot.startTime, slot);
+        }
+      }
+    }
+
+    return [...union.values()].sort((a, b) =>
+      a.startTime.localeCompare(b.startTime)
+    );
   }
 
   /** Obtener slots disponibles */
@@ -486,6 +584,85 @@ export class AppointmentsService {
       relations: ["appointmentServices"],
       order: { date: "DESC", startTime: "ASC" },
     });
+  }
+
+  /**
+   * Citas de un usuario cliente en todos los negocios donde haya reservado.
+   * Las citas guardan el id de la ficha del negocio, asi que primero se
+   * traducen las que core tiene atadas a ese usuario.
+   */
+  async findByClientUser(
+    userId: string,
+    pagination: PaginateParams
+  ): Promise<IPaginatedResponse<Appointment>> {
+    const clientIds = await this.clientIdsDelUsuario(userId);
+    if (clientIds.length === 0) {
+      return {
+        data: [],
+        meta: {
+          page: pagination.page,
+          limit: pagination.limit,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false,
+        },
+      };
+    }
+
+    return paginate(this.apptRepo, pagination, {
+      where: { clientId: In(clientIds) },
+      relations: ["appointmentServices"],
+      order: { date: "DESC", startTime: "ASC" },
+    });
+  }
+
+  /** Pregunta a core qué fichas de cliente pertenecen a este usuario. */
+  private async clientIdsDelUsuario(userId: string): Promise<string[]> {
+    const coreServiceUrl = this.configService.get<string>(
+      "CORE_SERVICE_URL",
+      "http://localhost:3002"
+    );
+    const internalSecret = this.configService.get<string>(
+      "INTERNAL_API_SECRET",
+      ""
+    );
+
+    let response: Response;
+    try {
+      response = await fetch(
+        `${coreServiceUrl}/internal/clients/by-user/${userId}`,
+        {
+          headers: { "x-internal-secret": internalSecret },
+          signal: AbortSignal.timeout(5000),
+        }
+      );
+    } catch (error) {
+      throw new ServiceUnavailableException(
+        `No se pudieron consultar tus citas (core-service no disponible). ` +
+          `Reintenta mas tarde. Error: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+      );
+    }
+
+    if (!response.ok) {
+      throw new ServiceUnavailableException(
+        `No se pudieron consultar tus citas (core-service respondio ${response.status}).`
+      );
+    }
+
+    const body = (await response.json()) as unknown;
+    const payload =
+      typeof body === "object" && body !== null && "success" in body
+        ? (body as Record<string, unknown>).data
+        : body;
+
+    return Array.isArray(payload)
+      ? payload
+          .map((c) => (c as { id?: unknown }).id)
+          .filter((id): id is string => typeof id === "string")
+      : [];
   }
 
   /**

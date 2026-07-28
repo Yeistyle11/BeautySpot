@@ -1,25 +1,7 @@
 // Esquemas Zod y tipos de las citas usados en la seccion de agenda.
 import { z } from "zod";
 
-export const appointmentSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  startTime: z.string(),
-  endTime: z.string(),
-  status: z.string(),
-  notes: z.string().nullable(),
-  totalAmount: z.string(),
-  professionalId: z.string(),
-  clientId: z.string(),
-  appointmentServices: z.array(
-    z.object({
-      serviceName: z.string(),
-      price: z.string(),
-      duration: z.number(),
-    })
-  ),
-});
-export type Appointment = z.infer<typeof appointmentSchema>;
+export { appointmentSchema, type Appointment } from "@/lib/schemas/appointment";
 
 export const professionalSchema = z.object({
   id: z.string(),
@@ -54,4 +36,4 @@ export type AppointmentForm = typeof emptyForm;
 export const APPOINTMENTS_KEY = "/booking/appointments";
 export const PROFESSIONALS_KEY = "/core/professionals";
 export const SERVICES_KEY = "/core/services";
-export const CLIENTS_KEY = "/core/clients";
+export const CLIENTS_KEY = "/core/clients?limit=100";

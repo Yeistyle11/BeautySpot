@@ -12,7 +12,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { Role } from "@beautyspot/shared-types";
-import { TokenVersionStore } from "@beautyspot/nest-common";
+import { TokenVersionStore, OutboxService } from "@beautyspot/nest-common";
 import { CreateStaffDto } from "./dto/create-staff.dto";
 import { UpdateStaffDto } from "./dto/update-staff.dto";
 
@@ -91,8 +91,11 @@ describe("UsersService", () => {
       bumpVersion: jest.fn().mockResolvedValue(1),
     } as any;
 
+    const mockOutboxUsers = { enqueue: jest.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: OutboxService, useValue: mockOutboxUsers },
         UsersService,
         {
           provide: getRepositoryToken(User),
@@ -419,7 +422,7 @@ describe("UsersService", () => {
       const result = await service.findByBusiness("business-123");
 
       expect(mockMembershipRepository.find).toHaveBeenCalledWith({
-        where: { businessId: "business-123", active: true },
+        where: { businessId: "business-123" },
         relations: ["user"],
       });
       expect(result[0]).toMatchObject({
@@ -656,6 +659,25 @@ describe("UsersService", () => {
       });
       expect(mockTokenVersionStore.bumpVersion).not.toHaveBeenCalled();
       expect(result.message).toContain("activada");
+    });
+
+    it("busca la membresía sin exigir que esté activa", async () => {
+      mockMembershipRepository.findOne.mockResolvedValue({
+        ...nonOwner,
+        active: false,
+      });
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as never);
+      mockMembershipRepository.update.mockResolvedValue({
+        affected: 1,
+      } as never);
+      mockAuditLogRepository.create.mockReturnValue({});
+      mockAuditLogRepository.save.mockResolvedValue({});
+
+      await service.toggleActive("user-123", "business-123", true);
+
+      expect(mockMembershipRepository.findOne).toHaveBeenCalledWith({
+        where: { userId: "user-123", businessId: "business-123" },
+      });
     });
   });
 

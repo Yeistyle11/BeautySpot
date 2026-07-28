@@ -8,7 +8,14 @@ import {
   Query,
 } from "@nestjs/common";
 import { PaymentsService } from "./payments.service";
-import { IsString, IsNumber, IsEnum, IsOptional } from "class-validator";
+import {
+  IsString,
+  IsNumber,
+  IsEnum,
+  IsOptional,
+  IsDateString,
+  Min,
+} from "class-validator";
 import { PaymentMethod, PaymentStatus, Role } from "@beautyspot/shared-types";
 import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
@@ -17,10 +24,15 @@ import { parsePaginationQuery } from "@beautyspot/shared-utils";
 class CreatePaymentDto {
   @IsOptional() @IsString() appointmentId?: string;
   @IsString() clientId!: string;
-  @IsNumber() amount!: number;
+  @IsNumber() @Min(0) amount!: number;
   @IsEnum(PaymentMethod) method!: PaymentMethod;
   @IsOptional() @IsString() reference?: string;
   @IsOptional() @IsString() notes?: string;
+}
+
+/** Día del que se pide el resumen, en formato ISO. */
+class DailySummaryQueryDto {
+  @IsDateString() date!: string;
 }
 
 /** Nuevo estado a asignar a un pago. */
@@ -35,7 +47,7 @@ export class PaymentsController {
 
   /** Registra un pago a nombre del usuario autenticado. */
   @Post()
-  @Roles(Role.ADMIN, Role.RECEPTIONIST)
+  @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   async create(
     @BusinessId() businessId: string,
     @CurrentUser("userId") userId: string,
@@ -72,9 +84,9 @@ export class PaymentsController {
   @Roles(Role.OWNER, Role.ADMIN)
   async dailySummary(
     @BusinessId() businessId: string,
-    @Query("date") date: string
+    @Query() query: DailySummaryQueryDto
   ) {
-    return this.service.getDailySummary(businessId, date);
+    return this.service.getDailySummary(businessId, query.date);
   }
 
   /** Obtiene un pago por id. */

@@ -166,7 +166,7 @@ export default function ReviewPage() {
       setSuccess(true);
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "Error al publicar la resena";
+        err instanceof Error ? err.message : "Error al publicar la reseña";
       setError(message);
     } finally {
       setSubmitting(false);
@@ -204,7 +204,7 @@ export default function ReviewPage() {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <CheckCircle className="mb-4 h-16 w-16 text-emerald-500" />
-        <h2 className="text-xl font-bold">Resena publicada</h2>
+        <h2 className="text-xl font-bold">Reseña publicada</h2>
         <p className="text-muted-foreground mt-2">
           Gracias por compartir tu experiencia
         </p>
@@ -233,7 +233,7 @@ export default function ReviewPage() {
         Volver al detalle de la cita
       </Link>
 
-      <h1 className="mb-6 text-2xl font-bold">Dejar resena</h1>
+      <h1 className="mb-6 text-2xl font-bold">Dejar reseña</h1>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">
@@ -379,7 +379,7 @@ export default function ReviewPage() {
               ) : (
                 <>
                   <Star className="h-4 w-4" />
-                  Publicar resena
+                  Publicar reseña
                 </>
               )}
             </Button>

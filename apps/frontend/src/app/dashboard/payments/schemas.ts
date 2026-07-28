@@ -5,10 +5,10 @@ import { z } from "zod";
 
 export const paymentSchema = z.object({
   id: z.string(),
-  amount: z.string(),
+  amount: z.number(),
   method: z.string(),
   status: z.string(),
-  registeredAt: z.string(),
+  createdAt: z.string(),
   appointmentId: z.string().nullish(),
   clientId: z.string().nullish(),
   reference: z.string().nullish(),
@@ -36,6 +36,14 @@ export const METHOD_LABELS: Record<string, string> = {
 
 export const METHOD_FILTERS = ["all", "CASH", "CARD", "TRANSFER"];
 
+/** Estados de PaymentStatus, que la lista muestra tal cual si no se traducen. */
+export const STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pendiente",
+  COMPLETED: "Completado",
+  REFUNDED: "Reembolsado",
+  CANCELLED: "Cancelado",
+};
+
 export const emptyCreateForm = {
   clientId: "",
   amount: "",
@@ -62,4 +70,4 @@ export interface PaymentSummary {
 }
 
 export const PAYMENTS_KEY = "/payment/payments";
-export const CLIENTS_KEY = "/core/clients";
+export const CLIENTS_KEY = "/core/clients?limit=100";

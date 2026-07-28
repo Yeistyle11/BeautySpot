@@ -118,19 +118,23 @@ describe("ProxyController (reenvío)", () => {
   const fakeRequest = (
     overrides: Partial<{
       path: string;
+      originalUrl: string;
       method: string;
       headers: Record<string, string>;
       body: unknown;
       user: { businessId?: string; businessIds?: string[] };
     }> = {}
-  ) =>
-    ({
-      path: "/api/v1/core-service/businesses",
+  ) => {
+    const path = overrides.path ?? "/api/v1/core-service/businesses";
+    return {
+      path,
+      originalUrl: path,
       method: "GET",
       headers: {},
       body: undefined,
       ...overrides,
-    }) as never;
+    } as never;
+  };
 
   /** Response Express mínima que registra status y cuerpo enviados. */
   const fakeResponseOut = () => {
@@ -193,6 +197,24 @@ describe("ProxyController (reenvío)", () => {
       );
 
       expect(fetchMock.mock.calls[0][0]).toBe(`${SERVICE_URL}/businesses/1`);
+    });
+
+    it("conserva la cadena de consulta", async () => {
+      fetchMock.mockResolvedValue(fakeResponse(200, "{}"));
+      const { res } = fakeResponseOut();
+
+      await controller.proxyRequest(
+        "core",
+        fakeRequest({
+          path: "/api/v1/core/clients",
+          originalUrl: "/api/v1/core/clients?page=2&limit=5&search=ana",
+        }),
+        res
+      );
+
+      expect(fetchMock.mock.calls[0][0]).toBe(
+        `${SERVICE_URL}/clients?page=2&limit=5&search=ana`
+      );
     });
 
     it("acepta también el prefijo /v1/{service}", async () => {

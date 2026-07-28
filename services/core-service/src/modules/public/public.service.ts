@@ -85,6 +85,8 @@ export class PublicService {
       where: { businessId, active: true },
       select: [
         "id",
+        "name",
+        "photo",
         "bio",
         "specialties",
         "yearsExp",

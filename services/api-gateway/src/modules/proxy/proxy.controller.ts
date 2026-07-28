@@ -98,7 +98,10 @@ export class ProxyController {
     }
   }
 
-  /** Reescribe la ruta del gateway quitándole el prefijo `/api/v1/:service`. */
+  /**
+   * Reescribe la ruta del gateway quitándole el prefijo `/api/v1/:service` y
+   * conservando la cadena de consulta.
+   */
   private buildTargetUrl(service: string, req: Request): string {
     const serviceUrl = this.proxyService.getServiceUrl(service);
     let path = req.path;
@@ -109,7 +112,11 @@ export class ProxyController {
       path = path.replace(`/v1/${service}`, "");
     }
 
-    return `${serviceUrl}${path}`;
+    const interrogante = req.originalUrl.indexOf("?");
+    const consulta =
+      interrogante === -1 ? "" : req.originalUrl.slice(interrogante);
+
+    return `${serviceUrl}${path}${consulta}`;
   }
 
   /**

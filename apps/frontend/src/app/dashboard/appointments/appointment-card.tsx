@@ -66,7 +66,7 @@ export function AppointmentCard({
           </div>
           <div className="flex items-center gap-3">
             <span className="font-semibold">
-              {formatCurrency(parseFloat(appointment.totalAmount))}
+              {formatCurrency(appointment.totalAmount)}
             </span>
             {appointment.status === "PENDING" && canConfirm && (
               <Button size="sm" onClick={() => onConfirm(appointment.id)}>

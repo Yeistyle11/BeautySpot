@@ -9,6 +9,12 @@ export const profileSchema = z.object({
 });
 export type Profile = z.infer<typeof profileSchema>;
 
+/** Respuesta de `GET /marketplace/profiles/:slug`, que envuelve el perfil. */
+export const profileResponseSchema = z.object({
+  profile: profileSchema,
+});
+export type ProfileResponse = z.infer<typeof profileResponseSchema>;
+
 export const serviceSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -42,19 +48,3 @@ export const BOOKING_STEPS = [
   { n: 3, label: "Horario" },
   { n: 4, label: "Tus datos" },
 ];
-
-/**
- * Franjas de media hora entre las 8 y las 18.
- *
- * Solo se usa con la opcion "cualquier profesional": ahi no hay una agenda
- * concreta que consultar, asi que se ofrece el horario comercial y el backend
- * rechaza la reserva si al confirmar ya no queda hueco.
- */
-export function generateFallbackSlots(): string[] {
-  const slots: string[] = [];
-  for (let hour = 8; hour <= 18; hour++) {
-    slots.push(`${String(hour).padStart(2, "0")}:00`);
-    if (hour < 18) slots.push(`${String(hour).padStart(2, "0")}:30`);
-  }
-  return slots;
-}

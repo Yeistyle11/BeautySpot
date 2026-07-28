@@ -1,7 +1,6 @@
 "use client";
 
 // Panel del cliente: resumen de sus proximas citas y accesos rapidos.
-import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,39 +16,29 @@ import {
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
 import { useAuthStore } from "@/lib/store";
-import { useApi } from "@/lib/swr";
+import { useApi, paginatedSchema } from "@/lib/swr";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import Link from "next/link";
-
-const appointmentSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  startTime: z.string(),
-  endTime: z.string(),
-  status: z.string(),
-  totalAmount: z.string(),
-  professionalId: z.string(),
-  clientId: z.string(),
-  appointmentServices: z.array(
-    z.object({
-      serviceName: z.string(),
-      price: z.string(),
-      duration: z.number(),
-    })
-  ),
-});
-type Appointment = z.infer<typeof appointmentSchema>;
-
-const APPOINTMENTS_KEY = "/booking/appointments";
+import {
+  appointmentSchema,
+  MY_APPOINTMENTS_KEY,
+  type Appointment,
+} from "@/lib/schemas/appointment";
 
 export default function ClientDashboardPage() {
   const { user } = useAuthStore();
-  const { data: appointments, isLoading: loading } = useApi<Appointment[]>(
-    APPOINTMENTS_KEY,
+  const {
+    data: pagina,
+    isLoading: loading,
+    error: loadError,
+    mutate: recargar,
+  } = useApi(
+    MY_APPOINTMENTS_KEY,
     undefined,
-    z.array(appointmentSchema)
+    paginatedSchema(appointmentSchema)
   );
 
-  const list = appointments ?? [];
+  const list: Appointment[] = pagina?.data ?? [];
   const upcoming = list
     .filter((a) => a.status === "PENDING" || a.status === "CONFIRMED")
     .sort((a, b) =>
@@ -155,6 +144,12 @@ export default function ClientDashboardPage() {
               Cargando...
             </CardContent>
           </Card>
+        ) : loadError ? (
+          <ErrorDeCarga
+            error={loadError}
+            recurso="tus citas"
+            onReintentar={() => recargar()}
+          />
         ) : upcoming.length === 0 ? (
           <Card className="border-0 shadow-sm">
             <CardContent className="p-8 text-center">
@@ -207,7 +202,7 @@ export default function ClientDashboardPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="font-semibold">
-                            {formatCurrency(parseFloat(appt.totalAmount))}
+                            {formatCurrency(appt.totalAmount)}
                           </span>
                           <Badge className={status.color}>{status.label}</Badge>
                         </div>

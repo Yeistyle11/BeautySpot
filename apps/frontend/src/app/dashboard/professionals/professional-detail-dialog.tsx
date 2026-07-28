@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { imageUnoptimized } from "@/lib/image";
+import { formatAniosExperiencia } from "@/lib/utils";
 import type { Professional } from "./schemas";
 
 function DetailBlock({
@@ -72,7 +73,7 @@ export function ProfessionalDetailDialog({
                 <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
                 <span className="text-sm">
                   {Number(professional.rating).toFixed(1)} (
-                  {professional.totalReviews} resenas)
+                  {professional.totalReviews} reseñas)
                 </span>
                 <Badge variant={professional.active ? "default" : "secondary"}>
                   {professional.active ? "Activo" : "Inactivo"}
@@ -106,7 +107,7 @@ export function ProfessionalDetailDialog({
           <DetailBlock label="Experiencia">
             <p className="flex items-center gap-2 text-sm">
               <Briefcase className="text-muted-foreground h-4 w-4" />{" "}
-              {professional.yearsExp} anos de experiencia
+              {formatAniosExperiencia(professional.yearsExp)}
             </p>
           </DetailBlock>
 

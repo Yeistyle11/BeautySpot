@@ -18,6 +18,7 @@ describe("TransformInterceptor", () => {
     mockContext = {
       getHandler: jest.fn(),
       getClass: jest.fn(),
+      getType: jest.fn().mockReturnValue("http"),
     } as any;
 
     mockNext = {
@@ -129,6 +130,21 @@ describe("TransformInterceptor", () => {
 
       interceptor.intercept(mockContext, mockNext).subscribe(() => {
         expect(mockNext.handle).toHaveBeenCalledTimes(1);
+        done();
+      });
+    });
+  });
+  describe("contextos que no son HTTP", () => {
+    it("no envuelve la respuesta de un manejador de eventos", (done) => {
+      const contextoRmq = {
+        getHandler: jest.fn(),
+        getClass: jest.fn(),
+        getType: jest.fn().mockReturnValue("rmq"),
+      } as any;
+      mockNext.handle = jest.fn().mockReturnValue(of(undefined));
+
+      interceptor.intercept(contextoRmq, mockNext).subscribe((valor) => {
+        expect(valor).toBeUndefined();
         done();
       });
     });

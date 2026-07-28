@@ -25,6 +25,7 @@
     "@beautyspot/shared-constants": "*",
     "@beautyspot/shared-types": "*",
     "@beautyspot/shared-utils": "*",
+    "@golevelup/nestjs-rabbitmq": "^9.0.2",
     "@nestjs/common": "^11.1.28",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.28",

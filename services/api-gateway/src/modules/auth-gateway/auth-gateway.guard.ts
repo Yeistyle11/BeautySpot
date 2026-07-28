@@ -29,6 +29,16 @@ const PUBLIC_MARKETPLACE_PREFIXES = [
   "/api/v1/marketplace-service/feed",
   "/api/v1/marketplace-service/reviews/business/",
   "/api/v1/marketplace-service/reviews/",
+  "/api/v1/core/public/",
+  "/api/v1/core-service/public/",
+  "/api/v1/booking/appointments/availability",
+  "/api/v1/booking-service/appointments/availability",
+];
+
+/** Rutas de reserva de invitado, accesibles sin token solo por POST. */
+const PUBLIC_BOOKING_PATHS = [
+  "/api/v1/booking/public/appointments",
+  "/api/v1/booking-service/public/appointments",
 ];
 
 /**
@@ -47,7 +57,10 @@ export class AuthGatewayGuard extends AuthGuard("jwt") {
       PUBLIC_MARKETPLACE_PREFIXES.some((p) => path.startsWith(p)) &&
       request.method === "GET";
 
-    if (isPublic || isPublicMarketplace) {
+    const isPublicBooking =
+      PUBLIC_BOOKING_PATHS.includes(path) && request.method === "POST";
+
+    if (isPublic || isPublicMarketplace || isPublicBooking) {
       return true;
     }
 

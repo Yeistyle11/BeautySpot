@@ -1,3 +1,4 @@
+import { ZodError } from "zod";
 import { isApiError } from "./api-error";
 
 /** Texto para los fallos de infraestructura, donde el del backend no orienta. */
@@ -33,11 +34,17 @@ const OPACOS = new Set([
 
 const GENERICO = "Ocurrió un error inesperado. Vuelve a intentarlo.";
 
+/** Texto para un desajuste de schema, cuyo `message` es un volcado de Zod. */
+const CONTRATO =
+  "La respuesta del servidor no tiene el formato esperado. Avisa al equipo si se repite.";
+
 /**
  * Texto que se le muestra al usuario ante un error de la API: el mensaje del
  * backend en los 4xx y un texto propio en los 5xx y en los fallos de red.
  */
 export function mensajeDeError(error: unknown): string {
+  if (error instanceof ZodError) return CONTRATO;
+
   if (isApiError(error)) {
     if (error.status >= 500) {
       return POR_ESTADO_SERVIDOR[error.status] ?? GENERICO;

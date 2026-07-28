@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { Injectable, Logger } from "@nestjs/common";
-import { EventPattern, Payload } from "@nestjs/microservices";
+import { RabbitSubscribe } from "@golevelup/nestjs-rabbitmq";
 import { AmqpConnection } from "@golevelup/nestjs-rabbitmq";
 import { ConfigService } from "@nestjs/config";
 import { ProcessedEventsStore } from "@beautyspot/nest-common";
@@ -15,6 +15,9 @@ import {
   InvoiceGeneratedEvent,
   PaymentRegisteredEvent,
   EventNames,
+  EVENTS_EXCHANGE,
+  DEAD_LETTER_EXCHANGE,
+  nombreDeCola,
 } from "@beautyspot/event-types";
 
 /**
@@ -34,8 +37,13 @@ export class NotificationEventListeners {
   ) {}
 
   /** Al registrarse un usuario, encola el correo de bienvenida. */
-  @EventPattern(EventNames.AUTH_USER_REGISTERED)
-  async handleUserRegistered(@Payload() event: UserRegisteredEvent) {
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.AUTH_USER_REGISTERED,
+    queue: nombreDeCola("notification", EventNames.AUTH_USER_REGISTERED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleUserRegistered(event: UserRegisteredEvent) {
     this.logger.log(`Usuario registrado: ${event.payload.email}`);
     try {
       await this.processedEvents.once(
@@ -61,10 +69,16 @@ export class NotificationEventListeners {
   }
 
   /** Ante una solicitud de reset, arma el enlace con vencimiento y encola el correo. */
-  @EventPattern(EventNames.AUTH_PASSWORD_RESET_REQUESTED)
-  async handlePasswordResetRequested(
-    @Payload() event: PasswordResetRequestedEvent
-  ) {
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.AUTH_PASSWORD_RESET_REQUESTED,
+    queue: nombreDeCola(
+      "notification",
+      EventNames.AUTH_PASSWORD_RESET_REQUESTED
+    ),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handlePasswordResetRequested(event: PasswordResetRequestedEvent) {
     const { email, name, resetToken, expiresAt } = event.payload;
 
     this.logger.log(`Solicitud de reset de contraseña para: ${email}`);
@@ -103,10 +117,16 @@ export class NotificationEventListeners {
   }
 
   /** Al confirmarse una cita, encola el correo de confirmación con los datos enriquecidos. */
-  @EventPattern(EventNames.BOOKING_APPOINTMENT_CONFIRMED)
-  async handleAppointmentConfirmed(
-    @Payload() event: AppointmentConfirmedEvent
-  ) {
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.BOOKING_APPOINTMENT_CONFIRMED,
+    queue: nombreDeCola(
+      "notification",
+      EventNames.BOOKING_APPOINTMENT_CONFIRMED
+    ),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleAppointmentConfirmed(event: AppointmentConfirmedEvent) {
     const {
       appointmentId,
       clientId,
@@ -158,10 +178,16 @@ export class NotificationEventListeners {
   }
 
   /** Al cancelarse una cita, encola el correo de cancelación al cliente. */
-  @EventPattern(EventNames.BOOKING_APPOINTMENT_CANCELLED)
-  async handleAppointmentCancelled(
-    @Payload() event: AppointmentCancelledEvent
-  ) {
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.BOOKING_APPOINTMENT_CANCELLED,
+    queue: nombreDeCola(
+      "notification",
+      EventNames.BOOKING_APPOINTMENT_CANCELLED
+    ),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleAppointmentCancelled(event: AppointmentCancelledEvent) {
     const {
       appointmentId,
       cancelReason,
@@ -212,10 +238,16 @@ export class NotificationEventListeners {
   }
 
   /** Ante un recordatorio pendiente, decide si es de 24h o 1h y encola el correo adecuado. */
-  @EventPattern(EventNames.BOOKING_APPOINTMENT_REMINDER_DUE)
-  async handleAppointmentReminder(
-    @Payload() event: AppointmentReminderDueEvent
-  ) {
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.BOOKING_APPOINTMENT_REMINDER_DUE,
+    queue: nombreDeCola(
+      "notification",
+      EventNames.BOOKING_APPOINTMENT_REMINDER_DUE
+    ),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleAppointmentReminder(event: AppointmentReminderDueEvent) {
     const {
       appointmentId,
       date,
@@ -290,8 +322,13 @@ export class NotificationEventListeners {
   }
 
   /** Al generarse una factura, encola su envío por correo al cliente. */
-  @EventPattern(EventNames.PAYMENT_INVOICE_GENERATED)
-  async handleInvoiceGenerated(@Payload() event: InvoiceGeneratedEvent) {
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.PAYMENT_INVOICE_GENERATED,
+    queue: nombreDeCola("notification", EventNames.PAYMENT_INVOICE_GENERATED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleInvoiceGenerated(event: InvoiceGeneratedEvent) {
     const { invoiceId, number, total, clientId, businessId } = event.payload;
 
     this.logger.log(`Factura generada: ${invoiceId}`);
@@ -329,8 +366,13 @@ export class NotificationEventListeners {
   }
 
   /** Ante un pago en efectivo o transferencia, encola el recibo por correo. */
-  @EventPattern(EventNames.PAYMENT_PAYMENT_REGISTERED)
-  async handlePaymentRegistered(@Payload() event: PaymentRegisteredEvent) {
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.PAYMENT_PAYMENT_REGISTERED,
+    queue: nombreDeCola("notification", EventNames.PAYMENT_PAYMENT_REGISTERED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handlePaymentRegistered(event: PaymentRegisteredEvent) {
     this.logger.log(`Pago registrado: ${event.payload.paymentId}`);
 
     try {

@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDateTimeStamp } from "@/lib/utils";
-import { METHOD_LABELS, type Payment } from "./schemas";
+import { METHOD_LABELS, STATUS_LABELS, type Payment } from "./schemas";
 
 const METHOD_ICONS: Record<
   string,
@@ -28,7 +28,7 @@ interface PaymentCardProps {
 /** Fila del historial de pagos. */
 export function PaymentCard({ payment, canEdit, onEdit }: PaymentCardProps) {
   const Icon = METHOD_ICONS[payment.method] || DollarSign;
-  const amount = formatCurrency(parseFloat(payment.amount));
+  const amount = formatCurrency(payment.amount);
 
   return (
     <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
@@ -41,7 +41,7 @@ export function PaymentCard({ payment, canEdit, onEdit }: PaymentCardProps) {
             <div>
               <p className="font-semibold">{amount}</p>
               <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
-                <span>{formatDateTimeStamp(payment.registeredAt)}</span>
+                <span>{formatDateTimeStamp(payment.createdAt)}</span>
                 {payment.appointmentId && (
                   <span className="bg-muted rounded px-1.5 py-0.5 text-xs">
                     Cita: {payment.appointmentId.slice(0, 8)}...
@@ -72,7 +72,7 @@ export function PaymentCard({ payment, canEdit, onEdit }: PaymentCardProps) {
             <Badge
               variant={payment.status === "COMPLETED" ? "success" : "secondary"}
             >
-              {payment.status === "COMPLETED" ? "Completado" : payment.status}
+              {STATUS_LABELS[payment.status] ?? payment.status}
             </Badge>
           </div>
         </div>

@@ -15,7 +15,8 @@ import { CreateStaffDto } from "./dto/create-staff.dto";
 import { UpdateStaffDto } from "./dto/update-staff.dto";
 import { toSafeUser, SafeUser } from "./dto/user-response.dto";
 import { Role } from "@beautyspot/shared-types";
-import { TokenVersionStore } from "@beautyspot/nest-common";
+import { TokenVersionStore, OutboxService } from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
 
 /**
  * Gestiona las cuentas de usuario y el staff de cada negocio: consultas,
@@ -32,7 +33,8 @@ export class UsersService {
     private readonly auditLogRepository: Repository<AuditLog>,
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
-    private readonly tokenVersionStore: TokenVersionStore
+    private readonly tokenVersionStore: TokenVersionStore,
+    private readonly outboxService: OutboxService
   ) {}
 
   // --- Consultas ---
@@ -52,8 +54,8 @@ export class UsersService {
   }
 
   /**
-   * Lista todos los usuarios (staff) que pertenecen a un negocio
-   * a traves de sus membresias activas.
+   * Lista el staff del negocio, incluidos los desactivados: la interfaz los
+   * muestra con su estado y ofrece reactivarlos.
    */
   async findByBusiness(businessId: string): Promise<
     (SafeUser & {
@@ -64,7 +66,7 @@ export class UsersService {
     })[]
   > {
     const memberships = await this.membershipRepository.find({
-      where: { businessId, active: true },
+      where: { businessId },
       relations: ["user"],
     });
 
@@ -85,7 +87,7 @@ export class UsersService {
     businessId: string
   ): Promise<SafeUser & { role: string; membershipId: string }> {
     const membership = await this.membershipRepository.findOne({
-      where: { userId, businessId, active: true },
+      where: { userId, businessId },
       relations: ["user"],
     });
 
@@ -175,6 +177,29 @@ export class UsersService {
         manager
       );
 
+      await this.outboxService.enqueue(manager, {
+        eventType: EventNames.AUTH_USER_REGISTERED,
+        aggregateType: "users",
+        aggregateId: user.id,
+        payload: {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+        },
+      });
+
+      await this.outboxService.enqueue(manager, {
+        eventType: EventNames.AUTH_MEMBERSHIP_CREATED,
+        aggregateType: "memberships",
+        aggregateId: membership.id,
+        payload: {
+          membershipId: membership.id,
+          userId: user.id,
+          businessId,
+          role: membership.role,
+        },
+      });
+
       return {
         ...toSafeUser(user),
         membershipId: membership.id,
@@ -195,7 +220,7 @@ export class UsersService {
     dto: UpdateStaffDto
   ): Promise<SafeUser> {
     const membership = await this.membershipRepository.findOne({
-      where: { userId, businessId, active: true },
+      where: { userId, businessId },
     });
     if (!membership) {
       throw new NotFoundException("Usuario no encontrado en este negocio");
@@ -252,7 +277,7 @@ export class UsersService {
     newPassword: string
   ): Promise<{ message: string }> {
     const membership = await this.membershipRepository.findOne({
-      where: { userId, businessId, active: true },
+      where: { userId, businessId },
     });
     if (!membership) {
       throw new NotFoundException("Usuario no encontrado en este negocio");
@@ -303,7 +328,7 @@ export class UsersService {
     active: boolean
   ): Promise<{ message: string }> {
     const membership = await this.membershipRepository.findOne({
-      where: { userId, businessId, active: true },
+      where: { userId, businessId },
     });
     if (!membership) {
       throw new NotFoundException("Usuario no encontrado en este negocio");

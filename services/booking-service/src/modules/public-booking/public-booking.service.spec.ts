@@ -176,6 +176,89 @@ describe("PublicBookingService", () => {
       expect(mockApptRepo.save).toHaveBeenCalled();
     });
 
+    describe("sin profesional pedido", () => {
+      /** Reserva de "cualquier profesional": el cuerpo omite professionalId. */
+      const sinPreferencia = { ...bookingData, professionalId: undefined };
+
+      beforeEach(() => {
+        mockConfigService.get.mockImplementation((key: string) => {
+          if (key === "CORE_SERVICE_URL") return "http://localhost:3002";
+          if (key === "INTERNAL_API_SECRET") return "secret123";
+          return undefined;
+        });
+        mockApptRepo.create.mockReturnValue(mockAppointment);
+        mockApptRepo.save.mockResolvedValue(mockAppointment);
+        mockApptServiceRepo.create.mockReturnValue(mockApptService);
+        mockApptServiceRepo.save.mockResolvedValue(mockApptService);
+        mockBlockRepo.find.mockResolvedValue([]);
+        setMockFetchResponse({
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, data: { id: "client-123" } }),
+        });
+      });
+
+      /** Horarios del dia, en el orden en que los devuelve la tabla. */
+      function equipoDelDia(ids: string[]) {
+        mockAvailRepo.find.mockResolvedValue(
+          ids.map((professionalId) => ({
+            ...mockAvailability,
+            professionalId,
+          })) as never
+        );
+      }
+
+      it("asigna el primero del equipo que tenga libre la franja", async () => {
+        equipoDelDia(["prof-a", "prof-b"]);
+        mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
+        mockApptRepo.find.mockResolvedValue([]);
+
+        await service.createPublicAppointment(sinPreferencia);
+
+        expect(mockApptRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({ professionalId: "prof-a" })
+        );
+      });
+
+      it("salta al siguiente cuando el primero ya tiene una cita a esa hora", async () => {
+        equipoDelDia(["prof-a", "prof-b"]);
+        mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
+        mockApptRepo.find.mockImplementation((options?: unknown) => {
+          const where = (options as { where?: { professionalId?: string } })
+            ?.where;
+          return Promise.resolve(
+            where?.professionalId === "prof-a"
+              ? ([{ startTime: "10:00", endTime: "10:50" }] as never)
+              : ([] as never)
+          );
+        });
+
+        await service.createPublicAppointment(sinPreferencia);
+
+        expect(mockApptRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({ professionalId: "prof-b" })
+        );
+      });
+
+      it("avisa cuando nadie del equipo tiene libre esa franja", async () => {
+        equipoDelDia(["prof-a"]);
+        mockAvailRepo.findOne.mockResolvedValue(null);
+
+        await expect(
+          service.createPublicAppointment(sinPreferencia)
+        ).rejects.toThrow(BadRequestException);
+        expect(mockApptRepo.create).not.toHaveBeenCalled();
+      });
+
+      it("avisa cuando nadie trabaja ese dia", async () => {
+        equipoDelDia([]);
+
+        await expect(
+          service.createPublicAppointment(sinPreferencia)
+        ).rejects.toThrow(BadRequestException);
+      });
+    });
+
     it("debería lanzar BadRequestException si no hay disponibilidad", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         if (key === "CORE_SERVICE_URL") return "http://localhost:3002";

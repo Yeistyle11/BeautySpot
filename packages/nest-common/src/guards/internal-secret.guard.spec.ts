@@ -9,6 +9,7 @@ describe("InternalSecretGuard", () => {
 
   const mockExecutionContext = (url: string, secretHeader?: string) => {
     const context = {
+      getType: jest.fn().mockReturnValue("http"),
       switchToHttp: jest.fn().mockReturnValue({
         getRequest: jest.fn().mockReturnValue({
           url,

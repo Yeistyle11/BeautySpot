@@ -8,6 +8,7 @@ import { ConfigService } from "@nestjs/config";
 import { Reflector } from "@nestjs/core";
 import * as jwt from "jsonwebtoken";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
+import { esContextoHttp } from "./http-context";
 import { assertJwtSecret } from "../security/assert-jwt-secret";
 import {
   TokenVersionStore,
@@ -36,6 +37,8 @@ export class JwtAuthGuard implements CanActivate {
       context.getClass(),
     ]);
     if (isPublic) return true;
+
+    if (!esContextoHttp(context)) return true;
 
     const request = context.switchToHttp().getRequest();
     if (request.url === "/health" || request.url.startsWith("/internal"))

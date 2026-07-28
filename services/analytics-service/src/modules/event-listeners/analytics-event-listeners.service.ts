@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { EventPattern, Payload } from "@nestjs/microservices";
+import { RabbitSubscribe } from "@golevelup/nestjs-rabbitmq";
 import { EntityManager } from "typeorm";
 import {
   AppointmentCreatedEvent,
@@ -11,6 +11,9 @@ import {
   ReviewCreatedEvent,
   EventNames,
   IBaseEvent,
+  EVENTS_EXCHANGE,
+  DEAD_LETTER_EXCHANGE,
+  nombreDeCola,
 } from "@beautyspot/event-types";
 import { ProcessedEventsStore } from "@beautyspot/nest-common";
 import { MetricsService } from "../metrics/metrics.service";
@@ -39,9 +42,14 @@ export class AnalyticsEventListeners {
   ) {}
 
   /** Cuenta la cita creada y suma su importe a los ingresos del día. */
-  @EventPattern(EventNames.BOOKING_APPOINTMENT_CREATED)
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.BOOKING_APPOINTMENT_CREATED,
+    queue: nombreDeCola("analytics", EventNames.BOOKING_APPOINTMENT_CREATED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
   async handleAppointmentCreated(
-    @Payload() event: AppointmentCreatedEvent
+    event: AppointmentCreatedEvent
   ): Promise<void> {
     this.logger.log(`Cita creada: ${event.payload.appointmentId}`);
     const { businessId, totalAmount } = event.payload;
@@ -56,9 +64,14 @@ export class AnalyticsEventListeners {
   }
 
   /** Suma la cita confirmada a las métricas del profesional. */
-  @EventPattern(EventNames.BOOKING_APPOINTMENT_CONFIRMED)
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.BOOKING_APPOINTMENT_CONFIRMED,
+    queue: nombreDeCola("analytics", EventNames.BOOKING_APPOINTMENT_CONFIRMED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
   async handleAppointmentConfirmed(
-    @Payload() event: AppointmentConfirmedEvent
+    event: AppointmentConfirmedEvent
   ): Promise<void> {
     this.logger.log(`Cita confirmada: ${event.payload.appointmentId}`);
     const { businessId, professionalId, totalAmount } = event.payload;
@@ -74,9 +87,14 @@ export class AnalyticsEventListeners {
   }
 
   /** Cuenta la cita completada en el día y en las métricas del profesional. */
-  @EventPattern(EventNames.BOOKING_APPOINTMENT_COMPLETED)
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.BOOKING_APPOINTMENT_COMPLETED,
+    queue: nombreDeCola("analytics", EventNames.BOOKING_APPOINTMENT_COMPLETED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
   async handleAppointmentCompleted(
-    @Payload() event: AppointmentCompletedEvent
+    event: AppointmentCompletedEvent
   ): Promise<void> {
     this.logger.log(`Cita completada: ${event.payload.appointmentId}`);
     const { businessId, professionalId, totalAmount } = event.payload;
@@ -100,9 +118,14 @@ export class AnalyticsEventListeners {
   }
 
   /** Cuenta la cita cancelada en el día y en las métricas del profesional. */
-  @EventPattern(EventNames.BOOKING_APPOINTMENT_CANCELLED)
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.BOOKING_APPOINTMENT_CANCELLED,
+    queue: nombreDeCola("analytics", EventNames.BOOKING_APPOINTMENT_CANCELLED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
   async handleAppointmentCancelled(
-    @Payload() event: AppointmentCancelledEvent
+    event: AppointmentCancelledEvent
   ): Promise<void> {
     this.logger.log(`Cita cancelada: ${event.payload.appointmentId}`);
     const { businessId, professionalId } = event.payload;
@@ -126,9 +149,14 @@ export class AnalyticsEventListeners {
   }
 
   /** Cuenta el no-show en el día y en las métricas del profesional. */
-  @EventPattern(EventNames.BOOKING_APPOINTMENT_NO_SHOWED)
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.BOOKING_APPOINTMENT_NO_SHOWED,
+    queue: nombreDeCola("analytics", EventNames.BOOKING_APPOINTMENT_NO_SHOWED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
   async handleAppointmentNoShowed(
-    @Payload() event: AppointmentNoShowedEvent
+    event: AppointmentNoShowedEvent
   ): Promise<void> {
     this.logger.log(`No-show: ${event.payload.appointmentId}`);
     const { businessId, professionalId } = event.payload;
@@ -152,10 +180,13 @@ export class AnalyticsEventListeners {
   }
 
   /** Suma el importe del pago a los ingresos del día. */
-  @EventPattern(EventNames.PAYMENT_PAYMENT_REGISTERED)
-  async handlePaymentRegistered(
-    @Payload() event: PaymentRegisteredEvent
-  ): Promise<void> {
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.PAYMENT_PAYMENT_REGISTERED,
+    queue: nombreDeCola("analytics", EventNames.PAYMENT_PAYMENT_REGISTERED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handlePaymentRegistered(event: PaymentRegisteredEvent): Promise<void> {
     this.logger.log(`Pago registrado: ${event.payload.paymentId}`);
     const { businessId, amount } = event.payload;
     await this.aplicar(event, "pago", (manager) =>
@@ -175,10 +206,13 @@ export class AnalyticsEventListeners {
    * no un incremento—, pero pasa igual por el store: mantener una sola forma de
    * escribir handlers evita que el siguiente se escriba sin protección.
    */
-  @EventPattern(EventNames.MARKETPLACE_REVIEW_CREATED)
-  async handleReviewCreated(
-    @Payload() event: ReviewCreatedEvent
-  ): Promise<void> {
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.MARKETPLACE_REVIEW_CREATED,
+    queue: nombreDeCola("analytics", EventNames.MARKETPLACE_REVIEW_CREATED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleReviewCreated(event: ReviewCreatedEvent): Promise<void> {
     this.logger.log(`Reseña creada: ${event.payload.reviewId}`);
     const { businessId, professionalId, rating } = event.payload;
     await this.aplicar(event, "reseña", (manager) =>

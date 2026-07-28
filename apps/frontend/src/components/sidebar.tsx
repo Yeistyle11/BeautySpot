@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
+import { useLogout } from "@/lib/use-logout";
 import { getPagesForRole } from "@/lib/permissions";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
@@ -51,7 +52,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, role, logout } = useAuthStore();
+  const { user, role } = useAuthStore();
+  const cerrarSesion = useLogout();
   const [open, setOpen] = useState(false);
 
   const pages = getPagesForRole(role);
@@ -62,8 +64,8 @@ export function Sidebar() {
     setOpen(false);
   }, [pathname]);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await cerrarSesion();
     router.push("/login");
   };
 

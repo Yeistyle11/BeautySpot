@@ -81,7 +81,7 @@ export default function MarketplaceFeed({
               Beauty<span className="text-primary">Spot</span>
             </h1>
             <p className="text-muted-foreground mx-auto mt-3 max-w-lg text-lg">
-              Explora las mejores centro de bellezas, salones y spas. Encuentra,
+              Explora los mejores centros de belleza, salones y spas. Encuentra,
               compara y agenda tu cita en segundos.
             </p>
           </div>
@@ -303,7 +303,7 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
             )}
             {p.totalReviews > 0 && (
               <span>
-                {p.totalReviews} {p.totalReviews === 1 ? "resena" : "resenas"}
+                {p.totalReviews} {p.totalReviews === 1 ? "reseña" : "reseñas"}
               </span>
             )}
           </div>

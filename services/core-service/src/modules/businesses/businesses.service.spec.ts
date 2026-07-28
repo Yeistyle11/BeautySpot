@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { DataSource, Repository } from "typeorm";
+import { OutboxService } from "@beautyspot/nest-common";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import { BusinessesService } from "./businesses.service";
 import { Business } from "../../entities/business.entity";
 import { NotFoundException, ConflictException } from "@nestjs/common";
@@ -8,6 +9,7 @@ import { NotFoundException, ConflictException } from "@nestjs/common";
 describe("BusinessesService", () => {
   let service: BusinessesService;
   let mockRepository: jest.Mocked<Repository<Business>>;
+  let mockOutbox: { enqueue: jest.Mock };
 
   const mockBusiness: Business = {
     id: "business-123",
@@ -60,8 +62,19 @@ describe("BusinessesService", () => {
       }),
     } as any;
 
+    mockOutbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    const mockOutboxSpec = mockOutbox;
+    const mockDataSourceSpec = {
+      // La transacción entrega el mismo repositorio simulado del test.
+      transaction: jest.fn((cb) =>
+        cb({ getRepository: jest.fn().mockReturnValue(mockRepository) })
+      ),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: DataSource, useValue: mockDataSourceSpec },
+        { provide: OutboxService, useValue: mockOutboxSpec },
         BusinessesService,
         {
           provide: getRepositoryToken(Business),
@@ -312,6 +325,31 @@ describe("BusinessesService", () => {
       expect(mockRepository.findOne).toHaveBeenCalled();
       expect(result.name).toBe("Updated Beauty Center");
       expect(result.description).toBe("Updated description");
+    });
+
+    it("publica el cambio para que el marketplace lo replique", async () => {
+      const updateData = { logo: "https://cdn/logo.png" };
+
+      mockRepository.findOne.mockResolvedValue({
+        ...mockBusiness,
+        ...updateData,
+      } as any);
+      mockRepository.update.mockResolvedValue({ affected: 1 } as any);
+
+      await service.update("business-123", updateData);
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: "core.business.updated",
+          aggregateId: "business-123",
+          payload: expect.objectContaining({
+            businessId: "business-123",
+            slug: "test-beauty-center",
+            changes: updateData,
+          }),
+        })
+      );
     });
 
     it("debería manejar actualización parcial", async () => {

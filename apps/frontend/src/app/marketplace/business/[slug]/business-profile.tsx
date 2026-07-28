@@ -179,7 +179,7 @@ export default function BusinessProfile({
                       <span className="font-semibold text-white">
                         {Number(profile.rating).toFixed(1)}
                       </span>
-                      ({profile.totalReviews} resenas)
+                      ({profile.totalReviews} reseñas)
                     </span>
                   )}
                   {profile.city && (

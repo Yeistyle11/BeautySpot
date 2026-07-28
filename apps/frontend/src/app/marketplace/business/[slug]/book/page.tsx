@@ -6,10 +6,15 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { z } from "zod";
-import { apiPublic, api } from "@/lib/api";
+import { apiPublic } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { getErrorMessage } from "@/lib/utils";
 import { useApiPublic, revalidatePrefix } from "@/lib/swr";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
+import {
+  availabilitySlotSchema,
+  type AvailabilitySlot,
+} from "@/lib/schemas/appointment";
 import { BookingConfirmation } from "./booking-confirmation";
 import { SelectServicesStep } from "./steps/select-services-step";
 import { SelectProfessionalStep } from "./steps/select-professional-step";
@@ -20,9 +25,8 @@ import {
 } from "./steps/guest-details-step";
 import {
   BOOKING_STEPS,
-  generateFallbackSlots,
   professionalSchema,
-  profileSchema,
+  profileResponseSchema,
   serviceSchema,
   type BookingConfirmation as Confirmation,
   type Profile,
@@ -38,11 +42,17 @@ function PublicBookingPageInner() {
   const { user, hydrated } = useAuthStore();
   const isAuthenticated = hydrated && !!user;
 
-  const { data: profile, isLoading: loading } = useApiPublic<Profile>(
+  const {
+    data: profileResponse,
+    isLoading: loading,
+    error: profileError,
+    mutate: recargarPerfil,
+  } = useApiPublic(
     `/marketplace/profiles/${slug}`,
     undefined,
-    profileSchema
+    profileResponseSchema
   );
+  const profile: Profile | undefined = profileResponse?.profile;
   const { data: rawServices } = useApiPublic<Service[]>(
     profile?.businessId
       ? `/core/public/businesses/${profile.businessId}/services`
@@ -52,7 +62,7 @@ function PublicBookingPageInner() {
   );
   const { data: rawProfessionals } = useApiPublic<Professional[]>(
     profile?.businessId
-      ? `/marketplace/professional-profiles/business/${profile.businessId}`
+      ? `/core/public/businesses/${profile.businessId}/professionals`
       : null,
     undefined,
     z.array(professionalSchema)
@@ -95,17 +105,19 @@ function PublicBookingPageInner() {
   const totalAmount = selectedServiceData.reduce((sum, s) => sum + s.price, 0);
 
   const isAnyProfessional = selectedProfessional === "any";
+  const alcanceSlots = isAnyProfessional
+    ? `businessId=${profile?.businessId}`
+    : `professionalId=${selectedProfessional}`;
   const slotsKey =
-    date && selectedProfessional && totalDuration > 0 && !isAnyProfessional
-      ? `/booking/appointments/availability?professionalId=${selectedProfessional}&date=${date}&duration=${totalDuration}`
+    date && selectedProfessional && totalDuration > 0 && profile?.businessId
+      ? `/booking/appointments/availability?${alcanceSlots}&date=${date}&duration=${totalDuration}`
       : null;
-  const { data: rawSlots, isLoading: slotsLoading } = useApiPublic<string[]>(
-    slotsKey,
-    undefined,
-    z.array(z.string())
-  );
-  const availableSlots =
-    isAnyProfessional && date ? generateFallbackSlots() : (rawSlots ?? []);
+  const { data: rawSlots, isLoading: slotsLoading } = useApiPublic<
+    AvailabilitySlot[]
+  >(slotsKey, undefined, z.array(availabilitySlotSchema));
+  const availableSlots = (rawSlots ?? [])
+    .filter((s) => s.available)
+    .map((s) => s.startTime);
 
   // Cambiar de fecha, profesional o servicios invalida la hora ya elegida.
   useEffect(() => {
@@ -133,9 +145,23 @@ function PublicBookingPageInner() {
     setError("");
     setSubmitting(true);
     try {
+      const identidad =
+        isAuthenticated && user
+          ? {
+              userId: user.id,
+              guestName: user.name,
+              guestEmail: user.email || undefined,
+              guestPhone: user.phone || undefined,
+            }
+          : {
+              guestName: guest.name,
+              guestEmail: guest.email || undefined,
+              guestPhone: guest.phone || undefined,
+            };
+
       const body: Record<string, unknown> = {
         businessId: profile.businessId,
-        professionalId: selectedProfessional,
+        professionalId: isAnyProfessional ? undefined : selectedProfessional,
         serviceIds: selectedServiceData.map((s) => ({
           id: s.id,
           name: s.name,
@@ -144,21 +170,13 @@ function PublicBookingPageInner() {
         })),
         date,
         startTime,
+        ...identidad,
       };
 
-      // Con sesion la cita se asocia al cliente; sin ella viaja como invitado
-      // por un endpoint publico distinto.
-      if (isAuthenticated && user) {
-        body.clientId = user.id;
-      } else {
-        body.guestName = guest.name;
-        body.guestEmail = guest.email || undefined;
-        body.guestPhone = guest.phone || undefined;
-      }
-
-      const result = await (isAuthenticated
-        ? api.post<Confirmation>("/booking/appointments", body)
-        : apiPublic.post<Confirmation>("/booking/public/appointments", body));
+      const result = await apiPublic.post<Confirmation>(
+        "/booking/public/appointments",
+        body
+      );
       setConfirmation(result);
       await revalidatePrefix("/booking/appointments");
     } catch (err) {
@@ -172,6 +190,18 @@ function PublicBookingPageInner() {
     return (
       <div className="flex justify-center py-20">
         <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (profileError) {
+    return (
+      <div className="mx-auto max-w-lg py-20">
+        <ErrorDeCarga
+          error={profileError}
+          recurso="los datos del negocio"
+          onReintentar={() => recargarPerfil()}
+        />
       </div>
     );
   }

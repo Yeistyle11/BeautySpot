@@ -12,7 +12,7 @@ export const galleryImageSchema = z.object({
 export type GalleryImage = z.infer<typeof galleryImageSchema>;
 
 export const sectionItemSchema = z.object({
-  type: z.string(),
+  id: z.string(),
   enabled: z.boolean(),
   order: z.number(),
   customTitle: z.string().nullish(),
@@ -42,9 +42,9 @@ export const profileSchema = z.object({
       tiktok: z.string().nullish(),
       website: z.string().nullish(),
     })
-    .optional(),
-  sectionConfig: z.object({ sections: z.array(sectionItemSchema) }).optional(),
-  galleryImages: z.array(galleryImageSchema).optional(),
+    .nullish(),
+  sectionConfig: z.object({ sections: z.array(sectionItemSchema) }).nullish(),
+  galleryImages: z.array(galleryImageSchema).nullish(),
   isPublished: z.boolean(),
   profileCompleteness: z.number(),
 });
@@ -65,16 +65,16 @@ export type Review = z.infer<typeof reviewSchema>;
 
 /** Secciones que el negocio puede activar y reordenar en su perfil publico. */
 export const SECTION_TYPES = [
-  { type: "story", label: "Nuestra Historia" },
-  { type: "services", label: "Servicios" },
-  { type: "team", label: "Equipo" },
-  { type: "gallery", label: "Galeria" },
-  { type: "reviews", label: "Resenas" },
-  { type: "location", label: "Ubicacion" },
+  { id: "story", label: "Nuestra Historia" },
+  { id: "services", label: "Servicios" },
+  { id: "team", label: "Equipo" },
+  { id: "gallery", label: "Galeria" },
+  { id: "reviews", label: "Reseñas" },
+  { id: "location", label: "Ubicacion" },
 ];
 
 export const defaultSections: SectionItem[] = SECTION_TYPES.map((s, i) => ({
-  type: s.type,
+  id: s.id,
   enabled: true,
   order: i + 1,
 }));
@@ -112,11 +112,11 @@ export type TabId = (typeof TABS)[number]["id"];
  */
 export function reorderSections(
   sections: SectionItem[],
-  type: string,
+  id: string,
   direction: "up" | "down"
 ): SectionItem[] {
   const sorted = [...sections].sort((a, b) => a.order - b.order);
-  const index = sorted.findIndex((s) => s.type === type);
+  const index = sorted.findIndex((s) => s.id === id);
   if (index === -1) return sections;
   if (
     (direction === "up" && index === 0) ||

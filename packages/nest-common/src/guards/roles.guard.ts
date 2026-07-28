@@ -7,6 +7,7 @@ import {
 import { Reflector } from "@nestjs/core";
 import { Role } from "@beautyspot/shared-types";
 import { ROLES_KEY } from "../decorators/roles.decorator";
+import { esContextoHttp } from "./http-context";
 
 /**
  * Guard de control de acceso basado en roles (RBAC) con semántica de ALLOWLIST.
@@ -28,6 +29,8 @@ export class RolesGuard implements CanActivate {
     ]);
 
     if (!requiredRoles || requiredRoles.length === 0) return true;
+
+    if (!esContextoHttp(context)) return true;
 
     const { user } = context.switchToHttp().getRequest();
     if (!user) {

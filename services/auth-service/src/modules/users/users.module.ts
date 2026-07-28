@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { OutboxModule } from "@beautyspot/nest-common";
 import { UsersService } from "./users.service";
 import { UsersController } from "./users.controller";
 import { User } from "../../entities/user.entity";
@@ -7,7 +8,10 @@ import { Membership } from "../../entities/membership.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Membership, AuditLog])],
+  imports: [
+    TypeOrmModule.forFeature([User, Membership, AuditLog]),
+    OutboxModule,
+  ],
   controllers: [UsersController],
   providers: [UsersService],
   exports: [UsersService],

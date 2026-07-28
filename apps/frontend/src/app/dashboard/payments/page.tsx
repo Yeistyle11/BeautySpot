@@ -2,7 +2,6 @@
 
 // Pagina de pagos: lista de pagos registrados con resumen, busqueda por fecha y paginacion.
 import { useState, useMemo } from "react";
-import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,11 +11,12 @@ import { api } from "@/lib/api";
 import { toLocalDateKey } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
-import { useApi, revalidatePrefix } from "@/lib/swr";
+import { useApi, paginatedSchema, revalidatePrefix } from "@/lib/swr";
 import { usePaginatedList } from "@/lib/use-paginated-list";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { PaymentSummaryCards } from "./payment-summary";
 import { PaymentCard } from "./payment-card";
 import { CreatePaymentDialog, EditPaymentDialog } from "./payment-dialogs";
@@ -59,6 +59,8 @@ export default function PaymentsPage() {
     meta,
     setPage,
     isLoading: loading,
+    error: loadError,
+    mutate: recargar,
   } = usePaginatedList<Payment>({
     basePath: PAYMENTS_KEY,
     itemSchema: paymentSchema,
@@ -79,11 +81,12 @@ export default function PaymentsPage() {
   const [savingEdit, setSavingEdit] = useState(false);
 
   // La lista de clientes solo hace falta con un dialogo abierto.
-  const { data: clients } = useApi<Client[]>(
+  const { data: clientsPage } = useApi(
     createDialog || editDialog ? CLIENTS_KEY : null,
     undefined,
-    z.array(clientSchema)
+    paginatedSchema(clientSchema)
   );
+  const clients: Client[] = clientsPage?.data ?? [];
 
   // El resumen del dia se pide al backend, que lo calcula sobre todos los
   // pagos y no solo sobre la pagina visible. El endpoint es exclusivo de
@@ -106,15 +109,15 @@ export default function PaymentsPage() {
         count: dailySummary.count,
       };
     }
-    const todayPayments = payments.filter((p) =>
-      p.registeredAt?.startsWith(today)
+    const todayPayments = payments.filter(
+      (p) => toLocalDateKey(new Date(p.createdAt)) === today
     );
     const sumBy = (method: string) =>
       todayPayments
         .filter((p) => p.method === method)
-        .reduce((s, p) => s + parseFloat(p.amount), 0);
+        .reduce((s, p) => s + p.amount, 0);
     return {
-      total: todayPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0),
+      total: todayPayments.reduce((sum, p) => sum + p.amount, 0),
       cash: sumBy("CASH"),
       card: sumBy("CARD"),
       transfer: sumBy("TRANSFER"),
@@ -147,7 +150,7 @@ export default function PaymentsPage() {
   const openEdit = (p: Payment) => {
     setEditId(p.id);
     setEditForm({
-      amount: p.amount,
+      amount: String(p.amount),
       method: p.method,
       reference: p.reference || "",
       notes: p.notes || "",
@@ -234,6 +237,12 @@ export default function PaymentsPage() {
       <div className="space-y-3">
         {loading ? (
           <p className="text-muted-foreground">Cargando...</p>
+        ) : loadError ? (
+          <ErrorDeCarga
+            error={loadError}
+            recurso="los pagos"
+            onReintentar={() => recargar()}
+          />
         ) : payments.length === 0 ? (
           <Card className="border-0 shadow-sm">
             <CardContent className="text-muted-foreground p-8 text-center">

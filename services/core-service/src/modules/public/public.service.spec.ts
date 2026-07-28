@@ -116,7 +116,15 @@ describe("PublicService", () => {
 
   describe("getBusinessProfessionals", () => {
     it("debería listar profesionales activos de un negocio", async () => {
-      const mockPros = [{ id: "pro-1", bio: "Test", specialties: [] }];
+      const mockPros = [
+        {
+          id: "pro-1",
+          name: "David",
+          photo: null,
+          bio: "Test",
+          specialties: [],
+        },
+      ];
       mockProRepo.find.mockResolvedValue(mockPros);
 
       const result = await service.getBusinessProfessionals("biz-1");
@@ -126,6 +134,8 @@ describe("PublicService", () => {
         where: { businessId: "biz-1", active: true },
         select: [
           "id",
+          "name",
+          "photo",
           "bio",
           "specialties",
           "yearsExp",
@@ -133,6 +143,16 @@ describe("PublicService", () => {
           "totalReviews",
         ],
       });
+    });
+
+    it("incluye el nombre y la foto, que son lo que pinta la reserva", async () => {
+      mockProRepo.find.mockResolvedValue([]);
+
+      await service.getBusinessProfessionals("biz-1");
+
+      const { select } = mockProRepo.find.mock.calls[0][0];
+      expect(select).toContain("name");
+      expect(select).toContain("photo");
     });
   });
 });

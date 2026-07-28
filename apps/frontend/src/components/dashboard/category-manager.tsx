@@ -93,6 +93,7 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
     emptyForm(defaultColor)
   );
   const [savingCreate, setSavingCreate] = useState(false);
+  const [createError, setCreateError] = useState("");
 
   const [editDialog, setEditDialog] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -100,6 +101,8 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
     emptyForm(defaultColor)
   );
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [toggleError, setToggleError] = useState("");
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -138,6 +141,7 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingCreate(true);
+    setCreateError("");
     try {
       await api.post(apiBasePath, toPayload(createForm));
       setCreateForm(emptyForm(defaultColor));
@@ -145,12 +149,14 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
       await mutate(queryKey);
     } catch (err) {
       logger.error(err);
+      setCreateError(getErrorMessage(err, "No se pudo crear la categoría"));
     } finally {
       setSavingCreate(false);
     }
   };
 
   const openEdit = (category: CategoryEntity) => {
+    setEditError("");
     setEditId(category.id);
     setEditForm({
       name: category.name,
@@ -167,6 +173,7 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
     e.preventDefault();
     if (!editId) return;
     setSavingEdit(true);
+    setEditError("");
     try {
       await api.patch(`${apiBasePath}/${editId}`, toPayload(editForm, true));
       setEditDialog(false);
@@ -174,17 +181,22 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
       await mutate(queryKey);
     } catch (err) {
       logger.error(err);
+      setEditError(getErrorMessage(err, "No se pudo guardar la categoría"));
     } finally {
       setSavingEdit(false);
     }
   };
 
   const handleToggle = async (category: CategoryEntity) => {
+    setToggleError("");
     try {
       await api.patch(`${apiBasePath}/${category.id}/toggle`, {});
       await mutate(queryKey);
     } catch (err) {
       logger.error(err);
+      setToggleError(
+        getErrorMessage(err, "No se pudo cambiar el estado de la categoría")
+      );
     }
   };
 
@@ -243,6 +255,12 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
         </div>
       </div>
 
+      {toggleError && (
+        <p role="alert" className="text-destructive mb-4 text-sm">
+          {toggleError}
+        </p>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {loading ? (
           <p className="text-muted-foreground">Cargando categorías...</p>
@@ -282,7 +300,10 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
 
       <CategoryFormDialog
         open={createDialog}
-        onClose={() => setCreateDialog(false)}
+        onClose={() => {
+          setCreateDialog(false);
+          setCreateError("");
+        }}
         onSubmit={handleCreate}
         form={createForm}
         onChange={setCreateForm}
@@ -292,11 +313,15 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
         iconOptions={iconOptions}
         colorPresets={colorPresets}
         saving={savingCreate}
+        error={createError}
       />
 
       <CategoryFormDialog
         open={editDialog}
-        onClose={() => setEditDialog(false)}
+        onClose={() => {
+          setEditDialog(false);
+          setEditError("");
+        }}
         onSubmit={handleUpdate}
         form={editForm}
         onChange={setEditForm}
@@ -306,6 +331,7 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
         iconOptions={iconOptions}
         colorPresets={colorPresets}
         saving={savingEdit}
+        error={editError}
         showActiveToggle
         activeLabel={
           editForm.active ? "Categoría activa" : "Categoría inactiva"

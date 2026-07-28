@@ -42,7 +42,7 @@ export class PublicBookingService {
    */
   async createPublicAppointment(data: {
     businessId: string;
-    professionalId: string;
+    professionalId?: string;
     serviceIds: { id: string; name: string; price: number; duration: number }[];
     date: string;
     startTime: string;
@@ -50,13 +50,15 @@ export class PublicBookingService {
     guestName: string;
     guestEmail?: string;
     guestPhone?: string;
+    userId?: string;
   }) {
     // 1. Resolver o crear el cliente invitado vía el endpoint interno del core-service.
     const clientId = await this.findOrCreateGuestClient(
       data.businessId,
       data.guestName,
       data.guestEmail,
-      data.guestPhone
+      data.guestPhone,
+      data.userId
     );
 
     // 2. Calcular la hora de fin sumando la duración de los servicios.
@@ -69,36 +71,29 @@ export class PublicBookingService {
 
     // 3. Verificar disponibilidad del horario.
     const dayOfWeek = new Date(data.date + "T12:00:00").getDay();
-    const available = await this.isSlotAvailable(
-      data.businessId,
-      data.professionalId,
-      data.date,
-      data.startTime,
-      endTime,
-      dayOfWeek
-    );
-    if (!available) {
-      throw new BadRequestException(
-        "El horario seleccionado no esta disponible"
-      );
-    }
 
-    const hasConflict = await this.hasTimeConflict(
-      data.businessId,
-      data.professionalId,
-      data.date,
-      data.startTime,
-      endTime
-    );
-    if (hasConflict) {
-      throw new BadRequestException("Ya existe una cita en ese horario");
-    }
+    const professionalId = data.professionalId
+      ? await this.confirmarProfesionalLibre(
+          data.businessId,
+          data.professionalId,
+          data.date,
+          data.startTime,
+          endTime,
+          dayOfWeek
+        )
+      : await this.primerProfesionalLibre(
+          data.businessId,
+          data.date,
+          data.startTime,
+          endTime,
+          dayOfWeek
+        );
 
     // 4. Crear la cita con sus servicios.
     const appointment = this.apptRepo.create({
       businessId: data.businessId,
       clientId,
-      professionalId: data.professionalId,
+      professionalId,
       date: data.date,
       startTime: data.startTime,
       endTime,
@@ -135,7 +130,8 @@ export class PublicBookingService {
     businessId: string,
     name: string,
     email?: string,
-    phone?: string
+    phone?: string,
+    userId?: string
   ): Promise<string> {
     const coreServiceUrl = this.configService.get<string>(
       "CORE_SERVICE_URL",
@@ -145,7 +141,7 @@ export class PublicBookingService {
       "INTERNAL_API_SECRET",
       ""
     );
-    const body = JSON.stringify({ businessId, name, email, phone });
+    const body = JSON.stringify({ businessId, name, email, phone, userId });
 
     let response: Response;
     try {
@@ -202,6 +198,86 @@ export class PublicBookingService {
     }
 
     return client.id;
+  }
+
+  /** Valida que el profesional pedido tenga libre la franja. */
+  private async confirmarProfesionalLibre(
+    businessId: string,
+    professionalId: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+    dayOfWeek: number
+  ): Promise<string> {
+    const libre = await this.isSlotAvailable(
+      businessId,
+      professionalId,
+      date,
+      startTime,
+      endTime,
+      dayOfWeek
+    );
+    if (!libre) {
+      throw new BadRequestException(
+        "El horario seleccionado no esta disponible"
+      );
+    }
+
+    const ocupado = await this.hasTimeConflict(
+      businessId,
+      professionalId,
+      date,
+      startTime,
+      endTime
+    );
+    if (ocupado) {
+      throw new BadRequestException("Ya existe una cita en ese horario");
+    }
+
+    return professionalId;
+  }
+
+  /**
+   * Primer profesional con horario activo ese dia y la franja libre, en el
+   * orden en que los devuelve la tabla de horarios.
+   */
+  private async primerProfesionalLibre(
+    businessId: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+    dayOfWeek: number
+  ): Promise<string> {
+    const horarios = await this.availRepo.find({
+      where: { businessId, dayOfWeek, active: true },
+    });
+
+    const candidatos = [...new Set(horarios.map((h) => h.professionalId))];
+
+    for (const professionalId of candidatos) {
+      const libre = await this.isSlotAvailable(
+        businessId,
+        professionalId,
+        date,
+        startTime,
+        endTime,
+        dayOfWeek
+      );
+      if (!libre) continue;
+
+      const ocupado = await this.hasTimeConflict(
+        businessId,
+        professionalId,
+        date,
+        startTime,
+        endTime
+      );
+      if (!ocupado) return professionalId;
+    }
+
+    throw new BadRequestException(
+      "Ningun profesional tiene libre ese horario. Elige otra hora."
+    );
   }
 
   /** Comprueba que el slot cae dentro del horario del profesional y no choca con un bloqueo. */

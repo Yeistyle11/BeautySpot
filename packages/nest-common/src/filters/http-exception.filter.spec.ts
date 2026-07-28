@@ -16,8 +16,9 @@ describe("HttpExceptionFilter", () => {
     return res;
   };
 
-  const createMockArgumentsHost = (response: any) => {
+  const createMockArgumentsHost = (response: any, type = "http") => {
     return {
+      getType: jest.fn().mockReturnValue(type),
       switchToHttp: jest.fn().mockReturnValue({
         getResponse: jest.fn().mockReturnValue(response),
       }),
@@ -97,6 +98,62 @@ describe("HttpExceptionFilter", () => {
         expect.objectContaining({
           error: expect.objectContaining({
             code: "NOT_FOUND",
+          }),
+        })
+      );
+    });
+
+    it("debería conservar el código y el mensaje del sobre ya formado", () => {
+      const exception = new HttpException(
+        {
+          success: false,
+          error: {
+            code: "RATE_LIMIT_EXCEEDED",
+            message: "Demasiadas solicitudes",
+          },
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+        },
+        HttpStatus.TOO_MANY_REQUESTS
+      );
+      const response = mockResponse();
+      const host = createMockArgumentsHost(response);
+
+      filter.catch(exception, host);
+
+      expect(response.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: "RATE_LIMIT_EXCEEDED",
+            message: "Demasiadas solicitudes",
+          }),
+        })
+      );
+    });
+
+    it("relanza cuando no es una petición HTTP", () => {
+      const exception = new Error("fallo al procesar el evento");
+      const response = mockResponse();
+      const host = createMockArgumentsHost(response, "rmq");
+
+      expect(() => filter.catch(exception, host)).toThrow(exception);
+      expect(response.json).not.toHaveBeenCalled();
+    });
+
+    it("debería manejar CONFLICT con código correcto", () => {
+      const exception = new HttpException(
+        "La categoría ya existe",
+        HttpStatus.CONFLICT
+      );
+      const response = mockResponse();
+      const host = createMockArgumentsHost(response);
+
+      filter.catch(exception, host);
+
+      expect(response.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: "CONFLICT",
+            message: "La categoría ya existe",
           }),
         })
       );

@@ -20,6 +20,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost): void {
+    // Un manejador de eventos de RabbitMQ no tiene respuesta que escribir: se
+    // relanza para que el consumidor rechace el mensaje y acabe en la DLQ.
+    if (host.getType() !== "http") throw exception;
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
@@ -31,13 +35,21 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
       const exResponse = exception.getResponse();
+      let codigoPropio: string | undefined;
 
       if (typeof exResponse === "object" && exResponse !== null) {
         const resp = exResponse as Record<string, unknown>;
+        const sobre = resp.error as
+          | { code?: string; message?: string }
+          | undefined;
         if (Array.isArray(resp.message)) {
           details = { validation: resp.message as string[] };
           message = "Error de validación";
           code = "VALIDATION_ERROR";
+        } else if (sobre?.message) {
+          // La excepción ya trae el sobre formado.
+          message = sobre.message;
+          codigoPropio = sobre.code;
         } else {
           message = (resp.message as string) || exception.message;
         }
@@ -49,6 +61,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
       if (statusCode === HttpStatus.FORBIDDEN) code = "AUTH_FORBIDDEN";
       if (statusCode === HttpStatus.NOT_FOUND) code = "NOT_FOUND";
       if (statusCode === HttpStatus.BAD_REQUEST) code = "VALIDATION_ERROR";
+      if (statusCode === HttpStatus.CONFLICT) code = "CONFLICT";
+      if (statusCode === HttpStatus.TOO_MANY_REQUESTS)
+        code = "RATE_LIMIT_EXCEEDED";
+
+      if (codigoPropio) code = codigoPropio;
     }
 
     if (statusCode >= 500) {

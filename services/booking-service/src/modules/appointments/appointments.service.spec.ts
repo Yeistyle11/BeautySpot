@@ -1,7 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import { DataSource } from "typeorm";
+import { ServiceUnavailableException } from "@nestjs/common";
 import { AppointmentsService } from "./appointments.service";
 import { Appointment } from "../../entities/appointment.entity";
 import { Availability } from "../../entities/availability.entity";
@@ -37,6 +39,8 @@ describe("AppointmentsService", () => {
     pointsEarned: 0,
     notes: "",
     cancelReason: "",
+    reminder24hSentAt: null,
+    reminder1hSentAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     appointmentServices: [],
@@ -144,6 +148,12 @@ describe("AppointmentsService", () => {
         {
           provide: OutboxService,
           useValue: mockOutbox,
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((_: string, fallback?: string) => fallback),
+          },
         },
       ],
     }).compile();
@@ -346,9 +356,14 @@ describe("AppointmentsService", () => {
         where: { id: "appt-123", businessId: "business-123" },
         relations: { appointmentServices: true },
       });
-      expect(mockApptRepo.update).toHaveBeenCalledWith(
-        { id: "appt-123", businessId: "business-123" },
-        { status: AppointmentStatus.CONFIRMED }
+      // El cambio de estado y el evento van en la misma transacción.
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.BOOKING_APPOINTMENT_CONFIRMED,
+          aggregateType: "appointment",
+          aggregateId: "appt-123",
+        })
       );
     });
 
@@ -533,9 +548,13 @@ describe("AppointmentsService", () => {
 
       await service.markNoShow("appt-123", "business-123");
 
-      expect(mockApptRepo.update).toHaveBeenCalledWith(
-        { id: "appt-123", businessId: "business-123" },
-        { status: AppointmentStatus.NO_SHOW }
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.BOOKING_APPOINTMENT_NO_SHOWED,
+          aggregateType: "appointment",
+          aggregateId: "appt-123",
+        })
       );
     });
 
@@ -788,6 +807,211 @@ describe("AppointmentsService", () => {
       await expect(
         service.findById("non-existent", "business-123")
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("findByClientUser", () => {
+    const pagination = {
+      page: 1,
+      limit: 20,
+      offset: 0,
+      sort: "date",
+      order: "DESC" as const,
+    };
+
+    afterEach(() => {
+      delete (global as { fetch?: unknown }).fetch;
+    });
+
+    /** Respuesta del endpoint interno de core que traduce usuario a fichas. */
+    function coreDevuelve(clients: { id: string }[]) {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, data: clients }),
+      }) as unknown as typeof fetch;
+    }
+
+    it("busca las citas de todas las fichas del usuario", async () => {
+      coreDevuelve([{ id: "cliente-a" }, { id: "cliente-b" }]);
+      mockApptRepo.findAndCount.mockResolvedValue([[mockAppointment], 1]);
+
+      const result = await service.findByClientUser("user-1", pagination);
+
+      expect(mockApptRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { clientId: In(["cliente-a", "cliente-b"]) },
+        })
+      );
+      expect(result.data).toEqual([mockAppointment]);
+    });
+
+    it("nunca consulta sin filtro cuando el usuario no tiene fichas", async () => {
+      coreDevuelve([]);
+
+      const result = await service.findByClientUser(
+        "user-sin-fichas",
+        pagination
+      );
+
+      expect(mockApptRepo.findAndCount).not.toHaveBeenCalled();
+      expect(result.data).toEqual([]);
+      expect(result.meta.total).toBe(0);
+    });
+
+    it("avisa si core no responde, en vez de devolver una lista vacía", async () => {
+      global.fetch = jest
+        .fn()
+        .mockRejectedValue(
+          new Error("conexión rechazada")
+        ) as unknown as typeof fetch;
+
+      await expect(
+        service.findByClientUser("user-1", pagination)
+      ).rejects.toThrow(ServiceUnavailableException);
+    });
+  });
+
+  describe("findAvailableSlotsPublic", () => {
+    it("deduce el negocio del horario del profesional", async () => {
+      mockAvailRepo.findOne.mockResolvedValue({
+        id: "avail-1",
+        businessId: "business-123",
+        professionalId: "pro-1",
+        dayOfWeek: 3,
+        startTime: "09:00",
+        endTime: "10:00",
+        active: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        generateId: () => {},
+      } as unknown as Availability);
+      mockBlockRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([]);
+
+      const slots = await service.findAvailableSlotsPublic(
+        "pro-1",
+        "2026-08-19",
+        30
+      );
+
+      expect(slots.length).toBeGreaterThan(0);
+    });
+
+    it("no devuelve horarios de un profesional sin agenda configurada", async () => {
+      mockAvailRepo.findOne.mockResolvedValue(null);
+
+      const slots = await service.findAvailableSlotsPublic(
+        "pro-desconocido",
+        "2026-08-19",
+        30
+      );
+
+      expect(slots).toEqual([]);
+    });
+  });
+
+  describe("findAvailableSlotsForBusiness", () => {
+    /** Jornada de 09:00 a 10:00: dos franjas de media hora. */
+    function jornadaCorta(professionalId: string) {
+      return {
+        ...mockAvailability,
+        professionalId,
+        dayOfWeek: 3,
+        startTime: "09:00",
+        endTime: "10:00",
+      } as unknown as Availability;
+    }
+
+    beforeEach(() => {
+      mockBlockRepo.find.mockResolvedValue([]);
+    });
+
+    it("ofrece la franja si la tiene libre al menos un profesional", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        jornadaCorta("pro-a"),
+        jornadaCorta("pro-b"),
+      ]);
+      mockAvailRepo.findOne.mockImplementation((options?: unknown) => {
+        const where = (options as { where?: { professionalId?: string } })
+          ?.where;
+        return Promise.resolve(jornadaCorta(where!.professionalId!));
+      });
+      mockApptRepo.find.mockImplementation((options?: unknown) => {
+        const where = (options as { where?: { professionalId?: string } })
+          ?.where;
+        return Promise.resolve(
+          where?.professionalId === "pro-a"
+            ? ([{ startTime: "09:00", endTime: "09:30" }] as never)
+            : ([] as never)
+        );
+      });
+
+      const slots = await service.findAvailableSlotsForBusiness(
+        "business-123",
+        "2026-08-19",
+        30
+      );
+
+      expect(slots.find((s) => s.startTime === "09:00")?.available).toBe(true);
+    });
+
+    it("marca la franja ocupada cuando ninguno la tiene libre", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        jornadaCorta("pro-a"),
+        jornadaCorta("pro-b"),
+      ]);
+      mockAvailRepo.findOne.mockImplementation((options?: unknown) => {
+        const where = (options as { where?: { professionalId?: string } })
+          ?.where;
+        return Promise.resolve(jornadaCorta(where!.professionalId!));
+      });
+      mockApptRepo.find.mockResolvedValue([
+        { startTime: "09:00", endTime: "09:30" },
+      ] as never);
+
+      const slots = await service.findAvailableSlotsForBusiness(
+        "business-123",
+        "2026-08-19",
+        30
+      );
+
+      expect(slots.find((s) => s.startTime === "09:00")?.available).toBe(false);
+    });
+
+    it("devuelve las franjas ordenadas y sin repetir", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        jornadaCorta("pro-a"),
+        jornadaCorta("pro-b"),
+      ]);
+      mockAvailRepo.findOne.mockImplementation((options?: unknown) => {
+        const where = (options as { where?: { professionalId?: string } })
+          ?.where;
+        return Promise.resolve(jornadaCorta(where!.professionalId!));
+      });
+      mockApptRepo.find.mockResolvedValue([]);
+
+      const slots = await service.findAvailableSlotsForBusiness(
+        "business-123",
+        "2026-08-19",
+        30
+      );
+
+      const horas = slots.map((s) => s.startTime);
+      expect(horas).toEqual([...new Set(horas)]);
+      expect(horas).toEqual([...horas].sort());
+    });
+
+    it("no ofrece nada si nadie del equipo trabaja ese dia", async () => {
+      mockAvailRepo.find.mockResolvedValue([]);
+
+      const slots = await service.findAvailableSlotsForBusiness(
+        "business-123",
+        "2026-08-19",
+        30
+      );
+
+      expect(slots).toEqual([]);
+      expect(mockAvailRepo.findOne).not.toHaveBeenCalled();
     });
   });
 

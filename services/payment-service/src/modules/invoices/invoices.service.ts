@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { OutboxService } from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
+import { Repository, DataSource } from "typeorm";
 import { InvoiceEntity } from "./invoice.entity";
 import { InvoiceItemEntity } from "./invoice-item.entity";
 import { InvoiceStatus } from "@beautyspot/shared-types";
@@ -15,7 +17,9 @@ export class InvoicesService {
     private readonly invoiceRepo: Repository<InvoiceEntity>,
     @InjectRepository(InvoiceItemEntity)
     private readonly itemRepo: Repository<InvoiceItemEntity>,
-    private readonly pdfService: PdfService
+    private readonly pdfService: PdfService,
+    private readonly dataSource: DataSource,
+    private readonly outbox: OutboxService
   ) {}
 
   /** Crea una factura calculando los totales de sus líneas y asignándole un número. */
@@ -51,7 +55,24 @@ export class InvoicesService {
       items,
     });
 
-    return this.invoiceRepo.save(invoice);
+    return this.dataSource.transaction(async (manager) => {
+      const guardada = await manager.getRepository(InvoiceEntity).save(invoice);
+
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.PAYMENT_INVOICE_GENERATED,
+        aggregateType: "invoice",
+        aggregateId: guardada.id,
+        payload: {
+          invoiceId: guardada.id,
+          businessId,
+          clientId: guardada.clientId,
+          number: guardada.number,
+          total: Number(guardada.total),
+        },
+      });
+
+      return guardada;
+    });
   }
 
   /** Lista las facturas del negocio con sus líneas, opcionalmente filtradas por estado. */

@@ -12,7 +12,11 @@ import { LoginDto } from "./dto/login.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
-import { Public, CurrentUser } from "@beautyspot/nest-common";
+import {
+  Public,
+  CurrentUser,
+  SkipBusinessScope,
+} from "@beautyspot/nest-common";
 
 /** Endpoints HTTP de autenticación; las rutas @Public no requieren token. */
 @Controller()
@@ -60,6 +64,7 @@ export class AuthController {
   }
 
   /** Cambia la contraseña del usuario autenticado. */
+  @SkipBusinessScope()
   @Post("change-password")
   @HttpCode(HttpStatus.OK)
   async changePassword(
@@ -70,6 +75,7 @@ export class AuthController {
   }
 
   /** Cierra la sesión del usuario autenticado. */
+  @SkipBusinessScope()
   @Post("logout")
   @HttpCode(HttpStatus.OK)
   async logout(@CurrentUser("userId") userId: string) {
@@ -77,6 +83,7 @@ export class AuthController {
   }
 
   /** Devuelve el perfil del usuario autenticado. */
+  @SkipBusinessScope()
   @Get("me")
   async getMe(@CurrentUser("userId") userId: string) {
     return this.authService.getMe(userId);

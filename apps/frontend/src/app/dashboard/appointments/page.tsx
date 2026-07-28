@@ -12,7 +12,8 @@ import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/utils";
-import { useApi, revalidatePrefix } from "@/lib/swr";
+import { useApi, paginatedSchema, revalidatePrefix } from "@/lib/swr";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { usePaginatedList } from "@/lib/use-paginated-list";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
@@ -60,6 +61,8 @@ export default function AppointmentsPage() {
     meta,
     setPage,
     isLoading: loading,
+    error: loadError,
+    mutate: recargar,
   } = usePaginatedList<Appointment>({
     basePath: APPOINTMENTS_KEY,
     itemSchema: appointmentSchema,
@@ -77,11 +80,12 @@ export default function AppointmentsPage() {
     undefined,
     z.array(serviceSchema)
   );
-  const { data: clients } = useApi<Client[]>(
+  const { data: clientsPage } = useApi(
     showForm ? CLIENTS_KEY : null,
     undefined,
-    z.array(clientSchema)
+    paginatedSchema(clientSchema)
   );
+  const clients: Client[] = clientsPage?.data ?? [];
 
   const [form, setForm] = useState<FormValues>(emptyForm);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -142,7 +146,7 @@ export default function AppointmentsPage() {
         await api.post("/payment/payments", {
           appointmentId: completingAppt.id,
           clientId: completingAppt.clientId,
-          amount: parseFloat(completingAppt.totalAmount),
+          amount: completingAppt.totalAmount,
           method: payment.method,
           reference: payment.reference || undefined,
           notes: payment.notes || undefined,
@@ -302,6 +306,12 @@ export default function AppointmentsPage() {
                 Cargando citas...
               </CardContent>
             </Card>
+          ) : loadError ? (
+            <ErrorDeCarga
+              error={loadError}
+              recurso="las citas"
+              onReintentar={() => recargar()}
+            />
           ) : filtered.length === 0 ? (
             <Card className="border-0 shadow-sm">
               <CardContent className="text-muted-foreground p-8 text-center">

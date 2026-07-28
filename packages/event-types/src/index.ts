@@ -229,6 +229,21 @@ export type EmailFailedEvent = IBaseEvent<EmailFailedPayload>;
 
 // ─── Event Name Constants ─────────────────────────────────────
 
+/** Exchange de tipo topic por el que viajan todos los eventos de dominio. */
+export const EVENTS_EXCHANGE = "beautyspot.events";
+
+/** Exchange al que van los eventos que un consumidor no pudo procesar. */
+export const DEAD_LETTER_EXCHANGE = "beautyspot.dlx";
+
+/**
+ * Nombre de la cola de un consumidor: un servicio por evento. Cada servicio
+ * tiene su propia cola para el mismo evento, así que todos lo reciben y el
+ * fallo de uno no afecta a los demás.
+ */
+export function nombreDeCola(servicio: string, evento: string): string {
+  return `${servicio}.${evento}`;
+}
+
 /**
  * Nombres canónicos de los eventos (routing keys de RabbitMQ). Compartirlos aquí
  * garantiza que productores y consumidores usen exactamente la misma cadena.

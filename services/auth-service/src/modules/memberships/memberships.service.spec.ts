@@ -6,13 +6,15 @@ import { Membership } from "../../entities/membership.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
 import { Role } from "@beautyspot/shared-types";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
-import { TokenVersionStore } from "@beautyspot/nest-common";
+import { TokenVersionStore, OutboxService } from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
 
 describe("MembershipsService", () => {
   let service: MembershipsService;
   let mockRepo: jest.Mocked<any>;
   let mockAuditRepo: jest.Mocked<any>;
   let mockTokenVersionStore: jest.Mocked<TokenVersionStore>;
+  let mockOutbox: jest.Mocked<OutboxService>;
 
   const actor: MembershipActor = {
     userId: "admin-123",
@@ -58,6 +60,7 @@ describe("MembershipsService", () => {
       getVersion: jest.fn().mockResolvedValue(0),
       bumpVersion: jest.fn().mockResolvedValue(1),
     } as any;
+    mockOutbox = { enqueue: jest.fn().mockResolvedValue(undefined) } as any;
 
     const module = await Test.createTestingModule({
       providers: [
@@ -66,6 +69,7 @@ describe("MembershipsService", () => {
         { provide: getRepositoryToken(AuditLog), useValue: mockAuditRepo },
         { provide: DataSource, useValue: mockDataSource },
         { provide: TokenVersionStore, useValue: mockTokenVersionStore },
+        { provide: OutboxService, useValue: mockOutbox },
       ],
     }).compile();
 
@@ -87,6 +91,13 @@ describe("MembershipsService", () => {
       const result = await service.create(data, actor);
 
       expect(result).toEqual(mockMembership);
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.AUTH_MEMBERSHIP_CREATED,
+          aggregateType: "memberships",
+        })
+      );
       expect(mockRepo.findOne).toHaveBeenCalledWith({
         where: {
           userId: data.userId,

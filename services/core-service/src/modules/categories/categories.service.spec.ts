@@ -66,7 +66,7 @@ describe("CategoriesService", () => {
       const result = await service.create("business-123", dto);
 
       expect(mockRepo.findOne).toHaveBeenCalledWith({
-        where: { name: "Barbero", businessId: "business-123", active: true },
+        where: { name: "Barbero", businessId: "business-123" },
       });
       expect(mockRepo.create).toHaveBeenCalledWith({
         ...dto,
@@ -87,6 +87,22 @@ describe("CategoriesService", () => {
       await expect(service.create("business-123", dto)).rejects.toThrow(
         'La categoría "Barbero" ya existe'
       );
+    });
+
+    it("debería rechazar el nombre de una categoría desactivada", async () => {
+      const inactiva = { ...mockCategory, active: false } as any;
+      // El repositorio solo devuelve la categoría si la consulta no filtra por activas
+      mockRepo.findOne.mockImplementation(({ where }: any) =>
+        where.active ? null : inactiva
+      );
+
+      await expect(
+        service.create("business-123", { name: "Barbero" })
+      ).rejects.toThrow(ConflictException);
+      await expect(
+        service.create("business-123", { name: "Barbero" })
+      ).rejects.toThrow("está desactivada");
+      expect(mockRepo.save).not.toHaveBeenCalled();
     });
 
     it("debería propagar errores del repositorio", async () => {

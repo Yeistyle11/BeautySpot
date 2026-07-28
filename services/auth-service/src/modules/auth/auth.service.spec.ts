@@ -203,12 +203,16 @@ describe("AuthService", () => {
       expect(mockUserRepository.create).toHaveBeenCalled();
       expect(mockUserRepository.save).toHaveBeenCalled();
       expect(mockAuditLogRepository.create).toHaveBeenCalled();
-      expect(mockEventBus.emit).toHaveBeenCalledWith(
-        EventNames.AUTH_USER_REGISTERED,
+      // El evento se encola en la misma transacción que el alta del usuario.
+      expect(mockOutboxService.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
-          userId: mockUser.id,
-          email: mockUser.email,
-          name: mockUser.name,
+          eventType: EventNames.AUTH_USER_REGISTERED,
+          payload: expect.objectContaining({
+            userId: mockUser.id,
+            email: mockUser.email,
+            name: mockUser.name,
+          }),
         })
       );
       expect(mockJwtService.sign).toHaveBeenCalledTimes(2);

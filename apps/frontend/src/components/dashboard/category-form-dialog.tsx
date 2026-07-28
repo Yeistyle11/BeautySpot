@@ -29,6 +29,8 @@ interface CategoryFormDialogProps {
   iconOptions: { value: string; label: string }[];
   colorPresets: string[];
   saving: boolean;
+  /** Motivo por el que el guardado no salio adelante, si lo hubo. */
+  error?: string;
   /** El interruptor de activa/inactiva solo tiene sentido al editar. */
   showActiveToggle?: boolean;
   activeLabel?: string;
@@ -50,6 +52,7 @@ export function CategoryFormDialog({
   iconOptions,
   colorPresets,
   saving,
+  error,
   showActiveToggle = false,
   activeLabel = "Categoría activa",
 }: CategoryFormDialogProps) {
@@ -142,6 +145,12 @@ export function CategoryFormDialog({
             />
             <Label htmlFor="category-active">{activeLabel}</Label>
           </div>
+        )}
+
+        {error && (
+          <p role="alert" className="text-destructive text-sm">
+            {error}
+          </p>
         )}
 
         <div className="flex gap-3 pt-2">

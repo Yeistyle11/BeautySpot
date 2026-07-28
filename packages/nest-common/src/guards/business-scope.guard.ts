@@ -8,6 +8,8 @@ import {
 import { Reflector } from "@nestjs/core";
 import { Role } from "@beautyspot/shared-types";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
+import { esContextoHttp } from "./http-context";
+import { SKIP_BUSINESS_SCOPE_KEY } from "../decorators/skip-business-scope.decorator";
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -29,6 +31,14 @@ export class BusinessScopeGuard implements CanActivate {
       context.getClass(),
     ]);
     if (isPublic) return true;
+
+    const skipBusinessScope = this.reflector.getAllAndOverride<boolean>(
+      SKIP_BUSINESS_SCOPE_KEY,
+      [context.getHandler(), context.getClass()]
+    );
+    if (skipBusinessScope) return true;
+
+    if (!esContextoHttp(context)) return true;
 
     const request = context.switchToHttp().getRequest();
     if (request.url === "/health" || request.url.startsWith("/internal"))

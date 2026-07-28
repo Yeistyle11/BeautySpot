@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { OutboxModule } from "@beautyspot/nest-common";
 import { ProfessionalsService } from "./professionals.service";
 import { CategoriesModule } from "../categories/categories.module";
 import { ProfessionalsController } from "./professionals.controller";
@@ -10,6 +11,7 @@ import { ProfessionalService } from "../../entities/professional-service.entity"
   imports: [
     TypeOrmModule.forFeature([Professional, ProfessionalService]),
     CategoriesModule,
+    OutboxModule,
   ],
   controllers: [ProfessionalsController],
   providers: [ProfessionalsService],

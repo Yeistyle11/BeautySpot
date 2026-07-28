@@ -1,7 +1,8 @@
 import { Module } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
+import { EVENTS_EXCHANGE, DEAD_LETTER_EXCHANGE } from "@beautyspot/event-types";
 import { BullModule } from "@nestjs/bullmq";
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
@@ -21,15 +22,16 @@ import { EventListenersModule } from "./modules/event-listeners/event-listeners.
     TypeOrmModule.forRootAsync({
       useFactory: () => createTypeOrmModuleOptions(entities),
     }),
-    RabbitMQModule.forRoot({
-      exchanges: [
-        {
-          name: "beautyspot.events",
-          type: "topic",
-        },
-      ],
-      uri: process.env.RABBITMQ_URL || "amqp://localhost:5672",
-      connectionInitOptions: { wait: false },
+    RabbitMQModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        exchanges: [
+          { name: EVENTS_EXCHANGE, type: "topic" },
+          { name: DEAD_LETTER_EXCHANGE, type: "topic" },
+        ],
+        uri: config.get<string>("RABBITMQ_URL") ?? "amqp://localhost:5672",
+        connectionInitOptions: { wait: false },
+      }),
     }),
     BullModule.forRoot({
       connection: {

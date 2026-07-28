@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { timingSafeEqual } from "crypto";
+import { esContextoHttp } from "./http-context";
 
 /** Header que transporta el secreto compartido en las llamadas internas entre servicios. */
 export const INTERNAL_API_SECRET_HEADER = "x-internal-secret";
@@ -21,6 +22,8 @@ export class InternalSecretGuard implements CanActivate {
   constructor(private configService: ConfigService) {}
 
   canActivate(context: ExecutionContext): boolean {
+    if (!esContextoHttp(context)) return true;
+
     const request = context.switchToHttp().getRequest();
     if (!request.url.startsWith(INTERNAL_PATH_PREFIX)) return true;
 

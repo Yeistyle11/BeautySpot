@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   UnauthorizedException,
   BadRequestException,
   ConflictException,
@@ -40,6 +41,8 @@ function hashResetToken(token: string): string {
  */
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   /** Promesa memoizada del hash señuelo (ver getDecoyHash). */
   private decoyHash?: Promise<string>;
 
@@ -90,13 +93,19 @@ export class AuthService {
         saved.id,
         manager
       );
-      return saved;
-    });
 
-    this.eventBus.emit(EventNames.AUTH_USER_REGISTERED, {
-      userId: user.id,
-      email: user.email,
-      name: user.name,
+      await this.outboxService.enqueue(manager, {
+        eventType: EventNames.AUTH_USER_REGISTERED,
+        aggregateType: "users",
+        aggregateId: saved.id,
+        payload: {
+          userId: saved.id,
+          email: saved.email,
+          name: saved.name,
+        },
+      });
+
+      return saved;
     });
 
     const { accessToken, refreshToken } = await this.generateTokens(user);
@@ -112,10 +121,17 @@ export class AuthService {
     const user = await this.validateUser(dto.email, dto.password);
     await this.logAction(user.id, "USER_LOGGED_IN", "users", user.id);
 
-    this.eventBus.emit(EventNames.AUTH_USER_LOGGED_IN, {
-      userId: user.id,
-      email: user.email,
-    });
+    // El aviso de inicio de sesion no debe tumbar el login si el bus falla.
+    await this.eventBus
+      .emit(EventNames.AUTH_USER_LOGGED_IN, {
+        userId: user.id,
+        email: user.email,
+      })
+      .catch((error: unknown) => {
+        this.logger.warn(
+          `No se pudo publicar el inicio de sesion: ${String(error)}`
+        );
+      });
 
     const { accessToken, refreshToken } = await this.generateTokens(user);
     return { user: toSafeUser(user), accessToken, refreshToken };

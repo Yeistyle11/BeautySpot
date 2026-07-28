@@ -51,9 +51,9 @@ export function SelectSlotStep({
         </Field>
 
         {date && isAnyProfessional && (
-          <p className="bg-warning-soft text-warning-soft-foreground rounded-lg p-3 text-sm">
-            Selecciona un profesional especifico para ver disponibilidad exacta.
-            Se mostrara un rango general de horarios.
+          <p className="bg-muted text-muted-foreground rounded-lg p-3 text-sm">
+            Estas viendo los horarios libres de todo el equipo. Al confirmar se
+            te asignara un profesional disponible.
           </p>
         )}
 

@@ -5,23 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { formatCurrency, formatTime, toLocalDateKey } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
-
-interface Appointment {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: string;
-  totalAmount: string;
-  professionalId: string;
-  clientId: string;
-  notes: string | null;
-  appointmentServices: {
-    serviceName: string;
-    price: string;
-    duration: number;
-  }[];
-}
+import type { Appointment } from "@/app/dashboard/appointments/schemas";
 
 interface CalendarViewProps {
   appointments: Appointment[];
@@ -209,7 +193,7 @@ export function CalendarView({
                   {formatTime(selectedAppt.endTime)}
                 </span>
                 <span className="font-medium">
-                  {formatCurrency(parseFloat(selectedAppt.totalAmount))}
+                  {formatCurrency(selectedAppt.totalAmount)}
                 </span>
               </div>
               <Badge

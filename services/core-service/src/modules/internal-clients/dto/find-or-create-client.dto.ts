@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNotEmpty } from "class-validator";
+import { IsString, IsOptional, IsNotEmpty, IsUUID } from "class-validator";
 
 /** Datos mínimos del cliente de una reserva para buscarlo o crearlo en el negocio. */
 export class FindOrCreateClientDto {
@@ -17,4 +17,9 @@ export class FindOrCreateClientDto {
   @IsString()
   @IsOptional()
   phone?: string;
+
+  /** Usuario que reserva; ausente en una reserva de invitado. */
+  @IsUUID()
+  @IsOptional()
+  userId?: string;
 }

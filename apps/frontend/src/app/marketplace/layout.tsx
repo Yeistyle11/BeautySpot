@@ -5,13 +5,15 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Scissors, LogIn, User, LogOut } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
+import { useLogout } from "@/lib/use-logout";
 
 export default function PublicLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { role, user, hydrate, logout, hydrated } = useAuthStore();
+  const { role, user, hydrate, hydrated } = useAuthStore();
+  const cerrarSesion = useLogout();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -66,8 +68,8 @@ export default function PublicLayout({
                     Mi Panel
                   </Link>
                   <button
-                    onClick={() => {
-                      logout();
+                    onClick={async () => {
+                      await cerrarSesion();
                       setDropdownOpen(false);
                     }}
                     className="hover:bg-accent flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors"
