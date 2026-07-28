@@ -9,6 +9,16 @@ export const profileSchema = z.object({
 });
 export type Profile = z.infer<typeof profileSchema>;
 
+/**
+ * Respuesta de `GET /marketplace/profiles/:slug`, que envuelve el perfil junto
+ * a los profesionales. La reserva pide los profesionales a su propio endpoint,
+ * asi que aqui solo se modela el envoltorio para poder desempaquetar el perfil.
+ */
+export const profileResponseSchema = z.object({
+  profile: profileSchema,
+});
+export type ProfileResponse = z.infer<typeof profileResponseSchema>;
+
 export const serviceSchema = z.object({
   id: z.string(),
   name: z.string(),

@@ -8,13 +8,15 @@ export const appointmentSchema = z.object({
   endTime: z.string(),
   status: z.string(),
   notes: z.string().nullable(),
-  totalAmount: z.string(),
+  // Decimal en la base que el numericTransformer entrega como número.
+  totalAmount: z.number(),
   professionalId: z.string(),
   clientId: z.string(),
   appointmentServices: z.array(
     z.object({
       serviceName: z.string(),
-      price: z.string(),
+      // Decimal en la base que el numericTransformer entrega como número.
+      price: z.number(),
       duration: z.number(),
     })
   ),
@@ -54,4 +56,5 @@ export type AppointmentForm = typeof emptyForm;
 export const APPOINTMENTS_KEY = "/booking/appointments";
 export const PROFESSIONALS_KEY = "/core/professionals";
 export const SERVICES_KEY = "/core/services";
-export const CLIENTS_KEY = "/core/clients";
+// El endpoint pagina de 20 en 20; el desplegable necesita la lista completa.
+export const CLIENTS_KEY = "/core/clients?limit=100";

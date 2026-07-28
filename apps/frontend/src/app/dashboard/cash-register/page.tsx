@@ -32,30 +32,14 @@ import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
-
-const cashSessionSchema = z.object({
-  id: z.string(),
-  openingAmount: z.string(),
-  closingAmount: z.string().optional(),
-  openedAt: z.string(),
-  closedAt: z.string().optional(),
-  notes: z.string().optional(),
-  isOpen: z.boolean().optional(),
-});
-type CashSession = z.infer<typeof cashSessionSchema>;
-
-const cashMovementSchema = z.object({
-  id: z.string(),
-  type: z.enum(["IN", "OUT"]),
-  amount: z.string(),
-  concept: z.string(),
-  registeredAt: z.string(),
-});
-type CashMovement = z.infer<typeof cashMovementSchema>;
-
-const cashSummarySchema = z.object({
-  movements: z.array(cashMovementSchema),
-});
+import {
+  cashSessionSchema,
+  cashSummarySchema,
+  ACTIVE_KEY,
+  HISTORY_KEY,
+  type CashSession,
+  type CashMovement,
+} from "./schemas";
 
 const movementTypeOptions = [
   {
@@ -69,9 +53,6 @@ const movementTypeOptions = [
     icon: <ArrowDownCircle className="h-5 w-5 text-red-600" />,
   },
 ];
-
-const ACTIVE_KEY = "/payment/cash-register/active";
-const HISTORY_KEY = "/payment/cash-register/history";
 
 export default function CashRegisterPage() {
   const toast = useToast();
@@ -180,11 +161,11 @@ export default function CashRegisterPage() {
 
   const totalIn = movements
     .filter((m) => m.type === "IN")
-    .reduce((s, m) => s + parseFloat(m.amount), 0);
+    .reduce((s, m) => s + m.amount, 0);
   const totalOut = movements
     .filter((m) => m.type === "OUT")
-    .reduce((s, m) => s + parseFloat(m.amount), 0);
-  const openingAmt = parseFloat(activeSession?.openingAmount || "0");
+    .reduce((s, m) => s + m.amount, 0);
+  const openingAmt = activeSession?.openingAmount ?? 0;
   const expectedTotal = openingAmt + totalIn - totalOut;
 
   if (loading) {
@@ -309,7 +290,7 @@ export default function CashRegisterPage() {
                         <div>
                           <p className="text-sm font-medium">{m.concept}</p>
                           <p className="text-muted-foreground text-xs">
-                            {formatTimeStamp(m.registeredAt)}
+                            {formatTimeStamp(m.createdAt)}
                           </p>
                         </div>
                       </div>
@@ -317,7 +298,7 @@ export default function CashRegisterPage() {
                         className={`font-semibold ${m.type === "IN" ? "text-green-600" : "text-red-600"}`}
                       >
                         {m.type === "IN" ? "+" : "-"}
-                        {formatCurrency(parseFloat(m.amount))}
+                        {formatCurrency(m.amount)}
                       </span>
                     </div>
                   ))}
@@ -348,9 +329,9 @@ export default function CashRegisterPage() {
                       {s.closedAt ? formatDate(s.closedAt) : "En curso"}
                     </p>
                     <p className="text-muted-foreground text-xs">
-                      Apertura: {formatCurrency(parseFloat(s.openingAmount))}
-                      {s.closingAmount &&
-                        ` · Cierre: ${formatCurrency(parseFloat(s.closingAmount))}`}
+                      Apertura: {formatCurrency(s.openingAmount)}
+                      {s.closingAmount != null &&
+                        ` · Cierre: ${formatCurrency(s.closingAmount)}`}
                     </p>
                   </div>
                   <Badge variant={s.closedAt ? "secondary" : "success"}>

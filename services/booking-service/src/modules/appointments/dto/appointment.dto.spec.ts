@@ -1,4 +1,4 @@
-import { ValidationPipe } from "@nestjs/common";
+import { BadRequestException, ValidationPipe } from "@nestjs/common";
 import { CreateAppointmentDto } from "./appointment.dto";
 
 // Mismo pipe que monta createMicroserviceApp.
@@ -56,5 +56,55 @@ describe("CreateAppointmentDto", () => {
         metadata
       )
     ).rejects.toThrow();
+  });
+
+  // El servicio combina `date` con la hora para situar la cita en el huso del
+  // negocio; un ISO completo se concatenaba mal y acababa en un 500.
+  it("rechaza una fecha con hora en vez del día suelto", async () => {
+    const error = await pipe
+      .transform(
+        { ...citaDelPanel, date: "2026-08-01T15:00:00.000Z" },
+        metadata
+      )
+      .then(
+        () => null,
+        (e: BadRequestException) => e
+      );
+
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect(error!.getResponse()).toMatchObject({
+      message: expect.arrayContaining([expect.stringContaining("YYYY-MM-DD")]),
+    });
+  });
+
+  // La reserva publica ofrece "cualquier profesional" y mandaba el literal
+  // "any", que llegaba hasta la consulta y salia como 500 en vez de 400.
+  it("rechaza un profesional que no sea un id valido", async () => {
+    await expect(
+      pipe.transform({ ...citaDelPanel, professionalId: "any" }, metadata)
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("rechaza un profesional vacio", async () => {
+    await expect(
+      pipe.transform({ ...citaDelPanel, professionalId: "" }, metadata)
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("rechaza un cliente que no sea un id valido", async () => {
+    await expect(
+      pipe.transform({ ...citaDelPanel, clientId: "invitado" }, metadata)
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  // El negocio lo resuelve el gateway desde el token: aceptarlo en el cuerpo
+  // dejaria reservar contra otro tenant.
+  it("rechaza un businessId en el cuerpo", async () => {
+    await expect(
+      pipe.transform(
+        { ...citaDelPanel, businessId: "72c9ec5c-4116-4481-9a3b-dad43da27b46" },
+        metadata
+      )
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

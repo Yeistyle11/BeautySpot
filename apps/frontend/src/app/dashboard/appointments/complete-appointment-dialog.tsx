@@ -87,14 +87,14 @@ export function CompleteAppointmentDialog({
                     {s.serviceName} ({s.duration} min)
                   </span>
                   <span className="font-medium">
-                    {formatCurrency(parseFloat(s.price))}
+                    {formatCurrency(s.price)}
                   </span>
                 </div>
               ))}
               <div className="flex justify-between border-t pt-2 font-semibold">
                 <span>Total</span>
                 <span>
-                  {formatCurrency(parseFloat(appointment.totalAmount))}
+                  {formatCurrency(appointment.totalAmount)}
                 </span>
               </div>
             </div>

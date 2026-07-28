@@ -22,7 +22,7 @@ import {
   BOOKING_STEPS,
   generateFallbackSlots,
   professionalSchema,
-  profileSchema,
+  profileResponseSchema,
   serviceSchema,
   type BookingConfirmation as Confirmation,
   type Profile,
@@ -38,11 +38,12 @@ function PublicBookingPageInner() {
   const { user, hydrated } = useAuthStore();
   const isAuthenticated = hydrated && !!user;
 
-  const { data: profile, isLoading: loading } = useApiPublic<Profile>(
+  const { data: profileResponse, isLoading: loading } = useApiPublic(
     `/marketplace/profiles/${slug}`,
     undefined,
-    profileSchema
+    profileResponseSchema
   );
+  const profile: Profile | undefined = profileResponse?.profile;
   const { data: rawServices } = useApiPublic<Service[]>(
     profile?.businessId
       ? `/core/public/businesses/${profile.businessId}/services`
@@ -52,7 +53,7 @@ function PublicBookingPageInner() {
   );
   const { data: rawProfessionals } = useApiPublic<Professional[]>(
     profile?.businessId
-      ? `/marketplace/professional-profiles/business/${profile.businessId}`
+      ? `/core/public/businesses/${profile.businessId}/professionals`
       : null,
     undefined,
     z.array(professionalSchema)
@@ -134,7 +135,6 @@ function PublicBookingPageInner() {
     setSubmitting(true);
     try {
       const body: Record<string, unknown> = {
-        businessId: profile.businessId,
         professionalId: selectedProfessional,
         serviceIds: selectedServiceData.map((s) => ({
           id: s.id,
@@ -146,11 +146,13 @@ function PublicBookingPageInner() {
         startTime,
       };
 
-      // Con sesion la cita se asocia al cliente; sin ella viaja como invitado
-      // por un endpoint publico distinto.
+      // Con sesion la cita se asocia al cliente y el negocio lo resuelve el
+      // gateway desde el token; sin ella viaja como invitado por un endpoint
+      // publico distinto, que si necesita el negocio explicito en el cuerpo.
       if (isAuthenticated && user) {
         body.clientId = user.id;
       } else {
+        body.businessId = profile.businessId;
         body.guestName = guest.name;
         body.guestEmail = guest.email || undefined;
         body.guestPhone = guest.phone || undefined;

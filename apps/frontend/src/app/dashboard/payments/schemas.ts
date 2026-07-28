@@ -5,10 +5,12 @@ import { z } from "zod";
 
 export const paymentSchema = z.object({
   id: z.string(),
-  amount: z.string(),
+  // `amount` es decimal en la base, pero el numericTransformer de la entidad lo
+  // entrega ya como número.
+  amount: z.number(),
   method: z.string(),
   status: z.string(),
-  registeredAt: z.string(),
+  createdAt: z.string(),
   appointmentId: z.string().nullish(),
   clientId: z.string().nullish(),
   reference: z.string().nullish(),
@@ -62,4 +64,5 @@ export interface PaymentSummary {
 }
 
 export const PAYMENTS_KEY = "/payment/payments";
-export const CLIENTS_KEY = "/core/clients";
+// El endpoint pagina de 20 en 20; el desplegable necesita la lista completa.
+export const CLIENTS_KEY = "/core/clients?limit=100";
