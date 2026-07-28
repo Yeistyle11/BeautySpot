@@ -3,7 +3,6 @@ import {
   profileSchema,
   serviceSchema,
   professionalSchema,
-  generateFallbackSlots,
   BOOKING_STEPS,
 } from "../schemas";
 
@@ -96,16 +95,8 @@ describe("catálogos del flujo de reserva", () => {
   });
 });
 
-describe("horarios de respaldo", () => {
-  it("cubre la jornada de 8:00 a 18:00 en tramos de media hora", () => {
-    const slots = generateFallbackSlots();
-
-    expect(slots[0]).toBe("08:00");
-    expect(slots).toContain("13:30");
-    expect(slots[slots.length - 1]).toBe("18:00");
-  });
-
-  it("numera los cuatro pasos de la reserva", () => {
+describe("pasos de la reserva", () => {
+  it("numera los cuatro pasos", () => {
     expect(BOOKING_STEPS.map((s) => s.n)).toEqual([1, 2, 3, 4]);
   });
 });

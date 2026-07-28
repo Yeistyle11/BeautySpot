@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -52,10 +53,24 @@ export class AppointmentsController {
   @Public()
   @Get("availability")
   async getAvailability(@Query() query: AvailabilityQueryDto) {
-    return this.service.findAvailableSlotsPublic(
-      query.professionalId,
-      query.date,
-      query.duration
+    if (query.professionalId) {
+      return this.service.findAvailableSlotsPublic(
+        query.professionalId,
+        query.date,
+        query.duration
+      );
+    }
+
+    if (query.businessId) {
+      return this.service.findAvailableSlotsForBusiness(
+        query.businessId,
+        query.date,
+        query.duration
+      );
+    }
+
+    throw new BadRequestException(
+      "Indica un profesional o el negocio para consultar la disponibilidad"
     );
   }
 

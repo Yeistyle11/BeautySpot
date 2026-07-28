@@ -25,7 +25,6 @@ import {
 } from "./steps/guest-details-step";
 import {
   BOOKING_STEPS,
-  generateFallbackSlots,
   professionalSchema,
   profileResponseSchema,
   serviceSchema,
@@ -106,19 +105,23 @@ function PublicBookingPageInner() {
   const totalAmount = selectedServiceData.reduce((sum, s) => sum + s.price, 0);
 
   const isAnyProfessional = selectedProfessional === "any";
+  // Sin profesional elegido se consulta la agenda del negocio entero, que
+  // ofrece las franjas que tenga libres cualquiera del equipo.
+  const alcanceSlots = isAnyProfessional
+    ? `businessId=${profile?.businessId}`
+    : `professionalId=${selectedProfessional}`;
   const slotsKey =
-    date && selectedProfessional && totalDuration > 0 && !isAnyProfessional
-      ? `/booking/appointments/availability?professionalId=${selectedProfessional}&date=${date}&duration=${totalDuration}`
+    date && selectedProfessional && totalDuration > 0 && profile?.businessId
+      ? `/booking/appointments/availability?${alcanceSlots}&date=${date}&duration=${totalDuration}`
       : null;
   const { data: rawSlots, isLoading: slotsLoading } = useApiPublic<
     AvailabilitySlot[]
   >(slotsKey, undefined, z.array(availabilitySlotSchema));
   // El endpoint enumera la jornada entera marcando cuales quedan libres; aqui
   // solo interesan las horas que se pueden elegir.
-  const availableSlots =
-    isAnyProfessional && date
-      ? generateFallbackSlots()
-      : (rawSlots ?? []).filter((s) => s.available).map((s) => s.startTime);
+  const availableSlots = (rawSlots ?? [])
+    .filter((s) => s.available)
+    .map((s) => s.startTime);
 
   // Cambiar de fecha, profesional o servicios invalida la hora ya elegida.
   useEffect(() => {
@@ -167,7 +170,9 @@ function PublicBookingPageInner() {
 
       const body: Record<string, unknown> = {
         businessId: profile.businessId,
-        professionalId: selectedProfessional,
+        // Omitirlo pide "cualquiera disponible": el backend asigna el primero
+        // del equipo que tenga libre la franja.
+        professionalId: isAnyProfessional ? undefined : selectedProfessional,
         serviceIds: selectedServiceData.map((s) => ({
           id: s.id,
           name: s.name,

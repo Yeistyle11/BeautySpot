@@ -50,7 +50,10 @@ export class RescheduleDto {
 
 /** Profesional, día y duración de los que se piden los huecos libres. */
 export class AvailabilityQueryDto {
-  @IsString() professionalId!: string;
+  /** Profesional concreto; si se omite hace falta `businessId`. */
+  @IsOptional() @IsUUID() professionalId?: string;
+  /** Negocio entero: devuelve las franjas libres de cualquiera de su equipo. */
+  @IsOptional() @IsUUID() businessId?: string;
   @EsFechaSola() date!: string;
   // Llega por query, siempre como texto, asi que se convierte antes de validar.
   @Type(() => Number)

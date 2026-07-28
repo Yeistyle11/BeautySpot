@@ -453,6 +453,51 @@ export class AppointmentsService {
     );
   }
 
+  /**
+   * Franjas libres de un negocio: una franja se ofrece si la tiene libre al
+   * menos un profesional del equipo.
+   *
+   * Es lo que consulta la reserva cuando el cliente no elige profesional. Al
+   * confirmar se le asigna uno concreto, asi que aqui basta con saber que hay
+   * alguien que puede atender.
+   */
+  async findAvailableSlotsForBusiness(
+    businessId: string,
+    date: string,
+    duration: number
+  ): Promise<{ startTime: string; endTime: string; available: boolean }[]> {
+    const dayOfWeek = new Date(date + "T12:00:00").getDay();
+    const horarios = await this.availRepo.find({
+      where: { businessId, dayOfWeek, active: true },
+    });
+    const profesionales = [...new Set(horarios.map((h) => h.professionalId))];
+    if (profesionales.length === 0) return [];
+
+    const porProfesional = await Promise.all(
+      profesionales.map((professionalId) =>
+        this.findAvailableSlots(businessId, professionalId, date, duration)
+      )
+    );
+
+    // Se unen por hora de inicio: la franja queda libre si alguien la tiene.
+    const union = new Map<
+      string,
+      { startTime: string; endTime: string; available: boolean }
+    >();
+    for (const slots of porProfesional) {
+      for (const slot of slots) {
+        const previo = union.get(slot.startTime);
+        if (!previo || (!previo.available && slot.available)) {
+          union.set(slot.startTime, slot);
+        }
+      }
+    }
+
+    return [...union.values()].sort((a, b) =>
+      a.startTime.localeCompare(b.startTime)
+    );
+  }
+
   /** Obtener slots disponibles */
   async findAvailableSlots(
     businessId: string,

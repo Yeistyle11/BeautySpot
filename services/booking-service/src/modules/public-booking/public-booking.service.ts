@@ -42,7 +42,7 @@ export class PublicBookingService {
    */
   async createPublicAppointment(data: {
     businessId: string;
-    professionalId: string;
+    professionalId?: string;
     serviceIds: { id: string; name: string; price: number; duration: number }[];
     date: string;
     startTime: string;
@@ -71,36 +71,31 @@ export class PublicBookingService {
 
     // 3. Verificar disponibilidad del horario.
     const dayOfWeek = new Date(data.date + "T12:00:00").getDay();
-    const available = await this.isSlotAvailable(
-      data.businessId,
-      data.professionalId,
-      data.date,
-      data.startTime,
-      endTime,
-      dayOfWeek
-    );
-    if (!available) {
-      throw new BadRequestException(
-        "El horario seleccionado no esta disponible"
-      );
-    }
 
-    const hasConflict = await this.hasTimeConflict(
-      data.businessId,
-      data.professionalId,
-      data.date,
-      data.startTime,
-      endTime
-    );
-    if (hasConflict) {
-      throw new BadRequestException("Ya existe una cita en ese horario");
-    }
+    // Sin profesional pedido se asigna el primero del negocio que tenga libre
+    // la franja; con uno concreto se comprueba solo ese.
+    const professionalId = data.professionalId
+      ? await this.confirmarProfesionalLibre(
+          data.businessId,
+          data.professionalId,
+          data.date,
+          data.startTime,
+          endTime,
+          dayOfWeek
+        )
+      : await this.primerProfesionalLibre(
+          data.businessId,
+          data.date,
+          data.startTime,
+          endTime,
+          dayOfWeek
+        );
 
     // 4. Crear la cita con sus servicios.
     const appointment = this.apptRepo.create({
       businessId: data.businessId,
       clientId,
-      professionalId: data.professionalId,
+      professionalId,
       date: data.date,
       startTime: data.startTime,
       endTime,
@@ -205,6 +200,91 @@ export class PublicBookingService {
     }
 
     return client.id;
+  }
+
+  /** Valida que el profesional pedido tenga libre la franja, o explica por que no. */
+  private async confirmarProfesionalLibre(
+    businessId: string,
+    professionalId: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+    dayOfWeek: number
+  ): Promise<string> {
+    const libre = await this.isSlotAvailable(
+      businessId,
+      professionalId,
+      date,
+      startTime,
+      endTime,
+      dayOfWeek
+    );
+    if (!libre) {
+      throw new BadRequestException(
+        "El horario seleccionado no esta disponible"
+      );
+    }
+
+    const ocupado = await this.hasTimeConflict(
+      businessId,
+      professionalId,
+      date,
+      startTime,
+      endTime
+    );
+    if (ocupado) {
+      throw new BadRequestException("Ya existe una cita en ese horario");
+    }
+
+    return professionalId;
+  }
+
+  /**
+   * Primer profesional del negocio con la franja libre, en el orden en que los
+   * devuelve la tabla de horarios.
+   *
+   * Solo entran los que tienen horario activo ese dia, asi que la lista ya
+   * excluye a quien no trabaja. Se comprueban de uno en uno y se devuelve el
+   * primero que pase: al reservar sin preferencia da igual cual sea, y recorrer
+   * el resto solo alargaria la espera.
+   */
+  private async primerProfesionalLibre(
+    businessId: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+    dayOfWeek: number
+  ): Promise<string> {
+    const horarios = await this.availRepo.find({
+      where: { businessId, dayOfWeek, active: true },
+    });
+
+    const candidatos = [...new Set(horarios.map((h) => h.professionalId))];
+
+    for (const professionalId of candidatos) {
+      const libre = await this.isSlotAvailable(
+        businessId,
+        professionalId,
+        date,
+        startTime,
+        endTime,
+        dayOfWeek
+      );
+      if (!libre) continue;
+
+      const ocupado = await this.hasTimeConflict(
+        businessId,
+        professionalId,
+        date,
+        startTime,
+        endTime
+      );
+      if (!ocupado) return professionalId;
+    }
+
+    throw new BadRequestException(
+      "Ningun profesional tiene libre ese horario. Elige otra hora."
+    );
   }
 
   /** Comprueba que el slot cae dentro del horario del profesional y no choca con un bloqueo. */
