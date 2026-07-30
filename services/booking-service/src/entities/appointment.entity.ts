@@ -8,6 +8,13 @@ import { AppointmentServiceEntity } from "./appointment-service.entity";
 @Index(["businessId", "date"])
 @Index(["professionalId", "date"])
 @Index(["businessId", "professionalId", "date", "startTime"])
+@Index("idx_appointments_cliente_fecha", ["clientId", "date"])
+// El worker de recordatorios busca por fecha sin acotar por negocio, así que
+// ninguno de los índices anteriores le sirve. Parcial porque solo mira citas
+// vivas a las que aún les falta algún aviso: cubre el filtro entero.
+@Index("idx_appointments_recordatorios", ["date"], {
+  where: `"status" IN ('PENDING', 'CONFIRMED') AND ("reminder_24h_sent_at" IS NULL OR "reminder_1h_sent_at" IS NULL)`,
+})
 export class Appointment extends AuditableEntity {
   @Column({ type: "uuid", name: "branch_id", nullable: true })
   branchId!: string;
