@@ -83,18 +83,24 @@ export class ImagesController {
     }
   }
 
-  /** Verifica ownership de un S3 key (para delete/presigned-url). */
+  /**
+   * Verifica ownership de un S3 key (para delete/presigned-url).
+   *
+   * Se comprueban los dos primeros segmentos, así que una clave con `..` podía
+   * pasar el control apuntando en realidad a la carpeta de otro negocio; se
+   * rechaza antes de mirar nada más.
+   */
   private async verifyKeyOwnership(
     key: string,
     ctx: OwnershipContext
   ): Promise<void> {
-    if (ctx.role === Role.SUPER_ADMIN) return;
-
     // Formato del key: {tipo}/{id}/... — p. ej. businesses/{id}/logo/{uuid}.
     const parts = key.split("/");
-    if (parts.length < 2) {
+    if (parts.length < 2 || parts.some((parte) => parte === "..")) {
       throw new ForbiddenException("Key de imagen no válido");
     }
+
+    if (ctx.role === Role.SUPER_ADMIN) return;
 
     await this.verifyResourceOwnership(parts[0], parts[1], ctx);
   }
