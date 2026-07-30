@@ -70,6 +70,56 @@ describe("RateLimitGuard", () => {
     );
   });
 
+  it("aplica el límite estricto también por el alias con sufijo -service", async () => {
+    redis.eval.mockResolvedValue(1);
+    const request = {
+      path: "/api/v1/auth-service/login",
+      ip: "1.1.1.1",
+      body: { email: "victima@example.com" },
+    };
+
+    await guard.canActivate(contextFor(request));
+
+    // La ruta alternativa apunta al mismo backend: debe crear también el
+    // contador por cuenta, que es la defensa contra credential stuffing.
+    const keys = redis.eval.mock.calls.map((call) => call[2]);
+    expect(keys).toContain("rate-limit:ip:1.1.1.1:auth");
+    expect(keys).toContain("rate-limit:account:victima@example.com");
+  });
+
+  it("bloquea el alias -service al superar el límite de autenticación", async () => {
+    redis.eval.mockResolvedValue(RATE_LIMIT_AUTH_REQUESTS + 1);
+    const request = {
+      path: "/api/v1/auth-service/login",
+      ip: "1.1.1.1",
+      body: { email: "victima@example.com" },
+    };
+
+    await expect(guard.canActivate(contextFor(request))).rejects.toThrow(
+      HttpException
+    );
+  });
+
+  it.each([
+    "/api/v1/auth/forgot-password",
+    "/api/v1/auth-service/reset-password",
+  ])("trata %s como ruta de credenciales", async (path) => {
+    redis.eval.mockResolvedValue(RATE_LIMIT_AUTH_REQUESTS + 1);
+
+    await expect(
+      guard.canActivate(contextFor({ path, ip: "1.1.1.1", body: {} }))
+    ).rejects.toThrow(HttpException);
+  });
+
+  it("deja el refresco de sesión en el límite general", async () => {
+    // El contador es por IP y detrás de un NAT muchos usuarios comparten una:
+    // con el límite estricto se cerrarían sesiones legítimas.
+    redis.eval.mockResolvedValue(RATE_LIMIT_AUTH_REQUESTS + 1);
+    const request = { path: "/api/v1/auth/refresh", ip: "1.1.1.1", body: {} };
+
+    await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);
+  });
+
   it("deja pasar la petición si Redis falla (fail-open)", async () => {
     redis.eval.mockRejectedValue(new Error("Redis caído"));
     const request = { path: "/api/v1/clients", ip: "1.1.1.1", body: {} };

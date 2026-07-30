@@ -49,10 +49,11 @@ export class ReviewsService {
   ) {}
 
   /**
-   * Crea una reseña (una por cita, comentario obligatorio si baja de 4 estrellas),
-   * recalcula las medias del negocio y el profesional y emite el evento REVIEW_CREATED.
+   * Crea una reseña del usuario indicado (una por cita, comentario obligatorio
+   * si baja de 4 estrellas), recalcula las medias del negocio y el profesional
+   * y emite el evento REVIEW_CREATED.
    */
-  async create(dto: CreateReviewDto): Promise<ReviewEntity> {
+  async create(dto: CreateReviewDto, clientId: string): Promise<ReviewEntity> {
     // Validar una reseña por cita
     if (dto.appointmentId) {
       const existing = await this.repo.findOne({
@@ -61,8 +62,7 @@ export class ReviewsService {
       if (existing)
         throw new ConflictException("Ya existe una reseña para esta cita");
 
-      // Si viene de una cita, es verificada
-      dto.photos = dto.photos?.slice(0, 3); // Max 3 fotos
+      dto.photos = dto.photos?.slice(0, 3);
     }
 
     // Si rating < 4 y no hay comentario, requerirlo
@@ -72,9 +72,12 @@ export class ReviewsService {
       );
     }
 
+    // El distintivo de "verificada" exige comprobar contra booking que la cita
+    // existe y es de este cliente; mientras no se haga, no se concede.
     const review = this.repo.create({
       ...dto,
-      isVerified: !!dto.appointmentId,
+      clientId,
+      isVerified: false,
     });
 
     return this.dataSource.transaction(async (manager) => {
@@ -97,7 +100,7 @@ export class ReviewsService {
           reviewId: saved.id,
           businessId: dto.businessId,
           professionalId: dto.professionalId,
-          clientId: dto.clientId,
+          clientId,
           rating: dto.rating,
           comment: dto.comment,
           isVerified: saved.isVerified,

@@ -30,6 +30,14 @@ const INCR_WITH_EXPIRE = `
   return count
 `;
 
+/** Rutas que exponen credenciales y quedan bajo el límite estricto. */
+const RUTAS_DE_CREDENCIALES = [
+  "/auth/login",
+  "/auth/register",
+  "/auth/forgot-password",
+  "/auth/reset-password",
+];
+
 @Injectable()
 export class RateLimitGuard implements CanActivate {
   private readonly logger = new Logger(RateLimitGuard.name);
@@ -68,8 +76,22 @@ export class RateLimitGuard implements CanActivate {
     return true;
   }
 
+  /**
+   * Indica si la ruta es de credenciales y merece el límite estricto.
+   *
+   * Se normaliza antes de comparar porque el gateway acepta el nombre del
+   * servicio con y sin sufijo: sin esto, `/api/v1/auth-service/login` esquivaba
+   * el límite de autenticación y se colaba por el general, que es veinte veces
+   * más alto y no crea el contador por cuenta.
+   *
+   * `/auth/refresh` queda fuera a propósito: el contador es por IP y detrás de
+   * un NAT o un balanceador muchos usuarios comparten una, así que aplicarle un
+   * límite tan bajo cerraría sesiones legítimas. Un refresh no se puede forzar
+   * por fuerza bruta: es un JWT firmado.
+   */
   private isAuthRoute(path: string): boolean {
-    return path.includes("/auth/login") || path.includes("/auth/register");
+    const normalizado = path.replace(/^(\/api\/v\d+\/[a-z]+)-service\//, "$1/");
+    return RUTAS_DE_CREDENCIALES.some((ruta) => normalizado.includes(ruta));
   }
 
   private buildBuckets(request: Request, isAuthRoute: boolean): string[] {

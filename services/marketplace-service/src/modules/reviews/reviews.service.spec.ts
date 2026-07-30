@@ -28,7 +28,6 @@ describe("ReviewsService", () => {
   const mockReview: ReviewEntity = {
     id: "review-123",
     businessId: "business-123",
-    clientId: "client-123",
     professionalId: "prof-123",
     appointmentId: "appointment-123",
     rating: 5,
@@ -136,7 +135,6 @@ describe("ReviewsService", () => {
     it("debería crear una reseña, actualizar ratings y encolar evento en la misma transacción", async () => {
       const dto = {
         businessId: "business-123",
-        clientId: "client-123",
         professionalId: "prof-123",
         appointmentId: "appointment-123",
         rating: 5,
@@ -150,7 +148,7 @@ describe("ReviewsService", () => {
       mockProfilesService.updateRating.mockResolvedValue(undefined);
       mockProfessionalService.updateRating.mockResolvedValue(undefined);
 
-      const result = await service.create(dto);
+      const result = await service.create(dto, "client-123");
 
       expect(mockDataSource.transaction).toHaveBeenCalled();
       expect(mockManagerRepo.save).toHaveBeenCalledWith(mockReview);
@@ -180,10 +178,55 @@ describe("ReviewsService", () => {
       expect(result).toEqual(mockReview);
     });
 
+    it("firma la reseña con el usuario autenticado, no con el del cuerpo", async () => {
+      const dto = {
+        businessId: "business-123",
+        appointmentId: "appointment-123",
+        rating: 5,
+        comment: "Excelente",
+        // Un cliente ajeno colado en el cuerpo no debe llegar a la entidad.
+        clientId: "otro-cliente",
+      } as never;
+
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockReturnValue(mockReview);
+      mockManagerRepo.save.mockResolvedValue(mockReview);
+
+      await service.create(dto, "client-123");
+
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ clientId: "client-123" })
+      );
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        mockManager,
+        expect.objectContaining({
+          payload: expect.objectContaining({ clientId: "client-123" }),
+        })
+      );
+    });
+
+    it("no marca como verificada una reseña por traer un id de cita", async () => {
+      const dto = {
+        businessId: "business-123",
+        appointmentId: "cita-inventada",
+        rating: 5,
+        comment: "Excelente",
+      };
+
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockReturnValue(mockReview);
+      mockManagerRepo.save.mockResolvedValue(mockReview);
+
+      await service.create(dto, "client-123");
+
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ isVerified: false })
+      );
+    });
+
     it("debería lanzar ConflictException si ya existe reseña para cita", async () => {
       const dto = {
         businessId: "business-123",
-        clientId: "client-123",
         professionalId: "prof-123",
         appointmentId: "appointment-123",
         rating: 5,
@@ -192,7 +235,9 @@ describe("ReviewsService", () => {
 
       mockRepo.findOne.mockResolvedValue(mockReview);
 
-      await expect(service.create(dto)).rejects.toThrow(ConflictException);
+      await expect(service.create(dto, "client-123")).rejects.toThrow(
+        ConflictException
+      );
       // no se abre transacción si la validación falla
       expect(mockDataSource.transaction).not.toHaveBeenCalled();
       expect(mockOutbox.enqueue).not.toHaveBeenCalled();
@@ -201,7 +246,6 @@ describe("ReviewsService", () => {
     it("debería lanzar BadRequestException si rating < 4 sin comentario", async () => {
       const dto = {
         businessId: "business-123",
-        clientId: "client-123",
         professionalId: "prof-123",
         rating: 3,
         comment: undefined,
@@ -209,14 +253,15 @@ describe("ReviewsService", () => {
 
       mockRepo.findOne.mockResolvedValue(null);
 
-      await expect(service.create(dto)).rejects.toThrow(BadRequestException);
+      await expect(service.create(dto, "client-123")).rejects.toThrow(
+        BadRequestException
+      );
       expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
 
     it("debería permitir rating >= 4 sin comentario", async () => {
       const dto = {
         businessId: "business-123",
-        clientId: "client-123",
         professionalId: "prof-123",
         rating: 4,
         comment: undefined,
@@ -228,7 +273,7 @@ describe("ReviewsService", () => {
       mockProfilesService.updateRating.mockResolvedValue(undefined);
       mockProfessionalService.updateRating.mockResolvedValue(undefined);
 
-      const result = await service.create(dto);
+      const result = await service.create(dto, "client-123");
 
       expect(result).toEqual(mockReview);
       expect(mockOutbox.enqueue).toHaveBeenCalled();
@@ -237,7 +282,6 @@ describe("ReviewsService", () => {
     it("debería limitar a 3 fotos si viene de cita", async () => {
       const dto = {
         businessId: "business-123",
-        clientId: "client-123",
         professionalId: "prof-123",
         appointmentId: "appointment-123",
         rating: 5,
@@ -255,7 +299,7 @@ describe("ReviewsService", () => {
         photos: limitedPhotos,
       } as any);
 
-      const result = await service.create(dto);
+      const result = await service.create(dto, "client-123");
 
       expect(result.photos).toHaveLength(3);
     });
@@ -263,7 +307,6 @@ describe("ReviewsService", () => {
     it("no debería limitar fotos si no viene de cita", async () => {
       const dto = {
         businessId: "business-123",
-        clientId: "client-123",
         professionalId: "prof-123",
         rating: 5,
         comment: "Excelente servicio",
@@ -290,7 +333,7 @@ describe("ReviewsService", () => {
         photos: allPhotos,
       } as any);
 
-      const result = await service.create(dto);
+      const result = await service.create(dto, "client-123");
 
       expect(result.photos).toHaveLength(5);
     });
@@ -298,7 +341,6 @@ describe("ReviewsService", () => {
     it("no debería actualizar rating del profesional si no hay professionalId", async () => {
       const dto = {
         businessId: "business-123",
-        clientId: "client-123",
         rating: 5,
         comment: "Excelente",
       };
@@ -308,7 +350,7 @@ describe("ReviewsService", () => {
       mockManagerRepo.save.mockResolvedValue(mockReview);
       mockProfilesService.updateRating.mockResolvedValue(undefined);
 
-      await service.create(dto);
+      await service.create(dto, "client-123");
 
       expect(mockProfessionalService.updateRating).not.toHaveBeenCalled();
       expect(mockOutbox.enqueue).toHaveBeenCalled();
@@ -317,7 +359,6 @@ describe("ReviewsService", () => {
     it("debería propagar errores de la transacción (fail-closed)", async () => {
       const dto = {
         businessId: "business-123",
-        clientId: "client-123",
         rating: 5,
         comment: "Excelente",
       };
@@ -327,7 +368,9 @@ describe("ReviewsService", () => {
       mockManagerRepo.save.mockResolvedValue(mockReview);
       mockProfilesService.updateRating.mockRejectedValue(new Error("DB error"));
 
-      await expect(service.create(dto)).rejects.toThrow("DB error");
+      await expect(service.create(dto, "client-123")).rejects.toThrow(
+        "DB error"
+      );
       // si updateRating falla, no se encola el evento
       expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });

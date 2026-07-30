@@ -9,6 +9,48 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
 
+/** Tamaño máximo aceptado para una imagen. */
+export const MAXIMO_BYTES_IMAGEN = 5 * 1024 * 1024;
+
+/** Tipos de imagen que se aceptan al subir. */
+export const TIPOS_DE_IMAGEN_PERMITIDOS = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+];
+
+/** Trata image/jpg como image/jpeg, que es el tipo real de esos bytes. */
+function normalizarTipo(contentType: string): string {
+  return contentType === "image/jpg" ? "image/jpeg" : contentType;
+}
+
+/**
+ * Deduce el tipo de imagen a partir de sus primeros bytes, o null si no es
+ * ninguno de los permitidos. Es la única comprobación que el cliente no controla.
+ */
+function tipoSegunContenido(file: Buffer): string | null {
+  if (file.length < 12) return null;
+
+  if (file[0] === 0xff && file[1] === 0xd8 && file[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (file.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex"))) {
+    return "image/png";
+  }
+  if (
+    file.subarray(0, 4).toString("ascii") === "RIFF" &&
+    file.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  const gif = file.subarray(0, 6).toString("ascii");
+  if (gif === "GIF87a" || gif === "GIF89a") return "image/gif";
+
+  return null;
+}
+
 /** Resultado de una subida a S3: URL pública, clave interna e identificadores. */
 export interface UploadResult {
   url: string;
@@ -250,27 +292,35 @@ export class ImagesService {
     }
   }
 
-  /** Valida que el archivo sea una imagen de tipo permitido y no exceda 5MB. */
+  /**
+   * Valida que el archivo sea realmente una imagen permitida y no exceda 5MB.
+   *
+   * No basta con mirar el content-type: lo declara quien sube el archivo. Se
+   * comprueban además los primeros bytes, que sí describen el contenido real,
+   * para no acabar sirviendo cualquier cosa desde el CDN con tipo de imagen.
+   */
   validateImageFile(file: Buffer, contentType: string): void {
-    const allowedTypes = [
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/webp",
-      "image/gif",
-    ];
-
-    if (!allowedTypes.includes(contentType)) {
+    if (!TIPOS_DE_IMAGEN_PERMITIDOS.includes(contentType)) {
       throw new BadRequestException(
-        `Tipo de archivo no permitido. Tipos permitidos: ${allowedTypes.join(", ")}`
+        `Tipo de archivo no permitido. Tipos permitidos: ${TIPOS_DE_IMAGEN_PERMITIDOS.join(", ")}`
       );
     }
 
-    const maxSize = 5 * 1024 * 1024; // 5MB
-
-    if (file.length > maxSize) {
+    if (file.length > MAXIMO_BYTES_IMAGEN) {
       throw new BadRequestException(
         `El archivo excede el tamaño máximo de 5MB. Tamaño actual: ${this.formatFileSize(file.length)}`
+      );
+    }
+
+    const real = tipoSegunContenido(file);
+    if (!real) {
+      throw new BadRequestException(
+        "El archivo no es una imagen JPEG, PNG, WebP o GIF"
+      );
+    }
+    if (real !== normalizarTipo(contentType)) {
+      throw new BadRequestException(
+        `El contenido del archivo no corresponde con el tipo declarado (${contentType})`
       );
     }
   }

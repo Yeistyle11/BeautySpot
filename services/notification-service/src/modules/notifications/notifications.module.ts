@@ -2,7 +2,10 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { NotificationEntity } from "./notification.entity";
 import { NotificationsService } from "./notifications.service";
-import { NotificationsController } from "./notifications.controller";
+import {
+  NotificationsController,
+  InternalNotificationsController,
+} from "./notifications.controller";
 import { NotificationPreferencesModule } from "../notification-preferences/notification-preferences.module";
 
 @Module({
@@ -10,7 +13,7 @@ import { NotificationPreferencesModule } from "../notification-preferences/notif
     TypeOrmModule.forFeature([NotificationEntity]),
     NotificationPreferencesModule,
   ],
-  controllers: [NotificationsController],
+  controllers: [NotificationsController, InternalNotificationsController],
   providers: [NotificationsService],
   exports: [NotificationsService],
 })

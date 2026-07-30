@@ -27,11 +27,19 @@ import { Role } from "@beautyspot/shared-types";
 export class ReviewsController {
   constructor(private readonly service: ReviewsService) {}
 
-  /** Crea una reseña. */
+  /**
+   * Crea una reseña a nombre del usuario autenticado.
+   *
+   * El autor sale del token y no del cuerpo: aceptándolo del cuerpo, cualquiera
+   * podía firmar reseñas en nombre de otra persona.
+   */
   @Post()
-  @Public()
-  async create(@Body() dto: CreateReviewDto) {
-    return this.service.create(dto);
+  @SkipBusinessScope()
+  async create(
+    @CurrentUser("userId") userId: string,
+    @Body() dto: CreateReviewDto
+  ) {
+    return this.service.create(dto, userId);
   }
 
   /** Devuelve el resumen de reseñas (promedio y distribución) de un negocio. */

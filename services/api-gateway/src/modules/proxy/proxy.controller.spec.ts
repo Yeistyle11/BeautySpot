@@ -95,6 +95,30 @@ describe("ProxyController (enrutado Express 5)", () => {
       .get("/api/v1/inexistente/algo")
       .expect(404);
   });
+
+  // La ruta se concatena con la URL del servicio sin normalizar, y el
+  // analizador de URL de fetch resuelve `%2e%2e` como un `..`: sin este
+  // rechazo se podría alcanzar /internal/* del backend.
+  it.each([
+    "/api/v1/core-service/x/../../internal/businesses/resolve",
+    "/api/v1/core-service/x/%2e%2e/%2e%2e/internal/businesses/resolve",
+    "/api/v1/core-service/x/%2E%2E/internal/algo",
+  ])("rechaza el salto de directorio en %s", async (path) => {
+    handled = null;
+
+    await request(app.getHttpServer()).get(path).expect(400);
+
+    // Se rechaza antes de reenviar: el backend no llega a ver la petición.
+    expect(handled).toBeNull();
+  });
+
+  it("no confunde con un salto los puntos dentro de un segmento", async () => {
+    await request(app.getHttpServer())
+      .get("/api/v1/core-service/businesses/mi..negocio")
+      .expect(200);
+
+    expect(handled?.service).toBe("core-service");
+  });
 });
 
 /**

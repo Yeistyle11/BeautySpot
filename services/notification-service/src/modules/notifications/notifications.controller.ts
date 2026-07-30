@@ -14,12 +14,6 @@ import { Role } from "@beautyspot/shared-types";
 export class NotificationsController {
   constructor(private readonly service: NotificationsService) {}
 
-  /** Crea una notificación. */
-  @Post()
-  create(@Body() dto: CreateNotificationDto) {
-    return this.service.create(dto);
-  }
-
   /** Lista las notificaciones del usuario, con opción de solo no leídas. */
   @Get()
   findByUser(
@@ -58,5 +52,25 @@ export class NotificationsController {
     @BusinessId() businessId: string
   ) {
     return this.service.markAllAsRead(userId, businessId);
+  }
+}
+
+/**
+ * Alta de notificaciones para otros microservicios.
+ *
+ * Estaba expuesta con el resto de endpoints, y como el cuerpo trae el
+ * destinatario y el negocio, cualquier usuario autenticado podía escribirle una
+ * notificación a otro: un buen vector de suplantación dentro de la aplicación.
+ * Quien las emite son los servicios, así que vive tras el secreto interno, que
+ * el gateway nunca reenvía.
+ */
+@Controller("internal/notifications")
+export class InternalNotificationsController {
+  constructor(private readonly service: NotificationsService) {}
+
+  /** Crea una notificación a petición de otro microservicio. */
+  @Post()
+  create(@Body() dto: CreateNotificationDto) {
+    return this.service.create(dto);
   }
 }

@@ -18,6 +18,27 @@ import { ACCESS_COOKIE, leerCookie } from "../session/session-cookies";
 const SERVER_ERROR_THRESHOLD = 500;
 
 /**
+ * Detecta intentos de subir de directorio en la ruta reenviada.
+ *
+ * La ruta se reescribe quitándole el prefijo y se concatena con la URL del
+ * servicio, sin normalizar. El analizador de URL que usa fetch interpreta
+ * `%2e%2e` como un segmento `..`, de modo que una ruta como
+ * `/api/v1/marketplace/x/%2e%2e/%2e%2e/internal/...` alcanzaría rutas internas
+ * del backend. Se comprueba sobre la URL sin decodificar y también decodificada,
+ * para que ninguna de las dos formas pase.
+ */
+function tieneSaltoDeDirectorio(url: string): boolean {
+  const candidatas = [url];
+  try {
+    candidatas.push(decodeURIComponent(url));
+  } catch {
+    // Un porcentaje mal formado no se puede decodificar: se rechaza igual.
+    return true;
+  }
+  return candidatas.some((v) => /(^|[/\\])\.\.($|[/\\])/.test(v));
+}
+
+/**
  * Reenvía cualquier petición /api/v1/:service/* al microservicio correspondiente,
  * protegida por el circuit breaker para no insistir contra un backend caído.
  */
@@ -42,6 +63,10 @@ export class ProxyController {
         `Servicio "${service}" no encontrado`,
         HttpStatus.NOT_FOUND
       );
+    }
+
+    if (tieneSaltoDeDirectorio(req.originalUrl)) {
+      throw new HttpException("Ruta no válida", HttpStatus.BAD_REQUEST);
     }
 
     return this.circuitBreaker.execute(service, () =>

@@ -47,6 +47,28 @@ export function getPoolConfig(
   };
 }
 
+/**
+ * TLS de la conexión a Postgres.
+ *
+ * En producción se valida el certificado del servidor: sin validarlo, el cifrado
+ * no protege de un intermediario que se haga pasar por la base de datos, y por
+ * ahí pasan las credenciales y todos los datos. Con un certificado propio (una
+ * CA interna o un proveedor gestionado), se indica en DATABASE_CA_CERT. Solo se
+ * puede rebajar poniendo DATABASE_SSL_REJECT_UNAUTHORIZED=false de forma
+ * explícita, para no dejarlo desprotegido por descuido.
+ */
+function sslOptions(
+  isProduction: boolean
+): false | { rejectUnauthorized: boolean; ca?: string } {
+  if (!isProduction) return false;
+
+  const ca = process.env.DATABASE_CA_CERT;
+  const rejectUnauthorized =
+    process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== "false";
+
+  return ca ? { rejectUnauthorized, ca } : { rejectUnauthorized };
+}
+
 export function createTypeOrmConfig(
   databaseUrl: string,
   entities: EntityClass[],
@@ -71,7 +93,7 @@ export function createTypeOrmConfig(
     synchronize: !isProduction && synchronize,
     logging: loggingOptions,
     maxQueryExecutionTime: isProduction ? 1000 : 0,
-    ssl: isProduction ? { rejectUnauthorized: false } : false,
+    ssl: sslOptions(isProduction),
     extra: {
       ...poolConfig,
       application_name: `beautyspot-${serviceType}-${process.env.SERVICE_NAME || "unknown"}`,
