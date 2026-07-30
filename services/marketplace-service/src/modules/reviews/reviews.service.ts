@@ -10,7 +10,7 @@ import { ReviewEntity } from "../../entities/review.entity";
 import { ReviewHelpfulEntity } from "../../entities/review-helpful.entity";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
-import { OutboxService } from "@beautyspot/nest-common";
+import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { CreateReviewDto, ReviewQueryDto } from "./dto/review.dto";
 
@@ -45,7 +45,8 @@ export class ReviewsService {
     private readonly dataSource: DataSource,
     private readonly profilesService: BusinessProfilesService,
     private readonly professionalProfilesService: ProfessionalProfilesService,
-    private readonly outbox: OutboxService
+    private readonly outbox: OutboxService,
+    private readonly http: InternalHttpClient
   ) {}
 
   /**
@@ -72,12 +73,10 @@ export class ReviewsService {
       );
     }
 
-    // El distintivo de "verificada" exige comprobar contra booking que la cita
-    // existe y es de este cliente; mientras no se haga, no se concede.
     const review = this.repo.create({
       ...dto,
       clientId,
-      isVerified: false,
+      isVerified: await this.esVerificable(dto, clientId),
     });
 
     const saved = await this.dataSource.transaction(async (manager) => {
@@ -116,6 +115,32 @@ export class ReviewsService {
     await this.profilesService.invalidarCache(dto.businessId);
 
     return saved;
+  }
+
+  /**
+   * Comprueba con booking si la reseña merece el distintivo de verificada.
+   *
+   * Solo lo lleva quien reseña una cita suya, de ese negocio y ya atendida:
+   * antes bastaba con incluir cualquier identificador de cita en la petición.
+   * Si booking no responde no se concede, pero tampoco se rechaza la reseña:
+   * una caída no debe impedir opinar.
+   */
+  private async esVerificable(
+    dto: CreateReviewDto,
+    clientId: string
+  ): Promise<boolean> {
+    if (!dto.appointmentId) return false;
+
+    const parametros = new URLSearchParams({
+      userId: clientId,
+      businessId: dto.businessId,
+    });
+    const respuesta = await this.http.pedirONulo<{ resenable: boolean }>(
+      "booking",
+      `/internal/appointments/${dto.appointmentId}/resenable?${parametros}`
+    );
+
+    return respuesta?.resenable === true;
   }
 
   /** Lista las reseñas de un negocio con filtros (estrellas, profesional, con fotos) y paginación. */

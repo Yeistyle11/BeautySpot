@@ -709,6 +709,30 @@ export class AppointmentsService {
     };
   }
 
+  /**
+   * Indica si un usuario puede reseñar una cita: existe, es suya, es de ese
+   * negocio y ya se atendió.
+   *
+   * Lo consulta el marketplace antes de marcar una reseña como verificada. Sin
+   * esta comprobación bastaba con inventarse un identificador de cita para
+   * lucir el distintivo.
+   */
+  async citaReseñablePor(
+    appointmentId: string,
+    userId: string,
+    businessId: string
+  ): Promise<{ resenable: boolean }> {
+    const cita = await this.apptRepo.findOne({
+      where: { id: appointmentId, businessId },
+    });
+    if (!cita || cita.status !== AppointmentStatus.COMPLETED) {
+      return { resenable: false };
+    }
+
+    const fichas = await this.clientIdsDelUsuario(userId);
+    return { resenable: fichas.includes(cita.clientId) };
+  }
+
   // ─── Helpers privados ──────────────────────────────────────
 
   private async isSlotAvailable(

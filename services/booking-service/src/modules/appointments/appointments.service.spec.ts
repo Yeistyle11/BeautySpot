@@ -867,6 +867,56 @@ describe("AppointmentsService", () => {
     });
   });
 
+  describe("citaReseñablePor", () => {
+    const completada: Appointment = {
+      ...mockAppointment,
+      clientId: "ficha-a",
+      status: AppointmentStatus.COMPLETED,
+      generateId: () => {},
+    };
+
+    it("acepta una cita completada del propio usuario", async () => {
+      mockApptRepo.findOne.mockResolvedValue(completada);
+      mockHttp.pedir.mockResolvedValue([{ id: "ficha-a" }]);
+
+      await expect(
+        service.citaReseñablePor("appt-1", "user-1", "business-123")
+      ).resolves.toEqual({ resenable: true });
+    });
+
+    it("rechaza una cita de otro usuario", async () => {
+      mockApptRepo.findOne.mockResolvedValue(completada);
+      mockHttp.pedir.mockResolvedValue([{ id: "ficha-de-otro" }]);
+
+      await expect(
+        service.citaReseñablePor("appt-1", "user-1", "business-123")
+      ).resolves.toEqual({ resenable: false });
+    });
+
+    it("rechaza una cita que aún no se ha atendido", async () => {
+      mockApptRepo.findOne.mockResolvedValue({
+        ...completada,
+        status: AppointmentStatus.CONFIRMED,
+      } as Appointment);
+
+      await expect(
+        service.citaReseñablePor("appt-1", "user-1", "business-123")
+      ).resolves.toEqual({ resenable: false });
+    });
+
+    it("rechaza una cita inexistente o de otro negocio", async () => {
+      mockApptRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.citaReseñablePor("inventada", "user-1", "business-123")
+      ).resolves.toEqual({ resenable: false });
+      // La búsqueda va acotada al negocio que dice la reseña.
+      expect(mockApptRepo.findOne).toHaveBeenCalledWith({
+        where: { id: "inventada", businessId: "business-123" },
+      });
+    });
+  });
+
   describe("findAvailableSlotsPublic", () => {
     it("deduce el negocio del horario del profesional", async () => {
       mockAvailRepo.findOne.mockResolvedValue({

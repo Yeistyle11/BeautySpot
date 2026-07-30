@@ -184,4 +184,14 @@ export class InternalAppointmentsController {
   ) {
     return this.service.professionalHasHistory(professionalId);
   }
+
+  /** Indica si un usuario puede reseñar una cita (usada por el marketplace). */
+  @Get(":appointmentId/resenable")
+  async citaResenable(
+    @Param("appointmentId") appointmentId: string,
+    @Query("userId") userId: string,
+    @Query("businessId") businessId: string
+  ) {
+    return this.service.citaReseñablePor(appointmentId, userId, businessId);
+  }
 }

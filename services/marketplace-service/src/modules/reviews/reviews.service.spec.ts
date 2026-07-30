@@ -11,7 +11,7 @@ import {
 } from "@nestjs/common";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
-import { OutboxService } from "@beautyspot/nest-common";
+import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 
 describe("ReviewsService", () => {
@@ -21,6 +21,7 @@ describe("ReviewsService", () => {
   let mockProfilesService: jest.Mocked<BusinessProfilesService>;
   let mockProfessionalService: jest.Mocked<ProfessionalProfilesService>;
   let mockOutbox: jest.Mocked<OutboxService>;
+  let mockHttp: { pedirONulo: jest.Mock };
   let mockManagerRepo: any;
   let mockManager: any;
   let mockDataSource: any;
@@ -94,6 +95,11 @@ describe("ReviewsService", () => {
       enqueue: jest.fn().mockResolvedValue(undefined),
     } as any;
 
+    // Por defecto, booking no confirma la cita: la reseña no sale verificada.
+    mockHttp = {
+      pedirONulo: jest.fn().mockResolvedValue({ resenable: false }),
+    };
+
     const mockQueryBuilder = {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -126,6 +132,7 @@ describe("ReviewsService", () => {
           useValue: mockProfessionalService,
         },
         { provide: OutboxService, useValue: mockOutbox },
+        { provide: InternalHttpClient, useValue: mockHttp },
       ],
     }).compile();
 
@@ -238,6 +245,67 @@ describe("ReviewsService", () => {
         expect.objectContaining({
           payload: expect.objectContaining({ clientId: "client-123" }),
         })
+      );
+    });
+
+    it("marca como verificada si booking confirma que la cita es del usuario", async () => {
+      const dto = {
+        businessId: "business-123",
+        appointmentId: "cita-real",
+        rating: 5,
+        comment: "Excelente",
+      };
+
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockReturnValue(mockReview);
+      mockManagerRepo.save.mockResolvedValue(mockReview);
+      mockHttp.pedirONulo.mockResolvedValue({ resenable: true });
+
+      await service.create(dto, "client-123");
+
+      expect(mockHttp.pedirONulo).toHaveBeenCalledWith(
+        "booking",
+        expect.stringContaining("/internal/appointments/cita-real/resenable")
+      );
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ isVerified: true })
+      );
+    });
+
+    it("no marca como verificada si booking no responde", async () => {
+      const dto = {
+        businessId: "business-123",
+        appointmentId: "cita-real",
+        rating: 5,
+        comment: "Excelente",
+      };
+
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockReturnValue(mockReview);
+      mockManagerRepo.save.mockResolvedValue(mockReview);
+      // El cliente devuelve null cuando el otro servicio falla: sin poder
+      // comprobarlo no se concede el distintivo, pero la reseña se publica.
+      mockHttp.pedirONulo.mockResolvedValue(null);
+
+      await service.create(dto, "client-123");
+
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ isVerified: false })
+      );
+    });
+
+    it("no consulta a booking si la reseña no viene de una cita", async () => {
+      const dto = { businessId: "business-123", rating: 5, comment: "Bien" };
+
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockReturnValue(mockReview);
+      mockManagerRepo.save.mockResolvedValue(mockReview);
+
+      await service.create(dto, "client-123");
+
+      expect(mockHttp.pedirONulo).not.toHaveBeenCalled();
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ isVerified: false })
       );
     });
 
