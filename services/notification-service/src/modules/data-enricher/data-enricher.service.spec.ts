@@ -26,7 +26,7 @@ describe("DataEnricherService", () => {
   describe("enrichAppointmentParticipants", () => {
     it("debería resolver datos de client, professional y business", async () => {
       const mockResponse = {
-        client: { name: "Juan", email: "juan@test.com" },
+        client: { name: "Juan", email: "juan@test.com", userId: "user-1" },
         professional: { name: "Ana" },
         business: { name: "Professional", address: "Calle 1", phone: "123" },
       };
@@ -41,6 +41,7 @@ describe("DataEnricherService", () => {
       expect(result).toEqual({
         clientName: "Juan",
         clientEmail: "juan@test.com",
+        clientUserId: "user-1",
         professionalName: "Ana",
         businessName: "Professional",
         businessAddress: "Calle 1",
@@ -100,7 +101,7 @@ describe("DataEnricherService", () => {
   describe("enrichClientEmail", () => {
     it("debería retornar el email del cliente", async () => {
       mockHttp.pedirONulo.mockResolvedValue({
-        client: { name: "Juan", email: "juan@test.com" },
+        client: { name: "Juan", email: "juan@test.com", userId: "user-1" },
         professional: null,
         business: null,
       });

@@ -1,6 +1,11 @@
 import { Controller, Get, Post, Patch, Body, Param } from "@nestjs/common";
 import { UsersService } from "./users.service";
-import { CurrentUser, Roles, BusinessId } from "@beautyspot/nest-common";
+import {
+  CurrentUser,
+  Roles,
+  BusinessId,
+  SesionVerificable,
+} from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { CreateStaffDto } from "./dto/create-staff.dto";
@@ -65,6 +70,7 @@ export class UsersController {
    * Crea una cuenta de staff (email, contraseña, nombre y rol) y la asocia al
    * negocio actual mediante una nueva membresía.
    */
+  @SesionVerificable()
   @Post("staff")
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   async createStaff(
@@ -78,6 +84,7 @@ export class UsersController {
    * Actualiza datos de un miembro del staff (nombre, email, telefono, avatar).
    * Verifica que el usuario pertenezca al negocio.
    */
+  @SesionVerificable()
   @Patch(":id/staff")
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   async updateStaff(
@@ -92,6 +99,7 @@ export class UsersController {
    * Resetea la contrasena de un miembro del staff.
    * El admin establece la nueva contrasena directamente.
    */
+  @SesionVerificable()
   @Post(":id/reset-password")
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   async adminResetPassword(
@@ -110,6 +118,7 @@ export class UsersController {
    * Activa o desactiva una cuenta de staff.
    * Body: { active: true/false }
    */
+  @SesionVerificable()
   @Patch(":id/status")
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   async toggleActive(

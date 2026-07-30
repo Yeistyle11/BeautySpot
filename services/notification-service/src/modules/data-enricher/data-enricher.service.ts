@@ -5,6 +5,8 @@ import { InternalHttpClient } from "@beautyspot/nest-common";
 export interface EnrichedProfileData {
   clientName: string;
   clientEmail: string;
+  /** Cuenta del cliente, o null si reservó como invitado sin registrarse. */
+  clientUserId: string | null;
   professionalName: string;
   businessName: string;
   businessAddress: string;
@@ -13,7 +15,7 @@ export interface EnrichedProfileData {
 
 /** Respuesta cruda del core al resolver ids a nombres; cada campo es null si no se pudo. */
 interface ProfileResolution {
-  client: { name: string; email: string } | null;
+  client: { name: string; email: string; userId?: string | null } | null;
   professional: { name: string } | null;
   business: { name: string; address: string; phone: string } | null;
 }
@@ -22,6 +24,7 @@ interface ProfileResolution {
 const FALLBACK = {
   clientName: "Cliente",
   clientEmail: "",
+  clientUserId: null,
   professionalName: "Profesional",
   businessName: "BeautySpot",
   businessAddress: "",
@@ -51,6 +54,7 @@ export class DataEnricherService {
     return {
       clientName: resolution.client?.name ?? FALLBACK.clientName,
       clientEmail: resolution.client?.email ?? FALLBACK.clientEmail,
+      clientUserId: resolution.client?.userId ?? FALLBACK.clientUserId,
       professionalName:
         resolution.professional?.name ?? FALLBACK.professionalName,
       businessName: resolution.business?.name ?? FALLBACK.businessName,

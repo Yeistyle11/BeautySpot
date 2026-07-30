@@ -8,7 +8,12 @@ import {
   Body,
 } from "@nestjs/common";
 import { MembershipsService, MembershipActor } from "./memberships.service";
-import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
+import {
+  Roles,
+  BusinessId,
+  CurrentUser,
+  SesionVerificable,
+} from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { CreateMembershipDto, UpdateRoleDto } from "./dto/membership.dto";
 
@@ -43,6 +48,7 @@ export class MembershipsController {
   }
 
   /** Cambia el rol de una membresía existente. */
+  @SesionVerificable()
   @Patch(":id/role")
   @Roles(Role.OWNER, Role.SUPER_ADMIN)
   async updateRole(
@@ -57,6 +63,7 @@ export class MembershipsController {
   }
 
   /** Desactiva (da de baja) una membresía. */
+  @SesionVerificable()
   @Delete(":id")
   @Roles(Role.OWNER, Role.SUPER_ADMIN)
   async deactivate(

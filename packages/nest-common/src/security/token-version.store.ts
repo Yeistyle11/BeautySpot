@@ -9,6 +9,17 @@ export const TOKEN_VERSION_KEY_PREFIX = "tokenVersion";
 export const TOKEN_VERSION_DEFAULT = 0;
 
 /**
+ * Resultado de consultar la versión de token de un usuario.
+ *
+ * Distingue "el usuario está en la versión N" de "no se ha podido averiguar",
+ * que antes se confundían: sin Redis y sin resolver se devolvía 0, con lo que
+ * un token revocado volvía a aceptarse como si nunca lo hubieran revocado.
+ */
+export type VersionDeToken =
+  | { conocida: true; version: number }
+  | { conocida: false };
+
+/**
  * Controla la invalidación global de los JWT de un usuario.
  *
  * Cada token lleva la versión vigente en el momento de emitirse; el guard la
@@ -22,6 +33,8 @@ export const TOKEN_VERSION_DEFAULT = 0;
 @Injectable()
 export class TokenVersionStore {
   private readonly logger = new Logger(TokenVersionStore.name);
+  /** Si la última lectura de Redis se pudo completar (aunque no hubiera valor). */
+  private cacheDisponible = true;
 
   constructor(
     private readonly cache: RedisCacheService,
@@ -43,14 +56,39 @@ export class TokenVersionStore {
    * reactive tokens previamente revocados.
    */
   async getVersion(userId: string): Promise<number> {
+    const resultado = await this.consultarVersion(userId);
+    return resultado.conocida ? resultado.version : TOKEN_VERSION_DEFAULT;
+  }
+
+  /**
+   * Como {@link getVersion}, pero diciendo si el dato se pudo averiguar.
+   *
+   * Lo usa el guard para decidir qué hacer cuando no hay forma de comprobar la
+   * revocación: dejar pasar una lectura es asumible, ejecutar una acción no.
+   */
+  async consultarVersion(userId: string): Promise<VersionDeToken> {
     const cached = await this.readCache(userId);
-    if (cached !== null) return cached;
+    if (cached !== null) return { conocida: true, version: cached };
 
-    if (!this.resolver) return TOKEN_VERSION_DEFAULT;
+    if (!this.resolver) {
+      // Sin caché ni fuente autoritativa no hay forma de saberlo.
+      return this.cacheDisponible
+        ? { conocida: true, version: TOKEN_VERSION_DEFAULT }
+        : { conocida: false };
+    }
 
-    const persisted = await this.resolver.load(userId);
-    await this.writeCache(userId, persisted);
-    return persisted;
+    try {
+      const persisted = await this.resolver.load(userId);
+      await this.writeCache(userId, persisted);
+      return { conocida: true, version: persisted };
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo cargar la versión de token de ${userId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      return { conocida: false };
+    }
   }
 
   /**
@@ -75,10 +113,12 @@ export class TokenVersionStore {
   private async readCache(userId: string): Promise<number | null> {
     try {
       const raw = await this.cache.get(this.key(userId));
+      this.cacheDisponible = true;
       if (raw === null || raw === undefined) return null;
       const parsed = Number.parseInt(raw, 10);
       return Number.isNaN(parsed) ? null : parsed;
     } catch (error) {
+      this.cacheDisponible = false;
       this.logger.warn(
         `No se pudo leer la versión de token de ${userId} desde Redis: ${
           error instanceof Error ? error.message : String(error)

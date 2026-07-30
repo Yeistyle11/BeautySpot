@@ -6,6 +6,8 @@ import { ConfigService } from "@nestjs/config";
 import { ProcessedEventsStore } from "@beautyspot/nest-common";
 import { EmailService } from "../emails/email.service";
 import { DataEnricherService } from "../data-enricher/data-enricher.service";
+import { NotificationsService } from "../notifications/notifications.service";
+import { NotificationType } from "@beautyspot/shared-types";
 import {
   UserRegisteredEvent,
   PasswordResetRequestedEvent,
@@ -33,7 +35,8 @@ export class NotificationEventListeners {
     private readonly amqpConnection: AmqpConnection,
     private readonly configService: ConfigService,
     private readonly dataEnricher: DataEnricherService,
-    private readonly processedEvents: ProcessedEventsStore
+    private readonly processedEvents: ProcessedEventsStore,
+    private readonly notifications: NotificationsService
   ) {}
 
   /** Al registrarse un usuario, encola el correo de bienvenida. */
@@ -170,6 +173,15 @@ export class NotificationEventListeners {
             "appointment-confirmed",
             `Confirmación de cita en ${data.businessName}`
           );
+
+          await this.avisarEnLaApp(
+            data.clientUserId,
+            businessId,
+            NotificationType.APPOINTMENT_CONFIRMED,
+            "Cita confirmada",
+            `Tu cita en ${data.businessName} el ${date} a las ${startTime} está confirmada.`,
+            { appointmentId }
+          );
         }
       );
     } catch (error) {
@@ -229,6 +241,15 @@ export class NotificationEventListeners {
             data.clientEmail,
             "appointment-cancelled",
             `Cita cancelada - ${data.businessName}`
+          );
+
+          await this.avisarEnLaApp(
+            data.clientUserId,
+            businessId,
+            NotificationType.APPOINTMENT_CANCELLED,
+            "Cita cancelada",
+            `Tu cita en ${data.businessName} del ${date} se ha cancelado.`,
+            { appointmentId, cancelReason }
           );
         }
       );
@@ -314,6 +335,17 @@ export class NotificationEventListeners {
               `Recordatorio - Cita en 1 hora en ${data.businessName}`
             );
           }
+
+          await this.avisarEnLaApp(
+            data.clientUserId,
+            businessId,
+            NotificationType.APPOINTMENT_REMINDER,
+            "Recordatorio de cita",
+            reminderType === "24h"
+              ? `Mañana tienes cita en ${data.businessName} a las ${startTime}.`
+              : `Tu cita en ${data.businessName} empieza en una hora.`,
+            { appointmentId }
+          );
         }
       );
     } catch (error) {
@@ -458,6 +490,33 @@ export class NotificationEventListeners {
   }
 
   /** Registra en log un error de envío de correo con su contexto. */
+  /**
+   * Deja al cliente una notificación dentro de la aplicación.
+   *
+   * Solo la reciben los clientes con cuenta: quien reserva como invitado no
+   * tiene dónde leerla. Va junto al correo porque son el mismo aviso por dos
+   * vías, y hasta ahora solo se enviaba el correo: la bandeja de la aplicación
+   * existía pero nunca recibía nada.
+   */
+  private async avisarEnLaApp(
+    userId: string | null,
+    businessId: string,
+    type: NotificationType,
+    title: string,
+    message: string,
+    data?: Record<string, unknown>
+  ): Promise<void> {
+    if (!userId) return;
+    await this.notifications.create({
+      businessId,
+      userId,
+      type,
+      title,
+      message,
+      data,
+    });
+  }
+
   /**
    * Registra el fallo y lo vuelve a lanzar.
    *

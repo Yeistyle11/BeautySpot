@@ -5,11 +5,13 @@ import { EVENTS_EXCHANGE, DEAD_LETTER_EXCHANGE } from "@beautyspot/event-types";
 import { NotificationEventListeners } from "./event-listeners.service";
 import { EmailsModule } from "../emails/emails.module";
 import { DataEnricherModule } from "../data-enricher/data-enricher.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
   imports: [
     EmailsModule,
     DataEnricherModule,
+    NotificationsModule,
     RabbitMQModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -25,5 +27,5 @@ import { DataEnricherModule } from "../data-enricher/data-enricher.module";
   providers: [NotificationEventListeners],
   exports: [NotificationEventListeners],
 })
-/** Registra los listeners de eventos que disparan el envío de correos. */
+/** Registra los listeners que avisan al cliente por correo y en la aplicación. */
 export class EventListenersModule {}
