@@ -25,6 +25,55 @@ describe("TokenVersionStore", () => {
       withResolver ? resolver : undefined
     );
 
+  describe("consultarVersion", () => {
+    it("da por conocida la versión cuando Redis responde", async () => {
+      cache.get.mockResolvedValue("7");
+
+      await expect(build(false).consultarVersion("user-1")).resolves.toEqual({
+        conocida: true,
+        version: 7,
+      });
+    });
+
+    it("da por conocida la versión por defecto si Redis responde sin valor", async () => {
+      cache.get.mockResolvedValue(null);
+
+      await expect(build(false).consultarVersion("user-1")).resolves.toEqual({
+        conocida: true,
+        version: TOKEN_VERSION_DEFAULT,
+      });
+    });
+
+    it("avisa de que no la sabe cuando Redis no responde y no hay fuente autoritativa", async () => {
+      cache.get.mockRejectedValue(new Error("ECONNREFUSED"));
+
+      // "No se sabe" es distinto de la versión 0, que significa "nunca
+      // revocado".
+      await expect(build(false).consultarVersion("user-1")).resolves.toEqual({
+        conocida: false,
+      });
+    });
+
+    it("recurre a la fuente autoritativa cuando Redis no responde", async () => {
+      cache.get.mockRejectedValue(new Error("ECONNREFUSED"));
+      resolver.load.mockResolvedValue(4);
+
+      await expect(build(true).consultarVersion("user-1")).resolves.toEqual({
+        conocida: true,
+        version: 4,
+      });
+    });
+
+    it("avisa de que no la sabe si también falla la fuente autoritativa", async () => {
+      cache.get.mockRejectedValue(new Error("ECONNREFUSED"));
+      resolver.load.mockRejectedValue(new Error("base caída"));
+
+      await expect(build(true).consultarVersion("user-1")).resolves.toEqual({
+        conocida: false,
+      });
+    });
+  });
+
   describe("sin resolver (servicios que solo usan Redis)", () => {
     it("devuelve la versión cacheada", async () => {
       cache.get.mockResolvedValue("7");

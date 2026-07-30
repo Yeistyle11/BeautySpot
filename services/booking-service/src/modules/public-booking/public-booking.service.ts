@@ -1,17 +1,16 @@
 import {
   Injectable,
   BadRequestException,
-  ServiceUnavailableException,
   InternalServerErrorException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { ConfigService } from "@nestjs/config";
+import { In, Repository } from "typeorm";
 import { Appointment } from "../../entities/appointment.entity";
-import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 import { Availability } from "../../entities/availability.entity";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
 import { AppointmentStatus } from "@beautyspot/shared-types";
+import { InternalHttpClient } from "@beautyspot/nest-common";
+import { AppointmentsService } from "../appointments/appointments.service";
 import {
   calculateEndTime,
   timeToMinutes,
@@ -27,18 +26,22 @@ export class PublicBookingService {
   constructor(
     @InjectRepository(Appointment)
     private readonly apptRepo: Repository<Appointment>,
-    @InjectRepository(AppointmentServiceEntity)
-    private readonly apptServiceRepo: Repository<AppointmentServiceEntity>,
     @InjectRepository(Availability)
     private readonly availRepo: Repository<Availability>,
     @InjectRepository(BlockedSlot)
     private readonly blockRepo: Repository<BlockedSlot>,
-    private configService: ConfigService
+    private readonly http: InternalHttpClient,
+    private readonly appointments: AppointmentsService
   ) {}
 
   /**
-   * Crea una cita a partir de los datos de un invitado: resuelve/crea el cliente,
-   * valida disponibilidad y conflictos, y registra la cita en estado PENDING.
+   * Crea una cita a partir de los datos de un invitado: resuelve o crea el
+   * cliente, elige profesional si no vino indicado y registra la cita.
+   *
+   * El alta se delega en AppointmentsService, que es donde vive la transacción
+   * SERIALIZABLE con la comprobación final de conflicto. Este camino guardaba
+   * por su cuenta con un save suelto, así que dos reservas simultáneas sobre la
+   * misma franja se creaban las dos y la cita no emitía su evento.
    */
   async createPublicAppointment(data: {
     businessId: string;
@@ -72,47 +75,26 @@ export class PublicBookingService {
     // 3. Verificar disponibilidad del horario.
     const dayOfWeek = new Date(data.date + "T12:00:00").getDay();
 
-    const professionalId = data.professionalId
-      ? await this.confirmarProfesionalLibre(
-          data.businessId,
-          data.professionalId,
-          data.date,
-          data.startTime,
-          endTime,
-          dayOfWeek
-        )
-      : await this.primerProfesionalLibre(
-          data.businessId,
-          data.date,
-          data.startTime,
-          endTime,
-          dayOfWeek
-        );
+    // Si el invitado no pidió profesional, se elige aquí; si lo pidió, la
+    // disponibilidad la valida el propio alta.
+    const professionalId =
+      data.professionalId ??
+      (await this.primerProfesionalLibre(
+        data.businessId,
+        data.date,
+        data.startTime,
+        endTime,
+        dayOfWeek
+      ));
 
-    // 4. Crear la cita con sus servicios.
-    const appointment = this.apptRepo.create({
-      businessId: data.businessId,
-      clientId,
+    const saved = await this.appointments.create(data.businessId, {
       professionalId,
+      clientId,
+      serviceIds: data.serviceIds,
       date: data.date,
       startTime: data.startTime,
-      endTime,
-      totalAmount,
       notes: data.notes,
-      status: AppointmentStatus.PENDING,
     });
-    const saved = await this.apptRepo.save(appointment);
-
-    const apptServices = data.serviceIds.map((s) =>
-      this.apptServiceRepo.create({
-        appointmentId: saved.id,
-        serviceId: s.id,
-        serviceName: s.name,
-        price: s.price,
-        duration: s.duration,
-      })
-    );
-    await this.apptServiceRepo.save(apptServices);
 
     return {
       id: saved.id,
@@ -133,63 +115,11 @@ export class PublicBookingService {
     phone?: string,
     userId?: string
   ): Promise<string> {
-    const coreServiceUrl = this.configService.get<string>(
-      "CORE_SERVICE_URL",
-      "http://localhost:3002"
+    const client = await this.http.enviar<{ id?: unknown }>(
+      "core",
+      "/internal/clients/find-or-create",
+      { businessId, name, email, phone, userId }
     );
-    const internalSecret = this.configService.get<string>(
-      "INTERNAL_API_SECRET",
-      ""
-    );
-    const body = JSON.stringify({ businessId, name, email, phone, userId });
-
-    let response: Response;
-    try {
-      response = await fetch(
-        `${coreServiceUrl}/internal/clients/find-or-create`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-internal-secret": internalSecret,
-          },
-          body,
-          signal: AbortSignal.timeout(5000),
-        }
-      );
-    } catch (error) {
-      throw new ServiceUnavailableException(
-        `No se pudo crear el cliente guest (core-service no disponible). ` +
-          `Reintenta mas tarde. Error: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-      );
-    }
-
-    if (!response.ok) {
-      throw new ServiceUnavailableException(
-        `No se pudo crear el cliente guest (core-service respondio ${response.status}). ` +
-          `Reintenta mas tarde.`
-      );
-    }
-
-    let data: unknown;
-    try {
-      data = await response.json();
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Respuesta invalida del core-service al crear cliente guest: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
-    }
-
-    const payload =
-      typeof data === "object" && data !== null && "success" in data
-        ? (data as Record<string, unknown>).data
-        : data;
-
-    const client = payload as { id?: unknown } | null | undefined;
 
     if (!client || typeof client.id !== "string" || client.id.length === 0) {
       throw new InternalServerErrorException(
@@ -198,43 +128,6 @@ export class PublicBookingService {
     }
 
     return client.id;
-  }
-
-  /** Valida que el profesional pedido tenga libre la franja. */
-  private async confirmarProfesionalLibre(
-    businessId: string,
-    professionalId: string,
-    date: string,
-    startTime: string,
-    endTime: string,
-    dayOfWeek: number
-  ): Promise<string> {
-    const libre = await this.isSlotAvailable(
-      businessId,
-      professionalId,
-      date,
-      startTime,
-      endTime,
-      dayOfWeek
-    );
-    if (!libre) {
-      throw new BadRequestException(
-        "El horario seleccionado no esta disponible"
-      );
-    }
-
-    const ocupado = await this.hasTimeConflict(
-      businessId,
-      professionalId,
-      date,
-      startTime,
-      endTime
-    );
-    if (ocupado) {
-      throw new BadRequestException("Ya existe una cita en ese horario");
-    }
-
-    return professionalId;
   }
 
   /**
@@ -253,80 +146,66 @@ export class PublicBookingService {
     });
 
     const candidatos = [...new Set(horarios.map((h) => h.professionalId))];
+    if (candidatos.length === 0) {
+      throw new BadRequestException(
+        "Ningun profesional tiene libre ese horario. Elige otra hora."
+      );
+    }
+
+    // Bloqueos y citas de todos los candidatos en dos consultas, sea cual sea
+    // su número.
+    const [bloqueos, citas] = await Promise.all([
+      this.blockRepo.find({
+        where: { businessId, professionalId: In(candidatos), date },
+      }),
+      this.apptRepo.find({
+        where: {
+          businessId,
+          professionalId: In(candidatos),
+          date,
+          status: In([
+            AppointmentStatus.PENDING,
+            AppointmentStatus.CONFIRMED,
+            AppointmentStatus.IN_PROGRESS,
+          ]),
+        },
+      }),
+    ]);
+
+    const horarioPorProfesional = new Map<string, Availability>();
+    for (const horario of horarios) {
+      if (!horarioPorProfesional.has(horario.professionalId)) {
+        horarioPorProfesional.set(horario.professionalId, horario);
+      }
+    }
 
     for (const professionalId of candidatos) {
-      const libre = await this.isSlotAvailable(
-        businessId,
-        professionalId,
-        date,
-        startTime,
-        endTime,
-        dayOfWeek
-      );
-      if (!libre) continue;
+      const horario = horarioPorProfesional.get(professionalId);
+      if (!horario) continue;
+      if (
+        timeToMinutes(startTime) < timeToMinutes(horario.startTime) ||
+        timeToMinutes(endTime) > timeToMinutes(horario.endTime)
+      ) {
+        continue;
+      }
 
-      const ocupado = await this.hasTimeConflict(
-        businessId,
-        professionalId,
-        date,
-        startTime,
-        endTime
+      const bloqueado = bloqueos.some(
+        (b) =>
+          b.professionalId === professionalId &&
+          timesOverlap(startTime, endTime, b.startTime, b.endTime)
+      );
+      if (bloqueado) continue;
+
+      const ocupado = citas.some(
+        (a) =>
+          a.professionalId === professionalId &&
+          timesOverlap(startTime, endTime, a.startTime, a.endTime)
       );
       if (!ocupado) return professionalId;
     }
 
     throw new BadRequestException(
       "Ningun profesional tiene libre ese horario. Elige otra hora."
-    );
-  }
-
-  /** Comprueba que el slot cae dentro del horario del profesional y no choca con un bloqueo. */
-  private async isSlotAvailable(
-    businessId: string,
-    professionalId: string,
-    date: string,
-    startTime: string,
-    endTime: string,
-    dayOfWeek: number
-  ): Promise<boolean> {
-    const avail = await this.availRepo.findOne({
-      where: { businessId, professionalId, dayOfWeek, active: true },
-    });
-    if (!avail) return false;
-    if (
-      timeToMinutes(startTime) < timeToMinutes(avail.startTime) ||
-      timeToMinutes(endTime) > timeToMinutes(avail.endTime)
-    )
-      return false;
-
-    const blocks = await this.blockRepo.find({
-      where: { businessId, professionalId, date },
-    });
-    for (const b of blocks) {
-      if (timesOverlap(startTime, endTime, b.startTime, b.endTime))
-        return false;
-    }
-    return true;
-  }
-
-  /** Indica si ya existe una cita pendiente que se solape con el horario dado. */
-  private async hasTimeConflict(
-    businessId: string,
-    professionalId: string,
-    date: string,
-    startTime: string,
-    endTime: string
-  ): Promise<boolean> {
-    const appointments = await this.apptRepo.find({
-      where: {
-        businessId,
-        professionalId,
-        date,
-        status: AppointmentStatus.PENDING,
-      },
-    });
-    return appointments.some((a) =>
-      timesOverlap(startTime, endTime, a.startTime, a.endTime)
     );
   }
 }

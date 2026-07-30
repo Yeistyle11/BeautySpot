@@ -1,10 +1,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { ConfigService } from "@nestjs/config";
+import { InternalHttpClient } from "@beautyspot/nest-common";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository, In } from "typeorm";
 import { DataSource } from "typeorm";
 import { ServiceUnavailableException } from "@nestjs/common";
 import { AppointmentsService } from "./appointments.service";
+import { AvailabilityQueryService } from "./availability-query.service";
 import { Appointment } from "../../entities/appointment.entity";
 import { Availability } from "../../entities/availability.entity";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
@@ -24,6 +25,7 @@ describe("AppointmentsService", () => {
   let mockBlockRepo: jest.Mocked<Repository<BlockedSlot>>;
   let mockDataSource: jest.Mocked<DataSource>;
   let mockOutbox: any;
+  let mockHttp: { pedir: jest.Mock };
 
   const mockAppointment: Appointment = {
     id: "appt-123",
@@ -55,19 +57,6 @@ describe("AppointmentsService", () => {
     startTime: "09:00",
     endTime: "18:00",
     active: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    generateId: () => {},
-  };
-
-  const mockBlockedSlot: BlockedSlot = {
-    id: "block-123",
-    businessId: "business-123",
-    professionalId: "prof-123",
-    date: "2024-01-15",
-    startTime: "12:00",
-    endTime: "13:00",
-    reason: "Almuerzo",
     createdAt: new Date(),
     updatedAt: new Date(),
     generateId: () => {},
@@ -126,6 +115,8 @@ describe("AppointmentsService", () => {
       enqueue: jest.fn().mockResolvedValue(undefined),
     };
 
+    mockHttp = { pedir: jest.fn().mockResolvedValue([]) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AppointmentsService,
@@ -134,12 +125,16 @@ describe("AppointmentsService", () => {
           useValue: mockApptRepo,
         },
         {
-          provide: getRepositoryToken(Availability),
-          useValue: mockAvailRepo,
-        },
-        {
-          provide: getRepositoryToken(BlockedSlot),
-          useValue: mockBlockRepo,
+          // Motor real sobre los mismos repositorios simulados: estos tests
+          // comprueban el comportamiento de extremo a extremo (horario,
+          // bloqueos y conflictos), no que se llame a un colaborador.
+          provide: AvailabilityQueryService,
+          useFactory: () =>
+            new AvailabilityQueryService(
+              mockApptRepo,
+              mockAvailRepo,
+              mockBlockRepo
+            ),
         },
         {
           provide: DataSource,
@@ -150,10 +145,8 @@ describe("AppointmentsService", () => {
           useValue: mockOutbox,
         },
         {
-          provide: ConfigService,
-          useValue: {
-            get: jest.fn((_: string, fallback?: string) => fallback),
-          },
+          provide: InternalHttpClient,
+          useValue: mockHttp,
         },
       ],
     }).compile();
@@ -711,83 +704,6 @@ describe("AppointmentsService", () => {
     });
   });
 
-  describe("findAvailableSlots", () => {
-    it("debería retornar slots disponibles", async () => {
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
-      mockBlockRepo.find.mockResolvedValue([]);
-      mockApptRepo.find.mockResolvedValue([]);
-
-      await service.findAvailableSlots(
-        "business-123",
-        "prof-123",
-        "2024-01-15",
-        60
-      );
-
-      expect(mockAvailRepo.findOne).toHaveBeenCalledWith({
-        where: {
-          businessId: "business-123",
-          professionalId: "prof-123",
-          dayOfWeek: 1,
-          active: true,
-        },
-      });
-      expect(mockBlockRepo.find).toHaveBeenCalledWith({
-        where: {
-          businessId: "business-123",
-          professionalId: "prof-123",
-          date: "2024-01-15",
-        },
-      });
-    });
-
-    it("debería retornar array vacío si no hay horario de trabajo", async () => {
-      mockAvailRepo.findOne.mockResolvedValue(null);
-
-      const result = await service.findAvailableSlots(
-        "business-123",
-        "prof-123",
-        "2024-01-15",
-        60
-      );
-
-      expect(result).toEqual([]);
-      expect(result).toHaveLength(0);
-    });
-
-    it("debería marcar slots como no disponibles si hay bloqueos", async () => {
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
-      mockBlockRepo.find.mockResolvedValue([mockBlockedSlot]);
-      mockApptRepo.find.mockResolvedValue([]);
-
-      const result = await service.findAvailableSlots(
-        "business-123",
-        "prof-123",
-        "2024-01-15",
-        30
-      );
-
-      const blockedSlot = result.find((s: any) => s.startTime === "12:00");
-      expect(blockedSlot?.available).toBe(false);
-    });
-
-    it("debería marcar slots como no disponibles si hay citas existentes", async () => {
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
-      mockBlockRepo.find.mockResolvedValue([]);
-      mockApptRepo.find.mockResolvedValue([mockAppointment]);
-
-      const result = await service.findAvailableSlots(
-        "business-123",
-        "prof-123",
-        "2024-01-15",
-        30
-      );
-
-      const bookedSlot = result.find((s: any) => s.startTime === "10:00");
-      expect(bookedSlot?.available).toBe(false);
-    });
-  });
-
   describe("findById", () => {
     it("debería retornar la cita cuando existe", async () => {
       mockApptRepo.findOne.mockResolvedValue(mockAppointment);
@@ -823,12 +739,9 @@ describe("AppointmentsService", () => {
       delete (global as { fetch?: unknown }).fetch;
     });
 
-    /** Respuesta del endpoint interno de core que traduce usuario a fichas. */
+    /** Fichas que core devuelve para el usuario consultado. */
     function coreDevuelve(clients: { id: string }[]) {
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ success: true, data: clients }),
-      }) as unknown as typeof fetch;
+      mockHttp.pedir.mockResolvedValue(clients);
     }
 
     it("busca las citas de todas las fichas del usuario", async () => {
@@ -859,11 +772,9 @@ describe("AppointmentsService", () => {
     });
 
     it("avisa si core no responde, en vez de devolver una lista vacía", async () => {
-      global.fetch = jest
-        .fn()
-        .mockRejectedValue(
-          new Error("conexión rechazada")
-        ) as unknown as typeof fetch;
+      mockHttp.pedir.mockRejectedValue(
+        new ServiceUnavailableException("core-service no está disponible")
+      );
 
       await expect(
         service.findByClientUser("user-1", pagination)
@@ -871,147 +782,53 @@ describe("AppointmentsService", () => {
     });
   });
 
-  describe("findAvailableSlotsPublic", () => {
-    it("deduce el negocio del horario del profesional", async () => {
-      mockAvailRepo.findOne.mockResolvedValue({
-        id: "avail-1",
-        businessId: "business-123",
-        professionalId: "pro-1",
-        dayOfWeek: 3,
-        startTime: "09:00",
-        endTime: "10:00",
-        active: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        generateId: () => {},
-      } as unknown as Availability);
-      mockBlockRepo.find.mockResolvedValue([]);
-      mockApptRepo.find.mockResolvedValue([]);
+  describe("citaReseñablePor", () => {
+    const completada: Appointment = {
+      ...mockAppointment,
+      clientId: "ficha-a",
+      status: AppointmentStatus.COMPLETED,
+      generateId: () => {},
+    };
 
-      const slots = await service.findAvailableSlotsPublic(
-        "pro-1",
-        "2026-08-19",
-        30
-      );
+    it("acepta una cita completada del propio usuario", async () => {
+      mockApptRepo.findOne.mockResolvedValue(completada);
+      mockHttp.pedir.mockResolvedValue([{ id: "ficha-a" }]);
 
-      expect(slots.length).toBeGreaterThan(0);
+      await expect(
+        service.citaReseñablePor("appt-1", "user-1", "business-123")
+      ).resolves.toEqual({ resenable: true });
     });
 
-    it("no devuelve horarios de un profesional sin agenda configurada", async () => {
-      mockAvailRepo.findOne.mockResolvedValue(null);
+    it("rechaza una cita de otro usuario", async () => {
+      mockApptRepo.findOne.mockResolvedValue(completada);
+      mockHttp.pedir.mockResolvedValue([{ id: "ficha-de-otro" }]);
 
-      const slots = await service.findAvailableSlotsPublic(
-        "pro-desconocido",
-        "2026-08-19",
-        30
-      );
-
-      expect(slots).toEqual([]);
-    });
-  });
-
-  describe("findAvailableSlotsForBusiness", () => {
-    /** Jornada de 09:00 a 10:00: dos franjas de media hora. */
-    function jornadaCorta(professionalId: string) {
-      return {
-        ...mockAvailability,
-        professionalId,
-        dayOfWeek: 3,
-        startTime: "09:00",
-        endTime: "10:00",
-      } as unknown as Availability;
-    }
-
-    beforeEach(() => {
-      mockBlockRepo.find.mockResolvedValue([]);
+      await expect(
+        service.citaReseñablePor("appt-1", "user-1", "business-123")
+      ).resolves.toEqual({ resenable: false });
     });
 
-    it("ofrece la franja si la tiene libre al menos un profesional", async () => {
-      mockAvailRepo.find.mockResolvedValue([
-        jornadaCorta("pro-a"),
-        jornadaCorta("pro-b"),
-      ]);
-      mockAvailRepo.findOne.mockImplementation((options?: unknown) => {
-        const where = (options as { where?: { professionalId?: string } })
-          ?.where;
-        return Promise.resolve(jornadaCorta(where!.professionalId!));
+    it("rechaza una cita que aún no se ha atendido", async () => {
+      mockApptRepo.findOne.mockResolvedValue({
+        ...completada,
+        status: AppointmentStatus.CONFIRMED,
+      } as Appointment);
+
+      await expect(
+        service.citaReseñablePor("appt-1", "user-1", "business-123")
+      ).resolves.toEqual({ resenable: false });
+    });
+
+    it("rechaza una cita inexistente o de otro negocio", async () => {
+      mockApptRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.citaReseñablePor("inventada", "user-1", "business-123")
+      ).resolves.toEqual({ resenable: false });
+      // La búsqueda va acotada al negocio que dice la reseña.
+      expect(mockApptRepo.findOne).toHaveBeenCalledWith({
+        where: { id: "inventada", businessId: "business-123" },
       });
-      mockApptRepo.find.mockImplementation((options?: unknown) => {
-        const where = (options as { where?: { professionalId?: string } })
-          ?.where;
-        return Promise.resolve(
-          where?.professionalId === "pro-a"
-            ? ([{ startTime: "09:00", endTime: "09:30" }] as never)
-            : ([] as never)
-        );
-      });
-
-      const slots = await service.findAvailableSlotsForBusiness(
-        "business-123",
-        "2026-08-19",
-        30
-      );
-
-      expect(slots.find((s) => s.startTime === "09:00")?.available).toBe(true);
-    });
-
-    it("marca la franja ocupada cuando ninguno la tiene libre", async () => {
-      mockAvailRepo.find.mockResolvedValue([
-        jornadaCorta("pro-a"),
-        jornadaCorta("pro-b"),
-      ]);
-      mockAvailRepo.findOne.mockImplementation((options?: unknown) => {
-        const where = (options as { where?: { professionalId?: string } })
-          ?.where;
-        return Promise.resolve(jornadaCorta(where!.professionalId!));
-      });
-      mockApptRepo.find.mockResolvedValue([
-        { startTime: "09:00", endTime: "09:30" },
-      ] as never);
-
-      const slots = await service.findAvailableSlotsForBusiness(
-        "business-123",
-        "2026-08-19",
-        30
-      );
-
-      expect(slots.find((s) => s.startTime === "09:00")?.available).toBe(false);
-    });
-
-    it("devuelve las franjas ordenadas y sin repetir", async () => {
-      mockAvailRepo.find.mockResolvedValue([
-        jornadaCorta("pro-a"),
-        jornadaCorta("pro-b"),
-      ]);
-      mockAvailRepo.findOne.mockImplementation((options?: unknown) => {
-        const where = (options as { where?: { professionalId?: string } })
-          ?.where;
-        return Promise.resolve(jornadaCorta(where!.professionalId!));
-      });
-      mockApptRepo.find.mockResolvedValue([]);
-
-      const slots = await service.findAvailableSlotsForBusiness(
-        "business-123",
-        "2026-08-19",
-        30
-      );
-
-      const horas = slots.map((s) => s.startTime);
-      expect(horas).toEqual([...new Set(horas)]);
-      expect(horas).toEqual([...horas].sort());
-    });
-
-    it("no ofrece nada si nadie del equipo trabaja ese dia", async () => {
-      mockAvailRepo.find.mockResolvedValue([]);
-
-      const slots = await service.findAvailableSlotsForBusiness(
-        "business-123",
-        "2026-08-19",
-        30
-      );
-
-      expect(slots).toEqual([]);
-      expect(mockAvailRepo.findOne).not.toHaveBeenCalled();
     });
   });
 
@@ -1116,7 +933,6 @@ describe("AppointmentsService", () => {
       expect(typeof service.cancel).toBe("function");
       expect(typeof service.markNoShow).toBe("function");
       expect(typeof service.reschedule).toBe("function");
-      expect(typeof service.findAvailableSlots).toBe("function");
       expect(typeof service.findById).toBe("function");
       expect(typeof service.findByBusiness).toBe("function");
     });

@@ -26,7 +26,9 @@ describe("OutboxRelayWorker", () => {
     mockRepo = {
       createQueryBuilder: jest.fn(() => mockQb),
       save: jest.fn((rows: any[]) => Promise.resolve(rows)),
+      increment: jest.fn().mockResolvedValue({ affected: 0 }),
       update: jest.fn().mockResolvedValue(undefined),
+      delete: jest.fn().mockResolvedValue({ affected: 0 }),
     };
     mockManager = {
       getRepository: jest.fn().mockReturnValue(mockRepo),
@@ -87,9 +89,48 @@ describe("OutboxRelayWorker", () => {
 
       await worker.poll();
 
-      expect(mockRepo.save).toHaveBeenCalledWith([
-        expect.objectContaining({ id: "msg-1", attempts: 1 }),
-      ]);
+      // Un solo UPDATE para toda la tanda: guardar fila a fila alargaba la
+      // transacción que mantiene el bloqueo del lote.
+      expect(mockRepo.increment).toHaveBeenCalledTimes(1);
+      expect(mockRepo.increment).toHaveBeenCalledWith(
+        expect.anything(),
+        "attempts",
+        1
+      );
+      expect(mockRepo.save).not.toHaveBeenCalled();
+      expect(msg.attempts).toBe(1);
+    });
+
+    it("publica la tanda con varias emisiones en vuelo", async () => {
+      const mensajes = Array.from({ length: 8 }, (_, i) =>
+        makeMessage({ id: `msg-${i}`, attempts: 0 })
+      );
+      mockQb.getMany.mockResolvedValueOnce(mensajes).mockResolvedValue([]);
+
+      let enCurso = 0;
+      let maximoSimultaneo = 0;
+      mockEventBus.emit.mockImplementation(async () => {
+        maximoSimultaneo = Math.max(maximoSimultaneo, ++enCurso);
+        await Promise.resolve();
+        enCurso--;
+      });
+
+      await worker.poll();
+
+      expect(mockEventBus.emit).toHaveBeenCalledTimes(8);
+      expect(maximoSimultaneo).toBeGreaterThan(1);
+    });
+
+    it("vuelve a reclamar enseguida si la tanda salió llena", async () => {
+      const llena = Array.from({ length: 50 }, (_, i) =>
+        makeMessage({ id: `msg-${i}`, attempts: 0 })
+      );
+      mockQb.getMany.mockResolvedValueOnce(llena).mockResolvedValue([]);
+
+      await worker.poll();
+
+      // Tras un lote lleno vuelve a reclamar sin esperar al siguiente sondeo.
+      expect(mockQb.getMany).toHaveBeenCalledTimes(2);
     });
 
     it("publica y marca PROCESSED cuando emit tiene éxito", async () => {
@@ -159,6 +200,28 @@ describe("OutboxRelayWorker", () => {
 
       expect(mockEventBus.emit).toHaveBeenCalledTimes(2);
       expect(mockRepo.update).toHaveBeenCalledTimes(2);
+    });
+
+    it("purga los mensajes ya publicados pasada la retención", async () => {
+      mockQb.getMany.mockResolvedValue([]);
+      mockRepo.delete.mockResolvedValue({ affected: 12 });
+
+      // La purga es mantenimiento y no corre en cada sondeo.
+      for (let i = 0; i <= 300; i++) await worker.poll();
+
+      expect(mockRepo.delete).toHaveBeenCalledTimes(1);
+      const [criterio] = mockRepo.delete.mock.calls[0];
+      expect(criterio.status).toBe(OutboxStatus.PROCESSED);
+      expect(criterio.processedAt).toBeDefined();
+    });
+
+    it("sigue publicando aunque la purga falle", async () => {
+      mockQb.getMany.mockResolvedValue([makeMessage({ id: "m", attempts: 0 })]);
+      mockRepo.delete.mockRejectedValue(new Error("sin permisos"));
+
+      for (let i = 0; i <= 300; i++) await worker.poll();
+
+      expect(mockEventBus.emit).toHaveBeenCalled();
     });
 
     it("claim usa FOR UPDATE SKIP LOCKED vía setLock + setOnLocked", async () => {

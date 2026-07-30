@@ -25,6 +25,7 @@ const UUID_REGEX =
 export class BusinessScopeGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
+  /** Resuelve el negocio de la petición y comprueba que el usuario pertenezca a él. */
   canActivate(context: ExecutionContext): boolean {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),

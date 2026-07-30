@@ -55,6 +55,17 @@ describe("RemindersWorker", () => {
     worker = module.get<RemindersWorker>(RemindersWorker);
   });
 
+  it("debería acotar el sondeo a las citas con algún recordatorio pendiente", async () => {
+    await worker.poll();
+
+    const [opciones] = mockRepo.find.mock.calls[0];
+    expect(opciones.take).toBe(1000);
+    expect(opciones.where).toEqual([
+      expect.objectContaining({ reminder24hSentAt: expect.anything() }),
+      expect.objectContaining({ reminder1hSentAt: expect.anything() }),
+    ]);
+  });
+
   it("debería publicar el recordatorio de 24h y marcar la cita", async () => {
     mockRepo.find.mockResolvedValue([citaEn(24)]);
 

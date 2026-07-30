@@ -8,6 +8,7 @@ import {
   OutboxModule,
   HealthModule,
   IdempotencyModule,
+  InternalHttpModule,
 } from "@beautyspot/nest-common";
 import { entities } from "./orm-entities";
 import { AppointmentsModule } from "./modules/appointments/appointments.module";
@@ -24,9 +25,10 @@ import { RemindersModule } from "./modules/reminders/reminders.module";
       envFilePath: path.join(__dirname, "..", ".env"),
     }),
     TypeOrmModule.forRootAsync({
-      useFactory: () => createTypeOrmModuleOptions(entities),
+      useFactory: () => createTypeOrmModuleOptions(entities, "write"),
     }),
     IdempotencyModule,
+    InternalHttpModule,
     HealthModule,
     OutboxModule,
     AppointmentsModule,

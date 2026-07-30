@@ -34,6 +34,10 @@ describe("CategoriesService", () => {
       count: jest.fn(),
       manager: {
         count: jest.fn().mockResolvedValue(0),
+        // El reorder se aplica dentro de una transacción sobre el mismo repo.
+        transaction: jest.fn(async (fn: (m: unknown) => Promise<unknown>) =>
+          fn({ getRepository: () => mockRepo })
+        ),
       },
     } as any;
 
@@ -325,19 +329,22 @@ describe("CategoriesService", () => {
         { id: "cat-2", sortOrder: 1 },
       ];
 
-      mockRepo.findOne.mockResolvedValue(mockCategory);
       mockRepo.update.mockResolvedValue({ affected: 1 } as any);
 
       await service.reorder("business-123", items);
 
+      // Un UPDATE acotado por negocio y por id, sin leer antes cada fila.
       expect(mockRepo.update).toHaveBeenCalledTimes(2);
-      expect(mockRepo.findOne).toHaveBeenCalledTimes(2);
+      expect(mockRepo.update).toHaveBeenCalledWith(
+        { id: "cat-1", businessId: "business-123" },
+        { sortOrder: 0 }
+      );
     });
 
     it("debería lanzar NotFoundException si una categoría no existe", async () => {
       const items = [{ id: "non-existent", sortOrder: 0 }];
 
-      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.update.mockResolvedValue({ affected: 0 } as any);
 
       await expect(service.reorder("business-123", items)).rejects.toThrow(
         NotFoundException

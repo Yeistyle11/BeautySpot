@@ -18,6 +18,8 @@ export interface IJwtPayload {
   businessIds?: string[];
   /** Versión del token para invalidación (ver TokenVersionStore en nest-common) */
   tokenVersion?: number;
+  /** Identificador del refresh token, para poder retirarlo al canjearlo. */
+  jti?: string;
   iat?: number;
   exp?: number;
 }

@@ -49,6 +49,9 @@ jest.mock("ioredis", () => {
     exists: jest.fn(),
     expire: jest.fn(),
     keys: jest.fn(),
+    sadd: jest.fn(),
+    srem: jest.fn(),
+    disconnect: jest.fn(),
   };
   return {
     Redis: jest.fn(() => mockRedis),

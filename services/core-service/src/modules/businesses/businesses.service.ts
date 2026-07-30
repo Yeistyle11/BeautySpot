@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ConflictException,
   ForbiddenException,
@@ -7,8 +8,11 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
-import { Repository, DataSource } from "typeorm";
+import { In, Repository, DataSource } from "typeorm";
 import { Business } from "../../entities/business.entity";
+import { Branch } from "../../entities/branch.entity";
+import { Service } from "../../entities/service.entity";
+import { Professional } from "../../entities/professional.entity";
 import {
   generateSlug,
   parsePaginationQuery,
@@ -22,9 +26,17 @@ import { Role } from "@beautyspot/shared-types";
  */
 @Injectable()
 export class BusinessesService {
+  private readonly logger = new Logger(BusinessesService.name);
+
   constructor(
     @InjectRepository(Business)
     private readonly repo: Repository<Business>,
+    @InjectRepository(Branch)
+    private readonly branchRepo: Repository<Branch>,
+    @InjectRepository(Service)
+    private readonly serviceRepo: Repository<Service>,
+    @InjectRepository(Professional)
+    private readonly professionalRepo: Repository<Professional>,
     private readonly dataSource: DataSource,
     private readonly outbox: OutboxService
   ) {}
@@ -74,11 +86,7 @@ export class BusinessesService {
       "city",
       "active",
     ]);
-    const qb = this.repo
-      .createQueryBuilder("b")
-      .leftJoinAndSelect("b.branches", "branches")
-      .leftJoinAndSelect("b.services", "services")
-      .leftJoinAndSelect("b.professionals", "professionals");
+    const qb = this.repo.createQueryBuilder("b");
 
     // Los llamantes que no son SUPER_ADMIN quedan acotados a su propio negocio.
     if (callerRole !== Role.SUPER_ADMIN && callerBusinessId) {
@@ -105,7 +113,43 @@ export class BusinessesService {
       .take(params.limit);
 
     const [items, total] = await qb.getManyAndCount();
+    await this.adjuntarColecciones(items);
     return { items, total, page: params.page, limit: params.limit };
+  }
+
+  /**
+   * Carga sedes, servicios y profesionales de los negocios de la página, cada
+   * colección en su propia consulta por lote.
+   */
+  private async adjuntarColecciones(negocios: Business[]): Promise<void> {
+    if (negocios.length === 0) return;
+    const ids = negocios.map((n) => n.id);
+
+    const [branches, services, professionals] = await Promise.all([
+      this.branchRepo.find({ where: { businessId: In(ids) } }),
+      this.serviceRepo.find({ where: { businessId: In(ids) } }),
+      this.professionalRepo.find({ where: { businessId: In(ids) } }),
+    ]);
+
+    const porNegocio = <T extends { businessId: string }>(filas: T[]) => {
+      const mapa = new Map<string, T[]>();
+      for (const fila of filas) {
+        const acumulado = mapa.get(fila.businessId);
+        if (acumulado) acumulado.push(fila);
+        else mapa.set(fila.businessId, [fila]);
+      }
+      return mapa;
+    };
+
+    const sedesPorNegocio = porNegocio(branches);
+    const serviciosPorNegocio = porNegocio(services);
+    const profesionalesPorNegocio = porNegocio(professionals);
+
+    for (const negocio of negocios) {
+      negocio.branches = sedesPorNegocio.get(negocio.id) ?? [];
+      negocio.services = serviciosPorNegocio.get(negocio.id) ?? [];
+      negocio.professionals = profesionalesPorNegocio.get(negocio.id) ?? [];
+    }
   }
 
   /**
@@ -198,8 +242,13 @@ export class BusinessesService {
   }
 
   /**
-   * Verifica que el caller tiene acceso al negocio.
-   * SUPER_ADMIN bypass. Sin callerBusinessId (internal) bypass.
+   * Verifica que el llamante tiene acceso al negocio.
+   *
+   * Un llamante sin negocio pasa de largo porque las rutas internas
+   * (servicio a servicio) no lo llevan, y esas ya están protegidas por el
+   * secreto compartido. Se registra igualmente: por HTTP el guard de tenant
+   * exige la cabecera, así que llegar aquí sin negocio y con un rol de usuario
+   * significa que alguien ha abierto un camino que se salta esa comprobación.
    */
   private assertOwnership(
     businessId: string,
@@ -207,7 +256,16 @@ export class BusinessesService {
     callerRole?: Role
   ): void {
     if (callerRole === Role.SUPER_ADMIN) return;
-    if (callerBusinessId === undefined) return;
+
+    if (callerBusinessId === undefined) {
+      if (callerRole !== undefined) {
+        this.logger.warn(
+          `Acceso al negocio ${businessId} con rol ${callerRole} y sin negocio resuelto`
+        );
+      }
+      return;
+    }
+
     if (businessId !== callerBusinessId) {
       throw new ForbiddenException("No tienes acceso a este negocio");
     }

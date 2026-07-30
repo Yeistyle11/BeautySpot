@@ -16,6 +16,7 @@ import {
   Public,
   CurrentUser,
   SkipBusinessScope,
+  SesionVerificable,
 } from "@beautyspot/nest-common";
 
 /** Endpoints HTTP de autenticación; las rutas @Public no requieren token. */
@@ -65,6 +66,7 @@ export class AuthController {
 
   /** Cambia la contraseña del usuario autenticado. */
   @SkipBusinessScope()
+  @SesionVerificable()
   @Post("change-password")
   @HttpCode(HttpStatus.OK)
   async changePassword(

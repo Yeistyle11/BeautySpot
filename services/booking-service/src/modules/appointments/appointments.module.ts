@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AppointmentsService } from "./appointments.service";
+import { AvailabilityQueryService } from "./availability-query.service";
 import {
   AppointmentsController,
   InternalAppointmentsController,
@@ -20,8 +21,8 @@ import { BlockedSlot } from "../../entities/blocked-slot.entity";
     ]),
   ],
   controllers: [AppointmentsController, InternalAppointmentsController],
-  providers: [AppointmentsService],
-  exports: [AppointmentsService],
+  providers: [AppointmentsService, AvailabilityQueryService],
+  exports: [AppointmentsService, AvailabilityQueryService],
 })
 /** Cablea la gestión de citas (controlador público e interno y su servicio). */
 export class AppointmentsModule {}

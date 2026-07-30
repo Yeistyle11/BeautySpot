@@ -362,49 +362,64 @@ describe("ImagesService", () => {
   });
 
   describe("validateImageFile", () => {
-    const validFile = Buffer.from("test");
-    const largeFile = Buffer.alloc(6 * 1024 * 1024);
+    /** Archivo con la cabecera real del formato y relleno hasta 16 bytes. */
+    const archivo = (cabecera: Buffer | number[]) =>
+      Buffer.concat([Buffer.from(cabecera as never), Buffer.alloc(16)]);
 
-    it("debería validar archivo JPEG exitosamente", () => {
-      expect(() => {
-        service.validateImageFile(validFile, "image/jpeg");
-      }).not.toThrow();
-    });
+    const jpeg = archivo([0xff, 0xd8, 0xff, 0xe0]);
+    const png = archivo(Buffer.from("89504e470d0a1a0a", "hex"));
+    const webp = archivo(
+      Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(4), Buffer.from("WEBP")])
+    );
+    const gif = archivo(Buffer.from("GIF89a"));
 
-    it("debería validar archivo PNG exitosamente", () => {
-      expect(() => {
-        service.validateImageFile(validFile, "image/png");
-      }).not.toThrow();
-    });
-
-    it("debería validar archivo WebP exitosamente", () => {
-      expect(() => {
-        service.validateImageFile(validFile, "image/webp");
-      }).not.toThrow();
-    });
-
-    it("debería validar archivo GIF exitosamente", () => {
-      expect(() => {
-        service.validateImageFile(validFile, "image/gif");
-      }).not.toThrow();
+    it.each([
+      ["image/jpeg", jpeg],
+      ["image/jpg", jpeg],
+      ["image/png", png],
+      ["image/webp", webp],
+      ["image/gif", gif],
+    ])("acepta un %s con su cabecera correcta", (tipo, contenido) => {
+      expect(() => service.validateImageFile(contenido, tipo)).not.toThrow();
     });
 
     it("debería lanzar BadRequestException para tipo de archivo no permitido", () => {
-      expect(() => {
-        service.validateImageFile(validFile, "application/pdf");
-      }).toThrow(BadRequestException);
-      expect(() => {
-        service.validateImageFile(validFile, "application/pdf");
-      }).toThrow("Tipo de archivo no permitido");
+      expect(() => service.validateImageFile(jpeg, "application/pdf")).toThrow(
+        "Tipo de archivo no permitido"
+      );
     });
 
     it("debería lanzar BadRequestException para archivo que excede tamaño máximo", () => {
-      expect(() => {
-        service.validateImageFile(largeFile, "image/jpeg");
-      }).toThrow(BadRequestException);
-      expect(() => {
-        service.validateImageFile(largeFile, "image/jpeg");
-      }).toThrow("El archivo excede el tamaño máximo de 5MB");
+      const grande = Buffer.concat([jpeg, Buffer.alloc(6 * 1024 * 1024)]);
+
+      expect(() => service.validateImageFile(grande, "image/jpeg")).toThrow(
+        BadRequestException
+      );
+      expect(() => service.validateImageFile(grande, "image/jpeg")).toThrow(
+        "El archivo excede el tamaño máximo de 5MB"
+      );
+    });
+
+    it("rechaza un archivo que no es una imagen aunque se declare como tal", () => {
+      // El content-type lo pone quien sube el archivo, así que manda el
+      // contenido.
+      const ejecutable = archivo(Buffer.from("MZ\x90\x00"));
+
+      expect(() => service.validateImageFile(ejecutable, "image/png")).toThrow(
+        "El archivo no es una imagen JPEG, PNG, WebP o GIF"
+      );
+    });
+
+    it("rechaza una imagen cuyo contenido no coincide con el tipo declarado", () => {
+      expect(() => service.validateImageFile(png, "image/jpeg")).toThrow(
+        "no corresponde con el tipo declarado"
+      );
+    });
+
+    it("rechaza un archivo demasiado corto para tener cabecera", () => {
+      expect(() =>
+        service.validateImageFile(Buffer.from([0xff, 0xd8]), "image/jpeg")
+      ).toThrow(BadRequestException);
     });
   });
 

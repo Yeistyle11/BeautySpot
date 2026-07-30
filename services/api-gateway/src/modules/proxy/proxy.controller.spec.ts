@@ -8,12 +8,9 @@ import { CircuitBreakerService } from "../circuit-breaker/circuit-breaker.servic
 import { SessionService } from "../session/session.service";
 
 /**
- * Regresión de enrutado bajo Express 5: la ruta comodín del proxy cambió de
- * ":service/*" a ":service/*splat" porque path-to-regexp v8 ya no acepta el
- * comodín sin nombre. Este test verifica, a través del router real, que el
- * gateway sigue capturando el nombre del servicio y reenviando cualquier
- * sub-ruta; si una futura actualización rompe el patrón, falla aquí y no en
- * producción.
+ * Comprueba, a través del router real de Express 5, que la ruta comodín
+ * ":service/*splat" captura el nombre del servicio y reenvía cualquier
+ * sub-ruta.
  */
 describe("ProxyController (enrutado Express 5)", () => {
   let app: INestApplication;
@@ -95,6 +92,30 @@ describe("ProxyController (enrutado Express 5)", () => {
       .get("/api/v1/inexistente/algo")
       .expect(404);
   });
+
+  // La ruta se concatena con la URL del servicio sin normalizar, y el
+  // analizador de URL de fetch resuelve `%2e%2e` como un `..`: sin este
+  // rechazo se podría alcanzar /internal/* del backend.
+  it.each([
+    "/api/v1/core-service/x/../../internal/businesses/resolve",
+    "/api/v1/core-service/x/%2e%2e/%2e%2e/internal/businesses/resolve",
+    "/api/v1/core-service/x/%2E%2E/internal/algo",
+  ])("rechaza el salto de directorio en %s", async (path) => {
+    handled = null;
+
+    await request(app.getHttpServer()).get(path).expect(400);
+
+    // Se rechaza antes de reenviar: el backend no llega a ver la petición.
+    expect(handled).toBeNull();
+  });
+
+  it("no confunde con un salto los puntos dentro de un segmento", async () => {
+    await request(app.getHttpServer())
+      .get("/api/v1/core-service/businesses/mi..negocio")
+      .expect(200);
+
+    expect(handled?.service).toBe("core-service");
+  });
 });
 
 /**
@@ -156,11 +177,15 @@ describe("ProxyController (reenvío)", () => {
       controllers: [ProxyController],
       providers: [
         {
+          // Servicio real: estos tests ejercitan justamente su mecánica
+          // (URL destino, cabeceras, cuerpo de la respuesta y traducción de
+          // errores).
           provide: ProxyService,
-          useValue: {
-            isValidService: () => true,
-            getServiceUrl: () => SERVICE_URL,
-          },
+          useFactory: () =>
+            new ProxyService({
+              getUrl: () => SERVICE_URL,
+              hasUrl: () => true,
+            } as never),
         },
         {
           provide: CircuitBreakerService,

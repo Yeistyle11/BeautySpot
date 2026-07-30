@@ -11,13 +11,13 @@ import {
   BadRequestException,
   ServiceUnavailableException,
 } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
+import { InternalHttpClient } from "@beautyspot/nest-common";
 
 describe("ProfessionalsService", () => {
   let service: ProfessionalsService;
   let mockRepo: jest.Mocked<Repository<Professional>>;
   let mockPsRepo: jest.Mocked<Repository<ProfessionalService>>;
-  let mockFetch: jest.Mock;
+  let mockHttp: { pedir: jest.Mock };
 
   const mockProfessional: Professional = {
     id: "prof-123",
@@ -57,17 +57,14 @@ describe("ProfessionalsService", () => {
   };
 
   beforeEach(async () => {
-    // fetch global mockeado: por defecto responde sin historial de citas
-    mockFetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
+    // Cliente interno simulado: por defecto, sin historial de citas.
+    mockHttp = {
+      pedir: jest.fn().mockResolvedValue({
         hasHistory: false,
         totalAppointments: 0,
         completedAppointments: 0,
       }),
-    } as any);
-    (global as any).fetch = mockFetch;
+    };
 
     mockRepo = {
       create: jest.fn(),
@@ -112,15 +109,8 @@ describe("ProfessionalsService", () => {
           useValue: { findById: jest.fn().mockResolvedValue({ id: "cat-1" }) },
         },
         {
-          provide: ConfigService,
-          useValue: {
-            get: jest.fn((key: string) => {
-              if (key === "BOOKING_SERVICE_URL")
-                return "http://booking-service:3003";
-              if (key === "INTERNAL_API_SECRET") return "test-secret";
-              return undefined;
-            }),
-          },
+          provide: InternalHttpClient,
+          useValue: mockHttp,
         },
       ],
     }).compile();
@@ -376,13 +366,9 @@ describe("ProfessionalsService", () => {
 
       await service.remove("prof-123", "business-123");
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "http://booking-service:3003/internal/appointments/professional/prof-123/has-history",
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            "x-internal-secret": "test-secret",
-          }),
-        })
+      expect(mockHttp.pedir).toHaveBeenCalledWith(
+        "booking",
+        "/internal/appointments/professional/prof-123/has-history"
       );
       expect(mockRepo.update).toHaveBeenCalledWith(
         { id: "prof-123", businessId: "business-123" },
@@ -400,15 +386,11 @@ describe("ProfessionalsService", () => {
 
     it("debería bloquear la inactivacion si hay citas activas (fail-closed)", async () => {
       mockRepo.findOne.mockResolvedValue(mockProfessional);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          hasHistory: true,
-          totalAppointments: 5,
-          completedAppointments: 2,
-        }),
-      } as any);
+      mockHttp.pedir.mockResolvedValueOnce({
+        hasHistory: true,
+        totalAppointments: 5,
+        completedAppointments: 2,
+      });
 
       await expect(service.remove("prof-123", "business-123")).rejects.toThrow(
         BadRequestException
@@ -419,15 +401,11 @@ describe("ProfessionalsService", () => {
     it("debería permitir inactivar si todas las citas estan completadas", async () => {
       mockRepo.findOne.mockResolvedValue(mockProfessional);
       mockRepo.update.mockResolvedValue({ affected: 1 } as any);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          hasHistory: true,
-          totalAppointments: 3,
-          completedAppointments: 3,
-        }),
-      } as any);
+      mockHttp.pedir.mockResolvedValueOnce({
+        hasHistory: true,
+        totalAppointments: 3,
+        completedAppointments: 3,
+      });
 
       await service.remove("prof-123", "business-123");
 
@@ -439,7 +417,9 @@ describe("ProfessionalsService", () => {
 
     it("debería bloquear (fail-closed) si booking-service no responde (error de red)", async () => {
       mockRepo.findOne.mockResolvedValue(mockProfessional);
-      mockFetch.mockRejectedValueOnce(new Error("ECONNREFUSED"));
+      mockHttp.pedir.mockRejectedValue(
+        new ServiceUnavailableException("booking-service no está disponible")
+      );
 
       await expect(service.remove("prof-123", "business-123")).rejects.toThrow(
         ServiceUnavailableException
@@ -449,7 +429,9 @@ describe("ProfessionalsService", () => {
 
     it("debería bloquear (fail-closed) si booking-service responde no-2xx", async () => {
       mockRepo.findOne.mockResolvedValue(mockProfessional);
-      mockFetch.mockResolvedValueOnce({ ok: false, status: 503 } as any);
+      mockHttp.pedir.mockRejectedValue(
+        new ServiceUnavailableException("booking-service respondió 503")
+      );
 
       await expect(service.remove("prof-123", "business-123")).rejects.toThrow(
         ServiceUnavailableException
@@ -460,11 +442,7 @@ describe("ProfessionalsService", () => {
     it("no debería producir NaN cuando la respuesta omite contadores", async () => {
       mockRepo.findOne.mockResolvedValue(mockProfessional);
       mockRepo.update.mockResolvedValue({ affected: 1 } as any);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ hasHistory: false }),
-      } as any);
+      mockHttp.pedir.mockResolvedValueOnce({ hasHistory: false });
 
       await service.remove("prof-123", "business-123");
 

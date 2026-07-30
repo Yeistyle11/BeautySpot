@@ -3,11 +3,13 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Reflector } from "@nestjs/core";
 import * as jwt from "jsonwebtoken";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
+import { SESION_VERIFICABLE_KEY } from "../decorators/sesion-verificable.decorator";
 import { esContextoHttp } from "./http-context";
 import { assertJwtSecret } from "../security/assert-jwt-secret";
 import {
@@ -31,6 +33,17 @@ export class JwtAuthGuard implements CanActivate {
     private readonly tokenVersionStore: TokenVersionStore
   ) {}
 
+  /** Indica si la ruta exige poder comprobar que la sesión sigue vigente. */
+  private exigeSesionVerificable(context: ExecutionContext): boolean {
+    return (
+      this.reflector.getAllAndOverride<boolean>(SESION_VERIFICABLE_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]) === true
+    );
+  }
+
+  /** Exige un token válido y vigente, salvo en las rutas públicas. */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
@@ -67,18 +80,20 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException("Token inválido o expirado");
     }
 
-    if (decoded.sub && decoded.tokenVersion !== undefined) {
-      const currentVersion = await this.tokenVersionStore.getVersion(
-        decoded.sub
-      );
-      if (currentVersion !== decoded.tokenVersion) {
-        throw new UnauthorizedException("Sesión invalidada");
-      }
-    } else if (decoded.sub) {
-      const currentVersion = await this.tokenVersionStore.getVersion(
-        decoded.sub
-      );
-      if (currentVersion !== TOKEN_VERSION_DEFAULT) {
+    if (decoded.sub) {
+      const esperada = decoded.tokenVersion ?? TOKEN_VERSION_DEFAULT;
+      const actual = await this.tokenVersionStore.consultarVersion(decoded.sub);
+
+      if (!actual.conocida) {
+        // No se pudo comprobar si la sesión sigue vigente. Se deja pasar salvo
+        // en las acciones marcadas como verificables, donde actuar con una
+        // sesión quizá revocada causa un daño que no se deshace.
+        if (this.exigeSesionVerificable(context)) {
+          throw new ServiceUnavailableException(
+            "No se puede verificar la sesión en este momento; reintenta en unos segundos"
+          );
+        }
+      } else if (actual.version !== esperada) {
         throw new UnauthorizedException("Sesión invalidada");
       }
     }

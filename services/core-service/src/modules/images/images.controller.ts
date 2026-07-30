@@ -15,10 +15,22 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
-import { ImagesService, UploadResult } from "./images.service";
+import {
+  ImagesService,
+  UploadResult,
+  MAXIMO_BYTES_IMAGEN,
+} from "./images.service";
 import { ProfessionalsService } from "../professionals/professionals.service";
 import { ServicesService } from "../services/services.service";
 import { GenerateUploadSignatureDto, PresignedUrlQueryDto } from "./dto";
+
+/**
+ * Recepción del archivo, que multer corta en cuanto supera el tamaño máximo en
+ * vez de cargarlo entero en memoria.
+ */
+const SUBIDA_DE_IMAGEN = FileInterceptor("file", {
+  limits: { fileSize: MAXIMO_BYTES_IMAGEN, files: 1 },
+});
 
 /** Contexto de autorización derivado del usuario autenticado y su tenant. */
 interface OwnershipContext {
@@ -68,18 +80,21 @@ export class ImagesController {
     }
   }
 
-  /** Verifica ownership de un S3 key (para delete/presigned-url). */
+  /**
+   * Verifica que una clave de S3 sea del negocio del usuario, rechazando las
+   * que traen `..` en algún segmento.
+   */
   private async verifyKeyOwnership(
     key: string,
     ctx: OwnershipContext
   ): Promise<void> {
-    if (ctx.role === Role.SUPER_ADMIN) return;
-
     // Formato del key: {tipo}/{id}/... — p. ej. businesses/{id}/logo/{uuid}.
     const parts = key.split("/");
-    if (parts.length < 2) {
+    if (parts.length < 2 || parts.some((parte) => parte === "..")) {
       throw new ForbiddenException("Key de imagen no válido");
     }
+
+    if (ctx.role === Role.SUPER_ADMIN) return;
 
     await this.verifyResourceOwnership(parts[0], parts[1], ctx);
   }
@@ -87,7 +102,7 @@ export class ImagesController {
   /** Sube el logo de un negocio (multipart) tras validar acceso y tipo/tamaño. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post("businesses/:businessId/logo-upload")
-  @UseInterceptors(FileInterceptor("file"))
+  @UseInterceptors(SUBIDA_DE_IMAGEN)
   async uploadBusinessLogo(
     @Param("businessId") businessId: string,
     @CurrentUser("role") role: string,
@@ -117,7 +132,7 @@ export class ImagesController {
   /** Sube la foto de un profesional (multipart) tras validar acceso y tipo/tamaño. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post("professionals/:professionalId/photo-upload")
-  @UseInterceptors(FileInterceptor("file"))
+  @UseInterceptors(SUBIDA_DE_IMAGEN)
   async uploadProfessionalPhoto(
     @Param("professionalId") professionalId: string,
     @CurrentUser("role") role: string,
@@ -147,7 +162,7 @@ export class ImagesController {
   /** Sube la imagen de un servicio (multipart) tras validar acceso y tipo/tamaño. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post("services/:serviceId/image-upload")
-  @UseInterceptors(FileInterceptor("file"))
+  @UseInterceptors(SUBIDA_DE_IMAGEN)
   async uploadServiceImage(
     @Param("serviceId") serviceId: string,
     @CurrentUser("role") role: string,

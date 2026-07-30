@@ -33,6 +33,10 @@ describe("ServiceCategoriesService", () => {
       update: jest.fn(),
       manager: {
         count: jest.fn().mockResolvedValue(0),
+        // El reorder se aplica dentro de una transacción sobre el mismo repo.
+        transaction: jest.fn(async (fn: (m: unknown) => Promise<unknown>) =>
+          fn({ getRepository: () => mockRepo })
+        ),
       },
     } as any;
 
@@ -207,7 +211,7 @@ describe("ServiceCategoriesService", () => {
     });
 
     it("debería lanzar NotFoundException si una categoría no existe", async () => {
-      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.update.mockResolvedValue({ affected: 0 } as any);
       await expect(
         service.reorder("business-123", [{ id: "x", sortOrder: 0 }])
       ).rejects.toThrow(NotFoundException);

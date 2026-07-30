@@ -1,5 +1,10 @@
 import { NestFactory, Reflector } from "@nestjs/core";
-import { Logger, ValidationPipe, type Type } from "@nestjs/common";
+import {
+  ClassSerializerInterceptor,
+  Logger,
+  ValidationPipe,
+  type Type,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import helmet from "helmet";
 import { JwtAuthGuard } from "../guards/jwt-auth.guard";
@@ -33,8 +38,8 @@ export async function createMicroserviceApp(AppModule: unknown): Promise<void> {
 
   const configService = app.get(ConfigService);
 
-  // Antes que nada: todo lo que se registre después debe poder citar el
-  // identificador de la petición.
+  // Va primero: todo lo que se registre después cita el identificador de la
+  // petición que deja aquí.
   app.use(requestContextMiddleware);
   app.use(helmet());
   app.enableCors(buildCorsOptions(configService));
@@ -60,7 +65,12 @@ export async function createMicroserviceApp(AppModule: unknown): Promise<void> {
   );
 
   app.useGlobalFilters(new HttpExceptionFilter());
-  app.useGlobalInterceptors(new TransformInterceptor());
+  // El serializador va después del que envuelve: así recibe la entidad cruda y
+  // aplica sus @Exclude() antes de que se meta dentro del sobre ApiResponse.
+  app.useGlobalInterceptors(
+    new TransformInterceptor(),
+    new ClassSerializerInterceptor(reflector)
+  );
 
   // Permite que Nest cierre conexiones a BD, Redis y RabbitMQ al recibir
   // SIGTERM, en lugar de que el orquestador mate el proceso en caliente.

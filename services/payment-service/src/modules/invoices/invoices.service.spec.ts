@@ -14,6 +14,7 @@ describe("InvoicesService", () => {
   let mockInvoiceRepo: jest.Mocked<Repository<InvoiceEntity>>;
   let mockItemRepo: jest.Mocked<Repository<InvoiceItemEntity>>;
   let mockPdfService: jest.Mocked<PdfService>;
+  let mockReservarNumero: jest.Mock;
 
   const mockInvoiceItem: InvoiceItemEntity = {
     id: "item-123",
@@ -48,6 +49,7 @@ describe("InvoicesService", () => {
       save: jest.fn(),
       findOne: jest.fn(),
       find: jest.fn(),
+      findAndCount: jest.fn(),
       update: jest.fn(),
       count: jest.fn(),
     } as any;
@@ -61,10 +63,15 @@ describe("InvoicesService", () => {
     } as any;
 
     const mockOutboxSpec = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    // La transacción entrega el repositorio simulado y resuelve la reserva del
+    // número de factura, que ahora sale de una secuencia por negocio.
+    mockReservarNumero = jest.fn().mockResolvedValue([{ last_number: 1 }]);
     const mockDataSourceSpec = {
-      // La transacción entrega el mismo repositorio simulado del test.
       transaction: jest.fn((cb) =>
-        cb({ getRepository: jest.fn().mockReturnValue(mockInvoiceRepo) })
+        cb({
+          getRepository: jest.fn().mockReturnValue(mockInvoiceRepo),
+          query: mockReservarNumero,
+        })
       ),
     };
 
@@ -102,14 +109,13 @@ describe("InvoicesService", () => {
         notes: "Factura de prueba",
       };
 
-      mockInvoiceRepo.count.mockResolvedValue(0);
       mockItemRepo.create.mockReturnValue(mockInvoiceItem);
       mockInvoiceRepo.create.mockReturnValue(mockInvoice);
       mockInvoiceRepo.save.mockResolvedValue(mockInvoice);
 
       const result = await service.create("business-123", dto);
 
-      expect(mockInvoiceRepo.count).toHaveBeenCalled();
+      expect(mockReservarNumero).toHaveBeenCalled();
       expect(mockItemRepo.create).toHaveBeenCalledTimes(2);
       expect(mockInvoiceRepo.create).toHaveBeenCalled();
       expect(mockInvoiceRepo.save).toHaveBeenCalledWith(mockInvoice);
@@ -122,7 +128,6 @@ describe("InvoicesService", () => {
         items: [{ description: "Corte", quantity: 1, unitPrice: 30000 }],
       };
 
-      mockInvoiceRepo.count.mockResolvedValue(0);
       mockItemRepo.create.mockReturnValue(mockInvoiceItem);
       mockInvoiceRepo.create.mockReturnValue(mockInvoice);
       mockInvoiceRepo.save.mockResolvedValue(mockInvoice);
@@ -139,7 +144,6 @@ describe("InvoicesService", () => {
         items: [{ description: "Corte", quantity: 1, unitPrice: 30000 }],
       };
 
-      mockInvoiceRepo.count.mockResolvedValue(0);
       mockItemRepo.create.mockReturnValue(mockInvoiceItem);
       mockInvoiceRepo.create.mockReturnValue(mockInvoice);
       mockInvoiceRepo.save.mockResolvedValue(mockInvoice);
@@ -160,7 +164,6 @@ describe("InvoicesService", () => {
         ],
       };
 
-      mockInvoiceRepo.count.mockResolvedValue(0);
       mockItemRepo.create.mockReturnValue(mockInvoiceItem);
       mockInvoiceRepo.create.mockReturnValue(mockInvoice);
       mockInvoiceRepo.save.mockResolvedValue(mockInvoice);
@@ -171,53 +174,121 @@ describe("InvoicesService", () => {
       expect(createCall.total).toBe(80000);
     });
 
-    it("debería generar número de factura secuencial", async () => {
+    it("debería numerar la factura con la serie del negocio", async () => {
       const dto = {
         clientId: "client-123",
         items: [{ description: "Corte", quantity: 1, unitPrice: 30000 }],
       };
 
-      mockInvoiceRepo.count.mockResolvedValue(5);
+      mockReservarNumero.mockResolvedValue([{ last_number: 6 }]);
       mockItemRepo.create.mockReturnValue(mockInvoiceItem);
       mockInvoiceRepo.create.mockReturnValue(mockInvoice);
       mockInvoiceRepo.save.mockResolvedValue(mockInvoice);
 
       await service.create("business-123", dto);
 
+      // La serie es de cada negocio, así que el número se reserva contra la
+      // secuencia de ese negocio, no contando las facturas de la tabla.
+      const [sql, parametros] = mockReservarNumero.mock.calls[0];
+      expect(sql).toContain("invoice_sequences");
+      expect(parametros[0]).toBe("business-123");
+
       const createCall = mockInvoiceRepo.create.mock.calls[0][0];
       expect(createCall.number).toMatch(/^INV-\d{4}-000006$/);
+    });
+
+    it("debería reservar el número dentro de la transacción de la factura", async () => {
+      const dto = {
+        clientId: "client-123",
+        items: [{ description: "Corte", quantity: 1, unitPrice: 30000 }],
+      };
+
+      mockItemRepo.create.mockReturnValue(mockInvoiceItem);
+      mockInvoiceRepo.create.mockReturnValue(mockInvoice);
+      mockInvoiceRepo.save.mockRejectedValue(new Error("fallo al guardar"));
+
+      await expect(service.create("business-123", dto)).rejects.toThrow();
+
+      // Reservarlo fuera dejaría un hueco en la serie cada vez que el guardado
+      // fallara.
+      expect(mockReservarNumero).toHaveBeenCalled();
     });
   });
 
   describe("findByBusiness", () => {
-    it("debería retornar facturas del negocio", async () => {
+    const paginacion = {
+      page: 1,
+      limit: 20,
+      offset: 0,
+      sort: "createdAt",
+      order: "DESC" as const,
+    };
+
+    it("debería retornar facturas del negocio paginadas", async () => {
       const invoices = [mockInvoice];
-      mockInvoiceRepo.find.mockResolvedValue(invoices);
+      mockInvoiceRepo.findAndCount.mockResolvedValue([invoices, 1]);
 
-      const result = await service.findByBusiness("business-123");
+      const result = await service.findByBusiness(
+        "business-123",
+        {},
+        paginacion
+      );
 
-      expect(mockInvoiceRepo.find).toHaveBeenCalledWith({
+      expect(mockInvoiceRepo.findAndCount).toHaveBeenCalledWith({
         where: { businessId: "business-123" },
         relations: ["items"],
+        skip: 0,
+        take: 20,
         order: { createdAt: "DESC" },
       });
-      expect(result).toEqual(invoices);
+      expect(result.data).toEqual(invoices);
+      expect(result.meta.total).toBe(1);
+    });
+
+    it("debería acotar el número de facturas devueltas", async () => {
+      mockInvoiceRepo.findAndCount.mockResolvedValue([[mockInvoice], 5000]);
+
+      await service.findByBusiness(
+        "business-123",
+        {},
+        { ...paginacion, limit: 50, offset: 100, page: 3 }
+      );
+
+      expect(mockInvoiceRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 100, take: 50 })
+      );
     });
 
     it("debería filtrar por estado", async () => {
-      const invoices = [mockInvoice];
-      mockInvoiceRepo.find.mockResolvedValue(invoices);
+      mockInvoiceRepo.findAndCount.mockResolvedValue([[mockInvoice], 1]);
 
-      const result = await service.findByBusiness("business-123", {
-        status: InvoiceStatus.PAID,
-      });
+      await service.findByBusiness(
+        "business-123",
+        { status: InvoiceStatus.PAID },
+        paginacion
+      );
 
-      expect(mockInvoiceRepo.find).toHaveBeenCalledWith({
-        where: { businessId: "business-123", status: InvoiceStatus.PAID },
-        relations: ["items"],
-        order: { createdAt: "DESC" },
-      });
-      expect(result).toEqual(invoices);
+      expect(mockInvoiceRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { businessId: "business-123", status: InvoiceStatus.PAID },
+        })
+      );
+    });
+
+    it("debería filtrar por rango de fechas", async () => {
+      mockInvoiceRepo.findAndCount.mockResolvedValue([[mockInvoice], 1]);
+
+      await service.findByBusiness(
+        "business-123",
+        { from: "2026-01-01", to: "2026-01-31" },
+        paginacion
+      );
+
+      expect(mockInvoiceRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ createdAt: expect.anything() }),
+        })
+      );
     });
   });
 
@@ -296,9 +367,12 @@ describe("InvoicesService", () => {
 
       await service.generateInvoicePdf("invoice-123", "business-123");
 
+      // El total lleva el IVA incluido: la base es total / 1,19 y el impuesto,
+      // lo que falta hasta el total.
       const pdfData = mockPdfService.generateInvoicePdf.mock.calls[0][0];
-      expect(pdfData.subtotal).toBe(25200);
-      expect(pdfData.tax).toBe(4800);
+      expect(pdfData.subtotal).toBeCloseTo(30000 / 1.19, 2);
+      expect(pdfData.tax).toBeCloseTo(30000 - 30000 / 1.19, 2);
+      expect(pdfData.subtotal + pdfData.tax).toBeCloseTo(30000, 6);
     });
 
     it("debería lanzar NotFoundException si la factura no existe", async () => {

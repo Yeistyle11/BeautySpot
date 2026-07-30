@@ -14,6 +14,9 @@ import { Appointment } from "../../entities/appointment.entity";
 
 const DEFAULT_POLL_INTERVAL_MS = 60000;
 
+/** Citas que se examinan por sondeo, para no traer a memoria las de toda la plataforma. */
+const MAXIMO_POR_SONDEO = 1000;
+
 /** Ventana horaria (en horas antes de la cita) que dispara cada recordatorio. */
 const VENTANAS = {
   "24h": { desde: 23, hasta: 25, columna: "reminder24hSentAt" },
@@ -51,6 +54,7 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
       this.configService.get<string>("REMINDERS_ENABLED") !== "false";
   }
 
+  /** Arranca el sondeo periódico, salvo que esté desactivado por configuración. */
   onModuleInit(): void {
     if (!this.enabled) {
       this.logger.warn(
@@ -71,6 +75,7 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  /** Detiene el sondeo al parar el servicio. */
   async onModuleDestroy(): Promise<void> {
     if (this.timer) {
       clearInterval(this.timer);
@@ -84,15 +89,30 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
     this.running = true;
     try {
       const ahora = new Date();
+      const rango = Between(
+        this.aFecha(ahora),
+        this.aFecha(this.sumarHoras(ahora, 26))
+      );
+      const estados = In([
+        AppointmentStatus.PENDING,
+        AppointmentStatus.CONFIRMED,
+      ]);
+      // Descartar en la consulta las citas con ambos avisos ya enviados: es el
+      // mismo predicado del índice parcial idx_appointments_recordatorios.
       const candidatas = await this.dataSource.getRepository(Appointment).find({
-        where: {
-          date: Between(
-            this.aFecha(ahora),
-            this.aFecha(this.sumarHoras(ahora, 26))
-          ),
-          status: In([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED]),
-        },
+        where: [
+          { date: rango, status: estados, reminder24hSentAt: IsNull() },
+          { date: rango, status: estados, reminder1hSentAt: IsNull() },
+        ],
+        order: { date: "ASC", startTime: "ASC" },
+        take: MAXIMO_POR_SONDEO,
       });
+
+      if (candidatas.length === MAXIMO_POR_SONDEO) {
+        this.logger.warn(
+          `El sondeo alcanzó el tope de ${MAXIMO_POR_SONDEO} citas; las restantes se atenderán en el siguiente ciclo`
+        );
+      }
 
       for (const cita of candidatas) {
         const ventana = this.ventanaDe(cita, ahora);
@@ -148,6 +168,7 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** Devuelve la fecha desplazada las horas indicadas. */
   private sumarHoras(fecha: Date, horas: number): Date {
     return new Date(fecha.getTime() + horas * 3600000);
   }

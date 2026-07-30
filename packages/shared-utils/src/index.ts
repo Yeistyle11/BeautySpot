@@ -13,6 +13,27 @@ export function generateSlug(text: string): string {
 }
 
 /**
+ * Oculta la mayor parte de un correo dejándolo reconocible.
+ *
+ * Los registros se guardan y se consultan por mucha gente; un correo completo
+ * ahí es un dato personal que casi nunca hace falta para depurar, y basta con
+ * distinguir de cuál se trata.
+ */
+export function ocultarCorreo(correo: string): string {
+  const arroba = correo.indexOf("@");
+  if (arroba <= 0) return "***";
+  const inicial = correo[0];
+  const dominio = correo.slice(arroba);
+  return `${inicial}***${dominio}`;
+}
+
+/**
+ * Página máxima aceptada. Sin tope, `?page=500000&limit=100` genera un OFFSET de
+ * 50 millones que Postgres tiene que leer y descartar entero.
+ */
+export const MAX_PAGE = 1000;
+
+/**
  * Normaliza los parámetros de paginación recibidos por query string: acota página
  * y límite a rangos válidos y solo admite ordenar por campos de la lista permitida.
  */
@@ -27,7 +48,7 @@ export function parsePaginationQuery(
   order: "ASC" | "DESC";
   search?: string;
 } {
-  const page = Math.max(1, Number(query.page) || 1);
+  const page = Math.min(MAX_PAGE, Math.max(1, Number(query.page) || 1));
   const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
   const rawSort = typeof query.sort === "string" ? query.sort : "createdAt";
   const sort = allowedSortFields.includes(rawSort) ? rawSort : "createdAt";

@@ -3,6 +3,7 @@ import { Logger } from "@nestjs/common";
 import { Job } from "bullmq";
 import { EmailService } from "../email.service";
 import { AmqpConnection } from "@golevelup/nestjs-rabbitmq";
+import { EVENTS_EXCHANGE } from "@beautyspot/event-types";
 
 /** Datos de un trabajo de la cola de emails: destinatario, plantilla, contexto y prioridad. */
 export interface EmailJobData {
@@ -111,7 +112,7 @@ export class SendEmailProcessor extends WorkerHost {
   ) {
     try {
       await this.amqpConnection.publish(
-        "beautyspot.events",
+        EVENTS_EXCHANGE,
         "notification.email.sent",
         {
           eventType: "notification.email.sent",
@@ -145,7 +146,7 @@ export class SendEmailProcessor extends WorkerHost {
   ) {
     try {
       await this.amqpConnection.publish(
-        "beautyspot.events",
+        EVENTS_EXCHANGE,
         "notification.email.failed",
         {
           eventType: "notification.email.failed",

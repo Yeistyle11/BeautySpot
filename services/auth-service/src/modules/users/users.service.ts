@@ -140,7 +140,7 @@ export class UsersService {
       where: { email: dto.email },
     });
     if (existing) {
-      throw new ConflictException("El email ya esta registrado");
+      throw new ConflictException("No se pudo crear la cuenta");
     }
 
     const saltRounds = Number(

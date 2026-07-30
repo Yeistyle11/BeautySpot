@@ -13,6 +13,7 @@ import {
   RATE_LIMIT_GENERAL_REQUESTS,
   RATE_LIMIT_WINDOW_SECONDS,
 } from "@beautyspot/shared-constants";
+import { ConfigService } from "@nestjs/config";
 import Redis from "ioredis";
 import { REDIS_CLIENT } from "../redis/redis.module";
 
@@ -30,12 +31,58 @@ const INCR_WITH_EXPIRE = `
   return count
 `;
 
+/** Rutas que exponen credenciales y quedan bajo el límite estricto. */
+const RUTAS_DE_CREDENCIALES = [
+  "/auth/login",
+  "/auth/register",
+  "/auth/forgot-password",
+  "/auth/reset-password",
+];
+
 @Injectable()
 export class RateLimitGuard implements CanActivate {
   private readonly logger = new Logger(RateLimitGuard.name);
 
-  constructor(@Inject(REDIS_CLIENT) private redis: Redis) {}
+  private readonly limiteCredenciales: number;
+  private readonly limiteGeneral: number;
+  private readonly ventanaSegundos: number;
 
+  constructor(
+    @Inject(REDIS_CLIENT) private redis: Redis,
+    configService: ConfigService
+  ) {
+    // Los límites salen de la configuración; las constantes son el respaldo.
+    this.limiteCredenciales = this.numero(
+      configService,
+      "RATE_LIMIT_AUTH_MAX",
+      RATE_LIMIT_AUTH_REQUESTS
+    );
+    this.limiteGeneral = this.numero(
+      configService,
+      "RATE_LIMIT_GENERAL_MAX",
+      RATE_LIMIT_GENERAL_REQUESTS
+    );
+    this.ventanaSegundos = this.numero(
+      configService,
+      "RATE_LIMIT_WINDOW_SECONDS",
+      RATE_LIMIT_WINDOW_SECONDS
+    );
+  }
+
+  /** Lee un número de la configuración, con valor por defecto si falta o no es válido. */
+  private numero(
+    configService: ConfigService,
+    clave: string,
+    porDefecto: number
+  ): number {
+    const crudo = configService.get(clave);
+    if (crudo === undefined || crudo === null || crudo === "")
+      return porDefecto;
+    const valor = Number(crudo);
+    return Number.isFinite(valor) && valor > 0 ? valor : porDefecto;
+  }
+
+  /** Cuenta la petición y la rechaza si supera el límite de su ventana. */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const isAuthRoute = this.isAuthRoute(request.path);
@@ -44,9 +91,7 @@ export class RateLimitGuard implements CanActivate {
     // por IP: así un ataque distribuido de credential stuffing contra un mismo
     // email se frena aunque cada intento venga de una IP distinta.
     const buckets = this.buildBuckets(request, isAuthRoute);
-    const limit = isAuthRoute
-      ? RATE_LIMIT_AUTH_REQUESTS
-      : RATE_LIMIT_GENERAL_REQUESTS;
+    const limit = isAuthRoute ? this.limiteCredenciales : this.limiteGeneral;
 
     for (const bucket of buckets) {
       const count = await this.hit(bucket);
@@ -68,10 +113,17 @@ export class RateLimitGuard implements CanActivate {
     return true;
   }
 
+  /**
+   * Indica si la ruta es de credenciales y le toca el límite estricto. Compara
+   * el nombre del servicio normalizado, que se acepta con y sin sufijo, y deja
+   * fuera `/auth/refresh`, cuyo token firmado no se fuerza por fuerza bruta.
+   */
   private isAuthRoute(path: string): boolean {
-    return path.includes("/auth/login") || path.includes("/auth/register");
+    const normalizado = path.replace(/^(\/api\/v\d+\/[a-z]+)-service\//, "$1/");
+    return RUTAS_DE_CREDENCIALES.some((ruta) => normalizado.includes(ruta));
   }
 
+  /** Contadores que se aplican a la petición: por IP y, en credenciales, por cuenta. */
   private buildBuckets(request: Request, isAuthRoute: boolean): string[] {
     const ip = this.resolveIp(request);
     const scope = isAuthRoute ? "auth" : "general";
@@ -85,6 +137,7 @@ export class RateLimitGuard implements CanActivate {
     return buckets;
   }
 
+  /** IP a la que se le imputa la petición. */
   private resolveIp(request: Request): string {
     // request.ip respeta el ajuste "trust proxy" de Express; si no está activo
     // detrás de un balanceador todas las peticiones comparten cuota, por lo que
@@ -92,6 +145,7 @@ export class RateLimitGuard implements CanActivate {
     return request.ip || request.socket?.remoteAddress || "unknown";
   }
 
+  /** Correo del cuerpo, normalizado, para contar los intentos por cuenta. */
   private extractEmail(request: Request): string | null {
     const body = request.body as { email?: unknown } | undefined;
     if (!body || typeof body.email !== "string") return null;
@@ -109,7 +163,7 @@ export class RateLimitGuard implements CanActivate {
         INCR_WITH_EXPIRE,
         1,
         key,
-        String(RATE_LIMIT_WINDOW_SECONDS)
+        String(this.ventanaSegundos)
       )) as number;
       return count;
     } catch (error) {

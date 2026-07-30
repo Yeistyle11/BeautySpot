@@ -10,13 +10,14 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 
-/** Datos para crear una reseña: negocio/profesional, cita, calificación, comentario y fotos. */
+/**
+ * Datos para crear una reseña: negocio/profesional, cita, calificación,
+ * comentario y fotos. El autor no viaja en el cuerpo: sale del token.
+ */
 export class CreateReviewDto {
   @IsString() businessId!: string;
 
   @IsOptional() @IsString() appointmentId?: string;
-
-  @IsString() clientId!: string;
 
   @IsOptional() @IsString() professionalId?: string;
 

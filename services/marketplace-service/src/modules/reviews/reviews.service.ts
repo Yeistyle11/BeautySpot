@@ -10,7 +10,7 @@ import { ReviewEntity } from "../../entities/review.entity";
 import { ReviewHelpfulEntity } from "../../entities/review-helpful.entity";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
-import { OutboxService } from "@beautyspot/nest-common";
+import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { CreateReviewDto, ReviewQueryDto } from "./dto/review.dto";
 
@@ -45,14 +45,16 @@ export class ReviewsService {
     private readonly dataSource: DataSource,
     private readonly profilesService: BusinessProfilesService,
     private readonly professionalProfilesService: ProfessionalProfilesService,
-    private readonly outbox: OutboxService
+    private readonly outbox: OutboxService,
+    private readonly http: InternalHttpClient
   ) {}
 
   /**
-   * Crea una reseña (una por cita, comentario obligatorio si baja de 4 estrellas),
-   * recalcula las medias del negocio y el profesional y emite el evento REVIEW_CREATED.
+   * Crea una reseña del usuario indicado (una por cita, comentario obligatorio
+   * si baja de 4 estrellas), recalcula las medias del negocio y el profesional
+   * y emite el evento REVIEW_CREATED.
    */
-  async create(dto: CreateReviewDto): Promise<ReviewEntity> {
+  async create(dto: CreateReviewDto, clientId: string): Promise<ReviewEntity> {
     // Validar una reseña por cita
     if (dto.appointmentId) {
       const existing = await this.repo.findOne({
@@ -61,8 +63,7 @@ export class ReviewsService {
       if (existing)
         throw new ConflictException("Ya existe una reseña para esta cita");
 
-      // Si viene de una cita, es verificada
-      dto.photos = dto.photos?.slice(0, 3); // Max 3 fotos
+      dto.photos = dto.photos?.slice(0, 3);
     }
 
     // Si rating < 4 y no hay comentario, requerirlo
@@ -74,11 +75,12 @@ export class ReviewsService {
 
     const review = this.repo.create({
       ...dto,
-      isVerified: !!dto.appointmentId,
+      clientId,
+      isVerified: await this.esVerificable(dto, clientId),
     });
 
-    return this.dataSource.transaction(async (manager) => {
-      const saved = await manager.getRepository(ReviewEntity).save(review);
+    const saved = await this.dataSource.transaction(async (manager) => {
+      const guardada = await manager.getRepository(ReviewEntity).save(review);
 
       await this.profilesService.updateRating(dto.businessId, manager);
 
@@ -92,20 +94,50 @@ export class ReviewsService {
       await this.outbox.enqueue(manager, {
         eventType: EventNames.MARKETPLACE_REVIEW_CREATED,
         aggregateType: "review",
-        aggregateId: saved.id,
+        aggregateId: guardada.id,
         payload: {
-          reviewId: saved.id,
+          reviewId: guardada.id,
           businessId: dto.businessId,
           professionalId: dto.professionalId,
-          clientId: dto.clientId,
+          clientId,
           rating: dto.rating,
           comment: dto.comment,
-          isVerified: saved.isVerified,
+          isVerified: guardada.isVerified,
         },
       });
 
-      return saved;
+      return guardada;
     });
+
+    // Tras confirmar: dentro de la transacción alargaría los bloqueos con una
+    // conversación con Redis, y si se deshiciera habríamos borrado la caché de
+    // una reseña que no llegó a existir.
+    await this.profilesService.invalidarCache(dto.businessId);
+
+    return saved;
+  }
+
+  /**
+   * Comprueba con booking si la reseña merece el distintivo de verificada: solo
+   * lo lleva quien reseña una cita suya, de ese negocio y ya atendida. Si
+   * booking no responde no se concede, pero la reseña se publica igual.
+   */
+  private async esVerificable(
+    dto: CreateReviewDto,
+    clientId: string
+  ): Promise<boolean> {
+    if (!dto.appointmentId) return false;
+
+    const parametros = new URLSearchParams({
+      userId: clientId,
+      businessId: dto.businessId,
+    });
+    const respuesta = await this.http.pedirONulo<{ resenable: boolean }>(
+      "booking",
+      `/internal/appointments/${dto.appointmentId}/resenable?${parametros}`
+    );
+
+    return respuesta?.resenable === true;
   }
 
   /** Lista las reseñas de un negocio con filtros (estrellas, profesional, con fotos) y paginación. */
@@ -183,9 +215,17 @@ export class ReviewsService {
     return review;
   }
 
-  /** Registra la respuesta del negocio a una reseña; rechaza si ya tenía una. */
-  async respond(id: string, response: string): Promise<ReviewEntity> {
-    const review = await this.findById(id);
+  /**
+   * Registra la respuesta del negocio a una reseña suya; rechaza si ya tiene
+   * una.
+   */
+  async respond(
+    id: string,
+    businessId: string,
+    response: string
+  ): Promise<ReviewEntity> {
+    const review = await this.repo.findOne({ where: { id, businessId } });
+    if (!review) throw new NotFoundException("Reseña no encontrada");
     if (review.response)
       throw new BadRequestException("Esta reseña ya tiene respuesta");
     review.response = response;

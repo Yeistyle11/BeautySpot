@@ -14,7 +14,8 @@ import { Response } from "express";
 import { InvoicesService } from "./invoices.service";
 import { CreateInvoiceDto, UpdateInvoiceStatusDto } from "./dto/invoice.dto";
 import { Roles, BusinessId } from "@beautyspot/nest-common";
-import { Role } from "@beautyspot/shared-types";
+import { Role, InvoiceStatus } from "@beautyspot/shared-types";
+import { parsePaginationQuery } from "@beautyspot/shared-utils";
 
 /** Endpoints de facturación del negocio (crear, consultar, cambiar estado y descargar PDF). */
 @Controller("invoices")
@@ -38,9 +39,15 @@ export class InvoicesController {
     @BusinessId() businessId: string,
     @Query() query: Record<string, unknown>
   ) {
+    const pagination = parsePaginationQuery(query, ["createdAt", "total"]);
     return this.service.findByBusiness(
       businessId,
-      query as Parameters<typeof this.service.findByBusiness>[1]
+      {
+        status: query.status as InvoiceStatus,
+        from: query.from as string,
+        to: query.to as string,
+      },
+      pagination
     );
   }
 

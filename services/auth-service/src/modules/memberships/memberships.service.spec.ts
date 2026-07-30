@@ -22,6 +22,14 @@ describe("MembershipsService", () => {
     businessId: "biz-123",
   };
 
+  const mockUser = {
+    id: "user-123",
+    email: "staff@negocio.com",
+    password: "$2b$12$hashdeejemplo",
+    name: "Staff",
+    generateId: () => {},
+  } as any;
+
   const mockMembership: Membership = {
     id: "mem-123",
     userId: "user-123",
@@ -31,6 +39,7 @@ describe("MembershipsService", () => {
     acceptedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
+    user: mockUser,
     generateId: () => {},
   } as any;
 
@@ -398,6 +407,17 @@ describe("MembershipsService", () => {
         where: { businessId: "biz-123", active: true },
         relations: ["user"],
       });
+    });
+
+    it("no debería exponer la contraseña del usuario en el listado", async () => {
+      mockRepo.findOne.mockResolvedValue(mockMembership);
+      mockRepo.find.mockResolvedValue([mockMembership]);
+
+      const result = await service.findByBusiness("biz-123", actor);
+
+      expect(result[0].user).not.toHaveProperty("password");
+      expect(result[0].user.email).toBe("staff@negocio.com");
+      expect(JSON.stringify(result)).not.toContain("$2b$12$");
     });
 
     it("debería lanzar ForbiddenException si el caller no pertenece al negocio", async () => {

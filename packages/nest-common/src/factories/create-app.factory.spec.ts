@@ -116,8 +116,7 @@ describe("createAppFactory", () => {
     });
 
     it("debería denegar localhost en producción", async () => {
-      // El check de localhost se evaluaba antes que el de NODE_ENV, de modo que
-      // en producción cualquier http://localhost:* quedaba autorizado.
+      // La excepción de localhost solo vale fuera de producción.
       mockConfigService.get.mockImplementation((key: string) => {
         if (key === "NODE_ENV") return "production";
         if (key === "CORS_ORIGINS") return "https://example.com";
@@ -195,6 +194,18 @@ describe("createAppFactory", () => {
       await createMicroserviceApp({} as any);
 
       expect(mockApp.useGlobalInterceptors).toHaveBeenCalled();
+    });
+
+    it("debería serializar la respuesta antes de envolverla", async () => {
+      await createMicroserviceApp({} as any);
+
+      // El orden importa: el serializador va después del que envuelve para
+      // recibir la entidad cruda y poder aplicar sus @Exclude().
+      const registrados = mockApp.useGlobalInterceptors.mock.calls[0];
+      expect(registrados.map((i: object) => i.constructor.name)).toEqual([
+        "TransformInterceptor",
+        "ClassSerializerInterceptor",
+      ]);
     });
   });
 

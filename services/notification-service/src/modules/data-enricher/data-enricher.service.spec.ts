@@ -1,24 +1,18 @@
 import { Test } from "@nestjs/testing";
-import { ConfigService } from "@nestjs/config";
+import { InternalHttpClient } from "@beautyspot/nest-common";
 import { DataEnricherService } from "./data-enricher.service";
 
 describe("DataEnricherService", () => {
   let service: DataEnricherService;
-  let mockConfigService: jest.Mocked<ConfigService>;
+  let mockHttp: { pedirONulo: jest.Mock };
 
   beforeEach(async () => {
-    mockConfigService = {
-      get: jest.fn((key: string) => {
-        if (key === "CORE_SERVICE_URL") return "http://localhost:3002";
-        if (key === "INTERNAL_API_SECRET") return "test-secret";
-        return undefined;
-      }),
-    } as any;
+    mockHttp = { pedirONulo: jest.fn() };
 
     const module = await Test.createTestingModule({
       providers: [
         DataEnricherService,
-        { provide: ConfigService, useValue: mockConfigService },
+        { provide: InternalHttpClient, useValue: mockHttp },
       ],
     }).compile();
 
@@ -32,14 +26,11 @@ describe("DataEnricherService", () => {
   describe("enrichAppointmentParticipants", () => {
     it("debería resolver datos de client, professional y business", async () => {
       const mockResponse = {
-        client: { name: "Juan", email: "juan@test.com" },
+        client: { name: "Juan", email: "juan@test.com", userId: "user-1" },
         professional: { name: "Ana" },
         business: { name: "Professional", address: "Calle 1", phone: "123" },
       };
-      jest.spyOn(global, "fetch").mockResolvedValue({
-        ok: true,
-        json: async () => mockResponse,
-      } as any);
+      mockHttp.pedirONulo.mockResolvedValue(mockResponse);
 
       const result = await service.enrichAppointmentParticipants(
         "client-1",
@@ -50,28 +41,24 @@ describe("DataEnricherService", () => {
       expect(result).toEqual({
         clientName: "Juan",
         clientEmail: "juan@test.com",
+        clientUserId: "user-1",
         professionalName: "Ana",
         businessName: "Professional",
         businessAddress: "Calle 1",
         businessPhone: "123",
       });
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/internal/profiles/resolve"),
-        expect.objectContaining({
-          headers: { "x-internal-secret": "test-secret" },
-        })
+      expect(mockHttp.pedirONulo).toHaveBeenCalledWith(
+        "core",
+        expect.stringContaining("/internal/profiles/resolve")
       );
     });
 
     it("debería usar fallbacks cuando core-service responde con nulls", async () => {
-      jest.spyOn(global, "fetch").mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          client: null,
-          professional: null,
-          business: null,
-        }),
-      } as any);
+      mockHttp.pedirONulo.mockResolvedValue({
+        client: null,
+        professional: null,
+        business: null,
+      });
 
       const result = await service.enrichAppointmentParticipants(
         "client-1",
@@ -86,9 +73,7 @@ describe("DataEnricherService", () => {
     });
 
     it("debería usar fallbacks cuando core-service no responde", async () => {
-      jest
-        .spyOn(global, "fetch")
-        .mockRejectedValue(new Error("Connection refused"));
+      mockHttp.pedirONulo.mockResolvedValue(null);
 
       const result = await service.enrichAppointmentParticipants(
         "client-1",
@@ -101,10 +86,7 @@ describe("DataEnricherService", () => {
     });
 
     it("debería usar fallbacks cuando core-service responde con error HTTP", async () => {
-      jest.spyOn(global, "fetch").mockResolvedValue({
-        ok: false,
-        status: 500,
-      } as any);
+      mockHttp.pedirONulo.mockResolvedValue(null);
 
       const result = await service.enrichAppointmentParticipants(
         "client-1",
@@ -118,14 +100,11 @@ describe("DataEnricherService", () => {
 
   describe("enrichClientEmail", () => {
     it("debería retornar el email del cliente", async () => {
-      jest.spyOn(global, "fetch").mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          client: { name: "Juan", email: "juan@test.com" },
-          professional: null,
-          business: null,
-        }),
-      } as any);
+      mockHttp.pedirONulo.mockResolvedValue({
+        client: { name: "Juan", email: "juan@test.com", userId: "user-1" },
+        professional: null,
+        business: null,
+      });
 
       const result = await service.enrichClientEmail("client-1");
 
@@ -133,14 +112,11 @@ describe("DataEnricherService", () => {
     });
 
     it("debería retornar string vacío si el cliente no se encuentra", async () => {
-      jest.spyOn(global, "fetch").mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          client: null,
-          professional: null,
-          business: null,
-        }),
-      } as any);
+      mockHttp.pedirONulo.mockResolvedValue({
+        client: null,
+        professional: null,
+        business: null,
+      });
 
       const result = await service.enrichClientEmail("nonexistent");
 
@@ -150,14 +126,11 @@ describe("DataEnricherService", () => {
 
   describe("enrichBusinessData", () => {
     it("debería retornar los datos del negocio", async () => {
-      jest.spyOn(global, "fetch").mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          client: null,
-          professional: null,
-          business: { name: "Elite", address: "Av 2", phone: "555" },
-        }),
-      } as any);
+      mockHttp.pedirONulo.mockResolvedValue({
+        client: null,
+        professional: null,
+        business: { name: "Elite", address: "Av 2", phone: "555" },
+      });
 
       const result = await service.enrichBusinessData("biz-1");
 

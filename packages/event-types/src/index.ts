@@ -236,6 +236,12 @@ export const EVENTS_EXCHANGE = "beautyspot.events";
 export const DEAD_LETTER_EXCHANGE = "beautyspot.dlx";
 
 /**
+ * Cola terminal donde se acumulan los eventos fallidos. No se reencolan desde
+ * aquí: se revisan y se reprocesan a mano.
+ */
+export const DEAD_LETTER_QUEUE = "beautyspot.dlx.dead";
+
+/**
  * Nombre de la cola de un consumidor: un servicio por evento. Cada servicio
  * tiene su propia cola para el mismo evento, así que todos lo reciben y el
  * fallo de uno no afecta a los demás.

@@ -6,6 +6,7 @@ import { Availability } from "../../entities/availability.entity";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
 import { PublicBookingController } from "./public-booking.controller";
 import { PublicBookingService } from "./public-booking.service";
+import { AppointmentsModule } from "../appointments/appointments.module";
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { PublicBookingService } from "./public-booking.service";
       Availability,
       BlockedSlot,
     ]),
+    AppointmentsModule,
   ],
   controllers: [PublicBookingController],
   providers: [PublicBookingService],

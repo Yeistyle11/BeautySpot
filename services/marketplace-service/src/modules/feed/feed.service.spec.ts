@@ -49,6 +49,8 @@ describe("FeedService", () => {
   beforeEach(async () => {
     mockBusinessService = {
       findPublished: jest.fn(),
+      // Las categorías salen ahora de un GROUP BY, no de una consulta por cada una.
+      contarPorTipo: jest.fn().mockResolvedValue(new Map()),
       findTopRated: jest.fn(),
       findRecent: jest.fn(),
     } as any;
@@ -144,19 +146,30 @@ describe("FeedService", () => {
     });
 
     it("debería calcular categorías correctamente", async () => {
-      mockBusinessService.findPublished
-        .mockResolvedValueOnce({ items: [], total: 0 })
-        .mockResolvedValueOnce({ items: [mockBusinessProfile], total: 1 })
-        .mockResolvedValue({ items: [], total: 0 });
-
+      mockBusinessService.contarPorTipo.mockResolvedValue(
+        new Map([
+          ["SALON", 7],
+          ["SPA", 2],
+        ])
+      );
+      mockBusinessService.findPublished.mockResolvedValue({
+        items: [],
+        total: 0,
+      });
       mockBusinessService.findTopRated.mockResolvedValue([]);
       mockBusinessService.findRecent.mockResolvedValue([]);
       mockProfessionalService.findTopRated.mockResolvedValue([]);
 
       const result = await service.getFeed();
 
-      expect(result.categories).toHaveLength(3);
-      expect((result.categories as any)[0].id).toBe("BARBERIA");
+      // Un solo GROUP BY para las tres categorías, en vez de una consulta por
+      // cada una que además traía una fila de perfil para descartarla.
+      expect(mockBusinessService.contarPorTipo).toHaveBeenCalledTimes(1);
+      expect(result.categories).toEqual([
+        expect.objectContaining({ id: "BARBERIA", count: 0 }),
+        expect.objectContaining({ id: "SALON", count: 7 }),
+        expect.objectContaining({ id: "SPA", count: 2 }),
+      ]);
     });
   });
 });

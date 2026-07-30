@@ -8,6 +8,8 @@ import { Business } from "../../entities/business.entity";
 export interface ResolvedClient {
   name: string;
   email: string;
+  /** Cuenta asociada, si la ficha corresponde a un usuario registrado. */
+  userId: string | null;
 }
 
 export interface ResolvedProfessional {
@@ -62,10 +64,12 @@ export class InternalProfilesController {
   private async resolveClient(id: string): Promise<ResolvedClient | null> {
     const c = await this.clientRepo.findOne({
       where: { id },
-      select: ["name", "email"],
+      select: ["name", "email", "userId"],
     });
     if (!c) return null;
-    return { name: c.name, email: c.email ?? "" };
+    // El invitado que reserva sin cuenta no tiene usuario, y sin él no se le
+    // puede dejar una notificación dentro de la aplicación.
+    return { name: c.name, email: c.email ?? "", userId: c.userId ?? null };
   }
 
   /** Nombre del profesional indicado. */

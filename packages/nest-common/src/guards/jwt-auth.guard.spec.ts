@@ -56,6 +56,9 @@ describe("JwtAuthGuard", () => {
 
     mockTokenVersionStore = {
       getVersion: jest.fn().mockResolvedValue(TOKEN_VERSION_DEFAULT),
+      consultarVersion: jest
+        .fn()
+        .mockResolvedValue({ conocida: true, version: TOKEN_VERSION_DEFAULT }),
       bumpVersion: jest.fn().mockResolvedValue(1),
     } as any;
 
@@ -129,7 +132,10 @@ describe("JwtAuthGuard", () => {
           return "test-secret-with-sufficient-length-32!!";
         return key;
       });
-      mockTokenVersionStore.getVersion.mockResolvedValue(TOKEN_VERSION_DEFAULT);
+      mockTokenVersionStore.consultarVersion.mockResolvedValue({
+        conocida: true,
+        version: TOKEN_VERSION_DEFAULT,
+      });
     });
 
     it("debería permitir acceso con token Bearer válido", async () => {
@@ -238,12 +244,53 @@ describe("JwtAuthGuard", () => {
       expect(callArgs?.[2]).toEqual({ algorithms: ["HS256"] });
     });
 
+    it("deja pasar una lectura cuando no se puede comprobar la revocación", async () => {
+      (jwt.verify as jest.Mock).mockReturnValue({
+        ...mockDecoded,
+        tokenVersion: 2,
+      } as any);
+      mockTokenVersionStore.consultarVersion.mockResolvedValue({
+        conocida: false,
+      });
+      // Ruta no marcada como verificable.
+      mockReflector.getAllAndOverride.mockReturnValue(false);
+
+      const context = mockExecutionContext("/api/test", "Bearer token");
+
+      // Tumbar toda la aplicación por no poder consultar la caché sería peor
+      // que el riesgo que evita.
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+    });
+
+    it("rechaza una acción sensible cuando no se puede comprobar la revocación", async () => {
+      (jwt.verify as jest.Mock).mockReturnValue({
+        ...mockDecoded,
+        tokenVersion: 2,
+      } as any);
+      mockTokenVersionStore.consultarVersion.mockResolvedValue({
+        conocida: false,
+      });
+      // @Public devuelve false y @SesionVerificable, true.
+      mockReflector.getAllAndOverride.mockImplementation(
+        (clave: unknown) => clave === "sesionVerificable"
+      );
+
+      const context = mockExecutionContext("/api/test", "Bearer token");
+
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        "No se puede verificar la sesión"
+      );
+    });
+
     it("debería rechazar si tokenVersion no coincide (sesión invalidada)", async () => {
       (jwt.verify as jest.Mock).mockReturnValue({
         ...mockDecoded,
         tokenVersion: 0,
       } as any);
-      mockTokenVersionStore.getVersion.mockResolvedValue(1);
+      mockTokenVersionStore.consultarVersion.mockResolvedValue({
+        conocida: true,
+        version: 1,
+      });
 
       const context = mockExecutionContext("/api/test", "Bearer token");
 
@@ -257,7 +304,10 @@ describe("JwtAuthGuard", () => {
         ...mockDecoded,
         tokenVersion: 2,
       } as any);
-      mockTokenVersionStore.getVersion.mockResolvedValue(2);
+      mockTokenVersionStore.consultarVersion.mockResolvedValue({
+        conocida: true,
+        version: 2,
+      });
 
       const context = mockExecutionContext("/api/test", "Bearer token");
 

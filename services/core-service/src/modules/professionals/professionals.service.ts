@@ -1,16 +1,16 @@
 import {
   Injectable,
-  NotFoundException,
   ConflictException,
   BadRequestException,
-  ServiceUnavailableException,
-  InternalServerErrorException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { OutboxService } from "@beautyspot/nest-common";
+import {
+  InternalHttpClient,
+  OutboxService,
+  TenantCrudService,
+} from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { Repository, DataSource } from "typeorm";
-import { ConfigService } from "@nestjs/config";
 import { Professional } from "../../entities/professional.entity";
 import { CategoriesService } from "../categories/categories.service";
 import { ProfessionalService } from "../../entities/professional-service.entity";
@@ -20,17 +20,19 @@ import { ProfessionalService } from "../../entities/professional-service.entity"
  * que presta cada uno y el vínculo con una cuenta de usuario.
  */
 @Injectable()
-export class ProfessionalsService {
+export class ProfessionalsService extends TenantCrudService<Professional> {
   constructor(
     @InjectRepository(Professional)
-    private readonly repo: Repository<Professional>,
+    repo: Repository<Professional>,
     @InjectRepository(ProfessionalService)
     private readonly psRepo: Repository<ProfessionalService>,
-    private readonly configService: ConfigService,
+    private readonly http: InternalHttpClient,
     private readonly categories: CategoriesService,
     private readonly dataSource: DataSource,
     private readonly outbox: OutboxService
-  ) {}
+  ) {
+    super(repo, "Profesional no encontrado");
+  }
 
   /** Comprueba que la categoría pertenece al negocio antes de asociarla. */
   private async validarCategoria(
@@ -80,25 +82,14 @@ export class ProfessionalsService {
     return this.repo.find({ where, order: { createdAt: "ASC" as const } });
   }
 
-  /** Obtiene un profesional del negocio por id; lanza 404 si no existe. */
-  async findById(id: string, businessId: string): Promise<Professional> {
-    const professional = await this.repo.findOne({ where: { id, businessId } });
-    if (!professional) throw new NotFoundException("Profesional no encontrado");
-    return professional;
-  }
-
-  /** Actualiza la ficha de un profesional. */
+  /** Actualiza la ficha de un profesional, validando antes su categoría. */
   async update(
     id: string,
     businessId: string,
     data: Partial<Professional>
   ): Promise<Professional> {
     await this.validarCategoria(data.categoryId, businessId);
-    await this.repo.update(
-      { id, businessId },
-      data as Parameters<typeof this.repo.update>[1]
-    );
-    return this.findById(id, businessId);
+    return super.update(id, businessId, data);
   }
 
   /** Asigna un servicio a un profesional, con precio/duración propios opcionales. */
@@ -142,11 +133,7 @@ export class ProfessionalsService {
     return this.psRepo.find({ where: { professionalId } });
   }
 
-  /**
-   * Inactiva un profesional (soft-delete).
-   * Valida que no tenga citas pendientes o confirmadas antes de inactivar.
-   * Si tiene historial de citas completadas, solo se puede inactivar (no eliminar).
-   */
+  /** Da de baja un profesional, siempre que no tenga citas por atender. */
   async remove(id: string, businessId: string): Promise<void> {
     const professional = await this.findById(id, businessId);
 
@@ -159,17 +146,12 @@ export class ProfessionalsService {
       );
     }
 
-    await this.repo.update(
-      { id: professional.id, businessId },
-      { active: false }
-    );
+    await this.deactivate(professional.id, businessId);
   }
 
   // --- Vinculacion con cuenta de usuario ---
 
-  /**
-   * Vincula un profesional con una cuenta de usuario (userId del auth-service).
-   */
+  /** Vincula un profesional con una cuenta de usuario del auth-service. */
   async linkUser(
     id: string,
     businessId: string,
@@ -197,9 +179,7 @@ export class ProfessionalsService {
     return this.findById(id, businessId);
   }
 
-  /**
-   * Desvincula la cuenta de usuario de un profesional.
-   */
+  /** Desvincula la cuenta de usuario de un profesional. */
   async unlinkUser(id: string, businessId: string): Promise<Professional> {
     const professional = await this.findById(id, businessId);
 
@@ -218,80 +198,22 @@ export class ProfessionalsService {
   // --- Helpers ---
 
   /**
-   * Consulta al booking-service si el profesional tiene historial de citas.
-   * Usa el endpoint interno del booking-service via HTTP.
-   *
-   * Fail-closed: si el booking-service no esta disponible o responde con
-   * error, la accion se BLOQUEA (no se permite inactivar al profesional).
-   * Esto evita inactivar profesionales con citas activas cuando no se puede
-   * verificar su historial de forma segura.
+   * Consulta a booking el historial de citas del profesional; si booking no
+   * responde, el error se propaga y la baja queda bloqueada.
    */
   private async checkProfessionalHistory(professionalId: string): Promise<{
     hasHistory: boolean;
     hasActiveAppointments: boolean;
     totalAppointments: number;
   }> {
-    const bookingUrl = this.configService.get<string>(
-      "BOOKING_SERVICE_URL",
-      "http://localhost:3003"
+    const result = await this.http.pedir<{
+      totalAppointments?: unknown;
+      completedAppointments?: unknown;
+      hasHistory?: unknown;
+    }>(
+      "booking",
+      `/internal/appointments/professional/${professionalId}/has-history`
     );
-    const internalSecret = this.configService.get<string>(
-      "INTERNAL_API_SECRET",
-      ""
-    );
-
-    let response: Response;
-    try {
-      response = await fetch(
-        `${bookingUrl}/internal/appointments/professional/${professionalId}/has-history`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            ...(internalSecret ? { "x-internal-secret": internalSecret } : {}),
-          },
-        }
-      );
-    } catch (error) {
-      // Fail-closed: error de red/DNS/timeout bloquea la accion
-      throw new ServiceUnavailableException(
-        `No se pudo verificar el historial del profesional (booking-service no disponible). ` +
-          `Reintenta mas tarde. Error: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-      );
-    }
-
-    if (!response.ok) {
-      // Fail-closed: respuesta no-2xx bloquea la accion
-      throw new ServiceUnavailableException(
-        `No se pudo verificar el historial del profesional (booking-service respondio ${response.status}). ` +
-          `Reintenta mas tarde.`
-      );
-    }
-
-    let data: unknown;
-    try {
-      data = await response.json();
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Respuesta invalida del booking-service al verificar historial: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
-    }
-
-    const result = (
-      typeof data === "object" && data !== null && "data" in data
-        ? (data as Record<string, unknown>).data
-        : data
-    ) as
-      | {
-          totalAppointments?: unknown;
-          completedAppointments?: unknown;
-          hasHistory?: unknown;
-        }
-      | null
-      | undefined;
 
     // Coercion segura: valores faltantes/no-numericos se tratan como 0
     const totalAppointments = Number(result?.totalAppointments) || 0;

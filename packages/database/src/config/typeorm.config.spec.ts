@@ -87,9 +87,54 @@ describe("TypeOrm Config", () => {
       ) as any;
 
       expect(config.synchronize).toBe(false);
-      expect(config.ssl).toEqual({ rejectUnauthorized: false });
+      expect(config.ssl).toEqual({ rejectUnauthorized: true });
 
       process.env.NODE_ENV = originalEnv;
+    });
+
+    describe("TLS en producción", () => {
+      const originalEnv = process.env.NODE_ENV;
+
+      beforeEach(() => {
+        process.env.NODE_ENV = "production";
+      });
+
+      afterEach(() => {
+        process.env.NODE_ENV = originalEnv;
+        delete process.env.DATABASE_CA_CERT;
+        delete process.env.DATABASE_SSL_REJECT_UNAUTHORIZED;
+      });
+
+      it("valida el certificado del servidor por defecto", () => {
+        const config = createTypeOrmConfig(mockDatabaseUrl, mockEntities) as {
+          ssl: unknown;
+        };
+
+        expect(config.ssl).toEqual({ rejectUnauthorized: true });
+      });
+
+      it("usa la CA indicada cuando el certificado es propio", () => {
+        process.env.DATABASE_CA_CERT = "-----BEGIN CERTIFICATE-----";
+
+        const config = createTypeOrmConfig(mockDatabaseUrl, mockEntities) as {
+          ssl: unknown;
+        };
+
+        expect(config.ssl).toEqual({
+          rejectUnauthorized: true,
+          ca: "-----BEGIN CERTIFICATE-----",
+        });
+      });
+
+      it("solo se relaja si se pide de forma explícita", () => {
+        process.env.DATABASE_SSL_REJECT_UNAUTHORIZED = "false";
+
+        const config = createTypeOrmConfig(mockDatabaseUrl, mockEntities) as {
+          ssl: unknown;
+        };
+
+        expect(config.ssl).toEqual({ rejectUnauthorized: false });
+      });
     });
 
     it("debería activar synchronize en desarrollo con parámetro true", () => {
@@ -281,7 +326,7 @@ describe("TypeOrm Config", () => {
       const config = createTypeOrmModuleOptions(mockEntities) as any;
 
       expect(config.synchronize).toBe(false);
-      expect(config.ssl).toEqual({ rejectUnauthorized: false });
+      expect(config.ssl).toEqual({ rejectUnauthorized: true });
 
       process.env.NODE_ENV = originalEnv;
     });

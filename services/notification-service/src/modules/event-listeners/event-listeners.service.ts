@@ -6,6 +6,9 @@ import { ConfigService } from "@nestjs/config";
 import { ProcessedEventsStore } from "@beautyspot/nest-common";
 import { EmailService } from "../emails/email.service";
 import { DataEnricherService } from "../data-enricher/data-enricher.service";
+import { NotificationsService } from "../notifications/notifications.service";
+import { NotificationType } from "@beautyspot/shared-types";
+import { ocultarCorreo } from "@beautyspot/shared-utils";
 import {
   UserRegisteredEvent,
   PasswordResetRequestedEvent,
@@ -33,7 +36,8 @@ export class NotificationEventListeners {
     private readonly amqpConnection: AmqpConnection,
     private readonly configService: ConfigService,
     private readonly dataEnricher: DataEnricherService,
-    private readonly processedEvents: ProcessedEventsStore
+    private readonly processedEvents: ProcessedEventsStore,
+    private readonly notifications: NotificationsService
   ) {}
 
   /** Al registrarse un usuario, encola el correo de bienvenida. */
@@ -44,7 +48,9 @@ export class NotificationEventListeners {
     queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
   })
   async handleUserRegistered(event: UserRegisteredEvent) {
-    this.logger.log(`Usuario registrado: ${event.payload.email}`);
+    this.logger.log(
+      `Usuario registrado: ${ocultarCorreo(event.payload.email)}`
+    );
     try {
       await this.processedEvents.once(
         event,
@@ -81,7 +87,9 @@ export class NotificationEventListeners {
   async handlePasswordResetRequested(event: PasswordResetRequestedEvent) {
     const { email, name, resetToken, expiresAt } = event.payload;
 
-    this.logger.log(`Solicitud de reset de contraseña para: ${email}`);
+    this.logger.log(
+      `Solicitud de reset de contraseña para: ${ocultarCorreo(email)}`
+    );
 
     try {
       await this.processedEvents.once(
@@ -170,6 +178,15 @@ export class NotificationEventListeners {
             "appointment-confirmed",
             `Confirmación de cita en ${data.businessName}`
           );
+
+          await this.avisarEnLaApp(
+            data.clientUserId,
+            businessId,
+            NotificationType.APPOINTMENT_CONFIRMED,
+            "Cita confirmada",
+            `Tu cita en ${data.businessName} el ${date} a las ${startTime} está confirmada.`,
+            { appointmentId }
+          );
         }
       );
     } catch (error) {
@@ -229,6 +246,15 @@ export class NotificationEventListeners {
             data.clientEmail,
             "appointment-cancelled",
             `Cita cancelada - ${data.businessName}`
+          );
+
+          await this.avisarEnLaApp(
+            data.clientUserId,
+            businessId,
+            NotificationType.APPOINTMENT_CANCELLED,
+            "Cita cancelada",
+            `Tu cita en ${data.businessName} del ${date} se ha cancelado.`,
+            { appointmentId, cancelReason }
           );
         }
       );
@@ -314,6 +340,17 @@ export class NotificationEventListeners {
               `Recordatorio - Cita en 1 hora en ${data.businessName}`
             );
           }
+
+          await this.avisarEnLaApp(
+            data.clientUserId,
+            businessId,
+            NotificationType.APPOINTMENT_REMINDER,
+            "Recordatorio de cita",
+            reminderType === "24h"
+              ? `Mañana tienes cita en ${data.businessName} a las ${startTime}.`
+              : `Tu cita en ${data.businessName} empieza en una hora.`,
+            { appointmentId }
+          );
         }
       );
     } catch (error) {
@@ -439,7 +476,7 @@ export class NotificationEventListeners {
   ) {
     try {
       await this.amqpConnection.publish(
-        "beautyspot.events",
+        EVENTS_EXCHANGE,
         "notification.email.queued",
         {
           // Se publica directamente por AmqpConnection, sin pasar por
@@ -457,11 +494,38 @@ export class NotificationEventListeners {
     }
   }
 
-  /** Registra en log un error de envío de correo con su contexto. */
-  private logError(context: string, error: unknown): void {
+  /**
+   * Deja al cliente una notificación dentro de la aplicación, junto al correo;
+   * solo la reciben los clientes con cuenta, no quien reserva como invitado.
+   */
+  private async avisarEnLaApp(
+    userId: string | null,
+    businessId: string,
+    type: NotificationType,
+    title: string,
+    message: string,
+    data?: Record<string, unknown>
+  ): Promise<void> {
+    if (!userId) return;
+    await this.notifications.create({
+      businessId,
+      userId,
+      type,
+      title,
+      message,
+      data,
+    });
+  }
+
+  /**
+   * Registra el fallo del envío y lo vuelve a lanzar, para que el mensaje acabe
+   * en la cola de fallidos en lugar de darse por consumido.
+   */
+  private logError(context: string, error: unknown): never {
     const message =
       error instanceof Error ? error.message : "Error desconocido";
     const stack = error instanceof Error ? error.stack : undefined;
     this.logger.error(`Error enviando email de ${context}: ${message}`, stack);
+    throw error instanceof Error ? error : new Error(message);
   }
 }

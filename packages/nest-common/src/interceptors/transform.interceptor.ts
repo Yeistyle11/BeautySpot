@@ -22,6 +22,7 @@ export class TransformInterceptor<T> implements NestInterceptor<
   T,
   ApiResponse<T> | T
 > {
+  /** Envuelve la respuesta del manejador en el sobre estándar. */
   intercept(
     context: ExecutionContext,
     next: CallHandler

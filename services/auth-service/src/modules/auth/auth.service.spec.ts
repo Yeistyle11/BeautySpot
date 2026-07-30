@@ -6,6 +6,7 @@ import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcryptjs";
 import * as crypto from "crypto";
 import { AuthService } from "./auth.service";
+import { RefreshTokenStore } from "./refresh-token.store";
 import { User } from "../../entities/user.entity";
 import { PasswordReset } from "../../entities/password-reset.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
@@ -28,6 +29,8 @@ function hashResetToken(token: string): string {
 }
 
 describe("AuthService", () => {
+  let mockTokenVersionStore: any;
+  let mockRefreshTokens: any;
   let service: AuthService;
   let mockUserRepository: jest.Mocked<Repository<User>>;
   let mockPasswordResetRepository: jest.Mocked<Repository<PasswordReset>>;
@@ -135,9 +138,16 @@ describe("AuthService", () => {
     const mockDataSource: any = {
       transaction: jest.fn((cb: any) => cb(mockManager)),
     };
-    const mockTokenVersionStore: any = {
+    mockTokenVersionStore = {
       getVersion: jest.fn().mockResolvedValue(0),
       bumpVersion: jest.fn().mockResolvedValue(1),
+    };
+
+    // Por defecto el refresh recibido está vivo: se canjea con normalidad.
+    mockRefreshTokens = {
+      registrar: jest.fn().mockResolvedValue(undefined),
+      canjear: jest.fn().mockResolvedValue({ resultado: "válido" }),
+      revocarTodos: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -171,6 +181,7 @@ describe("AuthService", () => {
         { provide: DataSource, useValue: mockDataSource },
         { provide: OutboxService, useValue: mockOutboxService },
         { provide: TokenVersionStore, useValue: mockTokenVersionStore },
+        { provide: RefreshTokenStore, useValue: mockRefreshTokens },
       ],
     }).compile();
 
@@ -234,7 +245,7 @@ describe("AuthService", () => {
         ConflictException
       );
       await expect(service.register(registerDto)).rejects.toThrow(
-        "El email ya está registrado"
+        "No se pudo completar el registro"
       );
     });
 
@@ -382,6 +393,87 @@ describe("AuthService", () => {
       expect(mockJwtService.sign).toHaveBeenCalledTimes(2);
       expect(result.accessToken).toBe("new-mock-token");
       expect(result.refreshToken).toBe("new-mock-token");
+    });
+
+    it("retira el refresh usado y emite el siguiente con otro identificador", async () => {
+      mockJwtService.verify.mockReturnValue({
+        sub: mockUser.id,
+        email: mockUser.email,
+        jti: "jti-vivo",
+      });
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockJwtService.sign.mockReturnValue("new-mock-token");
+
+      await service.refreshToken("valid-refresh-token");
+
+      // Sin retirarlo, el refresh anterior seguía valiendo los siete días de su
+      // vigencia en paralelo con la sesión legítima.
+      expect(mockRefreshTokens.canjear).toHaveBeenCalledWith(
+        mockUser.id,
+        "jti-vivo"
+      );
+      expect(mockRefreshTokens.registrar).toHaveBeenCalledWith(
+        mockUser.id,
+        expect.not.stringMatching("jti-vivo")
+      );
+    });
+
+    it("revoca todas las sesiones si se reutiliza un refresh ya canjeado", async () => {
+      mockJwtService.verify.mockReturnValue({
+        sub: mockUser.id,
+        email: mockUser.email,
+        jti: "jti-ya-usado",
+      });
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockRefreshTokens.canjear.mockResolvedValue({
+        resultado: "reutilizado",
+      });
+
+      await expect(service.refreshToken("token-robado")).rejects.toThrow(
+        "Sesión invalidada"
+      );
+
+      // No se sabe si lo reutiliza el legítimo o quien se lo robó, así que se
+      // cierran todas y se obliga a identificarse otra vez.
+      expect(mockRefreshTokens.revocarTodos).toHaveBeenCalledWith(mockUser.id);
+      expect(mockTokenVersionStore.bumpVersion).toHaveBeenCalledWith(
+        mockUser.id
+      );
+    });
+
+    it("acepta un refresh anterior a este control, que no lleva identificador", async () => {
+      mockJwtService.verify.mockReturnValue({
+        sub: mockUser.id,
+        email: mockUser.email,
+      });
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockJwtService.sign.mockReturnValue("new-mock-token");
+
+      // Rechazarlos cerraría la sesión de todo el mundo al desplegar.
+      await expect(
+        service.refreshToken("refresh-antiguo")
+      ).resolves.toBeDefined();
+      expect(mockRefreshTokens.canjear).not.toHaveBeenCalled();
+    });
+
+    it("sigue adelante si no se puede comprobar el refresh", async () => {
+      mockJwtService.verify.mockReturnValue({
+        sub: mockUser.id,
+        email: mockUser.email,
+        jti: "jti-vivo",
+      });
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockJwtService.sign.mockReturnValue("new-mock-token");
+      mockRefreshTokens.canjear.mockResolvedValue({
+        resultado: "indeterminado",
+      });
+
+      // Cerrar la sesión de todos porque Redis no contesta sería peor que el
+      // riesgo que se vigila.
+      await expect(
+        service.refreshToken("valid-refresh-token")
+      ).resolves.toBeDefined();
+      expect(mockRefreshTokens.revocarTodos).not.toHaveBeenCalled();
     });
 
     it("debería rechazar un refresh token emitido antes de una revocación", async () => {
@@ -749,7 +841,13 @@ describe("AuthService", () => {
         }
       );
       expect(mockJwtService.sign).toHaveBeenCalledWith(
-        { sub: mockUser.id, email: mockUser.email, tokenVersion: 0 },
+        expect.objectContaining({
+          sub: mockUser.id,
+          email: mockUser.email,
+          tokenVersion: 0,
+          // Cada refresh sale identificado, para poder retirarlo al canjearlo.
+          jti: expect.any(String),
+        }),
         {
           secret: "test-refresh-secret-with-sufficient-length-32!",
           expiresIn: "7d",

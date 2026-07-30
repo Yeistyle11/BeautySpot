@@ -4,7 +4,11 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
-import { OutboxModule, HealthModule } from "@beautyspot/nest-common";
+import {
+  OutboxModule,
+  HealthModule,
+  InternalHttpModule,
+} from "@beautyspot/nest-common";
 import { entities } from "./orm-entities";
 import { BusinessProfilesModule } from "./modules/business-profiles/business-profiles.module";
 import { SearchModule } from "./modules/search/search.module";
@@ -19,8 +23,9 @@ import { MarketplaceEventListenersModule } from "./modules/event-listeners/marke
       envFilePath: path.join(__dirname, "..", ".env"),
     }),
     TypeOrmModule.forRootAsync({
-      useFactory: () => createTypeOrmModuleOptions(entities),
+      useFactory: () => createTypeOrmModuleOptions(entities, "write"),
     }),
+    InternalHttpModule,
     HealthModule,
     OutboxModule,
     BusinessProfilesModule,

@@ -69,8 +69,11 @@ describe("ReportsService", () => {
       (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
         buildQueryBuilder(aggResult)
       );
-      mockDailyRepo.count.mockResolvedValue(2);
-      mockDailyRepo.find.mockResolvedValue([mockDailyMetric] as any);
+      // Los días del resumen son las filas devueltas, no un count aparte.
+      mockDailyRepo.find.mockResolvedValue([
+        mockDailyMetric,
+        mockDailyMetric,
+      ] as any);
 
       const result = await service.getRevenueReport(
         "business-123",
@@ -89,7 +92,6 @@ describe("ReportsService", () => {
       (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
         buildQueryBuilder({ totalRevenue: "0", totalAppointments: "0" })
       );
-      mockDailyRepo.count.mockResolvedValue(1);
       mockDailyRepo.find.mockResolvedValue([]);
 
       const result = await service.getRevenueReport(

@@ -1,3 +1,4 @@
+import { IsUUID } from "class-validator";
 import {
   Controller,
   Get,
@@ -15,6 +16,12 @@ import {
   UpdateProfessionalDto,
   AssignServiceDto,
 } from "./dto/professional.dto";
+
+/** Cuenta de usuario que se vincula a un profesional. */
+class VincularUsuarioDto {
+  @IsUUID()
+  userId!: string;
+}
 
 /** Endpoints del equipo de profesionales: ficha, servicios que prestan y vínculo con usuarios. */
 @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
@@ -110,7 +117,7 @@ export class ProfessionalsController {
   async linkUser(
     @Param("id") id: string,
     @BusinessId() businessId: string,
-    @Body() body: { userId: string }
+    @Body() body: VincularUsuarioDto
   ) {
     return this.service.linkUser(id, businessId, body.userId);
   }

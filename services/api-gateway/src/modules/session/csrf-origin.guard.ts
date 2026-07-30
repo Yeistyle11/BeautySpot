@@ -22,6 +22,7 @@ export class CsrfOriginGuard implements CanActivate {
 
   constructor(private readonly configService: ConfigService) {}
 
+  /** Rechaza las peticiones con cookie de sesión que vengan de otro origen. */
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest<Request>();
 

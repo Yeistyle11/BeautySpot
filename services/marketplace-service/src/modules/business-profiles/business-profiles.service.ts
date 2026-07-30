@@ -90,7 +90,8 @@ export class BusinessProfilesService {
     return this.cache.remember(
       `${BusinessProfilesService.PREFIJO_CACHE}slug:${slug}`,
       PERFIL_TTL_SEGUNDOS,
-      () => this.cargarPorSlug(slug)
+      () => this.cargarPorSlug(slug),
+      ({ profile }) => BusinessProfilesService.etiquetaDe(profile.businessId)
     );
   }
 
@@ -292,11 +293,16 @@ export class BusinessProfilesService {
         : 0;
 
     await repo.update({ businessId }, { rating, totalReviews });
+  }
 
-    // No pasa por `guardar` porque puede correr dentro de la transacción de la
-    // reseña, así que la invalidación se hace aquí explícitamente. La valoración
-    // es de lo más visible del perfil público.
-    await this.cache.delByPrefix(BusinessProfilesService.PREFIJO_CACHE);
+  /**
+   * Invalida la caché del perfil de un negocio; se llama fuera de la
+   * transacción de la reseña, una vez confirmada.
+   */
+  async invalidarCache(businessId: string): Promise<void> {
+    await this.cache.invalidarEtiqueta(
+      BusinessProfilesService.etiquetaDe(businessId)
+    );
   }
 
   // --- Feed helpers ---
@@ -352,6 +358,20 @@ export class BusinessProfilesService {
     return { items, total };
   }
 
+  /** Cuenta los perfiles publicados de cada tipo de negocio, en una sola consulta. */
+  async contarPorTipo(): Promise<Map<string, number>> {
+    const filas = await this.repo
+      .createQueryBuilder("bp")
+      .select("bp.business_type", "tipo")
+      .addSelect("COUNT(*)", "total")
+      .where("bp.active = :active", { active: true })
+      .andWhere("bp.is_published = :published", { published: true })
+      .groupBy("bp.business_type")
+      .getRawMany<{ tipo: string; total: string }>();
+
+    return new Map(filas.map((f) => [f.tipo, Number(f.total)]));
+  }
+
   /** Devuelve los perfiles publicados mejor valorados. */
   async findTopRated(limit: number): Promise<BusinessProfileEntity[]> {
     return this.repo.find({
@@ -381,26 +401,25 @@ export class BusinessProfilesService {
 
   // --- Completitud ---
 
-  /** Puntúa de 0 a 100 lo completo que está el perfil, sumando puntos por cada bloque relleno. */
   /**
-   * Persiste el perfil e invalida la caché pública.
-   *
-   * Todas las escrituras pasan por aquí para que no haya que acordarse de
-   * invalidar en cada una: si alguien añade mañana otro método que guarde y lo
-   * olvida, el marketplace serviría datos viejos hasta que caducase el TTL.
-   *
-   * Se invalida el prefijo entero y no una clave concreta porque el mismo perfil
-   * se sirve bajo varias claves, y afinar más obligaría a saber en cada
-   * escritura cuáles existen.
+   * Punto único por el que pasan las escrituras del perfil: lo persiste e
+   * invalida por etiqueta las claves con que se sirve ese negocio.
    */
   private async guardar(
     profile: BusinessProfileEntity
   ): Promise<BusinessProfileEntity> {
     const guardado = await this.repo.save(profile);
-    // Mejor esfuerzo: un fallo al invalidar no debe tumbar una escritura que ya
-    // ha tenido éxito. Las entradas caducan solas por TTL.
-    await this.cache.delByPrefix(BusinessProfilesService.PREFIJO_CACHE);
+    // Mejor esfuerzo: un fallo al invalidar no tumba la escritura, y las
+    // entradas caducan solas por TTL.
+    await this.cache.invalidarEtiqueta(
+      BusinessProfilesService.etiquetaDe(guardado.businessId)
+    );
     return guardado;
+  }
+
+  /** Etiqueta que agrupa las claves de caché de un negocio. */
+  private static etiquetaDe(businessId: string): string {
+    return `${BusinessProfilesService.PREFIJO_CACHE}negocio:${businessId}`;
   }
 
   private async calculateCompleteness(

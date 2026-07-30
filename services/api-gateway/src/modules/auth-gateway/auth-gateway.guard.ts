@@ -47,6 +47,7 @@ const PUBLIC_BOOKING_PATHS = [
  */
 @Injectable()
 export class AuthGatewayGuard extends AuthGuard("jwt") {
+  /** Deja pasar las rutas públicas y exige token válido para el resto. */
   canActivate(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest<Request>();
     const path = request.path;

@@ -82,8 +82,14 @@ export class TenantService {
       );
     }
 
-    const body = (await response.json()) as { data: { id: string } };
-    const businessId = body.data.id;
+    // Se comprueba la forma de la respuesta para fallar aquí y no más adelante.
+    const body = (await response.json()) as { data?: { id?: unknown } };
+    const businessId = body?.data?.id;
+    if (typeof businessId !== "string" || businessId.length === 0) {
+      throw new BadGatewayException(
+        `Core service devolvió una respuesta inesperada al resolver "${slug}"`
+      );
+    }
 
     await this.redis.set(cacheKey, businessId, "EX", TENANT_CACHE_TTL_SECONDS);
     return businessId;

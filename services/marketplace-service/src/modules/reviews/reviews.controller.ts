@@ -17,6 +17,7 @@ import {
   Roles,
   Public,
   CurrentUser,
+  BusinessId,
   SkipBusinessScope,
 } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
@@ -26,11 +27,14 @@ import { Role } from "@beautyspot/shared-types";
 export class ReviewsController {
   constructor(private readonly service: ReviewsService) {}
 
-  /** Crea una reseña. */
+  /** Crea una reseña a nombre del usuario del token, no del cuerpo. */
   @Post()
-  @Public()
-  async create(@Body() dto: CreateReviewDto) {
-    return this.service.create(dto);
+  @SkipBusinessScope()
+  async create(
+    @CurrentUser("userId") userId: string,
+    @Body() dto: CreateReviewDto
+  ) {
+    return this.service.create(dto, userId);
   }
 
   /** Devuelve el resumen de reseñas (promedio y distribución) de un negocio. */
@@ -60,8 +64,12 @@ export class ReviewsController {
   /** Publica la respuesta del negocio a una reseña. */
   @Post(":id/respond")
   @Roles(Role.OWNER, Role.ADMIN)
-  async respond(@Param("id") id: string, @Body() dto: RespondReviewDto) {
-    return this.service.respond(id, dto.response);
+  async respond(
+    @Param("id") id: string,
+    @BusinessId() businessId: string,
+    @Body() dto: RespondReviewDto
+  ) {
+    return this.service.respond(id, businessId, dto.response);
   }
 
   /** Marca una reseña como útil; el voto es único por usuario y reseña. */

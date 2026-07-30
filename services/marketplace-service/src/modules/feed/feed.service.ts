@@ -72,11 +72,8 @@ export class FeedService {
   }
 
   /**
-   * Clave de caché por ubicación.
-   *
-   * Las coordenadas se redondean a dos decimales (~1 km) a propósito: sin
-   * redondear, cada visitante tendría su propia entrada y la caché no serviría
-   * de nada, porque nunca habría dos peticiones con la misma clave.
+   * Clave de caché por ubicación, con las coordenadas redondeadas a dos
+   * decimales (~1 km) para que los visitantes cercanos compartan entrada.
    */
   private claveUbicacion(lat?: number, lng?: number, city?: string): string {
     if (lat !== undefined && lng !== undefined) {
@@ -155,16 +152,15 @@ export class FeedService {
       { id: "SPA", name: "Spas y Centros Estéticos", icon: "spa" },
     ];
 
-    const categories: FeedCategory[] = [];
-    for (const cfg of categoryConfigs) {
-      const { total } = await this.profilesService.findPublished({
-        businessType: cfg.id,
-        limit: 1,
-        page: 1,
-      });
-      categories.push({ ...cfg, count: total });
-    }
-    return categories;
+    // Un GROUP BY en vez de una consulta por categoría: cada una traía además
+    // una fila de perfil que se descartaba, porque el listado devuelve datos y
+    // total a la vez.
+    const conteos = await this.profilesService.contarPorTipo();
+
+    return categoryConfigs.map((cfg) => ({
+      ...cfg,
+      count: conteos.get(cfg.id) ?? 0,
+    }));
   }
 
   /** Negocios populares (mejor valorados) dentro de un radio de la ubicación o ciudad. */

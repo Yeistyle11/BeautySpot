@@ -47,6 +47,39 @@ export function getPoolConfig(
   };
 }
 
+/** Niveles de registro de TypeORM según DB_LOGGING y el entorno. */
+function logLevels(isProduction: boolean): LogLevel[] {
+  const base: LogLevel[] = ["error", "warn"];
+  const pedido = process.env.DB_LOGGING;
+
+  if (pedido === "query") return [...base, "query"];
+  if (pedido === "none") return [];
+  if (
+    pedido === undefined &&
+    !isProduction &&
+    process.env.NODE_ENV === "development"
+  ) {
+    return [...base, "query"];
+  }
+  return base;
+}
+
+/**
+ * TLS de la conexión a Postgres: en producción valida el certificado del
+ * servidor, con la CA de DATABASE_CA_CERT si se indica.
+ */
+function sslOptions(
+  isProduction: boolean
+): false | { rejectUnauthorized: boolean; ca?: string } {
+  if (!isProduction) return false;
+
+  const ca = process.env.DATABASE_CA_CERT;
+  const rejectUnauthorized =
+    process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== "false";
+
+  return ca ? { rejectUnauthorized, ca } : { rejectUnauthorized };
+}
+
 export function createTypeOrmConfig(
   databaseUrl: string,
   entities: EntityClass[],
@@ -57,9 +90,7 @@ export function createTypeOrmConfig(
   const isProduction = process.env.NODE_ENV === "production";
   const poolConfig = getPoolConfig(serviceType, isProduction);
 
-  const loggingOptions: LogLevel[] = isProduction
-    ? (["error", "warn"] as LogLevel[])
-    : (["query", "error", "warn"] as LogLevel[]);
+  const loggingOptions = logLevels(isProduction);
 
   return {
     type: "postgres",
@@ -71,7 +102,7 @@ export function createTypeOrmConfig(
     synchronize: !isProduction && synchronize,
     logging: loggingOptions,
     maxQueryExecutionTime: isProduction ? 1000 : 0,
-    ssl: isProduction ? { rejectUnauthorized: false } : false,
+    ssl: sslOptions(isProduction),
     extra: {
       ...poolConfig,
       application_name: `beautyspot-${serviceType}-${process.env.SERVICE_NAME || "unknown"}`,

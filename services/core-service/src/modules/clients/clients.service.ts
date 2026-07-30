@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
+import { TenantCrudService } from "@beautyspot/nest-common";
 import { Repository, Like } from "typeorm";
 import { escapeLikePattern } from "@beautyspot/shared-utils";
 import { paginate, PaginateParams } from "@beautyspot/database";
@@ -8,10 +9,10 @@ import { Client } from "../../entities/client.entity";
 
 /** CRUD de la cartera de clientes de un negocio, incluida su fidelización por puntos. */
 @Injectable()
-export class ClientsService {
-  constructor(
-    @InjectRepository(Client) private readonly repo: Repository<Client>
-  ) {}
+export class ClientsService extends TenantCrudService<Client> {
+  constructor(@InjectRepository(Client) repo: Repository<Client>) {
+    super(repo, "Cliente no encontrado");
+  }
 
   /** Registra un cliente en el negocio indicado. */
   async create(businessId: string, data: Partial<Client>): Promise<Client> {
@@ -36,32 +37,12 @@ export class ClientsService {
     return paginate(this.repo, pagination, { where, order: { name: "ASC" } });
   }
 
-  /** Obtiene un cliente del negocio por id; lanza 404 si no existe. */
-  async findById(id: string, businessId: string): Promise<Client> {
-    const client = await this.repo.findOne({ where: { id, businessId } });
-    if (!client) throw new NotFoundException("Cliente no encontrado");
-    return client;
-  }
-
   /** Busca el cliente asociado a una cuenta de usuario dentro del negocio. */
   async findByUserId(
     userId: string,
     businessId: string
   ): Promise<Client | null> {
     return this.repo.findOne({ where: { userId, businessId, active: true } });
-  }
-
-  /** Actualiza los datos de un cliente del negocio. */
-  async update(
-    id: string,
-    businessId: string,
-    data: Partial<Client>
-  ): Promise<Client> {
-    await this.repo.update(
-      { id, businessId },
-      data as Parameters<typeof this.repo.update>[1]
-    );
-    return this.findById(id, businessId);
   }
 
   /** Suma puntos de fidelidad al cliente. */

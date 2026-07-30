@@ -7,9 +7,15 @@ import {
   InternalBusinessesController,
 } from "./businesses.controller";
 import { Business } from "../../entities/business.entity";
+import { Branch } from "../../entities/branch.entity";
+import { Service } from "../../entities/service.entity";
+import { Professional } from "../../entities/professional.entity";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Business]), OutboxModule],
+  imports: [
+    TypeOrmModule.forFeature([Business, Branch, Service, Professional]),
+    OutboxModule,
+  ],
   controllers: [BusinessesController, InternalBusinessesController],
   providers: [BusinessesService],
   exports: [BusinessesService],

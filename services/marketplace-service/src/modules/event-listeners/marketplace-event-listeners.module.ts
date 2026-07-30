@@ -5,10 +5,12 @@ import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { EVENTS_EXCHANGE, DEAD_LETTER_EXCHANGE } from "@beautyspot/event-types";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
 import { MarketplaceEventListeners } from "./marketplace-event-listeners.service";
+import { BusinessProfilesModule } from "../business-profiles/business-profiles.module";
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([BusinessProfileEntity]),
+    BusinessProfilesModule,
     RabbitMQModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

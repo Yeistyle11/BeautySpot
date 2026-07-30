@@ -44,13 +44,27 @@ export {
 } from "./observability/request-context";
 export type { ContextoPeticion } from "./observability/request-context";
 export { StructuredLogger } from "./observability/structured.logger";
+export {
+  SesionVerificable,
+  SESION_VERIFICABLE_KEY,
+} from "./decorators/sesion-verificable.decorator";
 export { RedisCacheService } from "./cache/redis-cache.service";
 export { RedisCacheModule } from "./cache/redis-cache.module";
+export { InternalHttpClient } from "./http/internal-http.client";
+export type {
+  ServicioInterno,
+  OpcionesLlamada,
+} from "./http/internal-http.client";
+export { InternalHttpModule } from "./http/internal-http.module";
+export { TenantCrudService } from "./database/tenant-crud.service";
+export type { EntidadDeNegocio } from "./database/tenant-crud.service";
+export { ProcessedEventsPurgeWorker } from "./modules/idempotency/processed-events-purge.worker";
 export {
   TokenVersionStore,
   TOKEN_VERSION_KEY_PREFIX,
   TOKEN_VERSION_DEFAULT,
 } from "./security/token-version.store";
+export type { VersionDeToken } from "./security/token-version.store";
 export { SecurityModule } from "./security/security.module";
 export { TOKEN_VERSION_RESOLVER } from "./security/token-version.resolver";
 export type { TokenVersionResolver } from "./security/token-version.resolver";

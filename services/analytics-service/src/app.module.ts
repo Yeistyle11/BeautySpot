@@ -19,7 +19,7 @@ import { HealthModule, IdempotencyModule } from "@beautyspot/nest-common";
       envFilePath: path.join(__dirname, "..", ".env"),
     }),
     TypeOrmModule.forRootAsync({
-      useFactory: () => createTypeOrmModuleOptions(entities),
+      useFactory: () => createTypeOrmModuleOptions(entities, "read"),
     }),
     IdempotencyModule,
     HealthModule,
