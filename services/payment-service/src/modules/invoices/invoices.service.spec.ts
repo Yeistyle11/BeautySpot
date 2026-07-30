@@ -48,6 +48,7 @@ describe("InvoicesService", () => {
       save: jest.fn(),
       findOne: jest.fn(),
       find: jest.fn(),
+      findAndCount: jest.fn(),
       update: jest.fn(),
       count: jest.fn(),
     } as any;
@@ -190,34 +191,79 @@ describe("InvoicesService", () => {
   });
 
   describe("findByBusiness", () => {
-    it("debería retornar facturas del negocio", async () => {
+    const paginacion = {
+      page: 1,
+      limit: 20,
+      offset: 0,
+      sort: "createdAt",
+      order: "DESC" as const,
+    };
+
+    it("debería retornar facturas del negocio paginadas", async () => {
       const invoices = [mockInvoice];
-      mockInvoiceRepo.find.mockResolvedValue(invoices);
+      mockInvoiceRepo.findAndCount.mockResolvedValue([invoices, 1]);
 
-      const result = await service.findByBusiness("business-123");
+      const result = await service.findByBusiness(
+        "business-123",
+        {},
+        paginacion
+      );
 
-      expect(mockInvoiceRepo.find).toHaveBeenCalledWith({
+      expect(mockInvoiceRepo.findAndCount).toHaveBeenCalledWith({
         where: { businessId: "business-123" },
         relations: ["items"],
+        skip: 0,
+        take: 20,
         order: { createdAt: "DESC" },
       });
-      expect(result).toEqual(invoices);
+      expect(result.data).toEqual(invoices);
+      expect(result.meta.total).toBe(1);
+    });
+
+    it("debería acotar el número de facturas devueltas", async () => {
+      mockInvoiceRepo.findAndCount.mockResolvedValue([[mockInvoice], 5000]);
+
+      await service.findByBusiness(
+        "business-123",
+        {},
+        { ...paginacion, limit: 50, offset: 100, page: 3 }
+      );
+
+      expect(mockInvoiceRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 100, take: 50 })
+      );
     });
 
     it("debería filtrar por estado", async () => {
-      const invoices = [mockInvoice];
-      mockInvoiceRepo.find.mockResolvedValue(invoices);
+      mockInvoiceRepo.findAndCount.mockResolvedValue([[mockInvoice], 1]);
 
-      const result = await service.findByBusiness("business-123", {
-        status: InvoiceStatus.PAID,
-      });
+      await service.findByBusiness(
+        "business-123",
+        { status: InvoiceStatus.PAID },
+        paginacion
+      );
 
-      expect(mockInvoiceRepo.find).toHaveBeenCalledWith({
-        where: { businessId: "business-123", status: InvoiceStatus.PAID },
-        relations: ["items"],
-        order: { createdAt: "DESC" },
-      });
-      expect(result).toEqual(invoices);
+      expect(mockInvoiceRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { businessId: "business-123", status: InvoiceStatus.PAID },
+        })
+      );
+    });
+
+    it("debería filtrar por rango de fechas", async () => {
+      mockInvoiceRepo.findAndCount.mockResolvedValue([[mockInvoice], 1]);
+
+      await service.findByBusiness(
+        "business-123",
+        { from: "2026-01-01", to: "2026-01-31" },
+        paginacion
+      );
+
+      expect(mockInvoiceRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ createdAt: expect.anything() }),
+        })
+      );
     });
   });
 

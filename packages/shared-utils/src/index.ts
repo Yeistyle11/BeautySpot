@@ -13,6 +13,12 @@ export function generateSlug(text: string): string {
 }
 
 /**
+ * Página máxima aceptada. Sin tope, `?page=500000&limit=100` genera un OFFSET de
+ * 50 millones que Postgres tiene que leer y descartar entero.
+ */
+export const MAX_PAGE = 1000;
+
+/**
  * Normaliza los parámetros de paginación recibidos por query string: acota página
  * y límite a rangos válidos y solo admite ordenar por campos de la lista permitida.
  */
@@ -27,7 +33,7 @@ export function parsePaginationQuery(
   order: "ASC" | "DESC";
   search?: string;
 } {
-  const page = Math.max(1, Number(query.page) || 1);
+  const page = Math.min(MAX_PAGE, Math.max(1, Number(query.page) || 1));
   const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
   const rawSort = typeof query.sort === "string" ? query.sort : "createdAt";
   const sort = allowedSortFields.includes(rawSort) ? rawSort : "createdAt";

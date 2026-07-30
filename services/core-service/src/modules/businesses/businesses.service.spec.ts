@@ -4,11 +4,17 @@ import { OutboxService } from "@beautyspot/nest-common";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { BusinessesService } from "./businesses.service";
 import { Business } from "../../entities/business.entity";
+import { Branch } from "../../entities/branch.entity";
+import { Service } from "../../entities/service.entity";
+import { Professional } from "../../entities/professional.entity";
 import { NotFoundException, ConflictException } from "@nestjs/common";
 
 describe("BusinessesService", () => {
   let service: BusinessesService;
   let mockRepository: jest.Mocked<Repository<Business>>;
+  let mockBranchRepo: jest.Mocked<Repository<Branch>>;
+  let mockServiceRepo: jest.Mocked<Repository<Service>>;
+  let mockProfessionalRepo: jest.Mocked<Repository<Professional>>;
   let mockOutbox: { enqueue: jest.Mock };
 
   const mockBusiness: Business = {
@@ -62,6 +68,11 @@ describe("BusinessesService", () => {
       }),
     } as any;
 
+    // Las colecciones del listado se piden por lote, ya no por join.
+    mockBranchRepo = { find: jest.fn().mockResolvedValue([]) } as any;
+    mockServiceRepo = { find: jest.fn().mockResolvedValue([]) } as any;
+    mockProfessionalRepo = { find: jest.fn().mockResolvedValue([]) } as any;
+
     mockOutbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
     const mockOutboxSpec = mockOutbox;
     const mockDataSourceSpec = {
@@ -79,6 +90,12 @@ describe("BusinessesService", () => {
         {
           provide: getRepositoryToken(Business),
           useValue: mockRepository,
+        },
+        { provide: getRepositoryToken(Branch), useValue: mockBranchRepo },
+        { provide: getRepositoryToken(Service), useValue: mockServiceRepo },
+        {
+          provide: getRepositoryToken(Professional),
+          useValue: mockProfessionalRepo,
         },
       ],
     }).compile();
@@ -154,13 +171,28 @@ describe("BusinessesService", () => {
       const result = await service.findAll({});
 
       expect(mockRepository.createQueryBuilder).toHaveBeenCalledWith("b");
-      expect(
-        mockRepository.createQueryBuilder("").leftJoinAndSelect
-      ).toHaveBeenCalledWith("b.branches", "branches");
       expect(result).toHaveProperty("items");
       expect(result).toHaveProperty("total");
       expect(result).toHaveProperty("page");
       expect(result).toHaveProperty("limit");
+    });
+
+    it("no debe unir las colecciones al listado, sino pedirlas por lote", async () => {
+      // Unir sedes, servicios y profesionales a la vez multiplicaba las filas
+      // entre sí; cada colección se pide aparte para la página devuelta.
+      const queryBuilder = mockRepository.createQueryBuilder() as any;
+      mockBranchRepo.find.mockResolvedValue([
+        { businessId: "business-123", id: "sede-1" },
+      ] as never);
+
+      const result = await service.findAll({});
+
+      expect(queryBuilder.leftJoinAndSelect).not.toHaveBeenCalled();
+      expect(mockBranchRepo.find).toHaveBeenCalledTimes(1);
+      expect(mockServiceRepo.find).toHaveBeenCalledTimes(1);
+      expect(mockProfessionalRepo.find).toHaveBeenCalledTimes(1);
+      expect(result.items[0].branches).toHaveLength(1);
+      expect(result.items[0].services).toEqual([]);
     });
 
     it("debería filtrar por ciudad", async () => {

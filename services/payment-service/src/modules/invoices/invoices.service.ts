@@ -2,10 +2,11 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
-import { Repository, DataSource } from "typeorm";
+import { Between, Repository, DataSource } from "typeorm";
+import { paginate, PaginateParams } from "@beautyspot/database";
 import { InvoiceEntity } from "./invoice.entity";
 import { InvoiceItemEntity } from "./invoice-item.entity";
-import { InvoiceStatus } from "@beautyspot/shared-types";
+import { InvoiceStatus, IPaginatedResponse } from "@beautyspot/shared-types";
 import { CreateInvoiceDto } from "./dto/invoice.dto";
 import { PdfService } from "./pdf/pdf.service";
 
@@ -75,18 +76,21 @@ export class InvoicesService {
     });
   }
 
-  /** Lista las facturas del negocio con sus líneas, opcionalmente filtradas por estado. */
+  /** Lista las facturas del negocio con sus líneas, filtradas por estado y fecha, paginadas. */
   async findByBusiness(
     businessId: string,
-    filters?: { status?: InvoiceStatus; from?: string; to?: string }
-  ) {
+    filters: { status?: InvoiceStatus; from?: string; to?: string },
+    pagination: PaginateParams
+  ): Promise<IPaginatedResponse<InvoiceEntity>> {
     const where: Record<string, unknown> = { businessId };
-    if (filters?.status) where.status = filters.status;
+    if (filters.status) where.status = filters.status;
+    if (filters.from && filters.to) {
+      where.createdAt = Between(new Date(filters.from), new Date(filters.to));
+    }
 
-    return this.invoiceRepo.find({
+    return paginate(this.invoiceRepo, pagination, {
       where,
       relations: ["items"],
-      order: { createdAt: "DESC" },
     });
   }
 

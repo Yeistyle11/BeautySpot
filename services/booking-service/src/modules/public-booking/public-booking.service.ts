@@ -5,7 +5,7 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import { ConfigService } from "@nestjs/config";
 import { Appointment } from "../../entities/appointment.entity";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
@@ -253,24 +253,56 @@ export class PublicBookingService {
     });
 
     const candidatos = [...new Set(horarios.map((h) => h.professionalId))];
+    if (candidatos.length === 0) {
+      throw new BadRequestException(
+        "Ningun profesional tiene libre ese horario. Elige otra hora."
+      );
+    }
+
+    // Bloqueos y citas de todos los candidatos en dos consultas: comprobarlos
+    // uno a uno encadenaba tres consultas por profesional antes de reservar.
+    const [bloqueos, citas] = await Promise.all([
+      this.blockRepo.find({
+        where: { businessId, professionalId: In(candidatos), date },
+      }),
+      this.apptRepo.find({
+        where: {
+          businessId,
+          professionalId: In(candidatos),
+          date,
+          status: AppointmentStatus.PENDING,
+        },
+      }),
+    ]);
+
+    const horarioPorProfesional = new Map<string, Availability>();
+    for (const horario of horarios) {
+      if (!horarioPorProfesional.has(horario.professionalId)) {
+        horarioPorProfesional.set(horario.professionalId, horario);
+      }
+    }
 
     for (const professionalId of candidatos) {
-      const libre = await this.isSlotAvailable(
-        businessId,
-        professionalId,
-        date,
-        startTime,
-        endTime,
-        dayOfWeek
-      );
-      if (!libre) continue;
+      const horario = horarioPorProfesional.get(professionalId);
+      if (!horario) continue;
+      if (
+        timeToMinutes(startTime) < timeToMinutes(horario.startTime) ||
+        timeToMinutes(endTime) > timeToMinutes(horario.endTime)
+      ) {
+        continue;
+      }
 
-      const ocupado = await this.hasTimeConflict(
-        businessId,
-        professionalId,
-        date,
-        startTime,
-        endTime
+      const bloqueado = bloqueos.some(
+        (b) =>
+          b.professionalId === professionalId &&
+          timesOverlap(startTime, endTime, b.startTime, b.endTime)
+      );
+      if (bloqueado) continue;
+
+      const ocupado = citas.some(
+        (a) =>
+          a.professionalId === professionalId &&
+          timesOverlap(startTime, endTime, a.startTime, a.endTime)
       );
       if (!ocupado) return professionalId;
     }

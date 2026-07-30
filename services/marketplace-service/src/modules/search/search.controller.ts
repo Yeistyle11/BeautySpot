@@ -10,6 +10,7 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 import { Public } from "@beautyspot/nest-common";
+import { MAX_PAGE } from "@beautyspot/shared-utils";
 
 /** Parámetros de la búsqueda pública: texto, ubicación, tipo, valoración mínima y paginación. */
 class SearchQueryDto {
@@ -25,8 +26,13 @@ class SearchQueryDto {
   @Min(1)
   @Max(5)
   ratingMin?: number;
-  @IsOptional() @Type(() => Number) @IsNumber() page?: number;
-  @IsOptional() @Type(() => Number) @IsNumber() limit?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(MAX_PAGE)
+  page?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(1) limit?: number;
   @IsOptional() @IsString() @IsIn(["business", "professional", "all"]) type?:
     | "business"
     | "professional"

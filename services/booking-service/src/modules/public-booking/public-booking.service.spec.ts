@@ -210,7 +210,6 @@ describe("PublicBookingService", () => {
 
       it("asigna el primero del equipo que tenga libre la franja", async () => {
         equipoDelDia(["prof-a", "prof-b"]);
-        mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
         mockApptRepo.find.mockResolvedValue([]);
 
         await service.createPublicAppointment(sinPreferencia);
@@ -222,16 +221,13 @@ describe("PublicBookingService", () => {
 
       it("salta al siguiente cuando el primero ya tiene una cita a esa hora", async () => {
         equipoDelDia(["prof-a", "prof-b"]);
-        mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
-        mockApptRepo.find.mockImplementation((options?: unknown) => {
-          const where = (options as { where?: { professionalId?: string } })
-            ?.where;
-          return Promise.resolve(
-            where?.professionalId === "prof-a"
-              ? ([{ startTime: "10:00", endTime: "10:50" }] as never)
-              : ([] as never)
-          );
-        });
+        mockApptRepo.find.mockResolvedValue([
+          {
+            professionalId: "prof-a",
+            startTime: "10:00",
+            endTime: "10:50",
+          },
+        ] as never);
 
         await service.createPublicAppointment(sinPreferencia);
 
@@ -242,12 +238,32 @@ describe("PublicBookingService", () => {
 
       it("avisa cuando nadie del equipo tiene libre esa franja", async () => {
         equipoDelDia(["prof-a"]);
-        mockAvailRepo.findOne.mockResolvedValue(null);
+        mockApptRepo.find.mockResolvedValue([
+          {
+            professionalId: "prof-a",
+            startTime: "10:00",
+            endTime: "10:50",
+          },
+        ] as never);
 
         await expect(
           service.createPublicAppointment(sinPreferencia)
         ).rejects.toThrow(BadRequestException);
         expect(mockApptRepo.create).not.toHaveBeenCalled();
+      });
+
+      it("consulta el equipo entero de una vez", async () => {
+        equipoDelDia(["prof-a", "prof-b", "prof-c", "prof-d"]);
+        mockApptRepo.find.mockResolvedValue([]);
+
+        await service.createPublicAppointment(sinPreferencia);
+
+        // Horarios, bloqueos y citas: una consulta cada uno, sea cual sea el
+        // tamaño del equipo.
+        expect(mockAvailRepo.find).toHaveBeenCalledTimes(1);
+        expect(mockBlockRepo.find).toHaveBeenCalledTimes(1);
+        expect(mockApptRepo.find).toHaveBeenCalledTimes(1);
+        expect(mockAvailRepo.findOne).not.toHaveBeenCalled();
       });
 
       it("avisa cuando nadie trabaja ese dia", async () => {

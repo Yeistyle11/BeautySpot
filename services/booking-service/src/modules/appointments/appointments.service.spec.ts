@@ -931,20 +931,9 @@ describe("AppointmentsService", () => {
         jornadaCorta("pro-a"),
         jornadaCorta("pro-b"),
       ]);
-      mockAvailRepo.findOne.mockImplementation((options?: unknown) => {
-        const where = (options as { where?: { professionalId?: string } })
-          ?.where;
-        return Promise.resolve(jornadaCorta(where!.professionalId!));
-      });
-      mockApptRepo.find.mockImplementation((options?: unknown) => {
-        const where = (options as { where?: { professionalId?: string } })
-          ?.where;
-        return Promise.resolve(
-          where?.professionalId === "pro-a"
-            ? ([{ startTime: "09:00", endTime: "09:30" }] as never)
-            : ([] as never)
-        );
-      });
+      mockApptRepo.find.mockResolvedValue([
+        { professionalId: "pro-a", startTime: "09:00", endTime: "09:30" },
+      ] as never);
 
       const slots = await service.findAvailableSlotsForBusiness(
         "business-123",
@@ -955,18 +944,36 @@ describe("AppointmentsService", () => {
       expect(slots.find((s) => s.startTime === "09:00")?.available).toBe(true);
     });
 
+    it("consulta el equipo entero de una vez, sin repetir por profesional", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        jornadaCorta("pro-a"),
+        jornadaCorta("pro-b"),
+        jornadaCorta("pro-c"),
+      ]);
+      mockApptRepo.find.mockResolvedValue([]);
+
+      await service.findAvailableSlotsForBusiness(
+        "business-123",
+        "2026-08-19",
+        30
+      );
+
+      // Una consulta de horarios, una de bloqueos y una de citas: el coste no
+      // debe crecer con el tamaño del equipo.
+      expect(mockAvailRepo.find).toHaveBeenCalledTimes(1);
+      expect(mockBlockRepo.find).toHaveBeenCalledTimes(1);
+      expect(mockApptRepo.find).toHaveBeenCalledTimes(1);
+      expect(mockAvailRepo.findOne).not.toHaveBeenCalled();
+    });
+
     it("marca la franja ocupada cuando ninguno la tiene libre", async () => {
       mockAvailRepo.find.mockResolvedValue([
         jornadaCorta("pro-a"),
         jornadaCorta("pro-b"),
       ]);
-      mockAvailRepo.findOne.mockImplementation((options?: unknown) => {
-        const where = (options as { where?: { professionalId?: string } })
-          ?.where;
-        return Promise.resolve(jornadaCorta(where!.professionalId!));
-      });
       mockApptRepo.find.mockResolvedValue([
-        { startTime: "09:00", endTime: "09:30" },
+        { professionalId: "pro-a", startTime: "09:00", endTime: "09:30" },
+        { professionalId: "pro-b", startTime: "09:00", endTime: "09:30" },
       ] as never);
 
       const slots = await service.findAvailableSlotsForBusiness(
@@ -983,11 +990,6 @@ describe("AppointmentsService", () => {
         jornadaCorta("pro-a"),
         jornadaCorta("pro-b"),
       ]);
-      mockAvailRepo.findOne.mockImplementation((options?: unknown) => {
-        const where = (options as { where?: { professionalId?: string } })
-          ?.where;
-        return Promise.resolve(jornadaCorta(where!.professionalId!));
-      });
       mockApptRepo.find.mockResolvedValue([]);
 
       const slots = await service.findAvailableSlotsForBusiness(

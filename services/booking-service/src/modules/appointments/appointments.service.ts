@@ -26,6 +26,22 @@ import {
   timesOverlap,
 } from "@beautyspot/shared-utils";
 
+/** Tamaño de las franjas en que se divide la jornada al ofrecer disponibilidad. */
+const DURACION_FRANJA_MINUTOS = 30;
+
+/** Agrupa por profesional bloqueos o citas ya cargados. */
+function agruparPorProfesional<T extends { professionalId: string }>(
+  filas: T[]
+): Map<string, T[]> {
+  const porProfesional = new Map<string, T[]>();
+  for (const fila of filas) {
+    const acumulado = porProfesional.get(fila.professionalId);
+    if (acumulado) acumulado.push(fila);
+    else porProfesional.set(fila.professionalId, [fila]);
+  }
+  return porProfesional;
+}
+
 /**
  * Orquesta el ciclo de vida de las citas (creación, confirmación, ejecución,
  * cancelación y reagendado) evitando el doble-booking con transacciones
@@ -462,9 +478,37 @@ export class AppointmentsService {
     const profesionales = [...new Set(horarios.map((h) => h.professionalId))];
     if (profesionales.length === 0) return [];
 
-    const porProfesional = await Promise.all(
-      profesionales.map((professionalId) =>
-        this.findAvailableSlots(businessId, professionalId, date, duration)
+    // Bloqueos y citas del día para todo el equipo de una vez: consultarlos por
+    // profesional multiplicaba las consultas por el tamaño del equipo.
+    const [bloqueos, citas] = await Promise.all([
+      this.blockRepo.find({
+        where: { businessId, professionalId: In(profesionales), date },
+      }),
+      this.apptRepo.find({
+        where: {
+          businessId,
+          professionalId: In(profesionales),
+          date,
+          status: In([AppointmentStatus.CONFIRMED, AppointmentStatus.PENDING]),
+        },
+      }),
+    ]);
+
+    const bloqueosPorProfesional = agruparPorProfesional(bloqueos);
+    const citasPorProfesional = agruparPorProfesional(citas);
+    const horarioPorProfesional = new Map<string, Availability>();
+    for (const horario of horarios) {
+      if (!horarioPorProfesional.has(horario.professionalId)) {
+        horarioPorProfesional.set(horario.professionalId, horario);
+      }
+    }
+
+    const porProfesional = profesionales.map((professionalId) =>
+      this.calcularFranjas(
+        horarioPorProfesional.get(professionalId)!,
+        bloqueosPorProfesional.get(professionalId) ?? [],
+        citasPorProfesional.get(professionalId) ?? [],
+        duration
       )
     );
 
@@ -486,7 +530,7 @@ export class AppointmentsService {
     );
   }
 
-  /** Obtener slots disponibles */
+  /** Devuelve las franjas del día de un profesional, marcando cuáles están libres. */
   async findAvailableSlots(
     businessId: string,
     professionalId: string,
@@ -495,45 +539,47 @@ export class AppointmentsService {
   ): Promise<{ startTime: string; endTime: string; available: boolean }[]> {
     const dayOfWeek = new Date(date + "T12:00:00").getDay();
 
-    // Horario de trabajo del profesional
     const workHours = await this.availRepo.findOne({
       where: { businessId, professionalId, dayOfWeek, active: true },
     });
     if (!workHours) return [];
 
-    // Bloqueos del dia
-    const blocks = await this.blockRepo.find({
-      where: { businessId, professionalId, date },
-    });
+    const [blocks, allAppointments] = await Promise.all([
+      this.blockRepo.find({ where: { businessId, professionalId, date } }),
+      this.apptRepo.find({
+        where: {
+          businessId,
+          professionalId,
+          date,
+          status: In([AppointmentStatus.CONFIRMED, AppointmentStatus.PENDING]),
+        },
+      }),
+    ]);
 
-    // Citas existentes del dia (una sola query en vez de dos)
-    const allAppointments = await this.apptRepo.find({
-      where: {
-        businessId,
-        professionalId,
-        date,
-        status: In([AppointmentStatus.CONFIRMED, AppointmentStatus.PENDING]),
-      },
-    });
+    return this.calcularFranjas(workHours, blocks, allAppointments, duration);
+  }
 
-    // Generar slots de 30 minutos
-    const slotDuration = 30;
+  /** Divide la jornada en franjas y marca como ocupadas las que chocan con un bloqueo o una cita. */
+  private calcularFranjas(
+    workHours: Availability,
+    blocks: BlockedSlot[],
+    appointments: Appointment[],
+    duration: number
+  ): { startTime: string; endTime: string; available: boolean }[] {
     const slots = getTimeSlots(
       workHours.startTime,
       workHours.endTime,
-      slotDuration
+      DURACION_FRANJA_MINUTOS
     );
+    const workEndNum = timeToMinutes(workHours.endTime);
 
     return slots.map((slotStart) => {
       const slotEnd = calculateEndTime(slotStart, duration);
-      const slotEndTimeNum = timeToMinutes(slotEnd);
-      const workEndNum = timeToMinutes(workHours.endTime);
 
-      if (slotEndTimeNum > workEndNum) {
+      if (timeToMinutes(slotEnd) > workEndNum) {
         return { startTime: slotStart, endTime: slotEnd, available: false };
       }
 
-      // Verificar bloqueos
       const isBlocked = blocks.some((b) =>
         timesOverlap(slotStart, slotEnd, b.startTime, b.endTime)
       );
@@ -541,8 +587,7 @@ export class AppointmentsService {
         return { startTime: slotStart, endTime: slotEnd, available: false };
       }
 
-      // Verificar conflictos con citas
-      const hasAppt = allAppointments.some((a) =>
+      const hasAppt = appointments.some((a) =>
         timesOverlap(slotStart, slotEnd, a.startTime, a.endTime)
       );
 
