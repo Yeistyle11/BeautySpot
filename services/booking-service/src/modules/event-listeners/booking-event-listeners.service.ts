@@ -22,13 +22,8 @@ export class BookingEventListeners {
 
   /**
    * Al crearse un profesional, le inicializa una disponibilidad semanal por
-   * defecto (L-D, 09:00–18:00).
-   *
-   * Pasa por {@link ProcessedEventsStore} porque `replaceWeekly` borra y vuelve
-   * a insertar: si el evento se reentrega cuando el negocio ya ha ajustado sus
-   * horarios, le devolvería la disponibilidad al valor por defecto y perdería
-   * el cambio. Que la operación deje el mismo estado no basta cuando ese estado
-   * ya no es el que el usuario quiere.
+   * defecto (L-D, 09:00–18:00), una sola vez: {@link ProcessedEventsStore}
+   * evita que una reentrega pise los horarios que el negocio haya ajustado.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,

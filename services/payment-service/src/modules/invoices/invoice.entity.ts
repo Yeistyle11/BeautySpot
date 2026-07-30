@@ -4,11 +4,8 @@ import { InvoiceStatus } from "@beautyspot/shared-types";
 import { InvoiceItemEntity } from "./invoice-item.entity";
 
 /**
- * Factura de un cliente: numeración por negocio, importe, estado y sus líneas.
- *
- * El número es único dentro del negocio, no de la tabla: cada negocio lleva su
- * propia serie y dos negocios distintos emiten su primera factura con el mismo
- * número.
+ * Factura de un cliente: importe, estado y líneas, con un número único dentro
+ * del negocio —cada uno lleva su propia serie— y no de la tabla.
  */
 @Entity("invoices")
 @Index(["businessId", "number"], { unique: true })

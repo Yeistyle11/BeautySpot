@@ -66,8 +66,7 @@ export class DashboardService {
         )
         .addSelect("COALESCE(SUM(m.new_clients), 0)", "newClients")
         .addSelect("COALESCE(SUM(m.returning_clients), 0)", "returningClients")
-        // Los días con datos salen del mismo agregado: contarlos aparte
-        // recorría otra vez el mismo rango del índice.
+        // Los días con datos salen del mismo agregado.
         .addSelect("COUNT(*)", "dayCount")
         .where("m.business_id = :businessId", { businessId })
         .andWhere("m.date BETWEEN :from AND :to", {

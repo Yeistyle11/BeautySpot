@@ -99,11 +99,8 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Reclama un lote de eventos pendientes y los publica.
-   *
-   * Si el lote sale lleno vuelve a sondear enseguida en vez de esperar al
-   * siguiente intervalo: con un atraso acumulado, esperar dos segundos entre
-   * lotes hacía que la cola creciese más rápido de lo que se vacía.
+   * Reclama lotes de eventos pendientes y los publica; encadena lotes mientras
+   * salgan llenos, sin esperar al siguiente intervalo.
    */
   async poll(): Promise<void> {
     if (this.running) return;
@@ -124,11 +121,8 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Borra de vez en cuando los mensajes ya publicados que superan la retención.
-   *
-   * Las filas PROCESSED se guardaban para siempre, con el payload completo de
-   * cada evento: la tabla y su índice crecían sin tope y ralentizaban el propio
-   * reclamo de pendientes. No se hace en cada sondeo porque no hace falta.
+   * Borra cada varios sondeos los mensajes ya publicados que superan la
+   * retención.
    */
   private async purgarSiToca(): Promise<void> {
     if (this.sondeosDesdePurga++ < SONDEOS_ENTRE_PURGAS) return;
@@ -155,13 +149,7 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * Publica el lote con varias publicaciones en vuelo a la vez.
-   *
-   * En serie, cada evento esperaba a que el anterior terminara su ida y vuelta
-   * a RabbitMQ, lo que ponía un techo de unas decenas de eventos por segundo
-   * por instancia sin que ni la red ni la base estuvieran saturadas.
-   */
+  /** Publica el lote en tramos, con varias publicaciones en vuelo a la vez. */
   private async publicarEnParalelo(
     mensajes: OutboxMessageEntity[]
   ): Promise<void> {
@@ -187,8 +175,8 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
 
       if (rows.length === 0) return [];
 
-      // Un solo UPDATE para todo el lote: `save` emitía uno por fila dentro de
-      // la transacción que mantiene el bloqueo.
+      // Un solo UPDATE para todo el lote, dentro de la transacción que
+      // mantiene el bloqueo.
       await repo.increment({ id: In(rows.map((r) => r.id)) }, "attempts", 1);
       for (const row of rows) {
         row.attempts += 1;

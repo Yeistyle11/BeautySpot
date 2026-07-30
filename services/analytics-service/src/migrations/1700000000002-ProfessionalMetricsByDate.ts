@@ -1,13 +1,8 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Índice por negocio y fecha para las métricas de profesionales.
- *
- * El único índice existente es el único (business_id, professional_id, date).
- * Los reportes y el ranking del panel filtran por negocio y rango de fechas
- * agrupando por profesional: con professional_id como segunda columna, Postgres
- * no puede acotar por fecha y recorre todas las filas del negocio desde siempre
- * para responder sobre un mes.
+ * Índice por negocio y fecha para las métricas de profesionales, que es como
+ * las filtran los reportes y el ranking del panel.
  */
 export class ProfessionalMetricsByDate1700000000002 implements MigrationInterface {
   name = "ProfessionalMetricsByDate1700000000002";

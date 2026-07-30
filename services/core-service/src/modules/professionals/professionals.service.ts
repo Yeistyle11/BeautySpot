@@ -133,11 +133,7 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     return this.psRepo.find({ where: { professionalId } });
   }
 
-  /**
-   * Inactiva un profesional (soft-delete).
-   * Valida que no tenga citas pendientes o confirmadas antes de inactivar.
-   * Si tiene historial de citas completadas, solo se puede inactivar (no eliminar).
-   */
+  /** Da de baja un profesional, siempre que no tenga citas por atender. */
   async remove(id: string, businessId: string): Promise<void> {
     const professional = await this.findById(id, businessId);
 
@@ -155,9 +151,7 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
 
   // --- Vinculacion con cuenta de usuario ---
 
-  /**
-   * Vincula un profesional con una cuenta de usuario (userId del auth-service).
-   */
+  /** Vincula un profesional con una cuenta de usuario del auth-service. */
   async linkUser(
     id: string,
     businessId: string,
@@ -185,9 +179,7 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     return this.findById(id, businessId);
   }
 
-  /**
-   * Desvincula la cuenta de usuario de un profesional.
-   */
+  /** Desvincula la cuenta de usuario de un profesional. */
   async unlinkUser(id: string, businessId: string): Promise<Professional> {
     const professional = await this.findById(id, businessId);
 
@@ -206,21 +198,14 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
   // --- Helpers ---
 
   /**
-   * Consulta al booking-service si el profesional tiene historial de citas.
-   * Usa el endpoint interno del booking-service via HTTP.
-   *
-   * Fail-closed: si el booking-service no esta disponible o responde con
-   * error, la accion se BLOQUEA (no se permite inactivar al profesional).
-   * Esto evita inactivar profesionales con citas activas cuando no se puede
-   * verificar su historial de forma segura.
+   * Consulta a booking el historial de citas del profesional; si booking no
+   * responde, el error se propaga y la baja queda bloqueada.
    */
   private async checkProfessionalHistory(professionalId: string): Promise<{
     hasHistory: boolean;
     hasActiveAppointments: boolean;
     totalAppointments: number;
   }> {
-    // Fail-closed: si booking no responde, el cliente propaga el error y la
-    // inactivación queda bloqueada en vez de decidirse a ciegas.
     const result = await this.http.pedir<{
       totalAppointments?: unknown;
       completedAppointments?: unknown;

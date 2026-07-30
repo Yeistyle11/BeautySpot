@@ -1,11 +1,8 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Índices por usuario para las notificaciones.
- *
- * Se leen siempre por usuario —el listado y el contador de no leídas—, pero el
- * único índice que había era el de business_id, heredado de la entidad base,
- * que en esa consulta no acota nada.
+ * Índices por usuario para las notificaciones: el listado por fecha y el
+ * contador de no leídas.
  */
 export class NotificationUserIndexes1700000000002 implements MigrationInterface {
   name = "NotificationUserIndexes1700000000002";

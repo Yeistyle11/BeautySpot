@@ -1,13 +1,8 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Índices para localizar los clientes de un usuario.
- *
- * El endpoint interno /internal/clients/by-user consulta por user_id sin acotar
- * por negocio, sobre una tabla que contiene los clientes de todos los negocios:
- * sin índice era un recorrido secuencial. Está además en el camino síncrono del
- * listado "mis citas", que booking pide antes de poder consultar sus propias
- * citas, así que su coste se paga en cada carga de esa pantalla.
+ * Índices para localizar los clientes de un usuario, con y sin negocio, que es
+ * como consulta /internal/clients/by-user.
  */
 export class ClientUserIndexes1700000000002 implements MigrationInterface {
   name = "ClientUserIndexes1700000000002";

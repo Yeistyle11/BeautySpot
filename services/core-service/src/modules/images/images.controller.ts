@@ -25,11 +25,8 @@ import { ServicesService } from "../services/services.service";
 import { GenerateUploadSignatureDto, PresignedUrlQueryDto } from "./dto";
 
 /**
- * Recepción del archivo con el tamaño acotado por multer.
- *
- * Sin el límite, el archivo se carga entero en memoria y solo después se
- * comprueba que no pase de 5MB: una subida grande tumbaba el proceso antes de
- * llegar a esa comprobación. Aquí se corta en cuanto se supera.
+ * Recepción del archivo, que multer corta en cuanto supera el tamaño máximo en
+ * vez de cargarlo entero en memoria.
  */
 const SUBIDA_DE_IMAGEN = FileInterceptor("file", {
   limits: { fileSize: MAXIMO_BYTES_IMAGEN, files: 1 },
@@ -84,11 +81,8 @@ export class ImagesController {
   }
 
   /**
-   * Verifica ownership de un S3 key (para delete/presigned-url).
-   *
-   * Se comprueban los dos primeros segmentos, así que una clave con `..` podía
-   * pasar el control apuntando en realidad a la carpeta de otro negocio; se
-   * rechaza antes de mirar nada más.
+   * Verifica que una clave de S3 sea del negocio del usuario, rechazando las
+   * que traen `..` en algún segmento.
    */
   private async verifyKeyOwnership(
     key: string,

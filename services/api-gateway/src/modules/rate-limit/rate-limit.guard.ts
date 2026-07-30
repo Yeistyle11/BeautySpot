@@ -51,8 +51,7 @@ export class RateLimitGuard implements CanActivate {
     @Inject(REDIS_CLIENT) private redis: Redis,
     configService: ConfigService
   ) {
-    // Estos valores estaban en los .env pero nadie los leía: el guard usaba
-    // constantes fijas, así que la configuración engañaba a quien la tocaba.
+    // Los límites salen de la configuración; las constantes son el respaldo.
     this.limiteCredenciales = this.numero(
       configService,
       "RATE_LIMIT_AUTH_MAX",
@@ -115,17 +114,9 @@ export class RateLimitGuard implements CanActivate {
   }
 
   /**
-   * Indica si la ruta es de credenciales y merece el límite estricto.
-   *
-   * Se normaliza antes de comparar porque el gateway acepta el nombre del
-   * servicio con y sin sufijo: sin esto, `/api/v1/auth-service/login` esquivaba
-   * el límite de autenticación y se colaba por el general, que es veinte veces
-   * más alto y no crea el contador por cuenta.
-   *
-   * `/auth/refresh` queda fuera a propósito: el contador es por IP y detrás de
-   * un NAT o un balanceador muchos usuarios comparten una, así que aplicarle un
-   * límite tan bajo cerraría sesiones legítimas. Un refresh no se puede forzar
-   * por fuerza bruta: es un JWT firmado.
+   * Indica si la ruta es de credenciales y le toca el límite estricto. Compara
+   * el nombre del servicio normalizado, que se acepta con y sin sufijo, y deja
+   * fuera `/auth/refresh`, cuyo token firmado no se fuerza por fuerza bruta.
    */
   private isAuthRoute(path: string): boolean {
     const normalizado = path.replace(/^(\/api\/v\d+\/[a-z]+)-service\//, "$1/");

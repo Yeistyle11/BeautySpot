@@ -145,9 +145,8 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
     expect(total).toBe(1);
   });
 
-  // El caso que de verdad importa: sin la transacción SERIALIZABLE, las dos
-  // comprobaciones de conflicto leen "libre" antes de que ninguna haya escrito
-  // y ambas insertan.
+  // El caso que de verdad importa: es la transacción SERIALIZABLE la que impide
+  // que las dos comprobaciones de conflicto lean "libre" a la vez.
   it("con dos reservas simultáneas del mismo hueco, solo una prospera", async () => {
     const resultados = await Promise.allSettled([
       reservar(CLIENTE_A),

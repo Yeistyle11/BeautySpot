@@ -10,12 +10,9 @@ const NEGOCIO_B = "22222222-2222-4222-8222-222222222222";
 const CLIENTE = "33333333-3333-4333-8333-333333333333";
 
 /**
- * Comprueba contra Postgres real que la serie de facturas es de cada negocio.
- *
- * La numeración se calculaba por negocio pero la columna era única en toda la
- * tabla: el segundo negocio que facturaba chocaba con un 23505. Y el número
- * salía de un COUNT(*), así que dos altas simultáneas del mismo negocio se
- * llevaban el mismo. Requiere la infraestructura levantada (`npm run test:int`).
+ * Comprueba contra Postgres real que cada negocio lleva su propia serie de
+ * facturas y que dos altas simultáneas obtienen números distintos. Requiere la
+ * infraestructura levantada (`npm run test:int`).
  */
 describe("Integración: numeración de facturas por negocio", () => {
   let dataSource: DataSource;

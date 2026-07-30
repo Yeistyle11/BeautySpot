@@ -116,8 +116,7 @@ describe("createAppFactory", () => {
     });
 
     it("debería denegar localhost en producción", async () => {
-      // El check de localhost se evaluaba antes que el de NODE_ENV, de modo que
-      // en producción cualquier http://localhost:* quedaba autorizado.
+      // La excepción de localhost solo vale fuera de producción.
       mockConfigService.get.mockImplementation((key: string) => {
         if (key === "NODE_ENV") return "production";
         if (key === "CORS_ORIGINS") return "https://example.com";

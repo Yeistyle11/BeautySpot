@@ -267,8 +267,7 @@ describe("NotificationEventListeners", () => {
     it("deja también la notificación dentro de la aplicación", async () => {
       await service.handleAppointmentConfirmed(mockAppointmentConfirmedEvent);
 
-      // La bandeja de la aplicación existía pero nunca recibía nada: los
-      // listeners solo mandaban el correo.
+      // El listener manda el correo y además alimenta la bandeja de la app.
       expect(mockNotifications.create).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: "user-cliente",

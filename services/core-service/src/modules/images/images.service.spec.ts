@@ -401,8 +401,8 @@ describe("ImagesService", () => {
     });
 
     it("rechaza un archivo que no es una imagen aunque se declare como tal", () => {
-      // El content-type lo pone quien sube el archivo: sin mirar el contenido,
-      // esto acababa servido como imagen desde el CDN.
+      // El content-type lo pone quien sube el archivo, así que manda el
+      // contenido.
       const ejecutable = archivo(Buffer.from("MZ\x90\x00"));
 
       expect(() => service.validateImageFile(ejecutable, "image/png")).toThrow(

@@ -1,12 +1,8 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Índices para las dos consultas habituales sobre reseñas.
- *
- * El listado de un negocio ordena siempre por fecha, y con solo el índice de
- * business_id Postgres tenía que leer todas sus reseñas y ordenarlas en memoria
- * en cada página. El alta, además, comprueba si la cita ya tiene reseña, lo que
- * sin índice recorría la tabla entera.
+ * Índices para las dos consultas habituales sobre reseñas: el listado de un
+ * negocio ordenado por fecha y la búsqueda de la reseña de una cita.
  */
 export class ReviewQueryIndexes1700000000001 implements MigrationInterface {
   name = "ReviewQueryIndexes1700000000001";

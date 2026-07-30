@@ -1,12 +1,8 @@
 import { Entity, Column, PrimaryColumn } from "typeorm";
 
 /**
- * Último número de factura emitido por un negocio en un año.
- *
- * La numeración se sacaba de contar las facturas del negocio, lo que daba el
- * mismo número a dos altas simultáneas y recorría toda la tabla en cada una.
- * Aquí el número se reserva con un INSERT … ON CONFLICT DO UPDATE … RETURNING,
- * que es una sola operación atómica.
+ * Último número de factura emitido por un negocio en un año; se reserva el
+ * siguiente con un INSERT … ON CONFLICT DO UPDATE … RETURNING atómico.
  */
 @Entity("invoice_sequences")
 export class InvoiceSequenceEntity {

@@ -5,7 +5,7 @@ import { Redis } from "ioredis";
 /** Resultado de canjear un refresh token. */
 export type CanjeDeRefresh =
   | { resultado: "válido" }
-  /** El identificador no estaba vivo: o ya se usó, o se revocó la sesión. */
+  /** El identificador no está vivo: o ya se usó, o se revocó la sesión. */
   | { resultado: "reutilizado" }
   /** No se pudo comprobar; el llamador decide si sigue adelante. */
   | { resultado: "indeterminado" };
@@ -15,17 +15,8 @@ const VIGENCIA_POR_DEFECTO_DIAS = 7;
 const SEGUNDOS_POR_DIA = 24 * 60 * 60;
 
 /**
- * Lleva la cuenta de qué refresh tokens de un usuario siguen vivos.
- *
- * Sin esto, el refresh anterior seguía valiendo después de canjearlo: un token
- * robado convivía con la sesión legítima hasta que caducaba, siete días
- * después, sin ninguna señal de que algo iba mal. Cada canje retira el
- * identificador usado y registra el nuevo, así que reutilizar uno ya canjeado
- * se detecta y permite revocar toda la familia.
- *
- * Es un conjunto por usuario y no un único valor porque una persona puede tener
- * la sesión abierta en varios dispositivos, y con un solo valor el segundo
- * dispositivo en renovar parecería un robo.
+ * Lleva en Redis el conjunto de refresh tokens vivos de cada usuario —uno por
+ * dispositivo—, de modo que canjear uno lo retira y reutilizarlo se detecta.
  */
 @Injectable()
 export class RefreshTokenStore {
@@ -61,11 +52,8 @@ export class RefreshTokenStore {
   }
 
   /**
-   * Consume un refresh: lo retira de los vivos y dice si estaba.
-   *
-   * Si Redis no responde se devuelve "indeterminado" en vez de tratarlo como
-   * robo: cerrar la sesión de todo el mundo porque la caché no contesta sería
-   * peor que el riesgo que se vigila.
+   * Consume un refresh: lo retira de los vivos y dice si estaba. Si Redis no
+   * responde devuelve "indeterminado", no "reutilizado".
    */
   async canjear(userId: string, jti: string): Promise<CanjeDeRefresh> {
     try {

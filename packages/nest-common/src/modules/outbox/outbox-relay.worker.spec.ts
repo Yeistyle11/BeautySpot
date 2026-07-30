@@ -129,8 +129,7 @@ describe("OutboxRelayWorker", () => {
 
       await worker.poll();
 
-      // Con atraso acumulado, esperar al siguiente intervalo entre tandas hacía
-      // que la cola creciera más rápido de lo que se vacía.
+      // Tras un lote lleno vuelve a reclamar sin esperar al siguiente sondeo.
       expect(mockQb.getMany).toHaveBeenCalledTimes(2);
     });
 

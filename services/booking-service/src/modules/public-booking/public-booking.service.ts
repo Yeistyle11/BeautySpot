@@ -152,8 +152,8 @@ export class PublicBookingService {
       );
     }
 
-    // Bloqueos y citas de todos los candidatos en dos consultas: comprobarlos
-    // uno a uno encadenaba tres consultas por profesional antes de reservar.
+    // Bloqueos y citas de todos los candidatos en dos consultas, sea cual sea
+    // su número.
     const [bloqueos, citas] = await Promise.all([
       this.blockRepo.find({
         where: { businessId, professionalId: In(candidatos), date },

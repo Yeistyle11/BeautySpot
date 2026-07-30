@@ -1,15 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Índices para las dos consultas de citas que no arrancan por business_id y que,
- * por tanto, no aprovechaban ninguno de los índices del esquema inicial.
- *
- * El worker de recordatorios barre por fecha cada minuto sobre toda la
- * plataforma: sin un índice liderado por date acababa haciendo un recorrido
- * secuencial de la tabla entera. Se define parcial sobre las citas vivas a las
- * que aún les falta algún aviso, que es exactamente lo que el worker busca.
- *
- * El listado de "mis citas" del cliente consulta por client_id, tampoco cubierto.
+ * Índices para las dos consultas de citas que no arrancan por business_id: el
+ * barrido por fecha del worker de recordatorios —parcial sobre las citas vivas
+ * a las que les falta algún aviso— y el listado de "mis citas" por client_id.
  */
 export class AppointmentQueryIndexes1700000000004 implements MigrationInterface {
   name = "AppointmentQueryIndexes1700000000004";

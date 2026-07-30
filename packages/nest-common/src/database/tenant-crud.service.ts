@@ -8,19 +8,11 @@ export interface EntidadDeNegocio {
   active: boolean;
 }
 
-/**
- * Lectura, actualización y baja de una entidad, siempre acotadas al negocio.
- *
- * El trío estaba repetido casi palabra por palabra en una decena de servicios.
- * Lo que se gana no es ahorrar líneas: es que el `businessId` deje de depender
- * de que cada método se acuerde de ponerlo en el `where`. Olvidarlo una vez es
- * exactamente como apareció el fallo que permitía a un negocio responder las
- * reseñas de otro.
- */
+/** Lectura, actualización y baja de una entidad, siempre acotadas al negocio. */
 export abstract class TenantCrudService<T extends EntidadDeNegocio> {
   protected constructor(
     protected readonly repo: Repository<T>,
-    /** Mensaje completo del 404, porque el género cambia según la entidad. */
+    /** Mensaje completo del 404, que cada entidad redacta a su manera. */
     private readonly mensajeNoEncontrado: string
   ) {}
 
@@ -42,7 +34,7 @@ export abstract class TenantCrudService<T extends EntidadDeNegocio> {
     return this.findById(id, businessId);
   }
 
-  /** Da de baja un elemento sin borrarlo, para no perder lo que lo referencia. */
+  /** Da de baja un elemento del negocio sin borrarlo. */
   async deactivate(id: string, businessId: string): Promise<void> {
     await this.repo.update(
       { id, businessId } as FindOptionsWhere<T>,

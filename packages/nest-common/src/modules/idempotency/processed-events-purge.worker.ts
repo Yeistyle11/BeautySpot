@@ -10,14 +10,8 @@ import { DataSource, LessThan } from "typeorm";
 import { ProcessedEventEntity } from "./processed-event.entity";
 
 /**
- * Días que se conserva la marca de un evento ya aplicado.
- *
- * No es un número arbitrario: mide cuánto tiempo puede pasar entre que un
- * evento se publica y que RabbitMQ lo vuelve a entregar. Un mensaje espera en
- * su cola hasta que alguien lo consume, así que la reentrega tardía ocurre
- * cuando un consumidor estuvo caído o su cola acumuló atraso. Treinta días deja
- * margen de sobra para eso; borrar antes reabriría la puerta a aplicar dos
- * veces un evento reentregado, que es justo lo que esta tabla evita.
+ * Días que se conserva la marca de un evento ya aplicado: cubre con margen la
+ * ventana en la que RabbitMQ puede reentregarlo.
  */
 const RETENCION_POR_DEFECTO_DIAS = 30;
 
@@ -26,11 +20,7 @@ const INTERVALO_POR_DEFECTO_MS = 6 * 60 * 60 * 1000;
 
 /**
  * Borra periódicamente las marcas de eventos ya aplicados que superan la
- * retención, para que la tabla de idempotencia no crezca sin límite.
- *
- * Va aparte del relay del outbox porque no todos los servicios que consumen
- * eventos publican: analytics y notification tienen esta tabla y no aquel.
- * Se puede desactivar con PROCESSED_EVENTS_PURGE_ENABLED=false.
+ * retención. Se desactiva con PROCESSED_EVENTS_PURGE_ENABLED=false.
  */
 @Injectable()
 export class ProcessedEventsPurgeWorker

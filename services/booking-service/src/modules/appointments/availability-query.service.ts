@@ -45,10 +45,6 @@ function agruparPorProfesional<T extends { professionalId: string }>(
 /**
  * Responde qué franjas de la agenda están libres y si una reserva concreta
  * cabe.
- *
- * Vivía dentro de AppointmentsService, que llevaba a la vez la máquina de
- * estados de la cita, sus consultas paginadas y este motor: eran cuatro
- * responsabilidades en una sola clase de unas ochocientas líneas.
  */
 @Injectable()
 export class AvailabilityQueryService {
@@ -96,8 +92,8 @@ export class AvailabilityQueryService {
     const profesionales = [...new Set(horarios.map((h) => h.professionalId))];
     if (profesionales.length === 0) return [];
 
-    // Bloqueos y citas del día para todo el equipo de una vez: consultarlos por
-    // profesional multiplicaba las consultas por el tamaño del equipo.
+    // Bloqueos y citas del día de todo el equipo en dos consultas, sea cual sea
+    // su tamaño.
     const [bloqueos, citas] = await Promise.all([
       this.blockRepo.find({
         where: { businessId, professionalId: In(profesionales), date },

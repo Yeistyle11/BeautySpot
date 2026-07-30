@@ -36,18 +36,8 @@ export interface OpcionesLlamada {
 }
 
 /**
- * Cliente de las llamadas HTTP entre microservicios (`/internal/*`).
- *
- * Existía una copia de este código en cada servicio que necesitaba preguntar a
- * otro, y habían ido divergiendo: una sin tiempo límite —capaz de retener un
- * worker hasta que el destino cerrase la conexión—, otra que enviaba el secreto
- * solo si no estaba vacío, y tres formas distintas de sacar el dato del sobre
- * `{ success, data }`, una de ellas sin comprobar que existiera.
- *
- * `pedir` falla si el otro servicio no responde; `pedirONulo` devuelve null. La
- * elección es del que llama, porque no siempre es la misma: bloquear la acción
- * es lo correcto al verificar una condición de negocio, y seguir adelante lo es
- * al adornar un correo con datos accesorios.
+ * Cliente de las llamadas HTTP entre microservicios (`/internal/*`), con tiempo
+ * límite, secreto interno y desenvoltura del sobre `{ success, data }`.
  */
 @Injectable()
 export class InternalHttpClient {
@@ -131,8 +121,7 @@ export class InternalHttpClient {
             ? {}
             : { "Content-Type": "application/json" }),
         },
-        // Sin límite, un servicio colgado retiene el worker que espera hasta
-        // que el sistema operativo corte la conexión.
+        // Corta la espera para que un servicio colgado no retenga el worker.
         signal: AbortSignal.timeout(
           opciones.timeoutMs ?? TIMEOUT_POR_DEFECTO_MS
         ),
@@ -156,11 +145,8 @@ export class InternalHttpClient {
   }
 
   /**
-   * Saca el dato del sobre `{ success, data }` que ponen los microservicios.
-   *
-   * Se acepta también una respuesta sin sobre para no atarse a que todas las
-   * rutas internas lo usen, pero un sobre con `data` ausente es un fallo: darlo
-   * por bueno propagaba un undefined que reventaba lejos del origen.
+   * Saca el dato del sobre `{ success, data }` que ponen los microservicios;
+   * acepta respuestas sin sobre y rechaza un sobre sin `data`.
    */
   private desenvolver<T>(
     servicio: ServicioInterno,

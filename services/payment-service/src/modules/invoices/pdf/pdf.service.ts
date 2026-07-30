@@ -18,26 +18,14 @@ interface Encargo {
   reject: (error: Error) => void;
 }
 
-/**
- * Ruta del worker ya compilado, junto a este mismo fichero en `dist`.
- *
- * El servicio siempre se ejecuta compilado (`nest start` y `node dist/main`),
- * así que el worker se carga como JavaScript. Node no sabe cargar un `.ts` en
- * un worker —lo resuelve como ESM y falla con ERR_UNKNOWN_FILE_EXTENSION—, y
- * los tests sustituyen el worker, de modo que no hace falta una segunda vía.
- */
+/** Ruta del worker ya compilado, junto a este mismo fichero en `dist`. */
 function rutaDelWorker(): string {
   return join(__dirname, "pdf.worker.js");
 }
 
 /**
- * Genera los PDF de facturas repartiéndolos entre un pool de hilos.
- *
- * Renderizar en el hilo principal no lo bloquea (pdfkit va por streams), pero
- * serializa el trabajo: varias descargas a la vez se ponen en cola y esperan
- * unas por otras. El pool las reparte entre varios núcleos. Los hilos se
- * reutilizan porque crear uno por petición cuesta más que el propio render, y
- * ese coste sí lo paga el hilo principal.
+ * Genera los PDF de facturas repartiéndolos entre un pool de hilos que se
+ * reutilizan, de modo que varias descargas a la vez no esperen unas por otras.
  */
 @Injectable()
 export class PdfService implements OnModuleDestroy {

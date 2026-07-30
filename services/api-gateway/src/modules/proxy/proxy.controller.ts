@@ -16,14 +16,8 @@ import { SessionService } from "../session/session.service";
 const SERVER_ERROR_THRESHOLD = 500;
 
 /**
- * Detecta intentos de subir de directorio en la ruta reenviada.
- *
- * La ruta se reescribe quitándole el prefijo y se concatena con la URL del
- * servicio, sin normalizar. El analizador de URL que usa fetch interpreta
- * `%2e%2e` como un segmento `..`, de modo que una ruta como
- * `/api/v1/marketplace/x/%2e%2e/%2e%2e/internal/...` alcanzaría rutas internas
- * del backend. Se comprueba sobre la URL sin decodificar y también decodificada,
- * para que ninguna de las dos formas pase.
+ * Detecta intentos de subir de directorio en la ruta reenviada, tanto escritos
+ * en claro como codificados (`%2e%2e`).
  */
 function tieneSaltoDeDirectorio(url: string): boolean {
   const candidatas = [url];

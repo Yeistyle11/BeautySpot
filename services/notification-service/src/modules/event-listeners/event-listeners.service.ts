@@ -494,14 +494,9 @@ export class NotificationEventListeners {
     }
   }
 
-  /** Registra en log un error de envío de correo con su contexto. */
   /**
-   * Deja al cliente una notificación dentro de la aplicación.
-   *
-   * Solo la reciben los clientes con cuenta: quien reserva como invitado no
-   * tiene dónde leerla. Va junto al correo porque son el mismo aviso por dos
-   * vías, y hasta ahora solo se enviaba el correo: la bandeja de la aplicación
-   * existía pero nunca recibía nada.
+   * Deja al cliente una notificación dentro de la aplicación, junto al correo;
+   * solo la reciben los clientes con cuenta, no quien reserva como invitado.
    */
   private async avisarEnLaApp(
     userId: string | null,
@@ -523,11 +518,8 @@ export class NotificationEventListeners {
   }
 
   /**
-   * Registra el fallo y lo vuelve a lanzar.
-   *
-   * Sin relanzar, el mensaje se daba por consumido y nunca llegaba a la cola de
-   * fallidos, pese a que todas las colas la declaran: la DLQ estaba configurada
-   * pero no recibía nada, y un correo perdido se quedaba en un renglón del log.
+   * Registra el fallo del envío y lo vuelve a lanzar, para que el mensaje acabe
+   * en la cola de fallidos en lugar de darse por consumido.
    */
   private logError(context: string, error: unknown): never {
     const message =

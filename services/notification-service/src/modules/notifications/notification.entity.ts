@@ -7,8 +7,7 @@ import {
 
 /** Notificación in-app para un usuario: tipo, canal, contenido y estado de lectura. */
 @Entity("notifications")
-// El listado y el contador de no leídas son por usuario; el único índice que
-// había era el de negocio, que hereda de TenantEntity y aquí no filtra nada.
+// El listado y el contador de no leídas son por usuario.
 @Index("idx_notifications_usuario_fecha", ["userId", "createdAt"])
 @Index("idx_notifications_usuario_leida", ["userId", "read"])
 export class NotificationEntity extends TenantEntity {

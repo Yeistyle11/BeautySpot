@@ -7,10 +7,6 @@ import { ACCESS_COOKIE, leerCookie } from "../session/session-cookies";
 /**
  * Resuelve a qué microservicio va cada petición y prepara su reenvío: la URL
  * destino, las cabeceras que se propagan y la traducción de la respuesta.
- *
- * Toda esta mecánica vivía en el controlador, que acabó siendo el único con
- * lógica de infraestructura del gateway mientras este servicio se limitaba a
- * resolver URLs.
  */
 @Injectable()
 export class ProxyService {

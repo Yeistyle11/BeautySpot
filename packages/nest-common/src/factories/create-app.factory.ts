@@ -38,8 +38,8 @@ export async function createMicroserviceApp(AppModule: unknown): Promise<void> {
 
   const configService = app.get(ConfigService);
 
-  // Antes que nada: todo lo que se registre después debe poder citar el
-  // identificador de la petición.
+  // Va primero: todo lo que se registre después cita el identificador de la
+  // petición que deja aquí.
   app.use(requestContextMiddleware);
   app.use(helmet());
   app.enableCors(buildCorsOptions(configService));

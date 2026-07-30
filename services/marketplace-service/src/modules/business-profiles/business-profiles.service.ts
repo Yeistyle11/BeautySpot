@@ -296,12 +296,8 @@ export class BusinessProfilesService {
   }
 
   /**
-   * Invalida la caché del perfil de un negocio.
-   *
-   * Va aparte de {@link updateRating} porque ese método corre dentro de la
-   * transacción de la reseña: invalidar ahí mantenía abierta la transacción, con
-   * sus bloqueos, durante toda la conversación con Redis, y dejaba la caché
-   * borrada aunque después la transacción se deshiciera.
+   * Invalida la caché del perfil de un negocio; se llama fuera de la
+   * transacción de la reseña, una vez confirmada.
    */
   async invalidarCache(businessId: string): Promise<void> {
     await this.cache.invalidarEtiqueta(
@@ -405,24 +401,16 @@ export class BusinessProfilesService {
 
   // --- Completitud ---
 
-  /** Puntúa de 0 a 100 lo completo que está el perfil, sumando puntos por cada bloque relleno. */
   /**
-   * Persiste el perfil e invalida la caché pública de ese negocio.
-   *
-   * Todas las escrituras pasan por aquí para que no haya que acordarse de
-   * invalidar en cada una: si alguien añade mañana otro método que guarde y lo
-   * olvida, el marketplace serviría datos viejos hasta que caducase el TTL.
-   *
-   * Se invalida por etiqueta y no por clave porque el mismo perfil se sirve bajo
-   * varias claves; la etiqueta agrupa las de este negocio y deja intactas las de
-   * los demás.
+   * Punto único por el que pasan las escrituras del perfil: lo persiste e
+   * invalida por etiqueta las claves con que se sirve ese negocio.
    */
   private async guardar(
     profile: BusinessProfileEntity
   ): Promise<BusinessProfileEntity> {
     const guardado = await this.repo.save(profile);
-    // Mejor esfuerzo: un fallo al invalidar no debe tumbar una escritura que ya
-    // ha tenido éxito. Las entradas caducan solas por TTL.
+    // Mejor esfuerzo: un fallo al invalidar no tumba la escritura, y las
+    // entradas caducan solas por TTL.
     await this.cache.invalidarEtiqueta(
       BusinessProfilesService.etiquetaDe(guardado.businessId)
     );

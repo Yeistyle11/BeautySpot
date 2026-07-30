@@ -56,13 +56,8 @@ export class NotificationsController {
 }
 
 /**
- * Alta de notificaciones para otros microservicios.
- *
- * Estaba expuesta con el resto de endpoints, y como el cuerpo trae el
- * destinatario y el negocio, cualquier usuario autenticado podía escribirle una
- * notificación a otro: un buen vector de suplantación dentro de la aplicación.
- * Quien las emite son los servicios, así que vive tras el secreto interno, que
- * el gateway nunca reenvía.
+ * Alta de notificaciones para otros microservicios, tras el secreto interno que
+ * el gateway nunca reenvía: el destinatario viaja en el cuerpo.
  */
 @Controller("internal/notifications")
 export class InternalNotificationsController {

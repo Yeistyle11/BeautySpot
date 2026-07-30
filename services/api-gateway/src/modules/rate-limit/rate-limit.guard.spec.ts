@@ -132,7 +132,7 @@ describe("RateLimitGuard", () => {
     redis.eval.mockResolvedValue(3);
     const request = { path: "/api/v1/clients", ip: "1.1.1.1", body: {} };
 
-    // Estaba en los .env y el guard lo ignoraba, usando su constante fija.
+    // El límite del .env manda sobre la constante por defecto.
     await expect(conConfig.canActivate(contextFor(request))).rejects.toThrow(
       HttpException
     );

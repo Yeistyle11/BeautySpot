@@ -134,13 +134,7 @@ export class RedisCacheService implements OnModuleDestroy {
     return valor;
   }
 
-  /**
-   * Borra las claves asociadas a una etiqueta.
-   *
-   * Sustituye al borrado por prefijo, que recorría el espacio de claves entero
-   * (SCAN filtra después de leer) y además tumbaba la caché de todos los
-   * negocios cuando solo cambiaba uno.
-   */
+  /** Borra las claves asociadas a una etiqueta. */
   async invalidarEtiqueta(etiqueta: string): Promise<number> {
     try {
       const claves = await this.client.smembers(etiqueta);

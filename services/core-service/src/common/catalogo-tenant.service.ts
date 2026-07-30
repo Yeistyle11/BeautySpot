@@ -14,13 +14,7 @@ export interface EntidadDeCatalogo {
 
 /**
  * CRUD de un catálogo de un negocio: alta con nombre único, listado ordenado,
- * baja lógica y reordenación.
- *
- * Las categorías de profesionales y las de servicios eran dos copias literales
- * de este mismo código, con el tipo de entidad y el texto de los mensajes como
- * única diferencia; cualquier corrección había que hacerla dos veces. Toda
- * consulta va acotada por negocio, de modo que el aislamiento entre negocios no
- * depende de acordarse en cada método.
+ * baja lógica y reordenación, siempre acotados al negocio.
  */
 export abstract class CatalogoTenantService<T extends EntidadDeCatalogo> {
   protected constructor(
@@ -115,12 +109,7 @@ export abstract class CatalogoTenantService<T extends EntidadDeCatalogo> {
     return this.findById(id, businessId);
   }
 
-  /**
-   * Aplica el nuevo orden a los elementos indicados, todo o nada.
-   *
-   * Va en una transacción porque antes se guardaba uno a uno: un fallo a mitad
-   * dejaba la lista medio reordenada.
-   */
+  /** Aplica el nuevo orden a los elementos indicados en una transacción. */
   async reorder(
     businessId: string,
     items: { id: string; sortOrder: number }[]

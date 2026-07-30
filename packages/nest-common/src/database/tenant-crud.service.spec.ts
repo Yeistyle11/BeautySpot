@@ -39,8 +39,7 @@ describe("TenantCrudService", () => {
       await expect(service.findById("sede-1", "negocio-1")).resolves.toEqual(
         sede
       );
-      // El aislamiento entre negocios no depende de que cada servicio se
-      // acuerde de poner el businessId: lo pone la base.
+      // El businessId lo pone la clase base, no cada servicio.
       expect(repo.findOne).toHaveBeenCalledWith({
         where: { id: "sede-1", businessId: "negocio-1" },
       });

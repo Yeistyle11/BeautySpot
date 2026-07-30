@@ -7,11 +7,8 @@ export type RespuestaWorker =
   | { ok: false; error: string };
 
 /**
- * Hilo de render reutilizable: espera facturas por mensaje y devuelve el PDF.
- *
- * No termina tras el primer encargo porque el servicio mantiene un pool: crear
- * un hilo por petición cuesta más que el propio render (arranca un aislado de
- * V8 y vuelve a cargar pdfkit), y ese coste lo paga el hilo principal.
+ * Hilo de render reutilizable: se queda a la espera de facturas por mensaje y
+ * devuelve el PDF de cada una.
  */
 parentPort?.on("message", async (data: InvoiceData) => {
   try {

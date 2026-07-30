@@ -9,11 +9,8 @@ export const TOKEN_VERSION_KEY_PREFIX = "tokenVersion";
 export const TOKEN_VERSION_DEFAULT = 0;
 
 /**
- * Resultado de consultar la versión de token de un usuario.
- *
- * Distingue "el usuario está en la versión N" de "no se ha podido averiguar",
- * que antes se confundían: sin Redis y sin resolver se devolvía 0, con lo que
- * un token revocado volvía a aceptarse como si nunca lo hubieran revocado.
+ * Versión de token de un usuario, distinguiendo "está en la versión N" de "no
+ * se ha podido averiguar".
  */
 export type VersionDeToken =
   | { conocida: true; version: number }

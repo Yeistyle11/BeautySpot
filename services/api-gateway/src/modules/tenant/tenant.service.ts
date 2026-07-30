@@ -82,9 +82,7 @@ export class TenantService {
       );
     }
 
-    // Se comprueba la forma en vez de darla por buena: un cambio en el sobre
-    // del core devolvía aquí un undefined que reventaba mucho más adelante,
-    // lejos de su origen.
+    // Se comprueba la forma de la respuesta para fallar aquí y no más adelante.
     const body = (await response.json()) as { data?: { id?: unknown } };
     const businessId = body?.data?.id;
     if (typeof businessId !== "string" || businessId.length === 0) {

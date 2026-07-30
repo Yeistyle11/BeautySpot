@@ -145,8 +145,7 @@ export class InvoicesService {
         price: Number(item.unitPrice),
       })),
       // El total ya lleva el IVA incluido, así que la base se obtiene
-      // dividiendo. Estaba escrito como 0,84 y 0,16, que es ese mismo reparto
-      // redondeado y obligaba a que ambos números sumaran uno.
+      // dividiendo.
       subtotal: Number(invoice.total) / (1 + IVA),
       tax: Number(invoice.total) - Number(invoice.total) / (1 + IVA),
       total: Number(invoice.total),
@@ -159,12 +158,8 @@ export class InvoicesService {
 
   /**
    * Reserva el siguiente número de la serie del negocio, con formato
-   * `INV-{año}-{secuencia}`.
-   *
-   * Se obtenía contando las facturas del negocio, lo que daba el mismo número a
-   * dos altas simultáneas y recorría toda la tabla en cada una. Ahora se toma de
-   * una secuencia por negocio y año con un INSERT … ON CONFLICT DO UPDATE …
-   * RETURNING, que reserva y devuelve el número en una sola operación atómica.
+   * `INV-{año}-{secuencia}`, con un INSERT … ON CONFLICT DO UPDATE … RETURNING
+   * que lo reserva y lo devuelve en una sola operación atómica.
    */
   private async generateInvoiceNumber(
     businessId: string,

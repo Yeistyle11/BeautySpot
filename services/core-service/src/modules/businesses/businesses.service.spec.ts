@@ -68,7 +68,7 @@ describe("BusinessesService", () => {
       }),
     } as any;
 
-    // Las colecciones del listado se piden por lote, ya no por join.
+    // Las colecciones del listado se piden por lote, no por join.
     mockBranchRepo = { find: jest.fn().mockResolvedValue([]) } as any;
     mockServiceRepo = { find: jest.fn().mockResolvedValue([]) } as any;
     mockProfessionalRepo = { find: jest.fn().mockResolvedValue([]) } as any;
@@ -178,8 +178,7 @@ describe("BusinessesService", () => {
     });
 
     it("no debe unir las colecciones al listado, sino pedirlas por lote", async () => {
-      // Unir sedes, servicios y profesionales a la vez multiplicaba las filas
-      // entre sí; cada colección se pide aparte para la página devuelta.
+      // Cada colección se pide aparte para la página devuelta.
       const queryBuilder = mockRepository.createQueryBuilder() as any;
       mockBranchRepo.find.mockResolvedValue([
         { businessId: "business-123", id: "sede-1" },

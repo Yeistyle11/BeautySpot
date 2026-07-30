@@ -118,12 +118,9 @@ export class ReviewsService {
   }
 
   /**
-   * Comprueba con booking si la reseña merece el distintivo de verificada.
-   *
-   * Solo lo lleva quien reseña una cita suya, de ese negocio y ya atendida:
-   * antes bastaba con incluir cualquier identificador de cita en la petición.
-   * Si booking no responde no se concede, pero tampoco se rechaza la reseña:
-   * una caída no debe impedir opinar.
+   * Comprueba con booking si la reseña merece el distintivo de verificada: solo
+   * lo lleva quien reseña una cita suya, de ese negocio y ya atendida. Si
+   * booking no responde no se concede, pero la reseña se publica igual.
    */
   private async esVerificable(
     dto: CreateReviewDto,
@@ -219,8 +216,8 @@ export class ReviewsService {
   }
 
   /**
-   * Registra la respuesta del negocio a una reseña; rechaza si ya tenía una.
-   * La reseña se busca acotada al negocio para que nadie responda por otro.
+   * Registra la respuesta del negocio a una reseña suya; rechaza si ya tiene
+   * una.
    */
   async respond(
     id: string,

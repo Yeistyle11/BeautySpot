@@ -290,7 +290,7 @@ describe("PublicBookingService", () => {
     it("persiste la cita por el camino con transacción, no por su cuenta", async () => {
       await service.createPublicAppointment(bookingData);
 
-      // Guardar aquí con un save suelto dejaba fuera el re-check dentro de la
+      // Delega en AppointmentsService, que trae el re-check dentro de la
       // transacción, el reintento y el evento del outbox.
       expect(mockAppointments.create).toHaveBeenCalledWith("business-123", {
         professionalId: "prof-123",
@@ -321,8 +321,7 @@ describe("PublicBookingService", () => {
 
       await service.createPublicAppointment(sinPreferencia);
 
-      // Antes solo bloqueaban las citas pendientes, así que un invitado podía
-      // reservar encima de una cita ya confirmada.
+      // Una cita confirmada ocupa la franja igual que una pendiente.
       expect(mockAppointments.create).toHaveBeenCalledWith(
         "business-123",
         expect.objectContaining({ professionalId: "prof-b" })

@@ -72,9 +72,7 @@ export class AuthService {
       where: { email: dto.email },
     });
     if (existing) {
-      // No se dice que el email ya exista: eso permitía comprobar de uno en uno
-      // qué correos están dados de alta. `login` y `forgot-password` ya son
-      // genéricos; este se había quedado fuera.
+      // Mensaje genérico para no revelar qué correos están dados de alta.
       throw new ConflictException("No se pudo completar el registro");
     }
 
@@ -144,11 +142,9 @@ export class AuthService {
   }
 
   /**
-   * Emite un nuevo par de tokens a partir de un refresh token válido.
-   *
-   * Comprueba la versión de token además de la firma: sin ese control, un
-   * refresh token robado seguiría produciendo access tokens durante toda su
-   * vigencia (7 días por defecto) pese a un logout o un cambio de contraseña.
+   * Emite un nuevo par de tokens a partir de un refresh válido, comprobando la
+   * firma y también la versión de token, que un logout o un cambio de
+   * contraseña incrementan.
    */
   async refreshToken(
     token: string
@@ -184,16 +180,9 @@ export class AuthService {
   }
 
   /**
-   * Retira el refresh recibido de los vivos antes de emitir el siguiente.
-   *
-   * Que ya no estuviera vivo significa que alguien lo está reutilizando: o el
-   * legítimo canjeó y le robaron el anterior, o al revés. No hay forma de saber
-   * cuál de los dos es, así que se revocan todas las sesiones del usuario y se
-   * le obliga a identificarse de nuevo.
-   *
-   * Los refresh emitidos antes de que existiera este control no llevan
-   * identificador; se aceptan una vez y salen ya con uno, para no cerrar la
-   * sesión de todo el mundo al desplegar.
+   * Retira el refresh recibido de los vivos; si ya no lo estaba lo trata como
+   * reutilización y revoca todas las sesiones del usuario. Los refresh sin
+   * identificador se aceptan una vez y salen con uno.
    */
   private async canjearRefresh(
     user: User,

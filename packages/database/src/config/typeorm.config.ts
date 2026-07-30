@@ -47,14 +47,7 @@ export function getPoolConfig(
   };
 }
 
-/**
- * Nivel de registro de TypeORM.
- *
- * El registro de cada consulta solo se activa pidiéndolo con DB_LOGGING=query.
- * Antes salía en cualquier entorno que no fuese producción, de modo que en
- * staging o en una prueba de carga cada consulta escribía por la salida
- * estándar: eso solo ya distorsiona la latencia y falsea cualquier medición.
- */
+/** Niveles de registro de TypeORM según DB_LOGGING y el entorno. */
 function logLevels(isProduction: boolean): LogLevel[] {
   const base: LogLevel[] = ["error", "warn"];
   const pedido = process.env.DB_LOGGING;
@@ -72,14 +65,8 @@ function logLevels(isProduction: boolean): LogLevel[] {
 }
 
 /**
- * TLS de la conexión a Postgres.
- *
- * En producción se valida el certificado del servidor: sin validarlo, el cifrado
- * no protege de un intermediario que se haga pasar por la base de datos, y por
- * ahí pasan las credenciales y todos los datos. Con un certificado propio (una
- * CA interna o un proveedor gestionado), se indica en DATABASE_CA_CERT. Solo se
- * puede rebajar poniendo DATABASE_SSL_REJECT_UNAUTHORIZED=false de forma
- * explícita, para no dejarlo desprotegido por descuido.
+ * TLS de la conexión a Postgres: en producción valida el certificado del
+ * servidor, con la CA de DATABASE_CA_CERT si se indica.
  */
 function sslOptions(
   isProduction: boolean

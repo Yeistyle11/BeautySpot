@@ -508,9 +508,8 @@ export class AppointmentsService {
   }
 
   /**
-   * Verifica si un profesional tiene historial de citas.
-   * Usado por core-service antes de permitir la eliminacion de un profesional.
-   * Un profesional con citas solo puede ser inactivado, no eliminado.
+   * Cuenta las citas de un profesional, totales y atendidas; lo consulta core
+   * para decidir si puede eliminarlo o solo inactivarlo.
    */
   async professionalHasHistory(professionalId: string): Promise<{
     hasHistory: boolean;
@@ -534,11 +533,8 @@ export class AppointmentsService {
 
   /**
    * Indica si un usuario puede reseñar una cita: existe, es suya, es de ese
-   * negocio y ya se atendió.
-   *
-   * Lo consulta el marketplace antes de marcar una reseña como verificada. Sin
-   * esta comprobación bastaba con inventarse un identificador de cita para
-   * lucir el distintivo.
+   * negocio y ya se atendió. Lo consulta el marketplace para conceder el
+   * distintivo de reseña verificada.
    */
   async citaReseñablePor(
     appointmentId: string,

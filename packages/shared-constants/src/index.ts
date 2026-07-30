@@ -14,11 +14,7 @@ export const RATE_LIMIT_WINDOW_SECONDS = 60;
 
 // ─── Reglas de negocio ─────────────────────────────────────────────
 
-/**
- * Horas mínimas de antelación para cancelar o reagendar una cita sin coste.
- * Estaba escrito como literal en los dos sitios que lo comprueban, y cambiar
- * uno sin el otro dejaba dos políticas distintas conviviendo.
- */
+/** Horas mínimas de antelación para cancelar o reagendar una cita sin coste. */
 export const HORAS_MINIMAS_CANCELACION = 2;
 
 /** Proporción del importe de la cita que se convierte en puntos de fidelidad. */

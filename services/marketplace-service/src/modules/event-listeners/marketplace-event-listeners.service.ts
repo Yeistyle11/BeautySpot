@@ -43,14 +43,9 @@ export class MarketplaceEventListeners {
   ) {}
 
   /**
-   * Copia al perfil público los campos que hayan cambiado en el negocio.
-   *
-   * Si el negocio aún no tiene perfil, no hay nada que sincronizar.
-   *
-   * No necesita control de duplicados: aplicar el mismo parche dos veces deja
-   * el perfil igual. Lo que sí hace falta es invalidar la caché, porque este
-   * camino escribe sin pasar por el guardado normal del servicio y, si no, el
-   * marketplace seguiría sirviendo el perfil viejo hasta que venciera el TTL.
+   * Copia al perfil público los campos que hayan cambiado en el negocio, si ya
+   * tiene perfil, e invalida su caché. Repetir el parche deja el mismo estado,
+   * así que no lleva control de duplicados.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,

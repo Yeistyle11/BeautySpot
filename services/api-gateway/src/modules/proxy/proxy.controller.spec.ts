@@ -8,12 +8,9 @@ import { CircuitBreakerService } from "../circuit-breaker/circuit-breaker.servic
 import { SessionService } from "../session/session.service";
 
 /**
- * Regresión de enrutado bajo Express 5: la ruta comodín del proxy cambió de
- * ":service/*" a ":service/*splat" porque path-to-regexp v8 ya no acepta el
- * comodín sin nombre. Este test verifica, a través del router real, que el
- * gateway sigue capturando el nombre del servicio y reenviando cualquier
- * sub-ruta; si una futura actualización rompe el patrón, falla aquí y no en
- * producción.
+ * Comprueba, a través del router real de Express 5, que la ruta comodín
+ * ":service/*splat" captura el nombre del servicio y reenvía cualquier
+ * sub-ruta.
  */
 describe("ProxyController (enrutado Express 5)", () => {
   let app: INestApplication;
@@ -182,7 +179,7 @@ describe("ProxyController (reenvío)", () => {
         {
           // Servicio real: estos tests ejercitan justamente su mecánica
           // (URL destino, cabeceras, cuerpo de la respuesta y traducción de
-          // errores), que antes vivía dentro del controlador.
+          // errores).
           provide: ProxyService,
           useFactory: () =>
             new ProxyService({

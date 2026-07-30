@@ -47,8 +47,8 @@ describe("TokenVersionStore", () => {
     it("avisa de que no la sabe cuando Redis no responde y no hay fuente autoritativa", async () => {
       cache.get.mockRejectedValue(new Error("ECONNREFUSED"));
 
-      // Antes se devolvía 0, indistinguible de "nunca revocado": un token
-      // revocado volvía a aceptarse con Redis caído.
+      // "No se sabe" es distinto de la versión 0, que significa "nunca
+      // revocado".
       await expect(build(false).consultarVersion("user-1")).resolves.toEqual({
         conocida: false,
       });

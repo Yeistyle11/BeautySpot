@@ -72,11 +72,8 @@ export class FeedService {
   }
 
   /**
-   * Clave de caché por ubicación.
-   *
-   * Las coordenadas se redondean a dos decimales (~1 km) a propósito: sin
-   * redondear, cada visitante tendría su propia entrada y la caché no serviría
-   * de nada, porque nunca habría dos peticiones con la misma clave.
+   * Clave de caché por ubicación, con las coordenadas redondeadas a dos
+   * decimales (~1 km) para que los visitantes cercanos compartan entrada.
    */
   private claveUbicacion(lat?: number, lng?: number, city?: string): string {
     if (lat !== undefined && lng !== undefined) {

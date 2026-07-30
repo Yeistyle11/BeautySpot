@@ -118,11 +118,8 @@ export class BusinessesService {
   }
 
   /**
-   * Carga sedes, servicios y profesionales de los negocios de la página.
-   *
-   * Unir las tres colecciones en la consulta del listado multiplicaba las filas
-   * entre sí (sedes × servicios × profesionales por negocio); pedirlas aparte
-   * por lote devuelve exactamente las filas que hacen falta.
+   * Carga sedes, servicios y profesionales de los negocios de la página, cada
+   * colección en su propia consulta por lote.
    */
   private async adjuntarColecciones(negocios: Business[]): Promise<void> {
     if (negocios.length === 0) return;

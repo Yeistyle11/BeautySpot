@@ -42,8 +42,7 @@ export class ReportsService {
       }),
     ]);
 
-    // Los días con datos son las filas que ya se han traído: contarlos con una
-    // tercera consulta sobre el mismo rango era trabajo repetido.
+    // Los días con datos son las filas que ya se han traído.
     const dayCount = daily.length;
 
     const totalRevenue = Number(aggregates?.totalRevenue ?? 0);
