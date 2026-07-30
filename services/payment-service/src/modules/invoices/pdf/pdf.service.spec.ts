@@ -1,89 +1,87 @@
 import { Test } from "@nestjs/testing";
+import { EventEmitter } from "events";
 import { ConfigService } from "@nestjs/config";
-import { PdfService } from "./pdf.service";
-import { InvoiceData } from "./pdf.service";
+import { PdfService, InvoiceData } from "./pdf.service";
 
-// Mock de PDFKit completo antes de importar el servicio
-jest.mock("pdfkit", () => {
-  const mockDoc = {
-    on: jest.fn(),
-    fontSize: jest.fn().mockReturnThis(),
-    text: jest.fn().mockReturnThis(),
-    fillColor: jest.fn().mockReturnThis(),
-    moveTo: jest.fn().mockReturnThis(),
-    lineTo: jest.fn().mockReturnThis(),
-    stroke: jest.fn().mockReturnThis(),
-    end: jest.fn(),
-    page: { height: 842 },
-    rect: jest.fn().mockReturnThis(),
-    fill: jest.fn().mockReturnThis(),
-  };
+jest.mock("worker_threads", () => ({ Worker: jest.fn() }));
 
-  const PDFDocumentMock = jest.fn().mockReturnValue(mockDoc);
-
-  return {
-    __esModule: true,
-    default: PDFDocumentMock,
-  };
-});
-
-// Mock de fs y path
 jest.mock("fs", () => ({
   existsSync: jest.fn(),
   mkdirSync: jest.fn(),
   writeFileSync: jest.fn(),
-  readFileSync: jest.fn(() => "Font content string"),
 }));
 
 jest.mock("path", () => ({
   join: jest.fn((...args: string[]) => args.join("/")),
 }));
 
+/** Worker simulado: registra los encargos recibidos y deja responderlos a mano. */
+class WorkerSimulado extends EventEmitter {
+  static creados: WorkerSimulado[] = [];
+  recibidos: unknown[] = [];
+  terminado = false;
+
+  constructor(public ruta: string) {
+    super();
+    WorkerSimulado.creados.push(this);
+  }
+
+  postMessage(data: unknown): void {
+    this.recibidos.push(data);
+  }
+
+  async terminate(): Promise<number> {
+    this.terminado = true;
+    return 0;
+  }
+
+  /** Devuelve un PDF como lo haría el hilo real. */
+  responder(pdf: string): void {
+    this.emit("message", { ok: true, pdf: Buffer.from(pdf) });
+  }
+}
+
+const facturaMinima: InvoiceData = {
+  invoiceNumber: "INV-2023-001",
+  invoiceDate: new Date("2023-11-15"),
+  dueDate: new Date("2023-12-15"),
+  business: {
+    name: "Beauty Bar",
+    nit: "900123456-1",
+    address: "Calle 123",
+    phone: "+57 300",
+    email: "hola@beautybar.co",
+  },
+  client: { name: "Juan Pérez", document: "123456789" },
+  items: [{ name: "Corte", quantity: 1, price: 30000 }],
+  subtotal: 30000,
+  tax: 5700,
+  total: 35700,
+  paymentMethod: "Efectivo",
+};
+
 describe("PdfService", () => {
   let service: PdfService;
   let mockConfigService: jest.Mocked<ConfigService>;
-  let mockDoc: any;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Worker } = require("worker_threads");
 
   beforeEach(async () => {
-    // Mock de PDFKit dentro de beforeEach
-    mockDoc = {
-      on: jest.fn((event: string, callback: (chunk?: Buffer) => void) => {
-        if (event === "data") callback(Buffer.from("pdf-data"));
-        if (event === "end") callback();
-      }),
-      fontSize: jest.fn().mockReturnThis(),
-      text: jest.fn().mockReturnThis(),
-      fillColor: jest.fn().mockReturnThis(),
-      moveTo: jest.fn().mockReturnThis(),
-      lineTo: jest.fn().mockReturnThis(),
-      stroke: jest.fn().mockReturnThis(),
-      end: jest.fn(),
-      page: { height: 842 },
-      rect: jest.fn().mockReturnThis(),
-      fill: jest.fn().mockReturnThis(),
-    };
-
-    const PDFDocumentMock = require("pdfkit").default;
-    PDFDocumentMock.mockReturnValue(mockDoc);
+    jest.clearAllMocks();
+    WorkerSimulado.creados = [];
+    Worker.mockImplementation((ruta: string) => new WorkerSimulado(ruta));
 
     mockConfigService = {
-      get: jest.fn((key: string, defaultValue?: string) => {
-        if (key === "PDF_STORAGE_PATH")
-          return defaultValue || "./temp/invoices";
-        return undefined;
-      }),
-    } as any;
-
-    // Reset mocks
-    jest.clearAllMocks();
+      get: jest.fn(
+        (_key: string, defaultValue?: string) =>
+          defaultValue || "./temp/invoices"
+      ),
+    } as never;
 
     const module = await Test.createTestingModule({
       providers: [
         PdfService,
-        {
-          provide: ConfigService,
-          useValue: mockConfigService,
-        },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -91,147 +89,111 @@ describe("PdfService", () => {
   });
 
   describe("generateInvoicePdf", () => {
-    it("debería generar un PDF con datos de factura válidos", async () => {
-      const invoiceData: InvoiceData = {
-        invoiceNumber: "INV-2023-001",
-        invoiceDate: new Date("2023-11-15"),
-        dueDate: new Date("2023-12-15"),
-        business: {
-          name: "Beauty Bar",
-          nit: "900123456-1",
-          address: "Calle 123 #45-67",
-          phone: "+57 300 123 4567",
-          email: "contact@beautybar.co",
-        },
-        client: {
-          name: "Juan Pérez",
-          document: "123456789",
-          phone: "+57 310 987 6543",
-          email: "juan@example.com",
-          address: "Av. 456 #78-90",
-        },
-        items: [
-          { name: "Corte de cabello", quantity: 1, price: 30000 },
-          { name: "Barba", quantity: 1, price: 15000 },
-        ],
-        subtotal: 45000,
-        tax: 8550,
-        total: 53550,
-        paymentMethod: "Efectivo",
-        notes: "Gracias por su visita",
-      };
+    it("renderiza fuera del hilo principal y devuelve el Buffer", async () => {
+      const promesa = service.generateInvoicePdf(facturaMinima);
+      const worker = WorkerSimulado.creados[0];
 
-      // Mock completo de PDFDocument para evitar errores de fs
-      const PDFDocumentMock = jest.fn().mockImplementation(() => ({
-        on: jest.fn((event: string, callback: (chunk?: Buffer) => void) => {
-          if (event === "data") callback(Buffer.from("pdf-data"));
-          if (event === "end") callback(Buffer.from("pdf-data"));
-        }),
-        end: jest.fn(),
-        fontSize: jest.fn().mockReturnThis(),
-        text: jest.fn().mockReturnThis(),
-        fillColor: jest.fn().mockReturnThis(),
-        moveTo: jest.fn().mockReturnThis(),
-        lineTo: jest.fn().mockReturnThis(),
-        stroke: jest.fn().mockReturnThis(),
-        page: { height: 842 },
-      }));
+      expect(worker.ruta).toContain("pdf.worker");
+      expect(worker.recibidos).toEqual([facturaMinima]);
 
-      const pdfkit = require("pdfkit");
-      pdfkit.default = PDFDocumentMock;
-
-      const result = await service.generateInvoicePdf(invoiceData);
-
-      expect(result).toBeInstanceOf(Buffer);
+      worker.responder("%PDF-1.3");
+      expect((await promesa).toString()).toBe("%PDF-1.3");
     });
 
-    it("debería manejar factura sin logo", async () => {
-      const invoiceDataWithoutLogo: InvoiceData = {
-        invoiceNumber: "INV-2023-002",
-        invoiceDate: new Date("2023-11-20"),
-        dueDate: new Date("2023-12-20"),
-        business: {
-          name: "Beauty Bar",
-          nit: "900123456-1",
-          address: "Calle 123 #45-67",
-          phone: "+57 300 123 4567",
-          email: "contact@beautybar.co",
-        },
-        client: {
-          name: "María García",
-          document: "987654321",
-          phone: "+57 310 123 4567",
-          email: "maria@example.com",
-          address: "Av. 456 #78-90",
-        },
-        items: [{ name: "Manicura", quantity: 1, price: 25000 }],
-        subtotal: 25000,
-        tax: 4750,
-        total: 29750,
-        paymentMethod: "Tarjeta",
-      };
+    it("reutiliza el hilo entre facturas en vez de crear uno por petición", async () => {
+      const primera = service.generateInvoicePdf(facturaMinima);
+      WorkerSimulado.creados[0].responder("%PDF-1");
+      await primera;
 
-      const result = await service.generateInvoicePdf(invoiceDataWithoutLogo);
+      const segunda = service.generateInvoicePdf(facturaMinima);
+      WorkerSimulado.creados[0].responder("%PDF-2");
+      await segunda;
 
-      expect(Buffer.isBuffer(result)).toBe(true);
-    });
-  });
-
-  describe("formatDate (private method)", () => {
-    it("debería formatear fecha en español", () => {
-      const date = new Date("2023-11-15T12:00:00-05:00");
-      const formatted = (service as any).formatDate(date);
-
-      expect(formatted).toContain("noviembre");
-      expect(formatted).toContain("2023");
-    });
-  });
-
-  describe("formatCurrency (private method)", () => {
-    it("debería formatear moneda en pesos colombianos", () => {
-      const formatted = (service as any).formatCurrency(50000);
-
-      expect(formatted).toContain("$");
-      expect(formatted).toContain("50.000");
+      expect(WorkerSimulado.creados).toHaveLength(1);
+      expect(WorkerSimulado.creados[0].recibidos).toHaveLength(2);
     });
 
-    it("debería formatear cero correctamente", () => {
-      const formatted = (service as any).formatCurrency(0);
+    it("no crea más hilos que el máximo, y encola el resto", async () => {
+      const pendientes = Array.from({ length: 20 }, () =>
+        service.generateInvoicePdf(facturaMinima)
+      );
 
-      expect(formatted).toContain("$");
-      expect(formatted).toContain("0");
+      expect(WorkerSimulado.creados.length).toBeLessThanOrEqual(4);
+
+      // Cada respuesta libera el hilo, que recoge el siguiente de la cola.
+      while (WorkerSimulado.creados.some((w) => w.recibidos.length > 0)) {
+        const ocupados = WorkerSimulado.creados.filter(
+          (w) => w.recibidos.length > 0
+        );
+        for (const worker of ocupados) {
+          worker.recibidos.pop();
+          worker.responder("%PDF");
+        }
+      }
+
+      await expect(Promise.all(pendientes)).resolves.toHaveLength(20);
+    });
+
+    it("propaga el error del worker", async () => {
+      const promesa = service.generateInvoicePdf(facturaMinima);
+      WorkerSimulado.creados[0].emit("error", new Error("pdfkit falló"));
+
+      await expect(promesa).rejects.toThrow("pdfkit falló");
+    });
+
+    it("falla si el worker termina con código distinto de cero", async () => {
+      const promesa = service.generateInvoicePdf(facturaMinima);
+      WorkerSimulado.creados[0].emit("exit", 1);
+
+      await expect(promesa).rejects.toThrow("terminó con código 1");
+    });
+
+    it("devuelve el error de render sin tumbar el hilo", async () => {
+      const promesa = service.generateInvoicePdf(facturaMinima);
+      WorkerSimulado.creados[0].emit("message", {
+        ok: false,
+        error: "fuente no encontrada",
+      });
+
+      await expect(promesa).rejects.toThrow("fuente no encontrada");
+    });
+
+    it("cierra los hilos al parar el servicio", async () => {
+      const promesa = service.generateInvoicePdf(facturaMinima);
+      WorkerSimulado.creados[0].responder("%PDF");
+      await promesa;
+
+      await service.onModuleDestroy();
+
+      expect(WorkerSimulado.creados[0].terminado).toBe(true);
     });
   });
 
   describe("savePdfToBuffer", () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require("fs");
-    const path = require("path");
 
     it("debería guardar PDF en el directorio especificado", async () => {
       const pdfBuffer = Buffer.from("pdf-content");
-      const filename = "INV-2023-001.pdf";
-
       fs.existsSync.mockReturnValue(true);
-      path.join.mockReturnValue("./temp/invoices/INV-2023-001.pdf");
 
-      const result = await service.savePdfToBuffer(pdfBuffer, filename);
+      const result = await service.savePdfToBuffer(
+        pdfBuffer,
+        "INV-2023-001.pdf"
+      );
 
       expect(result).toBe("./temp/invoices/INV-2023-001.pdf");
-      expect(fs.writeFileSync).toHaveBeenCalledWith(
-        "./temp/invoices/INV-2023-001.pdf",
-        pdfBuffer
-      );
+      expect(fs.writeFileSync).toHaveBeenCalledWith(result, pdfBuffer);
       expect(fs.mkdirSync).not.toHaveBeenCalled();
     });
 
     it("debería crear directorio si no existe", async () => {
-      const pdfBuffer = Buffer.from("pdf-content");
-      const filename = "INV-2023-002.pdf";
-
       fs.existsSync.mockReturnValue(false);
-      path.join.mockReturnValue("./temp/invoices/INV-2023-002.pdf");
 
-      await service.savePdfToBuffer(pdfBuffer, filename);
+      await service.savePdfToBuffer(
+        Buffer.from("pdf-content"),
+        "INV-2023-002.pdf"
+      );
 
       expect(fs.mkdirSync).toHaveBeenCalledWith("./temp/invoices", {
         recursive: true,
@@ -240,23 +202,19 @@ describe("PdfService", () => {
     });
 
     it("debería usar ruta personalizada del config", async () => {
-      const pdfBuffer = Buffer.from("pdf-content");
-      const filename = "INV-2023-003.pdf";
-
-      mockConfigService.get.mockReturnValue("./custom/path");
+      mockConfigService.get.mockReturnValue("./custom/path" as never);
       fs.existsSync.mockReturnValue(true);
-      path.join.mockReturnValue("./custom/path/INV-2023-003.pdf");
 
-      await service.savePdfToBuffer(pdfBuffer, filename);
+      const result = await service.savePdfToBuffer(
+        Buffer.from("pdf-content"),
+        "INV-2023-003.pdf"
+      );
 
       expect(mockConfigService.get).toHaveBeenCalledWith(
         "PDF_STORAGE_PATH",
         "./temp/invoices"
       );
-      expect(fs.writeFileSync).toHaveBeenCalledWith(
-        "./custom/path/INV-2023-003.pdf",
-        pdfBuffer
-      );
+      expect(result).toBe("./custom/path/INV-2023-003.pdf");
     });
   });
 });
