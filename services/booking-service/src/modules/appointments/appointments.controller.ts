@@ -9,6 +9,7 @@ import {
   Query,
 } from "@nestjs/common";
 import { AppointmentsService } from "./appointments.service";
+import { AvailabilityQueryService } from "./availability-query.service";
 import { AppointmentStatus, Role } from "@beautyspot/shared-types";
 import {
   Roles,
@@ -28,7 +29,10 @@ import {
 /** Endpoints de gestión de citas del negocio (crear, listar y transiciones de estado). */
 @Controller("appointments")
 export class AppointmentsController {
-  constructor(private readonly service: AppointmentsService) {}
+  constructor(
+    private readonly service: AppointmentsService,
+    private readonly disponibilidad: AvailabilityQueryService
+  ) {}
 
   /** Crea una cita a nombre del personal del negocio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
@@ -49,7 +53,7 @@ export class AppointmentsController {
   @Get("availability")
   async getAvailability(@Query() query: AvailabilityQueryDto) {
     if (query.professionalId) {
-      return this.service.findAvailableSlotsPublic(
+      return this.disponibilidad.franjasDeProfesionalPublico(
         query.professionalId,
         query.date,
         query.duration
@@ -57,7 +61,7 @@ export class AppointmentsController {
     }
 
     if (query.businessId) {
-      return this.service.findAvailableSlotsForBusiness(
+      return this.disponibilidad.franjasDelNegocio(
         query.businessId,
         query.date,
         query.duration

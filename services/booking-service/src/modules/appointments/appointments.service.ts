@@ -5,11 +5,9 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
-import { Repository, DataSource, EntityManager, In } from "typeorm";
+import { Repository, DataSource, In } from "typeorm";
 import { Appointment } from "../../entities/appointment.entity";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
-import { Availability } from "../../entities/availability.entity";
-import { BlockedSlot } from "../../entities/blocked-slot.entity";
 import {
   AppointmentStatus,
   IPaginatedResponse,
@@ -21,32 +19,12 @@ import {
   withSerializableRetry,
 } from "@beautyspot/nest-common";
 import { paginate, PaginateParams } from "@beautyspot/database";
+import { AvailabilityQueryService } from "./availability-query.service";
 import {
   HORAS_MINIMAS_CANCELACION,
   PROPORCION_PUNTOS_FIDELIDAD,
 } from "@beautyspot/shared-constants";
-import {
-  getTimeSlots,
-  calculateEndTime,
-  timeToMinutes,
-  timesOverlap,
-} from "@beautyspot/shared-utils";
-
-/** Tamaño de las franjas en que se divide la jornada al ofrecer disponibilidad. */
-const DURACION_FRANJA_MINUTOS = 30;
-
-/** Agrupa por profesional bloqueos o citas ya cargados. */
-function agruparPorProfesional<T extends { professionalId: string }>(
-  filas: T[]
-): Map<string, T[]> {
-  const porProfesional = new Map<string, T[]>();
-  for (const fila of filas) {
-    const acumulado = porProfesional.get(fila.professionalId);
-    if (acumulado) acumulado.push(fila);
-    else porProfesional.set(fila.professionalId, [fila]);
-  }
-  return porProfesional;
-}
+import { calculateEndTime } from "@beautyspot/shared-utils";
 
 /**
  * Orquesta el ciclo de vida de las citas (creación, confirmación, ejecución,
@@ -58,13 +36,10 @@ export class AppointmentsService {
   constructor(
     @InjectRepository(Appointment)
     private readonly apptRepo: Repository<Appointment>,
-    @InjectRepository(Availability)
-    private readonly availRepo: Repository<Availability>,
-    @InjectRepository(BlockedSlot)
-    private readonly blockRepo: Repository<BlockedSlot>,
     @InjectDataSource() private dataSource: DataSource,
     private readonly outbox: OutboxService,
-    private readonly http: InternalHttpClient
+    private readonly http: InternalHttpClient,
+    private readonly disponibilidad: AvailabilityQueryService
   ) {}
 
   /** Crea una cita comprobando que la franja siga libre. */
@@ -96,7 +71,7 @@ export class AppointmentsService {
     // Pre-check rapido (UX): fast-fail en slots obviamente invalidos fuera
     // de transaccion. El check autoritativo corre DENTRO de la tx SERIALIZABLE.
     const dayOfWeek = new Date(data.date + "T12:00:00").getDay();
-    const available = await this.isSlotAvailable(
+    const available = await this.disponibilidad.franjaDentroDelHorario(
       businessId,
       data.professionalId,
       data.date,
@@ -112,7 +87,7 @@ export class AppointmentsService {
 
     // Pre-check de conflicto (UX) fuera de la tx
     if (
-      await this.hasTimeConflict(
+      await this.disponibilidad.hayConflicto(
         businessId,
         data.professionalId,
         data.date,
@@ -129,7 +104,7 @@ export class AppointmentsService {
     // que withSerializableRetry reintenta en vez de devolver un 500.
     const appointment = await withSerializableRetry(() =>
       this.dataSource.transaction("SERIALIZABLE", async (manager) => {
-        const conflictInTx = await this.hasTimeConflictWith(
+        const conflictInTx = await this.disponibilidad.hayConflictoEn(
           manager,
           businessId,
           data.professionalId,
@@ -397,7 +372,7 @@ export class AppointmentsService {
 
     const newEndTime = calculateEndTime(newStartTime, serviceDuration);
     const dayOfWeek = new Date(newDate + "T12:00:00").getDay();
-    const available = await this.isSlotAvailable(
+    const available = await this.disponibilidad.franjaDentroDelHorario(
       businessId,
       appt.professionalId,
       newDate,
@@ -410,7 +385,7 @@ export class AppointmentsService {
 
     // Pre-check de conflicto (UX) excluyendo la propia cita
     if (
-      await this.hasTimeConflict(
+      await this.disponibilidad.hayConflicto(
         businessId,
         appt.professionalId,
         newDate,
@@ -424,7 +399,7 @@ export class AppointmentsService {
     // Actualizar dentro de tx SERIALIZABLE con re-check autoritativo para
     // prevenir doble-booking en el nuevo horario (race condition).
     await this.dataSource.transaction("SERIALIZABLE", async (manager) => {
-      const conflictInTx = await this.hasTimeConflictWith(
+      const conflictInTx = await this.disponibilidad.hayConflictoEn(
         manager,
         businessId,
         appt.professionalId,
@@ -449,158 +424,6 @@ export class AppointmentsService {
       );
     });
     return this.findById(id, businessId);
-  }
-
-  /** Franjas de un profesional, con el negocio resuelto desde su horario. */
-  async findAvailableSlotsPublic(
-    professionalId: string,
-    date: string,
-    duration: number
-  ): Promise<{ startTime: string; endTime: string; available: boolean }[]> {
-    const horario = await this.availRepo.findOne({
-      where: { professionalId, active: true },
-    });
-    if (!horario) return [];
-
-    return this.findAvailableSlots(
-      horario.businessId,
-      professionalId,
-      date,
-      duration
-    );
-  }
-
-  /**
-   * Franjas de un negocio: una franja queda libre si la tiene libre al menos
-   * un profesional del equipo.
-   */
-  async findAvailableSlotsForBusiness(
-    businessId: string,
-    date: string,
-    duration: number
-  ): Promise<{ startTime: string; endTime: string; available: boolean }[]> {
-    const dayOfWeek = new Date(date + "T12:00:00").getDay();
-    const horarios = await this.availRepo.find({
-      where: { businessId, dayOfWeek, active: true },
-    });
-    const profesionales = [...new Set(horarios.map((h) => h.professionalId))];
-    if (profesionales.length === 0) return [];
-
-    // Bloqueos y citas del día para todo el equipo de una vez: consultarlos por
-    // profesional multiplicaba las consultas por el tamaño del equipo.
-    const [bloqueos, citas] = await Promise.all([
-      this.blockRepo.find({
-        where: { businessId, professionalId: In(profesionales), date },
-      }),
-      this.apptRepo.find({
-        where: {
-          businessId,
-          professionalId: In(profesionales),
-          date,
-          status: In([AppointmentStatus.CONFIRMED, AppointmentStatus.PENDING]),
-        },
-      }),
-    ]);
-
-    const bloqueosPorProfesional = agruparPorProfesional(bloqueos);
-    const citasPorProfesional = agruparPorProfesional(citas);
-    const horarioPorProfesional = new Map<string, Availability>();
-    for (const horario of horarios) {
-      if (!horarioPorProfesional.has(horario.professionalId)) {
-        horarioPorProfesional.set(horario.professionalId, horario);
-      }
-    }
-
-    const porProfesional = profesionales.map((professionalId) =>
-      this.calcularFranjas(
-        horarioPorProfesional.get(professionalId)!,
-        bloqueosPorProfesional.get(professionalId) ?? [],
-        citasPorProfesional.get(professionalId) ?? [],
-        duration
-      )
-    );
-
-    const union = new Map<
-      string,
-      { startTime: string; endTime: string; available: boolean }
-    >();
-    for (const slots of porProfesional) {
-      for (const slot of slots) {
-        const previo = union.get(slot.startTime);
-        if (!previo || (!previo.available && slot.available)) {
-          union.set(slot.startTime, slot);
-        }
-      }
-    }
-
-    return [...union.values()].sort((a, b) =>
-      a.startTime.localeCompare(b.startTime)
-    );
-  }
-
-  /** Devuelve las franjas del día de un profesional, marcando cuáles están libres. */
-  async findAvailableSlots(
-    businessId: string,
-    professionalId: string,
-    date: string,
-    duration: number
-  ): Promise<{ startTime: string; endTime: string; available: boolean }[]> {
-    const dayOfWeek = new Date(date + "T12:00:00").getDay();
-
-    const workHours = await this.availRepo.findOne({
-      where: { businessId, professionalId, dayOfWeek, active: true },
-    });
-    if (!workHours) return [];
-
-    const [blocks, allAppointments] = await Promise.all([
-      this.blockRepo.find({ where: { businessId, professionalId, date } }),
-      this.apptRepo.find({
-        where: {
-          businessId,
-          professionalId,
-          date,
-          status: In([AppointmentStatus.CONFIRMED, AppointmentStatus.PENDING]),
-        },
-      }),
-    ]);
-
-    return this.calcularFranjas(workHours, blocks, allAppointments, duration);
-  }
-
-  /** Divide la jornada en franjas y marca como ocupadas las que chocan con un bloqueo o una cita. */
-  private calcularFranjas(
-    workHours: Availability,
-    blocks: BlockedSlot[],
-    appointments: Appointment[],
-    duration: number
-  ): { startTime: string; endTime: string; available: boolean }[] {
-    const slots = getTimeSlots(
-      workHours.startTime,
-      workHours.endTime,
-      DURACION_FRANJA_MINUTOS
-    );
-    const workEndNum = timeToMinutes(workHours.endTime);
-
-    return slots.map((slotStart) => {
-      const slotEnd = calculateEndTime(slotStart, duration);
-
-      if (timeToMinutes(slotEnd) > workEndNum) {
-        return { startTime: slotStart, endTime: slotEnd, available: false };
-      }
-
-      const isBlocked = blocks.some((b) =>
-        timesOverlap(slotStart, slotEnd, b.startTime, b.endTime)
-      );
-      if (isBlocked) {
-        return { startTime: slotStart, endTime: slotEnd, available: false };
-      }
-
-      const hasAppt = appointments.some((a) =>
-        timesOverlap(slotStart, slotEnd, a.startTime, a.endTime)
-      );
-
-      return { startTime: slotStart, endTime: slotEnd, available: !hasAppt };
-    });
   }
 
   /** Obtiene una cita del negocio con sus servicios; lanza 404 si no existe. */
@@ -734,101 +557,4 @@ export class AppointmentsService {
   }
 
   // ─── Helpers privados ──────────────────────────────────────
-
-  private async isSlotAvailable(
-    businessId: string,
-    professionalId: string,
-    date: string,
-    start: string,
-    end: string,
-    dayOfWeek: number
-  ): Promise<boolean> {
-    const workHours = await this.availRepo.findOne({
-      where: { businessId, professionalId, dayOfWeek, active: true },
-    });
-    if (!workHours) return false;
-
-    // Verificar que el slot esta dentro del horario de trabajo
-    if (
-      timeToMinutes(start) < timeToMinutes(workHours.startTime) ||
-      timeToMinutes(end) > timeToMinutes(workHours.endTime)
-    ) {
-      return false;
-    }
-
-    // Verificar bloqueos
-    const blocks = await this.blockRepo.find({
-      where: { businessId, professionalId, date },
-    });
-    const isBlocked = blocks.some((b) =>
-      timesOverlap(start, end, b.startTime, b.endTime)
-    );
-    return !isBlocked;
-  }
-
-  /** Indica si ya hay una cita viva del profesional que se solape con la franja. */
-  private async hasTimeConflict(
-    businessId: string,
-    professionalId: string,
-    date: string,
-    start: string,
-    end: string,
-    excludeId?: string
-  ): Promise<boolean> {
-    const appointments = await this.apptRepo.find({
-      where: {
-        businessId,
-        professionalId,
-        date,
-        status: In([
-          AppointmentStatus.PENDING,
-          AppointmentStatus.CONFIRMED,
-          AppointmentStatus.IN_PROGRESS,
-        ]),
-      },
-    });
-
-    return this.appointmentsConflict(appointments, start, end, excludeId);
-  }
-
-  /**
-   * Re-check de conflicto usando un EntityManager (dentro de una tx
-   * SERIALIZABLE). Es el check autoritativo que previene el doble-booking.
-   */
-  private async hasTimeConflictWith(
-    manager: EntityManager,
-    businessId: string,
-    professionalId: string,
-    date: string,
-    start: string,
-    end: string,
-    excludeId?: string
-  ): Promise<boolean> {
-    const appointments = await manager.find(Appointment, {
-      where: {
-        businessId,
-        professionalId,
-        date,
-        status: In([
-          AppointmentStatus.PENDING,
-          AppointmentStatus.CONFIRMED,
-          AppointmentStatus.IN_PROGRESS,
-        ]),
-      },
-    });
-
-    return this.appointmentsConflict(appointments, start, end, excludeId);
-  }
-
-  /** Logica pura de solapamiento, compartida por ambos checks. */
-  private appointmentsConflict(
-    appointments: Pick<Appointment, "id" | "startTime" | "endTime">[],
-    start: string,
-    end: string,
-    excludeId?: string
-  ): boolean {
-    return appointments
-      .filter((a) => a.id !== excludeId)
-      .some((a) => timesOverlap(start, end, a.startTime, a.endTime));
-  }
 }

@@ -180,11 +180,15 @@ describe("ProxyController (reenvío)", () => {
       controllers: [ProxyController],
       providers: [
         {
+          // Servicio real: estos tests ejercitan justamente su mecánica
+          // (URL destino, cabeceras, cuerpo de la respuesta y traducción de
+          // errores), que antes vivía dentro del controlador.
           provide: ProxyService,
-          useValue: {
-            isValidService: () => true,
-            getServiceUrl: () => SERVICE_URL,
-          },
+          useFactory: () =>
+            new ProxyService({
+              getUrl: () => SERVICE_URL,
+              hasUrl: () => true,
+            } as never),
         },
         {
           provide: CircuitBreakerService,

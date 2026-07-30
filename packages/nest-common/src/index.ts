@@ -56,6 +56,8 @@ export type {
   OpcionesLlamada,
 } from "./http/internal-http.client";
 export { InternalHttpModule } from "./http/internal-http.module";
+export { TenantCrudService } from "./database/tenant-crud.service";
+export type { EntidadDeNegocio } from "./database/tenant-crud.service";
 export { ProcessedEventsPurgeWorker } from "./modules/idempotency/processed-events-purge.worker";
 export {
   TokenVersionStore,

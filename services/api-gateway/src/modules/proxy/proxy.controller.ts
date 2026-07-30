@@ -11,9 +11,7 @@ import { Request, Response } from "express";
 import { ProxyService } from "./proxy.service";
 import { CircuitBreakerService } from "../circuit-breaker/circuit-breaker.service";
 import { PROXY_TIMEOUT_MS } from "@beautyspot/shared-constants";
-import { REQUEST_ID_HEADER } from "@beautyspot/nest-common";
 import { SessionService } from "../session/session.service";
-import { ACCESS_COOKIE, leerCookie } from "../session/session-cookies";
 
 const SERVER_ERROR_THRESHOLD = 500;
 
@@ -80,8 +78,8 @@ export class ProxyController {
     req: Request,
     res: Response
   ): Promise<void> {
-    const targetUrl = this.buildTargetUrl(service, req);
-    const headers = this.buildForwardedHeaders(req);
+    const targetUrl = this.proxyService.buildTargetUrl(service, req);
+    const headers = this.proxyService.buildForwardedHeaders(req);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
@@ -101,7 +99,7 @@ export class ProxyController {
       });
       clearTimeout(timeout);
 
-      let data = await this.parseResponseBody(response);
+      let data = await this.proxyService.parseResponseBody(response);
 
       // Login, registro, renovación y cierre de sesión se convierten aquí en
       // cookies; el cuerpo sale ya sin tokens.
@@ -119,104 +117,7 @@ export class ProxyController {
       }
     } catch (error) {
       clearTimeout(timeout);
-      throw this.mapProxyError(service, error);
+      throw this.proxyService.mapProxyError(service, error);
     }
-  }
-
-  /**
-   * Reescribe la ruta del gateway quitándole el prefijo `/api/v1/:service` y
-   * conservando la cadena de consulta.
-   */
-  private buildTargetUrl(service: string, req: Request): string {
-    const serviceUrl = this.proxyService.getServiceUrl(service);
-    let path = req.path;
-
-    if (path.startsWith("/api/v1/")) {
-      path = path.replace(`/api/v1/${service}`, "");
-    } else if (path.startsWith("/v1/")) {
-      path = path.replace(`/v1/${service}`, "");
-    }
-
-    const interrogante = req.originalUrl.indexOf("?");
-    const consulta =
-      interrogante === -1 ? "" : req.originalUrl.slice(interrogante);
-
-    return `${serviceUrl}${path}${consulta}`;
-  }
-
-  /**
-   * Propaga el token de autorización, el identificador de la petición y el
-   * tenant (x-business-id) al backend.
-   */
-  private buildForwardedHeaders(req: Request): Record<string, string> {
-    const headers: Record<string, string> = {};
-    // El navegador manda la cookie httpOnly; los servicios leen Authorization.
-    const autorizacion =
-      (req.headers["authorization"] as string | undefined) ??
-      this.bearerDeCookie(req);
-    if (autorizacion) {
-      headers["authorization"] = autorizacion;
-    }
-
-    // Sin esto cada servicio inventaría el suyo y la petición dejaría de ser
-    // seguible más allá del gateway.
-    const requestId = req.headers[REQUEST_ID_HEADER];
-    if (typeof requestId === "string") {
-      headers[REQUEST_ID_HEADER] = requestId;
-    }
-
-    const user = (
-      req as Request & {
-        user?: { businessId?: string; businessIds?: string[] };
-      }
-    ).user;
-    if (user?.businessId) {
-      headers["x-business-id"] = user.businessId;
-    } else if (user?.businessIds?.length) {
-      headers["x-business-id"] = user.businessIds[0];
-    }
-
-    if (!["GET", "HEAD"].includes(req.method)) {
-      headers["content-type"] = "application/json";
-    }
-
-    return headers;
-  }
-
-  /** Convierte la cookie de sesión en una cabecera Bearer para los servicios. */
-  private bearerDeCookie(req: Request): string | undefined {
-    const token = leerCookie(req, ACCESS_COOKIE);
-    return token ? `Bearer ${token}` : undefined;
-  }
-
-  /** Parsea el cuerpo de la respuesta tolerando 204, cuerpo vacío o texto no-JSON. */
-  private async parseResponseBody(
-    response: globalThis.Response
-  ): Promise<unknown> {
-    if (response.status === 204) return null;
-    const text = await response.text();
-    if (!text) return null;
-    try {
-      return JSON.parse(text);
-    } catch {
-      return { message: text };
-    }
-  }
-
-  /** Traduce fallos de red o timeouts del fetch en errores HTTP de gateway (502/504/503). */
-  private mapProxyError(service: string, error: unknown): HttpException {
-    if (error instanceof HttpException) return error;
-
-    if (error instanceof Error && error.name === "AbortError") {
-      return new HttpException(
-        `Servicio ${service} excedió el tiempo límite`,
-        HttpStatus.GATEWAY_TIMEOUT
-      );
-    }
-
-    return new HttpException(
-      `Servicio ${service} no disponible`,
-      HttpStatus.SERVICE_UNAVAILABLE
-    );
   }
 }

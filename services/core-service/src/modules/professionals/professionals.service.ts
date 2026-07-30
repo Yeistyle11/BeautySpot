@@ -1,11 +1,14 @@
 import {
   Injectable,
-  NotFoundException,
   ConflictException,
   BadRequestException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
+import {
+  InternalHttpClient,
+  OutboxService,
+  TenantCrudService,
+} from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { Repository, DataSource } from "typeorm";
 import { Professional } from "../../entities/professional.entity";
@@ -17,17 +20,19 @@ import { ProfessionalService } from "../../entities/professional-service.entity"
  * que presta cada uno y el vínculo con una cuenta de usuario.
  */
 @Injectable()
-export class ProfessionalsService {
+export class ProfessionalsService extends TenantCrudService<Professional> {
   constructor(
     @InjectRepository(Professional)
-    private readonly repo: Repository<Professional>,
+    repo: Repository<Professional>,
     @InjectRepository(ProfessionalService)
     private readonly psRepo: Repository<ProfessionalService>,
     private readonly http: InternalHttpClient,
     private readonly categories: CategoriesService,
     private readonly dataSource: DataSource,
     private readonly outbox: OutboxService
-  ) {}
+  ) {
+    super(repo, "Profesional no encontrado");
+  }
 
   /** Comprueba que la categoría pertenece al negocio antes de asociarla. */
   private async validarCategoria(
@@ -77,25 +82,14 @@ export class ProfessionalsService {
     return this.repo.find({ where, order: { createdAt: "ASC" as const } });
   }
 
-  /** Obtiene un profesional del negocio por id; lanza 404 si no existe. */
-  async findById(id: string, businessId: string): Promise<Professional> {
-    const professional = await this.repo.findOne({ where: { id, businessId } });
-    if (!professional) throw new NotFoundException("Profesional no encontrado");
-    return professional;
-  }
-
-  /** Actualiza la ficha de un profesional. */
+  /** Actualiza la ficha de un profesional, validando antes su categoría. */
   async update(
     id: string,
     businessId: string,
     data: Partial<Professional>
   ): Promise<Professional> {
     await this.validarCategoria(data.categoryId, businessId);
-    await this.repo.update(
-      { id, businessId },
-      data as Parameters<typeof this.repo.update>[1]
-    );
-    return this.findById(id, businessId);
+    return super.update(id, businessId, data);
   }
 
   /** Asigna un servicio a un profesional, con precio/duración propios opcionales. */
@@ -156,10 +150,7 @@ export class ProfessionalsService {
       );
     }
 
-    await this.repo.update(
-      { id: professional.id, businessId },
-      { active: false }
-    );
+    await this.deactivate(professional.id, businessId);
   }
 
   // --- Vinculacion con cuenta de usuario ---

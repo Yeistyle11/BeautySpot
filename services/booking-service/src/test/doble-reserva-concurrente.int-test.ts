@@ -4,6 +4,7 @@ import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
 import { createMigrationDataSourceOptions } from "@beautyspot/database";
 import { entities } from "../orm-entities";
 import { AppointmentsService } from "../modules/appointments/appointments.service";
+import { AvailabilityQueryService } from "../modules/appointments/availability-query.service";
 import { PublicBookingService } from "../modules/public-booking/public-booking.service";
 import { Appointment } from "../entities/appointment.entity";
 import { Availability } from "../entities/availability.entity";
@@ -79,13 +80,18 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
       enviar: jest.fn().mockResolvedValue({ id: CLIENTE_A }),
     };
 
-    citas = new AppointmentsService(
+    const disponibilidad = new AvailabilityQueryService(
       dataSource.getRepository(Appointment),
       dataSource.getRepository(Availability),
-      dataSource.getRepository(BlockedSlot),
+      dataSource.getRepository(BlockedSlot)
+    );
+
+    citas = new AppointmentsService(
+      dataSource.getRepository(Appointment),
       dataSource,
       outbox as unknown as OutboxService,
-      http as unknown as InternalHttpClient
+      http as unknown as InternalHttpClient,
+      disponibilidad
     );
 
     reservaPublica = new PublicBookingService(

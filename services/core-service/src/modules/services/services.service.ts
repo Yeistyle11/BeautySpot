@@ -1,16 +1,19 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
+import { TenantCrudService } from "@beautyspot/nest-common";
 import { Repository } from "typeorm";
 import { Service } from "../../entities/service.entity";
 import { ServiceCategoriesService } from "../service-categories/service-categories.service";
 
 /** CRUD del catálogo de servicios ofertados por un negocio. */
 @Injectable()
-export class ServicesService {
+export class ServicesService extends TenantCrudService<Service> {
   constructor(
-    @InjectRepository(Service) private readonly repo: Repository<Service>,
+    @InjectRepository(Service) repo: Repository<Service>,
     private readonly categories: ServiceCategoriesService
-  ) {}
+  ) {
+    super(repo, "Servicio no encontrado");
+  }
 
   /** Comprueba que la categoría pertenece al negocio antes de asociarla. */
   private async validarCategoria(
@@ -38,25 +41,14 @@ export class ServicesService {
     return this.repo.find({ where, order: { category: "ASC", name: "ASC" } });
   }
 
-  /** Obtiene un servicio del negocio por id; lanza 404 si no existe. */
-  async findById(id: string, businessId: string): Promise<Service> {
-    const service = await this.repo.findOne({ where: { id, businessId } });
-    if (!service) throw new NotFoundException("Servicio no encontrado");
-    return service;
-  }
-
-  /** Actualiza los datos de un servicio del negocio. */
+  /** Actualiza los datos de un servicio, validando antes su categoría. */
   async update(
     id: string,
     businessId: string,
     data: Partial<Service>
   ): Promise<Service> {
     await this.validarCategoria(data.categoryId, businessId);
-    await this.repo.update(
-      { id, businessId },
-      data as Parameters<typeof this.repo.update>[1]
-    );
-    return this.findById(id, businessId);
+    return super.update(id, businessId, data);
   }
 
   /** Da de baja (baja lógica) un servicio del catálogo. */
