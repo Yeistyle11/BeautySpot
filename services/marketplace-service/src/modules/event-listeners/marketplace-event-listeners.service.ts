@@ -10,6 +10,7 @@ import {
   nombreDeCola,
 } from "@beautyspot/event-types";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
+import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 
 /**
  * Campos del negocio que el perfil público duplica, y con qué nombre los guarda.
@@ -37,13 +38,19 @@ export class MarketplaceEventListeners {
 
   constructor(
     @InjectRepository(BusinessProfileEntity)
-    private readonly repo: Repository<BusinessProfileEntity>
+    private readonly repo: Repository<BusinessProfileEntity>,
+    private readonly profiles: BusinessProfilesService
   ) {}
 
   /**
    * Copia al perfil público los campos que hayan cambiado en el negocio.
    *
    * Si el negocio aún no tiene perfil, no hay nada que sincronizar.
+   *
+   * No necesita control de duplicados: aplicar el mismo parche dos veces deja
+   * el perfil igual. Lo que sí hace falta es invalidar la caché, porque este
+   * camino escribe sin pasar por el guardado normal del servicio y, si no, el
+   * marketplace seguiría sirviendo el perfil viejo hasta que venciera el TTL.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
@@ -73,6 +80,8 @@ export class MarketplaceEventListeners {
       );
       return;
     }
+
+    await this.profiles.invalidarCache(businessId);
 
     this.logger.log(
       `Perfil de ${businessId} sincronizado: ${Object.keys(parche).join(", ")}`

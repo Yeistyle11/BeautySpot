@@ -1,7 +1,6 @@
 import { DataSource } from "typeorm";
 import { join } from "path";
-import { ConfigService } from "@nestjs/config";
-import { OutboxService } from "@beautyspot/nest-common";
+import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
 import { createMigrationDataSourceOptions } from "@beautyspot/database";
 import { entities } from "../orm-entities";
 import { AppointmentsService } from "../modules/appointments/appointments.service";
@@ -60,7 +59,8 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
     // no la publicación de eventos, que ya tiene su propio test.
     const outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
 
-    const config = { get: jest.fn().mockReturnValue("") };
+    // Este test no cruza servicios: el cliente HTTP interno no llega a usarse.
+    const http = { pedir: jest.fn(), enviar: jest.fn() };
 
     citas = new AppointmentsService(
       dataSource.getRepository(Appointment),
@@ -68,7 +68,7 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
       dataSource.getRepository(BlockedSlot),
       dataSource,
       outbox as unknown as OutboxService,
-      config as unknown as ConfigService
+      http as unknown as InternalHttpClient
     );
   }, 60000);
 

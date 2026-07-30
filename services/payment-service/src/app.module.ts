@@ -8,7 +8,6 @@ import { entities } from "./orm-entities";
 import { PaymentsModule } from "./modules/payments/payments.module";
 import { InvoicesModule } from "./modules/invoices/invoices.module";
 import { CashRegisterModule } from "./modules/cash-register/cash-register.module";
-import { PaymentEventListenersModule } from "./modules/event-listeners/payment-event-listeners.module";
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -23,7 +22,6 @@ import { PaymentEventListenersModule } from "./modules/event-listeners/payment-e
     PaymentsModule,
     InvoicesModule,
     CashRegisterModule,
-    PaymentEventListenersModule,
   ],
 })
 /** Módulo raíz del payment-service: pagos, caja, facturas y sus eventos. */

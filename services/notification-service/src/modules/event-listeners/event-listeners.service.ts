@@ -439,7 +439,7 @@ export class NotificationEventListeners {
   ) {
     try {
       await this.amqpConnection.publish(
-        "beautyspot.events",
+        EVENTS_EXCHANGE,
         "notification.email.queued",
         {
           // Se publica directamente por AmqpConnection, sin pasar por
@@ -458,10 +458,18 @@ export class NotificationEventListeners {
   }
 
   /** Registra en log un error de envío de correo con su contexto. */
-  private logError(context: string, error: unknown): void {
+  /**
+   * Registra el fallo y lo vuelve a lanzar.
+   *
+   * Sin relanzar, el mensaje se daba por consumido y nunca llegaba a la cola de
+   * fallidos, pese a que todas las colas la declaran: la DLQ estaba configurada
+   * pero no recibía nada, y un correo perdido se quedaba en un renglón del log.
+   */
+  private logError(context: string, error: unknown): never {
     const message =
       error instanceof Error ? error.message : "Error desconocido";
     const stack = error instanceof Error ? error.stack : undefined;
     this.logger.error(`Error enviando email de ${context}: ${message}`, stack);
+    throw error instanceof Error ? error : new Error(message);
   }
 }

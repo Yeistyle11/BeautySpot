@@ -11,8 +11,7 @@ import {
   BadRequestException,
   ServiceUnavailableException,
 } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { setMockFetchResponse } from "../../test/setup";
+import { InternalHttpClient } from "@beautyspot/nest-common";
 
 describe("PublicBookingService", () => {
   let service: PublicBookingService;
@@ -20,7 +19,7 @@ describe("PublicBookingService", () => {
   let mockApptServiceRepo: jest.Mocked<Repository<AppointmentServiceEntity>>;
   let mockAvailRepo: jest.Mocked<Repository<Availability>>;
   let mockBlockRepo: jest.Mocked<Repository<BlockedSlot>>;
-  let mockConfigService: jest.Mocked<ConfigService>;
+  let mockHttp: { enviar: jest.Mock; pedir: jest.Mock };
 
   const mockAppointment: Appointment = {
     id: "appt-123",
@@ -86,9 +85,11 @@ describe("PublicBookingService", () => {
       find: jest.fn(),
     } as any;
 
-    mockConfigService = {
-      get: jest.fn(),
-    } as any;
+    // El alta del cliente invitado va por el cliente interno.
+    mockHttp = {
+      enviar: jest.fn().mockResolvedValue({ id: "client-123" }),
+      pedir: jest.fn(),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
@@ -110,8 +111,8 @@ describe("PublicBookingService", () => {
           useValue: mockBlockRepo,
         },
         {
-          provide: ConfigService,
-          useValue: mockConfigService,
+          provide: InternalHttpClient,
+          useValue: mockHttp,
         },
       ],
     }).compile();
@@ -141,12 +142,6 @@ describe("PublicBookingService", () => {
     };
 
     it("debería crear una cita pública exitosamente", async () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === "CORE_SERVICE_URL") return "http://localhost:3002";
-        if (key === "INTERNAL_API_SECRET") return "secret123";
-        return undefined;
-      });
-
       mockApptRepo.create.mockReturnValue(mockAppointment);
       mockApptRepo.save.mockResolvedValue(mockAppointment);
       mockApptRepo.find.mockResolvedValue([]);
@@ -154,12 +149,6 @@ describe("PublicBookingService", () => {
       mockBlockRepo.find.mockResolvedValue([]);
       mockApptServiceRepo.create.mockReturnValue(mockApptService);
       mockApptServiceRepo.save.mockResolvedValue(mockApptService);
-
-      setMockFetchResponse({
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true, data: { id: "client-123" } }),
-      });
 
       const result = await service.createPublicAppointment(bookingData);
 
@@ -181,21 +170,11 @@ describe("PublicBookingService", () => {
       const sinPreferencia = { ...bookingData, professionalId: undefined };
 
       beforeEach(() => {
-        mockConfigService.get.mockImplementation((key: string) => {
-          if (key === "CORE_SERVICE_URL") return "http://localhost:3002";
-          if (key === "INTERNAL_API_SECRET") return "secret123";
-          return undefined;
-        });
         mockApptRepo.create.mockReturnValue(mockAppointment);
         mockApptRepo.save.mockResolvedValue(mockAppointment);
         mockApptServiceRepo.create.mockReturnValue(mockApptService);
         mockApptServiceRepo.save.mockResolvedValue(mockApptService);
         mockBlockRepo.find.mockResolvedValue([]);
-        setMockFetchResponse({
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true, data: { id: "client-123" } }),
-        });
       });
 
       /** Horarios del dia, en el orden en que los devuelve la tabla. */
@@ -276,18 +255,7 @@ describe("PublicBookingService", () => {
     });
 
     it("debería lanzar BadRequestException si no hay disponibilidad", async () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === "CORE_SERVICE_URL") return "http://localhost:3002";
-        if (key === "INTERNAL_API_SECRET") return "secret123";
-        return undefined;
-      });
       mockAvailRepo.findOne.mockResolvedValue(null);
-
-      setMockFetchResponse({
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true, data: { id: "client-123" } }),
-      });
 
       await expect(
         service.createPublicAppointment(bookingData)
@@ -298,20 +266,9 @@ describe("PublicBookingService", () => {
     });
 
     it("debería lanzar BadRequestException si hay conflicto de horario", async () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === "CORE_SERVICE_URL") return "http://localhost:3002";
-        if (key === "INTERNAL_API_SECRET") return "secret123";
-        return undefined;
-      });
       mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
       mockBlockRepo.find.mockResolvedValue([]);
       mockApptRepo.find.mockResolvedValue([mockAppointment]);
-
-      setMockFetchResponse({
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true, data: { id: "client-123" } }),
-      });
 
       await expect(
         service.createPublicAppointment(bookingData)
@@ -322,11 +279,6 @@ describe("PublicBookingService", () => {
     });
 
     it("debería calcular correctamente el endTime y totalAmount", async () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === "CORE_SERVICE_URL") return "http://localhost:3002";
-        if (key === "INTERNAL_API_SECRET") return "secret123";
-        return undefined;
-      });
       mockApptRepo.create.mockReturnValue(mockAppointment);
       mockApptRepo.save.mockResolvedValue(mockAppointment);
       mockApptRepo.find.mockResolvedValue([]);
@@ -335,12 +287,6 @@ describe("PublicBookingService", () => {
       mockApptServiceRepo.create.mockReturnValue(mockApptService);
       mockApptServiceRepo.save.mockResolvedValue(mockApptService);
 
-      setMockFetchResponse({
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true, data: { id: "client-123" } }),
-      });
-
       const result = await service.createPublicAppointment(bookingData);
 
       expect(result.endTime).toBe("10:50");
@@ -348,17 +294,9 @@ describe("PublicBookingService", () => {
     });
 
     it("debería lanzar ServiceUnavailableException si core-service responde non-2xx (fail-closed)", async () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === "CORE_SERVICE_URL") return "http://localhost:3002";
-        if (key === "INTERNAL_API_SECRET") return "secret123";
-        return undefined;
-      });
-
-      setMockFetchResponse({
-        ok: false,
-        status: 500,
-        json: async () => ({ message: "Internal error" }),
-      });
+      mockHttp.enviar.mockRejectedValue(
+        new ServiceUnavailableException("core-service respondió 500")
+      );
 
       await expect(
         service.createPublicAppointment(bookingData)
@@ -366,14 +304,9 @@ describe("PublicBookingService", () => {
     });
 
     it("debería lanzar ServiceUnavailableException si fetch falla (red/timeout)", async () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === "CORE_SERVICE_URL") return "http://localhost:3002";
-        if (key === "INTERNAL_API_SECRET") return "secret123";
-        return undefined;
-      });
-
-      const { getMockFetch } = require("../../test/setup");
-      getMockFetch().mockRejectedValueOnce(new Error("Network error"));
+      mockHttp.enviar.mockRejectedValue(
+        new ServiceUnavailableException("core-service no está disponible")
+      );
 
       await expect(
         service.createPublicAppointment(bookingData)

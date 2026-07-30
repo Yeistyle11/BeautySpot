@@ -6,7 +6,11 @@ import { EVENTS_EXCHANGE, DEAD_LETTER_EXCHANGE } from "@beautyspot/event-types";
 import { BullModule } from "@nestjs/bullmq";
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
-import { HealthModule, IdempotencyModule } from "@beautyspot/nest-common";
+import {
+  HealthModule,
+  IdempotencyModule,
+  InternalHttpModule,
+} from "@beautyspot/nest-common";
 import { entities } from "./orm-entities";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { EmailsModule } from "./modules/emails/emails.module";
@@ -22,6 +26,7 @@ import { EventListenersModule } from "./modules/event-listeners/event-listeners.
     TypeOrmModule.forRootAsync({
       useFactory: () => createTypeOrmModuleOptions(entities, "write"),
     }),
+    InternalHttpModule,
     RabbitMQModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

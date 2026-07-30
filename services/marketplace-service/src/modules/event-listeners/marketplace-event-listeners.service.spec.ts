@@ -2,6 +2,7 @@ import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { BusinessUpdatedEvent } from "@beautyspot/event-types";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
+import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { MarketplaceEventListeners } from "./marketplace-event-listeners.service";
 
 const BUSINESS_ID = "72c9ec5c-4116-4481-9a3b-dad43da27b46";
@@ -27,6 +28,10 @@ describe("MarketplaceEventListeners", () => {
         {
           provide: getRepositoryToken(BusinessProfileEntity),
           useValue: { update },
+        },
+        {
+          provide: BusinessProfilesService,
+          useValue: { invalidarCache: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();

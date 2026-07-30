@@ -3,9 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
-  ServiceUnavailableException,
 } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { Repository, DataSource, EntityManager, In } from "typeorm";
 import { Appointment } from "../../entities/appointment.entity";
@@ -17,8 +15,16 @@ import {
   IPaginatedResponse,
 } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
-import { OutboxService, withSerializableRetry } from "@beautyspot/nest-common";
+import {
+  InternalHttpClient,
+  OutboxService,
+  withSerializableRetry,
+} from "@beautyspot/nest-common";
 import { paginate, PaginateParams } from "@beautyspot/database";
+import {
+  HORAS_MINIMAS_CANCELACION,
+  PROPORCION_PUNTOS_FIDELIDAD,
+} from "@beautyspot/shared-constants";
 import {
   getTimeSlots,
   calculateEndTime,
@@ -58,7 +64,7 @@ export class AppointmentsService {
     private readonly blockRepo: Repository<BlockedSlot>,
     @InjectDataSource() private dataSource: DataSource,
     private readonly outbox: OutboxService,
-    private readonly configService: ConfigService
+    private readonly http: InternalHttpClient
   ) {}
 
   /** Crear cita verificando disponibilidad (transacción) */
@@ -249,7 +255,9 @@ export class AppointmentsService {
         "Solo se puede completar una cita confirmada o en progreso"
       );
     }
-    const pointsEarned = Math.round(appt.totalAmount * 0.1);
+    const pointsEarned = Math.round(
+      appt.totalAmount * PROPORCION_PUNTOS_FIDELIDAD
+    );
     await this.dataSource.transaction(async (manager) => {
       await manager.update(
         Appointment,
@@ -299,7 +307,7 @@ export class AppointmentsService {
     const now = new Date();
     const hoursDiff =
       (appointmentDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-    if (hoursDiff < 2) {
+    if (hoursDiff < HORAS_MINIMAS_CANCELACION) {
       throw new ForbiddenException(
         "No se puede cancelar con menos de 2 horas de anticipacion"
       );
@@ -381,7 +389,7 @@ export class AppointmentsService {
     const appointmentDate = new Date(`${appt.date}T${appt.startTime}:00`);
     const hoursDiff =
       (appointmentDate.getTime() - Date.now()) / (1000 * 60 * 60);
-    if (hoursDiff < 2) {
+    if (hoursDiff < HORAS_MINIMAS_CANCELACION) {
       throw new ForbiddenException(
         "No se puede reagendar con menos de 2 horas de anticipacion"
       );
@@ -664,48 +672,14 @@ export class AppointmentsService {
 
   /** Pregunta a core qué fichas de cliente pertenecen a este usuario. */
   private async clientIdsDelUsuario(userId: string): Promise<string[]> {
-    const coreServiceUrl = this.configService.get<string>(
-      "CORE_SERVICE_URL",
-      "http://localhost:3002"
-    );
-    const internalSecret = this.configService.get<string>(
-      "INTERNAL_API_SECRET",
-      ""
+    const fichas = await this.http.pedir<{ id?: unknown }[]>(
+      "core",
+      `/internal/clients/by-user/${userId}`
     );
 
-    let response: Response;
-    try {
-      response = await fetch(
-        `${coreServiceUrl}/internal/clients/by-user/${userId}`,
-        {
-          headers: { "x-internal-secret": internalSecret },
-          signal: AbortSignal.timeout(5000),
-        }
-      );
-    } catch (error) {
-      throw new ServiceUnavailableException(
-        `No se pudieron consultar tus citas (core-service no disponible). ` +
-          `Reintenta mas tarde. Error: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-      );
-    }
-
-    if (!response.ok) {
-      throw new ServiceUnavailableException(
-        `No se pudieron consultar tus citas (core-service respondio ${response.status}).`
-      );
-    }
-
-    const body = (await response.json()) as unknown;
-    const payload =
-      typeof body === "object" && body !== null && "success" in body
-        ? (body as Record<string, unknown>).data
-        : body;
-
-    return Array.isArray(payload)
-      ? payload
-          .map((c) => (c as { id?: unknown }).id)
+    return Array.isArray(fichas)
+      ? fichas
+          .map((c) => c.id)
           .filter((id): id is string => typeof id === "string")
       : [];
   }

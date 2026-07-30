@@ -7,6 +7,7 @@ import { paginate, PaginateParams } from "@beautyspot/database";
 import { InvoiceEntity } from "./invoice.entity";
 import { InvoiceItemEntity } from "./invoice-item.entity";
 import { InvoiceStatus, IPaginatedResponse } from "@beautyspot/shared-types";
+import { IVA } from "@beautyspot/shared-constants";
 import { CreateInvoiceDto } from "./dto/invoice.dto";
 import { PdfService } from "./pdf/pdf.service";
 
@@ -141,8 +142,11 @@ export class InvoicesService {
         quantity: Number(item.quantity),
         price: Number(item.unitPrice),
       })),
-      subtotal: Number(invoice.total) * 0.84,
-      tax: Number(invoice.total) * 0.16,
+      // El total ya lleva el IVA incluido, así que la base se obtiene
+      // dividiendo. Estaba escrito como 0,84 y 0,16, que es ese mismo reparto
+      // redondeado y obligaba a que ambos números sumaran uno.
+      subtotal: Number(invoice.total) / (1 + IVA),
+      tax: Number(invoice.total) - Number(invoice.total) / (1 + IVA),
       total: Number(invoice.total),
       paymentMethod: "Efectivo",
       notes: invoice.notes,

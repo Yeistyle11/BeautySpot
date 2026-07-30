@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { ConfigService } from "@nestjs/config";
+import { InternalHttpClient } from "@beautyspot/nest-common";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository, In } from "typeorm";
 import { DataSource } from "typeorm";
@@ -24,6 +24,7 @@ describe("AppointmentsService", () => {
   let mockBlockRepo: jest.Mocked<Repository<BlockedSlot>>;
   let mockDataSource: jest.Mocked<DataSource>;
   let mockOutbox: any;
+  let mockHttp: { pedir: jest.Mock };
 
   const mockAppointment: Appointment = {
     id: "appt-123",
@@ -126,6 +127,8 @@ describe("AppointmentsService", () => {
       enqueue: jest.fn().mockResolvedValue(undefined),
     };
 
+    mockHttp = { pedir: jest.fn().mockResolvedValue([]) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AppointmentsService,
@@ -150,10 +153,8 @@ describe("AppointmentsService", () => {
           useValue: mockOutbox,
         },
         {
-          provide: ConfigService,
-          useValue: {
-            get: jest.fn((_: string, fallback?: string) => fallback),
-          },
+          provide: InternalHttpClient,
+          useValue: mockHttp,
         },
       ],
     }).compile();
@@ -823,12 +824,9 @@ describe("AppointmentsService", () => {
       delete (global as { fetch?: unknown }).fetch;
     });
 
-    /** Respuesta del endpoint interno de core que traduce usuario a fichas. */
+    /** Fichas que core devuelve para el usuario consultado. */
     function coreDevuelve(clients: { id: string }[]) {
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ success: true, data: clients }),
-      }) as unknown as typeof fetch;
+      mockHttp.pedir.mockResolvedValue(clients);
     }
 
     it("busca las citas de todas las fichas del usuario", async () => {
@@ -859,11 +857,9 @@ describe("AppointmentsService", () => {
     });
 
     it("avisa si core no responde, en vez de devolver una lista vacía", async () => {
-      global.fetch = jest
-        .fn()
-        .mockRejectedValue(
-          new Error("conexión rechazada")
-        ) as unknown as typeof fetch;
+      mockHttp.pedir.mockRejectedValue(
+        new ServiceUnavailableException("core-service no está disponible")
+      );
 
       await expect(
         service.findByClientUser("user-1", pagination)

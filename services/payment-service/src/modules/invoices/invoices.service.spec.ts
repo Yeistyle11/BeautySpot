@@ -342,9 +342,13 @@ describe("InvoicesService", () => {
 
       await service.generateInvoicePdf("invoice-123", "business-123");
 
+      // El total lleva el IVA incluido: la base es total / 1,19 y el impuesto,
+      // lo que falta hasta el total. Antes se repartía con 0,84 y 0,16, que es
+      // ese mismo cálculo redondeado.
       const pdfData = mockPdfService.generateInvoicePdf.mock.calls[0][0];
-      expect(pdfData.subtotal).toBe(25200);
-      expect(pdfData.tax).toBe(4800);
+      expect(pdfData.subtotal).toBeCloseTo(30000 / 1.19, 2);
+      expect(pdfData.tax).toBeCloseTo(30000 - 30000 / 1.19, 2);
+      expect(pdfData.subtotal + pdfData.tax).toBeCloseTo(30000, 6);
     });
 
     it("debería lanzar NotFoundException si la factura no existe", async () => {

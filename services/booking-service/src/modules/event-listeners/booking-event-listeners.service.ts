@@ -1,11 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { RabbitSubscribe } from "@golevelup/nestjs-rabbitmq";
 import {
-  UserRegisteredEvent,
-  BusinessCreatedEvent,
   ProfessionalCreatedEvent,
-  PaymentRegisteredEvent,
-  AppointmentReminderDueEvent,
   EventNames,
   EVENTS_EXCHANGE,
   DEAD_LETTER_EXCHANGE,
@@ -23,32 +19,6 @@ export class BookingEventListeners {
     private readonly availabilityService: AvailabilityService,
     private readonly processedEvents: ProcessedEventsStore
   ) {}
-
-  /** Reacciona al alta de un usuario. */
-  @RabbitSubscribe({
-    exchange: EVENTS_EXCHANGE,
-    routingKey: EventNames.AUTH_USER_REGISTERED,
-    queue: nombreDeCola("booking", EventNames.AUTH_USER_REGISTERED),
-    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
-  })
-  async handleUserRegistered(event: UserRegisteredEvent) {
-    // El contrato de AUTH_USER_REGISTERED no incluye `role`, así que aquí no se
-    // puede distinguir el tipo de usuario (ver payload en event-types).
-    this.logger.log(`Usuario registrado: ${event.payload.email}`);
-  }
-
-  /** Reacciona a la creación de un negocio. */
-  @RabbitSubscribe({
-    exchange: EVENTS_EXCHANGE,
-    routingKey: EventNames.CORE_BUSINESS_CREATED,
-    queue: nombreDeCola("booking", EventNames.CORE_BUSINESS_CREATED),
-    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
-  })
-  async handleBusinessCreated(event: BusinessCreatedEvent) {
-    const { businessId } = event.payload;
-    this.logger.log(`Negocio creado: ${businessId}`);
-    this.logger.log(`Negocio ${businessId} creado en Booking Service`);
-  }
 
   /**
    * Al crearse un profesional, le inicializa una disponibilidad semanal por
@@ -103,39 +73,5 @@ export class BookingEventListeners {
         errorStack
       );
     }
-  }
-
-  /** Reacciona a un pago registrado, vinculándolo a su cita cuando aplica. */
-  @RabbitSubscribe({
-    exchange: EVENTS_EXCHANGE,
-    routingKey: EventNames.PAYMENT_PAYMENT_REGISTERED,
-    queue: nombreDeCola("booking", EventNames.PAYMENT_PAYMENT_REGISTERED),
-    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
-  })
-  async handlePaymentRegistered(event: PaymentRegisteredEvent) {
-    const { paymentId, appointmentId, amount, method } = event.payload;
-    this.logger.log(`Pago registrado: ${paymentId}`);
-
-    // Un pago puede no estar ligado a una cita (p. ej. venta de producto).
-    if (appointmentId) {
-      this.logger.log(
-        `Pago vinculado a cita ${appointmentId}: ${amount} COP (${method})`
-      );
-    }
-  }
-
-  /** Reacciona a un recordatorio de cita que toca enviar. */
-  @RabbitSubscribe({
-    exchange: EVENTS_EXCHANGE,
-    routingKey: EventNames.BOOKING_APPOINTMENT_REMINDER_DUE,
-    queue: nombreDeCola("booking", EventNames.BOOKING_APPOINTMENT_REMINDER_DUE),
-    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
-  })
-  async handleAppointmentReminderDue(event: AppointmentReminderDueEvent) {
-    const { appointmentId, date, startTime } = event.payload;
-    this.logger.log(`Recordatorio de cita pendiente: ${appointmentId}`);
-    this.logger.log(
-      `Recordatorio programado para cita ${appointmentId} el ${date} a las ${startTime}`
-    );
   }
 }

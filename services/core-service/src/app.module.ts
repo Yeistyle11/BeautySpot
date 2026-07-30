@@ -4,7 +4,11 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 
 import * as path from "path";
 import { createTypeOrmModuleOptions } from "@beautyspot/database";
-import { HealthModule, OutboxModule } from "@beautyspot/nest-common";
+import {
+  HealthModule,
+  OutboxModule,
+  InternalHttpModule,
+} from "@beautyspot/nest-common";
 import { entities } from "./orm-entities";
 import { BusinessesModule } from "./modules/businesses/businesses.module";
 import { BranchesModule } from "./modules/branches/branches.module";
@@ -18,7 +22,6 @@ import { BusinessHoursModule } from "./modules/business-hours/business-hours.mod
 import { ImagesModule } from "./modules/images/images.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
 import { ServiceCategoriesModule } from "./modules/service-categories/service-categories.module";
-import { CoreEventListenersModule } from "./modules/event-listeners/core-event-listeners.module";
 
 @Module({
   imports: [
@@ -29,6 +32,7 @@ import { CoreEventListenersModule } from "./modules/event-listeners/core-event-l
     TypeOrmModule.forRootAsync({
       useFactory: () => createTypeOrmModuleOptions(entities, "write"),
     }),
+    InternalHttpModule,
     HealthModule,
     OutboxModule,
     BusinessesModule,
@@ -43,7 +47,6 @@ import { CoreEventListenersModule } from "./modules/event-listeners/core-event-l
     ImagesModule,
     CategoriesModule,
     ServiceCategoriesModule,
-    CoreEventListenersModule,
   ],
 })
 /** Módulo raíz del core-service: agrupa negocios, sedes, servicios, profesionales, clientes e imágenes. */

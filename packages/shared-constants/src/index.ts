@@ -11,3 +11,21 @@ export const RATE_LIMIT_AUTH_REQUESTS = 5;
 export const RATE_LIMIT_GENERAL_REQUESTS = 100;
 /** Duración (segundos) de la ventana deslizante del rate limiting. */
 export const RATE_LIMIT_WINDOW_SECONDS = 60;
+
+// ─── Reglas de negocio ─────────────────────────────────────────────
+
+/**
+ * Horas mínimas de antelación para cancelar o reagendar una cita sin coste.
+ * Estaba escrito como literal en los dos sitios que lo comprueban, y cambiar
+ * uno sin el otro dejaba dos políticas distintas conviviendo.
+ */
+export const HORAS_MINIMAS_CANCELACION = 2;
+
+/** Proporción del importe de la cita que se convierte en puntos de fidelidad. */
+export const PROPORCION_PUNTOS_FIDELIDAD = 0.1;
+
+/** IVA colombiano que se aplica al facturar. */
+export const IVA = 0.19;
+
+/** Validez (segundos) de las URLs prefirmadas de subida y descarga de imágenes. */
+export const URL_PREFIRMADA_SEGUNDOS = 3600;

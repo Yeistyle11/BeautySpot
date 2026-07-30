@@ -1,6 +1,11 @@
 import { Injectable, OnModuleDestroy, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { IBaseEvent } from "@beautyspot/event-types";
+import {
+  IBaseEvent,
+  EVENTS_EXCHANGE,
+  DEAD_LETTER_EXCHANGE,
+  DEAD_LETTER_QUEUE,
+} from "@beautyspot/event-types";
 import { v4 as uuidv4 } from "uuid";
 import type { ChannelModel, Channel } from "amqplib";
 
@@ -27,8 +32,8 @@ export class EventBusService implements OnModuleDestroy {
   private channel: Channel | null = null;
   private connecting = false;
   private deadLetterChannel: Channel | null = null;
-  private readonly DLX_EXCHANGE = "beautyspot.dlx";
-  private readonly RETRY_EXCHANGE = "beautyspot.events";
+  private readonly DLX_EXCHANGE = DEAD_LETTER_EXCHANGE;
+  private readonly RETRY_EXCHANGE = EVENTS_EXCHANGE;
   private readonly MAX_RETRIES = 3;
   private readonly RETRY_DELAY_MS = 1000;
 
@@ -80,10 +85,10 @@ export class EventBusService implements OnModuleDestroy {
     // Cola terminal de Dead Letter: los mensajes aqui NO se reenvian al
     // exchange de retries (eso crearia un loop infinito). Se quedan para
     // inspeccion/reprocesamiento manual.
-    await channel.assertQueue("beautyspot.dlx.dead", {
+    await channel.assertQueue(DEAD_LETTER_QUEUE, {
       durable: true,
     });
-    await channel.bindQueue("beautyspot.dlx.dead", DLX_EXCHANGE, "#");
+    await channel.bindQueue(DEAD_LETTER_QUEUE, DLX_EXCHANGE, "#");
 
     // Canal dedicado para publicar a la DLQ, independiente del canal principal.
     // Si el canal principal muere, este canal sigue operativo para enrutar

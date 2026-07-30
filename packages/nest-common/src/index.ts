@@ -46,6 +46,12 @@ export type { ContextoPeticion } from "./observability/request-context";
 export { StructuredLogger } from "./observability/structured.logger";
 export { RedisCacheService } from "./cache/redis-cache.service";
 export { RedisCacheModule } from "./cache/redis-cache.module";
+export { InternalHttpClient } from "./http/internal-http.client";
+export type {
+  ServicioInterno,
+  OpcionesLlamada,
+} from "./http/internal-http.client";
+export { InternalHttpModule } from "./http/internal-http.module";
 export {
   TokenVersionStore,
   TOKEN_VERSION_KEY_PREFIX,

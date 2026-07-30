@@ -220,14 +220,14 @@ describe("NotificationEventListeners", () => {
       );
     });
 
-    it("debería manejar errores sin lanzar excepción", async () => {
+    it("debería propagar el error para que el mensaje llegue a la cola de fallidos", async () => {
       mockEmailService.queueWelcomeEmail.mockRejectedValue(
         new Error("Email service error")
       );
 
       await expect(
         service.handleUserRegistered(mockUserRegisteredEvent)
-      ).resolves.not.toThrow();
+      ).rejects.toThrow();
 
       expect(mockAmqpConnection.publish).not.toHaveBeenCalled();
     });
@@ -248,12 +248,12 @@ describe("NotificationEventListeners", () => {
       expect(mockAmqpConnection.publish).toHaveBeenCalled();
     });
 
-    it("debería manejar errores sin lanzar excepción", async () => {
+    it("debería propagar el error para que el mensaje llegue a la cola de fallidos", async () => {
       mockEmailService.queuePasswordReset.mockRejectedValue(new Error("Error"));
 
       await expect(
         service.handlePasswordResetRequested(mockPasswordResetEvent)
-      ).resolves.not.toThrow();
+      ).rejects.toThrow();
     });
   });
 
@@ -285,14 +285,14 @@ describe("NotificationEventListeners", () => {
       );
     });
 
-    it("debería manejar errores sin lanzar excepción", async () => {
+    it("debería propagar el error para que el mensaje llegue a la cola de fallidos", async () => {
       mockDataEnricher.enrichAppointmentParticipants.mockRejectedValue(
         new Error("Error")
       );
 
       await expect(
         service.handleAppointmentConfirmed(mockAppointmentConfirmedEvent)
-      ).resolves.not.toThrow();
+      ).rejects.toThrow();
     });
   });
 
@@ -326,14 +326,14 @@ describe("NotificationEventListeners", () => {
       );
     });
 
-    it("debería manejar errores sin lanzar excepción", async () => {
+    it("debería propagar el error para que el mensaje llegue a la cola de fallidos", async () => {
       mockDataEnricher.enrichAppointmentParticipants.mockRejectedValue(
         new Error("Error")
       );
 
       await expect(
         service.handleAppointmentCancelled(mockAppointmentCancelledEvent)
-      ).resolves.not.toThrow();
+      ).rejects.toThrow();
     });
   });
 
@@ -390,14 +390,14 @@ describe("NotificationEventListeners", () => {
       ).not.toHaveBeenCalled();
     });
 
-    it("debería manejar errores sin lanzar excepción", async () => {
+    it("debería propagar el error para que el mensaje llegue a la cola de fallidos", async () => {
       mockDataEnricher.enrichAppointmentParticipants.mockRejectedValue(
         new Error("Error")
       );
 
       await expect(
         service.handleAppointmentReminder(buildReminderEvent(24))
-      ).resolves.not.toThrow();
+      ).rejects.toThrow();
     });
   });
 
@@ -421,12 +421,12 @@ describe("NotificationEventListeners", () => {
       );
     });
 
-    it("debería manejar errores sin lanzar excepción", async () => {
+    it("debería propagar el error para que el mensaje llegue a la cola de fallidos", async () => {
       mockDataEnricher.enrichClientEmail.mockRejectedValue(new Error("Error"));
 
       await expect(
         service.handleInvoiceGenerated(mockInvoiceGeneratedEvent)
-      ).resolves.not.toThrow();
+      ).rejects.toThrow();
     });
   });
 
@@ -465,12 +465,12 @@ describe("NotificationEventListeners", () => {
       expect(mockEmailService.queueInvoice).not.toHaveBeenCalled();
     });
 
-    it("debería manejar errores sin lanzar excepción", async () => {
+    it("debería propagar el error para que el mensaje llegue a la cola de fallidos", async () => {
       mockDataEnricher.enrichClientEmail.mockRejectedValue(new Error("Error"));
 
       await expect(
         service.handlePaymentRegistered(mockPaymentRegisteredEvent)
-      ).resolves.not.toThrow();
+      ).rejects.toThrow();
     });
   });
 

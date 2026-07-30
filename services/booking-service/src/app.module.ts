@@ -8,6 +8,7 @@ import {
   OutboxModule,
   HealthModule,
   IdempotencyModule,
+  InternalHttpModule,
 } from "@beautyspot/nest-common";
 import { entities } from "./orm-entities";
 import { AppointmentsModule } from "./modules/appointments/appointments.module";
@@ -27,6 +28,7 @@ import { RemindersModule } from "./modules/reminders/reminders.module";
       useFactory: () => createTypeOrmModuleOptions(entities, "write"),
     }),
     IdempotencyModule,
+    InternalHttpModule,
     HealthModule,
     OutboxModule,
     AppointmentsModule,

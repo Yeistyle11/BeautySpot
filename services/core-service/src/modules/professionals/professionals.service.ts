@@ -3,14 +3,11 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
-  ServiceUnavailableException,
-  InternalServerErrorException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { OutboxService } from "@beautyspot/nest-common";
+import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { Repository, DataSource } from "typeorm";
-import { ConfigService } from "@nestjs/config";
 import { Professional } from "../../entities/professional.entity";
 import { CategoriesService } from "../categories/categories.service";
 import { ProfessionalService } from "../../entities/professional-service.entity";
@@ -26,7 +23,7 @@ export class ProfessionalsService {
     private readonly repo: Repository<Professional>,
     @InjectRepository(ProfessionalService)
     private readonly psRepo: Repository<ProfessionalService>,
-    private readonly configService: ConfigService,
+    private readonly http: InternalHttpClient,
     private readonly categories: CategoriesService,
     private readonly dataSource: DataSource,
     private readonly outbox: OutboxService
@@ -231,67 +228,16 @@ export class ProfessionalsService {
     hasActiveAppointments: boolean;
     totalAppointments: number;
   }> {
-    const bookingUrl = this.configService.get<string>(
-      "BOOKING_SERVICE_URL",
-      "http://localhost:3003"
+    // Fail-closed: si booking no responde, el cliente propaga el error y la
+    // inactivación queda bloqueada en vez de decidirse a ciegas.
+    const result = await this.http.pedir<{
+      totalAppointments?: unknown;
+      completedAppointments?: unknown;
+      hasHistory?: unknown;
+    }>(
+      "booking",
+      `/internal/appointments/professional/${professionalId}/has-history`
     );
-    const internalSecret = this.configService.get<string>(
-      "INTERNAL_API_SECRET",
-      ""
-    );
-
-    let response: Response;
-    try {
-      response = await fetch(
-        `${bookingUrl}/internal/appointments/professional/${professionalId}/has-history`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            ...(internalSecret ? { "x-internal-secret": internalSecret } : {}),
-          },
-        }
-      );
-    } catch (error) {
-      // Fail-closed: error de red/DNS/timeout bloquea la accion
-      throw new ServiceUnavailableException(
-        `No se pudo verificar el historial del profesional (booking-service no disponible). ` +
-          `Reintenta mas tarde. Error: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-      );
-    }
-
-    if (!response.ok) {
-      // Fail-closed: respuesta no-2xx bloquea la accion
-      throw new ServiceUnavailableException(
-        `No se pudo verificar el historial del profesional (booking-service respondio ${response.status}). ` +
-          `Reintenta mas tarde.`
-      );
-    }
-
-    let data: unknown;
-    try {
-      data = await response.json();
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Respuesta invalida del booking-service al verificar historial: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
-    }
-
-    const result = (
-      typeof data === "object" && data !== null && "data" in data
-        ? (data as Record<string, unknown>).data
-        : data
-    ) as
-      | {
-          totalAppointments?: unknown;
-          completedAppointments?: unknown;
-          hasHistory?: unknown;
-        }
-      | null
-      | undefined;
 
     // Coercion segura: valores faltantes/no-numericos se tratan como 0
     const totalAppointments = Number(result?.totalAppointments) || 0;

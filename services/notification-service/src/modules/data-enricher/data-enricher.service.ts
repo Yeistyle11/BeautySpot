@@ -1,5 +1,5 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
+import { Injectable } from "@nestjs/common";
+import { InternalHttpClient } from "@beautyspot/nest-common";
 
 /** Datos legibles de los participantes de una cita, listos para plantillas de correo. */
 export interface EnrichedProfileData {
@@ -34,9 +34,7 @@ const FALLBACK = {
  */
 @Injectable()
 export class DataEnricherService {
-  private readonly logger = new Logger(DataEnricherService.name);
-
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly http: InternalHttpClient) {}
 
   /** Devuelve los datos legibles de los tres participantes de una cita. */
   async enrichAppointmentParticipants(
@@ -87,43 +85,18 @@ export class DataEnricherService {
     professionalId?: string;
     businessId?: string;
   }): Promise<ProfileResolution> {
-    const coreServiceUrl = this.configService.get<string>(
-      "CORE_SERVICE_URL",
-      "http://localhost:3002"
-    );
-    const internalSecret = this.configService.get<string>(
-      "INTERNAL_API_SECRET",
-      ""
-    );
-
     const params = new URLSearchParams();
     if (ids.clientId) params.set("clientId", ids.clientId);
     if (ids.professionalId) params.set("professionalId", ids.professionalId);
     if (ids.businessId) params.set("businessId", ids.businessId);
 
-    const url = `${coreServiceUrl}/internal/profiles/resolve?${params}`;
+    // Fail-open a propósito: los datos con que se adorna un correo no valen
+    // como para dejar de enviarlo. Si core no responde, se usan los de reserva.
+    const resolucion = await this.http.pedirONulo<ProfileResolution>(
+      "core",
+      `/internal/profiles/resolve?${params}`
+    );
 
-    try {
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "x-internal-secret": internalSecret,
-        },
-        signal: AbortSignal.timeout(5000),
-      });
-
-      if (!response.ok) {
-        this.logger.warn(
-          `core-service respondió ${response.status} al resolver perfiles`
-        );
-        return { client: null, professional: null, business: null };
-      }
-
-      return (await response.json()) as ProfileResolution;
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`No se pudieron resolver perfiles: ${msg}`);
-      return { client: null, professional: null, business: null };
-    }
+    return resolucion ?? { client: null, professional: null, business: null };
   }
 }

@@ -1,17 +1,16 @@
 import {
   Injectable,
   BadRequestException,
-  ServiceUnavailableException,
   InternalServerErrorException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
-import { ConfigService } from "@nestjs/config";
 import { Appointment } from "../../entities/appointment.entity";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 import { Availability } from "../../entities/availability.entity";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
 import { AppointmentStatus } from "@beautyspot/shared-types";
+import { InternalHttpClient } from "@beautyspot/nest-common";
 import {
   calculateEndTime,
   timeToMinutes,
@@ -33,7 +32,7 @@ export class PublicBookingService {
     private readonly availRepo: Repository<Availability>,
     @InjectRepository(BlockedSlot)
     private readonly blockRepo: Repository<BlockedSlot>,
-    private configService: ConfigService
+    private readonly http: InternalHttpClient
   ) {}
 
   /**
@@ -133,63 +132,11 @@ export class PublicBookingService {
     phone?: string,
     userId?: string
   ): Promise<string> {
-    const coreServiceUrl = this.configService.get<string>(
-      "CORE_SERVICE_URL",
-      "http://localhost:3002"
+    const client = await this.http.enviar<{ id?: unknown }>(
+      "core",
+      "/internal/clients/find-or-create",
+      { businessId, name, email, phone, userId }
     );
-    const internalSecret = this.configService.get<string>(
-      "INTERNAL_API_SECRET",
-      ""
-    );
-    const body = JSON.stringify({ businessId, name, email, phone, userId });
-
-    let response: Response;
-    try {
-      response = await fetch(
-        `${coreServiceUrl}/internal/clients/find-or-create`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-internal-secret": internalSecret,
-          },
-          body,
-          signal: AbortSignal.timeout(5000),
-        }
-      );
-    } catch (error) {
-      throw new ServiceUnavailableException(
-        `No se pudo crear el cliente guest (core-service no disponible). ` +
-          `Reintenta mas tarde. Error: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-      );
-    }
-
-    if (!response.ok) {
-      throw new ServiceUnavailableException(
-        `No se pudo crear el cliente guest (core-service respondio ${response.status}). ` +
-          `Reintenta mas tarde.`
-      );
-    }
-
-    let data: unknown;
-    try {
-      data = await response.json();
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Respuesta invalida del core-service al crear cliente guest: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
-    }
-
-    const payload =
-      typeof data === "object" && data !== null && "success" in data
-        ? (data as Record<string, unknown>).data
-        : data;
-
-    const client = payload as { id?: unknown } | null | undefined;
 
     if (!client || typeof client.id !== "string" || client.id.length === 0) {
       throw new InternalServerErrorException(

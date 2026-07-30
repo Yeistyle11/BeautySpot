@@ -40,9 +40,10 @@ jest.mock("@beautyspot/nest-common", () => ({
   })),
   // Passthrough: ejecuta la operación una vez, sin la lógica real de reintento.
   withSerializableRetry: (op: () => Promise<unknown>) => op(),
-  // Clase real de token: los specs la sustituyen por su propio doble en el
-  // contenedor de Nest, pero necesitan que exista para poder referenciarla.
+  // Clases reales de token: los specs las sustituyen por su propio doble en el
+  // contenedor de Nest, pero necesitan que existan para poder referenciarlas.
   ProcessedEventsStore: class ProcessedEventsStore {},
+  InternalHttpClient: class InternalHttpClient {},
 }));
 
 // Mock de global.fetch para public-booking service
