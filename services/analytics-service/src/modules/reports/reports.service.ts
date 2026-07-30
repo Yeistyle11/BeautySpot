@@ -25,7 +25,7 @@ export class ReportsService {
 
   /** Reporte de ingresos: total, número de citas, ticket medio y serie diaria del periodo. */
   async getRevenueReport(businessId: string, from: string, to: string) {
-    const [aggregates, daily, dayCount] = await Promise.all([
+    const [aggregates, daily] = await Promise.all([
       this.dailyRepo
         .createQueryBuilder("m")
         .select("COALESCE(SUM(m.total_revenue), 0)", "totalRevenue")
@@ -40,10 +40,11 @@ export class ReportsService {
         where: { businessId, date: Between(from, to) },
         order: { date: "ASC" },
       }),
-      this.dailyRepo.count({
-        where: { businessId, date: Between(from, to) },
-      }),
     ]);
+
+    // Los días con datos son las filas que ya se han traído: contarlos con una
+    // tercera consulta sobre el mismo rango era trabajo repetido.
+    const dayCount = daily.length;
 
     const totalRevenue = Number(aggregates?.totalRevenue ?? 0);
     const totalAppointments = Number(aggregates?.totalAppointments ?? 0);

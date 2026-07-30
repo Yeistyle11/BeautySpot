@@ -44,7 +44,7 @@ export class DashboardService {
   }> {
     const { today, thirtyDaysAgo } = this.dateRange(30);
 
-    const [aggregates, todayMetrics, dayCount] = await Promise.all([
+    const [aggregates, todayMetrics] = await Promise.all([
       this.dailyRepo
         .createQueryBuilder("m")
         .select("COALESCE(SUM(m.total_revenue), 0)", "totalRevenue")
@@ -66,6 +66,9 @@ export class DashboardService {
         )
         .addSelect("COALESCE(SUM(m.new_clients), 0)", "newClients")
         .addSelect("COALESCE(SUM(m.returning_clients), 0)", "returningClients")
+        // Los días con datos salen del mismo agregado: contarlos aparte
+        // recorría otra vez el mismo rango del índice.
+        .addSelect("COUNT(*)", "dayCount")
         .where("m.business_id = :businessId", { businessId })
         .andWhere("m.date BETWEEN :from AND :to", {
           from: thirtyDaysAgo,
@@ -79,14 +82,14 @@ export class DashboardService {
           noShowAppointments: string;
           newClients: string;
           returningClients: string;
+          dayCount: string;
         }>(),
       this.dailyRepo.findOne({
         where: { businessId, date: today },
       }),
-      this.dailyRepo.count({
-        where: { businessId, date: Between(thirtyDaysAgo, today) },
-      }),
     ]);
+
+    const dayCount = Number(aggregates?.dayCount ?? 0);
 
     const agg = aggregates ?? {
       totalRevenue: "0",

@@ -16,7 +16,8 @@ describe("RateLimitGuard", () => {
 
   beforeEach(() => {
     redis = { eval: jest.fn() };
-    guard = new RateLimitGuard(redis as any);
+    // Sin valores configurados se usan los límites por defecto.
+    guard = new RateLimitGuard(redis as any, { get: () => undefined } as any);
     jest.spyOn(console, "warn").mockImplementation(() => undefined);
   });
 
@@ -118,6 +119,23 @@ describe("RateLimitGuard", () => {
     const request = { path: "/api/v1/auth/refresh", ip: "1.1.1.1", body: {} };
 
     await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);
+  });
+
+  it("respeta el límite configurado en el entorno", async () => {
+    const conConfig = new RateLimitGuard(
+      redis as any,
+      {
+        get: (clave: string) =>
+          clave === "RATE_LIMIT_GENERAL_MAX" ? "2" : undefined,
+      } as any
+    );
+    redis.eval.mockResolvedValue(3);
+    const request = { path: "/api/v1/clients", ip: "1.1.1.1", body: {} };
+
+    // Estaba en los .env y el guard lo ignoraba, usando su constante fija.
+    await expect(conConfig.canActivate(contextFor(request))).rejects.toThrow(
+      HttpException
+    );
   });
 
   it("deja pasar la petición si Redis falla (fail-open)", async () => {

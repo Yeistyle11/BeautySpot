@@ -13,6 +13,21 @@ export function generateSlug(text: string): string {
 }
 
 /**
+ * Oculta la mayor parte de un correo dejándolo reconocible.
+ *
+ * Los registros se guardan y se consultan por mucha gente; un correo completo
+ * ahí es un dato personal que casi nunca hace falta para depurar, y basta con
+ * distinguir de cuál se trata.
+ */
+export function ocultarCorreo(correo: string): string {
+  const arroba = correo.indexOf("@");
+  if (arroba <= 0) return "***";
+  const inicial = correo[0];
+  const dominio = correo.slice(arroba);
+  return `${inicial}***${dominio}`;
+}
+
+/**
  * Página máxima aceptada. Sin tope, `?page=500000&limit=100` genera un OFFSET de
  * 50 millones que Postgres tiene que leer y descartar entero.
  */

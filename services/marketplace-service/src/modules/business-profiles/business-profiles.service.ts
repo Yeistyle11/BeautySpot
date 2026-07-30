@@ -362,6 +362,20 @@ export class BusinessProfilesService {
     return { items, total };
   }
 
+  /** Cuenta los perfiles publicados de cada tipo de negocio, en una sola consulta. */
+  async contarPorTipo(): Promise<Map<string, number>> {
+    const filas = await this.repo
+      .createQueryBuilder("bp")
+      .select("bp.business_type", "tipo")
+      .addSelect("COUNT(*)", "total")
+      .where("bp.active = :active", { active: true })
+      .andWhere("bp.is_published = :published", { published: true })
+      .groupBy("bp.business_type")
+      .getRawMany<{ tipo: string; total: string }>();
+
+    return new Map(filas.map((f) => [f.tipo, Number(f.total)]));
+  }
+
   /** Devuelve los perfiles publicados mejor valorados. */
   async findTopRated(limit: number): Promise<BusinessProfileEntity[]> {
     return this.repo.find({

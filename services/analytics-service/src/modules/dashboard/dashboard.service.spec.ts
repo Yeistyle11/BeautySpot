@@ -77,13 +77,14 @@ describe("DashboardService", () => {
         noShowAppointments: "2",
         newClients: "6",
         returningClients: "14",
+        // Los días con datos vienen en el mismo agregado, no en un count aparte.
+        dayCount: "2",
       };
 
       (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
         buildQueryBuilder(aggResult)
       );
       mockDailyRepo.findOne.mockResolvedValue(mockDailyMetric as any);
-      mockDailyRepo.count.mockResolvedValue(2);
 
       const result = await service.getKPIs("business-123");
 
@@ -113,7 +114,6 @@ describe("DashboardService", () => {
         })
       );
       mockDailyRepo.findOne.mockResolvedValue(null);
-      mockDailyRepo.count.mockResolvedValue(0);
 
       const result = await service.getKPIs("business-123");
 
@@ -139,7 +139,6 @@ describe("DashboardService", () => {
         })
       );
       mockDailyRepo.findOne.mockResolvedValue(null);
-      mockDailyRepo.count.mockResolvedValue(0);
 
       const result = await service.getKPIs("business-123");
 

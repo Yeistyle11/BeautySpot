@@ -8,6 +8,7 @@ import { EmailService } from "../emails/email.service";
 import { DataEnricherService } from "../data-enricher/data-enricher.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { NotificationType } from "@beautyspot/shared-types";
+import { ocultarCorreo } from "@beautyspot/shared-utils";
 import {
   UserRegisteredEvent,
   PasswordResetRequestedEvent,
@@ -47,7 +48,9 @@ export class NotificationEventListeners {
     queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
   })
   async handleUserRegistered(event: UserRegisteredEvent) {
-    this.logger.log(`Usuario registrado: ${event.payload.email}`);
+    this.logger.log(
+      `Usuario registrado: ${ocultarCorreo(event.payload.email)}`
+    );
     try {
       await this.processedEvents.once(
         event,
@@ -84,7 +87,9 @@ export class NotificationEventListeners {
   async handlePasswordResetRequested(event: PasswordResetRequestedEvent) {
     const { email, name, resetToken, expiresAt } = event.payload;
 
-    this.logger.log(`Solicitud de reset de contraseña para: ${email}`);
+    this.logger.log(
+      `Solicitud de reset de contraseña para: ${ocultarCorreo(email)}`
+    );
 
     try {
       await this.processedEvents.once(
