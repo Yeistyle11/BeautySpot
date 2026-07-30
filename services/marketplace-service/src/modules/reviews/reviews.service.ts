@@ -183,9 +183,17 @@ export class ReviewsService {
     return review;
   }
 
-  /** Registra la respuesta del negocio a una reseña; rechaza si ya tenía una. */
-  async respond(id: string, response: string): Promise<ReviewEntity> {
-    const review = await this.findById(id);
+  /**
+   * Registra la respuesta del negocio a una reseña; rechaza si ya tenía una.
+   * La reseña se busca acotada al negocio para que nadie responda por otro.
+   */
+  async respond(
+    id: string,
+    businessId: string,
+    response: string
+  ): Promise<ReviewEntity> {
+    const review = await this.repo.findOne({ where: { id, businessId } });
+    if (!review) throw new NotFoundException("Reseña no encontrada");
     if (review.response)
       throw new BadRequestException("Esta reseña ya tiene respuesta");
     review.response = response;

@@ -17,6 +17,7 @@ import {
   Roles,
   Public,
   CurrentUser,
+  BusinessId,
   SkipBusinessScope,
 } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
@@ -60,8 +61,12 @@ export class ReviewsController {
   /** Publica la respuesta del negocio a una reseña. */
   @Post(":id/respond")
   @Roles(Role.OWNER, Role.ADMIN)
-  async respond(@Param("id") id: string, @Body() dto: RespondReviewDto) {
-    return this.service.respond(id, dto.response);
+  async respond(
+    @Param("id") id: string,
+    @BusinessId() businessId: string,
+    @Body() dto: RespondReviewDto
+  ) {
+    return this.service.respond(id, businessId, dto.response);
   }
 
   /** Marca una reseña como útil; el voto es único por usuario y reseña. */

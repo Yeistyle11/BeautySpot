@@ -2,10 +2,11 @@ import {
   IsEmail,
   IsString,
   IsOptional,
-  IsEnum,
+  IsIn,
   MinLength,
 } from "class-validator";
 import { Role } from "@beautyspot/shared-types";
+import { ASSIGNABLE_ROLES } from "../../memberships/dto/membership.dto";
 
 /** Datos para que un admin cree una cuenta de staff y su membresía en el negocio. */
 export class CreateStaffDto {
@@ -24,7 +25,7 @@ export class CreateStaffDto {
   @IsString()
   phone?: string;
 
-  @IsEnum(Role, { message: "Rol no valido" })
+  @IsIn(ASSIGNABLE_ROLES, { message: "No se puede asignar el rol SUPER_ADMIN" })
   role!: Role;
 
   @IsOptional()

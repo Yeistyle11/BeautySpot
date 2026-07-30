@@ -196,6 +196,18 @@ describe("createAppFactory", () => {
 
       expect(mockApp.useGlobalInterceptors).toHaveBeenCalled();
     });
+
+    it("debería serializar la respuesta antes de envolverla", async () => {
+      await createMicroserviceApp({} as any);
+
+      // El orden importa: el serializador va después del que envuelve para
+      // recibir la entidad cruda y poder aplicar sus @Exclude().
+      const registrados = mockApp.useGlobalInterceptors.mock.calls[0];
+      expect(registrados.map((i: object) => i.constructor.name)).toEqual([
+        "TransformInterceptor",
+        "ClassSerializerInterceptor",
+      ]);
+    });
   });
 
   describe("Application initialization", () => {

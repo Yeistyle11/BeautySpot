@@ -475,12 +475,28 @@ describe("ReviewsService", () => {
       mockRepo.findOne.mockResolvedValue(freshReview);
       mockRepo.save.mockResolvedValue(freshReview);
 
-      const result = await service.respond("review-123", "Gracias!");
+      const result = await service.respond(
+        "review-123",
+        "business-123",
+        "Gracias!"
+      );
 
+      expect(mockRepo.findOne).toHaveBeenCalledWith({
+        where: { id: "review-123", businessId: "business-123" },
+      });
       expect(freshReview.response).toBe("Gracias!");
       expect(freshReview.respondedAt).toBeInstanceOf(Date);
       expect(mockRepo.save).toHaveBeenCalledWith(freshReview);
       expect(result).toEqual(freshReview);
+    });
+
+    it("debería lanzar NotFoundException si la reseña es de otro negocio", async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.respond("review-123", "otro-negocio", "Gracias!")
+      ).rejects.toThrow(NotFoundException);
+      expect(mockRepo.save).not.toHaveBeenCalled();
     });
 
     it("debería lanzar BadRequestException si ya tiene respuesta", async () => {
@@ -494,7 +510,7 @@ describe("ReviewsService", () => {
       mockRepo.findOne.mockResolvedValue(reviewWithResponse);
 
       await expect(
-        service.respond("review-123", "Nueva respuesta")
+        service.respond("review-123", "business-123", "Nueva respuesta")
       ).rejects.toThrow(BadRequestException);
     });
   });

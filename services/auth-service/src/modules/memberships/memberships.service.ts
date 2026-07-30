@@ -10,6 +10,7 @@ import { AuditLog } from "../../entities/audit-log.entity";
 import { Role } from "@beautyspot/shared-types";
 import { TokenVersionStore, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
+import { SafeUser, toSafeUser } from "../users/dto/user-response.dto";
 
 /** Usuario que ejecuta la acción; su rol y negocio determinan qué membresías puede tocar. */
 export interface MembershipActor {
@@ -17,6 +18,11 @@ export interface MembershipActor {
   role: Role;
   businessId?: string;
 }
+
+/** Membresía con los datos del usuario ya despojados de la contraseña. */
+export type MembershipWithSafeUser = Omit<Membership, "user" | "generateId"> & {
+  user: SafeUser;
+};
 
 /**
  * Gestiona las membresías usuario–negocio (alta, cambio de rol, baja) aplicando
@@ -186,7 +192,7 @@ export class MembershipsService {
   async findByBusiness(
     businessId: string,
     actor?: MembershipActor
-  ): Promise<Membership[]> {
+  ): Promise<MembershipWithSafeUser[]> {
     if (actor && actor.role !== Role.SUPER_ADMIN) {
       const belongs = await this.findByUserAndBusiness(
         actor.userId,
@@ -198,10 +204,14 @@ export class MembershipsService {
         );
       }
     }
-    return this.membershipRepository.find({
+    const memberships = await this.membershipRepository.find({
       where: { businessId, active: true },
       relations: ["user"],
     });
+    return memberships.map((membership) => ({
+      ...membership,
+      user: toSafeUser(membership.user),
+    }));
   }
 
   /** Carga una membresía restringiéndola al negocio del actor (salvo Super Admin). */
