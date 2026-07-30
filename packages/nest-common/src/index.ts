@@ -56,6 +56,7 @@ export type {
   OpcionesLlamada,
 } from "./http/internal-http.client";
 export { InternalHttpModule } from "./http/internal-http.module";
+export { ProcessedEventsPurgeWorker } from "./modules/idempotency/processed-events-purge.worker";
 export {
   TokenVersionStore,
   TOKEN_VERSION_KEY_PREFIX,
