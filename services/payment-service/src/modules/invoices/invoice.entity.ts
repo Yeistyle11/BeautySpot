@@ -3,12 +3,18 @@ import { TenantEntity, numericTransformer } from "@beautyspot/database";
 import { InvoiceStatus } from "@beautyspot/shared-types";
 import { InvoiceItemEntity } from "./invoice-item.entity";
 
-/** Factura de un cliente: numeración por negocio, importe, estado y sus líneas. */
+/**
+ * Factura de un cliente: numeración por negocio, importe, estado y sus líneas.
+ *
+ * El número es único dentro del negocio, no de la tabla: cada negocio lleva su
+ * propia serie y dos negocios distintos emiten su primera factura con el mismo
+ * número.
+ */
 @Entity("invoices")
 @Index(["businessId", "number"], { unique: true })
 export class InvoiceEntity extends TenantEntity {
   @Column({ type: "uuid", name: "client_id" }) clientId!: string;
-  @Column({ unique: true }) number!: string;
+  @Column() number!: string;
   @Column({ type: "date" }) date!: string;
   @Column({ type: "date", name: "due_date" }) dueDate!: string;
   @Column({

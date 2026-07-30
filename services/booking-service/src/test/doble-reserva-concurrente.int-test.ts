@@ -4,6 +4,7 @@ import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
 import { createMigrationDataSourceOptions } from "@beautyspot/database";
 import { entities } from "../orm-entities";
 import { AppointmentsService } from "../modules/appointments/appointments.service";
+import { PublicBookingService } from "../modules/public-booking/public-booking.service";
 import { Appointment } from "../entities/appointment.entity";
 import { Availability } from "../entities/availability.entity";
 import { BlockedSlot } from "../entities/blocked-slot.entity";
@@ -23,6 +24,7 @@ const HORA = "10:00";
 describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
   let dataSource: DataSource;
   let citas: AppointmentsService;
+  let reservaPublica: PublicBookingService;
 
   const servicioDeUnaHora = [
     {
@@ -42,6 +44,17 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
       startTime: HORA,
     });
 
+  /** La misma reserva, pero por el camino público del marketplace. */
+  const reservarComoInvitado = (nombre: string) =>
+    reservaPublica.createPublicAppointment({
+      businessId: NEGOCIO,
+      professionalId: PROFESIONAL,
+      serviceIds: servicioDeUnaHora,
+      date: FECHA,
+      startTime: HORA,
+      guestName: nombre,
+    });
+
   beforeAll(async () => {
     dataSource = new DataSource({
       ...createMigrationDataSourceOptions(
@@ -59,8 +72,12 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
     // no la publicación de eventos, que ya tiene su propio test.
     const outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
 
-    // Este test no cruza servicios: el cliente HTTP interno no llega a usarse.
-    const http = { pedir: jest.fn(), enviar: jest.fn() };
+    // La resolución del cliente invitado contra core se simula: aquí interesa
+    // cómo persiste la reserva pública, no de dónde saca el cliente.
+    const http = {
+      pedir: jest.fn(),
+      enviar: jest.fn().mockResolvedValue({ id: CLIENTE_A }),
+    };
 
     citas = new AppointmentsService(
       dataSource.getRepository(Appointment),
@@ -69,6 +86,14 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
       dataSource,
       outbox as unknown as OutboxService,
       http as unknown as InternalHttpClient
+    );
+
+    reservaPublica = new PublicBookingService(
+      dataSource.getRepository(Appointment),
+      dataSource.getRepository(Availability),
+      dataSource.getRepository(BlockedSlot),
+      http as unknown as InternalHttpClient,
+      citas
     );
   }, 60000);
 
@@ -128,6 +153,30 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
 
     expect(aceptadas).toHaveLength(1);
     expect(rechazadas).toHaveLength(1);
+
+    const total = await dataSource.getRepository(Appointment).count();
+    expect(total).toBe(1);
+  });
+
+  // La reserva pública guardaba por su cuenta, esquivando la transacción que
+  // protege al resto del servicio.
+  it("con dos reservas públicas simultáneas del mismo hueco, solo una prospera", async () => {
+    const resultados = await Promise.allSettled([
+      reservarComoInvitado("Ana"),
+      reservarComoInvitado("Luis"),
+    ]);
+
+    expect(resultados.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+
+    const total = await dataSource.getRepository(Appointment).count();
+    expect(total).toBe(1);
+  });
+
+  it("una reserva pública no puede pisar una cita ya confirmada", async () => {
+    const cita = await reservar(CLIENTE_B);
+    await citas.confirm(cita.id, NEGOCIO);
+
+    await expect(reservarComoInvitado("Ana")).rejects.toThrow();
 
     const total = await dataSource.getRepository(Appointment).count();
     expect(total).toBe(1);

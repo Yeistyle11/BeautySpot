@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
-import { Between, Repository, DataSource } from "typeorm";
+import { Between, Repository, DataSource, EntityManager } from "typeorm";
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { InvoiceEntity } from "./invoice.entity";
 import { InvoiceItemEntity } from "./invoice-item.entity";
@@ -29,7 +29,6 @@ export class InvoicesService {
     businessId: string,
     dto: CreateInvoiceDto
   ): Promise<InvoiceEntity> {
-    const number = await this.generateInvoiceNumber(businessId);
     const date = dto.date || new Date().toISOString().split("T")[0];
     const dueDate = dto.dueDate || this.getDefaultDueDate();
 
@@ -45,19 +44,22 @@ export class InvoicesService {
       });
     });
 
-    const invoice = this.invoiceRepo.create({
-      businessId,
-      clientId: dto.clientId,
-      number,
-      date,
-      dueDate,
-      total,
-      notes: dto.notes,
-      status: InvoiceStatus.DRAFT,
-      items,
-    });
-
+    // El número se reserva dentro de la misma transacción que la factura: si
+    // esta no llega a guardarse, el número no se consume y la serie no deja
+    // huecos.
     return this.dataSource.transaction(async (manager) => {
+      const invoice = manager.getRepository(InvoiceEntity).create({
+        businessId,
+        clientId: dto.clientId,
+        number: await this.generateInvoiceNumber(businessId, manager),
+        date,
+        dueDate,
+        total,
+        notes: dto.notes,
+        status: InvoiceStatus.DRAFT,
+        items,
+      });
+
       const guardada = await manager.getRepository(InvoiceEntity).save(invoice);
 
       await this.outbox.enqueue(manager, {
@@ -155,12 +157,31 @@ export class InvoicesService {
     return this.pdfService.generateInvoicePdf(invoiceData);
   }
 
-  /** Genera el número correlativo de factura del negocio con el formato INV-{año}-{secuencia}. */
-  private async generateInvoiceNumber(businessId: string): Promise<string> {
-    const count = await this.invoiceRepo.count({ where: { businessId } });
-    const seq = String(count + 1).padStart(6, "0");
+  /**
+   * Reserva el siguiente número de la serie del negocio, con formato
+   * `INV-{año}-{secuencia}`.
+   *
+   * Se obtenía contando las facturas del negocio, lo que daba el mismo número a
+   * dos altas simultáneas y recorría toda la tabla en cada una. Ahora se toma de
+   * una secuencia por negocio y año con un INSERT … ON CONFLICT DO UPDATE …
+   * RETURNING, que reserva y devuelve el número en una sola operación atómica.
+   */
+  private async generateInvoiceNumber(
+    businessId: string,
+    manager: EntityManager
+  ): Promise<string> {
     const year = new Date().getFullYear();
-    return `INV-${year}-${seq}`;
+
+    const [{ last_number: siguiente }] = (await manager.query(
+      `INSERT INTO invoice_sequences (business_id, year, last_number)
+       VALUES ($1, $2, 1)
+       ON CONFLICT (business_id, year)
+       DO UPDATE SET last_number = invoice_sequences.last_number + 1
+       RETURNING last_number`,
+      [businessId, year]
+    )) as { last_number: number }[];
+
+    return `INV-${year}-${String(siguiente).padStart(6, "0")}`;
   }
 
   /** Fecha de vencimiento por defecto: 30 días desde hoy. */

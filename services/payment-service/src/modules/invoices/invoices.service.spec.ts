@@ -14,6 +14,7 @@ describe("InvoicesService", () => {
   let mockInvoiceRepo: jest.Mocked<Repository<InvoiceEntity>>;
   let mockItemRepo: jest.Mocked<Repository<InvoiceItemEntity>>;
   let mockPdfService: jest.Mocked<PdfService>;
+  let mockReservarNumero: jest.Mock;
 
   const mockInvoiceItem: InvoiceItemEntity = {
     id: "item-123",
@@ -62,10 +63,15 @@ describe("InvoicesService", () => {
     } as any;
 
     const mockOutboxSpec = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    // La transacción entrega el repositorio simulado y resuelve la reserva del
+    // número de factura, que ahora sale de una secuencia por negocio.
+    mockReservarNumero = jest.fn().mockResolvedValue([{ last_number: 1 }]);
     const mockDataSourceSpec = {
-      // La transacción entrega el mismo repositorio simulado del test.
       transaction: jest.fn((cb) =>
-        cb({ getRepository: jest.fn().mockReturnValue(mockInvoiceRepo) })
+        cb({
+          getRepository: jest.fn().mockReturnValue(mockInvoiceRepo),
+          query: mockReservarNumero,
+        })
       ),
     };
 
@@ -103,14 +109,13 @@ describe("InvoicesService", () => {
         notes: "Factura de prueba",
       };
 
-      mockInvoiceRepo.count.mockResolvedValue(0);
       mockItemRepo.create.mockReturnValue(mockInvoiceItem);
       mockInvoiceRepo.create.mockReturnValue(mockInvoice);
       mockInvoiceRepo.save.mockResolvedValue(mockInvoice);
 
       const result = await service.create("business-123", dto);
 
-      expect(mockInvoiceRepo.count).toHaveBeenCalled();
+      expect(mockReservarNumero).toHaveBeenCalled();
       expect(mockItemRepo.create).toHaveBeenCalledTimes(2);
       expect(mockInvoiceRepo.create).toHaveBeenCalled();
       expect(mockInvoiceRepo.save).toHaveBeenCalledWith(mockInvoice);
@@ -123,7 +128,6 @@ describe("InvoicesService", () => {
         items: [{ description: "Corte", quantity: 1, unitPrice: 30000 }],
       };
 
-      mockInvoiceRepo.count.mockResolvedValue(0);
       mockItemRepo.create.mockReturnValue(mockInvoiceItem);
       mockInvoiceRepo.create.mockReturnValue(mockInvoice);
       mockInvoiceRepo.save.mockResolvedValue(mockInvoice);
@@ -140,7 +144,6 @@ describe("InvoicesService", () => {
         items: [{ description: "Corte", quantity: 1, unitPrice: 30000 }],
       };
 
-      mockInvoiceRepo.count.mockResolvedValue(0);
       mockItemRepo.create.mockReturnValue(mockInvoiceItem);
       mockInvoiceRepo.create.mockReturnValue(mockInvoice);
       mockInvoiceRepo.save.mockResolvedValue(mockInvoice);
@@ -161,7 +164,6 @@ describe("InvoicesService", () => {
         ],
       };
 
-      mockInvoiceRepo.count.mockResolvedValue(0);
       mockItemRepo.create.mockReturnValue(mockInvoiceItem);
       mockInvoiceRepo.create.mockReturnValue(mockInvoice);
       mockInvoiceRepo.save.mockResolvedValue(mockInvoice);
@@ -172,21 +174,44 @@ describe("InvoicesService", () => {
       expect(createCall.total).toBe(80000);
     });
 
-    it("debería generar número de factura secuencial", async () => {
+    it("debería numerar la factura con la serie del negocio", async () => {
       const dto = {
         clientId: "client-123",
         items: [{ description: "Corte", quantity: 1, unitPrice: 30000 }],
       };
 
-      mockInvoiceRepo.count.mockResolvedValue(5);
+      mockReservarNumero.mockResolvedValue([{ last_number: 6 }]);
       mockItemRepo.create.mockReturnValue(mockInvoiceItem);
       mockInvoiceRepo.create.mockReturnValue(mockInvoice);
       mockInvoiceRepo.save.mockResolvedValue(mockInvoice);
 
       await service.create("business-123", dto);
 
+      // La serie es de cada negocio, así que el número se reserva contra la
+      // secuencia de ese negocio, no contando las facturas de la tabla.
+      const [sql, parametros] = mockReservarNumero.mock.calls[0];
+      expect(sql).toContain("invoice_sequences");
+      expect(parametros[0]).toBe("business-123");
+
       const createCall = mockInvoiceRepo.create.mock.calls[0][0];
       expect(createCall.number).toMatch(/^INV-\d{4}-000006$/);
+    });
+
+    it("debería reservar el número dentro de la transacción de la factura", async () => {
+      const dto = {
+        clientId: "client-123",
+        items: [{ description: "Corte", quantity: 1, unitPrice: 30000 }],
+      };
+
+      mockItemRepo.create.mockReturnValue(mockInvoiceItem);
+      mockInvoiceRepo.create.mockReturnValue(mockInvoice);
+      mockInvoiceRepo.save.mockRejectedValue(new Error("fallo al guardar"));
+
+      await expect(service.create("business-123", dto)).rejects.toThrow();
+
+      // Reservarlo fuera dejaría un hueco en la serie cada vez que el guardado
+      // fallara.
+      expect(mockReservarNumero).toHaveBeenCalled();
     });
   });
 

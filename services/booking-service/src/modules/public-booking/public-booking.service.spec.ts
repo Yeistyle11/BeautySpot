@@ -12,6 +12,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { InternalHttpClient } from "@beautyspot/nest-common";
+import { AppointmentsService } from "../appointments/appointments.service";
 
 describe("PublicBookingService", () => {
   let service: PublicBookingService;
@@ -20,6 +21,7 @@ describe("PublicBookingService", () => {
   let mockAvailRepo: jest.Mocked<Repository<Availability>>;
   let mockBlockRepo: jest.Mocked<Repository<BlockedSlot>>;
   let mockHttp: { enviar: jest.Mock; pedir: jest.Mock };
+  let mockAppointments: { create: jest.Mock };
 
   const mockAppointment: Appointment = {
     id: "appt-123",
@@ -91,6 +93,12 @@ describe("PublicBookingService", () => {
       pedir: jest.fn(),
     };
 
+    // La cita la persiste AppointmentsService, que es donde vive la
+    // transacción SERIALIZABLE con la comprobación final de conflicto.
+    mockAppointments = {
+      create: jest.fn().mockResolvedValue(mockAppointment),
+    };
+
     const module = await Test.createTestingModule({
       providers: [
         PublicBookingService,
@@ -113,6 +121,10 @@ describe("PublicBookingService", () => {
         {
           provide: InternalHttpClient,
           useValue: mockHttp,
+        },
+        {
+          provide: AppointmentsService,
+          useValue: mockAppointments,
         },
       ],
     }).compile();
@@ -161,8 +173,7 @@ describe("PublicBookingService", () => {
         totalAmount: 50000,
         services: ["Corte de cabello", "Barba"],
       });
-      expect(mockApptRepo.create).toHaveBeenCalled();
-      expect(mockApptRepo.save).toHaveBeenCalled();
+      expect(mockAppointments.create).toHaveBeenCalled();
     });
 
     describe("sin profesional pedido", () => {
@@ -193,7 +204,8 @@ describe("PublicBookingService", () => {
 
         await service.createPublicAppointment(sinPreferencia);
 
-        expect(mockApptRepo.create).toHaveBeenCalledWith(
+        expect(mockAppointments.create).toHaveBeenCalledWith(
+          "business-123",
           expect.objectContaining({ professionalId: "prof-a" })
         );
       });
@@ -210,7 +222,8 @@ describe("PublicBookingService", () => {
 
         await service.createPublicAppointment(sinPreferencia);
 
-        expect(mockApptRepo.create).toHaveBeenCalledWith(
+        expect(mockAppointments.create).toHaveBeenCalledWith(
+          "business-123",
           expect.objectContaining({ professionalId: "prof-b" })
         );
       });
@@ -228,7 +241,7 @@ describe("PublicBookingService", () => {
         await expect(
           service.createPublicAppointment(sinPreferencia)
         ).rejects.toThrow(BadRequestException);
-        expect(mockApptRepo.create).not.toHaveBeenCalled();
+        expect(mockAppointments.create).not.toHaveBeenCalled();
       });
 
       it("consulta el equipo entero de una vez", async () => {
@@ -255,38 +268,68 @@ describe("PublicBookingService", () => {
     });
 
     it("debería lanzar BadRequestException si no hay disponibilidad", async () => {
-      mockAvailRepo.findOne.mockResolvedValue(null);
+      mockAppointments.create.mockRejectedValue(
+        new BadRequestException("El horario seleccionado no esta disponible")
+      );
 
-      await expect(
-        service.createPublicAppointment(bookingData)
-      ).rejects.toThrow(BadRequestException);
       await expect(
         service.createPublicAppointment(bookingData)
       ).rejects.toThrow("El horario seleccionado no esta disponible");
     });
 
     it("debería lanzar BadRequestException si hay conflicto de horario", async () => {
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
-      mockBlockRepo.find.mockResolvedValue([]);
-      mockApptRepo.find.mockResolvedValue([mockAppointment]);
+      mockAppointments.create.mockRejectedValue(
+        new BadRequestException("Ya existe una cita en ese horario")
+      );
 
-      await expect(
-        service.createPublicAppointment(bookingData)
-      ).rejects.toThrow(BadRequestException);
       await expect(
         service.createPublicAppointment(bookingData)
       ).rejects.toThrow("Ya existe una cita en ese horario");
     });
 
-    it("debería calcular correctamente el endTime y totalAmount", async () => {
-      mockApptRepo.create.mockReturnValue(mockAppointment);
-      mockApptRepo.save.mockResolvedValue(mockAppointment);
-      mockApptRepo.find.mockResolvedValue([]);
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
-      mockBlockRepo.find.mockResolvedValue([]);
-      mockApptServiceRepo.create.mockReturnValue(mockApptService);
-      mockApptServiceRepo.save.mockResolvedValue(mockApptService);
+    it("persiste la cita por el camino con transacción, no por su cuenta", async () => {
+      await service.createPublicAppointment(bookingData);
 
+      // Guardar aquí con un save suelto dejaba fuera el re-check dentro de la
+      // transacción, el reintento y el evento del outbox.
+      expect(mockAppointments.create).toHaveBeenCalledWith("business-123", {
+        professionalId: "prof-123",
+        clientId: "client-123",
+        serviceIds: bookingData.serviceIds,
+        date: "2024-01-15",
+        startTime: "10:00",
+        notes: "Primera visita",
+      });
+      expect(mockApptRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("descarta a un profesional con una cita confirmada a esa hora", async () => {
+      const sinPreferencia = { ...bookingData, professionalId: undefined };
+      mockAvailRepo.find.mockResolvedValue([
+        { ...mockAvailability, professionalId: "prof-a" },
+        { ...mockAvailability, professionalId: "prof-b" },
+      ] as never);
+      mockBlockRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([
+        {
+          professionalId: "prof-a",
+          startTime: "10:00",
+          endTime: "10:50",
+          status: AppointmentStatus.CONFIRMED,
+        },
+      ] as never);
+
+      await service.createPublicAppointment(sinPreferencia);
+
+      // Antes solo bloqueaban las citas pendientes, así que un invitado podía
+      // reservar encima de una cita ya confirmada.
+      expect(mockAppointments.create).toHaveBeenCalledWith(
+        "business-123",
+        expect.objectContaining({ professionalId: "prof-b" })
+      );
+    });
+
+    it("debería calcular correctamente el endTime y totalAmount", async () => {
       const result = await service.createPublicAppointment(bookingData);
 
       expect(result.endTime).toBe("10:50");
