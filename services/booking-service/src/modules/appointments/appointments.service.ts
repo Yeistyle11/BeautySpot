@@ -67,7 +67,7 @@ export class AppointmentsService {
     private readonly http: InternalHttpClient
   ) {}
 
-  /** Crear cita verificando disponibilidad (transacción) */
+  /** Crea una cita comprobando que la franja siga libre. */
   async create(
     businessId: string,
     data: {
@@ -196,7 +196,7 @@ export class AppointmentsService {
     return appointment;
   }
 
-  /** Confirmar cita */
+  /** Pasa la cita a confirmada. */
   async confirm(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
     if (appt.status !== AppointmentStatus.PENDING) {
@@ -229,7 +229,7 @@ export class AppointmentsService {
     return this.findById(id, businessId);
   }
 
-  /** Iniciar servicio */
+  /** Marca que el servicio ha empezado. */
   async startService(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
     if (appt.status !== AppointmentStatus.CONFIRMED) {
@@ -244,7 +244,7 @@ export class AppointmentsService {
     return this.findById(id, businessId);
   }
 
-  /** Completar cita y otorgar puntos */
+  /** Da la cita por atendida y suma los puntos de fidelidad al cliente. */
   async complete(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
     if (
@@ -285,7 +285,7 @@ export class AppointmentsService {
     return this.findById(id, businessId);
   }
 
-  /** Cancelar cita con politica de 2 horas */
+  /** Cancela la cita si aún queda margen suficiente antes de la hora. */
   async cancel(
     id: string,
     businessId: string,
@@ -340,7 +340,7 @@ export class AppointmentsService {
     return this.findById(id, businessId);
   }
 
-  /** Marcar como no asistio */
+  /** Marca que el cliente no se presentó. */
   async markNoShow(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
     if (
@@ -376,7 +376,7 @@ export class AppointmentsService {
     return this.findById(id, businessId);
   }
 
-  /** Reagendar cita */
+  /** Mueve la cita a otra fecha y hora. */
   async reschedule(
     id: string,
     businessId: string,
@@ -766,6 +766,7 @@ export class AppointmentsService {
     return !isBlocked;
   }
 
+  /** Indica si ya hay una cita viva del profesional que se solape con la franja. */
   private async hasTimeConflict(
     businessId: string,
     professionalId: string,

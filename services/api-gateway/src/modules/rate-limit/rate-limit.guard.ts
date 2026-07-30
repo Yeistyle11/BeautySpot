@@ -44,6 +44,7 @@ export class RateLimitGuard implements CanActivate {
 
   constructor(@Inject(REDIS_CLIENT) private redis: Redis) {}
 
+  /** Cuenta la petición y la rechaza si supera el límite de su ventana. */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const isAuthRoute = this.isAuthRoute(request.path);
@@ -94,6 +95,7 @@ export class RateLimitGuard implements CanActivate {
     return RUTAS_DE_CREDENCIALES.some((ruta) => normalizado.includes(ruta));
   }
 
+  /** Contadores que se aplican a la petición: por IP y, en credenciales, por cuenta. */
   private buildBuckets(request: Request, isAuthRoute: boolean): string[] {
     const ip = this.resolveIp(request);
     const scope = isAuthRoute ? "auth" : "general";
@@ -107,6 +109,7 @@ export class RateLimitGuard implements CanActivate {
     return buckets;
   }
 
+  /** IP a la que se le imputa la petición. */
   private resolveIp(request: Request): string {
     // request.ip respeta el ajuste "trust proxy" de Express; si no está activo
     // detrás de un balanceador todas las peticiones comparten cuota, por lo que
@@ -114,6 +117,7 @@ export class RateLimitGuard implements CanActivate {
     return request.ip || request.socket?.remoteAddress || "unknown";
   }
 
+  /** Correo del cuerpo, normalizado, para contar los intentos por cuenta. */
   private extractEmail(request: Request): string | null {
     const body = request.body as { email?: unknown } | undefined;
     if (!body || typeof body.email !== "string") return null;

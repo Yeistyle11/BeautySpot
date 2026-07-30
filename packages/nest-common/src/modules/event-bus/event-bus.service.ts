@@ -41,6 +41,7 @@ export class EventBusService implements OnModuleDestroy {
     this.connect();
   }
 
+  /** Abre la conexión con RabbitMQ y prepara sus exchanges y colas. */
   private async connect(): Promise<void> {
     const url = this.configService.get("RABBITMQ_URL");
     if (!url) {
@@ -71,6 +72,7 @@ export class EventBusService implements OnModuleDestroy {
     }
   }
 
+  /** Declara los exchanges de eventos y de fallidos, y la cola terminal. */
   private async setupExchangesAndQueues(
     channel: Channel,
     connection: ChannelModel
@@ -179,6 +181,7 @@ export class EventBusService implements OnModuleDestroy {
     }
   }
 
+  /** Manda a la cola de fallidos un evento que no se pudo publicar. */
   private async publishToDLQ(
     message: IBaseEvent<unknown>,
     error: unknown
@@ -206,6 +209,7 @@ export class EventBusService implements OnModuleDestroy {
     }
   }
 
+  /** Intenta publicar en la cola de fallidos por el canal reservado. */
   private async tryPublishToDLQ(
     dlqMessage: DlqMessage,
     eventType: string
@@ -236,6 +240,7 @@ export class EventBusService implements OnModuleDestroy {
     }
   }
 
+  /** Reintenta la publicación en fallidos abriendo una conexión nueva. */
   private async tryPublishToDLQWithFreshConnection(
     dlqMessage: DlqMessage,
     eventType: string
@@ -281,6 +286,7 @@ export class EventBusService implements OnModuleDestroy {
     return { message: String(error) };
   }
 
+  /** Espera los milisegundos indicados. */
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -290,6 +296,7 @@ export class EventBusService implements OnModuleDestroy {
     return this.channel !== null;
   }
 
+  /** Cierra canales y conexión al parar el servicio. */
   async onModuleDestroy(): Promise<void> {
     try {
       if (this.deadLetterChannel) await this.deadLetterChannel.close();

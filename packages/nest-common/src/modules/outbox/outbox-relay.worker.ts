@@ -69,6 +69,7 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
       this.configService.get<string>("OUTBOX_RELAY_ENABLED") !== "false";
   }
 
+  /** Arranca el sondeo periódico, salvo que esté desactivado por configuración. */
   onModuleInit(): void {
     if (!this.enabled) {
       this.logger.warn(
@@ -89,6 +90,7 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  /** Detiene el sondeo al parar el servicio. */
   async onModuleDestroy(): Promise<void> {
     if (this.timer) {
       clearInterval(this.timer);
@@ -195,6 +197,7 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** Publica un evento y lo marca como enviado, o anota el fallo. */
   private async processOne(message: OutboxMessageEntity): Promise<void> {
     try {
       // El id de la fila identifica el evento y se repite en cada reintento.
@@ -210,6 +213,7 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /** Marca el evento como publicado. */
   private async markProcessed(id: string): Promise<void> {
     await this.dataSource.getRepository(OutboxMessageEntity).update(id, {
       status: OutboxStatus.PROCESSED,
@@ -218,6 +222,7 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** Anota el fallo y devuelve el evento a pendiente, o lo da por muerto si agotó los intentos. */
   private async markFailed(
     message: OutboxMessageEntity,
     errorMessage: string
@@ -242,6 +247,7 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /** Lee un número de la configuración, con valor por defecto si falta o no es válido. */
   private getNumberConfig(key: string, fallback: number): number {
     const raw = this.configService.get(key);
     if (raw === undefined || raw === null || raw === "") return fallback;

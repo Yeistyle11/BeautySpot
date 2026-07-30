@@ -21,6 +21,7 @@ const INTERNAL_PATH_PREFIX = "/internal";
 export class InternalSecretGuard implements CanActivate {
   constructor(private configService: ConfigService) {}
 
+  /** Deja pasar solo las rutas /internal que traen el secreto correcto. */
   canActivate(context: ExecutionContext): boolean {
     if (!esContextoHttp(context)) return true;
 
@@ -37,6 +38,7 @@ export class InternalSecretGuard implements CanActivate {
     return true;
   }
 
+  /** Compara el secreto recibido con el configurado. */
   private isValidSecret(
     secret: unknown,
     expected: string | undefined

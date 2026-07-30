@@ -54,6 +54,7 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
       this.configService.get<string>("REMINDERS_ENABLED") !== "false";
   }
 
+  /** Arranca el sondeo periódico, salvo que esté desactivado por configuración. */
   onModuleInit(): void {
     if (!this.enabled) {
       this.logger.warn(
@@ -74,6 +75,7 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  /** Detiene el sondeo al parar el servicio. */
   async onModuleDestroy(): Promise<void> {
     if (this.timer) {
       clearInterval(this.timer);
@@ -166,6 +168,7 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** Devuelve la fecha desplazada las horas indicadas. */
   private sumarHoras(fecha: Date, horas: number): Date {
     return new Date(fecha.getTime() + horas * 3600000);
   }

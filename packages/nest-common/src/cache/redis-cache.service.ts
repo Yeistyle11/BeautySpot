@@ -27,10 +27,12 @@ export class RedisCacheService implements OnModuleDestroy {
     });
   }
 
+  /** Lee un valor de la caché, o null si no está. */
   async get(key: string): Promise<string | null> {
     return this.client.get(key);
   }
 
+  /** Guarda un valor, con vencimiento si se indica. */
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
     if (ttlSeconds && ttlSeconds > 0) {
       await this.client.set(key, value, "EX", ttlSeconds);
@@ -39,15 +41,18 @@ export class RedisCacheService implements OnModuleDestroy {
     }
   }
 
+  /** Suma uno al contador de la clave y devuelve el nuevo valor. */
   async incr(key: string): Promise<number> {
     const value = await this.client.incr(key);
     return value;
   }
 
+  /** Borra una clave. */
   async del(key: string): Promise<void> {
     await this.client.del(key);
   }
 
+  /** Indica si la clave existe. */
   async exists(key: string): Promise<boolean> {
     const result = await this.client.exists(key);
     return result === 1;
@@ -152,10 +157,12 @@ export class RedisCacheService implements OnModuleDestroy {
     }
   }
 
+  /** Extrae el texto de un error para poder registrarlo. */
   private mensaje(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }
 
+  /** Cierra la conexión con Redis al parar el servicio. */
   onModuleDestroy(): void {
     this.client.disconnect();
   }

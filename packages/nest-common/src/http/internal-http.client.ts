@@ -190,10 +190,12 @@ export class InternalHttpClient {
     );
   }
 
+  /** Secreto compartido que autentica las llamadas entre servicios. */
   private secreto(): string {
     return this.configService.get<string>("INTERNAL_API_SECRET", "");
   }
 
+  /** Extrae el texto de un error para poder registrarlo. */
   private mensaje(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }

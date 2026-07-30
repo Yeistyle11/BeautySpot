@@ -31,6 +31,7 @@ export class JwtAuthGuard implements CanActivate {
     private readonly tokenVersionStore: TokenVersionStore
   ) {}
 
+  /** Exige un token válido y vigente, salvo en las rutas públicas. */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),

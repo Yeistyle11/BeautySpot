@@ -65,6 +65,7 @@ export class SessionService {
 
     const pista = this.pistaDe(datos.accessToken);
 
+    /** Escribe en cookies los tokens de la respuesta de autenticación. */
     fijarCookiesDeSesion(
       res,
       { accessToken: datos.accessToken, refreshToken: datos.refreshToken },
@@ -105,6 +106,7 @@ export class SessionService {
     };
   }
 
+  /** Lee el contenido de un JWT sin verificarlo, solo para consultarlo. */
   private payloadDe(token: string): Record<string, unknown> | undefined {
     const partes = token.split(".");
     if (partes.length !== 3) return undefined;
@@ -124,6 +126,7 @@ export class SessionService {
     return undefined;
   }
 
+  /** Quita los tokens del cuerpo antes de devolverlo, porque ya viajan en cookies. */
   private sinTokens(cuerpo: unknown, pista?: PistaSesion): unknown {
     if (!cuerpo || typeof cuerpo !== "object") return cuerpo;
     const raiz = cuerpo as Record<string, unknown> & {

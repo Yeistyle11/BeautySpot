@@ -30,6 +30,7 @@ export class TokenVersionStore {
     private readonly resolver?: TokenVersionResolver
   ) {}
 
+  /** Clave en Redis donde vive la versión de token del usuario. */
   private key(userId: string): string {
     return `${TOKEN_VERSION_KEY_PREFIX}:${userId}`;
   }
