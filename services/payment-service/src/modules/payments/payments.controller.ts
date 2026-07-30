@@ -15,6 +15,7 @@ import {
   IsOptional,
   IsDateString,
   Min,
+  MaxLength,
 } from "class-validator";
 import { PaymentMethod, PaymentStatus, Role } from "@beautyspot/shared-types";
 import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
@@ -38,6 +39,12 @@ class DailySummaryQueryDto {
 /** Nuevo estado a asignar a un pago. */
 class UpdateStatusDto {
   @IsEnum(PaymentStatus) status!: PaymentStatus;
+}
+
+/** Motivo e importe de una devolución; sin importe se devuelve el total. */
+class DevolucionDto {
+  @IsOptional() @IsString() @MaxLength(500) reason?: string;
+  @IsOptional() @IsNumber() @Min(0) refundAmount?: number;
 }
 
 /** Endpoints de registro, consulta y reembolso de pagos del negocio. */
@@ -114,7 +121,7 @@ export class PaymentsController {
     @Param("id") id: string,
     @BusinessId() businessId: string,
     @CurrentUser("userId") userId: string,
-    @Body() body: { reason?: string; refundAmount?: number }
+    @Body() body: DevolucionDto
   ) {
     return this.service.refundPayment(id, businessId, {
       reason: body.reason,

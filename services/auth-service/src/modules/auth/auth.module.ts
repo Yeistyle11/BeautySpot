@@ -4,6 +4,7 @@ import { JwtModule, JwtSignOptions } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { RefreshTokenStore } from "./refresh-token.store";
 import { User } from "../../entities/user.entity";
 import { PasswordReset } from "../../entities/password-reset.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
@@ -30,7 +31,7 @@ import { EventBusModule } from "@beautyspot/nest-common";
     EventBusModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, RefreshTokenStore],
   exports: [AuthService, JwtModule],
 })
 /** Cablea el controlador, servicio y estrategia JWT de autenticación. */

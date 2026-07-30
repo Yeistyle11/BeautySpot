@@ -1,3 +1,5 @@
+import { randomUUID } from "crypto";
+import { RefreshTokenStore } from "./refresh-token.store";
 import {
   Injectable,
   Logger,
@@ -58,6 +60,7 @@ export class AuthService {
     private readonly eventBus: EventBusService,
     private readonly dataSource: DataSource,
     private readonly outboxService: OutboxService,
+    private readonly refreshTokens: RefreshTokenStore,
     private readonly tokenVersionStore: TokenVersionStore
   ) {}
 
@@ -69,7 +72,10 @@ export class AuthService {
       where: { email: dto.email },
     });
     if (existing) {
-      throw new ConflictException("El email ya está registrado");
+      // No se dice que el email ya exista: eso permitía comprobar de uno en uno
+      // qué correos están dados de alta. `login` y `forgot-password` ya son
+      // genéricos; este se había quedado fuera.
+      throw new ConflictException("No se pudo completar el registro");
     }
 
     const hashedPassword = await bcrypt.hash(
@@ -172,7 +178,38 @@ export class AuthService {
       throw new UnauthorizedException("Sesión invalidada");
     }
 
+    await this.canjearRefresh(user, payload.jti);
+
     return this.generateTokens(user);
+  }
+
+  /**
+   * Retira el refresh recibido de los vivos antes de emitir el siguiente.
+   *
+   * Que ya no estuviera vivo significa que alguien lo está reutilizando: o el
+   * legítimo canjeó y le robaron el anterior, o al revés. No hay forma de saber
+   * cuál de los dos es, así que se revocan todas las sesiones del usuario y se
+   * le obliga a identificarse de nuevo.
+   *
+   * Los refresh emitidos antes de que existiera este control no llevan
+   * identificador; se aceptan una vez y salen ya con uno, para no cerrar la
+   * sesión de todo el mundo al desplegar.
+   */
+  private async canjearRefresh(
+    user: User,
+    jti: string | undefined
+  ): Promise<void> {
+    if (!jti) return;
+
+    const canje = await this.refreshTokens.canjear(user.id, jti);
+    if (canje.resultado !== "reutilizado") return;
+
+    this.logger.warn(
+      `Refresh token reutilizado para ${user.id}: se revocan sus sesiones`
+    );
+    await this.refreshTokens.revocarTodos(user.id);
+    await this.tokenVersionStore.bumpVersion(user.id);
+    throw new UnauthorizedException("Sesión invalidada");
   }
 
   /**
@@ -428,8 +465,11 @@ export class AuthService {
       ) as JwtSignOptions["expiresIn"],
     });
 
+    // Cada refresh lleva su propio identificador para poder retirarlo al
+    // canjearlo y detectar que alguien reutiliza uno ya gastado.
+    const jti = randomUUID();
     const refreshToken = this.jwtService.sign(
-      { sub: user.id, email: user.email, tokenVersion },
+      { sub: user.id, email: user.email, tokenVersion, jti },
       {
         secret: assertJwtSecret(
           this.configService.get<string>("JWT_REFRESH_SECRET"),
@@ -441,6 +481,8 @@ export class AuthService {
         ) as JwtSignOptions["expiresIn"],
       }
     );
+
+    await this.refreshTokens.registrar(user.id, jti);
 
     return { accessToken, refreshToken };
   }

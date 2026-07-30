@@ -1,3 +1,4 @@
+import { IsBoolean } from "class-validator";
 import { Controller, Get, Post, Patch, Body, Param } from "@nestjs/common";
 import { UsersService } from "./users.service";
 import {
@@ -12,6 +13,12 @@ import { CreateStaffDto } from "./dto/create-staff.dto";
 import { UpdateStaffDto } from "./dto/update-staff.dto";
 import { AdminResetPasswordDto } from "./dto/admin-reset-password.dto";
 import { toSafeUser } from "./dto/user-response.dto";
+
+/** Alta o baja de una cuenta de staff. */
+class CambiarEstadoDto {
+  @IsBoolean()
+  active!: boolean;
+}
 
 /** Endpoints de perfil propio y de administración del staff de un negocio. */
 @Controller("users")
@@ -123,7 +130,7 @@ export class UsersController {
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   async toggleActive(
     @Param("id") userId: string,
-    @Body() body: { active: boolean },
+    @Body() body: CambiarEstadoDto,
     @BusinessId() businessId: string
   ) {
     return this.usersService.toggleActive(userId, businessId, body.active);

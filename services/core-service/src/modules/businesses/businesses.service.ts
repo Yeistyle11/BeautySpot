@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ConflictException,
   ForbiddenException,
@@ -25,6 +26,8 @@ import { Role } from "@beautyspot/shared-types";
  */
 @Injectable()
 export class BusinessesService {
+  private readonly logger = new Logger(BusinessesService.name);
+
   constructor(
     @InjectRepository(Business)
     private readonly repo: Repository<Business>,
@@ -242,8 +245,13 @@ export class BusinessesService {
   }
 
   /**
-   * Verifica que el caller tiene acceso al negocio.
-   * SUPER_ADMIN bypass. Sin callerBusinessId (internal) bypass.
+   * Verifica que el llamante tiene acceso al negocio.
+   *
+   * Un llamante sin negocio pasa de largo porque las rutas internas
+   * (servicio a servicio) no lo llevan, y esas ya están protegidas por el
+   * secreto compartido. Se registra igualmente: por HTTP el guard de tenant
+   * exige la cabecera, así que llegar aquí sin negocio y con un rol de usuario
+   * significa que alguien ha abierto un camino que se salta esa comprobación.
    */
   private assertOwnership(
     businessId: string,
@@ -251,7 +259,16 @@ export class BusinessesService {
     callerRole?: Role
   ): void {
     if (callerRole === Role.SUPER_ADMIN) return;
-    if (callerBusinessId === undefined) return;
+
+    if (callerBusinessId === undefined) {
+      if (callerRole !== undefined) {
+        this.logger.warn(
+          `Acceso al negocio ${businessId} con rol ${callerRole} y sin negocio resuelto`
+        );
+      }
+      return;
+    }
+
     if (businessId !== callerBusinessId) {
       throw new ForbiddenException("No tienes acceso a este negocio");
     }
