@@ -90,7 +90,8 @@ export class BusinessProfilesService {
     return this.cache.remember(
       `${BusinessProfilesService.PREFIJO_CACHE}slug:${slug}`,
       PERFIL_TTL_SEGUNDOS,
-      () => this.cargarPorSlug(slug)
+      () => this.cargarPorSlug(slug),
+      ({ profile }) => BusinessProfilesService.etiquetaDe(profile.businessId)
     );
   }
 
@@ -292,11 +293,20 @@ export class BusinessProfilesService {
         : 0;
 
     await repo.update({ businessId }, { rating, totalReviews });
+  }
 
-    // No pasa por `guardar` porque puede correr dentro de la transacción de la
-    // reseña, así que la invalidación se hace aquí explícitamente. La valoración
-    // es de lo más visible del perfil público.
-    await this.cache.delByPrefix(BusinessProfilesService.PREFIJO_CACHE);
+  /**
+   * Invalida la caché del perfil de un negocio.
+   *
+   * Va aparte de {@link updateRating} porque ese método corre dentro de la
+   * transacción de la reseña: invalidar ahí mantenía abierta la transacción, con
+   * sus bloqueos, durante toda la conversación con Redis, y dejaba la caché
+   * borrada aunque después la transacción se deshiciera.
+   */
+  async invalidarCache(businessId: string): Promise<void> {
+    await this.cache.invalidarEtiqueta(
+      BusinessProfilesService.etiquetaDe(businessId)
+    );
   }
 
   // --- Feed helpers ---
@@ -383,15 +393,15 @@ export class BusinessProfilesService {
 
   /** Puntúa de 0 a 100 lo completo que está el perfil, sumando puntos por cada bloque relleno. */
   /**
-   * Persiste el perfil e invalida la caché pública.
+   * Persiste el perfil e invalida la caché pública de ese negocio.
    *
    * Todas las escrituras pasan por aquí para que no haya que acordarse de
    * invalidar en cada una: si alguien añade mañana otro método que guarde y lo
    * olvida, el marketplace serviría datos viejos hasta que caducase el TTL.
    *
-   * Se invalida el prefijo entero y no una clave concreta porque el mismo perfil
-   * se sirve bajo varias claves, y afinar más obligaría a saber en cada
-   * escritura cuáles existen.
+   * Se invalida por etiqueta y no por clave porque el mismo perfil se sirve bajo
+   * varias claves; la etiqueta agrupa las de este negocio y deja intactas las de
+   * los demás.
    */
   private async guardar(
     profile: BusinessProfileEntity
@@ -399,8 +409,15 @@ export class BusinessProfilesService {
     const guardado = await this.repo.save(profile);
     // Mejor esfuerzo: un fallo al invalidar no debe tumbar una escritura que ya
     // ha tenido éxito. Las entradas caducan solas por TTL.
-    await this.cache.delByPrefix(BusinessProfilesService.PREFIJO_CACHE);
+    await this.cache.invalidarEtiqueta(
+      BusinessProfilesService.etiquetaDe(guardado.businessId)
+    );
     return guardado;
+  }
+
+  /** Etiqueta que agrupa las claves de caché de un negocio. */
+  private static etiquetaDe(businessId: string): string {
+    return `${BusinessProfilesService.PREFIJO_CACHE}negocio:${businessId}`;
   }
 
   private async calculateCompleteness(

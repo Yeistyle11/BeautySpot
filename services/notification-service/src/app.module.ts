@@ -20,7 +20,7 @@ import { EventListenersModule } from "./modules/event-listeners/event-listeners.
       envFilePath: path.join(__dirname, "..", ".env"),
     }),
     TypeOrmModule.forRootAsync({
-      useFactory: () => createTypeOrmModuleOptions(entities),
+      useFactory: () => createTypeOrmModuleOptions(entities, "write"),
     }),
     RabbitMQModule.forRootAsync({
       inject: [ConfigService],

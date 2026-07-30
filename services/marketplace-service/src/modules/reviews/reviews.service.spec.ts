@@ -83,6 +83,7 @@ describe("ReviewsService", () => {
 
     mockProfilesService = {
       updateRating: jest.fn(),
+      invalidarCache: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     mockProfessionalService = {
@@ -176,6 +177,41 @@ describe("ReviewsService", () => {
         })
       );
       expect(result).toEqual(mockReview);
+    });
+
+    it("invalida la caché después de confirmar, no dentro de la transacción", async () => {
+      const dto = {
+        businessId: "business-123",
+        rating: 5,
+        comment: "Excelente",
+      };
+      const orden: string[] = [];
+
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockReturnValue(mockReview);
+      mockManagerRepo.save.mockResolvedValue(mockReview);
+      mockDataSource.transaction.mockImplementation(
+        async (fn: (m: unknown) => Promise<unknown>) => {
+          orden.push("tx:inicio");
+          const resultado = await fn(mockManager);
+          orden.push("tx:fin");
+          return resultado;
+        }
+      );
+      (mockProfilesService.invalidarCache as jest.Mock).mockImplementation(
+        async () => {
+          orden.push("invalidar");
+        }
+      );
+
+      await service.create(dto, "client-123");
+
+      // Dentro alargaría los bloqueos con una conversación con Redis, y si la
+      // transacción se deshiciera dejaría la caché borrada sin motivo.
+      expect(orden).toEqual(["tx:inicio", "tx:fin", "invalidar"]);
+      expect(mockProfilesService.invalidarCache).toHaveBeenCalledWith(
+        "business-123"
+      );
     });
 
     it("firma la reseña con el usuario autenticado, no con el del cuerpo", async () => {

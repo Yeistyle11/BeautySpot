@@ -48,6 +48,30 @@ export function getPoolConfig(
 }
 
 /**
+ * Nivel de registro de TypeORM.
+ *
+ * El registro de cada consulta solo se activa pidiéndolo con DB_LOGGING=query.
+ * Antes salía en cualquier entorno que no fuese producción, de modo que en
+ * staging o en una prueba de carga cada consulta escribía por la salida
+ * estándar: eso solo ya distorsiona la latencia y falsea cualquier medición.
+ */
+function logLevels(isProduction: boolean): LogLevel[] {
+  const base: LogLevel[] = ["error", "warn"];
+  const pedido = process.env.DB_LOGGING;
+
+  if (pedido === "query") return [...base, "query"];
+  if (pedido === "none") return [];
+  if (
+    pedido === undefined &&
+    !isProduction &&
+    process.env.NODE_ENV === "development"
+  ) {
+    return [...base, "query"];
+  }
+  return base;
+}
+
+/**
  * TLS de la conexión a Postgres.
  *
  * En producción se valida el certificado del servidor: sin validarlo, el cifrado
@@ -79,9 +103,7 @@ export function createTypeOrmConfig(
   const isProduction = process.env.NODE_ENV === "production";
   const poolConfig = getPoolConfig(serviceType, isProduction);
 
-  const loggingOptions: LogLevel[] = isProduction
-    ? (["error", "warn"] as LogLevel[])
-    : (["query", "error", "warn"] as LogLevel[]);
+  const loggingOptions = logLevels(isProduction);
 
   return {
     type: "postgres",

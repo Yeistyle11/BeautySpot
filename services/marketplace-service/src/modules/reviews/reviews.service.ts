@@ -80,8 +80,8 @@ export class ReviewsService {
       isVerified: false,
     });
 
-    return this.dataSource.transaction(async (manager) => {
-      const saved = await manager.getRepository(ReviewEntity).save(review);
+    const saved = await this.dataSource.transaction(async (manager) => {
+      const guardada = await manager.getRepository(ReviewEntity).save(review);
 
       await this.profilesService.updateRating(dto.businessId, manager);
 
@@ -95,20 +95,27 @@ export class ReviewsService {
       await this.outbox.enqueue(manager, {
         eventType: EventNames.MARKETPLACE_REVIEW_CREATED,
         aggregateType: "review",
-        aggregateId: saved.id,
+        aggregateId: guardada.id,
         payload: {
-          reviewId: saved.id,
+          reviewId: guardada.id,
           businessId: dto.businessId,
           professionalId: dto.professionalId,
           clientId,
           rating: dto.rating,
           comment: dto.comment,
-          isVerified: saved.isVerified,
+          isVerified: guardada.isVerified,
         },
       });
 
-      return saved;
+      return guardada;
     });
+
+    // Tras confirmar: dentro de la transacción alargaría los bloqueos con una
+    // conversación con Redis, y si se deshiciera habríamos borrado la caché de
+    // una reseña que no llegó a existir.
+    await this.profilesService.invalidarCache(dto.businessId);
+
+    return saved;
   }
 
   /** Lista las reseñas de un negocio con filtros (estrellas, profesional, con fotos) y paginación. */

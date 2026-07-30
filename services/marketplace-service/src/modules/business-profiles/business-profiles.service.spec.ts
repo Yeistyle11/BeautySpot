@@ -110,7 +110,7 @@ describe("BusinessProfilesService", () => {
               (_clave: string, _ttl: number, cargar: () => Promise<unknown>) =>
                 cargar()
             ),
-            delByPrefix: jest.fn().mockResolvedValue(0),
+            invalidarEtiqueta: jest.fn().mockResolvedValue(0),
           },
         },
       ],

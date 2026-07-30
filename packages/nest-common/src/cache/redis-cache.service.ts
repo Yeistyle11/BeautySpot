@@ -2,6 +2,9 @@ import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import Redis from "ioredis";
 
+/** Dispersión que se aplica al TTL para que no caduquen todas las claves a la vez. */
+const DISPERSION_TTL = 0.1;
+
 /**
  * Envoltorio delgado sobre un cliente Redis para operaciones de caché básicas
  * (get/set con TTL, incr, del, exists). Cierra la conexión al destruir el módulo.
@@ -10,6 +13,8 @@ import Redis from "ioredis";
 export class RedisCacheService implements OnModuleDestroy {
   private readonly logger = new Logger(RedisCacheService.name);
   private readonly client: Redis;
+  /** Cargas en vuelo, para que un fallo de caché no se recalcule en paralelo. */
+  private readonly enVuelo = new Map<string, Promise<unknown>>();
 
   constructor(configService: ConfigService) {
     this.client = new Redis({
@@ -57,11 +62,19 @@ export class RedisCacheService implements OnModuleDestroy {
   /**
    * Devuelve el valor cacheado o lo calcula y lo guarda. Si Redis falla, recurre
    * al origen. La clave no distingue usuario: no usar para datos por permisos.
+   *
+   * Las cargas simultáneas de la misma clave se agrupan en una sola: al caducar
+   * una clave muy visitada, todas las peticiones en vuelo fallaban a la vez y
+   * cada una recalculaba por su cuenta.
+   *
+   * `etiquetaDe` permite asociar la clave a un grupo (por ejemplo, un negocio)
+   * para poder invalidar después solo ese grupo con {@link invalidarEtiqueta}.
    */
   async remember<T>(
     clave: string,
     ttlSegundos: number,
-    cargar: () => Promise<T>
+    cargar: () => Promise<T>,
+    etiquetaDe?: (valor: T) => string | undefined
   ): Promise<T> {
     try {
       const cacheado = await this.client.get(clave);
@@ -72,10 +85,41 @@ export class RedisCacheService implements OnModuleDestroy {
       );
     }
 
+    const enCurso = this.enVuelo.get(clave);
+    if (enCurso) return enCurso as Promise<T>;
+
+    const carga = this.cargarYGuardar(clave, ttlSegundos, cargar, etiquetaDe);
+    this.enVuelo.set(clave, carga);
+    try {
+      return await carga;
+    } finally {
+      this.enVuelo.delete(clave);
+    }
+  }
+
+  /** Calcula el valor, lo guarda con TTL disperso y lo asocia a su etiqueta. */
+  private async cargarYGuardar<T>(
+    clave: string,
+    ttlSegundos: number,
+    cargar: () => Promise<T>,
+    etiquetaDe?: (valor: T) => string | undefined
+  ): Promise<T> {
     const valor = await cargar();
 
     try {
-      await this.client.set(clave, JSON.stringify(valor), "EX", ttlSegundos);
+      // El TTL se dispersa para que las claves guardadas a la vez no venzan
+      // todas en el mismo instante.
+      const ttl = Math.max(
+        1,
+        Math.round(ttlSegundos * (1 + (Math.random() * 2 - 1) * DISPERSION_TTL))
+      );
+      await this.client.set(clave, JSON.stringify(valor), "EX", ttl);
+
+      const etiqueta = etiquetaDe?.(valor);
+      if (etiqueta) {
+        await this.client.sadd(etiqueta, clave);
+        await this.client.expire(etiqueta, ttl * 2);
+      }
     } catch (error) {
       this.logger.warn(
         `No se pudo guardar en caché ${clave}: ${this.mensaje(error)}`
@@ -85,34 +129,27 @@ export class RedisCacheService implements OnModuleDestroy {
     return valor;
   }
 
-  /** Borra con SCAN todas las claves que empiezan por el prefijo. */
-  async delByPrefix(prefijo: string): Promise<number> {
-    let cursor = "0";
-    let borradas = 0;
-
+  /**
+   * Borra las claves asociadas a una etiqueta.
+   *
+   * Sustituye al borrado por prefijo, que recorría el espacio de claves entero
+   * (SCAN filtra después de leer) y además tumbaba la caché de todos los
+   * negocios cuando solo cambiaba uno.
+   */
+  async invalidarEtiqueta(etiqueta: string): Promise<number> {
     try {
-      do {
-        const [siguiente, claves] = await this.client.scan(
-          cursor,
-          "MATCH",
-          `${prefijo}*`,
-          "COUNT",
-          100
-        );
-        cursor = siguiente;
-        if (claves.length > 0) {
-          borradas += await this.client.del(...claves);
-        }
-      } while (cursor !== "0");
+      const claves = await this.client.smembers(etiqueta);
+      const borradas = claves.length > 0 ? await this.client.del(...claves) : 0;
+      await this.client.del(etiqueta);
+      return borradas;
     } catch (error) {
       // Invalidar es "mejor esfuerzo": si falla, las entradas caducan solas por
       // TTL. Propagar el error rompería la escritura que acaba de tener éxito.
       this.logger.warn(
-        `No se pudo invalidar la caché de ${prefijo}: ${this.mensaje(error)}`
+        `No se pudo invalidar la caché de ${etiqueta}: ${this.mensaje(error)}`
       );
+      return 0;
     }
-
-    return borradas;
   }
 
   private mensaje(error: unknown): string {

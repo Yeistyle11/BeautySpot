@@ -19,7 +19,7 @@ import { MarketplaceEventListenersModule } from "./modules/event-listeners/marke
       envFilePath: path.join(__dirname, "..", ".env"),
     }),
     TypeOrmModule.forRootAsync({
-      useFactory: () => createTypeOrmModuleOptions(entities),
+      useFactory: () => createTypeOrmModuleOptions(entities, "read"),
     }),
     HealthModule,
     OutboxModule,

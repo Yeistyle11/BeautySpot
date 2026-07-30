@@ -6,13 +6,18 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectDataSource } from "@nestjs/typeorm";
-import { DataSource } from "typeorm";
+import { DataSource, In, LessThan } from "typeorm";
 import { EventBusService } from "../event-bus/event-bus.service";
 import { OutboxMessageEntity, OutboxStatus } from "./outbox-message.entity";
 
 const DEFAULT_POLL_INTERVAL_MS = 2000;
 const DEFAULT_BATCH_SIZE = 50;
 const DEFAULT_MAX_ATTEMPTS = 5;
+const DEFAULT_CONCURRENCY = 10;
+const DEFAULT_RETENTION_DAYS = 7;
+const MS_POR_DIA = 24 * 60 * 60 * 1000;
+/** Cada cuántos sondeos se purgan los mensajes ya publicados. */
+const SONDEOS_ENTRE_PURGAS = 300;
 
 /**
  * Sondea periódicamente la tabla outbox y publica en RabbitMQ los eventos pendientes.
@@ -28,9 +33,12 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
   private readonly pollIntervalMs: number;
   private readonly batchSize: number;
   private readonly maxAttempts: number;
+  private readonly concurrency: number;
+  private readonly retentionDays: number;
   private readonly enabled: boolean;
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
+  private sondeosDesdePurga = 0;
 
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
@@ -48,6 +56,14 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     this.maxAttempts = this.getNumberConfig(
       "OUTBOX_MAX_ATTEMPTS",
       DEFAULT_MAX_ATTEMPTS
+    );
+    this.concurrency = this.getNumberConfig(
+      "OUTBOX_RELAY_CONCURRENCY",
+      DEFAULT_CONCURRENCY
+    );
+    this.retentionDays = this.getNumberConfig(
+      "OUTBOX_RETENTION_DAYS",
+      DEFAULT_RETENTION_DAYS
     );
     this.enabled =
       this.configService.get<string>("OUTBOX_RELAY_ENABLED") !== "false";
@@ -80,20 +96,80 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Reclama un lote de eventos pendientes y los publica.
+   *
+   * Si el lote sale lleno vuelve a sondear enseguida en vez de esperar al
+   * siguiente intervalo: con un atraso acumulado, esperar dos segundos entre
+   * lotes hacía que la cola creciese más rápido de lo que se vacía.
+   */
   async poll(): Promise<void> {
     if (this.running) return;
     this.running = true;
     try {
-      const claimed = await this.claimBatch();
-      if (claimed.length === 0) return;
-      for (const message of claimed) {
-        await this.processOne(message);
+      await this.purgarSiToca();
+
+      let lleno = true;
+      while (lleno) {
+        const claimed = await this.claimBatch();
+        if (claimed.length === 0) return;
+        await this.publicarEnParalelo(claimed);
+        lleno = claimed.length === this.batchSize;
       }
     } finally {
       this.running = false;
     }
   }
 
+  /**
+   * Borra de vez en cuando los mensajes ya publicados que superan la retención.
+   *
+   * Las filas PROCESSED se guardaban para siempre, con el payload completo de
+   * cada evento: la tabla y su índice crecían sin tope y ralentizaban el propio
+   * reclamo de pendientes. No se hace en cada sondeo porque no hace falta.
+   */
+  private async purgarSiToca(): Promise<void> {
+    if (this.sondeosDesdePurga++ < SONDEOS_ENTRE_PURGAS) return;
+    this.sondeosDesdePurga = 0;
+
+    const limite = new Date(Date.now() - this.retentionDays * MS_POR_DIA);
+    try {
+      const { affected } = await this.dataSource
+        .getRepository(OutboxMessageEntity)
+        .delete({
+          status: OutboxStatus.PROCESSED,
+          processedAt: LessThan(limite),
+        });
+      if (affected) {
+        this.logger.log(`Outbox: purgados ${affected} mensajes ya publicados`);
+      }
+    } catch (error: unknown) {
+      // La purga es mantenimiento: si falla, el relay debe seguir publicando.
+      this.logger.warn(
+        `No se pudo purgar el outbox: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  }
+
+  /**
+   * Publica el lote con varias publicaciones en vuelo a la vez.
+   *
+   * En serie, cada evento esperaba a que el anterior terminara su ida y vuelta
+   * a RabbitMQ, lo que ponía un techo de unas decenas de eventos por segundo
+   * por instancia sin que ni la red ni la base estuvieran saturadas.
+   */
+  private async publicarEnParalelo(
+    mensajes: OutboxMessageEntity[]
+  ): Promise<void> {
+    for (let i = 0; i < mensajes.length; i += this.concurrency) {
+      const tramo = mensajes.slice(i, i + this.concurrency);
+      await Promise.all(tramo.map((mensaje) => this.processOne(mensaje)));
+    }
+  }
+
+  /** Toma en exclusiva un lote de pendientes y les suma un intento. */
   private async claimBatch(): Promise<OutboxMessageEntity[]> {
     return this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(OutboxMessageEntity);
@@ -109,10 +185,12 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
 
       if (rows.length === 0) return [];
 
+      // Un solo UPDATE para todo el lote: `save` emitía uno por fila dentro de
+      // la transacción que mantiene el bloqueo.
+      await repo.increment({ id: In(rows.map((r) => r.id)) }, "attempts", 1);
       for (const row of rows) {
         row.attempts += 1;
       }
-      await repo.save(rows);
       return rows;
     });
   }
