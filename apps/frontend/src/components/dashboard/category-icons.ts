@@ -59,3 +59,21 @@ export function resolveCategoryIcon(
   if (!nombre) return fallback;
   return POR_NOMBRE.get(nombre) ?? fallback;
 }
+
+/**
+ * Colores sugeridos al crear una categoria. Son datos que el negocio elige y se
+ * guardan como hex en la base, no tokens del tema: se pintan como estilo en
+ * linea sobre el icono de cada categoria.
+ */
+export const CATEGORY_COLOR_PRESETS = [
+  "#8B5CF6", // violeta
+  "#3B82F6", // azul
+  "#10B981", // esmeralda
+  "#F59E0B", // ámbar
+  "#EF4444", // rojo
+  "#EC4899", // rosa
+  "#6366F1", // índigo
+  "#14B8A6", // teal
+  "#F97316", // naranja
+  "#64748B", // slate
+];

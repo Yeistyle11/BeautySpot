@@ -221,7 +221,7 @@ export default function AppointmentsPage() {
                       <span className="font-semibold">
                         {formatCurrency(appt.totalAmount)}
                       </span>
-                      <Badge className={status.color}>{status.label}</Badge>
+                      <Badge variant={status.variant}>{status.label}</Badge>
                       {canReview && (
                         <Link
                           href={`/dashboard/client/appointments/${appt.id}/review`}

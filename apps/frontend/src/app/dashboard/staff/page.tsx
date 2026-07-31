@@ -265,7 +265,7 @@ export default function StaffPage() {
             members={clientMembers}
             title="Clientes"
             icon={<UserCircle className="h-4 w-4 text-emerald-500" />}
-            dotColor="bg-emerald-500"
+            dotColor="bg-success"
             role={role}
             sortField={sortField}
             onToggleSort={toggleSort}

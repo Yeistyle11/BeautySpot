@@ -46,12 +46,12 @@ const movementTypeOptions = [
   {
     value: "IN",
     label: "Entrada",
-    icon: <ArrowUpCircle className="h-5 w-5 text-green-600" />,
+    icon: <ArrowUpCircle className="text-success h-5 w-5" />,
   },
   {
     value: "OUT",
     label: "Salida",
-    icon: <ArrowDownCircle className="h-5 w-5 text-red-600" />,
+    icon: <ArrowDownCircle className="text-destructive h-5 w-5" />,
   },
 ];
 
@@ -245,10 +245,10 @@ export default function CashRegisterPage() {
             </Card>
             <Card className="border-0 shadow-sm">
               <CardContent className="flex items-center gap-3 p-4">
-                <TrendingUp className="h-8 w-8 text-green-600" />
+                <TrendingUp className="text-success h-8 w-8" />
                 <div>
                   <p className="text-muted-foreground text-xs">Entradas</p>
-                  <p className="text-xl font-bold text-green-600">
+                  <p className="text-success text-xl font-bold">
                     {formatCurrency(totalIn)}
                   </p>
                 </div>
@@ -256,10 +256,10 @@ export default function CashRegisterPage() {
             </Card>
             <Card className="border-0 shadow-sm">
               <CardContent className="flex items-center gap-3 p-4">
-                <TrendingDown className="h-8 w-8 text-red-600" />
+                <TrendingDown className="text-destructive h-8 w-8" />
                 <div>
                   <p className="text-muted-foreground text-xs">Salidas</p>
-                  <p className="text-xl font-bold text-red-600">
+                  <p className="text-destructive text-xl font-bold">
                     {formatCurrency(totalOut)}
                   </p>
                 </div>
@@ -309,9 +309,9 @@ export default function CashRegisterPage() {
                     >
                       <div className="flex items-center gap-3">
                         {m.type === "IN" ? (
-                          <ArrowUpCircle className="h-5 w-5 text-green-600" />
+                          <ArrowUpCircle className="text-success h-5 w-5" />
                         ) : (
-                          <ArrowDownCircle className="h-5 w-5 text-red-600" />
+                          <ArrowDownCircle className="text-destructive h-5 w-5" />
                         )}
                         <div>
                           <p className="text-sm font-medium">{m.concept}</p>
@@ -321,7 +321,7 @@ export default function CashRegisterPage() {
                         </div>
                       </div>
                       <span
-                        className={`font-semibold ${m.type === "IN" ? "text-green-600" : "text-red-600"}`}
+                        className={`font-semibold ${m.type === "IN" ? "text-success" : "text-destructive"}`}
                       >
                         {m.type === "IN" ? "+" : "-"}
                         {formatCurrency(m.amount)}

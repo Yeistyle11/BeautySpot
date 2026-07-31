@@ -323,10 +323,7 @@ export default function DashboardPage() {
                         <p className="text-sm font-semibold">
                           {formatTime(a.startTime)} - {formatTime(a.endTime)}
                         </p>
-                        <Badge
-                          variant="secondary"
-                          className={`text-xs ${st.color}`}
-                        >
+                        <Badge variant={st.variant} className="text-xs">
                           {st.label}
                         </Badge>
                       </div>

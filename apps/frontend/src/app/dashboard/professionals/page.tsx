@@ -297,7 +297,7 @@ export default function ProfessionalsPage() {
         <>
           <ProfessionalGroup
             title="Activos"
-            dotColor="bg-emerald-500"
+            dotColor="bg-success"
             items={activePros}
           >
             {renderCard}

@@ -53,29 +53,29 @@ export default function ClientDashboardPage() {
       title: "Proximas citas",
       value: upcoming.length,
       icon: Calendar,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
+      color: "text-info",
+      bg: "bg-info-soft",
     },
     {
       title: "Completadas",
       value: completed,
       icon: CheckCircle,
       color: "text-success",
-      bg: "bg-emerald-50",
+      bg: "bg-success-soft",
     },
     {
       title: "Canceladas",
       value: cancelled,
       icon: XCircle,
-      color: "text-red-600",
-      bg: "bg-red-50",
+      color: "text-destructive",
+      bg: "bg-destructive/10",
     },
     {
       title: "Total citas",
       value: list.length,
       icon: Scissors,
-      color: "text-purple-600",
-      bg: "bg-purple-50",
+      color: "text-primary",
+      bg: "bg-primary/10",
     },
   ];
 
@@ -204,7 +204,7 @@ export default function ClientDashboardPage() {
                           <span className="font-semibold">
                             {formatCurrency(appt.totalAmount)}
                           </span>
-                          <Badge className={status.color}>{status.label}</Badge>
+                          <Badge variant={status.variant}>{status.label}</Badge>
                         </div>
                       </div>
                     </CardContent>
