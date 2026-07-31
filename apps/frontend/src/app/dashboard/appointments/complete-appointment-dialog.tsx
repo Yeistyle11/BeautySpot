@@ -119,6 +119,7 @@ export function CompleteAppointmentDialog({
               options={PAYMENT_METHOD_OPTIONS}
               value={payment.method}
               onChange={(method) => onPaymentChange({ ...payment, method })}
+              label="Metodo de pago"
             />
           </div>
 

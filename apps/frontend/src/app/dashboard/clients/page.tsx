@@ -167,6 +167,8 @@ export default function ClientsPage() {
         <div className="relative max-w-sm">
           <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
           <Input
+            type="search"
+            aria-label="Buscar cliente"
             placeholder="Buscar cliente..."
             className="pl-10"
             value={search}

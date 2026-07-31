@@ -120,13 +120,18 @@ export default function AppointmentsPage() {
         </Link>
       </div>
 
-      <div className="bg-muted mb-6 flex gap-1 rounded-lg p-1">
+      <div
+        role="group"
+        aria-label="Filtrar citas por estado"
+        className="bg-muted mb-6 flex gap-1 rounded-lg p-1"
+      >
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
+            aria-pressed={activeTab === tab.key}
             className={cn(
-              "flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "focus-visible:ring-ring flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2",
               activeTab === tab.key
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"

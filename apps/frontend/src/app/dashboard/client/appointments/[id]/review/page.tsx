@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Field } from "@/components/ui/field";
 import {
   Calendar,
   Scissors,
@@ -37,6 +38,12 @@ import { appointmentSchema, type Appointment } from "@/lib/schemas/appointment";
 /*  Star rating sub-component                                          */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Selector de calificacion de 1 a 5. Se expone como grupo de radio para que el
+ * lector de pantalla anuncie cuantas estrellas hay marcadas; al pasar el raton
+ * se pintan las estrellas sobrevoladas en lugar de las elegidas, de ahi que el
+ * relleno mire a `hovered` antes que a `value`.
+ */
 function StarRating({
   value,
   onChange,
@@ -47,15 +54,22 @@ function StarRating({
   const [hovered, setHovered] = useState(0);
 
   return (
-    <div className="flex gap-1">
+    <div
+      role="radiogroup"
+      aria-label="Calificacion"
+      className="flex gap-1"
+      onMouseLeave={() => setHovered(0)}
+    >
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
           type="button"
+          role="radio"
+          aria-checked={value === star}
+          aria-label={star === 1 ? "1 estrella" : `${star} estrellas`}
           onClick={() => onChange(star)}
           onMouseEnter={() => setHovered(star)}
-          onMouseLeave={() => setHovered(0)}
-          className="transition-transform hover:scale-110 focus:outline-none"
+          className="focus-visible:ring-ring rounded transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2"
         >
           <Star
             className={cn(
@@ -273,22 +287,23 @@ export default function ReviewPage() {
             <CardHeader>
               <CardTitle className="text-base">Comentario</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <Textarea
-                placeholder="Cuenta como fue tu experiencia..."
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                rows={4}
-              />
-              {commentRequired && !commentValid && rating > 0 && (
-                <p className="text-sm text-amber-600">
-                  Para calificaciones menores a 4 estrellas, el comentario es
-                  obligatorio
-                </p>
-              )}
-              <p className="text-muted-foreground text-xs">
-                {comment.length}/500 caracteres
-              </p>
+            <CardContent>
+              <Field
+                label="Tu comentario"
+                hint={`${comment.length}/500 caracteres`}
+                error={
+                  commentRequired && !commentValid
+                    ? "Para calificaciones menores a 4 estrellas, el comentario es obligatorio"
+                    : undefined
+                }
+              >
+                <Textarea
+                  placeholder="Cuenta como fue tu experiencia..."
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  rows={4}
+                />
+              </Field>
             </CardContent>
           </Card>
 

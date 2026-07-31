@@ -417,6 +417,7 @@ export default function CashRegisterPage() {
               options={movementTypeOptions}
               value={moveType}
               onChange={setMoveType}
+              label="Tipo de movimiento"
             />
           </Field>
           <Field label="Monto (COP)">

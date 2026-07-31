@@ -81,6 +81,7 @@ export function CreatePaymentDialog({
             options={PAYMENT_METHOD_OPTIONS}
             value={form.method}
             onChange={(method) => set({ method })}
+            label="Metodo de pago"
           />
         </div>
         {form.method === "TRANSFER" && (
@@ -153,6 +154,7 @@ export function EditPaymentDialog({
             options={PAYMENT_METHOD_OPTIONS}
             value={form.method}
             onChange={(method) => set({ method })}
+            label="Metodo de pago"
           />
         </div>
         {form.method === "TRANSFER" && (

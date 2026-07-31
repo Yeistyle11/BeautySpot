@@ -6,6 +6,8 @@ interface ProgressProps {
   max?: number;
   className?: string;
   indicatorClassName?: string;
+  /** Que mide la barra; sin el, el lector solo anuncia un porcentaje suelto. */
+  label?: string;
 }
 
 export function Progress({
@@ -13,11 +15,17 @@ export function Progress({
   max = 100,
   className,
   indicatorClassName,
+  label,
 }: ProgressProps) {
   const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
 
   return (
     <div
+      role="progressbar"
+      aria-valuenow={value}
+      aria-valuemin={0}
+      aria-valuemax={max}
+      aria-label={label}
       className={cn(
         "bg-secondary relative h-3 w-full overflow-hidden rounded-full",
         className

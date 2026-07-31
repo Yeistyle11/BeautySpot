@@ -20,6 +20,10 @@ import { canAccess, getDefaultPath } from "@/lib/permissions";
 import { authResponseSchema } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/utils";
 
+// Los dos campos que puede rechazar el backend apuntan al mismo mensaje, que es
+// el unico que se muestra: el error de credenciales no distingue cual falla.
+const ERROR_ID = "login-error";
+
 function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -122,6 +126,8 @@ function LoginPageInner() {
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   required
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? ERROR_ID : undefined}
                 />
               </div>
               <div className="space-y-2">
@@ -136,11 +142,17 @@ function LoginPageInner() {
                       setForm({ ...form, password: e.target.value })
                     }
                     required
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? ERROR_ID : undefined}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="text-muted-foreground hover:text-foreground absolute right-3 top-1/2 -translate-y-1/2"
+                    aria-label={
+                      showPassword ? "Ocultar contrasena" : "Mostrar contrasena"
+                    }
+                    aria-pressed={showPassword}
+                    className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute right-3 top-1/2 -translate-y-1/2 rounded focus-visible:outline-none focus-visible:ring-2"
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -164,7 +176,13 @@ function LoginPageInner() {
                 </div>
               )}
               {error && (
-                <p className="text-destructive text-center text-sm">{error}</p>
+                <p
+                  id={ERROR_ID}
+                  role="alert"
+                  className="text-destructive text-center text-sm"
+                >
+                  {error}
+                </p>
               )}
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading

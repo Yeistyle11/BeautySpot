@@ -90,6 +90,8 @@ export default function MarketplaceFeed({
             <div className="relative">
               <Search className="text-muted-foreground absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2" />
               <Input
+                type="search"
+                aria-label="Buscar negocios por nombre, ciudad o tipo"
                 placeholder="Buscar por nombre, ciudad o tipo..."
                 className="border-muted bg-background/80 h-12 pl-12 text-base shadow-lg backdrop-blur"
                 value={search}
@@ -102,7 +104,8 @@ export default function MarketplaceFeed({
             <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
               <button
                 onClick={() => setActiveCategory(null)}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                aria-pressed={!activeCategory}
+                className={`focus-visible:ring-ring rounded-full px-4 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 ${
                   !activeCategory
                     ? "bg-primary text-primary-foreground shadow-md"
                     : "bg-muted/60 text-muted-foreground hover:bg-muted"
@@ -116,7 +119,8 @@ export default function MarketplaceFeed({
                   onClick={() =>
                     setActiveCategory(activeCategory === cat.id ? null : cat.id)
                   }
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                  aria-pressed={activeCategory === cat.id}
+                  className={`focus-visible:ring-ring inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 ${
                     activeCategory === cat.id
                       ? "bg-primary text-primary-foreground shadow-md"
                       : "bg-muted/60 text-muted-foreground hover:bg-muted"
