@@ -2,7 +2,7 @@
 
 // Mis citas: historial y proximas citas del cliente.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -83,7 +83,10 @@ export default function AppointmentsPage() {
     undefined,
     paginatedSchema(appointmentSchema)
   );
-  const appointments: Appointment[] = pagina?.data ?? [];
+  const appointments: Appointment[] = useMemo(
+    () => pagina?.data ?? [],
+    [pagina?.data]
+  );
   const { data: reviews } = useApi<Review[]>(
     "/marketplace/reviews/mine",
     undefined,
@@ -91,9 +94,18 @@ export default function AppointmentsPage() {
   );
   const [activeTab, setActiveTab] = useState<TabKey>("all");
 
-  const reviewedIds = new Set((reviews ?? []).map((r) => r.appointmentId));
-  const filtered = filterByTab(appointments ?? [], activeTab).sort((a, b) =>
-    `${b.date}${b.startTime}`.localeCompare(`${a.date}${a.startTime}`)
+  const reviewedIds = useMemo(
+    () => new Set((reviews ?? []).map((r) => r.appointmentId)),
+    [reviews]
+  );
+  // El filtro devuelve el array original en la pestana "todas", asi que hay que
+  // copiarlo antes de ordenar: sin la copia se reordena la cache de SWR.
+  const filtered = useMemo(
+    () =>
+      [...filterByTab(appointments, activeTab)].sort((a, b) =>
+        `${b.date}${b.startTime}`.localeCompare(`${a.date}${a.startTime}`)
+      ),
+    [appointments, activeTab]
   );
 
   /* ---- Render ---- */

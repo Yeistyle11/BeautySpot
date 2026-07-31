@@ -1,7 +1,7 @@
 "use client";
 
 // Perfil del cliente: edicion de sus datos personales.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,13 +59,21 @@ export default function ClientProfilePage() {
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "" });
 
+  // El formulario se siembra una sola vez, con lo primero que llegue: el perfil
+  // del backend si responde, y si no los datos de la sesion. Sin el guard, cada
+  // revalidacion de SWR pisaria lo que el usuario esta escribiendo.
+  const seeded = useRef(false);
+
   useEffect(() => {
+    if (seeded.current) return;
     if (client) {
+      seeded.current = true;
       setForm({ name: client.name, phone: client.phone || "" });
-    } else if (user && !form.name) {
+    } else if (user) {
+      seeded.current = true;
       setForm({ name: user.name || "", phone: user.phone || "" });
     }
-  }, [client, user, form.name]);
+  }, [client, user]);
 
   const handleSave = async () => {
     setSaving(true);
