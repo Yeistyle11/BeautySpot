@@ -33,10 +33,21 @@ export default function DashboardLayout({
 
   return (
     <div className="bg-muted/30 min-h-screen">
+      {/* Solo visible al enfocarlo con el tabulador: permite saltarse el menu
+          lateral, que son mas de diez enlaces antes del contenido. */}
+      <a
+        href="#contenido"
+        className="bg-primary text-primary-foreground focus:ring-ring sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:px-4 focus:py-2 focus:ring-2"
+      >
+        Saltar al contenido
+      </a>
       <Sidebar />
       {/* pt-14 deja hueco para la barra superior movil; a partir de lg el
           sidebar es fijo y el contenido se desplaza a su derecha. */}
-      <main className="p-4 pt-[4.5rem] sm:p-6 sm:pt-[4.5rem] lg:ml-64 lg:pt-6">
+      <main
+        id="contenido"
+        className="p-4 pt-[4.5rem] sm:p-6 sm:pt-[4.5rem] lg:ml-64 lg:pt-6"
+      >
         {children}
       </main>
     </div>

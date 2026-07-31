@@ -2,7 +2,7 @@
 
 // Resena de una cita completada: calificacion y comentario del cliente.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -107,7 +107,12 @@ export default function ReviewPage() {
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
-  const [photos, setPhotos] = useState<string[]>([""]);
+  // Cada campo lleva un id propio: con la posicion del array como key, borrar
+  // una foto intermedia desplazaba el texto de los inputs siguientes.
+  const [photos, setPhotos] = useState<{ id: number; url: string }[]>([
+    { id: 0, url: "" },
+  ]);
+  const siguienteIdFoto = useRef(1);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -116,21 +121,23 @@ export default function ReviewPage() {
   const commentValid = commentRequired ? comment.trim().length > 0 : true;
   const isValid = rating > 0 && commentValid;
 
-  /* ---- Photo URL helpers ---- */
-  const handlePhotoChange = (index: number, value: string) => {
-    const updated = [...photos];
-    updated[index] = value;
-    setPhotos(updated);
+  const handlePhotoChange = (id: number, url: string) => {
+    setPhotos((actuales) =>
+      actuales.map((foto) => (foto.id === id ? { ...foto, url } : foto))
+    );
   };
 
   const addPhotoField = () => {
     if (photos.length < 3) {
-      setPhotos([...photos, ""]);
+      setPhotos((actuales) => [
+        ...actuales,
+        { id: siguienteIdFoto.current++, url: "" },
+      ]);
     }
   };
 
-  const removePhotoField = (index: number) => {
-    setPhotos(photos.filter((_, i) => i !== index));
+  const removePhotoField = (id: number) => {
+    setPhotos((actuales) => actuales.filter((foto) => foto.id !== id));
   };
 
   /* ---- Submit ---- */
@@ -148,7 +155,9 @@ export default function ReviewPage() {
     setSubmitting(true);
     setError(null);
 
-    const cleanPhotos = photos.map((p) => p.trim()).filter((p) => p.length > 0);
+    const cleanPhotos = photos
+      .map((foto) => foto.url.trim())
+      .filter((url) => url.length > 0);
 
     try {
       await api.post("/marketplace/reviews", {
@@ -315,19 +324,21 @@ export default function ReviewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {photos.map((url, idx) => (
-                <div key={idx} className="flex items-center gap-2">
+              {photos.map((foto, idx) => (
+                <div key={foto.id} className="flex items-center gap-2">
                   <Input
                     placeholder="URL de la imagen (ej. https://...)"
-                    value={url}
-                    onChange={(e) => handlePhotoChange(idx, e.target.value)}
+                    aria-label={`URL de la foto ${idx + 1}`}
+                    value={foto.url}
+                    onChange={(e) => handlePhotoChange(foto.id, e.target.value)}
                   />
                   {photos.length > 1 && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      onClick={() => removePhotoField(idx)}
+                      aria-label={`Quitar la foto ${idx + 1}`}
+                      onClick={() => removePhotoField(foto.id)}
                       className="shrink-0"
                     >
                       <X className="h-4 w-4" />

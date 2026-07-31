@@ -1,7 +1,7 @@
 "use client";
 
 // Flujo de reserva publica: asistente por pasos (servicios, profesional, horario y datos) hasta confirmar la cita.
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -125,14 +125,17 @@ function PublicBookingPageInner() {
     setStartTime("");
   }, [date, selectedProfessional, totalDuration]);
 
+  // Los datos del usuario se copian al formulario una sola vez: si el store se
+  // rehidrata mas tarde, no debe pisar lo que ya haya corregido a mano.
+  const datosSembrados = useRef(false);
   useEffect(() => {
-    if (isAuthenticated && user) {
-      setGuest({
-        name: user.name || "",
-        email: user.email || "",
-        phone: user.phone || "",
-      });
-    }
+    if (!isAuthenticated || !user || datosSembrados.current) return;
+    datosSembrados.current = true;
+    setGuest({
+      name: user.name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+    });
   }, [isAuthenticated, user]);
 
   const toggleService = (id: string) => {

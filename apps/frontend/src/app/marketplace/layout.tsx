@@ -51,8 +51,17 @@ export default function PublicLayout({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50">
+      <a
+        href="#contenido"
+        className="bg-primary text-primary-foreground focus:ring-ring sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:px-4 focus:py-2 focus:ring-2"
+      >
+        Saltar al contenido
+      </a>
       <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+        <nav
+          aria-label="Principal"
+          className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4"
+        >
           <Link href="/marketplace" className="flex items-center gap-2">
             <div className="bg-primary text-primary-foreground flex h-9 w-9 items-center justify-center rounded-lg">
               <Scissors className="h-4 w-4" />
@@ -110,9 +119,9 @@ export default function PublicLayout({
               Iniciar sesion
             </Link>
           )}
-        </div>
+        </nav>
       </header>
-      <main>{children}</main>
+      <main id="contenido">{children}</main>
       <footer className="text-muted-foreground border-t bg-white py-6 text-center text-sm">
         <p>
           BeautySpot — Plataforma de gestion para centro de bellezas y salones

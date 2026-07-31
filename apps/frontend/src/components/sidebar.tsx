@@ -85,7 +85,7 @@ export function Sidebar() {
         <div className="bg-primary text-primary-foreground flex h-8 w-8 items-center justify-center rounded-lg">
           <Scissors className="h-4 w-4" />
         </div>
-        <h2 className="text-sm font-bold">BeautySpot</h2>
+        <p className="text-sm font-bold">BeautySpot</p>
       </div>
 
       {open && (
@@ -108,7 +108,7 @@ export function Sidebar() {
             <Scissors className="h-4 w-4" />
           </div>
           <div className="flex-1">
-            <h2 className="text-sm font-bold">BeautySpot</h2>
+            <p className="text-sm font-bold">BeautySpot</p>
             <p className="text-muted-foreground text-[10px]">
               Panel de gestion
             </p>

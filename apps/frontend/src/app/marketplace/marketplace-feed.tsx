@@ -18,12 +18,13 @@ import {
   Clock,
 } from "lucide-react";
 import { useApiPublic } from "@/lib/swr";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { Spinner } from "@/components/ui/spinner";
 import {
   feedResponseSchema,
   searchResultSchema,
   type FeedResponse,
-  type FeedSection,
+  type FeedSection as FeedSectionData,
   type Profile,
   type SearchResult,
 } from "./schemas";
@@ -57,17 +58,22 @@ export default function MarketplaceFeed({
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
+  // La busqueda va con retardo: sin el, cada tecla dispara una peticion al
+  // marketplace, que es publico y no esta detras de sesion.
+  const busquedaDiferida = useDebouncedValue(search);
+
   const searchParams = new URLSearchParams();
-  if (search) searchParams.set("q", search);
+  if (busquedaDiferida) searchParams.set("q", busquedaDiferida);
   if (activeCategory) searchParams.set("businessType", activeCategory);
+  // Sin texto ni categoria no hay busqueda: se muestra el feed de portada.
   const searchKey =
-    search || activeCategory
+    busquedaDiferida || activeCategory
       ? `/marketplace/search?${searchParams.toString()}`
       : null;
   const { data: searchResults, isLoading: searching } =
     useApiPublic<SearchResult>(searchKey, undefined, searchResultSchema);
 
-  const isSearching = search !== "" || activeCategory !== null;
+  const isSearching = busquedaDiferida !== "" || activeCategory !== null;
 
   return (
     <div className="from-background to-muted/30 min-h-screen bg-gradient-to-b">
@@ -182,7 +188,7 @@ export default function MarketplaceFeed({
   );
 }
 
-function FeedSection({ section }: { section: FeedSection }) {
+function FeedSection({ section }: { section: FeedSectionData }) {
   const sectionIcon =
     section.id === "popular_nearby" ? (
       <TrendingUp className="text-primary h-5 w-5" />

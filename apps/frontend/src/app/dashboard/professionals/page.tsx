@@ -1,7 +1,7 @@
 "use client";
 
 // Pagina del equipo: lista de profesionales con alta, edicion, detalle, horario y baja.
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -128,12 +128,19 @@ export default function ProfessionalsPage() {
   );
   const [savingSchedule, setSavingSchedule] = useState(false);
 
+  // Se recuerda de quien es la ultima peticion de horario en vuelo: abrir dos
+  // profesionales seguidos hacia que la respuesta lenta del primero sobrescribiera
+  // la semana del segundo.
+  const horarioPedidoPara = useRef<string | null>(null);
+
   const openSchedule = useCallback((p: Professional) => {
     setSchedulePro(p);
     setScheduleDialog(true);
+    horarioPedidoPara.current = p.id;
     api
       .get<AvailabilitySlot[]>(`/booking/professionals/${p.id}/availability`)
       .then((slots) => {
+        if (horarioPedidoPara.current !== p.id) return;
         // El backend solo devuelve los dias configurados: el resto se rellena
         // como inactivo para que la semana salga completa en el formulario.
         const week = Object.fromEntries(
@@ -152,6 +159,7 @@ export default function ProfessionalsPage() {
         setScheduleHours(week);
       })
       .catch(() => {
+        if (horarioPedidoPara.current !== p.id) return;
         // Si el profesional aun no tiene horario, se propone el estandar en
         // vez de dejar el formulario vacio.
         setScheduleHours(defaultWeek());
