@@ -28,15 +28,7 @@ import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import Link from "next/link";
 
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
 import { appointmentSchema, type Appointment } from "@/lib/schemas/appointment";
-
-/* ------------------------------------------------------------------ */
-/*  Star rating sub-component                                          */
-/* ------------------------------------------------------------------ */
 
 /**
  * Selector de calificacion de 1 a 5. Se expone como grupo de radio para que el
@@ -85,10 +77,6 @@ function StarRating({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
-
 export default function ReviewPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -116,7 +104,6 @@ export default function ReviewPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  /* ---- Validation ---- */
   const commentRequired = rating > 0 && rating < 4;
   const commentValid = commentRequired ? comment.trim().length > 0 : true;
   const isValid = rating > 0 && commentValid;
@@ -140,7 +127,6 @@ export default function ReviewPage() {
     setPhotos((actuales) => actuales.filter((foto) => foto.id !== id));
   };
 
-  /* ---- Submit ---- */
   const handleSubmit = async () => {
     if (!appointment || !isValid) return;
 
@@ -178,8 +164,6 @@ export default function ReviewPage() {
     }
   };
 
-  /* ---- Render ---- */
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -204,7 +188,6 @@ export default function ReviewPage() {
 
   if (!appointment) return null;
 
-  /* ---- Success state ---- */
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center py-20">

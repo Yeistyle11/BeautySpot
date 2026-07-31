@@ -28,24 +28,12 @@ import { getAppointmentStatus } from "@/lib/status";
 import { useApi } from "@/lib/swr";
 import Link from "next/link";
 
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
 import {
   appointmentSchema,
   reviewSchema,
   type Appointment,
   type Review,
 } from "@/lib/schemas/appointment";
-
-/* ------------------------------------------------------------------ */
-/*  Status config                                                      */
-/* ------------------------------------------------------------------ */
-
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
 
 export default function AppointmentDetailPage() {
   const params = useParams<{ id: string }>();
@@ -90,7 +78,6 @@ export default function AppointmentDetailPage() {
     }
   };
 
-  /* ---- Helpers ---- */
   const isFuture = (date: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -109,8 +96,6 @@ export default function AppointmentDetailPage() {
 
   const canReview =
     appointment && appointment.status === "COMPLETED" && !hasReview;
-
-  /* ---- Render ---- */
 
   if (loading) {
     return (

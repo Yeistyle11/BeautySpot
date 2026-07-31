@@ -24,20 +24,12 @@ import { mensajeDeError } from "@/lib/error-message";
 import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
 import Link from "next/link";
 
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
 import {
   appointmentSchema,
   availabilitySlotSchema,
   type Appointment,
   type AvailabilitySlot,
 } from "@/lib/schemas/appointment";
-
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
 
 export default function ReschedulePage() {
   const params = useParams<{ id: string }>();
@@ -59,7 +51,6 @@ export default function ReschedulePage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  /* ---- Compute total duration for availability query ---- */
   const totalDuration = useMemo(() => {
     if (!appointment) return 0;
     return appointment.appointmentServices.reduce(
@@ -68,7 +59,6 @@ export default function ReschedulePage() {
     );
   }, [appointment]);
 
-  /* ---- Fetch slots when date changes ---- */
   const slotsKey =
     selectedDate && appointment && totalDuration > 0
       ? `/booking/appointments/availability?professionalId=${appointment.professionalId}&date=${selectedDate}&duration=${totalDuration}`
@@ -82,10 +72,8 @@ export default function ReschedulePage() {
     setSelectedSlot(null);
   }, [selectedDate, appointment?.professionalId, totalDuration]);
 
-  /* ---- Min date (today) ---- */
   const today = new Date().toISOString().split("T")[0];
 
-  /* ---- Submit reschedule ---- */
   const handleConfirm = async () => {
     if (!appointment || !selectedDate || !selectedSlot) return;
     setSubmitting(true);
@@ -104,8 +92,6 @@ export default function ReschedulePage() {
       setSubmitting(false);
     }
   };
-
-  /* ---- Render ---- */
 
   if (loading) {
     return (
@@ -131,7 +117,6 @@ export default function ReschedulePage() {
 
   if (!appointment) return null;
 
-  /* ---- Success state ---- */
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center py-20">

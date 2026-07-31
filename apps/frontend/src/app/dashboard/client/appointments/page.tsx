@@ -15,10 +15,6 @@ import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { FilterChip } from "@/components/ui/filter-chip";
 import Link from "next/link";
 
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
 import {
   appointmentSchema,
   reviewSchema,
@@ -26,14 +22,6 @@ import {
   type Appointment,
   type Review,
 } from "@/lib/schemas/appointment";
-
-/* ------------------------------------------------------------------ */
-/*  Status config                                                      */
-/* ------------------------------------------------------------------ */
-
-/* ------------------------------------------------------------------ */
-/*  Tab type                                                           */
-/* ------------------------------------------------------------------ */
 
 type TabKey = "all" | "upcoming" | "completed" | "cancelled";
 
@@ -43,10 +31,6 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: "completed", label: "Completadas" },
   { key: "cancelled", label: "Canceladas" },
 ];
-
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
 
 function filterByTab(appointments: Appointment[], tab: TabKey): Appointment[] {
   switch (tab) {
@@ -64,10 +48,6 @@ function filterByTab(appointments: Appointment[], tab: TabKey): Appointment[] {
       return appointments;
   }
 }
-
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
 
 export default function AppointmentsPage() {
   const {
@@ -105,7 +85,6 @@ export default function AppointmentsPage() {
     [appointments, activeTab]
   );
 
-  /* ---- Render ---- */
   return (
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

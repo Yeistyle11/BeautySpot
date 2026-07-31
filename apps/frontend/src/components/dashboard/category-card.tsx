@@ -18,7 +18,6 @@ interface CategoryCardProps {
   onDelete: (id: string) => void;
 }
 
-/** Tarjeta de una categoria en la rejilla. */
 export function CategoryCard({
   category,
   icon: iconoPorDefecto,

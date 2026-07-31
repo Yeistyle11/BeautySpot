@@ -37,8 +37,8 @@ interface CategoryFormDialogProps {
 }
 
 /**
- * Formulario de categoria, compartido por el alta y la edicion: antes eran dos
- * modales con los mismos campos duplicados campo a campo.
+ * Formulario de categoria, compartido por el alta y la edicion. Los dos usan los
+ * mismos campos; solo la edicion permite activarla o desactivarla.
  */
 export function CategoryFormDialog({
   open,
