@@ -6,13 +6,6 @@ import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Field } from "@/components/ui/field";
-import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Dialog } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Scissors, Plus, Clock, Edit, Trash2, Tag } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
@@ -24,40 +17,19 @@ import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
+import { FilterChip } from "@/components/ui/filter-chip";
 import { getErrorMessage } from "@/lib/utils";
-
-const serviceSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string().nullable(),
-  price: z.number(),
-  duration: z.number(),
-  category: z.string().nullable(),
-  categoryId: z.string().nullable(),
-  active: z.boolean(),
-});
-type Service = z.infer<typeof serviceSchema>;
-
-const categorySchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  color: z.string().nullable(),
-  active: z.boolean(),
-});
-type Category = z.infer<typeof categorySchema>;
-
-const emptyForm = {
-  name: "",
-  description: "",
-  price: "",
-  duration: "30",
-  category: "",
-  categoryId: "",
-  active: true,
-};
-
-const SERVICES_KEY = "/core/services";
-const CATEGORIES_KEY = "/core/service-categories";
+import { ServiceFormDialog } from "./service-form-dialog";
+import {
+  CATEGORIES_KEY,
+  emptyForm,
+  serviceCategorySchema,
+  serviceSchema,
+  SERVICES_KEY,
+  toServicePayload,
+  type Service,
+  type ServiceCategory,
+} from "./schemas";
 
 export default function ServicesPage() {
   const toast = useToast();
@@ -75,10 +47,10 @@ export default function ServicesPage() {
     basePath: "/core/services",
     schema: z.array(serviceSchema),
   });
-  const { data: categories } = useApi<Category[]>(
+  const { data: categories } = useApi<ServiceCategory[]>(
     CATEGORIES_KEY,
     undefined,
-    z.array(categorySchema)
+    z.array(serviceCategorySchema)
   );
   const [filterCategory, setFilterCategory] = useState<string>("all");
 
@@ -124,19 +96,7 @@ export default function ServicesPage() {
     e.preventDefault();
     setSavingCreate(true);
     try {
-      await createService({
-        name: createForm.name,
-        description: createForm.description || undefined,
-        price: Number(createForm.price),
-        duration: Number(createForm.duration),
-        category: createForm.categoryId
-          ? (categories ?? []).find((c) => c.id === createForm.categoryId)
-              ?.name ||
-            createForm.category ||
-            undefined
-          : createForm.category || undefined,
-        categoryId: createForm.categoryId || undefined,
-      });
+      await createService(toServicePayload(createForm, categories ?? []));
       setCreateForm(emptyForm);
       setCreateDialog(false);
     } catch (err) {
@@ -166,20 +126,10 @@ export default function ServicesPage() {
     if (!editId) return;
     setSavingEdit(true);
     try {
-      await updateService(editId, {
-        name: editForm.name,
-        description: editForm.description || undefined,
-        price: Number(editForm.price),
-        duration: Number(editForm.duration),
-        category: editForm.categoryId
-          ? (categories ?? []).find((c) => c.id === editForm.categoryId)
-              ?.name ||
-            editForm.category ||
-            undefined
-          : editForm.category || undefined,
-        categoryId: editForm.categoryId || undefined,
-        active: editForm.active,
-      });
+      await updateService(
+        editId,
+        toServicePayload(editForm, categories ?? [], true)
+      );
       setEditDialog(false);
       setEditId(null);
     } catch (err) {
@@ -226,30 +176,22 @@ export default function ServicesPage() {
       {categoryNames.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <Tag className="text-muted-foreground h-4 w-4" />
-          <button
+          <FilterChip
+            activo={filterCategory === "all"}
             onClick={() => setFilterCategory("all")}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              filterCategory === "all"
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-primary/20"
-            }`}
           >
             Todos ({services.length})
-          </button>
+          </FilterChip>
           {categoryNames.map((cat) => {
             const count = categoryCounts.get(cat) ?? 0;
             return (
-              <button
+              <FilterChip
                 key={cat}
+                activo={filterCategory === cat}
                 onClick={() => setFilterCategory(cat)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  filterCategory === cat
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-primary/20"
-                }`}
               >
                 {cat} ({count})
-              </button>
+              </FilterChip>
             );
           })}
         </div>
@@ -335,177 +277,27 @@ export default function ServicesPage() {
         )}
       </div>
 
-      <Dialog
+      <ServiceFormDialog
         open={createDialog}
         onClose={() => setCreateDialog(false)}
-        title="Nuevo servicio"
-      >
-        <form onSubmit={handleCreate} className="space-y-4">
-          <Field label="Nombre">
-            <Input
-              placeholder="Corte clasico"
-              value={createForm.name}
-              onChange={(e) =>
-                setCreateForm({ ...createForm, name: e.target.value })
-              }
-              required
-            />
-          </Field>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Precio (COP)">
-              <Input
-                type="number"
-                placeholder="25000"
-                value={createForm.price}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, price: e.target.value })
-                }
-                required
-              />
-            </Field>
-            <Field label="Duracion (min)">
-              <Input
-                type="number"
-                placeholder="30"
-                value={createForm.duration}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, duration: e.target.value })
-                }
-                required
-              />
-            </Field>
-          </div>
-          <Field label="Categoría">
-            <Select
-              value={createForm.categoryId}
-              onChange={(e) =>
-                setCreateForm({ ...createForm, categoryId: e.target.value })
-              }
-            >
-              <option value="">Sin categoría</option>
-              {(categories ?? [])
-                .filter((c) => c.active)
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-            </Select>
-          </Field>
-          <Field label="Descripcion">
-            <Textarea
-              placeholder="Descripcion del servicio"
-              value={createForm.description}
-              onChange={(e) =>
-                setCreateForm({ ...createForm, description: e.target.value })
-              }
-              rows={3}
-            />
-          </Field>
-          <div className="flex gap-3 pt-2">
-            <Button type="submit" disabled={savingCreate}>
-              {savingCreate ? "Guardando..." : "Crear servicio"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setCreateDialog(false)}
-            >
-              Cancelar
-            </Button>
-          </div>
-        </form>
-      </Dialog>
+        modo="crear"
+        form={createForm}
+        onFormChange={setCreateForm}
+        onSubmit={handleCreate}
+        guardando={savingCreate}
+        categorias={categories ?? []}
+      />
 
-      <Dialog
+      <ServiceFormDialog
         open={editDialog}
         onClose={() => setEditDialog(false)}
-        title="Editar servicio"
-      >
-        <form onSubmit={handleUpdate} className="space-y-4">
-          <Field label="Nombre">
-            <Input
-              value={editForm.name}
-              onChange={(e) =>
-                setEditForm({ ...editForm, name: e.target.value })
-              }
-              required
-            />
-          </Field>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Precio (COP)">
-              <Input
-                type="number"
-                value={editForm.price}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, price: e.target.value })
-                }
-                required
-              />
-            </Field>
-            <Field label="Duracion (min)">
-              <Input
-                type="number"
-                value={editForm.duration}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, duration: e.target.value })
-                }
-                required
-              />
-            </Field>
-          </div>
-          <Field label="Categoría">
-            <Select
-              value={editForm.categoryId}
-              onChange={(e) =>
-                setEditForm({ ...editForm, categoryId: e.target.value })
-              }
-            >
-              <option value="">Sin categoría</option>
-              {(categories ?? [])
-                .filter((c) => c.active)
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-            </Select>
-          </Field>
-          <Field label="Descripcion">
-            <Textarea
-              value={editForm.description}
-              onChange={(e) =>
-                setEditForm({ ...editForm, description: e.target.value })
-              }
-              rows={3}
-            />
-          </Field>
-          <div className="flex items-center gap-3">
-            <Switch
-              id="service-active"
-              checked={editForm.active}
-              onCheckedChange={(checked) =>
-                setEditForm({ ...editForm, active: checked })
-              }
-            />
-            <Label htmlFor="service-active">
-              {editForm.active ? "Servicio activo" : "Servicio inactivo"}
-            </Label>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <Button type="submit" disabled={savingEdit}>
-              {savingEdit ? "Guardando..." : "Guardar cambios"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setEditDialog(false)}
-            >
-              Cancelar
-            </Button>
-          </div>
-        </form>
-      </Dialog>
+        modo="editar"
+        form={editForm}
+        onFormChange={setEditForm}
+        onSubmit={handleUpdate}
+        guardando={savingEdit}
+        categorias={categories ?? []}
+      />
 
       <ConfirmDialog
         open={!!deleteId}

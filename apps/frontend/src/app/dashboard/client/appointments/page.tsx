@@ -8,10 +8,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, Scissors, Star, Plus } from "lucide-react";
-import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
 import { useApi, paginatedSchema } from "@/lib/swr";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
+import { FilterChip } from "@/components/ui/filter-chip";
 import Link from "next/link";
 
 /* ------------------------------------------------------------------ */
@@ -126,19 +127,14 @@ export default function AppointmentsPage() {
         className="bg-muted mb-6 flex gap-1 rounded-lg p-1"
       >
         {tabs.map((tab) => (
-          <button
+          <FilterChip
             key={tab.key}
+            variante="segment"
+            activo={activeTab === tab.key}
             onClick={() => setActiveTab(tab.key)}
-            aria-pressed={activeTab === tab.key}
-            className={cn(
-              "focus-visible:ring-ring flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2",
-              activeTab === tab.key
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            )}
           >
             {tab.label}
-          </button>
+          </FilterChip>
         ))}
       </div>
 

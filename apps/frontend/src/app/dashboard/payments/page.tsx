@@ -17,6 +17,7 @@ import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
+import { FilterChip } from "@/components/ui/filter-chip";
 import { PaymentSummaryCards } from "./payment-summary";
 import { PaymentCard } from "./payment-card";
 import { CreatePaymentDialog, EditPaymentDialog } from "./payment-dialogs";
@@ -204,14 +205,13 @@ export default function PaymentsPage() {
           aria-label="Filtrar por metodo de pago"
         >
           {METHOD_FILTERS.map((m) => (
-            <button
+            <FilterChip
               key={m}
+              activo={filterMethod === m}
               onClick={() => setFilterMethod(m)}
-              aria-pressed={filterMethod === m}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${filterMethod === m ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-primary/20"}`}
             >
               {m === "all" ? "Todos" : METHOD_LABELS[m] || m}
-            </button>
+            </FilterChip>
           ))}
         </div>
         <div className="flex items-center gap-2 text-sm">
