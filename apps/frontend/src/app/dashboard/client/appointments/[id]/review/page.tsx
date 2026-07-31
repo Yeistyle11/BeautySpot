@@ -104,6 +104,8 @@ export default function ReviewPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Una calificacion baja obliga a explicarla: sin motivo, el negocio no puede
+  // hacer nada con la resena.
   const commentRequired = rating > 0 && rating < 4;
   const commentValid = commentRequired ? comment.trim().length > 0 : true;
   const isValid = rating > 0 && commentValid;

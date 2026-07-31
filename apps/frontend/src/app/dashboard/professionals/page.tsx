@@ -133,6 +133,11 @@ export default function ProfessionalsPage() {
   // la semana del segundo.
   const horarioPedidoPara = useRef<string | null>(null);
 
+  /**
+   * Abre el dialogo de horario de un profesional. El horario se pide a mano y no
+   * con SWR, a diferencia del resto de la pagina, porque no se cachea: es un
+   * formulario que se rellena al abrir y se descarta al cerrar.
+   */
   const openSchedule = useCallback((p: Professional) => {
     setSchedulePro(p);
     setScheduleDialog(true);

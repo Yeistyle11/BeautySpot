@@ -78,6 +78,11 @@ export default function AppointmentDetailPage() {
     }
   };
 
+  /**
+   * Si la fecha "YYYY-MM-DD" es hoy o posterior. El mediodia fijo evita que en
+   * timezones negativos, donde la medianoche UTC cae en el dia anterior, la cita
+   * de hoy se tome por pasada.
+   */
   const isFuture = (date: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);

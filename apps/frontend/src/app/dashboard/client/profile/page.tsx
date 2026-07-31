@@ -25,6 +25,8 @@ const clientProfileSchema = z.object({
 });
 type ClientProfile = z.infer<typeof clientProfileSchema>;
 
+// Ordenados de menos a mas puntos: getTier y getNextTier recorren la lista una
+// vez y dependen de esa invariante.
 const LOYALTY_TIERS = [
   { min: 0, label: "Bronce", color: "bg-amber-700" },
   { min: 100, label: "Plata", color: "bg-gray-400" },
@@ -33,6 +35,7 @@ const LOYALTY_TIERS = [
   { min: 1000, label: "Diamante", color: "bg-purple-500" },
 ];
 
+/** Nivel alcanzado con esos puntos; el mas bajo si no llega a ninguno. */
 function getTier(points: number) {
   let tier = LOYALTY_TIERS[0];
   for (const t of LOYALTY_TIERS) {
@@ -41,6 +44,7 @@ function getTier(points: number) {
   return tier;
 }
 
+/** Siguiente nivel por alcanzar, o null si ya esta en el mas alto. */
 function getNextTier(points: number) {
   for (const t of LOYALTY_TIERS) {
     if (points < t.min) return t;

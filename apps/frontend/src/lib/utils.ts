@@ -29,6 +29,20 @@ export function formatDate(date: string): string {
   });
 }
 
+/**
+ * Fecha corta "5 mar", para ejes y etiquetas donde el ano se sobreentiende y no
+ * cabe la fecha completa.
+ */
+export function formatDayMonth(date: string): string {
+  const parsed = date.includes("T")
+    ? new Date(date)
+    : new Date(`${date}T12:00:00`);
+  return parsed.toLocaleDateString("es-CO", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
 // Clave "YYYY-MM-DD" en horario local. `toISOString()` convierte a UTC, asi
 // que en timezones negativos (es-CO, UTC-5) a partir de las 19:00 devolveria
 // ya el dia siguiente y descuadraria el agrupamiento por dia.

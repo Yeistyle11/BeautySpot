@@ -105,10 +105,14 @@ function PublicBookingPageInner() {
   );
   const totalAmount = selectedServiceData.reduce((sum, s) => sum + s.price, 0);
 
+  // Con "cualquier profesional" la disponibilidad se pide del negocio entero, que
+  // devuelve la union de las agendas; con uno concreto, solo la suya.
   const isAnyProfessional = selectedProfessional === "any";
   const alcanceSlots = isAnyProfessional
     ? `businessId=${profile?.businessId}`
     : `professionalId=${selectedProfessional}`;
+  // Sin fecha, sin profesional o sin servicios elegidos no hay nada que
+  // consultar: la key en null deja la peticion sin lanzar.
   const slotsKey =
     date && selectedProfessional && totalDuration > 0 && profile?.businessId
       ? `/booking/appointments/availability?${alcanceSlots}&date=${date}&duration=${totalDuration}`

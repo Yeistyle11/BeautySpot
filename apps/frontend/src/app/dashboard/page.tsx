@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import {
   formatCurrency,
-  formatDate,
+  formatDayMonth,
   formatTime,
   toLocalDateKey,
 } from "@/lib/utils";
@@ -348,9 +348,7 @@ export default function DashboardPage() {
                   return (
                     <div key={point.date} className="flex items-center gap-3">
                       <span className="text-muted-foreground w-12 text-xs">
-                        {formatDate(point.date)
-                          .replace(/^\d+\sde\s/, "")
-                          .replace(/\sde\s\d+$/, "")}
+                        {formatDayMonth(point.date)}
                       </span>
                       <div className="bg-muted h-6 flex-1 overflow-hidden rounded-full">
                         <div
