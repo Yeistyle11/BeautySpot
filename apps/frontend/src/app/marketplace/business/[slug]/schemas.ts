@@ -21,6 +21,10 @@ export const galleryImageSchema = z.object({
 });
 export type GalleryImage = z.infer<typeof galleryImageSchema>;
 
+// Se aceptan como cadena suelta a proposito: si el schema exigiera una URL
+// valida, un enlace mal tecleado por el negocio tumbaria el perfil entero en vez
+// de un solo enlace. El filtro de protocolo se aplica al pintarlos, con
+// hrefSeguro (lib/url.ts).
 export const socialLinksSchema = z.object({
   instagram: z.string().nullish(),
   facebook: z.string().nullish(),

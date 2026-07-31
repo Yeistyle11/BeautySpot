@@ -17,6 +17,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useApiPublic } from "@/lib/swr";
+import { hrefSeguro } from "@/lib/url";
 
 import {
   profileResponseSchema,
@@ -102,6 +103,8 @@ export default function BusinessProfile({
 
   const gallery = profile.galleryImages || [];
   const coverImg = profile.coverImage || gallery[0]?.url;
+  const instagramHref = hrefSeguro(profile.socialLinks?.instagram);
+  const websiteHref = hrefSeguro(profile.socialLinks?.website);
 
   return (
     <div className="bg-background min-h-screen">
@@ -281,33 +284,32 @@ export default function BusinessProfile({
           }
         })}
 
-        {profile.socialLinks &&
-          Object.values(profile.socialLinks).some(Boolean) && (
-            <div className="mb-8 flex items-center gap-3">
-              {profile.socialLinks.instagram && (
-                <a
-                  href={profile.socialLinks.instagram}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-muted hover:bg-muted/80 flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors"
-                >
-                  <Instagram className="h-4 w-4" />
-                  Instagram
-                </a>
-              )}
-              {profile.socialLinks.website && (
-                <a
-                  href={profile.socialLinks.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-muted hover:bg-muted/80 flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Sitio web
-                </a>
-              )}
-            </div>
-          )}
+        {(instagramHref || websiteHref) && (
+          <div className="mb-8 flex items-center gap-3">
+            {instagramHref && (
+              <a
+                href={instagramHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-muted hover:bg-muted/80 flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors"
+              >
+                <Instagram className="h-4 w-4" />
+                Instagram
+              </a>
+            )}
+            {websiteHref && (
+              <a
+                href={websiteHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-muted hover:bg-muted/80 flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Sitio web
+              </a>
+            )}
+          </div>
+        )}
 
         <div className="from-primary to-primary/80 text-primary-foreground mb-8 rounded-2xl bg-gradient-to-r p-8 text-center">
           <h3 className="text-2xl font-bold">Listo para tu proxima cita?</h3>
