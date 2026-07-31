@@ -21,6 +21,8 @@ import {
   FileText,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { mensajeDeError } from "@/lib/error-message";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
 import { useApi } from "@/lib/swr";
@@ -68,11 +70,7 @@ export default function AppointmentDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
-  const error = fetchError
-    ? fetchError instanceof Error
-      ? fetchError.message
-      : "Error al cargar la cita"
-    : cancelError;
+  const error = fetchError ? mensajeDeError(fetchError) : cancelError;
 
   const handleCancel = async () => {
     if (!appointment) return;
@@ -85,9 +83,8 @@ export default function AppointmentDetailPage() {
       await mutate("/booking/appointments");
       setCancelDialogOpen(false);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Error al cancelar la cita";
-      setCancelError(message);
+      logger.error(err);
+      setCancelError(mensajeDeError(err));
     } finally {
       setCancelling(false);
     }

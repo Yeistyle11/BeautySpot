@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Bell, CheckCheck } from "lucide-react";
 import { z } from "zod";
 import { api } from "@/lib/api";
+import { logger } from "@/lib/logger";
 import { usePaginatedList } from "@/lib/use-paginated-list";
 import { Pagination } from "@/components/ui/pagination";
 import type { IPaginatedResponse } from "@beautyspot/shared-types";
@@ -56,8 +57,11 @@ export default function NotificationsPage() {
               : prev,
           { revalidate: false }
         );
-      } catch {
-        /* ignore */
+      } catch (err: unknown) {
+        // Marcar como leida es un efecto secundario de abrir la notificacion:
+        // si falla, el usuario ya tiene lo que venia a buscar y volvera a
+        // intentarse en la siguiente visita.
+        logger.error(err);
       }
     },
     [listKey]

@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/swr";
+import { logger } from "@/lib/logger";
+import { mensajeDeError } from "@/lib/error-message";
 import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -96,9 +98,8 @@ export default function ReschedulePage() {
       });
       setSuccess(true);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Error al reagendar la cita";
-      setError(message);
+      logger.error(err);
+      setError(mensajeDeError(err));
     } finally {
       setSubmitting(false);
     }

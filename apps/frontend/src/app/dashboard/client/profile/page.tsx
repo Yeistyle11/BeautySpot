@@ -9,6 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { User, Mail, Phone, Award, Save, CheckCircle } from "lucide-react";
 import { api } from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { mensajeDeError } from "@/lib/error-message";
+import { useToast } from "@/components/ui/toast";
 import { useAuthStore } from "@/lib/store";
 import { useApi } from "@/lib/swr";
 
@@ -46,6 +49,7 @@ function getNextTier(points: number) {
 
 export default function ClientProfilePage() {
   const { user } = useAuthStore();
+  const toast = useToast();
   const {
     data: client,
     isLoading: loading,
@@ -75,6 +79,9 @@ export default function ClientProfilePage() {
     }
   }, [client, user]);
 
+  // Un cliente que reservo como invitado todavia no tiene ficha en core-service,
+  // asi que si ese endpoint no lo encuentra los datos se guardan contra su
+  // usuario de auth-service.
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
@@ -82,12 +89,14 @@ export default function ClientProfilePage() {
       await api.patch("/core/clients/me", form);
       await mutateClient();
       setSaved(true);
-    } catch {
+    } catch (errClientes: unknown) {
+      logger.error(errClientes);
       try {
         await api.patch("/auth/users/me", form);
         setSaved(true);
-      } catch {
-        // silently fail
+      } catch (errUsuarios: unknown) {
+        logger.error(errUsuarios);
+        toast.error(mensajeDeError(errUsuarios));
       }
     } finally {
       setSaving(false);

@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/swr";
+import { logger } from "@/lib/logger";
+import { mensajeDeError } from "@/lib/error-message";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import Link from "next/link";
@@ -146,9 +148,8 @@ export default function ReviewPage() {
       });
       setSuccess(true);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Error al publicar la reseña";
-      setError(message);
+      logger.error(err);
+      setError(mensajeDeError(err));
     } finally {
       setSubmitting(false);
     }
