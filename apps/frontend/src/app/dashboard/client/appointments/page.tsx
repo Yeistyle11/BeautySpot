@@ -162,66 +162,66 @@ export default function AppointmentsPage() {
             const hasReview = reviewedIds.has(appt.id);
             const canReview = appt.status === "COMPLETED" && !hasReview;
 
+            // El enlace al detalle se extiende sobre toda la tarjeta con un overlay
+            // absoluto en vez de envolverla: "Dejar reseña" es otro enlace y anidar
+            // anclas es HTML invalido, ademas de dejarlo inalcanzable por teclado.
             return (
-              <Link
+              <Card
                 key={appt.id}
-                href={`/dashboard/client/appointments/${appt.id}`}
+                className="relative border-0 shadow-sm transition-shadow hover:shadow-md"
               >
-                <Card className="cursor-pointer border-0 shadow-sm transition-shadow hover:shadow-md">
-                  <CardContent className="p-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="bg-primary/10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl">
-                          <Scissors className="text-primary h-5 w-5" />
-                        </div>
-                        <div>
-                          <p className="font-semibold">
-                            {appt.appointmentServices
-                              .map((s) => s.serviceName)
-                              .join(", ")}
-                          </p>
-                          <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-3 text-sm">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {formatDate(appt.date)}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {formatTime(appt.startTime)} -{" "}
-                              {formatTime(appt.endTime)}
-                            </span>
-                          </div>
-                        </div>
+                <CardContent className="p-5">
+                  <Link
+                    href={`/dashboard/client/appointments/${appt.id}`}
+                    className="focus-visible:ring-ring absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2"
+                  >
+                    <span className="sr-only">
+                      Ver detalle de la cita del {formatDate(appt.date)}
+                    </span>
+                  </Link>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-primary/10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl">
+                        <Scissors className="text-primary h-5 w-5" />
                       </div>
-
-                      <div className="flex items-center gap-3 sm:shrink-0">
-                        <span className="font-semibold">
-                          {formatCurrency(appt.totalAmount)}
-                        </span>
-                        <Badge className={status.color}>{status.label}</Badge>
-                        {canReview && (
-                          <span
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }}
-                            className="ml-1"
-                          >
-                            <Link
-                              href={`/dashboard/client/appointments/${appt.id}/review`}
-                              className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 hover:underline"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Star className="h-3 w-3" />
-                              Dejar reseña
-                            </Link>
+                      <div>
+                        <p className="font-semibold">
+                          {appt.appointmentServices
+                            .map((s) => s.serviceName)
+                            .join(", ")}
+                        </p>
+                        <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-3 text-sm">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(appt.date)}
                           </span>
-                        )}
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatTime(appt.startTime)} -{" "}
+                            {formatTime(appt.endTime)}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </Link>
+
+                    <div className="flex items-center gap-3 sm:shrink-0">
+                      <span className="font-semibold">
+                        {formatCurrency(appt.totalAmount)}
+                      </span>
+                      <Badge className={status.color}>{status.label}</Badge>
+                      {canReview && (
+                        <Link
+                          href={`/dashboard/client/appointments/${appt.id}/review`}
+                          className="relative ml-1 inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 hover:underline"
+                        >
+                          <Star className="h-3 w-3" />
+                          Dejar reseña
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             );
           })}
         </div>

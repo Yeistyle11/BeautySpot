@@ -69,12 +69,14 @@ export default function AppointmentsPage() {
     limit: viewMode === "calendar" ? 100 : undefined,
   });
 
-  // Los catalogos solo hacen falta con el formulario abierto.
+  // Los profesionales se cargan siempre: ademas del formulario, la lista de citas
+  // los necesita para mostrar el nombre en vez del identificador.
   const { data: professionals } = useApi<Professional[]>(
-    showForm ? PROFESSIONALS_KEY : null,
+    PROFESSIONALS_KEY,
     undefined,
     z.array(professionalSchema)
   );
+  // Servicios y clientes solo hacen falta con el formulario abierto.
   const { data: services } = useApi<Service[]>(
     showForm ? SERVICES_KEY : null,
     undefined,
