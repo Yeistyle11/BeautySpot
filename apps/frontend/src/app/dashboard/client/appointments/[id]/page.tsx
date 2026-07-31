@@ -30,31 +30,12 @@ import Link from "next/link";
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-const appointmentServiceSchema = z.object({
-  serviceName: z.string(),
-  price: z.string(),
-  duration: z.number(),
-});
-
-const appointmentSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  startTime: z.string(),
-  endTime: z.string(),
-  status: z.string(),
-  notes: z.string().nullable(),
-  totalAmount: z.string(),
-  professionalId: z.string(),
-  clientId: z.string(),
-  appointmentServices: z.array(appointmentServiceSchema),
-});
-type Appointment = z.infer<typeof appointmentSchema>;
-
-const reviewSchema = z.object({
-  id: z.string(),
-  appointmentId: z.string(),
-});
-type Review = z.infer<typeof reviewSchema>;
+import {
+  appointmentSchema,
+  reviewSchema,
+  type Appointment,
+  type Review,
+} from "@/lib/schemas/appointment";
 
 /* ------------------------------------------------------------------ */
 /*  Status config                                                      */
@@ -206,7 +187,7 @@ export default function AppointmentDetailPage() {
                       </p>
                     </div>
                     <span className="font-semibold">
-                      {formatCurrency(parseFloat(svc.price))}
+                      {formatCurrency(svc.price)}
                     </span>
                   </div>
                 ))}
@@ -216,7 +197,7 @@ export default function AppointmentDetailPage() {
                   Total ({totalDuration} min)
                 </span>
                 <span className="text-lg font-bold">
-                  {formatCurrency(parseFloat(appointment.totalAmount))}
+                  {formatCurrency(appointment.totalAmount)}
                 </span>
               </div>
             </CardContent>

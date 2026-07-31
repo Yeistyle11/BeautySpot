@@ -26,32 +26,12 @@ import Link from "next/link";
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-const appointmentServiceSchema = z.object({
-  serviceName: z.string(),
-  price: z.string(),
-  duration: z.number(),
-});
-
-const appointmentSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  startTime: z.string(),
-  endTime: z.string(),
-  status: z.string(),
-  notes: z.string().nullable(),
-  totalAmount: z.string(),
-  professionalId: z.string(),
-  clientId: z.string(),
-  appointmentServices: z.array(appointmentServiceSchema),
-});
-type Appointment = z.infer<typeof appointmentSchema>;
-
-const availabilitySlotSchema = z.object({
-  startTime: z.string(),
-  endTime: z.string(),
-  available: z.boolean(),
-});
-type AvailabilitySlot = z.infer<typeof availabilitySlotSchema>;
+import {
+  appointmentSchema,
+  availabilitySlotSchema,
+  type Appointment,
+  type AvailabilitySlot,
+} from "@/lib/schemas/appointment";
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
@@ -203,15 +183,13 @@ export default function ReschedulePage() {
                   <div key={idx} className="flex justify-between text-sm">
                     <span>{svc.serviceName}</span>
                     <span className="font-medium">
-                      {formatCurrency(parseFloat(svc.price))}
+                      {formatCurrency(svc.price)}
                     </span>
                   </div>
                 ))}
                 <div className="flex justify-between border-t pt-2 text-sm font-semibold">
                   <span>Total</span>
-                  <span>
-                    {formatCurrency(parseFloat(appointment.totalAmount))}
-                  </span>
+                  <span>{formatCurrency(appointment.totalAmount)}</span>
                 </div>
               </div>
               <div className="text-muted-foreground flex items-center gap-2 text-sm">

@@ -24,6 +24,7 @@ import {
 import { getAppointmentStatus } from "@/lib/status";
 import { useAuthStore } from "@/lib/store";
 import { useApi } from "@/lib/swr";
+import { kpiDataSchema, KPIS_KEY, type KpiData } from "@/lib/schemas/kpis";
 
 interface Appointment {
   id: string;
@@ -36,25 +37,6 @@ interface Appointment {
   serviceName?: string;
   clientId: string;
 }
-
-const kpiDataSchema = z.object({
-  today: z.object({
-    totalAppointments: z.number(),
-    completedAppointments: z.number(),
-    cancelledAppointments: z.number(),
-    totalRevenue: z.number(),
-  }),
-  last30Days: z.object({
-    totalRevenue: z.number(),
-    totalAppointments: z.number(),
-    completionRate: z.number(),
-    cancellationRate: z.number(),
-    newClients: z.number(),
-    returningClients: z.number(),
-    avgDailyRevenue: z.number(),
-  }),
-});
-type KpiData = z.infer<typeof kpiDataSchema>;
 
 const topProfessionalSchema = z.object({
   professionalId: z.string(),
@@ -118,7 +100,7 @@ export default function DashboardPage() {
     ClientRef[] | { items: ClientRef[] }
   >(clientsKey, undefined, clientRefListSchema);
   const { data: kpiData } = useApi<KpiData | null>(
-    businessId ? "/analytics/dashboard/kpis" : null,
+    businessId ? KPIS_KEY : null,
     undefined,
     kpiDataSchema.nullable()
   );

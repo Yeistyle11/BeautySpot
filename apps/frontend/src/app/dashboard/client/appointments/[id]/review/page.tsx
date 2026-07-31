@@ -4,7 +4,6 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,25 +29,7 @@ import Link from "next/link";
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-const appointmentServiceSchema = z.object({
-  serviceName: z.string(),
-  price: z.string(),
-  duration: z.number(),
-});
-
-const appointmentSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  startTime: z.string(),
-  endTime: z.string(),
-  status: z.string(),
-  notes: z.string().nullable(),
-  totalAmount: z.string(),
-  professionalId: z.string(),
-  clientId: z.string(),
-  appointmentServices: z.array(appointmentServiceSchema),
-});
-type Appointment = z.infer<typeof appointmentSchema>;
+import { appointmentSchema, type Appointment } from "@/lib/schemas/appointment";
 
 /* ------------------------------------------------------------------ */
 /*  Star rating sub-component                                          */
@@ -250,7 +231,7 @@ export default function ReviewPage() {
                   <div key={idx} className="flex justify-between text-sm">
                     <span>{svc.serviceName}</span>
                     <span className="font-medium">
-                      {formatCurrency(parseFloat(svc.price))}
+                      {formatCurrency(svc.price)}
                     </span>
                   </div>
                 ))}

@@ -1,30 +1,15 @@
 "use client";
 
 // Pagina de reportes: KPIs del negocio (ingresos, clientes, citas) leidos del analytics-service.
-import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, Calendar } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
-
-const kpiDataSchema = z.object({
-  last30Days: z.object({
-    totalAppointments: z.number(),
-    completedAppointments: z.number(),
-    cancelledAppointments: z.number(),
-    noShowAppointments: z.number(),
-    totalRevenue: z.number(),
-    avgDailyRevenue: z.number(),
-    completionRate: z.number(),
-    newClients: z.number(),
-    returningClients: z.number(),
-  }),
-});
-type KpiData = z.infer<typeof kpiDataSchema>;
+import { kpiDataSchema, KPIS_KEY, type KpiData } from "@/lib/schemas/kpis";
 
 export default function AnalyticsPage() {
   const { data, isLoading: loading } = useApi<KpiData>(
-    "/analytics/dashboard/kpis",
+    KPIS_KEY,
     undefined,
     kpiDataSchema
   );

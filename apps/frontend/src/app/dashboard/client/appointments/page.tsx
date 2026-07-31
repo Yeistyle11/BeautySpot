@@ -20,15 +20,11 @@ import Link from "next/link";
 
 import {
   appointmentSchema,
+  reviewSchema,
   MY_APPOINTMENTS_KEY,
   type Appointment,
+  type Review,
 } from "@/lib/schemas/appointment";
-
-const reviewSchema = z.object({
-  id: z.string(),
-  appointmentId: z.string(),
-});
-type Review = z.infer<typeof reviewSchema>;
 
 /* ------------------------------------------------------------------ */
 /*  Status config                                                      */
