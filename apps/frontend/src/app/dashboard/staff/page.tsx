@@ -55,7 +55,10 @@ export default function StaffPage() {
     undefined,
     z.array(professionalSchema)
   );
-  const professionals = professionalsData ?? [];
+  const professionals = useMemo(
+    () => professionalsData ?? [],
+    [professionalsData]
+  );
 
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -77,11 +80,16 @@ export default function StaffPage() {
 
   const confirmMember = staff.find((s) => s.id === confirmId) ?? null;
 
-  // Un profesional es vinculable solo si esta activo y todavia no tiene cuenta.
-  const unlinkedPros = professionals.filter(
-    (p) =>
-      p.active && !p.userId && !staff.some((s) => s.professionalId === p.id)
-  );
+  // Un profesional es vinculable solo si esta activo y todavia no tiene cuenta,
+  // ni por su propio userId ni por una invitacion ya registrada en el equipo.
+  const unlinkedPros = useMemo(() => {
+    const yaVinculados = new Set(
+      staff.map((s) => s.professionalId).filter(Boolean)
+    );
+    return professionals.filter(
+      (p) => p.active && !p.userId && !yaVinculados.has(p.id)
+    );
+  }, [professionals, staff]);
 
   const getLinkedPro = (userId: string) =>
     professionals.find((p) => p.userId === userId);
@@ -91,8 +99,14 @@ export default function StaffPage() {
     [staff, deferredSearch, sortField, sortDir]
   );
 
-  const teamMembers = filtered.filter((s) => STAFF_ROLES.includes(s.role));
-  const clientMembers = filtered.filter((s) => s.role === "CLIENT");
+  const teamMembers = useMemo(
+    () => filtered.filter((s) => STAFF_ROLES.includes(s.role)),
+    [filtered]
+  );
+  const clientMembers = useMemo(
+    () => filtered.filter((s) => s.role === "CLIENT"),
+    [filtered]
+  );
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {

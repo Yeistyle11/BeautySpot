@@ -2,6 +2,7 @@
 
 // Pagina de gestion del perfil publico: pestanas para editar la ficha del negocio en el marketplace.
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,15 +16,7 @@ import { mensajeDeError } from "@/lib/error-message";
 import { ListLoadError } from "@/components/dashboard/list-load-error";
 import { cn } from "@/lib/utils";
 import { OverviewTab } from "./overview-tab";
-import { ProfileTab } from "./profile-tab";
-import { GalleryTab } from "./gallery-tab";
-import { SectionsTab } from "./sections-tab";
-import { ReviewsTab } from "./reviews-tab";
-import {
-  AddImageDialog,
-  emptyGalleryForm,
-  type GalleryForm,
-} from "./add-image-dialog";
+import { emptyGalleryForm, type GalleryForm } from "./add-image-dialog";
 import {
   defaultSections,
   emptyConfigForm,
@@ -37,6 +30,25 @@ import {
   type Review,
   type SectionItem,
 } from "./schemas";
+
+// Solo el resumen se ve al entrar; las demas pestanas y el dialogo de imagen se
+// descargan cuando se abren.
+const ProfileTab = dynamic(() =>
+  import("./profile-tab").then((m) => m.ProfileTab)
+);
+const GalleryTab = dynamic(() =>
+  import("./gallery-tab").then((m) => m.GalleryTab)
+);
+const SectionsTab = dynamic(() =>
+  import("./sections-tab").then((m) => m.SectionsTab)
+);
+const ReviewsTab = dynamic(() =>
+  import("./reviews-tab").then((m) => m.ReviewsTab)
+);
+const AddImageDialog = dynamic(
+  () => import("./add-image-dialog").then((m) => m.AddImageDialog),
+  { ssr: false }
+);
 
 const TAB_LABELS: Record<string, string> = {
   overview: "Resumen",

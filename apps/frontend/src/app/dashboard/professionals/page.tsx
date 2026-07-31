@@ -2,6 +2,7 @@
 
 // Pagina del equipo: lista de profesionales con alta, edicion, detalle, horario y baja.
 import { useState, useMemo, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -17,9 +18,6 @@ import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
 import { ListLoadError } from "@/components/dashboard/list-load-error";
 import { ProCard } from "./pro-card";
-import { ProfessionalFormDialog } from "./professional-form-dialog";
-import { ProfessionalDetailDialog } from "./professional-detail-dialog";
-import { ScheduleDialog } from "./schedule-dialog";
 import {
   categorySchema,
   DAYS_MAP,
@@ -31,6 +29,25 @@ import {
   type DayHours,
   type Professional,
 } from "./schemas";
+
+// Los tres dialogos estan cerrados mientras se navega la lista, que es lo
+// habitual: se descargan al abrirlos.
+const ProfessionalFormDialog = dynamic(
+  () =>
+    import("./professional-form-dialog").then((m) => m.ProfessionalFormDialog),
+  { ssr: false }
+);
+const ProfessionalDetailDialog = dynamic(
+  () =>
+    import("./professional-detail-dialog").then(
+      (m) => m.ProfessionalDetailDialog
+    ),
+  { ssr: false }
+);
+const ScheduleDialog = dynamic(
+  () => import("./schedule-dialog").then((m) => m.ScheduleDialog),
+  { ssr: false }
+);
 
 const PROFESSIONALS_KEY = "/core/professionals";
 const CATEGORIES_KEY = "/core/categories";

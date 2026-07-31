@@ -1,7 +1,7 @@
 "use client";
 
 // Pagina de caja: apertura, cierre y movimientos de la sesion de caja del dia.
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { mutate } from "swr";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -82,7 +82,7 @@ export default function CashRegisterPage() {
     undefined,
     cashSummarySchema.nullable()
   );
-  const movements = summary?.movements ?? [];
+  const movements = useMemo(() => summary?.movements ?? [], [summary]);
   const loading = loadingActive;
 
   const [openDialog, setOpenDialog] = useState(false);
@@ -161,12 +161,18 @@ export default function CashRegisterPage() {
     }
   };
 
-  const totalIn = movements
-    .filter((m) => m.type === "IN")
-    .reduce((s, m) => s + m.amount, 0);
-  const totalOut = movements
-    .filter((m) => m.type === "OUT")
-    .reduce((s, m) => s + m.amount, 0);
+  const { totalIn, totalOut } = useMemo(
+    () =>
+      movements.reduce(
+        (acc, m) => {
+          if (m.type === "IN") acc.totalIn += m.amount;
+          else acc.totalOut += m.amount;
+          return acc;
+        },
+        { totalIn: 0, totalOut: 0 }
+      ),
+    [movements]
+  );
   const openingAmt = activeSession?.openingAmount ?? 0;
   const expectedTotal = openingAmt + totalIn - totalOut;
 

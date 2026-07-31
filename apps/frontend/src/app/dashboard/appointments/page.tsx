@@ -1,7 +1,8 @@
 "use client";
 
 // Pagina de agenda: lista y calendario de citas, con busqueda, paginacion y acciones de crear/confirmar/cancelar/completar.
-import { useState, useMemo, useDeferredValue } from "react";
+import { useState, useMemo, useCallback, useDeferredValue } from "react";
+import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,6 @@ import { usePaginatedList } from "@/lib/use-paginated-list";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
-import { CalendarView } from "@/components/calendar-view";
 import { AppointmentForm } from "./appointment-form";
 import { AppointmentCard } from "./appointment-card";
 import {
@@ -42,6 +42,16 @@ import {
   type Professional,
   type Service,
 } from "./schemas";
+
+// La agenda abre en modo lista, asi que la rejilla semanal solo se descarga si
+// el usuario cambia de vista.
+const CalendarView = dynamic(
+  () => import("@/components/calendar-view").then((m) => m.CalendarView),
+  {
+    ssr: false,
+    loading: () => <p className="text-muted-foreground">Cargando...</p>,
+  }
+);
 
 export default function AppointmentsPage() {
   const toast = useToast();
@@ -120,23 +130,38 @@ export default function AppointmentsPage() {
     );
   }, [appointments, deferredSearch]);
 
-  const handleAction = async (id: string, action: string) => {
-    try {
-      await api.post(
-        `/booking/appointments/${id}/${action}`,
-        action === "cancel" ? { reason: "Cancelado por usuario" } : {}
-      );
-      await revalidatePrefix(APPOINTMENTS_KEY);
-    } catch (err) {
-      logger.error(err);
-      toast.error(mensajeDeError(err));
-    }
-  };
+  // Los tres handlers que reciben las tarjetas van memoizados: sin identidad
+  // estable, AppointmentCard se re-renderizaria entera con cada pulsacion del
+  // buscador.
+  const handleAction = useCallback(
+    async (id: string, action: string) => {
+      try {
+        await api.post(
+          `/booking/appointments/${id}/${action}`,
+          action === "cancel" ? { reason: "Cancelado por usuario" } : {}
+        );
+        await revalidatePrefix(APPOINTMENTS_KEY);
+      } catch (err) {
+        logger.error(err);
+        toast.error(mensajeDeError(err));
+      }
+    },
+    [toast]
+  );
 
-  const openCompleteDialog = (appt: Appointment) => {
+  const handleConfirm = useCallback(
+    (id: string) => handleAction(id, "confirm"),
+    [handleAction]
+  );
+  const handleCancel = useCallback(
+    (id: string) => handleAction(id, "cancel"),
+    [handleAction]
+  );
+
+  const openCompleteDialog = useCallback((appt: Appointment) => {
     setCompletingAppt(appt);
     setPayment(emptyPaymentDraft);
-  };
+  }, []);
 
   const handleCompleteWithPayment = async (registerPayment: boolean) => {
     if (!completingAppt) return;
@@ -332,9 +357,9 @@ export default function AppointmentsPage() {
                 }
                 canConfirm={canDo(role, "appointments_confirm")}
                 canCancel={canDo(role, "appointments_cancel")}
-                onConfirm={(id) => handleAction(id, "confirm")}
+                onConfirm={handleConfirm}
                 onComplete={openCompleteDialog}
-                onCancel={(id) => handleAction(id, "cancel")}
+                onCancel={handleCancel}
               />
             ))
           )}

@@ -143,55 +143,64 @@ export default function DashboardPage() {
     }));
   }, [rawAppointments, rawClients]);
 
-  // Los KPIs vienen de analytics-service; si aun no respondio, se calculan
-  // sobre las citas de hoy para no mostrar la tarjeta vacia.
-  const todayTotal = appointments.length;
-  const todayCompleted = appointments.filter(
-    (a) => a.status === "COMPLETED"
-  ).length;
-  const todayRevenue = appointments
-    .filter((a) => a.status === "COMPLETED")
-    .reduce((sum, a) => sum + Number(a.totalAmount || 0), 0);
-  const pending = appointments.filter(
-    (a) => a.status === "PENDING" || a.status === "CONFIRMED"
-  ).length;
+  // Cada tarjeta prefiere el KPI de analytics-service y cae al calculo sobre las
+  // citas de hoy si ese servicio aun no respondio, para no ensenar la tarjeta
+  // vacia. "Pendientes" no tiene equivalente en el endpoint de KPIs, asi que
+  // siempre se calcula aqui.
+  const stats = useMemo(() => {
+    const completadas = appointments.filter((a) => a.status === "COMPLETED");
+    const pendientes = appointments.filter(
+      (a) => a.status === "PENDING" || a.status === "CONFIRMED"
+    );
+    const ingresosLocales = completadas.reduce(
+      (sum, a) => sum + Number(a.totalAmount || 0),
+      0
+    );
 
-  const stats = [
-    {
-      title: "Citas hoy",
-      value: kpiData?.today?.totalAppointments ?? todayTotal,
-      icon: Calendar,
-      color: "text-info",
-      bg: "bg-info-soft",
-    },
-    {
-      title: "Completadas",
-      value: kpiData?.today?.completedAppointments ?? todayCompleted,
-      icon: CheckCircle,
-      color: "text-success",
-      bg: "bg-success-soft",
-    },
-    {
-      title: "Pendientes",
-      value: pending,
-      icon: Clock,
-      color: "text-warning",
-      bg: "bg-warning-soft",
-    },
-    {
-      title: "Ingresos hoy",
-      value: formatCurrency(kpiData?.today?.totalRevenue ?? todayRevenue),
-      icon: DollarSign,
-      color: "text-primary",
-      bg: "bg-primary/10",
-    },
-  ];
+    return [
+      {
+        title: "Citas hoy",
+        value: kpiData?.today?.totalAppointments ?? appointments.length,
+        icon: Calendar,
+        color: "text-info",
+        bg: "bg-info-soft",
+      },
+      {
+        title: "Completadas",
+        value: kpiData?.today?.completedAppointments ?? completadas.length,
+        icon: CheckCircle,
+        color: "text-success",
+        bg: "bg-success-soft",
+      },
+      {
+        title: "Pendientes",
+        value: pendientes.length,
+        icon: Clock,
+        color: "text-warning",
+        bg: "bg-warning-soft",
+      },
+      {
+        title: "Ingresos hoy",
+        value: formatCurrency(kpiData?.today?.totalRevenue ?? ingresosLocales),
+        icon: DollarSign,
+        color: "text-primary",
+        bg: "bg-primary/10",
+      },
+    ];
+  }, [appointments, kpiData]);
 
-  const upcoming = appointments
-    .filter((a) => a.status === "PENDING" || a.status === "CONFIRMED")
-    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const upcoming = useMemo(
+    () =>
+      appointments
+        .filter((a) => a.status === "PENDING" || a.status === "CONFIRMED")
+        .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    [appointments]
+  );
 
-  const maxRevenue = Math.max(...(revenueChart ?? []).map((r) => r.revenue), 1);
+  const maxRevenue = useMemo(
+    () => Math.max(...(revenueChart ?? []).map((r) => r.revenue), 1),
+    [revenueChart]
+  );
 
   return (
     <div>

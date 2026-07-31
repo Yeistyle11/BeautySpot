@@ -1,6 +1,7 @@
 "use client";
 
 // Tarjeta de una cita en la lista, con su estado y las acciones disponibles segun permisos.
+import { memo } from "react";
 import { Calendar, Clock, User } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,8 +20,12 @@ interface AppointmentCardProps {
   onCancel: (id: string) => void;
 }
 
-/** Fila de la agenda en vista lista, con las acciones segun el estado. */
-export function AppointmentCard({
+/**
+ * Fila de la agenda en vista lista, con las acciones segun el estado. Va
+ * memoizada porque teclear en el buscador re-renderiza la pagina entera y con
+ * ella las veinte tarjetas.
+ */
+export const AppointmentCard = memo(function AppointmentCard({
   appointment,
   professionalName,
   canConfirm,
@@ -96,4 +101,4 @@ export function AppointmentCard({
       </CardContent>
     </Card>
   );
-}
+});
