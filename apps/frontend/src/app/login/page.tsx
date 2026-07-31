@@ -79,7 +79,7 @@ function LoginPageInner() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 via-white to-violet-50 p-4">
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 via-white to-violet-50 p-4">
       <div className="w-full max-w-md">
         <div className="mb-8 flex items-center justify-center gap-3">
           <div className="bg-primary text-primary-foreground flex h-12 w-12 items-center justify-center rounded-xl shadow-lg">
@@ -95,7 +95,7 @@ function LoginPageInner() {
 
         <Card className="border-0 shadow-xl">
           <CardHeader className="pb-2 text-center">
-            <CardTitle className="text-xl">
+            <CardTitle as="h2" className="text-xl">
               {isLogin ? "Bienvenido de vuelta" : "Crear cuenta"}
             </CardTitle>
             <CardDescription>
@@ -208,7 +208,7 @@ function LoginPageInner() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </main>
   );
 }
 

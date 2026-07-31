@@ -29,11 +29,16 @@ const CardHeader = React.forwardRef<
 ));
 CardHeader.displayName = "CardHeader";
 
+/**
+ * Titulo de la tarjeta. Es un h3 por defecto, que es lo habitual cuando la
+ * tarjeta cuelga de una seccion con h2; `as` permite corregir el nivel donde
+ * eso no se cumple y quedaria un salto en la jerarquia de encabezados.
+ */
 const CardTitle = React.forwardRef<
-  HTMLParagraphElement,
-  React.HTMLAttributes<HTMLHeadingElement>
->(({ className, ...props }, ref) => (
-  <h3
+  HTMLHeadingElement,
+  React.HTMLAttributes<HTMLHeadingElement> & { as?: "h2" | "h3" | "h4" }
+>(({ className, as: Etiqueta = "h3", ...props }, ref) => (
+  <Etiqueta
     ref={ref}
     className={cn(
       "text-2xl font-semibold leading-none tracking-tight",
