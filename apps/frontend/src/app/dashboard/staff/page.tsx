@@ -4,10 +4,11 @@
 import { useMemo, useState, useDeferredValue } from "react";
 import { mutate } from "swr";
 import { z } from "zod";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { Plus, Search, Users, UserCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
@@ -44,6 +45,7 @@ export default function StaffPage() {
   const {
     items: staff,
     isLoading: loading,
+    error: loadError,
     reload: reloadStaff,
   } = useCrudResource<StaffMember>({
     listKey: STAFF_KEY,
@@ -225,17 +227,23 @@ export default function StaffPage() {
 
       {loading ? (
         <p className="text-muted-foreground py-8 text-center">Cargando...</p>
+      ) : loadError ? (
+        <ErrorDeCarga
+          error={loadError}
+          recurso="las cuentas de usuario"
+          onReintentar={() => void reloadStaff()}
+        />
       ) : staff.length === 0 ? (
-        <Card className="border-0 shadow-sm">
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">
-              No hay cuentas de usuario registradas
-            </p>
-            <Button className="mt-4" onClick={() => setShowCreate(true)}>
+        <EmptyState
+          icon={Users}
+          titulo="No hay cuentas de usuario registradas"
+          descripcion="Crea la primera para dar acceso a tu equipo."
+          accion={
+            <Button onClick={() => setShowCreate(true)}>
               <Plus className="mr-2 h-4 w-4" /> Crear primera cuenta
             </Button>
-          </CardContent>
-        </Card>
+          }
+        />
       ) : filtered.length === 0 ? (
         <p className="text-muted-foreground py-8 text-center">
           No se encontraron resultados para &quot;{search}&quot;

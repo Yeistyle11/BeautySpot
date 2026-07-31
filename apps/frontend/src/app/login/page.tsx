@@ -19,6 +19,7 @@ import { apiPublic } from "@/lib/api";
 import { canAccess, getDefaultPath } from "@/lib/permissions";
 import { authResponseSchema } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 // Los dos campos que puede rechazar el backend apuntan al mismo mensaje, que es
 // el unico que se muestra: el error de credenciales no distingue cual falla.
@@ -216,7 +217,7 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center">
-          <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+          <Spinner variant="inline" className="h-8 w-8 border-4" />
         </div>
       }
     >

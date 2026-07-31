@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Pagination } from "@/components/ui/pagination";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { Plus, Search, Phone, Mail, Award, Calendar, Edit } from "lucide-react";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
@@ -48,6 +49,8 @@ export default function ClientsPage() {
     meta,
     setPage,
     isLoading: loading,
+    error: loadError,
+    reload: recargarClientes,
     isEmptySearch,
     create: createClient,
     update: updateClient,
@@ -181,6 +184,14 @@ export default function ClientsPage() {
         <p className="text-muted-foreground py-8 text-center">
           No se encontraron clientes para &quot;{search}&quot;
         </p>
+      )}
+
+      {loadError && (
+        <ErrorDeCarga
+          error={loadError}
+          recurso="los clientes"
+          onReintentar={() => void recargarClientes()}
+        />
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

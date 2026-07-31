@@ -16,7 +16,7 @@ import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
-import { ListLoadError } from "@/components/dashboard/list-load-error";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { ProCard } from "./pro-card";
 import {
   categorySchema,
@@ -284,7 +284,11 @@ export default function ProfessionalsPage() {
       {loading ? (
         <p className="text-muted-foreground">Cargando...</p>
       ) : loadError ? (
-        <ListLoadError error={loadError} onRetry={() => void reload()} />
+        <ErrorDeCarga
+          error={loadError}
+          recurso="los profesionales"
+          onReintentar={() => void reload()}
+        />
       ) : professionals.length === 0 ? (
         <p className="text-muted-foreground">
           No hay profesionales registrados

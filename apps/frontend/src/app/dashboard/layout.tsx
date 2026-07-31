@@ -4,6 +4,7 @@
 import { useEffect } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { useAuthStore } from "@/lib/store";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function DashboardLayout({
   children,
@@ -19,7 +20,7 @@ export default function DashboardLayout({
   if (!hydrated) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+        <Spinner variant="inline" className="h-8 w-8 border-4" />
       </div>
     );
   }

@@ -23,6 +23,7 @@ import {
   GuestDetailsStep,
   type GuestDetails,
 } from "./steps/guest-details-step";
+import { Spinner } from "@/components/ui/spinner";
 import {
   BOOKING_STEPS,
   professionalSchema,
@@ -189,7 +190,7 @@ function PublicBookingPageInner() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+        <Spinner variant="inline" className="h-8 w-8 border-4" />
       </div>
     );
   }
@@ -324,7 +325,7 @@ export default function PublicBookingPage() {
     <Suspense
       fallback={
         <div className="flex justify-center py-20">
-          <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+          <Spinner variant="inline" className="h-8 w-8 border-4" />
         </div>
       }
     >

@@ -18,6 +18,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useApiPublic } from "@/lib/swr";
+import { Spinner } from "@/components/ui/spinner";
 import {
   feedResponseSchema,
   searchResultSchema,
@@ -139,7 +140,7 @@ export default function MarketplaceFeed({
       <div className="mx-auto max-w-6xl px-4 py-8">
         {loading ? (
           <div className="flex justify-center py-20">
-            <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+            <Spinner variant="inline" className="h-8 w-8 border-4" />
           </div>
         ) : isSearching ? (
           /* Search results */
@@ -154,7 +155,7 @@ export default function MarketplaceFeed({
             </div>
             {searching ? (
               <div className="flex justify-center py-20">
-                <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+                <Spinner variant="inline" className="h-8 w-8 border-4" />
               </div>
             ) : searchResults && searchResults.items.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

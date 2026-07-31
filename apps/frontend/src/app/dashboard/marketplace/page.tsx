@@ -13,7 +13,7 @@ import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
-import { ListLoadError } from "@/components/dashboard/list-load-error";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { cn } from "@/lib/utils";
 import { OverviewTab } from "./overview-tab";
 import { emptyGalleryForm, type GalleryForm } from "./add-image-dialog";
@@ -223,14 +223,13 @@ export default function MarketplacePage() {
     return (
       <div>
         <h1 className="text-2xl font-bold">Marketplace</h1>
-        <Card className="mt-4 border-0 shadow-sm">
-          <CardContent className="p-8">
-            <ListLoadError
-              error={profileError}
-              onRetry={() => mutateProfile()}
-            />
-          </CardContent>
-        </Card>
+        <div className="mt-4">
+          <ErrorDeCarga
+            error={profileError}
+            recurso="los datos del perfil publico"
+            onReintentar={() => mutateProfile()}
+          />
+        </div>
       </div>
     );
   }

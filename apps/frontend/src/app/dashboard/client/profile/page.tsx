@@ -14,6 +14,7 @@ import { mensajeDeError } from "@/lib/error-message";
 import { useToast } from "@/components/ui/toast";
 import { useAuthStore } from "@/lib/store";
 import { useApi } from "@/lib/swr";
+import { Spinner } from "@/components/ui/spinner";
 
 const clientProfileSchema = z.object({
   id: z.string(),
@@ -106,7 +107,7 @@ export default function ClientProfilePage() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+        <Spinner variant="inline" className="h-8 w-8 border-4" />
       </div>
     );
   }

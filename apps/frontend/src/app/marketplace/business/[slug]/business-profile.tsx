@@ -34,6 +34,7 @@ import { TeamSection } from "./sections/team-section";
 import { GallerySection } from "./sections/gallery-section";
 import { ReviewsSection } from "./sections/reviews-section";
 import { LocationSection } from "./sections/location-section";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * Perfil público de un negocio. `initialProfile` llega resuelto del servidor y
@@ -74,7 +75,7 @@ export default function BusinessProfile({
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+        <Spinner variant="inline" className="h-8 w-8 border-4" />
       </div>
     );
   }

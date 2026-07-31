@@ -23,7 +23,7 @@ import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
-import { ListLoadError } from "@/components/dashboard/list-load-error";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { getErrorMessage } from "@/lib/utils";
 
 const serviceSchema = z.object({
@@ -259,7 +259,11 @@ export default function ServicesPage() {
         {loading ? (
           <p className="text-muted-foreground">Cargando...</p>
         ) : loadError ? (
-          <ListLoadError error={loadError} onRetry={() => void reload()} />
+          <ErrorDeCarga
+            error={loadError}
+            recurso="los servicios"
+            onReintentar={() => void reload()}
+          />
         ) : (
           filtered.map((s) => (
             <Card

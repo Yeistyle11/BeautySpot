@@ -5,14 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, Calendar } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { kpiDataSchema, KPIS_KEY, type KpiData } from "@/lib/schemas/kpis";
 
 export default function AnalyticsPage() {
-  const { data, isLoading: loading } = useApi<KpiData>(
-    KPIS_KEY,
-    undefined,
-    kpiDataSchema
-  );
+  const {
+    data,
+    isLoading: loading,
+    error: loadError,
+    mutate: recargar,
+  } = useApi<KpiData>(KPIS_KEY, undefined, kpiDataSchema);
 
   return (
     <div>
@@ -109,8 +112,18 @@ export default function AnalyticsPage() {
             </CardContent>
           </Card>
         </div>
+      ) : loadError ? (
+        <ErrorDeCarga
+          error={loadError}
+          recurso="los reportes"
+          onReintentar={() => void recargar()}
+        />
       ) : (
-        <p className="text-muted-foreground">No hay datos disponibles</p>
+        <EmptyState
+          icon={TrendingUp}
+          titulo="No hay datos disponibles"
+          descripcion="Los reportes se llenan a medida que se registran citas y pagos."
+        />
       )}
     </div>
   );
