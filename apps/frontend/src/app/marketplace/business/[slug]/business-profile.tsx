@@ -1,8 +1,6 @@
 "use client";
 
 // Perfil publico de un negocio: compone las secciones activas y el acceso a reservar.
-import { useState } from "react";
-
 import Link from "next/link";
 import Image from "next/image";
 import { imageUnoptimized } from "@/lib/image";
@@ -17,8 +15,6 @@ import {
   ArrowLeft,
   Instagram,
   ExternalLink,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { useApiPublic } from "@/lib/swr";
 
@@ -71,9 +67,6 @@ export default function BusinessProfile({
     undefined,
     ratingDistributionSchema
   );
-
-  const [galleryIdx, setGalleryIdx] = useState(0);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const reviews = reviewsResp?.items ?? [];
 
@@ -256,8 +249,6 @@ export default function BusinessProfile({
                     key={section.id}
                     title={title}
                     images={gallery}
-                    setGalleryIdx={setGalleryIdx}
-                    setLightboxOpen={setLightboxOpen}
                   />
                 )
               );
@@ -334,46 +325,6 @@ export default function BusinessProfile({
           </Link>
         </div>
       </div>
-
-      {lightboxOpen && gallery.length > 0 && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setLightboxOpen(false)}
-        >
-          <button
-            onClick={() =>
-              setGalleryIdx((galleryIdx - 1 + gallery.length) % gallery.length)
-            }
-            className="absolute left-4 text-white/70 hover:text-white"
-          >
-            <ChevronLeft className="h-8 w-8" />
-          </button>
-          <Image
-            src={gallery[galleryIdx].url}
-            alt={gallery[galleryIdx].title || ""}
-            width={1200}
-            height={900}
-            unoptimized={imageUnoptimized(gallery[galleryIdx].url)}
-            className="max-h-[85vh] max-w-full rounded-lg object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <button
-            onClick={() => setGalleryIdx((galleryIdx + 1) % gallery.length)}
-            className="absolute right-4 text-white/70 hover:text-white"
-          >
-            <ChevronRight className="h-8 w-8" />
-          </button>
-          <button
-            onClick={() => setLightboxOpen(false)}
-            className="absolute right-4 top-4 text-2xl text-white/70 hover:text-white"
-          >
-            &times;
-          </button>
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-sm text-white/70">
-            {galleryIdx + 1} / {gallery.length}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
