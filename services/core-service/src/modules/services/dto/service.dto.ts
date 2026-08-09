@@ -34,6 +34,9 @@ export class CreateServiceDto {
   category?: string;
   @IsOptional() @IsUUID() categoryId?: string;
   @IsOptional() @IsString() image?: string;
+  @IsOptional() @IsNumber() @Min(0) procesadoDesde?: number;
+  @IsOptional() @IsNumber() @Min(1) procesadoMinutos?: number;
+  @IsOptional() @IsNumber() @Min(0) bufferDespues?: number;
 }
 
 /** Campos editables de un servicio (todos opcionales). */
@@ -46,4 +49,8 @@ export class UpdateServiceDto {
   @IsOptional() @IsUUID() categoryId?: string;
   @IsOptional() @IsString() image?: string;
   @IsOptional() @IsBoolean() active?: boolean;
+  // La coherencia con `duration` la comprueba `ServicesService`.
+  @IsOptional() @IsNumber() @Min(0) procesadoDesde?: number | null;
+  @IsOptional() @IsNumber() @Min(1) procesadoMinutos?: number | null;
+  @IsOptional() @IsNumber() @Min(0) bufferDespues?: number;
 }

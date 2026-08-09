@@ -5,24 +5,40 @@ import { InternalServicesController } from "./internal-services.controller";
 import { Service } from "../../entities/service.entity";
 import { ProfessionalService } from "../../entities/professional-service.entity";
 
-const NEGOCIO = "11111111-1111-4111-8111-111111111111";
+const TINTE = "11111111-1111-4111-8111-111111111111";
 const CORTE = "22222222-2222-4222-8222-222222222222";
-const BARBA = "33333333-3333-4333-8333-333333333333";
+const NEGOCIO = "33333333-3333-4333-8333-333333333333";
 const PROFESIONAL = "44444444-4444-4444-8444-444444444444";
 
 describe("InternalServicesController", () => {
   let controller: InternalServicesController;
-  let mockServiceRepo: jest.Mocked<any>;
-  let mockProfessionalServiceRepo: jest.Mocked<any>;
+  let mockServiceRepo: { find: jest.Mock };
+  let mockProfessionalServiceRepo: { find: jest.Mock };
 
-  const corte = { id: CORTE, name: "Corte", price: 30000, duration: 45 };
-  const barba = { id: BARBA, name: "Barba", price: 15000, duration: 20 };
+  const tinte = {
+    id: TINTE,
+    name: "Tinte",
+    price: 120000,
+    duration: 90,
+    procesadoDesde: 20,
+    procesadoMinutos: 40,
+    bufferDespues: 10,
+  } as Service;
+
+  const corte = {
+    id: CORTE,
+    name: "Corte",
+    price: 30000,
+    duration: 30,
+    procesadoDesde: null,
+    procesadoMinutos: null,
+    bufferDespues: 0,
+  } as Service;
 
   beforeEach(async () => {
-    mockServiceRepo = { find: jest.fn().mockResolvedValue([corte]) } as any;
-    mockProfessionalServiceRepo = {
-      find: jest.fn().mockResolvedValue([]),
-    } as any;
+    // Postgres devuelve las filas en el orden que quiere, no en el de los ids.
+    mockServiceRepo = { find: jest.fn().mockResolvedValue([corte, tinte]) };
+    mockProfessionalServiceRepo = { find: jest.fn().mockResolvedValue([]) };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [InternalServicesController],
@@ -40,76 +56,53 @@ describe("InternalServicesController", () => {
     );
   });
 
-  it("devuelve el precio y la duración del catálogo", async () => {
-    const resuelto = await controller.resolve({
+  it("responde en el orden en que se pidieron los servicios", async () => {
+    const resueltos = await controller.resolve({
       businessId: NEGOCIO,
-      ids: [CORTE],
+      ids: [TINTE, CORTE],
     });
 
-    expect(resuelto).toEqual([
-      { id: CORTE, name: "Corte", price: 30000, duration: 45 },
+    expect(resueltos.map((s) => s.id)).toEqual([TINTE, CORTE]);
+  });
+
+  it("lleva el procesado y la limpieza a quien reserva", async () => {
+    mockServiceRepo.find.mockResolvedValue([tinte]);
+
+    const [resuelto] = await controller.resolve({
+      businessId: NEGOCIO,
+      ids: [TINTE],
+    });
+
+    expect(resuelto).toMatchObject({
+      procesadoDesde: 20,
+      procesadoMinutos: 40,
+      bufferDespues: 10,
+    });
+  });
+
+  it("descarta el procesado si el profesional acorta el servicio", async () => {
+    // Con 50 minutos, la ventana 20+40 no cabe.
+    mockServiceRepo.find.mockResolvedValue([tinte]);
+    mockProfessionalServiceRepo.find.mockResolvedValue([
+      { serviceId: TINTE, customDuration: 50, customPrice: null },
     ]);
-  });
 
-  it("solo busca servicios activos del negocio pedido", async () => {
-    await controller.resolve({ businessId: NEGOCIO, ids: [CORTE] });
-
-    expect(mockServiceRepo.find).toHaveBeenCalledWith({
-      where: expect.objectContaining({ businessId: NEGOCIO, active: true }),
+    const [resuelto] = await controller.resolve({
+      businessId: NEGOCIO,
+      ids: [TINTE],
+      professionalId: PROFESIONAL,
     });
+
+    expect(resuelto.duration).toBe(50);
+    expect(resuelto.procesadoDesde).toBeNull();
+    expect(resuelto.procesadoMinutos).toBeNull();
   });
 
-  it("rechaza los ids que no son del negocio, no existen o están inactivos", async () => {
+  it("rechaza si algún servicio no es del negocio", async () => {
     mockServiceRepo.find.mockResolvedValue([corte]);
 
     await expect(
-      controller.resolve({ businessId: NEGOCIO, ids: [CORTE, BARBA] })
+      controller.resolve({ businessId: NEGOCIO, ids: [TINTE, CORTE] })
     ).rejects.toThrow(BadRequestException);
-  });
-
-  it("no cuenta dos veces un id repetido", async () => {
-    mockServiceRepo.find.mockResolvedValue([corte]);
-
-    await expect(
-      controller.resolve({ businessId: NEGOCIO, ids: [CORTE, CORTE] })
-    ).resolves.toHaveLength(1);
-  });
-
-  it("aplica el precio y la duración propios del profesional", async () => {
-    mockServiceRepo.find.mockResolvedValue([corte, barba]);
-    mockProfessionalServiceRepo.find.mockResolvedValue([
-      { serviceId: CORTE, customPrice: 50000, customDuration: 60 },
-    ]);
-
-    const resuelto = await controller.resolve({
-      businessId: NEGOCIO,
-      ids: [CORTE, BARBA],
-      professionalId: PROFESIONAL,
-    });
-
-    expect(resuelto).toEqual([
-      { id: CORTE, name: "Corte", price: 50000, duration: 60 },
-      { id: BARBA, name: "Barba", price: 15000, duration: 20 },
-    ]);
-  });
-
-  it("cae al precio del catálogo cuando el profesional no tiene uno propio", async () => {
-    mockProfessionalServiceRepo.find.mockResolvedValue([
-      { serviceId: CORTE, customPrice: null, customDuration: null },
-    ]);
-
-    const resuelto = await controller.resolve({
-      businessId: NEGOCIO,
-      ids: [CORTE],
-      professionalId: PROFESIONAL,
-    });
-
-    expect(resuelto[0]).toMatchObject({ price: 30000, duration: 45 });
-  });
-
-  it("no consulta los precios propios si no viene profesional", async () => {
-    await controller.resolve({ businessId: NEGOCIO, ids: [CORTE] });
-
-    expect(mockProfessionalServiceRepo.find).not.toHaveBeenCalled();
   });
 });

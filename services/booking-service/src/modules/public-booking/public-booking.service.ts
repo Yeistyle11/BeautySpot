@@ -15,7 +15,25 @@ import {
   calculateEndTime,
   timeToMinutes,
   timesOverlap,
+  algunSolape,
+  duracionDeCliente,
+  finDeOcupacion,
+  intervalosDeAgenda,
+  type Intervalo,
 } from "@beautyspot/shared-utils";
+import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
+import {
+  intervalosDeCita,
+  lineasPorCita,
+} from "../appointments/intervalos-de-cita";
+
+/** Servicio tal y como lo devuelve el catálogo, con su reparto de agenda. */
+interface LineaResuelta {
+  duration: number;
+  procesadoDesde: number | null;
+  procesadoMinutos: number | null;
+  bufferDespues: number;
+}
 
 /**
  * Permite reservar citas desde el marketplace sin autenticación, resolviendo al
@@ -30,6 +48,8 @@ export class PublicBookingService {
     private readonly availRepo: Repository<Availability>,
     @InjectRepository(BlockedSlot)
     private readonly blockRepo: Repository<BlockedSlot>,
+    @InjectRepository(AppointmentServiceEntity)
+    private readonly lineaRepo: Repository<AppointmentServiceEntity>,
     private readonly http: InternalHttpClient,
     private readonly appointments: AppointmentsService
   ) {}
@@ -98,7 +118,7 @@ export class PublicBookingService {
     serviceIds: string[],
     horario: { date: string; startTime: string }
   ): Promise<string> {
-    const servicios = await this.http.enviar<{ duration: number }[]>(
+    const servicios = await this.http.enviar<LineaResuelta[]>(
       "core",
       "/internal/services/resolve",
       { businessId, ids: serviceIds }
@@ -110,15 +130,19 @@ export class PublicBookingService {
       );
     }
 
-    const totalDuration = servicios.reduce((sum, s) => sum + s.duration, 0);
-    const endTime = calculateEndTime(horario.startTime, totalDuration);
+    const lineas = servicios.map((s, orden) => ({ ...s, orden }));
+    const endTime = calculateEndTime(
+      horario.startTime,
+      duracionDeCliente(lineas)
+    );
     const dayOfWeek = new Date(horario.date + "T12:00:00").getDay();
 
     return this.primerProfesionalLibre(
       businessId,
       horario.date,
       horario.startTime,
-      endTime,
+      finDeOcupacion(horario.startTime, lineas),
+      intervalosDeAgenda(horario.startTime, endTime, lineas),
       dayOfWeek
     );
   }
@@ -159,7 +183,8 @@ export class PublicBookingService {
     businessId: string,
     date: string,
     startTime: string,
-    endTime: string,
+    ocupadoHasta: string,
+    intervalos: Intervalo[],
     dayOfWeek: number
   ): Promise<string> {
     const horarios = await this.availRepo.find({
@@ -200,12 +225,21 @@ export class PublicBookingService {
       }
     }
 
+    // Mismo reparto por intervalos que aplica el alta de la cita.
+    const lineasPorCitaId = lineasPorCita(
+      citas.length === 0
+        ? []
+        : await this.lineaRepo.find({
+            where: { appointmentId: In(citas.map((c) => c.id)) },
+          })
+    );
+
     for (const professionalId of candidatos) {
       const horario = horarioPorProfesional.get(professionalId);
       if (!horario) continue;
       if (
         timeToMinutes(startTime) < timeToMinutes(horario.startTime) ||
-        timeToMinutes(endTime) > timeToMinutes(horario.endTime)
+        timeToMinutes(ocupadoHasta) > timeToMinutes(horario.endTime)
       ) {
         continue;
       }
@@ -213,14 +247,17 @@ export class PublicBookingService {
       const bloqueado = bloqueos.some(
         (b) =>
           b.professionalId === professionalId &&
-          timesOverlap(startTime, endTime, b.startTime, b.endTime)
+          timesOverlap(startTime, ocupadoHasta, b.startTime, b.endTime)
       );
       if (bloqueado) continue;
 
       const ocupado = citas.some(
         (a) =>
           a.professionalId === professionalId &&
-          timesOverlap(startTime, endTime, a.startTime, a.endTime)
+          algunSolape(
+            intervalosDeCita(a, lineasPorCitaId.get(a.id) ?? []),
+            intervalos
+          )
       );
       if (!ocupado) return professionalId;
     }

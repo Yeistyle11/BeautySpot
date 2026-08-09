@@ -18,9 +18,22 @@ const CORTE = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const BARBA = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 /** Lo que el catálogo del core-service devuelve para los servicios del fixture. */
+/** Sin procesado ni limpieza: cada servicio ocupa su bloque entero. */
+const sinReparto = {
+  procesadoDesde: null,
+  procesadoMinutos: null,
+  bufferDespues: 0,
+};
+
 const CATALOGO = [
-  { id: CORTE, name: "Corte de cabello", price: 30000, duration: 30 },
-  { id: BARBA, name: "Barba", price: 20000, duration: 20 },
+  {
+    id: CORTE,
+    name: "Corte de cabello",
+    price: 30000,
+    duration: 30,
+    ...sinReparto,
+  },
+  { id: BARBA, name: "Barba", price: 20000, duration: 20, ...sinReparto },
 ];
 
 describe("PublicBookingService", () => {
@@ -89,6 +102,8 @@ describe("PublicBookingService", () => {
     mockApptServiceRepo = {
       create: jest.fn(),
       save: jest.fn(),
+      // Líneas de las citas ya reservadas.
+      find: jest.fn().mockResolvedValue([]),
     } as any;
 
     mockAvailRepo = {

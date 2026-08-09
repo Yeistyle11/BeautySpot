@@ -98,8 +98,14 @@ export class BlockedSlotsService {
         status: In(ESTADOS_VIVOS),
       },
     });
+    // Contra la envolvente de la cita, limpieza incluida.
     const choca = citas.filter((c) =>
-      timesOverlap(data.startTime, data.endTime, c.startTime, c.endTime)
+      timesOverlap(
+        data.startTime,
+        data.endTime,
+        c.startTime,
+        c.ocupadoHasta ?? c.endTime
+      )
     );
     if (choca.length > 0) {
       throw new BadRequestException(

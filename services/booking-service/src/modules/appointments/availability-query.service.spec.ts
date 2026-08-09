@@ -6,6 +6,7 @@ import { AvailabilityQueryService } from "./availability-query.service";
 import { Appointment } from "../../entities/appointment.entity";
 import { Availability } from "../../entities/availability.entity";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
+import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 import { ZonaDelNegocioService } from "@beautyspot/nest-common";
 import { HorarioDelNegocioService } from "./horario-del-negocio.service";
 
@@ -29,6 +30,10 @@ describe("AvailabilityQueryService", () => {
   let mockBlockRepo: jest.Mocked<Repository<BlockedSlot>>;
   let mockZonas: { de: jest.Mock };
   let mockHorario: { tramosDelDia: jest.Mock };
+  let mockLineaRepo: { find: jest.Mock };
+
+  /** La reserva candidata, como bloque continuo. */
+  const franja = (inicio: string, fin: string) => [{ inicio, fin }];
 
   const mockAvailability: Availability = {
     id: "avail-123",
@@ -66,7 +71,11 @@ describe("AvailabilityQueryService", () => {
   };
 
   beforeEach(async () => {
-    mockApptRepo = { find: jest.fn() } as never;
+    mockLineaRepo = { find: jest.fn().mockResolvedValue([]) };
+    mockApptRepo = {
+      find: jest.fn(),
+      manager: { getRepository: () => mockLineaRepo },
+    } as never;
     mockAvailRepo = { findOne: jest.fn(), find: jest.fn() } as never;
     mockBlockRepo = { find: jest.fn() } as never;
     mockZonas = { de: jest.fn().mockResolvedValue("America/Bogota") };
@@ -80,6 +89,10 @@ describe("AvailabilityQueryService", () => {
         { provide: getRepositoryToken(Appointment), useValue: mockApptRepo },
         { provide: getRepositoryToken(Availability), useValue: mockAvailRepo },
         { provide: getRepositoryToken(BlockedSlot), useValue: mockBlockRepo },
+        {
+          provide: getRepositoryToken(AppointmentServiceEntity),
+          useValue: mockLineaRepo,
+        },
         { provide: ZonaDelNegocioService, useValue: mockZonas },
         { provide: HorarioDelNegocioService, useValue: mockHorario },
       ],
@@ -164,6 +177,156 @@ describe("AvailabilityQueryService", () => {
 
       const bookedSlot = result.find((s: any) => s.startTime === "10:00");
       expect(bookedSlot?.available).toBe(false);
+    });
+  });
+
+  describe("tiempo de procesado y limpieza", () => {
+    /** Jornada de 09:00 a 14:00 el miércoles del fixture. */
+    const jornada = {
+      ...mockAvailability,
+      dayOfWeek: new Date(MIERCOLES_FUTURO + "T12:00:00").getDay(),
+      startTime: "09:00",
+      endTime: "14:00",
+    } as unknown as Availability;
+
+    /** Tinte de 10:00 a 11:30: aplica 20, procesa 40 y remata 30. */
+    const tinte = {
+      id: "appt-tinte",
+      professionalId: "prof-123",
+      startTime: "10:00",
+      endTime: "11:30",
+    } as Appointment;
+
+    const lineaDelTinte = (bufferDespues = 0) => [
+      {
+        appointmentId: "appt-tinte",
+        duration: 90,
+        orden: 0,
+        procesadoDesde: 20,
+        procesadoMinutos: 40,
+        bufferDespues,
+      },
+    ];
+
+    beforeEach(() => {
+      mockAvailRepo.find.mockResolvedValue([jornada]);
+      mockBlockRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([tinte] as never);
+    });
+
+    it("ofrece el hueco que deja el procesado", async () => {
+      mockLineaRepo.find.mockResolvedValue(lineaDelTinte());
+
+      const slots = await service.franjasDeProfesional(
+        "business-123",
+        "prof-123",
+        MIERCOLES_FUTURO,
+        30
+      );
+
+      // Entre las 10:20 y las 11:00 el profesional está libre.
+      expect(slots.find((s) => s.startTime === "10:30")?.available).toBe(true);
+      // Aplicando y rematando, no.
+      expect(slots.find((s) => s.startTime === "10:00")?.available).toBe(false);
+      expect(slots.find((s) => s.startTime === "11:00")?.available).toBe(false);
+    });
+
+    it("ofrece también la hora en que se abre el hueco, fuera de la rejilla", async () => {
+      mockLineaRepo.find.mockResolvedValue(lineaDelTinte());
+
+      const slots = await service.franjasDeProfesional(
+        "business-123",
+        "prof-123",
+        MIERCOLES_FUTURO,
+        40
+      );
+
+      // Las 10:20 no caen en la rejilla de media hora, y son justo donde cabe
+      // un servicio de 40 minutos.
+      expect(slots.find((s) => s.startTime === "10:20")?.available).toBe(true);
+    });
+
+    it("mantiene ocupada la limpieza posterior", async () => {
+      mockLineaRepo.find.mockResolvedValue(lineaDelTinte(30));
+
+      const slots = await service.franjasDeProfesional(
+        "business-123",
+        "prof-123",
+        MIERCOLES_FUTURO,
+        30
+      );
+
+      // La clienta se fue a las 11:30, pero hasta las 12:00 se está limpiando.
+      expect(slots.find((s) => s.startTime === "11:30")?.available).toBe(false);
+      expect(slots.find((s) => s.startTime === "12:00")?.available).toBe(true);
+    });
+
+    it("sin líneas cargadas la cita ocupa su bloque entero, como siempre", async () => {
+      mockLineaRepo.find.mockResolvedValue([]);
+
+      const slots = await service.franjasDeProfesional(
+        "business-123",
+        "prof-123",
+        MIERCOLES_FUTURO,
+        30
+      );
+
+      expect(slots.find((s) => s.startTime === "10:30")?.available).toBe(false);
+      expect(slots.map((s) => s.startTime)).not.toContain("10:20");
+    });
+
+    it("evalúa en todo el equipo el hueco que abre uno solo", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        jornada,
+        { ...jornada, professionalId: "prof-libre" } as Availability,
+      ]);
+      mockLineaRepo.find.mockResolvedValue(lineaDelTinte());
+
+      const slots = await service.franjasDelNegocio(
+        "business-123",
+        MIERCOLES_FUTURO,
+        40
+      );
+
+      expect(slots.find((s) => s.startTime === "10:20")?.available).toBe(true);
+    });
+
+    it("la limpieza tiene que caber en la jornada del profesional", async () => {
+      mockAvailRepo.find.mockResolvedValue([jornada]);
+
+      // 13:30 + 30 min termina justo al cierre, pero la limpieza se saldría.
+      await expect(
+        service.franjaDentroDelHorario(
+          "business-123",
+          "prof-123",
+          MIERCOLES_FUTURO,
+          "13:30",
+          "14:00",
+          "14:15",
+          jornada.dayOfWeek
+        )
+      ).resolves.toBe(false);
+    });
+
+    it("a la apertura del negocio solo se le exige la parte con cliente", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        { ...jornada, endTime: "20:00" } as Availability,
+      ]);
+      mockHorario.tramosDelDia.mockResolvedValue([
+        { startTime: "09:00", endTime: "14:00" },
+      ]);
+
+      await expect(
+        service.franjaDentroDelHorario(
+          "business-123",
+          "prof-123",
+          MIERCOLES_FUTURO,
+          "13:30",
+          "14:00",
+          "14:15",
+          jornada.dayOfWeek
+        )
+      ).resolves.toBe(true);
     });
   });
 
@@ -389,6 +552,7 @@ describe("AvailabilityQueryService", () => {
           MIERCOLES_FUTURO,
           "12:30",
           "13:30",
+          "13:30",
           3
         )
       ).resolves.toBe(false);
@@ -401,6 +565,7 @@ describe("AvailabilityQueryService", () => {
           "prof-123",
           MIERCOLES_FUTURO,
           "15:00",
+          "16:00",
           "16:00",
           3
         )
@@ -445,6 +610,7 @@ describe("AvailabilityQueryService", () => {
           "prof-123",
           MIERCOLES_FUTURO,
           "15:00",
+          "16:00",
           "16:00",
           3
         )
@@ -516,6 +682,7 @@ describe("AvailabilityQueryService", () => {
           "2024-01-15",
           "10:00",
           "11:00",
+          "11:00",
           1
         )
       ).resolves.toBe(true);
@@ -530,6 +697,7 @@ describe("AvailabilityQueryService", () => {
           "prof-123",
           "2024-01-15",
           "10:00",
+          "11:00",
           "11:00",
           1
         )
@@ -547,6 +715,7 @@ describe("AvailabilityQueryService", () => {
           "2024-01-15",
           "17:30",
           "19:30",
+          "19:30",
           1
         )
       ).resolves.toBe(false);
@@ -563,6 +732,7 @@ describe("AvailabilityQueryService", () => {
           "2024-01-15",
           "12:30",
           "13:30",
+          "13:30",
           1
         )
       ).resolves.toBe(false);
@@ -578,8 +748,7 @@ describe("AvailabilityQueryService", () => {
           "business-123",
           "prof-123",
           "2024-01-15",
-          "10:30",
-          "11:30"
+          franja("10:30", "11:30")
         )
       ).resolves.toBe(true);
     });
@@ -592,8 +761,7 @@ describe("AvailabilityQueryService", () => {
           "business-123",
           "prof-123",
           "2024-01-15",
-          "16:00",
-          "17:00"
+          franja("16:00", "17:00")
         )
       ).resolves.toBe(false);
     });
@@ -606,8 +774,7 @@ describe("AvailabilityQueryService", () => {
           "business-123",
           "prof-123",
           "2024-01-15",
-          "10:30",
-          "11:30",
+          franja("10:30", "11:30"),
           "appt-123"
         )
       ).resolves.toBe(false);
@@ -616,7 +783,10 @@ describe("AvailabilityQueryService", () => {
 
   describe("hayConflictoEn", () => {
     it("consulta con el manager de la transacción, no con el repositorio", async () => {
-      const manager = { find: jest.fn().mockResolvedValue([mockAppointment]) };
+      const manager = {
+        find: jest.fn().mockResolvedValue([mockAppointment]),
+        getRepository: () => mockLineaRepo,
+      };
 
       // Es el chequeo autoritativo dentro de la transacción SERIALIZABLE: si
       // leyera por el repositorio quedaría fuera del aislamiento.
@@ -626,8 +796,7 @@ describe("AvailabilityQueryService", () => {
           "business-123",
           "prof-123",
           "2024-01-15",
-          "10:30",
-          "11:30"
+          franja("10:30", "11:30")
         )
       ).resolves.toBe(true);
       expect(manager.find).toHaveBeenCalled();

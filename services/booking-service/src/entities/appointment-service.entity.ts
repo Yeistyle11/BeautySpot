@@ -17,6 +17,15 @@ export class AppointmentServiceEntity extends BaseEntity {
   })
   price!: number;
   @Column() duration!: number;
+  /** Posición dentro de la cita, de la que sale su hora de inicio. */
+  @Column({ type: "int", default: 0 }) orden!: number;
+  /** Ventana en que el profesional queda libre, congelada al reservar. */
+  @Column({ type: "int", nullable: true, name: "procesado_desde" })
+  procesadoDesde!: number | null;
+  @Column({ type: "int", nullable: true, name: "procesado_minutos" })
+  procesadoMinutos!: number | null;
+  @Column({ type: "int", default: 0, name: "buffer_despues" })
+  bufferDespues!: number;
 
   @ManyToOne(() => Appointment, (a) => a.appointmentServices, {
     onDelete: "CASCADE",

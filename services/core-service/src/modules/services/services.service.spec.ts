@@ -4,7 +4,7 @@ import { Repository } from "typeorm";
 import { ServicesService } from "./services.service";
 import { ServiceCategoriesService } from "../service-categories/service-categories.service";
 import { Service } from "../../entities/service.entity";
-import { NotFoundException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 
 describe("ServicesService", () => {
   let service: ServicesService;
@@ -19,6 +19,9 @@ describe("ServicesService", () => {
     category: "Haircut",
     duration: 30,
     price: 45000,
+    procesadoDesde: null,
+    procesadoMinutos: null,
+    bufferDespues: 0,
     active: true,
     image: "",
     categoryId: "category-123",
@@ -231,6 +234,51 @@ describe("ServicesService", () => {
       await expect(
         service.findById("non-existent", "business-123")
       ).rejects.toThrow("Servicio no encontrado");
+    });
+  });
+
+  describe("tiempo de procesado", () => {
+    /** Tinte de 90 min con la ventana de procesado configurada. */
+    const tinte = {
+      ...mockService,
+      duration: 90,
+      procesadoDesde: 20,
+      procesadoMinutos: 40,
+    } as any;
+
+    it("rechaza una ventana que no cabe en la duración", async () => {
+      await expect(
+        service.create("business-123", {
+          name: "Tinte",
+          duration: 50,
+          procesadoDesde: 20,
+          procesadoMinutos: 40,
+        })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rechaza media pareja", async () => {
+      await expect(
+        service.create("business-123", { name: "Tinte", procesadoDesde: 20 })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rechaza acortar la duración dejando fuera el procesado guardado", async () => {
+      mockRepo.findOne.mockResolvedValue(tinte);
+
+      await expect(
+        service.update("service-123", "business-123", { duration: 45 })
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("acepta acortar la duración si el procesado sigue cabiendo", async () => {
+      mockRepo.findOne.mockResolvedValue(tinte);
+      mockRepo.update.mockResolvedValue({ affected: 1 } as any);
+
+      await service.update("service-123", "business-123", { duration: 60 });
+
+      expect(mockRepo.update).toHaveBeenCalled();
     });
   });
 
