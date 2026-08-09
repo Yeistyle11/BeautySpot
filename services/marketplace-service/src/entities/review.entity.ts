@@ -6,8 +6,9 @@ import { TenantEntity } from "@beautyspot/database";
 // El listado de un negocio ordena siempre por fecha; sin este índice Postgres
 // lee todas sus reseñas y las ordena en memoria en cada página.
 @Index("idx_reviews_negocio_fecha", ["businessId", "createdAt"])
-// Cada alta comprueba si la cita ya tiene reseña.
-@Index("idx_reviews_cita", ["appointmentId"])
+// Una reseña por cita, y garantizado por la base: con un índice no único, dos
+// altas simultáneas pasan las dos la comprobación previa.
+@Index("idx_reviews_cita", ["appointmentId"], { unique: true })
 export class ReviewEntity extends TenantEntity {
   @Column({ type: "uuid", name: "appointment_id", nullable: true })
   appointmentId!: string;

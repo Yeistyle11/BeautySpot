@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { Repository, DataSource } from "typeorm";
@@ -13,6 +14,9 @@ import { ProfessionalProfilesService } from "../professional-profiles/profession
 import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { CreateReviewDto, ReviewQueryDto } from "./dto/review.dto";
+
+/** Código de Postgres para violación de restricción única. */
+const VIOLACION_DE_UNICIDAD = "23505";
 
 /** Conteo de reseñas por número de estrellas (1 a 5). */
 export interface RatingDistribution {
@@ -55,16 +59,13 @@ export class ReviewsService {
    * y emite el evento REVIEW_CREATED.
    */
   async create(dto: CreateReviewDto, clientId: string): Promise<ReviewEntity> {
-    // Validar una reseña por cita
-    if (dto.appointmentId) {
-      const existing = await this.repo.findOne({
-        where: { appointmentId: dto.appointmentId },
-      });
-      if (existing)
-        throw new ConflictException("Ya existe una reseña para esta cita");
+    const existing = await this.repo.findOne({
+      where: { appointmentId: dto.appointmentId },
+    });
+    if (existing)
+      throw new ConflictException("Ya existe una reseña para esta cita");
 
-      dto.photos = dto.photos?.slice(0, 3);
-    }
+    dto.photos = dto.photos?.slice(0, 3);
 
     // Si rating < 4 y no hay comentario, requerirlo
     if (dto.rating < 4 && !dto.comment) {
@@ -73,20 +74,56 @@ export class ReviewsService {
       );
     }
 
+    // El profesional sale de la cita, no del cuerpo: quien reseña no elige a
+    // quién califica.
+    const cita = await this.verificarCita(dto, clientId);
+    const professionalId = cita.professionalId;
+
     const review = this.repo.create({
       ...dto,
+      professionalId,
+      serviceName: dto.serviceName ?? cita.servicios?.join(", "),
       clientId,
-      isVerified: await this.esVerificable(dto, clientId),
+      isVerified: true,
     });
 
-    const saved = await this.dataSource.transaction(async (manager) => {
+    // El findOne de arriba no basta: dos altas simultáneas lo pasan las dos y
+    // es el índice único quien las separa.
+    const saved = await this.guardarReseña(
+      review,
+      dto,
+      clientId,
+      professionalId
+    ).catch((error: unknown) => {
+      if ((error as { code?: string })?.code === VIOLACION_DE_UNICIDAD) {
+        throw new ConflictException("Ya existe una reseña para esta cita");
+      }
+      throw error;
+    });
+
+    // Tras confirmar: dentro de la transacción alargaría los bloqueos con una
+    // conversación con Redis, y si se deshiciera habríamos borrado la caché de
+    // una reseña que no llegó a existir.
+    await this.profilesService.invalidarCache(dto.businessId);
+
+    return saved;
+  }
+
+  /** Persiste la reseña, recalcula las medias y emite el evento, todo en una transacción. */
+  private async guardarReseña(
+    review: ReviewEntity,
+    dto: CreateReviewDto,
+    clientId: string,
+    professionalId?: string
+  ): Promise<ReviewEntity> {
+    return this.dataSource.transaction(async (manager) => {
       const guardada = await manager.getRepository(ReviewEntity).save(review);
 
       await this.profilesService.updateRating(dto.businessId, manager);
 
-      if (dto.professionalId) {
+      if (professionalId) {
         await this.professionalProfilesService.updateRating(
-          dto.professionalId,
+          professionalId,
           manager
         );
       }
@@ -98,7 +135,7 @@ export class ReviewsService {
         payload: {
           reviewId: guardada.id,
           businessId: dto.businessId,
-          professionalId: dto.professionalId,
+          professionalId,
           clientId,
           rating: dto.rating,
           comment: dto.comment,
@@ -108,36 +145,40 @@ export class ReviewsService {
 
       return guardada;
     });
-
-    // Tras confirmar: dentro de la transacción alargaría los bloqueos con una
-    // conversación con Redis, y si se deshiciera habríamos borrado la caché de
-    // una reseña que no llegó a existir.
-    await this.profilesService.invalidarCache(dto.businessId);
-
-    return saved;
   }
 
   /**
-   * Comprueba con booking si la reseña merece el distintivo de verificada: solo
-   * lo lleva quien reseña una cita suya, de ese negocio y ya atendida. Si
-   * booking no responde no se concede, pero la reseña se publica igual.
+   * Exige a booking que la cita exista, sea de este usuario y de este negocio,
+   * y esté atendida. Sin eso no hay reseña.
+   *
+   * Usa `pedir` y no `pedirONulo` a propósito: si booking no responde, el alta
+   * falla. Publicar sin verificar dejaría abierta justo la puerta que esto
+   * cierra —hundir el rating de un competidor a base de reseñas fabricadas—.
    */
-  private async esVerificable(
+  private async verificarCita(
     dto: CreateReviewDto,
     clientId: string
-  ): Promise<boolean> {
-    if (!dto.appointmentId) return false;
-
+  ): Promise<{ professionalId?: string; servicios?: string[] }> {
     const parametros = new URLSearchParams({
       userId: clientId,
       businessId: dto.businessId,
     });
-    const respuesta = await this.http.pedirONulo<{ resenable: boolean }>(
+    const respuesta = await this.http.pedir<{
+      resenable: boolean;
+      professionalId?: string;
+      servicios?: string[];
+    }>(
       "booking",
       `/internal/appointments/${dto.appointmentId}/resenable?${parametros}`
     );
 
-    return respuesta?.resenable === true;
+    if (respuesta?.resenable !== true) {
+      throw new ForbiddenException(
+        "Solo puedes reseñar una cita tuya que ya se haya atendido"
+      );
+    }
+
+    return respuesta;
   }
 
   /** Lista las reseñas de un negocio con filtros (estrellas, profesional, con fotos) y paginación. */

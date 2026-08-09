@@ -8,6 +8,8 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
@@ -21,7 +23,7 @@ describe("ReviewsService", () => {
   let mockProfilesService: jest.Mocked<BusinessProfilesService>;
   let mockProfessionalService: jest.Mocked<ProfessionalProfilesService>;
   let mockOutbox: jest.Mocked<OutboxService>;
-  let mockHttp: { pedirONulo: jest.Mock };
+  let mockHttp: { pedirONulo: jest.Mock; pedir: jest.Mock };
   let mockManagerRepo: any;
   let mockManager: any;
   let mockDataSource: any;
@@ -98,6 +100,13 @@ describe("ReviewsService", () => {
     // Por defecto, booking no confirma la cita: la reseña no sale verificada.
     mockHttp = {
       pedirONulo: jest.fn().mockResolvedValue({ resenable: false }),
+      // Por defecto la cita es reseñable: cada test que quiera lo contrario lo
+      // dice explícitamente.
+      pedir: jest.fn().mockResolvedValue({
+        resenable: true,
+        professionalId: "prof-123",
+        servicios: ["Corte"],
+      }),
     };
 
     const mockQueryBuilder = {
@@ -189,6 +198,7 @@ describe("ReviewsService", () => {
     it("invalida la caché después de confirmar, no dentro de la transacción", async () => {
       const dto = {
         businessId: "business-123",
+        appointmentId: "appointment-123",
         rating: 5,
         comment: "Excelente",
       };
@@ -248,7 +258,7 @@ describe("ReviewsService", () => {
       );
     });
 
-    it("marca como verificada si booking confirma que la cita es del usuario", async () => {
+    it("acepta la reseña cuando booking confirma que la cita es del usuario", async () => {
       const dto = {
         businessId: "business-123",
         appointmentId: "cita-real",
@@ -259,11 +269,10 @@ describe("ReviewsService", () => {
       mockRepo.findOne.mockResolvedValue(null);
       mockRepo.create.mockReturnValue(mockReview);
       mockManagerRepo.save.mockResolvedValue(mockReview);
-      mockHttp.pedirONulo.mockResolvedValue({ resenable: true });
 
       await service.create(dto, "client-123");
 
-      expect(mockHttp.pedirONulo).toHaveBeenCalledWith(
+      expect(mockHttp.pedir).toHaveBeenCalledWith(
         "booking",
         expect.stringContaining("/internal/appointments/cita-real/resenable")
       );
@@ -272,7 +281,70 @@ describe("ReviewsService", () => {
       );
     });
 
-    it("no marca como verificada si booking no responde", async () => {
+    it("rechaza la reseña de una cita que no es del usuario o no se atendió", async () => {
+      const dto = {
+        businessId: "business-123",
+        appointmentId: "cita-ajena",
+        rating: 1,
+        comment: "Pésimo",
+      };
+
+      mockRepo.findOne.mockResolvedValue(null);
+      mockHttp.pedir.mockResolvedValue({ resenable: false });
+
+      await expect(service.create(dto, "client-123")).rejects.toThrow(
+        ForbiddenException
+      );
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it("no publica la reseña si booking no responde", async () => {
+      const dto = {
+        businessId: "business-123",
+        appointmentId: "cita-real",
+        rating: 1,
+        comment: "Pésimo",
+      };
+
+      mockRepo.findOne.mockResolvedValue(null);
+      // Publicar sin verificar es justo el agujero que esto cierra: se puede
+      // hundir el rating de un competidor mientras booking esté caído.
+      mockHttp.pedir.mockRejectedValue(
+        new ServiceUnavailableException("booking no disponible")
+      );
+
+      await expect(service.create(dto, "client-123")).rejects.toThrow(
+        ServiceUnavailableException
+      );
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it("califica al profesional de la cita, no al que diga el cuerpo", async () => {
+      const dto = {
+        businessId: "business-123",
+        appointmentId: "cita-real",
+        rating: 1,
+        comment: "Pésimo",
+        // Un profesional ajeno colado en el cuerpo no debe llegar a la reseña.
+        professionalId: "prof-de-la-competencia",
+      } as never;
+
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockReturnValue(mockReview);
+      mockManagerRepo.save.mockResolvedValue(mockReview);
+
+      await service.create(dto, "client-123");
+
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ professionalId: "prof-123" })
+      );
+      expect(mockProfessionalService.updateRating).toHaveBeenCalledWith(
+        "prof-123",
+        mockManager
+      );
+    });
+
+    it("traduce la carrera contra el índice único a un conflicto", async () => {
       const dto = {
         businessId: "business-123",
         appointmentId: "cita-real",
@@ -280,51 +352,16 @@ describe("ReviewsService", () => {
         comment: "Excelente",
       };
 
+      // El findOne previo no ve nada, pero otra alta simultánea gana la
+      // carrera y la base rechaza la segunda.
       mockRepo.findOne.mockResolvedValue(null);
       mockRepo.create.mockReturnValue(mockReview);
-      mockManagerRepo.save.mockResolvedValue(mockReview);
-      // El cliente devuelve null cuando el otro servicio falla: sin poder
-      // comprobarlo no se concede el distintivo, pero la reseña se publica.
-      mockHttp.pedirONulo.mockResolvedValue(null);
-
-      await service.create(dto, "client-123");
-
-      expect(mockRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ isVerified: false })
+      mockDataSource.transaction.mockRejectedValue(
+        Object.assign(new Error("duplicate key"), { code: "23505" })
       );
-    });
 
-    it("no consulta a booking si la reseña no viene de una cita", async () => {
-      const dto = { businessId: "business-123", rating: 5, comment: "Bien" };
-
-      mockRepo.findOne.mockResolvedValue(null);
-      mockRepo.create.mockReturnValue(mockReview);
-      mockManagerRepo.save.mockResolvedValue(mockReview);
-
-      await service.create(dto, "client-123");
-
-      expect(mockHttp.pedirONulo).not.toHaveBeenCalled();
-      expect(mockRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ isVerified: false })
-      );
-    });
-
-    it("no marca como verificada una reseña por traer un id de cita", async () => {
-      const dto = {
-        businessId: "business-123",
-        appointmentId: "cita-inventada",
-        rating: 5,
-        comment: "Excelente",
-      };
-
-      mockRepo.findOne.mockResolvedValue(null);
-      mockRepo.create.mockReturnValue(mockReview);
-      mockManagerRepo.save.mockResolvedValue(mockReview);
-
-      await service.create(dto, "client-123");
-
-      expect(mockRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ isVerified: false })
+      await expect(service.create(dto, "client-123")).rejects.toThrow(
+        ConflictException
       );
     });
 
@@ -350,7 +387,7 @@ describe("ReviewsService", () => {
     it("debería lanzar BadRequestException si rating < 4 sin comentario", async () => {
       const dto = {
         businessId: "business-123",
-        professionalId: "prof-123",
+        appointmentId: "appointment-123",
         rating: 3,
         comment: undefined,
       };
@@ -366,7 +403,7 @@ describe("ReviewsService", () => {
     it("debería permitir rating >= 4 sin comentario", async () => {
       const dto = {
         businessId: "business-123",
-        professionalId: "prof-123",
+        appointmentId: "appointment-123",
         rating: 4,
         comment: undefined,
       };
@@ -383,10 +420,9 @@ describe("ReviewsService", () => {
       expect(mockOutbox.enqueue).toHaveBeenCalled();
     });
 
-    it("debería limitar a 3 fotos si viene de cita", async () => {
+    it("debería limitar a 3 fotos", async () => {
       const dto = {
         businessId: "business-123",
-        professionalId: "prof-123",
         appointmentId: "appointment-123",
         rating: 5,
         comment: "Excelente servicio",
@@ -408,43 +444,10 @@ describe("ReviewsService", () => {
       expect(result.photos).toHaveLength(3);
     });
 
-    it("no debería limitar fotos si no viene de cita", async () => {
+    it("no actualiza el rating del profesional si la cita no traía ninguno", async () => {
       const dto = {
         businessId: "business-123",
-        professionalId: "prof-123",
-        rating: 5,
-        comment: "Excelente servicio",
-        photos: [
-          "photo1.jpg",
-          "photo2.jpg",
-          "photo3.jpg",
-          "photo4.jpg",
-          "photo5.jpg",
-        ],
-      };
-
-      mockRepo.findOne.mockResolvedValue(null);
-      mockRepo.create.mockReturnValue(mockReview);
-      const allPhotos = [
-        "photo1.jpg",
-        "photo2.jpg",
-        "photo3.jpg",
-        "photo4.jpg",
-        "photo5.jpg",
-      ];
-      mockManagerRepo.save.mockResolvedValue({
-        ...mockReview,
-        photos: allPhotos,
-      } as any);
-
-      const result = await service.create(dto, "client-123");
-
-      expect(result.photos).toHaveLength(5);
-    });
-
-    it("no debería actualizar rating del profesional si no hay professionalId", async () => {
-      const dto = {
-        businessId: "business-123",
+        appointmentId: "appointment-123",
         rating: 5,
         comment: "Excelente",
       };
@@ -453,6 +456,7 @@ describe("ReviewsService", () => {
       mockRepo.create.mockReturnValue(mockReview);
       mockManagerRepo.save.mockResolvedValue(mockReview);
       mockProfilesService.updateRating.mockResolvedValue(undefined);
+      mockHttp.pedir.mockResolvedValue({ resenable: true });
 
       await service.create(dto, "client-123");
 
@@ -463,6 +467,7 @@ describe("ReviewsService", () => {
     it("debería propagar errores de la transacción (fail-closed)", async () => {
       const dto = {
         businessId: "business-123",
+        appointmentId: "appointment-123",
         rating: 5,
         comment: "Excelente",
       };
