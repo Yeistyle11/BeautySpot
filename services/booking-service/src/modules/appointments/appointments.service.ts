@@ -17,6 +17,7 @@ import {
   InternalHttpClient,
   OutboxService,
   withSerializableRetry,
+  ZonaDelNegocioService,
 } from "@beautyspot/nest-common";
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { AvailabilityQueryService } from "./availability-query.service";
@@ -24,14 +25,13 @@ import {
   HORAS_MINIMAS_CANCELACION,
   PROPORCION_PUNTOS_FIDELIDAD,
 } from "@beautyspot/shared-constants";
-import { calculateEndTime } from "@beautyspot/shared-utils";
-import { esInstantePasado } from "../../common/hora-del-negocio";
+import {
+  calculateEndTime,
+  esInstantePasadoEn,
+  instanteDe,
+} from "@beautyspot/shared-utils";
 
-/**
- * Estados desde los que tiene sentido mover una cita. Fuera de aquí la cita ya
- * cerró su ciclo: reagendar una cancelada o una ya cobrada la resucitaba
- * ocupando agenda.
- */
+/** Estados desde los que se puede mover una cita. */
 const ESTADOS_REAGENDABLES: AppointmentStatus[] = [
   AppointmentStatus.PENDING,
   AppointmentStatus.CONFIRMED,
@@ -58,17 +58,30 @@ export class AppointmentsService {
     @InjectDataSource() private dataSource: DataSource,
     private readonly outbox: OutboxService,
     private readonly http: InternalHttpClient,
-    private readonly disponibilidad: AvailabilityQueryService
+    private readonly disponibilidad: AvailabilityQueryService,
+    private readonly zonas: ZonaDelNegocioService
   ) {}
+
+  /** Indica si a la cita le falta menos de la antelación mínima. */
+  private async faltaMenosDeLoMinimo(
+    businessId: string,
+    appt: Pick<Appointment, "date" | "startTime">
+  ): Promise<boolean> {
+    const zona = await this.zonas.de(businessId);
+    const inicio = instanteDe(zona, appt.date, appt.startTime);
+    const horasQueFaltan = (inicio.getTime() - Date.now()) / (1000 * 60 * 60);
+
+    return horasQueFaltan < HORAS_MINIMAS_CANCELACION;
+  }
 
   /**
    * Precio y duración que el catálogo del core-service aplica a estos servicios
    * para este profesional.
    *
-   * Es la única fuente: si viniera del cuerpo de la petición, cualquiera podría
-   * reservar por $0 desde la ruta pública. Se usa `enviar` y no `pedirONulo`
-   * a propósito — un catálogo que no responde tiene que hacer fallar la reserva,
-   * no degradarla a precio cero.
+   * Es la única fuente: tomarlos del cuerpo dejaría reservar por $0 desde la
+   * ruta pública. Se usa `enviar` y no `pedirONulo` a propósito — un catálogo
+   * que no responde tiene que hacer fallar la reserva, no degradarla a precio
+   * cero.
    */
   private async resolverServicios(
     businessId: string,
@@ -113,7 +126,8 @@ export class AppointmentsService {
     const totalAmount = servicios.reduce((sum, s) => sum + s.price, 0);
     const endTime = calculateEndTime(data.startTime, totalDuration);
 
-    if (esInstantePasado(data.date, data.startTime)) {
+    const zona = await this.zonas.de(businessId);
+    if (esInstantePasadoEn(zona, data.date, data.startTime)) {
       throw new BadRequestException(
         "No se puede agendar una cita en el pasado"
       );
@@ -286,7 +300,8 @@ export class AppointmentsService {
     // Completar arrastra el cobro y los puntos de fidelidad: darla por atendida
     // antes de que empiece genera un ingreso por un servicio que no se ha
     // prestado.
-    if (!esInstantePasado(appt.date, appt.startTime)) {
+    const zona = await this.zonas.de(businessId);
+    if (!esInstantePasadoEn(zona, appt.date, appt.startTime)) {
       throw new BadRequestException(
         "La cita todavía no ha empezado: no se puede dar por atendida"
       );
@@ -339,11 +354,7 @@ export class AppointmentsService {
     }
 
     // Verificar politica de cancelacion (2 horas antes)
-    const appointmentDate = new Date(`${appt.date}T${appt.startTime}:00`);
-    const now = new Date();
-    const hoursDiff =
-      (appointmentDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-    if (hoursDiff < HORAS_MINIMAS_CANCELACION) {
+    if (await this.faltaMenosDeLoMinimo(businessId, appt)) {
       throw new ForbiddenException(
         "No se puede cancelar con menos de 2 horas de anticipacion"
       );
@@ -440,16 +451,14 @@ export class AppointmentsService {
       );
     }
 
-    const appointmentDate = new Date(`${appt.date}T${appt.startTime}:00`);
-    const hoursDiff =
-      (appointmentDate.getTime() - Date.now()) / (1000 * 60 * 60);
-    if (hoursDiff < HORAS_MINIMAS_CANCELACION) {
+    if (await this.faltaMenosDeLoMinimo(businessId, appt)) {
       throw new ForbiddenException(
         "No se puede reagendar con menos de 2 horas de anticipacion"
       );
     }
 
-    if (esInstantePasado(newDate, newStartTime)) {
+    const zona = await this.zonas.de(businessId);
+    if (esInstantePasadoEn(zona, newDate, newStartTime)) {
       throw new BadRequestException(
         "No se puede reagendar a un horario pasado"
       );

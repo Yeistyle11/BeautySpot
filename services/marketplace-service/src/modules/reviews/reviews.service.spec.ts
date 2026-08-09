@@ -307,8 +307,8 @@ describe("ReviewsService", () => {
       };
 
       mockRepo.findOne.mockResolvedValue(null);
-      // Publicar sin verificar es justo el agujero que esto cierra: se puede
-      // hundir el rating de un competidor mientras booking esté caído.
+      // Con booking caído, publicar sin verificar permitiría hundir el rating
+      // de un competidor.
       mockHttp.pedir.mockRejectedValue(
         new ServiceUnavailableException("booking no disponible")
       );

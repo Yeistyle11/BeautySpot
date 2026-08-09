@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { BadRequestException } from "@nestjs/common";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { DataSource, Repository } from "typeorm";
 import { BusinessHoursService } from "./business-hours.service";
 import { BusinessHours } from "../../entities/business-hours.entity";
 
@@ -28,6 +29,8 @@ describe("BusinessHoursService", () => {
       create: jest.fn().mockReturnValue(mockHours),
       save: jest.fn(),
       remove: jest.fn(),
+      // El reemplazo borra por criterio dentro de la transacción.
+      delete: jest.fn().mockResolvedValue({ affected: 0 }),
       update: jest.fn(),
       findOne: jest.fn(),
     } as any;
@@ -38,6 +41,15 @@ describe("BusinessHoursService", () => {
         {
           provide: getRepositoryToken(BusinessHours),
           useValue: mockRepo,
+        },
+        // La transacción entrega el mismo repositorio simulado del test.
+        {
+          provide: DataSource,
+          useValue: {
+            transaction: jest.fn((cb: (m: unknown) => unknown) =>
+              cb({ getRepository: jest.fn().mockReturnValue(mockRepo) })
+            ),
+          },
         },
       ],
     }).compile();
@@ -95,10 +107,9 @@ describe("BusinessHoursService", () => {
 
       const result = await service.batchUpsert("business-123", items);
 
-      expect(mockRepo.find).toHaveBeenCalledWith({
-        where: { businessId: "business-123" },
+      expect(mockRepo.delete).toHaveBeenCalledWith({
+        businessId: "business-123",
       });
-      expect(mockRepo.remove).not.toHaveBeenCalled();
       expect(mockRepo.save).toHaveBeenCalled();
       expect(result).toHaveLength(2);
     });
@@ -116,7 +127,6 @@ describe("BusinessHoursService", () => {
       } as any;
 
       mockRepo.find.mockResolvedValue(existingHours);
-      mockRepo.remove.mockResolvedValue({} as any);
       mockRepo.create.mockReturnValue(newHours);
       mockRepo.save.mockImplementation((entities: any) =>
         Promise.resolve(entities)
@@ -124,7 +134,11 @@ describe("BusinessHoursService", () => {
 
       const result = await service.batchUpsert("business-123", newItems);
 
-      expect(mockRepo.remove).toHaveBeenCalledWith(existingHours);
+      // Se borra por criterio dentro de la transacción, sin cargar antes las
+      // filas: si algo falla entre medias, no queda el negocio sin horario.
+      expect(mockRepo.delete).toHaveBeenCalledWith({
+        businessId: "business-123",
+      });
       expect(mockRepo.create).toHaveBeenCalledWith({
         businessId: "business-123",
         branchId: undefined,
@@ -201,6 +215,77 @@ describe("BusinessHoursService", () => {
       expect(mockRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ active: true })
       );
+    });
+  });
+
+  describe("validación de los tramos", () => {
+    beforeEach(() => {
+      mockRepo.save.mockImplementation((entities: any) =>
+        Promise.resolve(entities)
+      );
+    });
+
+    /** Intenta guardar esos tramos para el negocio de la prueba. */
+    const guardar = (items: Partial<BusinessHours>[]) =>
+      service.batchUpsert("business-123", items);
+
+    it("acepta dos tramos del mismo día que no se pisan", async () => {
+      await expect(
+        guardar([
+          { dayOfWeek: 3, openTime: "09:00", closeTime: "13:00" },
+          { dayOfWeek: 3, openTime: "15:00", closeTime: "19:00" },
+        ])
+      ).resolves.toBeDefined();
+    });
+
+    it("rechaza dos tramos del mismo día que se solapan", async () => {
+      await expect(
+        guardar([
+          { dayOfWeek: 3, openTime: "09:00", closeTime: "14:00" },
+          { dayOfWeek: 3, openTime: "13:00", closeTime: "19:00" },
+        ])
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    // Cada sede lleva su horario, así que el mismo tramo en dos sedes no es un
+    // solape.
+    it("permite el mismo tramo en sedes distintas", async () => {
+      await expect(
+        guardar([
+          {
+            branchId: "sede-a",
+            dayOfWeek: 3,
+            openTime: "09:00",
+            closeTime: "19:00",
+          },
+          {
+            branchId: "sede-b",
+            dayOfWeek: 3,
+            openTime: "09:00",
+            closeTime: "19:00",
+          },
+        ])
+      ).resolves.toBeDefined();
+    });
+
+    it("rechaza un tramo que cierra antes de abrir", async () => {
+      await expect(
+        guardar([{ dayOfWeek: 3, openTime: "19:00", closeTime: "09:00" }])
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it.each(["9:0", "25:00", "abc"])("rechaza la hora %s", async (hora) => {
+      await expect(
+        guardar([{ dayOfWeek: 3, openTime: hora, closeTime: "19:00" }])
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("no borra el horario existente si la validación falla", async () => {
+      await expect(
+        guardar([{ dayOfWeek: 3, openTime: "19:00", closeTime: "09:00" }])
+      ).rejects.toThrow();
+
+      expect(mockRepo.delete).not.toHaveBeenCalled();
     });
   });
 

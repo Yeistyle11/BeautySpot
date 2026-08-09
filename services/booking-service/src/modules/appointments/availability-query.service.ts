@@ -10,8 +10,10 @@ import {
   calculateEndTime,
   timeToMinutes,
   timesOverlap,
+  esInstantePasadoEn,
 } from "@beautyspot/shared-utils";
-import { esInstantePasado } from "../../common/hora-del-negocio";
+import { ZonaDelNegocioService } from "@beautyspot/nest-common";
+import { HorarioDelNegocioService, Tramo } from "./horario-del-negocio.service";
 
 /** Franja de la agenda con su hora de inicio, de fin y si está libre. */
 export interface Franja {
@@ -43,6 +45,11 @@ function agruparPorProfesional<T extends { professionalId: string }>(
   return porProfesional;
 }
 
+/** Ordena tramos por hora de inicio, que es como se recorren. */
+function porHora(a: Tramo, b: Tramo): number {
+  return timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
+}
+
 /**
  * Responde qué franjas de la agenda están libres y si una reserva concreta
  * cabe.
@@ -55,7 +62,9 @@ export class AvailabilityQueryService {
     @InjectRepository(Availability)
     private readonly availRepo: Repository<Availability>,
     @InjectRepository(BlockedSlot)
-    private readonly blockRepo: Repository<BlockedSlot>
+    private readonly blockRepo: Repository<BlockedSlot>,
+    private readonly zonas: ZonaDelNegocioService,
+    private readonly horarioDelNegocio: HorarioDelNegocioService
   ) {}
 
   /** Franjas de un profesional, con el negocio resuelto desde su horario. */
@@ -64,13 +73,17 @@ export class AvailabilityQueryService {
     date: string,
     duration: number
   ): Promise<Franja[]> {
-    const horario = await this.availRepo.findOne({
+    const horarios = await this.availRepo.find({
       where: { professionalId, active: true },
     });
-    if (!horario) return [];
+    const negocios = [...new Set(horarios.map((h) => h.businessId))];
+
+    // Esta ruta pública no dice de qué negocio se pregunta, así que solo puede
+    // responder cuando el profesional trabaja en uno.
+    if (negocios.length !== 1) return [];
 
     return this.franjasDeProfesional(
-      horario.businessId,
+      negocios[0],
       professionalId,
       date,
       duration
@@ -95,7 +108,7 @@ export class AvailabilityQueryService {
 
     // Bloqueos y citas del día de todo el equipo en dos consultas, sea cual sea
     // su tamaño.
-    const [bloqueos, citas] = await Promise.all([
+    const [bloqueos, citas, apertura, zona] = await Promise.all([
       this.blockRepo.find({
         where: { businessId, professionalId: In(profesionales), date },
       }),
@@ -104,27 +117,26 @@ export class AvailabilityQueryService {
           businessId,
           professionalId: In(profesionales),
           date,
-          status: In([AppointmentStatus.CONFIRMED, AppointmentStatus.PENDING]),
+          status: In(ESTADOS_QUE_OCUPAN),
         },
       }),
+      this.horarioDelNegocio.tramosDelDia(businessId, dayOfWeek),
+      this.zonas.de(businessId),
     ]);
 
     const bloqueosPorProfesional = agruparPorProfesional(bloqueos);
     const citasPorProfesional = agruparPorProfesional(citas);
-    const horarioPorProfesional = new Map<string, Availability>();
-    for (const horario of horarios) {
-      if (!horarioPorProfesional.has(horario.professionalId)) {
-        horarioPorProfesional.set(horario.professionalId, horario);
-      }
-    }
+    const tramosPorProfesional = agruparPorProfesional(horarios);
 
     const porProfesional = profesionales.map((professionalId) =>
       this.calcularFranjas(
-        horarioPorProfesional.get(professionalId)!,
+        tramosPorProfesional.get(professionalId) ?? [],
+        apertura,
         bloqueosPorProfesional.get(professionalId) ?? [],
         citasPorProfesional.get(professionalId) ?? [],
         duration,
-        date
+        date,
+        zona
       )
     );
 
@@ -152,33 +164,40 @@ export class AvailabilityQueryService {
   ): Promise<Franja[]> {
     const dayOfWeek = new Date(date + "T12:00:00").getDay();
 
-    const workHours = await this.availRepo.findOne({
+    const tramos = await this.availRepo.find({
       where: { businessId, professionalId, dayOfWeek, active: true },
     });
-    if (!workHours) return [];
+    if (tramos.length === 0) return [];
 
-    const [blocks, allAppointments] = await Promise.all([
+    const [blocks, allAppointments, apertura, zona] = await Promise.all([
       this.blockRepo.find({ where: { businessId, professionalId, date } }),
       this.apptRepo.find({
         where: {
           businessId,
           professionalId,
           date,
-          status: In([AppointmentStatus.CONFIRMED, AppointmentStatus.PENDING]),
+          status: In(ESTADOS_QUE_OCUPAN),
         },
       }),
+      this.horarioDelNegocio.tramosDelDia(businessId, dayOfWeek),
+      this.zonas.de(businessId),
     ]);
 
     return this.calcularFranjas(
-      workHours,
+      tramos,
+      apertura,
       blocks,
       allAppointments,
       duration,
-      date
+      date,
+      zona
     );
   }
 
-  /** Comprueba que la franja cae dentro del horario del profesional y no choca con un bloqueo. */
+  /**
+   * Comprueba que la franja cabe entera en un tramo del profesional y en el
+   * horario del negocio, y que no choca con un bloqueo.
+   */
   async franjaDentroDelHorario(
     businessId: string,
     professionalId: string,
@@ -187,17 +206,16 @@ export class AvailabilityQueryService {
     end: string,
     dayOfWeek: number
   ): Promise<boolean> {
-    const workHours = await this.availRepo.findOne({
-      where: { businessId, professionalId, dayOfWeek, active: true },
-    });
-    if (!workHours) return false;
+    const [tramos, apertura] = await Promise.all([
+      this.availRepo.find({
+        where: { businessId, professionalId, dayOfWeek, active: true },
+      }),
+      this.horarioDelNegocio.tramosDelDia(businessId, dayOfWeek),
+    ]);
 
-    if (
-      timeToMinutes(start) < timeToMinutes(workHours.startTime) ||
-      timeToMinutes(end) > timeToMinutes(workHours.endTime)
-    ) {
-      return false;
-    }
+    // Entera dentro de un mismo tramo: una cita no cruza la hora del almuerzo.
+    if (!this.cabeEnAlgunTramo(tramos, start, end)) return false;
+    if (apertura && !this.cabeEnAlgunTramo(apertura, start, end)) return false;
 
     const blocks = await this.blockRepo.find({
       where: { businessId, professionalId, date },
@@ -254,45 +272,106 @@ export class AvailabilityQueryService {
     return this.seSolapan(appointments, start, end, excludeId);
   }
 
-  /** Divide la jornada en franjas y marca como ocupadas las que chocan con un bloqueo o una cita. */
+  /** Indica si el rango cabe completo dentro de alguno de los tramos. */
+  private cabeEnAlgunTramo(
+    tramos: Tramo[],
+    start: string,
+    end: string
+  ): boolean {
+    const inicio = timeToMinutes(start);
+    const fin = timeToMinutes(end);
+
+    return tramos.some(
+      (t) =>
+        inicio >= timeToMinutes(t.startTime) && fin <= timeToMinutes(t.endTime)
+    );
+  }
+
+  /**
+   * Divide en franjas cada tramo de trabajo y marca como ocupadas las que chocan
+   * con un bloqueo, con una cita o con el cierre del negocio.
+   *
+   * `apertura` en `null` significa negocio sin horario configurado: no acota.
+   */
   private calcularFranjas(
-    workHours: Availability,
+    tramos: Tramo[],
+    apertura: Tramo[] | null,
     blocks: BlockedSlot[],
     appointments: Appointment[],
     duration: number,
-    date: string
+    date: string,
+    zona: string
   ): Franja[] {
-    const slots = getTimeSlots(
-      workHours.startTime,
-      workHours.endTime,
-      DURACION_FRANJA_MINUTOS
+    const franjas = new Map<string, Franja>();
+
+    for (const tramo of [...tramos].sort(porHora)) {
+      const finDelTramo = timeToMinutes(tramo.endTime);
+
+      for (const slotStart of getTimeSlots(
+        tramo.startTime,
+        tramo.endTime,
+        DURACION_FRANJA_MINUTOS
+      )) {
+        const slotEnd = calculateEndTime(slotStart, duration);
+        const franja: Franja = {
+          startTime: slotStart,
+          endTime: slotEnd,
+          available: this.franjaLibre(
+            slotStart,
+            slotEnd,
+            finDelTramo,
+            apertura,
+            blocks,
+            appointments,
+            date,
+            zona
+          ),
+        };
+
+        // Dos tramos pueden proponer la misma hora; gana la que esté libre.
+        const previa = franjas.get(slotStart);
+        if (!previa || (!previa.available && franja.available)) {
+          franjas.set(slotStart, franja);
+        }
+      }
+    }
+
+    return [...franjas.values()].sort((a, b) =>
+      a.startTime.localeCompare(b.startTime)
     );
-    const workEndNum = timeToMinutes(workHours.endTime);
+  }
 
-    return slots.map((slotStart) => {
-      const slotEnd = calculateEndTime(slotStart, duration);
+  /** Decide si una franja concreta puede reservarse. */
+  private franjaLibre(
+    slotStart: string,
+    slotEnd: string,
+    finDelTramo: number,
+    apertura: Tramo[] | null,
+    blocks: BlockedSlot[],
+    appointments: Appointment[],
+    date: string,
+    zona: string
+  ): boolean {
+    // La cita termina dentro del mismo tramo en que empieza.
+    if (timeToMinutes(slotEnd) > finDelTramo) return false;
 
-      if (timeToMinutes(slotEnd) > workEndNum) {
-        return { startTime: slotStart, endTime: slotEnd, available: false };
-      }
+    if (esInstantePasadoEn(zona, date, slotStart)) return false;
 
-      if (esInstantePasado(date, slotStart)) {
-        return { startTime: slotStart, endTime: slotEnd, available: false };
-      }
+    if (apertura && !this.cabeEnAlgunTramo(apertura, slotStart, slotEnd)) {
+      return false;
+    }
 
-      const isBlocked = blocks.some((b) =>
+    if (
+      blocks.some((b) =>
         timesOverlap(slotStart, slotEnd, b.startTime, b.endTime)
-      );
-      if (isBlocked) {
-        return { startTime: slotStart, endTime: slotEnd, available: false };
-      }
+      )
+    ) {
+      return false;
+    }
 
-      const hasAppt = appointments.some((a) =>
-        timesOverlap(slotStart, slotEnd, a.startTime, a.endTime)
-      );
-
-      return { startTime: slotStart, endTime: slotEnd, available: !hasAppt };
-    });
+    return !appointments.some((a) =>
+      timesOverlap(slotStart, slotEnd, a.startTime, a.endTime)
+    );
   }
 
   /** Lógica pura de solapamiento, compartida por ambas comprobaciones. */

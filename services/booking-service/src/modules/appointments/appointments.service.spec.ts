@@ -1,5 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { InternalHttpClient } from "@beautyspot/nest-common";
+import {
+  InternalHttpClient,
+  ZonaDelNegocioService,
+} from "@beautyspot/nest-common";
+import { HorarioDelNegocioService } from "./horario-del-negocio.service";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository, In } from "typeorm";
 import { DataSource } from "typeorm";
@@ -52,6 +56,8 @@ describe("AppointmentsService", () => {
   let mockDataSource: jest.Mocked<DataSource>;
   let mockOutbox: any;
   let mockHttp: { pedir: jest.Mock; enviar: jest.Mock };
+  let mockZonas: ZonaDelNegocioService;
+  let mockHorarioDelNegocio: HorarioDelNegocioService;
 
   /** Lo que el catálogo del core-service devuelve para el servicio del fixture. */
   const CORTE = {
@@ -108,7 +114,8 @@ describe("AppointmentsService", () => {
 
     mockAvailRepo = {
       findOne: jest.fn(),
-      find: jest.fn(),
+      // Los horarios se leen con `find`: un día puede tener varios tramos.
+      find: jest.fn().mockResolvedValue([]),
     } as any;
 
     mockBlockRepo = {
@@ -156,6 +163,15 @@ describe("AppointmentsService", () => {
       enviar: jest.fn().mockResolvedValue([CORTE]),
     };
 
+    // El negocio del fixture vive en Bogotá y no tiene horario de apertura
+    // configurado, así que la agenda solo la limita el horario del profesional.
+    mockZonas = {
+      de: jest.fn().mockResolvedValue("America/Bogota"),
+    } as never;
+    mockHorarioDelNegocio = {
+      tramosDelDia: jest.fn().mockResolvedValue(null),
+    } as never;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AppointmentsService,
@@ -172,9 +188,12 @@ describe("AppointmentsService", () => {
             new AvailabilityQueryService(
               mockApptRepo,
               mockAvailRepo,
-              mockBlockRepo
+              mockBlockRepo,
+              mockZonas,
+              mockHorarioDelNegocio
             ),
         },
+        { provide: ZonaDelNegocioService, useValue: mockZonas },
         {
           provide: DataSource,
           useValue: mockDataSource,
@@ -208,13 +227,13 @@ describe("AppointmentsService", () => {
         notes: "Cliente VIP",
       };
 
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
+      mockAvailRepo.find.mockResolvedValue([mockAvailability]);
       mockBlockRepo.find.mockResolvedValue([]);
       mockApptRepo.find.mockResolvedValue([]);
 
       await service.create("business-123", data);
 
-      expect(mockAvailRepo.findOne).toHaveBeenCalledWith({
+      expect(mockAvailRepo.find).toHaveBeenCalledWith({
         where: {
           businessId: "business-123",
           professionalId: "prof-123",
@@ -235,7 +254,7 @@ describe("AppointmentsService", () => {
         startTime: "10:00",
       };
 
-      mockAvailRepo.findOne.mockResolvedValue(null);
+      mockAvailRepo.find.mockResolvedValue([]);
 
       await expect(service.create("business-123", data)).rejects.toThrow(
         BadRequestException
@@ -254,7 +273,7 @@ describe("AppointmentsService", () => {
       await expect(service.create("business-123", data)).rejects.toThrow(
         "No se puede agendar una cita en el pasado"
       );
-      expect(mockAvailRepo.findOne).not.toHaveBeenCalled();
+      expect(mockAvailRepo.find).not.toHaveBeenCalled();
     });
 
     it("debería lanzar BadRequestException si el slot está fuera del horario de trabajo", async () => {
@@ -267,7 +286,7 @@ describe("AppointmentsService", () => {
       };
 
       mockHttp.enviar.mockResolvedValue([{ ...CORTE, duration: 120 }]);
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
+      mockAvailRepo.find.mockResolvedValue([mockAvailability]);
       mockApptRepo.find.mockResolvedValue([]);
 
       await expect(service.create("business-123", data)).rejects.toThrow(
@@ -284,7 +303,7 @@ describe("AppointmentsService", () => {
         startTime: "10:00",
       };
 
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
+      mockAvailRepo.find.mockResolvedValue([mockAvailability]);
       mockBlockRepo.find.mockResolvedValue([]);
       mockApptRepo.find.mockResolvedValue([mockAppointment]);
 
@@ -307,7 +326,7 @@ describe("AppointmentsService", () => {
         CORTE,
         { id: BARBA, name: "Barba", price: 20000, duration: 15 },
       ]);
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
+      mockAvailRepo.find.mockResolvedValue([mockAvailability]);
       mockBlockRepo.find.mockResolvedValue([]);
       mockApptRepo.find.mockResolvedValue([]);
 
@@ -360,7 +379,7 @@ describe("AppointmentsService", () => {
         startTime: "10:00",
       };
 
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
+      mockAvailRepo.find.mockResolvedValue([mockAvailability]);
       mockBlockRepo.find.mockResolvedValue([]);
       mockApptRepo.find.mockResolvedValue([]);
 
@@ -384,7 +403,7 @@ describe("AppointmentsService", () => {
         startTime: "10:00",
       };
 
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
+      mockAvailRepo.find.mockResolvedValue([mockAvailability]);
       mockBlockRepo.find.mockResolvedValue([]);
       // Pre-check fuera de la tx: sin conflicto
       mockApptRepo.find.mockResolvedValue([]);
@@ -577,7 +596,8 @@ describe("AppointmentsService", () => {
       const futureAppt: any = {
         ...mockAppointment,
         date: futureDateStr,
-        startTime: `${futureDate.getHours()}:00`,
+        // Con ceros a la izquierda: "6:00" no es una hora de pared válida.
+        startTime: `${String(futureDate.getHours()).padStart(2, "0")}:00`,
         generateId: () => {},
       };
 
@@ -693,7 +713,7 @@ describe("AppointmentsService", () => {
       };
 
       mockApptRepo.findOne.mockResolvedValue(futureAppt);
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
+      mockAvailRepo.find.mockResolvedValue([mockAvailability]);
       mockBlockRepo.find.mockResolvedValue([]);
       mockApptRepo.find.mockResolvedValue([]);
 
@@ -750,7 +770,7 @@ describe("AppointmentsService", () => {
       };
 
       mockApptRepo.findOne.mockResolvedValue(largo);
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
+      mockAvailRepo.find.mockResolvedValue([mockAvailability]);
       mockBlockRepo.find.mockResolvedValue([]);
       mockApptRepo.find.mockResolvedValue([]);
 
@@ -808,7 +828,7 @@ describe("AppointmentsService", () => {
         date: FECHA_SIGUIENTE,
         startTime: "14:00",
       } as any);
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
+      mockAvailRepo.find.mockResolvedValue([mockAvailability]);
       mockBlockRepo.find.mockResolvedValue([]);
       mockApptRepo.find.mockResolvedValue([]);
 
@@ -849,7 +869,7 @@ describe("AppointmentsService", () => {
       jest.setSystemTime(new Date(`${FECHA_CITA}T09:30:00`));
 
       mockApptRepo.findOne.mockResolvedValue(mockAppointment);
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
+      mockAvailRepo.find.mockResolvedValue([mockAvailability]);
       mockBlockRepo.find.mockResolvedValue([]);
       mockApptRepo.find.mockResolvedValue([]);
 
@@ -863,7 +883,7 @@ describe("AppointmentsService", () => {
       futureDate.setDate(futureDate.getDate() + 1);
 
       mockApptRepo.findOne.mockResolvedValue(mockAppointment);
-      mockAvailRepo.findOne.mockResolvedValue(null);
+      mockAvailRepo.find.mockResolvedValue([]);
 
       await expect(
         service.reschedule("appt-123", "business-123", FECHA_SIGUIENTE, "15:00")
@@ -875,7 +895,7 @@ describe("AppointmentsService", () => {
       futureDate.setDate(futureDate.getDate() + 2); // 2 días en el futuro para pasar la política de 2 horas
 
       mockApptRepo.findOne.mockResolvedValue(mockAppointment);
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
+      mockAvailRepo.find.mockResolvedValue([mockAvailability]);
       mockBlockRepo.find.mockResolvedValue([]);
       mockApptRepo.find.mockResolvedValue([
         {

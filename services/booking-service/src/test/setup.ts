@@ -44,6 +44,8 @@ jest.mock("@beautyspot/nest-common", () => ({
   // contenedor de Nest, pero necesitan que existan para poder referenciarlas.
   ProcessedEventsStore: class ProcessedEventsStore {},
   InternalHttpClient: class InternalHttpClient {},
+  RedisCacheService: class RedisCacheService {},
+  ZonaDelNegocioService: class ZonaDelNegocioService {},
 }));
 
 // Mock de global.fetch para public-booking service

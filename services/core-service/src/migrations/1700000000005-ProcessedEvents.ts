@@ -3,9 +3,8 @@ import { MigrationInterface, QueryRunner } from "typeorm";
 /**
  * Tabla que registra qué eventos ha aplicado ya cada handler de este servicio.
  *
- * El core no consumía eventos hasta ahora, solo los publicaba. La estrena el
- * listener que acredita los puntos de fidelidad, donde procesar dos veces la
- * misma cita regalaría dinero.
+ * La usa el listener que acredita los puntos de fidelidad, donde procesar dos
+ * veces la misma cita regalaría dinero.
  */
 export class ProcessedEvents1700000000005 implements MigrationInterface {
   name = "ProcessedEvents1700000000005";

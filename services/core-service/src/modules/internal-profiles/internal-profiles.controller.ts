@@ -5,6 +5,7 @@ import { Client } from "../../entities/client.entity";
 import { Professional } from "../../entities/professional.entity";
 import { Business } from "../../entities/business.entity";
 import { BusinessConfig } from "../../entities/business-config.entity";
+import { ZONA_POR_DEFECTO } from "@beautyspot/shared-utils";
 
 export interface ResolvedClient {
   name: string;
@@ -33,6 +34,8 @@ export interface ResolvedBusiness {
   address: string;
   phone: string;
   email: string;
+  /** Huso en el que el negocio lee sus horas; decide dónde empieza su día. */
+  timezone: string;
   /** Vacío mientras el negocio no haya configurado su facturación. */
   facturacion: DatosDeFacturacion;
 }
@@ -115,7 +118,7 @@ export class InternalProfilesController {
     const [b, config] = await Promise.all([
       this.businessRepo.findOne({
         where: { id },
-        select: ["name", "address", "phone", "email"],
+        select: ["name", "address", "phone", "email", "timezone"],
       }),
       // Los datos fiscales viven en business_config y no en columnas propias:
       // la facturación electrónica va a necesitar bastantes más campos que un
@@ -130,6 +133,7 @@ export class InternalProfilesController {
       address: b.address ?? "",
       phone: b.phone ?? "",
       email: b.email ?? "",
+      timezone: b.timezone ?? ZONA_POR_DEFECTO,
       facturacion: (config?.value as DatosDeFacturacion) ?? {},
     };
   }

@@ -4,11 +4,13 @@ import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { EVENTS_EXCHANGE, DEAD_LETTER_EXCHANGE } from "@beautyspot/event-types";
 import { AnalyticsEventListeners } from "./analytics-event-listeners.service";
 import { MetricsModule } from "../metrics/metrics.module";
+import { ZonaDelNegocioModule } from "@beautyspot/nest-common";
 
 /** Módulo que suscribe el analytics-service a los eventos de RabbitMQ para alimentar las métricas. */
 @Module({
   imports: [
     MetricsModule,
+    ZonaDelNegocioModule,
     RabbitMQModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

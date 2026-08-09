@@ -152,8 +152,8 @@ export class ReviewsService {
    * y esté atendida. Sin eso no hay reseña.
    *
    * Usa `pedir` y no `pedirONulo` a propósito: si booking no responde, el alta
-   * falla. Publicar sin verificar dejaría abierta justo la puerta que esto
-   * cierra —hundir el rating de un competidor a base de reseñas fabricadas—.
+   * falla. Publicar sin verificar permitiría hundir el rating de un competidor
+   * a base de reseñas fabricadas.
    */
   private async verificarCita(
     dto: CreateReviewDto,

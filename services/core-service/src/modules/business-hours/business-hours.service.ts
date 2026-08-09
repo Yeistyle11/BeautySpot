@@ -1,6 +1,11 @@
-import { Injectable } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
+import { DataSource, Repository } from "typeorm";
+import {
+  esHoraValida,
+  timeToMinutes,
+  timesOverlap,
+} from "@beautyspot/shared-utils";
 import { BusinessHours } from "../../entities/business-hours.entity";
 
 /** Gestiona el horario semanal de apertura de un negocio (opcionalmente por sede). */
@@ -8,7 +13,9 @@ import { BusinessHours } from "../../entities/business-hours.entity";
 export class BusinessHoursService {
   constructor(
     @InjectRepository(BusinessHours)
-    private readonly repo: Repository<BusinessHours>
+    private readonly repo: Repository<BusinessHours>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource
   ) {}
 
   /** Devuelve los tramos horarios del negocio (o de una sede), ordenados por día y hora. */
@@ -24,28 +31,30 @@ export class BusinessHoursService {
     });
   }
 
-  /** Reemplaza por completo el horario del negocio por el conjunto recibido. */
+  /** Reemplaza el horario del negocio por el conjunto recibido, en transacción. */
   async batchUpsert(
     businessId: string,
     items: Partial<BusinessHours>[]
   ): Promise<BusinessHours[]> {
-    const existing = await this.repo.find({ where: { businessId } });
-    if (existing.length > 0) {
-      await this.repo.remove(existing);
-    }
+    this.validar(items);
 
-    const hours = items.map((item) =>
-      this.repo.create({
-        businessId,
-        branchId: item.branchId || undefined,
-        dayOfWeek: item.dayOfWeek!,
-        openTime: item.openTime!,
-        closeTime: item.closeTime!,
-        active: item.active !== undefined ? item.active : true,
-      })
-    );
+    return this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(BusinessHours);
+      await repo.delete({ businessId });
 
-    return this.repo.save(hours);
+      const hours = items.map((item) =>
+        repo.create({
+          businessId,
+          branchId: item.branchId || undefined,
+          dayOfWeek: item.dayOfWeek!,
+          openTime: item.openTime!,
+          closeTime: item.closeTime!,
+          active: item.active !== undefined ? item.active : true,
+        })
+      );
+
+      return repo.save(hours);
+    });
   }
 
   /** Actualiza un único tramo horario del negocio. */
@@ -61,5 +70,45 @@ export class BusinessHoursService {
     const hour = await this.repo.findOne({ where: { id, businessId } });
     if (!hour) throw new Error("Horario no encontrado");
     return hour;
+  }
+
+  /** Valida formato `HH:MM`, orden de las horas y solapes por día y sede. */
+  private validar(items: Partial<BusinessHours>[]): void {
+    for (const item of items) {
+      const { openTime, closeTime } = item;
+      if (!esHoraValida(openTime ?? "") || !esHoraValida(closeTime ?? "")) {
+        throw new BadRequestException(
+          `Horario invalido: ${openTime}-${closeTime}. Se espera HH:MM`
+        );
+      }
+      if (timeToMinutes(openTime!) >= timeToMinutes(closeTime!)) {
+        throw new BadRequestException(
+          `El tramo ${openTime}-${closeTime} cierra antes de abrir`
+        );
+      }
+    }
+
+    // Los tramos de sedes distintas son independientes entre sí.
+    const porDia = new Map<string, Partial<BusinessHours>[]>();
+    for (const item of items) {
+      const clave = `${item.branchId ?? ""}:${item.dayOfWeek}`;
+      const delDia = porDia.get(clave) ?? [];
+      if (
+        delDia.some((otro) =>
+          timesOverlap(
+            item.openTime!,
+            item.closeTime!,
+            otro.openTime!,
+            otro.closeTime!
+          )
+        )
+      ) {
+        throw new BadRequestException(
+          `Hay tramos que se solapan el dia ${item.dayOfWeek}`
+        );
+      }
+      delDia.push(item);
+      porDia.set(clave, delDia);
+    }
   }
 }

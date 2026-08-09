@@ -1,6 +1,9 @@
 import { DataSource } from "typeorm";
 import { join } from "path";
-import { ProcessedEventsStore } from "@beautyspot/nest-common";
+import {
+  ProcessedEventsStore,
+  ZonaDelNegocioService,
+} from "@beautyspot/nest-common";
 import { createMigrationDataSourceOptions } from "@beautyspot/database";
 import { entities } from "../orm-entities";
 import { MetricsService } from "../modules/metrics/metrics.service";
@@ -59,7 +62,12 @@ describe("Integración: los eventos duplicados no inflan las métricas", () => {
     );
     listeners = new AnalyticsEventListeners(
       metrics,
-      new ProcessedEventsStore(dataSource)
+      new ProcessedEventsStore(dataSource),
+      // Aquí se comprueba que un evento no se aplique dos veces, no en qué día
+      // cae: basta con un huso fijo.
+      {
+        de: jest.fn().mockResolvedValue("America/Bogota"),
+      } as unknown as ZonaDelNegocioService
     );
   }, 60000);
 
