@@ -7,6 +7,13 @@ export const appointmentServiceSchema = z.object({
   serviceName: z.string(),
   price: z.number(),
   duration: z.number(),
+  /** Posicion dentro de la cita, de la que sale su hora de inicio. */
+  orden: z.number().nullish(),
+  /** Ventana en que el profesional queda libre dentro del servicio. */
+  procesadoDesde: z.number().nullish(),
+  procesadoMinutos: z.number().nullish(),
+  /** Limpieza posterior, en la que sigue ocupado. */
+  bufferDespues: z.number().nullish(),
 });
 
 export const appointmentSchema = z.object({
@@ -14,6 +21,8 @@ export const appointmentSchema = z.object({
   date: z.string(),
   startTime: z.string(),
   endTime: z.string(),
+  /** Hora hasta la que sigue ocupado el profesional, limpieza incluida. */
+  ocupadoHasta: z.string().nullish(),
   status: z.string(),
   notes: z.string().nullable(),
   totalAmount: z.number(),

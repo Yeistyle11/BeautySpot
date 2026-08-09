@@ -15,6 +15,7 @@
   "dependencies": {
     "@beautyspot/shared-constants": "*",
     "@beautyspot/shared-types": "*",
+    "@beautyspot/shared-utils": "*",
     "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-dialog": "^1.1.0",
     "@radix-ui/react-label": "^2.1.0",
