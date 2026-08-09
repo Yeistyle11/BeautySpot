@@ -8,7 +8,7 @@ const NEGOCIO = "22222222-2222-4222-8222-222222222222";
 
 describe("CoreEventListeners", () => {
   let service: CoreEventListeners;
-  let mockClients: { addLoyaltyPoints: jest.Mock };
+  let mockClients: { addLoyaltyPoints: jest.Mock; addNoShow: jest.Mock };
   let mockProcessedEvents: { once: jest.Mock };
   /** El manager que `once` entrega dentro de su transacción. */
   const manager = { getRepository: jest.fn() };
@@ -37,7 +37,10 @@ describe("CoreEventListeners", () => {
 
   beforeEach(async () => {
     vistos = new Set();
-    mockClients = { addLoyaltyPoints: jest.fn().mockResolvedValue(undefined) };
+    mockClients = {
+      addLoyaltyPoints: jest.fn().mockResolvedValue(undefined),
+      addNoShow: jest.fn().mockResolvedValue(undefined),
+    };
 
     // Reproduce el contrato del store real: el trabajo corre una sola vez por
     // (evento, handler) y recibe el manager de la transacción.
@@ -105,5 +108,42 @@ describe("CoreEventListeners", () => {
     await expect(
       service.handleAppointmentCompleted(citaAtendida())
     ).rejects.toThrow();
+  });
+
+  describe("faltas del cliente", () => {
+    const citaNoAtendida = (eventId = "evt-300") =>
+      ({
+        eventType: "booking.appointment.no-showed",
+        eventId,
+        correlationId: "corr-300",
+        timestamp: new Date(),
+        payload: {
+          appointmentId: "appointment-300",
+          clientId: CLIENTE,
+          businessId: NEGOCIO,
+          professionalId: "professional-300",
+          date: "2026-08-10",
+          startTime: "10:00",
+          endTime: "11:00",
+          totalAmount: 50000,
+        },
+      }) as never;
+
+    it("suma la falta dentro de la transacción del evento", async () => {
+      await service.handleAppointmentNoShowed(citaNoAtendida());
+
+      expect(mockClients.addNoShow).toHaveBeenCalledWith(
+        CLIENTE,
+        NEGOCIO,
+        manager
+      );
+    });
+
+    it("no la suma dos veces con el mismo evento", async () => {
+      await service.handleAppointmentNoShowed(citaNoAtendida());
+      await service.handleAppointmentNoShowed(citaNoAtendida());
+
+      expect(mockClients.addNoShow).toHaveBeenCalledTimes(1);
+    });
   });
 });

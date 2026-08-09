@@ -144,7 +144,13 @@ export type AppointmentCreatedEvent = IBaseEvent<AppointmentCreatedPayload>;
 
 export type AppointmentConfirmedEvent = IBaseEvent<AppointmentCreatedPayload>;
 export type AppointmentCancelledEvent = IBaseEvent<
-  AppointmentCreatedPayload & { cancelReason?: string }
+  AppointmentCreatedPayload & {
+    /** Nota libre de quien cancela. */
+    cancelReason?: string;
+    /** Motivo tipificado, del enum `CancelReason`. */
+    cancelReasonType?: string;
+    cancelledBy?: string;
+  }
 >;
 export type AppointmentCompletedEvent = IBaseEvent<
   AppointmentCreatedPayload & { pointsEarned: number }

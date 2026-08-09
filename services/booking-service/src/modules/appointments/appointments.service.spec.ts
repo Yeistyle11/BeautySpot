@@ -15,7 +15,7 @@ import { Appointment } from "../../entities/appointment.entity";
 import { Availability } from "../../entities/availability.entity";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
-import { AppointmentStatus } from "@beautyspot/shared-types";
+import { AppointmentStatus, CancelReason } from "@beautyspot/shared-types";
 import {
   NotFoundException,
   BadRequestException,
@@ -87,6 +87,9 @@ describe("AppointmentsService", () => {
     pointsEarned: 0,
     notes: "",
     cancelReason: "",
+    cancelReasonType: null,
+    cancelledBy: null,
+    cancelledAt: null,
     reminder24hSentAt: null,
     reminder1hSentAt: null,
     startedAt: null,
@@ -759,7 +762,10 @@ describe("AppointmentsService", () => {
       mockApptRepo.findOne.mockResolvedValue(futureAppt);
       mockApptRepo.update.mockResolvedValue({ affected: 1 } as any);
 
-      await service.cancel("appt-123", "business-123", "Cambio de planes");
+      await service.cancel("appt-123", "business-123", {
+        tipo: CancelReason.NEGOCIO_CANCELA,
+        nota: "Cambio de planes",
+      });
 
       expect(mockOutbox.enqueue).toHaveBeenCalledWith(
         expect.anything(),
@@ -773,6 +779,58 @@ describe("AppointmentsService", () => {
       );
     });
 
+    it("guarda el motivo tipificado, la nota y quién canceló", async () => {
+      const futureDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        date: futureDate.toISOString().split("T")[0],
+        startTime: `${String(futureDate.getHours()).padStart(2, "0")}:00`,
+        generateId: () => {},
+      } as any);
+      mockApptRepo.update.mockResolvedValue({ affected: 1 } as any);
+
+      await service.cancel("appt-123", "business-123", {
+        tipo: CancelReason.PROFESIONAL_NO_DISPONIBLE,
+        nota: "Baja médica",
+        canceladaPor: "user-9",
+      });
+
+      expect(mockManager.update).toHaveBeenCalledWith(
+        Appointment,
+        { id: "appt-123", businessId: "business-123" },
+        expect.objectContaining({
+          cancelReasonType: CancelReason.PROFESIONAL_NO_DISPONIBLE,
+          cancelReason: "Baja médica",
+          cancelledBy: "user-9",
+          cancelledAt: expect.any(Date),
+        })
+      );
+    });
+
+    it("el camino del cliente fija su propio motivo", async () => {
+      const futureDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      const cita = {
+        ...mockAppointment,
+        date: futureDate.toISOString().split("T")[0],
+        startTime: `${String(futureDate.getHours()).padStart(2, "0")}:00`,
+        generateId: () => {},
+      } as any;
+      mockApptRepo.findOne.mockResolvedValue(cita);
+      mockApptRepo.update.mockResolvedValue({ affected: 1 } as any);
+      mockHttp.pedir.mockResolvedValue([{ id: "client-123" }]);
+
+      await service.cancelForClientUser("appt-123", "user-cliente");
+
+      expect(mockManager.update).toHaveBeenCalledWith(
+        Appointment,
+        expect.anything(),
+        expect.objectContaining({
+          cancelReasonType: CancelReason.CLIENTE_CANCELA,
+          cancelledBy: "user-cliente",
+        })
+      );
+    });
+
     it("debería lanzar ForbiddenException con menos de 2 horas de anticipación", async () => {
       const inminente = dentroDeMinutos(60);
       mockApptRepo.findOne.mockResolvedValue({
@@ -781,9 +839,17 @@ describe("AppointmentsService", () => {
       } as any);
 
       await expect(
-        service.cancel("appt-123", "business-123", "Cambio de planes", {
-          esCliente: true,
-        })
+        service.cancel(
+          "appt-123",
+          "business-123",
+          {
+            tipo: CancelReason.NEGOCIO_CANCELA,
+            nota: "Cambio de planes",
+          },
+          {
+            esCliente: true,
+          }
+        )
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -797,7 +863,10 @@ describe("AppointmentsService", () => {
       mockApptRepo.update.mockResolvedValue({ affected: 1 } as any);
 
       await expect(
-        service.cancel("appt-123", "business-123", "Profesional enfermo")
+        service.cancel("appt-123", "business-123", {
+          tipo: CancelReason.NEGOCIO_CANCELA,
+          nota: "Profesional enfermo",
+        })
       ).resolves.toBeDefined();
     });
 
@@ -809,9 +878,17 @@ describe("AppointmentsService", () => {
       } as any);
 
       await expect(
-        service.cancel("appt-123", "business-123", "Cambio de planes", {
-          esCliente: true,
-        })
+        service.cancel(
+          "appt-123",
+          "business-123",
+          {
+            tipo: CancelReason.NEGOCIO_CANCELA,
+            nota: "Cambio de planes",
+          },
+          {
+            esCliente: true,
+          }
+        )
       ).rejects.toThrow(/24 horas/);
     });
 
@@ -824,7 +901,10 @@ describe("AppointmentsService", () => {
       mockApptRepo.findOne.mockResolvedValue(completedAppt);
 
       await expect(
-        service.cancel("appt-123", "business-123", "Cambio de planes")
+        service.cancel("appt-123", "business-123", {
+          tipo: CancelReason.NEGOCIO_CANCELA,
+          nota: "Cambio de planes",
+        })
       ).rejects.toThrow(BadRequestException);
     });
   });

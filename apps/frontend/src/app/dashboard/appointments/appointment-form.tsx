@@ -44,6 +44,7 @@ export function AppointmentForm({
   error,
 }: AppointmentFormProps) {
   const set = (patch: Partial<FormValues>) => onChange({ ...form, ...patch });
+  const faltas = clients.find((c) => c.id === form.clientId)?.noShowCount ?? 0;
 
   return (
     <Card className="mb-6 border-0 shadow-sm">
@@ -82,6 +83,12 @@ export function AppointmentForm({
                 </option>
               ))}
             </Select>
+            {faltas > 0 && (
+              <p role="status" className="text-warning mt-1.5 text-xs">
+                Este cliente no se presentó {faltas}{" "}
+                {faltas === 1 ? "vez" : "veces"}.
+              </p>
+            )}
           </Field>
           <Field label="Fecha">
             <Input

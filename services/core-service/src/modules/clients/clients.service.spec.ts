@@ -31,6 +31,7 @@ describe("ClientsService", () => {
     notes: "",
     tags: [],
     loyaltyPoints: 100,
+    noShowCount: 0,
     active: true,
     ficha: null,
     anonymizedAt: null,
@@ -410,6 +411,20 @@ describe("ClientsService", () => {
       await service.update("client-123", "business-123", { name: "Otro" });
 
       expect(mockRepo.update).toHaveBeenCalled();
+    });
+  });
+
+  describe("addNoShow", () => {
+    it("suma una falta a la ficha del negocio", async () => {
+      mockRepo.increment.mockResolvedValue({ affected: 1 } as any);
+
+      await service.addNoShow("client-123", "business-123");
+
+      expect(mockRepo.increment).toHaveBeenCalledWith(
+        { id: "client-123", businessId: "business-123" },
+        "noShowCount",
+        1
+      );
     });
   });
 

@@ -10,6 +10,7 @@ import { Appointment } from "../../entities/appointment.entity";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 import {
   AppointmentStatus,
+  CancelReason,
   IPaginatedResponse,
 } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
@@ -371,7 +372,12 @@ export class AppointmentsService {
   async cancel(
     id: string,
     businessId: string,
-    reason: string,
+    motivo: {
+      tipo: CancelReason;
+      nota?: string;
+      /** Usuario que la cancela; nulo en los caminos sin sesión. */
+      canceladaPor?: string;
+    },
     opciones: { esCliente: boolean } = { esCliente: false }
   ): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
@@ -398,7 +404,13 @@ export class AppointmentsService {
       await manager.update(
         Appointment,
         { id, businessId },
-        { status: AppointmentStatus.CANCELLED, cancelReason: reason }
+        {
+          status: AppointmentStatus.CANCELLED,
+          cancelReason: motivo.nota ?? null,
+          cancelReasonType: motivo.tipo,
+          cancelledBy: motivo.canceladaPor ?? null,
+          cancelledAt: new Date(),
+        }
       );
       await this.outbox.enqueue(manager, {
         eventType: EventNames.BOOKING_APPOINTMENT_CANCELLED,
@@ -413,7 +425,9 @@ export class AppointmentsService {
           startTime: appt.startTime,
           endTime: appt.endTime,
           totalAmount: appt.totalAmount,
-          cancelReason: reason,
+          cancelReason: motivo.nota,
+          cancelReasonType: motivo.tipo,
+          cancelledBy: motivo.canceladaPor,
         },
       });
     });
@@ -703,10 +717,15 @@ export class AppointmentsService {
   async cancelForClientUser(
     id: string,
     userId: string,
-    reason: string
+    nota?: string
   ): Promise<Appointment> {
     const cita = await this.findByIdForClientUser(id, userId);
-    return this.cancel(id, cita.businessId, reason, { esCliente: true });
+    return this.cancel(
+      id,
+      cita.businessId,
+      { tipo: CancelReason.CLIENTE_CANCELA, nota, canceladaPor: userId },
+      { esCliente: true }
+    );
   }
 
   /** Reagenda una cita propia del cliente, sujeta a la antelación mínima. */

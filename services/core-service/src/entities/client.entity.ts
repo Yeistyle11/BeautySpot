@@ -21,6 +21,8 @@ export class Client extends TenantEntity {
   @Column({ type: "varchar", nullable: true }) documento!: string | null;
   @Column({ type: "text", nullable: true }) notes!: string | null;
   @Column({ name: "loyalty_points", default: 0 }) loyaltyPoints!: number;
+  /** Citas a las que el cliente no se presentó. */
+  @Column({ name: "no_show_count", default: 0 }) noShowCount!: number;
   @Column({ type: "simple-array", nullable: true }) tags!: string[] | null;
   /**
    * Valores de la ficha que el negocio se haya definido, indexados por el id de
