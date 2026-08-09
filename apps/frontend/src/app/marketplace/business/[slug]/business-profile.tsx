@@ -1,8 +1,6 @@
 "use client";
 
 // Perfil publico de un negocio: compone las secciones activas y el acceso a reservar.
-import { useState } from "react";
-
 import Link from "next/link";
 import Image from "next/image";
 import { imageUnoptimized } from "@/lib/image";
@@ -17,26 +15,33 @@ import {
   ArrowLeft,
   Instagram,
   ExternalLink,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
+import { z } from "zod";
 import { useApiPublic } from "@/lib/swr";
+import { hrefSeguro } from "@/lib/url";
 
 import {
   profileResponseSchema,
   reviewsResponseSchema,
   ratingDistributionSchema,
+  servicioPublicoSchema,
+  profesionalPublicoSchema,
   SECTION_TITLES,
   type Profile,
   type ProfileResponse,
+  type Professional,
+  type ProfesionalPublico,
   type Review,
   type RatingDistribution,
+  type ServicioPublico,
 } from "./schemas";
 import { StorySection } from "./sections/story-section";
+import { ServicesSection } from "./sections/services-section";
 import { TeamSection } from "./sections/team-section";
 import { GallerySection } from "./sections/gallery-section";
 import { ReviewsSection } from "./sections/reviews-section";
 import { LocationSection } from "./sections/location-section";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * Perfil público de un negocio. `initialProfile` llega resuelto del servidor y
@@ -56,8 +61,38 @@ export default function BusinessProfile({
     profileResponseSchema
   );
   const profile = respuesta?.profile;
-  const professionals = respuesta?.professionals;
   const bid = profile?.businessId;
+
+  // Servicios y equipo se piden al core, que es donde el negocio los gestiona.
+  // El escaparate del marketplace solo guarda lo personalizado.
+  const { data: servicios } = useApiPublic<ServicioPublico[]>(
+    bid ? `/core/public/businesses/${bid}/services` : null,
+    undefined,
+    z.array(servicioPublicoSchema)
+  );
+  const { data: equipoDelNegocio } = useApiPublic<ProfesionalPublico[]>(
+    bid ? `/core/public/businesses/${bid}/professionals` : null,
+    undefined,
+    z.array(profesionalPublicoSchema)
+  );
+
+  // El equipo personalizado del escaparate manda; si no lo hay, se pinta la
+  // ficha de trabajo.
+  const professionals: Professional[] = respuesta?.professionals?.length
+    ? respuesta.professionals
+    : (equipoDelNegocio ?? []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        photo: p.photo ?? null,
+        bio: p.bio ?? null,
+        specialties: p.specialties ?? [],
+        yearsExp: p.yearsExp ?? 0,
+        tagline: null,
+        rating: p.rating ?? 0,
+        totalReviews: p.totalReviews ?? 0,
+        socialInstagram: null,
+        portfolio: null,
+      }));
   const { data: reviewsResp } = useApiPublic<{
     items: Review[];
     total: number;
@@ -72,15 +107,12 @@ export default function BusinessProfile({
     ratingDistributionSchema
   );
 
-  const [galleryIdx, setGalleryIdx] = useState(0);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-
   const reviews = reviewsResp?.items ?? [];
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+        <Spinner variant="inline" className="h-8 w-8 border-4" />
       </div>
     );
   }
@@ -97,18 +129,25 @@ export default function BusinessProfile({
     );
   }
 
+  // Un negocio que nunca toco la configuracion no trae sectionConfig: se pinta
+  // el orden por defecto, el mismo que ofrece el panel en
+  // dashboard/marketplace/schemas.ts (defaultSections). Si cambia uno hay que
+  // cambiar el otro.
   const sections = profile.sectionConfig?.sections
     ?.filter((s) => s.enabled)
     .sort((a, b) => a.order - b.order) || [
     { id: "story", enabled: true, order: 1 },
-    { id: "team", enabled: true, order: 2 },
-    { id: "gallery", enabled: true, order: 3 },
-    { id: "reviews", enabled: true, order: 4 },
-    { id: "location", enabled: true, order: 5 },
+    { id: "services", enabled: true, order: 2 },
+    { id: "team", enabled: true, order: 3 },
+    { id: "gallery", enabled: true, order: 4 },
+    { id: "reviews", enabled: true, order: 5 },
+    { id: "location", enabled: true, order: 6 },
   ];
 
   const gallery = profile.galleryImages || [];
   const coverImg = profile.coverImage || gallery[0]?.url;
+  const instagramHref = hrefSeguro(profile.socialLinks?.instagram);
+  const websiteHref = hrefSeguro(profile.socialLinks?.website);
 
   return (
     <div className="bg-background min-h-screen">
@@ -238,13 +277,24 @@ export default function BusinessProfile({
                   />
                 )
               );
+            case "services":
+              return (
+                (servicios ?? []).length > 0 && (
+                  <ServicesSection
+                    key={section.id}
+                    title={title}
+                    services={servicios ?? []}
+                    slug={slug}
+                  />
+                )
+              );
             case "team":
               return (
-                (professionals ?? []).length > 0 && (
+                professionals.length > 0 && (
                   <TeamSection
                     key={section.id}
                     title={title}
-                    professionals={professionals ?? []}
+                    professionals={professionals}
                     slug={slug}
                   />
                 )
@@ -256,8 +306,6 @@ export default function BusinessProfile({
                     key={section.id}
                     title={title}
                     images={gallery}
-                    setGalleryIdx={setGalleryIdx}
-                    setLightboxOpen={setLightboxOpen}
                   />
                 )
               );
@@ -290,36 +338,35 @@ export default function BusinessProfile({
           }
         })}
 
-        {profile.socialLinks &&
-          Object.values(profile.socialLinks).some(Boolean) && (
-            <div className="mb-8 flex items-center gap-3">
-              {profile.socialLinks.instagram && (
-                <a
-                  href={profile.socialLinks.instagram}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-muted hover:bg-muted/80 flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors"
-                >
-                  <Instagram className="h-4 w-4" />
-                  Instagram
-                </a>
-              )}
-              {profile.socialLinks.website && (
-                <a
-                  href={profile.socialLinks.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-muted hover:bg-muted/80 flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Sitio web
-                </a>
-              )}
-            </div>
-          )}
+        {(instagramHref || websiteHref) && (
+          <div className="mb-8 flex items-center gap-3">
+            {instagramHref && (
+              <a
+                href={instagramHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-muted hover:bg-muted/80 flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors"
+              >
+                <Instagram className="h-4 w-4" />
+                Instagram
+              </a>
+            )}
+            {websiteHref && (
+              <a
+                href={websiteHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-muted hover:bg-muted/80 flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Sitio web
+              </a>
+            )}
+          </div>
+        )}
 
         <div className="from-primary to-primary/80 text-primary-foreground mb-8 rounded-2xl bg-gradient-to-r p-8 text-center">
-          <h3 className="text-2xl font-bold">Listo para tu proxima cita?</h3>
+          <h3 className="text-2xl font-bold">Listo para tu próxima cita?</h3>
           <p className="text-primary-foreground/80 mt-2">
             Agenda en segundos, sin necesidad de crear una cuenta
           </p>
@@ -334,46 +381,6 @@ export default function BusinessProfile({
           </Link>
         </div>
       </div>
-
-      {lightboxOpen && gallery.length > 0 && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setLightboxOpen(false)}
-        >
-          <button
-            onClick={() =>
-              setGalleryIdx((galleryIdx - 1 + gallery.length) % gallery.length)
-            }
-            className="absolute left-4 text-white/70 hover:text-white"
-          >
-            <ChevronLeft className="h-8 w-8" />
-          </button>
-          <Image
-            src={gallery[galleryIdx].url}
-            alt={gallery[galleryIdx].title || ""}
-            width={1200}
-            height={900}
-            unoptimized={imageUnoptimized(gallery[galleryIdx].url)}
-            className="max-h-[85vh] max-w-full rounded-lg object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <button
-            onClick={() => setGalleryIdx((galleryIdx + 1) % gallery.length)}
-            className="absolute right-4 text-white/70 hover:text-white"
-          >
-            <ChevronRight className="h-8 w-8" />
-          </button>
-          <button
-            onClick={() => setLightboxOpen(false)}
-            className="absolute right-4 top-4 text-2xl text-white/70 hover:text-white"
-          >
-            &times;
-          </button>
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-sm text-white/70">
-            {galleryIdx + 1} / {gallery.length}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

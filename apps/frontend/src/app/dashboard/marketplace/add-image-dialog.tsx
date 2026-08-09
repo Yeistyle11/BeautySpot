@@ -50,14 +50,14 @@ export function AddImageDialog({
             className="h-32 w-auto rounded-lg object-cover"
           />
         )}
-        <Field label="Titulo (opcional)">
+        <Field label="Título (opcional)">
           <Input
-            placeholder="Descripcion de la imagen"
+            placeholder="Descripción de la imagen"
             value={form.title}
             onChange={(e) => set({ title: e.target.value })}
           />
         </Field>
-        <Field label="Categoria (opcional)">
+        <Field label="Categoría (opcional)">
           <Input
             placeholder="Cortes, Centro de belleza, Estilo..."
             value={form.category}

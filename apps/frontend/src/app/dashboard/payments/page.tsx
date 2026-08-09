@@ -17,6 +17,7 @@ import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
+import { FilterChip } from "@/components/ui/filter-chip";
 import { PaymentSummaryCards } from "./payment-summary";
 import { PaymentCard } from "./payment-card";
 import { CreatePaymentDialog, EditPaymentDialog } from "./payment-dialogs";
@@ -81,12 +82,22 @@ export default function PaymentsPage() {
   const [savingEdit, setSavingEdit] = useState(false);
 
   // La lista de clientes solo hace falta con un dialogo abierto.
+  // El historial necesita la lista para poner nombre a cada cobro, asi que se
+  // carga con la pagina y no solo al abrir un dialogo.
   const { data: clientsPage } = useApi(
-    createDialog || editDialog ? CLIENTS_KEY : null,
+    CLIENTS_KEY,
     undefined,
     paginatedSchema(clientSchema)
   );
   const clients: Client[] = clientsPage?.data ?? [];
+
+  const clientMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    clients.forEach((c) => {
+      map[c.id] = c.name;
+    });
+    return map;
+  }, [clients]);
 
   // El resumen del dia se pide al backend, que lo calcula sobre todos los
   // pagos y no solo sobre la pagina visible. El endpoint es exclusivo de
@@ -130,7 +141,7 @@ export default function PaymentsPage() {
     setSavingCreate(true);
     try {
       await api.post("/payment/payments", {
-        clientId: createForm.clientId || undefined,
+        clientId: createForm.clientId,
         amount: parseFloat(createForm.amount),
         method: createForm.method,
         reference: createForm.reference || undefined,
@@ -201,17 +212,16 @@ export default function PaymentsPage() {
         <div
           className="flex flex-wrap gap-1"
           role="group"
-          aria-label="Filtrar por metodo de pago"
+          aria-label="Filtrar por método de pago"
         >
           {METHOD_FILTERS.map((m) => (
-            <button
+            <FilterChip
               key={m}
+              activo={filterMethod === m}
               onClick={() => setFilterMethod(m)}
-              aria-pressed={filterMethod === m}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${filterMethod === m ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-primary/20"}`}
             >
               {m === "all" ? "Todos" : METHOD_LABELS[m] || m}
-            </button>
+            </FilterChip>
           ))}
         </div>
         <div className="flex items-center gap-2 text-sm">
@@ -257,6 +267,7 @@ export default function PaymentsPage() {
               payment={p}
               canEdit={canDo(role, "payments_edit")}
               onEdit={openEdit}
+              clientName={p.clientId ? clientMap[p.clientId] : undefined}
             />
           ))
         )}

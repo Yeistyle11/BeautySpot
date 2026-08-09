@@ -7,20 +7,10 @@ import {
   CategoryManager,
   type CategoryManagerConfig,
 } from "@/components/dashboard/category-manager";
-import { CATEGORY_ICON_OPTIONS } from "@/components/dashboard/category-icons";
-
-const COLOR_PRESETS = [
-  "#3B82F6", // azul
-  "#8B5CF6", // violeta
-  "#10B981", // esmeralda
-  "#F59E0B", // ámbar
-  "#EF4444", // rojo
-  "#EC4899", // rosa
-  "#6366F1", // índigo
-  "#14B8A6", // teal
-  "#F97316", // naranja
-  "#64748B", // slate
-];
+import {
+  CATEGORY_ICON_OPTIONS,
+  CATEGORY_COLOR_PRESETS,
+} from "@/components/dashboard/category-icons";
 
 const CONFIG: CategoryManagerConfig = {
   apiBasePath: "/core/service-categories",
@@ -32,7 +22,7 @@ const CONFIG: CategoryManagerConfig = {
   emptyIcon: Scissors,
   cardIcon: Scissors,
   defaultColor: "#3B82F6",
-  colorPresets: COLOR_PRESETS,
+  colorPresets: CATEGORY_COLOR_PRESETS,
   iconOptions: CATEGORY_ICON_OPTIONS,
   actions: {
     create: "service_categories_create",

@@ -1,7 +1,7 @@
 "use client";
 
 // Flujo de reserva publica: asistente por pasos (servicios, profesional, horario y datos) hasta confirmar la cita.
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -23,6 +23,7 @@ import {
   GuestDetailsStep,
   type GuestDetails,
 } from "./steps/guest-details-step";
+import { Spinner } from "@/components/ui/spinner";
 import {
   BOOKING_STEPS,
   professionalSchema,
@@ -104,10 +105,14 @@ function PublicBookingPageInner() {
   );
   const totalAmount = selectedServiceData.reduce((sum, s) => sum + s.price, 0);
 
+  // Con "cualquier profesional" la disponibilidad se pide del negocio entero, que
+  // devuelve la union de las agendas; con uno concreto, solo la suya.
   const isAnyProfessional = selectedProfessional === "any";
   const alcanceSlots = isAnyProfessional
     ? `businessId=${profile?.businessId}`
     : `professionalId=${selectedProfessional}`;
+  // Sin fecha, sin profesional o sin servicios elegidos no hay nada que
+  // consultar: la key en null deja la peticion sin lanzar.
   const slotsKey =
     date && selectedProfessional && totalDuration > 0 && profile?.businessId
       ? `/booking/appointments/availability?${alcanceSlots}&date=${date}&duration=${totalDuration}`
@@ -124,14 +129,17 @@ function PublicBookingPageInner() {
     setStartTime("");
   }, [date, selectedProfessional, totalDuration]);
 
+  // Los datos del usuario se copian al formulario una sola vez: si el store se
+  // rehidrata mas tarde, no debe pisar lo que ya haya corregido a mano.
+  const datosSembrados = useRef(false);
   useEffect(() => {
-    if (isAuthenticated && user) {
-      setGuest({
-        name: user.name || "",
-        email: user.email || "",
-        phone: user.phone || "",
-      });
-    }
+    if (!isAuthenticated || !user || datosSembrados.current) return;
+    datosSembrados.current = true;
+    setGuest({
+      name: user.name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+    });
   }, [isAuthenticated, user]);
 
   const toggleService = (id: string) => {
@@ -189,7 +197,7 @@ function PublicBookingPageInner() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+        <Spinner variant="inline" className="h-8 w-8 border-4" />
       </div>
     );
   }
@@ -324,7 +332,7 @@ export default function PublicBookingPage() {
     <Suspense
       fallback={
         <div className="flex justify-center py-20">
-          <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+          <Spinner variant="inline" className="h-8 w-8 border-4" />
         </div>
       }
     >

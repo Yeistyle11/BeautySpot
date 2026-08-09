@@ -84,7 +84,7 @@ function ToastItem({
       className={`pointer-events-auto flex items-start gap-3 rounded-lg border p-4 shadow-lg ${
         esError
           ? "border-destructive/30 bg-destructive/10 text-destructive"
-          : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+          : "border-success/30 bg-success-soft text-success-soft-foreground"
       }`}
     >
       <Icono className="mt-0.5 h-5 w-5 shrink-0" />

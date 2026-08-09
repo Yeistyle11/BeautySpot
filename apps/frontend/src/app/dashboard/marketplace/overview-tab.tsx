@@ -76,7 +76,10 @@ export function OverviewTab({
                 {profile.profileCompleteness}%
               </span>
             </div>
-            <Progress value={profile.profileCompleteness} />
+            <Progress
+              value={profile.profileCompleteness}
+              label="Completitud del perfil"
+            />
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
               <CompletenessItem
                 done={!!(profile.name && profile.description)}
@@ -85,7 +88,7 @@ export function OverviewTab({
               <CompletenessItem done={!!profile.storyText} label="Historia" />
               <CompletenessItem
                 done={gallery.length >= 3}
-                label="Galeria (3+)"
+                label="Galería (3+)"
               />
               <CompletenessItem
                 done={!!profile.socialLinks?.instagram}

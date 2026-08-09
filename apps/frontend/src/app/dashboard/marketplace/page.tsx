@@ -2,6 +2,7 @@
 
 // Pagina de gestion del perfil publico: pestanas para editar la ficha del negocio en el marketplace.
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,18 +13,10 @@ import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
-import { ListLoadError } from "@/components/dashboard/list-load-error";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { cn } from "@/lib/utils";
 import { OverviewTab } from "./overview-tab";
-import { ProfileTab } from "./profile-tab";
-import { GalleryTab } from "./gallery-tab";
-import { SectionsTab } from "./sections-tab";
-import { ReviewsTab } from "./reviews-tab";
-import {
-  AddImageDialog,
-  emptyGalleryForm,
-  type GalleryForm,
-} from "./add-image-dialog";
+import { emptyGalleryForm, type GalleryForm } from "./add-image-dialog";
 import {
   defaultSections,
   emptyConfigForm,
@@ -38,10 +31,29 @@ import {
   type SectionItem,
 } from "./schemas";
 
+// Solo el resumen se ve al entrar; las demas pestanas y el dialogo de imagen se
+// descargan cuando se abren.
+const ProfileTab = dynamic(() =>
+  import("./profile-tab").then((m) => m.ProfileTab)
+);
+const GalleryTab = dynamic(() =>
+  import("./gallery-tab").then((m) => m.GalleryTab)
+);
+const SectionsTab = dynamic(() =>
+  import("./sections-tab").then((m) => m.SectionsTab)
+);
+const ReviewsTab = dynamic(() =>
+  import("./reviews-tab").then((m) => m.ReviewsTab)
+);
+const AddImageDialog = dynamic(
+  () => import("./add-image-dialog").then((m) => m.AddImageDialog),
+  { ssr: false }
+);
+
 const TAB_LABELS: Record<string, string> = {
   overview: "Resumen",
   profile: "Perfil",
-  gallery: "Galeria",
+  gallery: "Galería",
   sections: "Secciones",
   reviews: "Reseñas",
 };
@@ -211,14 +223,13 @@ export default function MarketplacePage() {
     return (
       <div>
         <h1 className="text-2xl font-bold">Marketplace</h1>
-        <Card className="mt-4 border-0 shadow-sm">
-          <CardContent className="p-8">
-            <ListLoadError
-              error={profileError}
-              onRetry={() => mutateProfile()}
-            />
-          </CardContent>
-        </Card>
+        <div className="mt-4">
+          <ErrorDeCarga
+            error={profileError}
+            recurso="los datos del perfil publico"
+            onReintentar={() => mutateProfile()}
+          />
+        </div>
       </div>
     );
   }
@@ -232,7 +243,7 @@ export default function MarketplacePage() {
             <Megaphone className="mx-auto h-12 w-12 opacity-20" />
             <p className="mt-2 font-medium">Perfil no disponible</p>
             <p className="text-muted-foreground text-sm">
-              Primero configura tu negocio en la seccion de Configuracion para
+              Primero configura tu negocio en la seccion de Configuración para
               activar tu perfil en el marketplace.
             </p>
           </CardContent>

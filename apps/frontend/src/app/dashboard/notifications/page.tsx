@@ -7,8 +7,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Bell, CheckCheck } from "lucide-react";
 import { z } from "zod";
 import { api } from "@/lib/api";
+import { logger } from "@/lib/logger";
 import { usePaginatedList } from "@/lib/use-paginated-list";
 import { Pagination } from "@/components/ui/pagination";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import type { IPaginatedResponse } from "@beautyspot/shared-types";
 import { formatDate } from "@/lib/utils";
 
@@ -32,6 +35,8 @@ export default function NotificationsPage() {
     setPage,
     listKey,
     isLoading: loading,
+    error: loadError,
+    mutate: recargar,
   } = usePaginatedList<Notification>({
     basePath: NOTIFICATIONS_KEY,
     itemSchema: notificationSchema,
@@ -56,8 +61,11 @@ export default function NotificationsPage() {
               : prev,
           { revalidate: false }
         );
-      } catch {
-        /* ignore */
+      } catch (err: unknown) {
+        // Marcar como leida es un efecto secundario de abrir la notificacion:
+        // si falla, el usuario ya tiene lo que venia a buscar y volvera a
+        // intentarse en la siguiente visita.
+        logger.error(err);
       }
     },
     [listKey]
@@ -72,13 +80,18 @@ export default function NotificationsPage() {
       <div className="space-y-3">
         {loading ? (
           <p className="text-muted-foreground">Cargando...</p>
+        ) : loadError ? (
+          <ErrorDeCarga
+            error={loadError}
+            recurso="las notificaciones"
+            onReintentar={() => void recargar()}
+          />
         ) : list.length === 0 ? (
-          <Card className="border-0 shadow-sm">
-            <CardContent className="text-muted-foreground p-8 text-center">
-              <Bell className="mx-auto h-12 w-12 opacity-20" />
-              <p className="mt-2">No hay notificaciones</p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Bell}
+            titulo="No hay notificaciones"
+            descripcion="Aquí aparecerán los avisos de tus citas y pagos."
+          />
         ) : (
           list.map((n) => (
             <Card

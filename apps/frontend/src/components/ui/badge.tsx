@@ -1,4 +1,3 @@
-// Etiqueta compacta de estado con variantes de color.
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
@@ -19,6 +18,10 @@ const badgeVariants = cva(
           "border-transparent bg-success-soft text-success-soft-foreground",
         warning:
           "border-transparent bg-warning-soft text-warning-soft-foreground",
+        info: "border-transparent bg-info-soft text-info-soft-foreground",
+        accent: "border-transparent bg-primary/10 text-primary",
+        danger: "border-transparent bg-destructive/10 text-destructive",
+        muted: "border-transparent bg-muted text-muted-foreground",
       },
     },
     defaultVariants: { variant: "default" },

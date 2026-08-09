@@ -1,7 +1,7 @@
 "use client";
 
 // Pagina de caja: apertura, cierre y movimientos de la sesion de caja del dia.
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { mutate } from "swr";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,12 +46,12 @@ const movementTypeOptions = [
   {
     value: "IN",
     label: "Entrada",
-    icon: <ArrowUpCircle className="h-5 w-5 text-green-600" />,
+    icon: <ArrowUpCircle className="text-success h-5 w-5" />,
   },
   {
     value: "OUT",
     label: "Salida",
-    icon: <ArrowDownCircle className="h-5 w-5 text-red-600" />,
+    icon: <ArrowDownCircle className="text-destructive h-5 w-5" />,
   },
 ];
 
@@ -82,7 +82,7 @@ export default function CashRegisterPage() {
     undefined,
     cashSummarySchema.nullable()
   );
-  const movements = summary?.movements ?? [];
+  const movements = useMemo(() => summary?.movements ?? [], [summary]);
   const loading = loadingActive;
 
   const [openDialog, setOpenDialog] = useState(false);
@@ -161,14 +161,25 @@ export default function CashRegisterPage() {
     }
   };
 
-  const totalIn = movements
-    .filter((m) => m.type === "IN")
-    .reduce((s, m) => s + m.amount, 0);
-  const totalOut = movements
-    .filter((m) => m.type === "OUT")
-    .reduce((s, m) => s + m.amount, 0);
+  const { totalIn, totalOut } = useMemo(
+    () =>
+      movements.reduce(
+        (acc, m) => {
+          if (m.type === "IN") acc.totalIn += m.amount;
+          else acc.totalOut += m.amount;
+          return acc;
+        },
+        { totalIn: 0, totalOut: 0 }
+      ),
+    [movements]
+  );
   const openingAmt = activeSession?.openingAmount ?? 0;
   const expectedTotal = openingAmt + totalIn - totalOut;
+  // Descuadre del arqueo mientras se teclea: negativo falta, positivo sobra.
+  const diferenciaCierre =
+    closeAmount === "" || Number.isNaN(Number(closeAmount))
+      ? null
+      : Number(closeAmount) - expectedTotal;
 
   if (loading) {
     return (
@@ -239,10 +250,10 @@ export default function CashRegisterPage() {
             </Card>
             <Card className="border-0 shadow-sm">
               <CardContent className="flex items-center gap-3 p-4">
-                <TrendingUp className="h-8 w-8 text-green-600" />
+                <TrendingUp className="text-success h-8 w-8" />
                 <div>
                   <p className="text-muted-foreground text-xs">Entradas</p>
-                  <p className="text-xl font-bold text-green-600">
+                  <p className="text-success text-xl font-bold">
                     {formatCurrency(totalIn)}
                   </p>
                 </div>
@@ -250,10 +261,10 @@ export default function CashRegisterPage() {
             </Card>
             <Card className="border-0 shadow-sm">
               <CardContent className="flex items-center gap-3 p-4">
-                <TrendingDown className="h-8 w-8 text-red-600" />
+                <TrendingDown className="text-destructive h-8 w-8" />
                 <div>
                   <p className="text-muted-foreground text-xs">Salidas</p>
-                  <p className="text-xl font-bold text-red-600">
+                  <p className="text-destructive text-xl font-bold">
                     {formatCurrency(totalOut)}
                   </p>
                 </div>
@@ -303,9 +314,9 @@ export default function CashRegisterPage() {
                     >
                       <div className="flex items-center gap-3">
                         {m.type === "IN" ? (
-                          <ArrowUpCircle className="h-5 w-5 text-green-600" />
+                          <ArrowUpCircle className="text-success h-5 w-5" />
                         ) : (
-                          <ArrowDownCircle className="h-5 w-5 text-red-600" />
+                          <ArrowDownCircle className="text-destructive h-5 w-5" />
                         )}
                         <div>
                           <p className="text-sm font-medium">{m.concept}</p>
@@ -315,7 +326,7 @@ export default function CashRegisterPage() {
                         </div>
                       </div>
                       <span
-                        className={`font-semibold ${m.type === "IN" ? "text-green-600" : "text-red-600"}`}
+                        className={`font-semibold ${m.type === "IN" ? "text-success" : "text-destructive"}`}
                       >
                         {m.type === "IN" ? "+" : "-"}
                         {formatCurrency(m.amount)}
@@ -389,14 +400,19 @@ export default function CashRegisterPage() {
               placeholder="Observaciones..."
             />
           </Field>
-          <Button onClick={handleOpen} disabled={opening}>
-            {opening ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Wallet className="mr-2 h-4 w-4" />
-            )}
-            Abrir caja
-          </Button>
+          <div className="flex gap-3">
+            <Button onClick={handleOpen} disabled={opening}>
+              {opening ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Wallet className="mr-2 h-4 w-4" />
+              )}
+              Abrir caja
+            </Button>
+            <Button variant="outline" onClick={() => setOpenDialog(false)}>
+              Cancelar
+            </Button>
+          </div>
         </div>
       </Dialog>
 
@@ -411,6 +427,7 @@ export default function CashRegisterPage() {
               options={movementTypeOptions}
               value={moveType}
               onChange={setMoveType}
+              label="Tipo de movimiento"
             />
           </Field>
           <Field label="Monto (COP)">
@@ -465,6 +482,19 @@ export default function CashRegisterPage() {
               required
             />
           </Field>
+          {diferenciaCierre !== null && diferenciaCierre !== 0 && (
+            <div
+              className={
+                diferenciaCierre < 0
+                  ? "rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                  : "rounded-lg bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+              }
+            >
+              {diferenciaCierre < 0 ? "Faltan " : "Sobran "}
+              <strong>{formatCurrency(Math.abs(diferenciaCierre))}</strong>{" "}
+              respecto al total esperado. Anota el motivo antes de cerrar.
+            </div>
+          )}
           <Field label="Notas (opcional)">
             <Textarea
               value={closeNotes}

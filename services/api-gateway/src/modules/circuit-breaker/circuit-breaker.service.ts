@@ -1,4 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 /** CLOSED: tráfico normal. OPEN: se rechaza sin llamar. HALF_OPEN: pruebas de recuperación. */
@@ -54,7 +58,11 @@ export class CircuitBreakerService {
         this.logger.log(`Circuit breaker HALF_OPEN para ${service}`);
       } else {
         this.logger.warn(`Circuit breaker OPEN para ${service}`);
-        throw new Error(`Circuit breaker OPEN for ${service}`);
+        // 503 y no 500: el cliente tiene que poder distinguir "el servicio está
+        // temporalmente fuera" de "hay un error en mi petición".
+        throw new ServiceUnavailableException(
+          `Servicio ${service} no disponible temporalmente`
+        );
       }
     }
 

@@ -1,7 +1,7 @@
 "use client";
 
 // Perfil del cliente: edicion de sus datos personales.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { User, Mail, Phone, Award, Save, CheckCircle } from "lucide-react";
 import { api } from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { mensajeDeError } from "@/lib/error-message";
+import { useToast } from "@/components/ui/toast";
 import { useAuthStore } from "@/lib/store";
 import { useApi } from "@/lib/swr";
+import { Spinner } from "@/components/ui/spinner";
 
 const clientProfileSchema = z.object({
   id: z.string(),
@@ -21,6 +25,8 @@ const clientProfileSchema = z.object({
 });
 type ClientProfile = z.infer<typeof clientProfileSchema>;
 
+// Ordenados de menos a mas puntos: getTier y getNextTier recorren la lista una
+// vez y dependen de esa invariante.
 const LOYALTY_TIERS = [
   { min: 0, label: "Bronce", color: "bg-amber-700" },
   { min: 100, label: "Plata", color: "bg-gray-400" },
@@ -29,6 +35,7 @@ const LOYALTY_TIERS = [
   { min: 1000, label: "Diamante", color: "bg-purple-500" },
 ];
 
+/** Nivel alcanzado con esos puntos; el mas bajo si no llega a ninguno. */
 function getTier(points: number) {
   let tier = LOYALTY_TIERS[0];
   for (const t of LOYALTY_TIERS) {
@@ -37,6 +44,7 @@ function getTier(points: number) {
   return tier;
 }
 
+/** Siguiente nivel por alcanzar, o null si ya esta en el mas alto. */
 function getNextTier(points: number) {
   for (const t of LOYALTY_TIERS) {
     if (points < t.min) return t;
@@ -46,6 +54,7 @@ function getNextTier(points: number) {
 
 export default function ClientProfilePage() {
   const { user } = useAuthStore();
+  const toast = useToast();
   const {
     data: client,
     isLoading: loading,
@@ -59,14 +68,25 @@ export default function ClientProfilePage() {
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "" });
 
+  // El formulario se siembra una sola vez, con lo primero que llegue: el perfil
+  // del backend si responde, y si no los datos de la sesion. Sin el guard, cada
+  // revalidacion de SWR pisaria lo que el usuario esta escribiendo.
+  const seeded = useRef(false);
+
   useEffect(() => {
+    if (seeded.current) return;
     if (client) {
+      seeded.current = true;
       setForm({ name: client.name, phone: client.phone || "" });
-    } else if (user && !form.name) {
+    } else if (user) {
+      seeded.current = true;
       setForm({ name: user.name || "", phone: user.phone || "" });
     }
-  }, [client, user, form.name]);
+  }, [client, user]);
 
+  // Un cliente que reservo como invitado todavia no tiene ficha en core-service,
+  // asi que si ese endpoint no lo encuentra los datos se guardan contra su
+  // usuario de auth-service.
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
@@ -74,12 +94,14 @@ export default function ClientProfilePage() {
       await api.patch("/core/clients/me", form);
       await mutateClient();
       setSaved(true);
-    } catch {
+    } catch (errClientes: unknown) {
+      logger.error(errClientes);
       try {
         await api.patch("/auth/users/me", form);
         setSaved(true);
-      } catch {
-        // silently fail
+      } catch (errUsuarios: unknown) {
+        logger.error(errUsuarios);
+        toast.error(mensajeDeError(errUsuarios));
       }
     } finally {
       setSaving(false);
@@ -89,7 +111,7 @@ export default function ClientProfilePage() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+        <Spinner variant="inline" className="h-8 w-8 border-4" />
       </div>
     );
   }
@@ -103,7 +125,7 @@ export default function ClientProfilePage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Mi Perfil</h1>
         <p className="text-muted-foreground">
-          Administra tu informacion personal
+          Administra tu información personal
         </p>
       </div>
 
@@ -125,7 +147,7 @@ export default function ClientProfilePage() {
               <div>
                 <div className="mb-2 flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Proximo: {nextTier.label}
+                    Próximo: {nextTier.label}
                   </span>
                   <span className="font-medium">
                     {nextTier.min - loyaltyPoints} pts
@@ -157,7 +179,7 @@ export default function ClientProfilePage() {
 
         <Card className="border-0 shadow-sm lg:col-span-2">
           <CardContent className="p-6">
-            <h2 className="mb-6 font-semibold">Informacion personal</h2>
+            <h2 className="mb-6 font-semibold">Información personal</h2>
 
             <div className="space-y-5">
               <div className="flex items-center gap-4">
@@ -203,7 +225,7 @@ export default function ClientProfilePage() {
                 <div className="space-y-2 sm:col-span-2">
                   <Label className="flex items-center gap-2">
                     <Phone className="h-3 w-3" />
-                    Telefono
+                    Teléfono
                   </Label>
                   <Input
                     type="tel"

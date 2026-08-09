@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CheckCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import type { BookingConfirmation as Confirmation } from "./schemas";
 
 interface BookingConfirmationProps {
@@ -39,7 +39,7 @@ export function BookingConfirmation({
             <span className="font-medium">Negocio:</span> {businessName}
           </p>
           <p className="text-sm">
-            <span className="font-medium">Fecha:</span> {date}
+            <span className="font-medium">Fecha:</span> {formatDate(date)}
           </p>
           <p className="text-sm">
             <span className="font-medium">Hora:</span> {confirmation.startTime}{" "}
@@ -56,7 +56,7 @@ export function BookingConfirmation({
         </CardContent>
       </Card>
       <div className="mt-6 flex flex-wrap justify-center gap-3">
-        {/* Con sesion iniciada la cita queda en "Mis citas"; como invitado no
+        {/* Con sesión iniciada la cita queda en "Mis citas"; como invitado no
             hay panel al que enviar al usuario. */}
         <Link
           href={

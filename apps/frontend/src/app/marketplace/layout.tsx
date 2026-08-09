@@ -16,13 +16,16 @@ export default function PublicLayout({
   const cerrarSesion = useLogout();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const botonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
 
+  // El menu se cierra al pulsar fuera y con Escape; sin lo segundo, quien navega
+  // con teclado no tiene forma de descartarlo.
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function alPulsarFuera(e: MouseEvent) {
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(e.target as Node)
@@ -30,16 +33,35 @@ export default function PublicLayout({
         setDropdownOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    function alPulsarTecla(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setDropdownOpen(false);
+        botonRef.current?.focus();
+      }
+    }
+    document.addEventListener("mousedown", alPulsarFuera);
+    document.addEventListener("keydown", alPulsarTecla);
+    return () => {
+      document.removeEventListener("mousedown", alPulsarFuera);
+      document.removeEventListener("keydown", alPulsarTecla);
+    };
   }, []);
 
   const isAuthenticated = hydrated && !!role && !!user;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50">
-      <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+    <div className="from-primary/5 via-background to-primary/10 min-h-screen bg-gradient-to-br">
+      <a
+        href="#contenido"
+        className="bg-primary text-primary-foreground focus:ring-ring sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:px-4 focus:py-2 focus:ring-2"
+      >
+        Saltar al contenido
+      </a>
+      <header className="bg-background/80 sticky top-0 z-50 border-b backdrop-blur-sm">
+        <nav
+          aria-label="Principal"
+          className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4"
+        >
           <Link href="/marketplace" className="flex items-center gap-2">
             <div className="bg-primary text-primary-foreground flex h-9 w-9 items-center justify-center rounded-lg">
               <Scissors className="h-4 w-4" />
@@ -49,8 +71,11 @@ export default function PublicLayout({
           {isAuthenticated ? (
             <div className="relative" ref={dropdownRef}>
               <button
+                ref={botonRef}
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="hover:bg-accent flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors"
+                aria-haspopup="menu"
+                aria-expanded={dropdownOpen}
+                className="hover:bg-accent focus-visible:ring-ring flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2"
               >
                 <div className="bg-primary text-primary-foreground flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold">
                   {user!.name.charAt(0).toUpperCase()}
@@ -58,9 +83,13 @@ export default function PublicLayout({
                 <span className="hidden sm:inline">{user!.name}</span>
               </button>
               {dropdownOpen && (
-                <div className="absolute right-0 z-50 mt-2 w-48 rounded-lg border bg-white py-1 shadow-lg">
+                <div
+                  role="menu"
+                  className="bg-popover absolute right-0 z-50 mt-2 w-48 rounded-lg border py-1 shadow-lg"
+                >
                   <Link
                     href="/dashboard/client"
+                    role="menuitem"
                     className="hover:bg-accent flex items-center gap-2 px-4 py-2 text-sm transition-colors"
                     onClick={() => setDropdownOpen(false)}
                   >
@@ -68,6 +97,7 @@ export default function PublicLayout({
                     Mi Panel
                   </Link>
                   <button
+                    role="menuitem"
                     onClick={async () => {
                       await cerrarSesion();
                       setDropdownOpen(false);
@@ -75,7 +105,7 @@ export default function PublicLayout({
                     className="hover:bg-accent flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors"
                   >
                     <LogOut className="h-4 w-4" />
-                    Cerrar sesion
+                    Cerrar sesión
                   </button>
                 </div>
               )}
@@ -86,16 +116,16 @@ export default function PublicLayout({
               className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
             >
               <LogIn className="h-4 w-4" />
-              Iniciar sesion
+              Iniciar sesión
             </Link>
           )}
-        </div>
+        </nav>
       </header>
-      <main>{children}</main>
-      <footer className="text-muted-foreground border-t bg-white py-6 text-center text-sm">
+      <main id="contenido">{children}</main>
+      <footer className="text-muted-foreground bg-background border-t py-6 text-center text-sm">
         <p>
-          BeautySpot — Plataforma de gestion para centro de bellezas y salones
-          de belleza
+          BeautySpot — Plataforma de gestión para barberías, salones de belleza,
+          spas y centros estéticos
         </p>
       </footer>
     </div>

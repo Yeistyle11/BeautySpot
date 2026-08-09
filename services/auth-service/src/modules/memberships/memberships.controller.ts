@@ -106,4 +106,15 @@ export class InternalMembershipsController {
       invitedBy: dto.invitedBy || dto.userId,
     });
   }
+
+  /**
+   * Quién trabaja en el negocio, para que otro servicio pueda dirigirse a ellos
+   * —notification-service avisa aquí de las citas nuevas—. Devuelve solo el
+   * identificador y el rol: quien llama no necesita los datos de la persona.
+   */
+  @Get("business/:businessId")
+  async findByBusiness(@Param("businessId") businessId: string) {
+    const membresias = await this.membershipsService.findByBusiness(businessId);
+    return membresias.map((m) => ({ userId: m.userId, role: m.role }));
+  }
 }

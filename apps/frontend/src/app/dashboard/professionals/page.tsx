@@ -1,7 +1,8 @@
 "use client";
 
 // Pagina del equipo: lista de profesionales con alta, edicion, detalle, horario y baja.
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -15,11 +16,8 @@ import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
-import { ListLoadError } from "@/components/dashboard/list-load-error";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { ProCard } from "./pro-card";
-import { ProfessionalFormDialog } from "./professional-form-dialog";
-import { ProfessionalDetailDialog } from "./professional-detail-dialog";
-import { ScheduleDialog } from "./schedule-dialog";
 import {
   categorySchema,
   DAYS_MAP,
@@ -31,6 +29,25 @@ import {
   type DayHours,
   type Professional,
 } from "./schemas";
+
+// Los tres dialogos estan cerrados mientras se navega la lista, que es lo
+// habitual: se descargan al abrirlos.
+const ProfessionalFormDialog = dynamic(
+  () =>
+    import("./professional-form-dialog").then((m) => m.ProfessionalFormDialog),
+  { ssr: false }
+);
+const ProfessionalDetailDialog = dynamic(
+  () =>
+    import("./professional-detail-dialog").then(
+      (m) => m.ProfessionalDetailDialog
+    ),
+  { ssr: false }
+);
+const ScheduleDialog = dynamic(
+  () => import("./schedule-dialog").then((m) => m.ScheduleDialog),
+  { ssr: false }
+);
 
 const PROFESSIONALS_KEY = "/core/professionals";
 const CATEGORIES_KEY = "/core/categories";
@@ -111,12 +128,24 @@ export default function ProfessionalsPage() {
   );
   const [savingSchedule, setSavingSchedule] = useState(false);
 
+  // Se recuerda de quien es la ultima peticion de horario en vuelo: abrir dos
+  // profesionales seguidos hacia que la respuesta lenta del primero sobrescribiera
+  // la semana del segundo.
+  const horarioPedidoPara = useRef<string | null>(null);
+
+  /**
+   * Abre el dialogo de horario de un profesional. El horario se pide a mano y no
+   * con SWR, a diferencia del resto de la pagina, porque no se cachea: es un
+   * formulario que se rellena al abrir y se descarta al cerrar.
+   */
   const openSchedule = useCallback((p: Professional) => {
     setSchedulePro(p);
     setScheduleDialog(true);
+    horarioPedidoPara.current = p.id;
     api
       .get<AvailabilitySlot[]>(`/booking/professionals/${p.id}/availability`)
       .then((slots) => {
+        if (horarioPedidoPara.current !== p.id) return;
         // El backend solo devuelve los dias configurados: el resto se rellena
         // como inactivo para que la semana salga completa en el formulario.
         const week = Object.fromEntries(
@@ -135,6 +164,7 @@ export default function ProfessionalsPage() {
         setScheduleHours(week);
       })
       .catch(() => {
+        if (horarioPedidoPara.current !== p.id) return;
         // Si el profesional aun no tiene horario, se propone el estandar en
         // vez de dejar el formulario vacio.
         setScheduleHours(defaultWeek());
@@ -267,7 +297,11 @@ export default function ProfessionalsPage() {
       {loading ? (
         <p className="text-muted-foreground">Cargando...</p>
       ) : loadError ? (
-        <ListLoadError error={loadError} onRetry={() => void reload()} />
+        <ErrorDeCarga
+          error={loadError}
+          recurso="los profesionales"
+          onReintentar={() => void reload()}
+        />
       ) : professionals.length === 0 ? (
         <p className="text-muted-foreground">
           No hay profesionales registrados
@@ -276,7 +310,7 @@ export default function ProfessionalsPage() {
         <>
           <ProfessionalGroup
             title="Activos"
-            dotColor="bg-emerald-500"
+            dotColor="bg-success"
             items={activePros}
           >
             {renderCard}

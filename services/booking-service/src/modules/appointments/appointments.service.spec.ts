@@ -18,6 +18,31 @@ import {
 import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 
+/** Agendar exige futuro, así que las fechas del fixture se calculan al vuelo. */
+function dentroDeDias(dias: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + dias);
+  return d.toISOString().slice(0, 10);
+}
+
+const FECHA_CITA = dentroDeDias(30);
+const FECHA_SIGUIENTE = dentroDeDias(31);
+const DIA_DE_LA_SEMANA = new Date(FECHA_CITA + "T12:00:00").getDay();
+
+/**
+ * Fecha y hora de una cita inminente, para las reglas de anticipación mínima.
+ * El servicio interpreta `${date}T${startTime}` como hora local, así que el
+ * fixture se arma con los componentes locales.
+ */
+function dentroDeMinutos(minutos: number): { date: string; startTime: string } {
+  const d = new Date(Date.now() + minutos * 60 * 1000);
+  const dos = (n: number) => String(n).padStart(2, "0");
+  return {
+    date: `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`,
+    startTime: `${dos(d.getHours())}:${dos(d.getMinutes())}`,
+  };
+}
+
 describe("AppointmentsService", () => {
   let service: AppointmentsService;
   let mockApptRepo: jest.Mocked<Repository<Appointment>>;
@@ -33,7 +58,7 @@ describe("AppointmentsService", () => {
     branchId: "branch-123",
     clientId: "client-123",
     professionalId: "prof-123",
-    date: "2024-01-15",
+    date: FECHA_CITA,
     startTime: "10:00",
     endTime: "11:00",
     totalAmount: 50000,
@@ -166,7 +191,7 @@ describe("AppointmentsService", () => {
         serviceIds: [
           { id: "service-1", name: "Corte", price: 30000, duration: 30 },
         ],
-        date: "2024-01-15",
+        date: FECHA_CITA,
         startTime: "10:00",
         notes: "Cliente VIP",
       };
@@ -181,7 +206,7 @@ describe("AppointmentsService", () => {
         where: {
           businessId: "business-123",
           professionalId: "prof-123",
-          dayOfWeek: 1,
+          dayOfWeek: DIA_DE_LA_SEMANA,
           active: true,
         },
       });
@@ -196,7 +221,7 @@ describe("AppointmentsService", () => {
         serviceIds: [
           { id: "service-1", name: "Corte", price: 30000, duration: 30 },
         ],
-        date: "2024-01-15",
+        date: FECHA_CITA,
         startTime: "10:00",
       };
 
@@ -207,6 +232,23 @@ describe("AppointmentsService", () => {
       );
     });
 
+    it("debería rechazar una fecha pasada antes de consultar disponibilidad", async () => {
+      const data = {
+        professionalId: "prof-123",
+        clientId: "client-123",
+        serviceIds: [
+          { id: "service-1", name: "Corte", price: 30000, duration: 30 },
+        ],
+        date: dentroDeDias(-1),
+        startTime: "10:00",
+      };
+
+      await expect(service.create("business-123", data)).rejects.toThrow(
+        "No se puede agendar una cita en el pasado"
+      );
+      expect(mockAvailRepo.findOne).not.toHaveBeenCalled();
+    });
+
     it("debería lanzar BadRequestException si el slot está fuera del horario de trabajo", async () => {
       const data = {
         professionalId: "prof-123",
@@ -214,7 +256,7 @@ describe("AppointmentsService", () => {
         serviceIds: [
           { id: "service-1", name: "Corte", price: 30000, duration: 120 },
         ],
-        date: "2024-01-15",
+        date: FECHA_CITA,
         startTime: "17:30", // Terminaría a las 19:30, fuera del horario 09:00-18:00
       };
 
@@ -233,7 +275,7 @@ describe("AppointmentsService", () => {
         serviceIds: [
           { id: "service-1", name: "Corte", price: 30000, duration: 30 },
         ],
-        date: "2024-01-15",
+        date: FECHA_CITA,
         startTime: "10:00",
       };
 
@@ -254,7 +296,7 @@ describe("AppointmentsService", () => {
           { id: "service-1", name: "Corte", price: 30000, duration: 30 },
           { id: "service-2", name: "Barba", price: 20000, duration: 15 },
         ],
-        date: "2024-01-15",
+        date: FECHA_CITA,
         startTime: "10:00",
       };
 
@@ -274,7 +316,7 @@ describe("AppointmentsService", () => {
         serviceIds: [
           { id: "service-1", name: "Corte", price: 30000, duration: 30 },
         ],
-        date: "2024-01-15",
+        date: FECHA_CITA,
         startTime: "10:00",
       };
 
@@ -300,7 +342,7 @@ describe("AppointmentsService", () => {
         serviceIds: [
           { id: "service-1", name: "Corte", price: 30000, duration: 30 },
         ],
-        date: "2024-01-15",
+        date: FECHA_CITA,
         startTime: "10:00",
       };
 
@@ -413,6 +455,9 @@ describe("AppointmentsService", () => {
     it("debería completar una cita y otorgar puntos (10% del monto)", async () => {
       const confirmedAppt = {
         ...mockAppointment,
+        // Ya empezada: el servicio rechaza completar lo que aún no ha
+        // sucedido.
+        ...dentroDeMinutos(-30),
         status: AppointmentStatus.CONFIRMED,
         generateId: () => {},
       } as any;
@@ -450,6 +495,7 @@ describe("AppointmentsService", () => {
     it("debería permitir completar una cita en progreso", async () => {
       const inProgressAppt = {
         ...mockAppointment,
+        ...dentroDeMinutos(-30),
         status: AppointmentStatus.IN_PROGRESS,
         generateId: () => {},
       } as any;
@@ -464,6 +510,23 @@ describe("AppointmentsService", () => {
           eventType: EventNames.BOOKING_APPOINTMENT_COMPLETED,
         })
       );
+    });
+
+    // Completar arrastra el cobro: una cita futura daría un ingreso real por
+    // un servicio que no se ha prestado.
+    it("rechaza completar una cita que aún no ha empezado", async () => {
+      const futureAppt = {
+        ...mockAppointment,
+        ...dentroDeMinutos(120),
+        status: AppointmentStatus.CONFIRMED,
+        generateId: () => {},
+      } as any;
+      mockApptRepo.findOne.mockResolvedValue(futureAppt);
+
+      await expect(
+        service.complete("appt-123", "business-123")
+      ).rejects.toThrow(BadRequestException);
+      expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
   });
 
@@ -503,7 +566,11 @@ describe("AppointmentsService", () => {
     });
 
     it("debería lanzar ForbiddenException con menos de 2 horas de anticipación", async () => {
-      mockApptRepo.findOne.mockResolvedValue(mockAppointment);
+      const inminente = dentroDeMinutos(60);
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        ...inminente,
+      } as any);
 
       await expect(
         service.cancel(
@@ -613,7 +680,7 @@ describe("AppointmentsService", () => {
       await service.reschedule(
         "appt-123",
         "business-123",
-        "2024-01-16",
+        FECHA_SIGUIENTE,
         "15:00",
         60
       );
@@ -628,7 +695,7 @@ describe("AppointmentsService", () => {
         Appointment,
         { id: "appt-123", businessId: "business-123" },
         expect.objectContaining({
-          date: "2024-01-16",
+          date: FECHA_SIGUIENTE,
           startTime: "15:00",
           status: AppointmentStatus.PENDING,
         })
@@ -637,8 +704,8 @@ describe("AppointmentsService", () => {
 
     it("debería lanzar ForbiddenException con menos de 2 horas de anticipación", () => {
       jest.useFakeTimers();
-      const now = new Date("2024-01-15T13:30:00"); // 30 minutos antes de la cita
-      jest.setSystemTime(now);
+      // La cita del fixture es a las 10:00; nos situamos 30 minutos antes.
+      jest.setSystemTime(new Date(`${FECHA_CITA}T09:30:00`));
 
       mockApptRepo.findOne.mockResolvedValue(mockAppointment);
       mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
@@ -646,13 +713,7 @@ describe("AppointmentsService", () => {
       mockApptRepo.find.mockResolvedValue([]);
 
       return expect(
-        service.reschedule(
-          "appt-123",
-          "business-123",
-          "2024-01-15",
-          "15:00",
-          60
-        )
+        service.reschedule("appt-123", "business-123", FECHA_CITA, "15:00", 60)
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -667,7 +728,7 @@ describe("AppointmentsService", () => {
         service.reschedule(
           "appt-123",
           "business-123",
-          "2024-01-16",
+          FECHA_SIGUIENTE,
           "15:00",
           60
         )
@@ -685,7 +746,7 @@ describe("AppointmentsService", () => {
         {
           ...mockAppointment,
           id: "other-appt",
-          date: "2024-01-16",
+          date: FECHA_SIGUIENTE,
           startTime: "14:30",
           endTime: "15:30",
           generateId: () => "other-id",
@@ -696,7 +757,7 @@ describe("AppointmentsService", () => {
         service.reschedule(
           "appt-123",
           "business-123",
-          "2024-01-16",
+          FECHA_SIGUIENTE,
           "15:00",
           60
         )
@@ -779,6 +840,34 @@ describe("AppointmentsService", () => {
       await expect(
         service.findByClientUser("user-1", pagination)
       ).rejects.toThrow(ServiceUnavailableException);
+    });
+  });
+
+  describe("findByIdForClientUser", () => {
+    it("devuelve la cita cuando es de una ficha del usuario", async () => {
+      mockApptRepo.findOne.mockResolvedValue(mockAppointment);
+      mockHttp.pedir.mockResolvedValue([{ id: "client-123" }]);
+
+      const result = await service.findByIdForClientUser("appt-123", "user-1");
+
+      expect(result).toEqual(mockAppointment);
+    });
+
+    it("responde 404 si la cita es de otro cliente, sin revelar que existe", async () => {
+      mockApptRepo.findOne.mockResolvedValue(mockAppointment);
+      mockHttp.pedir.mockResolvedValue([{ id: "otra-ficha" }]);
+
+      await expect(
+        service.findByIdForClientUser("appt-123", "user-2")
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("responde 404 si la cita no existe", async () => {
+      mockApptRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.findByIdForClientUser("no-existe", "user-1")
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -908,13 +997,13 @@ describe("AppointmentsService", () => {
 
       await service.findByBusiness(
         "business-123",
-        { date: "2024-01-15" },
+        { date: FECHA_CITA },
         pagination
       );
 
       expect(mockApptRepo.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { businessId: "business-123", date: "2024-01-15" },
+          where: { businessId: "business-123", date: FECHA_CITA },
         })
       );
     });

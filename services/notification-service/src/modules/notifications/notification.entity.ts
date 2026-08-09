@@ -19,7 +19,8 @@ export class NotificationEntity extends TenantEntity {
   @Column({ type: "text" }) message!: string;
   @Column({ type: "jsonb", nullable: true }) data!: Record<string, unknown>;
   @Column({ default: false }) read!: boolean;
-  @Column({ type: "timestamp", nullable: true, name: "sent_at" }) sentAt!: Date;
+  @Column({ type: "timestamptz", nullable: true, name: "sent_at" })
+  sentAt!: Date;
 
   /** Fija la fecha de envío al insertar si no se indicó. */
   @BeforeInsert()

@@ -21,6 +21,52 @@ const IMAGE_HOSTS = [
     .filter(Boolean),
 ];
 
+// Origen del gateway, que es el unico destino de las peticiones del navegador.
+// Se declara aqui para que connect-src no tenga que abrirse a cualquier host.
+const apiOrigin = (() => {
+  try {
+    return new URL(
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+    ).origin;
+  } catch {
+    return "http://localhost:3000";
+  }
+})();
+
+// La CSP va en Report-Only: Next inyecta scripts y estilos en linea, asi que
+// aplicarla en modo bloqueo exigiria antes propagar un nonce por todo el arbol.
+// En Report-Only se ve que romperia sin romper nada todavia.
+const csp = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  // Los negocios alojan sus fotos donde quieren; la lista blanca real la aplica
+  // el optimizador de imagenes con remotePatterns.
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  `connect-src 'self' ${apiOrigin}`,
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+].join("; ");
+
+const SECURITY_HEADERS = [
+  { key: "Content-Security-Policy-Report-Only", value: csp },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), payment=()",
+  },
+  // Solo tiene efecto sobre https, asi que en desarrollo el navegador la ignora.
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload",
+  },
+];
+
 const nextConfig = {
   reactStrictMode: true,
   compiler: {
@@ -44,6 +90,9 @@ const nextConfig = {
     return [
       { source: "/api/:path*", destination: "http://localhost:3000/:path*" },
     ];
+  },
+  async headers() {
+    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
 };
 

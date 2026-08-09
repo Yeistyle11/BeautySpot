@@ -19,43 +19,23 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/swr";
-import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
+import { mensajeDeError } from "@/lib/error-message";
+import {
+  formatCurrency,
+  formatDate,
+  formatTime,
+  cn,
+  toLocalDateKey,
+} from "@/lib/utils";
 import Link from "next/link";
 
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
-const appointmentServiceSchema = z.object({
-  serviceName: z.string(),
-  price: z.string(),
-  duration: z.number(),
-});
-
-const appointmentSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  startTime: z.string(),
-  endTime: z.string(),
-  status: z.string(),
-  notes: z.string().nullable(),
-  totalAmount: z.string(),
-  professionalId: z.string(),
-  clientId: z.string(),
-  appointmentServices: z.array(appointmentServiceSchema),
-});
-type Appointment = z.infer<typeof appointmentSchema>;
-
-const availabilitySlotSchema = z.object({
-  startTime: z.string(),
-  endTime: z.string(),
-  available: z.boolean(),
-});
-type AvailabilitySlot = z.infer<typeof availabilitySlotSchema>;
-
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
+import {
+  appointmentSchema,
+  availabilitySlotSchema,
+  type Appointment,
+  type AvailabilitySlot,
+} from "@/lib/schemas/appointment";
 
 export default function ReschedulePage() {
   const params = useParams<{ id: string }>();
@@ -66,7 +46,7 @@ export default function ReschedulePage() {
     isLoading: loading,
     error: loadError,
   } = useApi<Appointment>(
-    id ? `/booking/appointments/${id}` : null,
+    id ? `/booking/appointments/mine/${id}` : null,
     undefined,
     appointmentSchema
   );
@@ -77,7 +57,6 @@ export default function ReschedulePage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  /* ---- Compute total duration for availability query ---- */
   const totalDuration = useMemo(() => {
     if (!appointment) return 0;
     return appointment.appointmentServices.reduce(
@@ -86,7 +65,6 @@ export default function ReschedulePage() {
     );
   }, [appointment]);
 
-  /* ---- Fetch slots when date changes ---- */
   const slotsKey =
     selectedDate && appointment && totalDuration > 0
       ? `/booking/appointments/availability?professionalId=${appointment.professionalId}&date=${selectedDate}&duration=${totalDuration}`
@@ -100,31 +78,29 @@ export default function ReschedulePage() {
     setSelectedSlot(null);
   }, [selectedDate, appointment?.professionalId, totalDuration]);
 
-  /* ---- Min date (today) ---- */
-  const today = new Date().toISOString().split("T")[0];
+  const today = toLocalDateKey(new Date());
 
-  /* ---- Submit reschedule ---- */
   const handleConfirm = async () => {
     if (!appointment || !selectedDate || !selectedSlot) return;
     setSubmitting(true);
     setError(null);
 
     try {
-      await api.patch(`/booking/appointments/${appointment.id}/reschedule`, {
-        date: selectedDate,
-        startTime: selectedSlot,
-      });
+      await api.patch(
+        `/booking/appointments/mine/${appointment.id}/reschedule`,
+        {
+          date: selectedDate,
+          startTime: selectedSlot,
+        }
+      );
       setSuccess(true);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Error al reagendar la cita";
-      setError(message);
+      logger.error(err);
+      setError(mensajeDeError(err));
     } finally {
       setSubmitting(false);
     }
   };
-
-  /* ---- Render ---- */
 
   if (loading) {
     return (
@@ -150,7 +126,6 @@ export default function ReschedulePage() {
 
   if (!appointment) return null;
 
-  /* ---- Success state ---- */
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -203,15 +178,13 @@ export default function ReschedulePage() {
                   <div key={idx} className="flex justify-between text-sm">
                     <span>{svc.serviceName}</span>
                     <span className="font-medium">
-                      {formatCurrency(parseFloat(svc.price))}
+                      {formatCurrency(svc.price)}
                     </span>
                   </div>
                 ))}
                 <div className="flex justify-between border-t pt-2 text-sm font-semibold">
                   <span>Total</span>
-                  <span>
-                    {formatCurrency(parseFloat(appointment.totalAmount))}
-                  </span>
+                  <span>{formatCurrency(appointment.totalAmount)}</span>
                 </div>
               </div>
               <div className="text-muted-foreground flex items-center gap-2 text-sm">

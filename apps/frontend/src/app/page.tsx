@@ -1,22 +1,19 @@
-"use client";
-
 // Pagina de entrada: redirige al dashboard si hay sesion o al marketplace publico si no.
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+//
+// Se resuelve en el servidor porque el access token vive en una cookie httpOnly:
+// el cliente no puede leerlo, asi que la decision no es posible en el navegador.
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { decodeJwt, AUTH_COOKIE_NAME } from "@/lib/auth";
+import { getDefaultPath } from "@/lib/permissions";
 
 export default function Home() {
-  const router = useRouter();
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      router.replace("/dashboard");
-    } else {
-      router.replace("/marketplace");
-    }
-  }, [router]);
-  return (
-    <div className="flex h-screen items-center justify-center">
-      <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
-    </div>
-  );
+  const token = cookies().get(AUTH_COOKIE_NAME)?.value;
+  const payload = token ? decodeJwt(token) : null;
+  const expirado = !!payload?.exp && payload.exp * 1000 < Date.now();
+
+  if (payload && !expirado) {
+    redirect(getDefaultPath(payload.role ?? null));
+  }
+  redirect("/marketplace");
 }

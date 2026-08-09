@@ -50,6 +50,10 @@ export function mensajeDeError(error: unknown): string {
       return POR_ESTADO_SERVIDOR[error.status] ?? GENERICO;
     }
 
+    // El backend enumera qué campos fallaron; el mensaje que los acompaña
+    // ("Error de validación") solo repite el código de estado.
+    if (error.detalles.length > 0) return error.detalles.join(". ");
+
     const mensaje = error.message?.trim();
     if (mensaje && !OPACOS.has(mensaje.toLowerCase())) return mensaje;
 

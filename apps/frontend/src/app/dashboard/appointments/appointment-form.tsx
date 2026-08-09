@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, toLocalDateKey } from "@/lib/utils";
 import type {
   AppointmentForm as FormValues,
   Client,
@@ -88,6 +88,7 @@ export function AppointmentForm({
               type="date"
               value={form.date}
               onChange={(e) => set({ date: e.target.value })}
+              min={toLocalDateKey(new Date())}
               required
             />
           </Field>

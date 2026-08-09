@@ -59,7 +59,7 @@ describe("AnalyticsEventListeners", () => {
   });
 
   describe("handleAppointmentCreated", () => {
-    it("debería incrementar totalAppointments y totalRevenue", async () => {
+    it("cuenta la cita en la fecha de la cita, sin tocar los ingresos", async () => {
       const event = {
         eventType: "booking.appointment.created",
         timestamp: new Date(),
@@ -82,8 +82,42 @@ describe("AnalyticsEventListeners", () => {
       expect(logSpy).toHaveBeenCalledWith("Cita creada: apt-123");
       expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
         "biz-123",
-        expect.any(String),
-        { totalAppointments: 1, totalRevenue: 50000 },
+        "2024-12-25",
+        { totalAppointments: 1 },
+        managerFalso
+      );
+      expect(
+        mockMetricsService.incrementProfessionalMetric
+      ).toHaveBeenCalledWith(
+        "biz-123",
+        "prof-123",
+        "2024-12-25",
+        { appointments: 1 },
+        managerFalso
+      );
+    });
+
+    // El importe de una cita es una previsión: sumarlo aquí y otra vez al
+    // registrar el pago deja el KPI por encima de lo cobrado.
+    it("no suma el importe de la cita a los ingresos", async () => {
+      const event = {
+        eventType: "booking.appointment.created",
+        eventId: "evt-1b",
+        payload: {
+          appointmentId: "apt-124",
+          businessId: "biz-124",
+          professionalId: "prof-124",
+          date: "2024-12-25",
+          totalAmount: 50000,
+        },
+      } as any;
+
+      await service.handleAppointmentCreated(event);
+
+      expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
+        "biz-124",
+        "2024-12-25",
+        expect.not.objectContaining({ totalRevenue: expect.anything() }),
         managerFalso
       );
     });
@@ -109,7 +143,9 @@ describe("AnalyticsEventListeners", () => {
   });
 
   describe("handleAppointmentConfirmed", () => {
-    it("debería incrementar metricas del profesional (appointments + revenue)", async () => {
+    // La cita se cuenta al crearse y el ingreso al cobrar: sumar aquí
+    // duplicaría ambos en las métricas del profesional.
+    it("no mueve ninguna métrica", async () => {
       const event = {
         eventType: "booking.appointment.confirmed",
         timestamp: new Date(),
@@ -129,23 +165,15 @@ describe("AnalyticsEventListeners", () => {
 
       await service.handleAppointmentConfirmed(event);
 
+      expect(mockMetricsService.incrementDailyMetric).not.toHaveBeenCalled();
       expect(
         mockMetricsService.incrementProfessionalMetric
-      ).toHaveBeenCalledWith(
-        "biz-789",
-        "prof-789",
-        expect.any(String),
-        {
-          appointments: 1,
-          revenue: 60000,
-        },
-        managerFalso
-      );
+      ).not.toHaveBeenCalled();
     });
   });
 
   describe("handleAppointmentCompleted", () => {
-    it("debería incrementar completedAppointments (daily) y appointments+revenue (prof)", async () => {
+    it("cuenta la cita completada y anota el ingreso al profesional", async () => {
       const event = {
         eventType: "booking.appointment.completed",
         timestamp: new Date(),
@@ -168,7 +196,7 @@ describe("AnalyticsEventListeners", () => {
 
       expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
         "biz-999",
-        expect.any(String),
+        "2024-12-25",
         { completedAppointments: 1 },
         managerFalso
       );
@@ -177,18 +205,15 @@ describe("AnalyticsEventListeners", () => {
       ).toHaveBeenCalledWith(
         "biz-999",
         "prof-999",
-        expect.any(String),
-        {
-          appointments: 1,
-          revenue: 40000,
-        },
+        "2024-12-25",
+        { revenue: 40000 },
         managerFalso
       );
     });
   });
 
   describe("handleAppointmentCancelled", () => {
-    it("debería incrementar cancelledAppointments (daily) y appointments (prof)", async () => {
+    it("cuenta la cancelación en la fecha de la cita", async () => {
       const event = {
         eventType: "booking.appointment.cancelled",
         timestamp: new Date(),
@@ -211,26 +236,19 @@ describe("AnalyticsEventListeners", () => {
 
       expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
         "biz-111",
-        expect.any(String),
+        "2024-12-25",
         { cancelledAppointments: 1 },
         managerFalso
       );
+      // La cita del profesional ya se contó al crearse.
       expect(
         mockMetricsService.incrementProfessionalMetric
-      ).toHaveBeenCalledWith(
-        "biz-111",
-        "prof-111",
-        expect.any(String),
-        {
-          appointments: 1,
-        },
-        managerFalso
-      );
+      ).not.toHaveBeenCalled();
     });
   });
 
   describe("handleAppointmentNoShowed", () => {
-    it("debería incrementar noShowAppointments (daily) y appointments (prof)", async () => {
+    it("cuenta el no-show en la fecha de la cita", async () => {
       const event = {
         eventType: "booking.appointment.no-showed",
         timestamp: new Date(),
@@ -252,19 +270,30 @@ describe("AnalyticsEventListeners", () => {
 
       expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
         "biz-222",
-        expect.any(String),
+        "2024-12-25",
         { noShowAppointments: 1 },
         managerFalso
       );
       expect(
         mockMetricsService.incrementProfessionalMetric
-      ).toHaveBeenCalledWith(
-        "biz-222",
-        "prof-222",
+      ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("handleClientCreated", () => {
+    it("cuenta el alta como cliente nuevo del día", async () => {
+      const event = {
+        eventType: "core.client.created",
+        eventId: "evt-7",
+        payload: { clientId: "cli-1", businessId: "biz-333", name: "Ana" },
+      } as any;
+
+      await service.handleClientCreated(event);
+
+      expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
+        "biz-333",
         expect.any(String),
-        {
-          appointments: 1,
-        },
+        { newClients: 1 },
         managerFalso
       );
     });

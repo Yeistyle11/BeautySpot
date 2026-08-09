@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DataSource, Repository } from "typeorm";
-import { OutboxService } from "@beautyspot/nest-common";
+import { OutboxService, InternalHttpClient } from "@beautyspot/nest-common";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { BusinessesService } from "./businesses.service";
 import { Business } from "../../entities/business.entity";
@@ -8,6 +8,7 @@ import { Branch } from "../../entities/branch.entity";
 import { Service } from "../../entities/service.entity";
 import { Professional } from "../../entities/professional.entity";
 import { NotFoundException, ConflictException } from "@nestjs/common";
+import { Role } from "@beautyspot/shared-types";
 
 describe("BusinessesService", () => {
   let service: BusinessesService;
@@ -16,6 +17,7 @@ describe("BusinessesService", () => {
   let mockServiceRepo: jest.Mocked<Repository<Service>>;
   let mockProfessionalRepo: jest.Mocked<Repository<Professional>>;
   let mockOutbox: { enqueue: jest.Mock };
+  let mockHttp: { enviar: jest.Mock };
 
   const mockBusiness: Business = {
     id: "business-123",
@@ -58,6 +60,7 @@ describe("BusinessesService", () => {
       create: jest.fn(),
       save: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
       createQueryBuilder: jest.fn().mockReturnValue({
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
@@ -75,6 +78,7 @@ describe("BusinessesService", () => {
 
     mockOutbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
     const mockOutboxSpec = mockOutbox;
+    mockHttp = { enviar: jest.fn().mockResolvedValue({}) };
     const mockDataSourceSpec = {
       // La transacción entrega el mismo repositorio simulado del test.
       transaction: jest.fn((cb) =>
@@ -86,6 +90,7 @@ describe("BusinessesService", () => {
       providers: [
         { provide: DataSource, useValue: mockDataSourceSpec },
         { provide: OutboxService, useValue: mockOutboxSpec },
+        { provide: InternalHttpClient, useValue: mockHttp },
         BusinessesService,
         {
           provide: getRepositoryToken(Business),
@@ -127,6 +132,40 @@ describe("BusinessesService", () => {
       });
       expect(mockRepository.save).toHaveBeenCalledWith(mockBusiness);
       expect(result).toEqual(mockBusiness);
+    });
+
+    it("createWithOwner deja al creador como OWNER del negocio", async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+      mockRepository.create.mockReturnValue(mockBusiness);
+      mockRepository.save.mockResolvedValue(mockBusiness);
+
+      await service.createWithOwner({ name: "Mi Barberia" }, "user-1");
+
+      expect(mockHttp.enviar).toHaveBeenCalledWith(
+        "auth",
+        "/internal/memberships",
+        {
+          userId: "user-1",
+          businessId: mockBusiness.id,
+          role: Role.OWNER,
+        }
+      );
+    });
+
+    it("createWithOwner deshace el negocio si la membresía no se puede crear", async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+      mockRepository.create.mockReturnValue(mockBusiness);
+      mockRepository.save.mockResolvedValue(mockBusiness);
+      mockHttp.enviar.mockRejectedValue(new Error("auth caido"));
+
+      await expect(
+        service.createWithOwner({ name: "Mi Barberia" }, "user-1")
+      ).rejects.toThrow("auth caido");
+
+      // Un negocio sin dueño dejaría al usuario sin acceso a lo que creó.
+      expect(mockRepository.delete).toHaveBeenCalledWith({
+        id: mockBusiness.id,
+      });
     });
 
     it("debería lanzar ConflictException si el slug ya existe", async () => {

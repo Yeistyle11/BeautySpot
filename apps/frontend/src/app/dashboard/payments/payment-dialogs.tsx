@@ -50,12 +50,15 @@ export function CreatePaymentDialog({
   return (
     <Dialog open={open} onClose={onClose} title="Registrar pago">
       <form onSubmit={onSubmit} className="space-y-4">
-        <Field label="Cliente">
+        {/* El servidor exige el cliente en todo pago, asi que el desplegable no
+            ofrece "sin cliente": la opcion por defecto solo pide elegir uno. */}
+        <Field label="Cliente *">
           <Select
             value={form.clientId}
             onChange={(e) => set({ clientId: e.target.value })}
+            required
           >
-            <option value="">Sin cliente</option>
+            <option value="">Selecciona un cliente</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -75,12 +78,13 @@ export function CreatePaymentDialog({
         </Field>
         <div className="space-y-2" role="group" aria-labelledby="create-method">
           <p id="create-method" className="text-sm font-medium">
-            Metodo de pago
+            Método de pago
           </p>
           <RadioGroup
             options={PAYMENT_METHOD_OPTIONS}
             value={form.method}
             onChange={(method) => set({ method })}
+            label="Método de pago"
           />
         </div>
         {form.method === "TRANSFER" && (
@@ -147,12 +151,13 @@ export function EditPaymentDialog({
         </Field>
         <div className="space-y-2" role="group" aria-labelledby="edit-method">
           <p id="edit-method" className="text-sm font-medium">
-            Metodo de pago
+            Método de pago
           </p>
           <RadioGroup
             options={PAYMENT_METHOD_OPTIONS}
             value={form.method}
             onChange={(method) => set({ method })}
+            label="Método de pago"
           />
         </div>
         {form.method === "TRANSFER" && (

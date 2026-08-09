@@ -7,10 +7,18 @@
 export class ApiError extends Error {
   readonly status: number;
 
-  constructor(status: number, message: string) {
+  /**
+   * Motivos concretos de un fallo de validación, tal como los enumera el
+   * backend en `error.details.validation`. Sin ellos, un 400 solo puede
+   * mostrarse como "Error de validacion", que no dice qué campo corregir.
+   */
+  readonly detalles: string[];
+
+  constructor(status: number, message: string, detalles: string[] = []) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.detalles = detalles;
   }
 }
 

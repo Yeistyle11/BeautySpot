@@ -1,6 +1,10 @@
 "use client";
 
 // Error boundary de ultimo recurso: reemplaza html/body cuando falla el propio layout raiz.
+//
+// Al sustituir al layout raiz tampoco se carga globals.css, asi que aqui no hay
+// clases de Tailwind ni tokens del tema: los estilos van en linea y con color
+// literal a proposito.
 
 import { useEffect } from "react";
 

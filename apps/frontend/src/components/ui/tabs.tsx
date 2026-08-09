@@ -1,7 +1,5 @@
 "use client";
 
-// Pestanas de navegacion (Radix Tabs).
-
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { cn } from "@/lib/utils";
 

@@ -12,6 +12,6 @@ export class ProcessedEventEntity {
   @Column({ type: "varchar", length: 200, name: "event_type" })
   eventType!: string;
 
-  @CreateDateColumn({ name: "processed_at" })
+  @CreateDateColumn({ type: "timestamptz", name: "processed_at" })
   processedAt!: Date;
 }

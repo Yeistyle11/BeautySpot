@@ -23,10 +23,10 @@ function enviarCredenciales(password: string) {
   fireEvent.change(screen.getByLabelText("Email"), {
     target: { value: "owner@ejemplo.co" },
   });
-  fireEvent.change(screen.getByLabelText("Contrasena"), {
+  fireEvent.change(screen.getByLabelText("Contraseña"), {
     target: { value: password },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Iniciar sesion" }));
+  fireEvent.click(screen.getByRole("button", { name: "Iniciar sesión" }));
 }
 
 describe("LoginPage", () => {

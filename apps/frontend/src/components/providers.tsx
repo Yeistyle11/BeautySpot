@@ -8,6 +8,7 @@ import { setUnauthorizedHandler } from "@/lib/api";
 import { isAuthError } from "@/lib/api-error";
 import { useAuthStore } from "@/lib/store";
 import { logger } from "@/lib/logger";
+import { aplicarTemaGuardado } from "@/lib/use-theme";
 import { ToastProvider } from "@/components/ui/toast";
 
 /** Traza los fallos de fetch, detallando los desajustes de schema. */
@@ -48,6 +49,12 @@ function useUnauthorizedRedirect() {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useUnauthorizedRedirect();
+
+  // El tema se aplica desde la raiz, que envuelve toda la aplicacion: el
+  // interruptor del panel solo se monta en /dashboard.
+  useEffect(() => {
+    aplicarTemaGuardado();
+  }, []);
 
   return (
     <SWRConfig

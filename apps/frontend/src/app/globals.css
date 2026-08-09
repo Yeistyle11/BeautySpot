@@ -44,8 +44,15 @@
     --info-foreground: 0 0% 100%;
     --info-soft: 214 95% 95%;
     --info-soft-foreground: 224 64% 33%;
+
+    color-scheme: light;
   }
   .dark {
+    /* Los controles nativos (select, date, time, la barra de scroll) los pinta
+       el navegador, no Tailwind: sin declarar el esquema los dibuja en claro
+       aunque el resto del formulario sea oscuro. */
+    color-scheme: dark;
+
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;

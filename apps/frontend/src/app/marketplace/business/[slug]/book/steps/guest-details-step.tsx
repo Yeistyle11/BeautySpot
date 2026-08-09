@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import type { Service } from "../schemas";
 
 export interface GuestDetails {
@@ -61,10 +61,11 @@ export function GuestDetailsStep({
             {selectedServices.map((s) => s.name).join(", ")}
           </p>
           <p>
-            <span className="font-medium">Fecha:</span> {date} a las {startTime}
+            <span className="font-medium">Fecha:</span> {formatDate(date)} a las{" "}
+            {formatTime(startTime)}
           </p>
           <p>
-            <span className="font-medium">Duracion:</span> {totalDuration} min
+            <span className="font-medium">Duración:</span> {totalDuration} min
           </p>
           <p>
             <span className="font-medium">Total:</span>{" "}
@@ -100,7 +101,7 @@ export function GuestDetailsStep({
                 onChange={(e) => set({ email: e.target.value })}
               />
             </Field>
-            <Field label="Telefono (opcional)">
+            <Field label="Teléfono (opcional)">
               <Input
                 type="tel"
                 placeholder="+57 300 1234567"
@@ -118,7 +119,7 @@ export function GuestDetailsStep({
         )}
         <div className="flex gap-2">
           <Button variant="outline" onClick={onBack} className="flex-1">
-            Atras
+            Atrás
           </Button>
           <Button
             disabled={(!user && !guest.name) || submitting}

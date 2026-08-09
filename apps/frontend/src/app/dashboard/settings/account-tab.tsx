@@ -65,7 +65,7 @@ export function AccountTab({
             <Field label="Email">
               <Input defaultValue={email} disabled />
             </Field>
-            <Field label="Telefono">
+            <Field label="Teléfono">
               <Input
                 value={account.phone}
                 onChange={(e) =>
@@ -89,11 +89,11 @@ export function AccountTab({
 
       <Card className="mt-6 border-0 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-lg">Cambiar contrasena</CardTitle>
+          <CardTitle className="text-lg">Cambiar contraseña</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Contrasena actual">
+            <Field label="Contraseña actual">
               <Input
                 type="password"
                 value={password.currentPassword}
@@ -105,7 +105,7 @@ export function AccountTab({
                 }
               />
             </Field>
-            <Field label="Nueva contrasena">
+            <Field label="Nueva contraseña">
               <Input
                 type="password"
                 value={password.newPassword}
@@ -115,7 +115,7 @@ export function AccountTab({
                 minLength={8}
               />
             </Field>
-            <Field label="Confirmar contrasena">
+            <Field label="Confirmar contraseña">
               <Input
                 type="password"
                 value={password.confirmPassword}
@@ -151,7 +151,7 @@ export function AccountTab({
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            Cambiar contrasena
+            Cambiar contraseña
           </Button>
         </CardContent>
       </Card>

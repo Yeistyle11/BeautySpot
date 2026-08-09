@@ -1,7 +1,7 @@
 "use client";
 
 // Feed del marketplace: buscador y rejilla de negocios publicos.
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { imageUnoptimized } from "@/lib/image";
@@ -18,11 +18,13 @@ import {
   Clock,
 } from "lucide-react";
 import { useApiPublic } from "@/lib/swr";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
+import { Spinner } from "@/components/ui/spinner";
 import {
   feedResponseSchema,
   searchResultSchema,
   type FeedResponse,
-  type FeedSection,
+  type FeedSection as FeedSectionData,
   type Profile,
   type SearchResult,
 } from "./schemas";
@@ -56,17 +58,38 @@ export default function MarketplaceFeed({
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
+  // La busqueda va con retardo: sin el, cada tecla dispara una peticion al
+  // marketplace, que es publico y no esta detras de sesion.
+  const busquedaDiferida = useDebouncedValue(search);
+
   const searchParams = new URLSearchParams();
-  if (search) searchParams.set("q", search);
+  if (busquedaDiferida) searchParams.set("q", busquedaDiferida);
   if (activeCategory) searchParams.set("businessType", activeCategory);
+  // Sin texto ni categoria no hay busqueda: se muestra el feed de portada.
   const searchKey =
-    search || activeCategory
+    busquedaDiferida || activeCategory
       ? `/marketplace/search?${searchParams.toString()}`
       : null;
   const { data: searchResults, isLoading: searching } =
     useApiPublic<SearchResult>(searchKey, undefined, searchResultSchema);
 
-  const isSearching = search !== "" || activeCategory !== null;
+  const isSearching = busquedaDiferida !== "" || activeCategory !== null;
+
+  // Los contadores del feed cuentan todo el catalogo, asi que con una busqueda
+  // activa se recalculan sobre lo encontrado. Solo si han llegado todos los
+  // resultados: sobre una lista recortada el numero seria falso.
+  const conteosVisibles = useMemo(() => {
+    if (!busquedaDiferida || !searchResults) return null;
+    if (searchResults.items.length < searchResults.total) return null;
+
+    const conteos: Record<string, number> = {};
+    searchResults.items.forEach((p) => {
+      if (p.businessType) {
+        conteos[p.businessType] = (conteos[p.businessType] ?? 0) + 1;
+      }
+    });
+    return conteos;
+  }, [busquedaDiferida, searchResults]);
 
   return (
     <div className="from-background to-muted/30 min-h-screen bg-gradient-to-b">
@@ -75,7 +98,7 @@ export default function MarketplaceFeed({
           <div className="text-center">
             <div className="bg-primary/10 text-primary mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium">
               <Sparkles className="h-4 w-4" />
-              Descubre tu proximo lugar favorito
+              Descubre tu próximo lugar favorito
             </div>
             <h1 className="text-5xl font-bold tracking-tight">
               Beauty<span className="text-primary">Spot</span>
@@ -90,6 +113,8 @@ export default function MarketplaceFeed({
             <div className="relative">
               <Search className="text-muted-foreground absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2" />
               <Input
+                type="search"
+                aria-label="Buscar negocios por nombre, ciudad o tipo"
                 placeholder="Buscar por nombre, ciudad o tipo..."
                 className="border-muted bg-background/80 h-12 pl-12 text-base shadow-lg backdrop-blur"
                 value={search}
@@ -102,7 +127,8 @@ export default function MarketplaceFeed({
             <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
               <button
                 onClick={() => setActiveCategory(null)}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                aria-pressed={!activeCategory}
+                className={`focus-visible:ring-ring rounded-full px-4 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 ${
                   !activeCategory
                     ? "bg-primary text-primary-foreground shadow-md"
                     : "bg-muted/60 text-muted-foreground hover:bg-muted"
@@ -116,7 +142,8 @@ export default function MarketplaceFeed({
                   onClick={() =>
                     setActiveCategory(activeCategory === cat.id ? null : cat.id)
                   }
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                  aria-pressed={activeCategory === cat.id}
+                  className={`focus-visible:ring-ring inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 ${
                     activeCategory === cat.id
                       ? "bg-primary text-primary-foreground shadow-md"
                       : "bg-muted/60 text-muted-foreground hover:bg-muted"
@@ -124,7 +151,16 @@ export default function MarketplaceFeed({
                 >
                   {CATEGORY_ICONS[cat.icon]}
                   {cat.name}
-                  <span className="text-xs opacity-70">({cat.count})</span>
+                  {(() => {
+                    const cuenta = conteosVisibles
+                      ? (conteosVisibles[cat.id] ?? 0)
+                      : busquedaDiferida
+                        ? null
+                        : cat.count;
+                    return cuenta === null ? null : (
+                      <span className="text-xs opacity-70">({cuenta})</span>
+                    );
+                  })()}
                 </button>
               ))}
             </div>
@@ -135,7 +171,7 @@ export default function MarketplaceFeed({
       <div className="mx-auto max-w-6xl px-4 py-8">
         {loading ? (
           <div className="flex justify-center py-20">
-            <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+            <Spinner variant="inline" className="h-8 w-8 border-4" />
           </div>
         ) : isSearching ? (
           /* Search results */
@@ -150,7 +186,7 @@ export default function MarketplaceFeed({
             </div>
             {searching ? (
               <div className="flex justify-center py-20">
-                <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+                <Spinner variant="inline" className="h-8 w-8 border-4" />
               </div>
             ) : searchResults && searchResults.items.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -177,7 +213,7 @@ export default function MarketplaceFeed({
   );
 }
 
-function FeedSection({ section }: { section: FeedSection }) {
+function FeedSection({ section }: { section: FeedSectionData }) {
   const sectionIcon =
     section.id === "popular_nearby" ? (
       <TrendingUp className="text-primary h-5 w-5" />

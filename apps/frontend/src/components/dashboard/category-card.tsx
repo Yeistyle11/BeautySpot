@@ -18,7 +18,6 @@ interface CategoryCardProps {
   onDelete: (id: string) => void;
 }
 
-/** Tarjeta de una categoria en la rejilla. */
 export function CategoryCard({
   category,
   icon: iconoPorDefecto,
@@ -39,7 +38,7 @@ export function CategoryCard({
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            {/* El color lo define cada categoria en base de datos, asi que va
+            {/* El color lo define cada categoría en base de datos, asi que va
                 inline; el sufijo "20" es el alfa (~12%) del fondo. */}
             <div
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"

@@ -21,6 +21,10 @@ export const galleryImageSchema = z.object({
 });
 export type GalleryImage = z.infer<typeof galleryImageSchema>;
 
+// Se aceptan como cadena suelta a proposito: si el schema exigiera una URL
+// valida, un enlace mal tecleado por el negocio tumbaria el perfil entero en vez
+// de un solo enlace. El filtro de protocolo se aplica al pintarlos, con
+// hrefSeguro (lib/url.ts).
 export const socialLinksSchema = z.object({
   instagram: z.string().nullish(),
   facebook: z.string().nullish(),
@@ -63,6 +67,38 @@ export const profileSchema = z.object({
   profileCompleteness: z.number(),
 });
 export type Profile = z.infer<typeof profileSchema>;
+
+/**
+ * Servicio tal como lo publica `GET /core/public/businesses/:id/services`, que
+ * es la misma fuente que usa el asistente de reserva.
+ */
+export const servicioPublicoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullish(),
+  category: z.string().nullish(),
+  price: z.number(),
+  duration: z.number(),
+});
+export type ServicioPublico = z.infer<typeof servicioPublicoSchema>;
+
+/**
+ * Profesional tal como lo publica
+ * `GET /core/public/businesses/:id/professionals`. Es la ficha de trabajo, sin
+ * los adornos del escaparate (relato, portafolio), y sirve de respaldo cuando
+ * el negocio aún no ha personalizado su equipo en el marketplace.
+ */
+export const profesionalPublicoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  photo: z.string().nullish(),
+  bio: z.string().nullish(),
+  specialties: z.array(z.string()).nullish(),
+  yearsExp: z.number().nullish(),
+  rating: z.number().nullish(),
+  totalReviews: z.number().nullish(),
+});
+export type ProfesionalPublico = z.infer<typeof profesionalPublicoSchema>;
 
 export const professionalSchema = z.object({
   id: z.string(),
@@ -133,7 +169,7 @@ export const SECTION_TITLES: Record<string, string> = {
   story: "Nuestra Historia",
   services: "Servicios",
   team: "Nuestro Equipo",
-  gallery: "Galeria",
+  gallery: "Galería",
   reviews: "Reseñas",
-  location: "Ubicacion",
+  location: "Ubicación",
 };

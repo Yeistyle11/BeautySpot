@@ -57,6 +57,39 @@ describe("api.request", () => {
     });
   });
 
+  // Un 400 sin sus motivos solo puede mostrarse como "Error de validacion",
+  // que no dice que campo corregir.
+  it("conserva los motivos de validacion que enumera el backend", async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse(400, {
+        error: {
+          message: "Error de validación",
+          details: {
+            validation: ["La contraseña debe tener al menos 8 caracteres"],
+          },
+        },
+      })
+    );
+
+    const error = (await api.get("/x").catch((e: unknown) => e)) as ApiError;
+
+    expect(error.detalles).toEqual([
+      "La contraseña debe tener al menos 8 caracteres",
+    ]);
+  });
+
+  it("deja los motivos vacios cuando el error no los trae", async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        jsonResponse(409, { error: { message: "Ya existe" } })
+      );
+
+    const error = (await api.get("/x").catch((e: unknown) => e)) as ApiError;
+
+    expect(error.detalles).toEqual([]);
+  });
+
   it("no revienta cuando la respuesta de error no es JSON", async () => {
     global.fetch = jest.fn().mockResolvedValue(htmlResponse(502));
 

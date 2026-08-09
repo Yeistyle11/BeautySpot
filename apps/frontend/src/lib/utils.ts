@@ -29,6 +29,20 @@ export function formatDate(date: string): string {
   });
 }
 
+/**
+ * Fecha corta "5 mar", para ejes y etiquetas donde el ano se sobreentiende y no
+ * cabe la fecha completa.
+ */
+export function formatDayMonth(date: string): string {
+  const parsed = date.includes("T")
+    ? new Date(date)
+    : new Date(`${date}T12:00:00`);
+  return parsed.toLocaleDateString("es-CO", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
 // Clave "YYYY-MM-DD" en horario local. `toISOString()` convierte a UTC, asi
 // que en timezones negativos (es-CO, UTC-5) a partir de las 19:00 devolveria
 // ya el dia siguiente y descuadraria el agrupamiento por dia.
@@ -37,6 +51,21 @@ export function toLocalDateKey(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+/**
+ * Indica si una cita ("YYYY-MM-DD" + "HH:MM") ya ha empezado.
+ *
+ * Ambos formatos son de ancho fijo y con ceros a la izquierda, asi que
+ * compararlos como texto ordena igual que compararlos como instantes, y evita
+ * construir una fecha que el navegador interpretaria en su propio huso.
+ */
+export function haComenzado(date: string, startTime: string): boolean {
+  const ahora = new Date();
+  const hora = `${String(ahora.getHours()).padStart(2, "0")}:${String(
+    ahora.getMinutes()
+  ).padStart(2, "0")}`;
+  return `${date} ${startTime}` <= `${toLocalDateKey(ahora)} ${hora}`;
 }
 
 /** Convierte una hora "HH:MM" (24h) a formato de 12h con am/pm. */

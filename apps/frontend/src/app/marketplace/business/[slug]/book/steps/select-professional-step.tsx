@@ -89,7 +89,7 @@ export function SelectProfessionalStep({
         </div>
         <div className="mt-4 flex gap-2">
           <Button variant="outline" onClick={onBack} className="flex-1">
-            Atras
+            Atrás
           </Button>
           <Button disabled={!selected} onClick={onContinue} className="flex-1">
             Continuar

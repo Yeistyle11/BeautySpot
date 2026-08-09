@@ -3,7 +3,12 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { formatCurrency, formatTime, toLocalDateKey } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatTime,
+  haComenzado,
+  toLocalDateKey,
+} from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
 import type { Appointment } from "@/app/dashboard/appointments/schemas";
 
@@ -12,9 +17,15 @@ interface CalendarViewProps {
   onComplete: (appt: Appointment) => void;
   onConfirm: (id: string) => void;
   onCancel: (id: string) => void;
+  onNoShow: (id: string) => void;
   canConfirm: boolean;
   canCancel: boolean;
+  /** Nombre de cada cliente por id; las citas solo traen el identificador. */
+  clientNames: Record<string, string>;
 }
+
+/** Estados desde los que la cita todavia puede anularse. */
+const ANULABLES = ["PENDING", "CONFIRMED"];
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 7); // 7:00 - 18:00
 const DAYS_ES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
@@ -44,11 +55,16 @@ export function CalendarView({
   onComplete,
   onConfirm,
   onCancel,
+  onNoShow,
   canConfirm,
   canCancel,
+  clientNames,
 }: CalendarViewProps) {
   const [weekOffset, setWeekOffset] = useState(0);
-  const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
+  // Se guarda el id y no la cita: el detalle tiene que reflejar el estado que
+  // acaba de revalidar SWR, no la copia que habia al hacer clic.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedAppt = appointments.find((a) => a.id === selectedId) ?? null;
 
   // La semana visible depende solo del offset; se recalcula al navegar, no en
   // cada render (antes la referencia era un `new Date()` nuevo cada vez).
@@ -60,11 +76,15 @@ export function CalendarView({
 
   const todayKey = toLocalDateKey(new Date());
 
-  const appointmentsByDate = useMemo(() => {
+  // Indice por dia y hora de inicio: la rejilla son 84 celdas y sin el cada una
+  // recorreria la lista entera de citas.
+  const appointmentsByHour = useMemo(() => {
     const map: Record<string, Appointment[]> = {};
     appointments.forEach((a) => {
-      if (!map[a.date]) map[a.date] = [];
-      map[a.date].push(a);
+      const hora = parseInt(a.startTime.split(":")[0]);
+      const clave = `${a.date}-${hora}`;
+      if (!map[clave]) map[clave] = [];
+      map[clave].push(a);
     });
     return map;
   }, [appointments]);
@@ -135,15 +155,11 @@ export function CalendarView({
               className="border-border/50 grid grid-cols-[60px_repeat(7,1fr)] border-b"
             >
               <div className="text-muted-foreground p-1 text-center text-xs">
-                {hour > 12 ? hour - 12 : hour}:00 {hour >= 12 ? "pm" : "am"}
+                {formatTime(`${String(hour).padStart(2, "0")}:00`)}
               </div>
               {weekDates.map((d, dayIdx) => {
-                const key = toLocalDateKey(d);
-                const dayAppts = appointmentsByDate[key] || [];
-                const hourAppts = dayAppts.filter((a) => {
-                  const startHour = parseInt(a.startTime.split(":")[0]);
-                  return startHour === hour;
-                });
+                const hourAppts =
+                  appointmentsByHour[`${toLocalDateKey(d)}-${hour}`] || [];
 
                 return (
                   <div key={dayIdx} className="relative min-h-[48px] p-0.5">
@@ -155,17 +171,20 @@ export function CalendarView({
                         <button
                           key={appt.id}
                           onClick={() =>
-                            setSelectedAppt(
-                              selectedAppt?.id === appt.id ? null : appt
+                            setSelectedId(
+                              selectedId === appt.id ? null : appt.id
                             )
                           }
-                          className={`w-full cursor-pointer rounded border px-1.5 py-0.5 text-left text-[10px] ${colorClass} ${selectedAppt?.id === appt.id ? "ring-primary ring-2" : ""}`}
+                          aria-pressed={selectedId === appt.id}
+                          className={`w-full cursor-pointer rounded border px-1.5 py-0.5 text-left text-[10px] ${colorClass} ${selectedId === appt.id ? "ring-primary ring-2" : ""}`}
                         >
                           <p className="truncate font-medium">
-                            {appt.appointmentServices[0]?.serviceName || "Cita"}
+                            {clientNames[appt.clientId] || "Cliente"}
                           </p>
-                          <p className="opacity-70">
-                            {formatTime(appt.startTime)}
+                          <p className="truncate opacity-70">
+                            {formatTime(appt.startTime)} ·{" "}
+                            {appt.appointmentServices[0]?.serviceName ||
+                              "Servicio"}
                           </p>
                         </button>
                       );
@@ -183,10 +202,13 @@ export function CalendarView({
           <div className="flex items-start justify-between">
             <div>
               <h4 className="font-semibold">
+                {clientNames[selectedAppt.clientId] || "Cliente"}
+              </h4>
+              <p className="text-muted-foreground text-sm">
                 {selectedAppt.appointmentServices
                   .map((s) => s.serviceName)
                   .join(", ")}
-              </h4>
+              </p>
               <div className="text-muted-foreground mt-1 flex items-center gap-3 text-sm">
                 <span>
                   {formatTime(selectedAppt.startTime)} -{" "}
@@ -209,16 +231,27 @@ export function CalendarView({
                   Confirmar
                 </Button>
               )}
-              {selectedAppt.status === "CONFIRMED" && canConfirm && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onComplete(selectedAppt)}
-                >
-                  Completar
-                </Button>
-              )}
-              {selectedAppt.status === "PENDING" && canCancel && (
+              {selectedAppt.status === "CONFIRMED" &&
+                canConfirm &&
+                haComenzado(selectedAppt.date, selectedAppt.startTime) && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onComplete(selectedAppt)}
+                    >
+                      Completar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onNoShow(selectedAppt.id)}
+                    >
+                      No asistio
+                    </Button>
+                  </>
+                )}
+              {ANULABLES.includes(selectedAppt.status) && canCancel && (
                 <Button
                   size="sm"
                   variant="destructive"

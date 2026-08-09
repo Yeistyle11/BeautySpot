@@ -41,20 +41,20 @@ export function Pagination({
           size="sm"
           onClick={() => onPageChange(meta.page - 1)}
           disabled={!meta.hasPrev}
-          aria-label="Pagina anterior"
+          aria-label="Página anterior"
         >
           <ChevronLeft className="h-4 w-4" />
           <span className="ml-1 hidden sm:inline">Anterior</span>
         </Button>
         <span className="text-sm font-medium">
-          Pagina {meta.page} de {meta.totalPages}
+          Página {meta.page} de {meta.totalPages}
         </span>
         <Button
           variant="outline"
           size="sm"
           onClick={() => onPageChange(meta.page + 1)}
           disabled={!meta.hasNext}
-          aria-label="Pagina siguiente"
+          aria-label="Página siguiente"
         >
           <span className="mr-1 hidden sm:inline">Siguiente</span>
           <ChevronRight className="h-4 w-4" />

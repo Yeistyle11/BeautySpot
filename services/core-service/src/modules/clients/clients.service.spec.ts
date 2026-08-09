@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { DataSource, Repository } from "typeorm";
+import { OutboxService } from "@beautyspot/nest-common";
 import { ClientsService } from "./clients.service";
 import { Client } from "../../entities/client.entity";
 import { NotFoundException } from "@nestjs/common";
@@ -8,6 +9,7 @@ import { NotFoundException } from "@nestjs/common";
 describe("ClientsService", () => {
   let service: ClientsService;
   let mockRepo: jest.Mocked<Repository<Client>>;
+  let mockOutbox: { enqueue: jest.Mock };
 
   const mockClient: Client = {
     id: "client-123",
@@ -37,6 +39,14 @@ describe("ClientsService", () => {
       increment: jest.fn(),
     } as any;
 
+    mockOutbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    // La transacción entrega el mismo repositorio simulado del test.
+    const mockDataSource = {
+      transaction: jest.fn((cb: (m: unknown) => unknown) =>
+        cb({ getRepository: jest.fn().mockReturnValue(mockRepo) })
+      ),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ClientsService,
@@ -44,6 +54,8 @@ describe("ClientsService", () => {
           provide: getRepositoryToken(Client),
           useValue: mockRepo,
         },
+        { provide: DataSource, useValue: mockDataSource },
+        { provide: OutboxService, useValue: mockOutbox },
       ],
     }).compile();
 
@@ -69,6 +81,26 @@ describe("ClientsService", () => {
       });
       expect(mockRepo.save).toHaveBeenCalledWith(mockClient);
       expect(result).toEqual(mockClient);
+    });
+
+    // El evento es lo que alimenta el contador de clientes nuevos de analytics.
+    it("encola el evento de cliente creado en la misma transacción", async () => {
+      mockRepo.create.mockReturnValue(mockClient);
+      mockRepo.save.mockResolvedValue(mockClient);
+
+      await service.create("business-123", { name: "Juan Pérez" });
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: "core.client.created",
+          aggregateId: mockClient.id,
+          payload: expect.objectContaining({
+            clientId: mockClient.id,
+            businessId: "business-123",
+          }),
+        })
+      );
     });
 
     it("debería propagar errores del repositorio", async () => {
@@ -195,6 +227,50 @@ describe("ClientsService", () => {
       const result = await service.findByUserId("user-456", "business-123");
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe("findMineByUser", () => {
+    it("debería buscar sin acotar a un negocio y quedarse con la más reciente", async () => {
+      mockRepo.findOne.mockResolvedValue(mockClient);
+
+      const result = await service.findMineByUser("user-123");
+
+      expect(mockRepo.findOne).toHaveBeenCalledWith({
+        where: { userId: "user-123", active: true },
+        order: { createdAt: "DESC" },
+      });
+      expect(result).toEqual(mockClient);
+    });
+  });
+
+  describe("updateMineByUser", () => {
+    it("debería propagar los datos a todas las fichas del usuario", async () => {
+      const fichaA = { ...mockClient, id: "c-a" } as any;
+      const fichaB = { ...mockClient, id: "c-b" } as any;
+      mockRepo.find.mockResolvedValue([fichaA, fichaB]);
+      mockRepo.findOne.mockResolvedValue(fichaA);
+
+      await service.updateMineByUser("user-123", {
+        name: "Ana Nueva",
+        phone: "+573001112233",
+      });
+
+      expect(mockRepo.save).toHaveBeenCalledWith([
+        expect.objectContaining({ id: "c-a", name: "Ana Nueva" }),
+        expect.objectContaining({ id: "c-b", name: "Ana Nueva" }),
+      ]);
+    });
+
+    it("debería devolver null si el usuario no tiene ninguna ficha", async () => {
+      mockRepo.find.mockResolvedValue([]);
+
+      const result = await service.updateMineByUser("user-sin-ficha", {
+        name: "Ana",
+      });
+
+      expect(result).toBeNull();
+      expect(mockRepo.save).not.toHaveBeenCalled();
     });
   });
 

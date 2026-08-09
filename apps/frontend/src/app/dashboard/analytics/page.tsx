@@ -1,39 +1,27 @@
 "use client";
 
 // Pagina de reportes: KPIs del negocio (ingresos, clientes, citas) leidos del analytics-service.
-import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, Calendar } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
-
-const kpiDataSchema = z.object({
-  last30Days: z.object({
-    totalAppointments: z.number(),
-    completedAppointments: z.number(),
-    cancelledAppointments: z.number(),
-    noShowAppointments: z.number(),
-    totalRevenue: z.number(),
-    avgDailyRevenue: z.number(),
-    completionRate: z.number(),
-    newClients: z.number(),
-    returningClients: z.number(),
-  }),
-});
-type KpiData = z.infer<typeof kpiDataSchema>;
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
+import { kpiDataSchema, KPIS_KEY, type KpiData } from "@/lib/schemas/kpis";
 
 export default function AnalyticsPage() {
-  const { data, isLoading: loading } = useApi<KpiData>(
-    "/analytics/dashboard/kpis",
-    undefined,
-    kpiDataSchema
-  );
+  const {
+    data,
+    isLoading: loading,
+    error: loadError,
+    mutate: recargar,
+  } = useApi<KpiData>(KPIS_KEY, undefined, kpiDataSchema);
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Reportes</h1>
-        <p className="text-muted-foreground">Analisis de tu negocio</p>
+        <p className="text-muted-foreground">Análisis de tu negocio</p>
       </div>
       {loading ? (
         <p className="text-muted-foreground">Cargando...</p>
@@ -43,7 +31,7 @@ export default function AnalyticsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Calendar className="h-5 w-5" />
-                Ultimos 30 dias
+                Últimos 30 días
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -82,7 +70,7 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Total 30 dias</span>
+                <span className="text-muted-foreground">Total 30 días</span>
                 <span className="font-semibold">
                   {formatCurrency(data.last30Days.totalRevenue)}
                 </span>
@@ -124,8 +112,18 @@ export default function AnalyticsPage() {
             </CardContent>
           </Card>
         </div>
+      ) : loadError ? (
+        <ErrorDeCarga
+          error={loadError}
+          recurso="los reportes"
+          onReintentar={() => void recargar()}
+        />
       ) : (
-        <p className="text-muted-foreground">No hay datos disponibles</p>
+        <EmptyState
+          icon={TrendingUp}
+          titulo="No hay datos disponibles"
+          descripcion="Los reportes se llenan a medida que se registran citas y pagos."
+        />
       )}
     </div>
   );

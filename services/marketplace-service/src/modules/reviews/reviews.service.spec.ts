@@ -610,6 +610,42 @@ describe("ReviewsService", () => {
     });
   });
 
+  describe("findByClientUser", () => {
+    it("debería filtrar por el usuario del token y ordenar por fecha", async () => {
+      mockRepo.find.mockResolvedValue([mockReview]);
+
+      const result = await service.findByClientUser("user-123");
+
+      expect(mockRepo.find).toHaveBeenCalledWith({
+        where: { clientId: "user-123" },
+        order: { createdAt: "DESC" },
+      });
+      expect(result).toEqual([mockReview]);
+    });
+
+    it("debería devolver lista vacía si el usuario no ha reseñado", async () => {
+      mockRepo.find.mockResolvedValue([]);
+
+      await expect(
+        service.findByClientUser("user-sin-resenas")
+      ).resolves.toEqual([]);
+    });
+  });
+
+  describe("findByAppointment", () => {
+    it("debería filtrar por la cita indicada", async () => {
+      mockRepo.find.mockResolvedValue([mockReview]);
+
+      const result = await service.findByAppointment("appointment-123");
+
+      expect(mockRepo.find).toHaveBeenCalledWith({
+        where: { appointmentId: "appointment-123" },
+        order: { createdAt: "DESC" },
+      });
+      expect(result).toEqual([mockReview]);
+    });
+  });
+
   describe("respond", () => {
     it("debería agregar respuesta a reseña existente", async () => {
       const freshReview = {

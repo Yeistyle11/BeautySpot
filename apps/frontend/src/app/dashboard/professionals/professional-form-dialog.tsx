@@ -71,7 +71,7 @@ export function ProfessionalFormDialog({
               onChange={(e) => set({ specialties: e.target.value })}
             />
           </Field>
-          <Field label="Experiencia (anos)">
+          <Field label="Experiencia (años)">
             <Input
               type="number"
               min={0}
@@ -88,7 +88,7 @@ export function ProfessionalFormDialog({
           </Field>
           <Field label="Biografia" className="sm:col-span-2">
             <Input
-              placeholder="Breve descripcion profesional..."
+              placeholder="Breve descripción profesional..."
               value={form.bio}
               onChange={(e) => set({ bio: e.target.value })}
             />

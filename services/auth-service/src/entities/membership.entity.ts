@@ -19,7 +19,7 @@ export class Membership extends TenantEntity {
   @Column({ type: "uuid", nullable: true, name: "invited_by" })
   invitedBy!: string;
 
-  @Column({ type: "timestamp", nullable: true, name: "accepted_at" })
+  @Column({ type: "timestamptz", nullable: true, name: "accepted_at" })
   acceptedAt!: Date;
 
   @ManyToOne(() => User, (user) => user.memberships)

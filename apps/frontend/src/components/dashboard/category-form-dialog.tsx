@@ -37,8 +37,8 @@ interface CategoryFormDialogProps {
 }
 
 /**
- * Formulario de categoria, compartido por el alta y la edicion: antes eran dos
- * modales con los mismos campos duplicados campo a campo.
+ * Formulario de categoria, compartido por el alta y la edicion. Los dos usan los
+ * mismos campos; solo la edicion permite activarla o desactivarla.
  */
 export function CategoryFormDialog({
   open,
@@ -153,7 +153,9 @@ export function CategoryFormDialog({
           </p>
         )}
 
-        <div className="flex gap-3 pt-2">
+        {/* Fijos al pie del area que hace scroll: el formulario es mas alto
+            que un viewport corto. */}
+        <div className="bg-background sticky bottom-0 flex gap-3 border-t pb-1 pt-3">
           <Button type="submit" disabled={saving}>
             {saving ? "Guardando..." : submitLabel}
           </Button>

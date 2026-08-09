@@ -93,7 +93,7 @@ export function EditMemberDialog({
                   onChange={(e) => set({ email: e.target.value })}
                 />
               </Field>
-              <Field label="Telefono" className="sm:col-span-2">
+              <Field label="Teléfono" className="sm:col-span-2">
                 <Input
                   value={form.phone}
                   onChange={(e) => set({ phone: e.target.value })}
@@ -102,12 +102,12 @@ export function EditMemberDialog({
             </div>
           </Section>
 
-          <Section title="Cambiar contrasena">
+          <Section title="Cambiar contraseña">
             <p className="text-muted-foreground mb-3 text-xs">
-              Deja vacio para mantener la contrasena actual.
+              Deja vacio para mantener la contraseña actual.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Nueva contrasena">
+              <Field label="Nueva contraseña">
                 <Input
                   type="password"
                   placeholder="Minimo 8 caracteres"
@@ -116,10 +116,10 @@ export function EditMemberDialog({
                   minLength={8}
                 />
               </Field>
-              <Field label="Confirmar contrasena">
+              <Field label="Confirmar contraseña">
                 <Input
                   type="password"
-                  placeholder="Repetir contrasena"
+                  placeholder="Repetir contraseña"
                   value={form.confirmPassword}
                   onChange={(e) => set({ confirmPassword: e.target.value })}
                   minLength={8}
@@ -128,7 +128,7 @@ export function EditMemberDialog({
             </div>
           </Section>
 
-          {/* El dueno del negocio no puede desactivarse: se quedaria sin acceso. */}
+          {/* El dueño del negocio no puede desactivarse: se quedaria sin acceso. */}
           {member.role !== "OWNER" && (
             <Section title="Estado de la cuenta">
               <div className="space-y-2 rounded-lg border p-3">
@@ -144,8 +144,8 @@ export function EditMemberDialog({
                 </div>
                 <p className="text-muted-foreground text-xs">
                   {form.active
-                    ? "El usuario puede iniciar sesion y usar la plataforma."
-                    : "El usuario no podra iniciar sesion, pero su perfil profesional seguira activo en el equipo."}
+                    ? "El usuario puede iniciar sesión y usar la plataforma."
+                    : "El usuario no podra iniciar sesión, pero su perfil profesional seguira activo en el equipo."}
                 </p>
               </div>
             </Section>

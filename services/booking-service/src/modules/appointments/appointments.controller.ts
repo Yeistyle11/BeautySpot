@@ -7,6 +7,7 @@ import {
   Param,
   Body,
   Query,
+  ParseUUIDPipe,
 } from "@nestjs/common";
 import { AppointmentsService } from "./appointments.service";
 import { AvailabilityQueryService } from "./availability-query.service";
@@ -90,6 +91,47 @@ export class AppointmentsController {
       "createdAt",
     ]);
     return this.service.findByClientUser(userId, pagination);
+  }
+
+  /** Detalle de una cita propia del cliente. */
+  @Roles(Role.CLIENT)
+  @SkipBusinessScope()
+  @Get("mine/:id")
+  async findMineById(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser("userId") userId: string
+  ) {
+    return this.service.findByIdForClientUser(id, userId);
+  }
+
+  /** Cancelación de una cita propia por parte del cliente. */
+  @Roles(Role.CLIENT)
+  @SkipBusinessScope()
+  @Post("mine/:id/cancel")
+  async cancelMine(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser("userId") userId: string,
+    @Body() dto: CancelDto
+  ) {
+    return this.service.cancelForClientUser(id, userId, dto.reason);
+  }
+
+  /** Reagendado de una cita propia por parte del cliente. */
+  @Roles(Role.CLIENT)
+  @SkipBusinessScope()
+  @Patch("mine/:id/reschedule")
+  async rescheduleMine(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser("userId") userId: string,
+    @Body() dto: RescheduleDto
+  ) {
+    return this.service.rescheduleForClientUser(
+      id,
+      userId,
+      dto.date,
+      dto.startTime,
+      30
+    );
   }
 
   /** Lista las citas del negocio con filtros y paginación. */

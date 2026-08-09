@@ -1,6 +1,6 @@
 import { CircuitBreakerService, CircuitState } from "./circuit-breaker.service";
 import { ConfigService } from "@nestjs/config";
-import { Logger } from "@nestjs/common";
+import { HttpStatus, Logger } from "@nestjs/common";
 
 describe("CircuitBreakerService", () => {
   let service: CircuitBreakerService;
@@ -59,7 +59,7 @@ describe("CircuitBreakerService", () => {
 
       await expect(
         service.execute("test-service", () => Promise.resolve("success"))
-      ).rejects.toThrow("Circuit breaker OPEN for test-service");
+      ).rejects.toMatchObject({ status: HttpStatus.SERVICE_UNAVAILABLE });
     });
 
     it("debería transicionar a HALF_OPEN después de timeout", async () => {
@@ -142,7 +142,7 @@ describe("CircuitBreakerService", () => {
 
       await expect(
         service.execute("test-service", () => Promise.resolve("success"))
-      ).rejects.toThrow("Circuit breaker OPEN for test-service");
+      ).rejects.toMatchObject({ status: HttpStatus.SERVICE_UNAVAILABLE });
     });
 
     it("debería resetear contador de fallos en éxito", async () => {

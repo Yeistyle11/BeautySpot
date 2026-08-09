@@ -9,6 +9,7 @@ import {
   formatDateTimeStamp,
   formatTimeStamp,
   getErrorMessage,
+  haComenzado,
 } from "../utils";
 
 describe("cn", () => {
@@ -137,5 +138,35 @@ describe("formatAniosExperiencia", () => {
   it("escribe año con eñe, que es texto de cara al usuario", () => {
     expect(formatAniosExperiencia(2)).toContain("años");
     expect(formatAniosExperiencia(2)).not.toContain("anos");
+  });
+});
+
+describe("haComenzado", () => {
+  /** Fecha y hora locales de un instante desplazado los minutos indicados. */
+  const desplazado = (minutos: number) => {
+    const d = new Date(Date.now() + minutos * 60 * 1000);
+    const dos = (n: number) => String(n).padStart(2, "0");
+    return {
+      date: `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`,
+      startTime: `${dos(d.getHours())}:${dos(d.getMinutes())}`,
+    };
+  };
+
+  it("reconoce una cita que ya empezo", () => {
+    const { date, startTime } = desplazado(-30);
+    expect(haComenzado(date, startTime)).toBe(true);
+  });
+
+  it("reconoce una cita que aun no empieza", () => {
+    const { date, startTime } = desplazado(120);
+    expect(haComenzado(date, startTime)).toBe(false);
+  });
+
+  it("da por empezada una cita de un dia anterior", () => {
+    expect(haComenzado("2020-01-15", "23:59")).toBe(true);
+  });
+
+  it("no da por empezada una cita de un dia posterior", () => {
+    expect(haComenzado("2999-01-15", "00:00")).toBe(false);
   });
 });

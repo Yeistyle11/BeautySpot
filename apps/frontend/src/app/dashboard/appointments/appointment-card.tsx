@@ -1,38 +1,59 @@
 "use client";
 
 // Tarjeta de una cita en la lista, con su estado y las acciones disponibles segun permisos.
+import { memo } from "react";
 import { Calendar, Clock, User } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatDate,
+  formatTime,
+  haComenzado,
+} from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
 import type { Appointment } from "./schemas";
 
 interface AppointmentCardProps {
   appointment: Appointment;
   professionalName: string;
+  /** Nombre del cliente; el listado de citas solo trae su id. */
+  clientName?: string;
   canConfirm: boolean;
   canCancel: boolean;
   onConfirm: (id: string) => void;
   onComplete: (appointment: Appointment) => void;
   onCancel: (id: string) => void;
+  onNoShow: (id: string) => void;
 }
 
-/** Fila de la agenda en vista lista, con las acciones segun el estado. */
-export function AppointmentCard({
+/** Estados desde los que la cita todavia puede anularse. */
+const ANULABLES = ["PENDING", "CONFIRMED"];
+
+/**
+ * Fila de la agenda en vista lista, con las acciones segun el estado. Va
+ * memoizada porque teclear en el buscador re-renderiza la pagina entera y con
+ * ella las veinte tarjetas.
+ */
+export const AppointmentCard = memo(function AppointmentCard({
   appointment,
   professionalName,
+  clientName,
   canConfirm,
   canCancel,
   onConfirm,
   onComplete,
   onCancel,
+  onNoShow,
 }: AppointmentCardProps) {
   const status = getAppointmentStatus(appointment.status);
   const serviceNames = appointment.appointmentServices
     .map((s) => s.serviceName)
     .join(", ");
+  // El servidor rechaza cerrar una cita que aun no ha empezado, asi que
+  // "Completar" y "No asistio" solo aparecen cuando ya ha llegado su hora.
+  const yaEmpezo = haComenzado(appointment.date, appointment.startTime);
 
   return (
     <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
@@ -44,9 +65,10 @@ export function AppointmentCard({
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <p className="font-semibold">{serviceNames}</p>
+                <p className="font-semibold">{clientName || "Cliente"}</p>
                 <Badge variant={status.variant}>{status.label}</Badge>
               </div>
+              <p className="text-muted-foreground text-sm">{serviceNames}</p>
               <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-3 text-sm">
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
@@ -73,7 +95,7 @@ export function AppointmentCard({
                 Confirmar
               </Button>
             )}
-            {appointment.status === "CONFIRMED" && canConfirm && (
+            {appointment.status === "CONFIRMED" && canConfirm && yaEmpezo && (
               <Button
                 size="sm"
                 variant="outline"
@@ -82,7 +104,16 @@ export function AppointmentCard({
                 Completar
               </Button>
             )}
-            {appointment.status === "PENDING" && canCancel && (
+            {appointment.status === "CONFIRMED" && canConfirm && yaEmpezo && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onNoShow(appointment.id)}
+              >
+                No asistio
+              </Button>
+            )}
+            {ANULABLES.includes(appointment.status) && canCancel && (
               <Button
                 size="sm"
                 variant="destructive"
@@ -96,4 +127,4 @@ export function AppointmentCard({
       </CardContent>
     </Card>
   );
-}
+});

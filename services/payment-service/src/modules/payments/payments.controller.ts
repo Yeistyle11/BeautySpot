@@ -24,9 +24,13 @@ import { parsePaginationQuery } from "@beautyspot/shared-utils";
 /** Datos para registrar un pago: cliente, monto, método y referencia/cita opcionales. */
 class CreatePaymentDto {
   @IsOptional() @IsString() appointmentId?: string;
-  @IsString() clientId!: string;
-  @IsNumber() @Min(0) amount!: number;
-  @IsEnum(PaymentMethod) method!: PaymentMethod;
+  @IsString({ message: "Elige el cliente al que se le cobra" })
+  clientId!: string;
+  @IsNumber({}, { message: "El monto debe ser un número" })
+  @Min(0, { message: "El monto no puede ser negativo" })
+  amount!: number;
+  @IsEnum(PaymentMethod, { message: "El método de pago no es válido" })
+  method!: PaymentMethod;
   @IsOptional() @IsString() reference?: string;
   @IsOptional() @IsString() notes?: string;
 }

@@ -54,11 +54,10 @@ describe("ProxyController (enrutado Express 5)", () => {
     const controller = app.get(ProxyController);
     (controller as unknown as Record<string, unknown>)["proxiedRequest"] = (
       service: string,
-      req: { path: string },
-      res: { status: (n: number) => { json: (b: unknown) => void } }
+      req: { path: string }
     ) => {
       handled = { service, path: req.path };
-      res.status(200).json({ ok: true });
+      return { estado: 200, cuerpo: { ok: true } };
     };
 
     await app.init();
@@ -127,6 +126,7 @@ describe("ProxyController (enrutado Express 5)", () => {
 describe("ProxyController (reenvío)", () => {
   let controller: ProxyController;
   let fetchMock: jest.Mock;
+  let breakerFallos: number;
   const SERVICE_URL = "http://localhost:3002";
 
   /** Respuesta mínima con la superficie que consume el controlador. */
@@ -157,21 +157,28 @@ describe("ProxyController (reenvío)", () => {
     } as never;
   };
 
-  /** Response Express mínima que registra status y cuerpo enviados. */
+  /** Response Express mínima que registra status, cuerpo y cuántas veces se escribió. */
   const fakeResponseOut = () => {
     const sent: { status?: number; body?: unknown } = {};
+    const contador = { escrituras: 0 };
     const res = {
       status: (code: number) => {
         sent.status = code;
-        return { json: (body: unknown) => (sent.body = body) };
+        return {
+          json: (body: unknown) => {
+            contador.escrituras++;
+            sent.body = body;
+          },
+        };
       },
     };
-    return { res: res as never, sent };
+    return { res: res as never, sent, contador };
   };
 
   beforeEach(async () => {
     fetchMock = jest.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
+    breakerFallos = 0;
 
     const moduleRef = await Test.createTestingModule({
       controllers: [ProxyController],
@@ -190,7 +197,14 @@ describe("ProxyController (reenvío)", () => {
         {
           provide: CircuitBreakerService,
           useValue: {
-            execute: async (_service: string, fn: () => Promise<void>) => fn(),
+            execute: async <T>(_service: string, fn: () => Promise<T>) => {
+              try {
+                return await fn();
+              } catch (error) {
+                breakerFallos++;
+                throw error;
+              }
+            },
           },
         },
         {
@@ -453,16 +467,27 @@ describe("ProxyController (reenvío)", () => {
   });
 
   describe("traducción de errores", () => {
-    it("convierte un 5xx del backend en 502 tras propagar la respuesta", async () => {
+    // El 5xx cuenta como fallo para el breaker, pero el cuerpo del backend se
+    // propaga tal cual y se escribe UNA sola vez: si el controlador relanzara
+    // después de responder, el filtro global reventaría con
+    // ERR_HTTP_HEADERS_SENT en cada 500 de cualquier servicio.
+    it("propaga el 5xx del backend sin relanzar tras haber respondido", async () => {
       fetchMock.mockResolvedValue(fakeResponse(500, '{"error":"boom"}'));
-      const { res, sent } = fakeResponseOut();
+      const { res, sent, contador } = fakeResponseOut();
 
-      await expect(
-        controller.proxyRequest("core-service", fakeRequest(), res)
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_GATEWAY });
+      await controller.proxyRequest("core-service", fakeRequest(), res);
 
-      // El cliente recibe igualmente el cuerpo original del backend.
       expect(sent).toEqual({ status: 500, body: { error: "boom" } });
+      expect(contador.escrituras).toBe(1);
+    });
+
+    it("cuenta el 5xx como fallo del circuit breaker", async () => {
+      fetchMock.mockResolvedValue(fakeResponse(500, "{}"));
+      const { res } = fakeResponseOut();
+
+      await controller.proxyRequest("core-service", fakeRequest(), res);
+
+      expect(breakerFallos).toBe(1);
     });
 
     it("convierte el aborto por timeout en 504", async () => {

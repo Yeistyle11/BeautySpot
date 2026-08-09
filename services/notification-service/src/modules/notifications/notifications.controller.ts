@@ -1,16 +1,31 @@
-import { Controller, Get, Post, Body, Param, Query } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  Headers,
+} from "@nestjs/common";
 import { NotificationsService } from "./notifications.service";
 import {
   CreateNotificationDto,
   QueryNotificationsDto,
 } from "./dto/create-notification.dto";
-import { Roles, CurrentUser, BusinessId } from "@beautyspot/nest-common";
+import { Roles, CurrentUser, SkipBusinessScope } from "@beautyspot/nest-common";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import { Role } from "@beautyspot/shared-types";
 
-/** Endpoints de las notificaciones in-app del usuario autenticado. */
+/**
+ * Endpoints de las notificaciones in-app del usuario autenticado.
+ *
+ * El destinatario sale siempre del token, así que el negocio sólo acota el
+ * listado: quien lo envíe verá sus notificaciones de ese negocio y quien no —el
+ * cliente final, que no pertenece a ninguno— las verá todas.
+ */
 @Controller("notifications")
 @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL, Role.CLIENT)
+@SkipBusinessScope()
 export class NotificationsController {
   constructor(private readonly service: NotificationsService) {}
 
@@ -18,7 +33,7 @@ export class NotificationsController {
   @Get()
   findByUser(
     @CurrentUser("userId") userId: string,
-    @BusinessId() businessId: string,
+    @Headers("x-business-id") businessId: string | undefined,
     @Query() query: QueryNotificationsDto & Record<string, unknown>
   ) {
     const pagination = parsePaginationQuery(query, ["createdAt"]);
@@ -34,7 +49,7 @@ export class NotificationsController {
   @Get("unread-count")
   getUnreadCount(
     @CurrentUser("userId") userId: string,
-    @BusinessId() businessId: string
+    @Headers("x-business-id") businessId: string | undefined
   ) {
     return this.service.getUnreadCount(userId, businessId);
   }
@@ -49,7 +64,7 @@ export class NotificationsController {
   @Post("mark-all-read")
   markAllAsRead(
     @CurrentUser("userId") userId: string,
-    @BusinessId() businessId: string
+    @Headers("x-business-id") businessId: string | undefined
   ) {
     return this.service.markAllAsRead(userId, businessId);
   }

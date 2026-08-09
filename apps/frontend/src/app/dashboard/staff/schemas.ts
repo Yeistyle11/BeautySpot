@@ -26,7 +26,7 @@ export type Professional = z.infer<typeof professionalSchema>;
 
 export const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
-  OWNER: "Dueno",
+  OWNER: "Dueño",
   ADMIN: "Administrador",
   PROFESSIONAL: "Profesional",
   RECEPTIONIST: "Recepcionista",

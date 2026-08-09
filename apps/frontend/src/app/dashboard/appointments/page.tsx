@@ -1,7 +1,8 @@
 "use client";
 
 // Pagina de agenda: lista y calendario de citas, con busqueda, paginacion y acciones de crear/confirmar/cancelar/completar.
-import { useState, useMemo, useDeferredValue } from "react";
+import { useState, useMemo, useCallback, useDeferredValue } from "react";
+import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,6 @@ import { usePaginatedList } from "@/lib/use-paginated-list";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
-import { CalendarView } from "@/components/calendar-view";
 import { AppointmentForm } from "./appointment-form";
 import { AppointmentCard } from "./appointment-card";
 import {
@@ -42,6 +42,16 @@ import {
   type Professional,
   type Service,
 } from "./schemas";
+
+// La agenda abre en modo lista, asi que la rejilla semanal solo se descarga si
+// el usuario cambia de vista.
+const CalendarView = dynamic(
+  () => import("@/components/calendar-view").then((m) => m.CalendarView),
+  {
+    ssr: false,
+    loading: () => <p className="text-muted-foreground">Cargando...</p>,
+  }
+);
 
 export default function AppointmentsPage() {
   const toast = useToast();
@@ -69,12 +79,14 @@ export default function AppointmentsPage() {
     limit: viewMode === "calendar" ? 100 : undefined,
   });
 
-  // Los catalogos solo hacen falta con el formulario abierto.
+  // Los profesionales se cargan siempre: ademas del formulario, la lista de citas
+  // los necesita para mostrar el nombre en vez del identificador.
   const { data: professionals } = useApi<Professional[]>(
-    showForm ? PROFESSIONALS_KEY : null,
+    PROFESSIONALS_KEY,
     undefined,
     z.array(professionalSchema)
   );
+  // Servicios y clientes solo hacen falta con el formulario abierto.
   const { data: services } = useApi<Service[]>(
     showForm ? SERVICES_KEY : null,
     undefined,
@@ -95,6 +107,16 @@ export default function AppointmentsPage() {
   );
   const [payment, setPayment] = useState<PaymentDraft>(emptyPaymentDraft);
   const [completingAction, setCompletingAction] = useState(false);
+
+  // Las citas solo traen el id del cliente —vive en otro servicio—, asi que el
+  // nombre se cruza contra la lista que la pagina carga para el formulario.
+  const clientMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    clients.forEach((c) => {
+      map[c.id] = c.name;
+    });
+    return map;
+  }, [clients]);
 
   const professionalMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -118,28 +140,61 @@ export default function AppointmentsPage() {
     );
   }, [appointments, deferredSearch]);
 
-  const handleAction = async (id: string, action: string) => {
-    try {
-      await api.post(
-        `/booking/appointments/${id}/${action}`,
-        action === "cancel" ? { reason: "Cancelado por usuario" } : {}
-      );
-      await revalidatePrefix(APPOINTMENTS_KEY);
-    } catch (err) {
-      logger.error(err);
-      toast.error(mensajeDeError(err));
-    }
-  };
+  // Los tres handlers que reciben las tarjetas van memoizados: sin identidad
+  // estable, AppointmentCard se re-renderizaria entera con cada pulsacion del
+  // buscador.
+  const handleAction = useCallback(
+    async (id: string, action: string) => {
+      try {
+        await api.post(
+          `/booking/appointments/${id}/${action}`,
+          action === "cancel" ? { reason: "Cancelado por usuario" } : {}
+        );
+        await revalidatePrefix(APPOINTMENTS_KEY);
+      } catch (err) {
+        logger.error(err);
+        toast.error(mensajeDeError(err));
+      }
+    },
+    [toast]
+  );
 
-  const openCompleteDialog = (appt: Appointment) => {
+  const handleConfirm = useCallback(
+    (id: string) => handleAction(id, "confirm"),
+    [handleAction]
+  );
+  const handleCancel = useCallback(
+    (id: string) => handleAction(id, "cancel"),
+    [handleAction]
+  );
+  const handleNoShow = useCallback(
+    (id: string) => handleAction(id, "no-show"),
+    [handleAction]
+  );
+
+  const openCompleteDialog = useCallback((appt: Appointment) => {
     setCompletingAppt(appt);
     setPayment(emptyPaymentDraft);
-  };
+  }, []);
 
   const handleCompleteWithPayment = async (registerPayment: boolean) => {
     if (!completingAppt) return;
     setCompletingAction(true);
     try {
+      // El efectivo necesita una caja abierta donde anotarse. Se comprueba
+      // antes de completar para no dejar la cita cerrada y el cobro sin hacer.
+      if (registerPayment && payment.method === "CASH") {
+        const caja = await api.get<{ id: string } | null>(
+          "/payment/cash-register/active"
+        );
+        if (!caja) {
+          toast.error(
+            "No hay una caja abierta: abre la caja antes de cobrar en efectivo"
+          );
+          return;
+        }
+      }
+
       await api.post(`/booking/appointments/${completingAppt.id}/complete`, {});
 
       if (registerPayment) {
@@ -274,7 +329,7 @@ export default function AppointmentsPage() {
             id="appointment-search-hint"
             className="text-muted-foreground mt-1.5 text-xs"
           >
-            Filtra las citas de esta pagina.
+            Filtra las citas de esta página.
           </p>
         </div>
       )}
@@ -290,10 +345,12 @@ export default function AppointmentsPage() {
               <CalendarView
                 appointments={appointments}
                 onComplete={openCompleteDialog}
-                onConfirm={(id) => handleAction(id, "confirm")}
-                onCancel={(id) => handleAction(id, "cancel")}
+                onConfirm={handleConfirm}
+                onCancel={handleCancel}
+                onNoShow={handleNoShow}
                 canConfirm={canDo(role, "appointments_confirm")}
                 canCancel={canDo(role, "appointments_cancel")}
+                clientNames={clientMap}
               />
             )}
           </CardContent>
@@ -328,11 +385,13 @@ export default function AppointmentsPage() {
                   professionalMap[appt.professionalId] ||
                   appt.professionalId.slice(0, 8)
                 }
+                clientName={clientMap[appt.clientId]}
                 canConfirm={canDo(role, "appointments_confirm")}
                 canCancel={canDo(role, "appointments_cancel")}
-                onConfirm={(id) => handleAction(id, "confirm")}
+                onConfirm={handleConfirm}
                 onComplete={openCompleteDialog}
-                onCancel={(id) => handleAction(id, "cancel")}
+                onCancel={handleCancel}
+                onNoShow={handleNoShow}
               />
             ))
           )}

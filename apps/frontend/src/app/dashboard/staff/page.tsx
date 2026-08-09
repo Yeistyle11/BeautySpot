@@ -4,10 +4,11 @@
 import { useMemo, useState, useDeferredValue } from "react";
 import { mutate } from "swr";
 import { z } from "zod";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { Plus, Search, Users, UserCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
@@ -44,6 +45,7 @@ export default function StaffPage() {
   const {
     items: staff,
     isLoading: loading,
+    error: loadError,
     reload: reloadStaff,
   } = useCrudResource<StaffMember>({
     listKey: STAFF_KEY,
@@ -55,7 +57,10 @@ export default function StaffPage() {
     undefined,
     z.array(professionalSchema)
   );
-  const professionals = professionalsData ?? [];
+  const professionals = useMemo(
+    () => professionalsData ?? [],
+    [professionalsData]
+  );
 
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -77,11 +82,16 @@ export default function StaffPage() {
 
   const confirmMember = staff.find((s) => s.id === confirmId) ?? null;
 
-  // Un profesional es vinculable solo si esta activo y todavia no tiene cuenta.
-  const unlinkedPros = professionals.filter(
-    (p) =>
-      p.active && !p.userId && !staff.some((s) => s.professionalId === p.id)
-  );
+  // Un profesional es vinculable solo si esta activo y todavia no tiene cuenta,
+  // ni por su propio userId ni por una invitacion ya registrada en el equipo.
+  const unlinkedPros = useMemo(() => {
+    const yaVinculados = new Set(
+      staff.map((s) => s.professionalId).filter(Boolean)
+    );
+    return professionals.filter(
+      (p) => p.active && !p.userId && !yaVinculados.has(p.id)
+    );
+  }, [professionals, staff]);
 
   const getLinkedPro = (userId: string) =>
     professionals.find((p) => p.userId === userId);
@@ -91,8 +101,14 @@ export default function StaffPage() {
     [staff, deferredSearch, sortField, sortDir]
   );
 
-  const teamMembers = filtered.filter((s) => STAFF_ROLES.includes(s.role));
-  const clientMembers = filtered.filter((s) => s.role === "CLIENT");
+  const teamMembers = useMemo(
+    () => filtered.filter((s) => STAFF_ROLES.includes(s.role)),
+    [filtered]
+  );
+  const clientMembers = useMemo(
+    () => filtered.filter((s) => s.role === "CLIENT"),
+    [filtered]
+  );
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -200,7 +216,7 @@ export default function StaffPage() {
         <div className="relative max-w-md">
           <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
           <Input
-            placeholder="Buscar por nombre, email o telefono..."
+            placeholder="Buscar por nombre, email o teléfono..."
             className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -211,17 +227,23 @@ export default function StaffPage() {
 
       {loading ? (
         <p className="text-muted-foreground py-8 text-center">Cargando...</p>
+      ) : loadError ? (
+        <ErrorDeCarga
+          error={loadError}
+          recurso="las cuentas de usuario"
+          onReintentar={() => void reloadStaff()}
+        />
       ) : staff.length === 0 ? (
-        <Card className="border-0 shadow-sm">
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">
-              No hay cuentas de usuario registradas
-            </p>
-            <Button className="mt-4" onClick={() => setShowCreate(true)}>
+        <EmptyState
+          icon={Users}
+          titulo="No hay cuentas de usuario registradas"
+          descripcion="Crea la primera para dar acceso a tu equipo."
+          accion={
+            <Button onClick={() => setShowCreate(true)}>
               <Plus className="mr-2 h-4 w-4" /> Crear primera cuenta
             </Button>
-          </CardContent>
-        </Card>
+          }
+        />
       ) : filtered.length === 0 ? (
         <p className="text-muted-foreground py-8 text-center">
           No se encontraron resultados para &quot;{search}&quot;
@@ -243,7 +265,7 @@ export default function StaffPage() {
             members={clientMembers}
             title="Clientes"
             icon={<UserCircle className="h-4 w-4 text-emerald-500" />}
-            dotColor="bg-emerald-500"
+            dotColor="bg-success"
             role={role}
             sortField={sortField}
             onToggleSort={toggleSort}
@@ -297,8 +319,8 @@ export default function StaffPage() {
               <li>
                 La cuenta de usuario{" "}
                 {confirmMember.active
-                  ? "no podra iniciar sesion"
-                  : "podra iniciar sesion nuevamente"}
+                  ? "no podra iniciar sesión"
+                  : "podra iniciar sesión nuevamente"}
                 .
               </li>
               {confirmMember.role === "PROFESSIONAL" && (

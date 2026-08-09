@@ -13,62 +13,74 @@ export type BadgeVariant =
   | "default"
   | "secondary"
   | "destructive"
+  | "outline"
   | "success"
   | "warning"
-  | "outline";
+  | "info"
+  | "accent"
+  | "danger"
+  | "muted";
 
 export interface StatusInfo {
   label: string;
-  color: string;
-  /** Variante mas saturada y con borde, para los chips densos del calendario. */
-  calendarColor: string;
+  /**
+   * Variante del Badge. Es la unica forma de pintar un estado: antes convivia
+   * con un campo `color` de clases sueltas que no coincidia con ella, asi que
+   * el mismo estado se veia distinto segun la pantalla.
+   */
   variant: BadgeVariant;
+  /**
+   * Chip denso del calendario, mas saturado y con borde. Lleva las seis tonos
+   * crudos porque hacen falta seis matices distinguibles entre si y el tema solo
+   * define tres (success, warning, info); cada uno trae su variante oscura.
+   */
+  calendarColor: string;
 }
 
 const APPOINTMENT_STATUS: Record<AppointmentStatus, StatusInfo> = {
   PENDING: {
     label: "Pendiente",
-    color: "bg-warning-soft text-warning-soft-foreground",
-    calendarColor: "bg-yellow-200 border-yellow-400 text-yellow-900",
     variant: "warning",
+    calendarColor:
+      "bg-yellow-200 border-yellow-400 text-yellow-900 dark:bg-yellow-900 dark:border-yellow-700 dark:text-yellow-100",
   },
   CONFIRMED: {
     label: "Confirmada",
-    color: "bg-info-soft text-info-soft-foreground",
-    calendarColor: "bg-blue-200 border-blue-400 text-blue-900",
-    variant: "success",
+    variant: "info",
+    calendarColor:
+      "bg-blue-200 border-blue-400 text-blue-900 dark:bg-blue-900 dark:border-blue-700 dark:text-blue-100",
   },
   IN_PROGRESS: {
     label: "En proceso",
-    color: "bg-primary/10 text-primary",
-    calendarColor: "bg-purple-200 border-purple-400 text-purple-900",
-    variant: "default",
+    variant: "accent",
+    calendarColor:
+      "bg-purple-200 border-purple-400 text-purple-900 dark:bg-purple-900 dark:border-purple-700 dark:text-purple-100",
   },
   COMPLETED: {
     label: "Completada",
-    color: "bg-success-soft text-success-soft-foreground",
-    calendarColor: "bg-green-200 border-green-400 text-green-900",
-    variant: "secondary",
+    variant: "success",
+    calendarColor:
+      "bg-green-200 border-green-400 text-green-900 dark:bg-green-900 dark:border-green-700 dark:text-green-100",
   },
   CANCELLED: {
     label: "Cancelada",
-    color: "bg-destructive/10 text-destructive",
-    calendarColor: "bg-red-200 border-red-400 text-red-900",
-    variant: "destructive",
+    variant: "danger",
+    calendarColor:
+      "bg-red-200 border-red-400 text-red-900 dark:bg-red-900 dark:border-red-700 dark:text-red-100",
   },
   NO_SHOW: {
     label: "No asistio",
-    color: "bg-muted text-muted-foreground",
-    calendarColor: "bg-gray-200 border-gray-400 text-gray-700",
-    variant: "secondary",
+    variant: "muted",
+    calendarColor:
+      "bg-gray-200 border-gray-400 text-gray-700 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200",
   },
 };
 
 const DEFAULT_STATUS: StatusInfo = {
   label: "Desconocido",
-  color: "bg-muted text-muted-foreground",
-  calendarColor: "bg-gray-200 border-gray-400 text-gray-700",
-  variant: "secondary",
+  variant: "muted",
+  calendarColor:
+    "bg-gray-200 border-gray-400 text-gray-700 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200",
 };
 
 /** Devuelve la presentación (etiqueta y colores) de un estado de cita; usa un valor por defecto si es desconocido. */

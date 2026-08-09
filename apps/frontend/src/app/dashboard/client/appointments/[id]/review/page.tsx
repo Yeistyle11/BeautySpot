@@ -2,13 +2,13 @@
 
 // Resena de una cita completada: calificacion y comentario del cliente.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Field } from "@/components/ui/field";
 import {
   Calendar,
   Scissors,
@@ -22,38 +22,20 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/swr";
+import { logger } from "@/lib/logger";
+import { mensajeDeError } from "@/lib/error-message";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import Link from "next/link";
 
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
+import { appointmentSchema, type Appointment } from "@/lib/schemas/appointment";
 
-const appointmentServiceSchema = z.object({
-  serviceName: z.string(),
-  price: z.string(),
-  duration: z.number(),
-});
-
-const appointmentSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  startTime: z.string(),
-  endTime: z.string(),
-  status: z.string(),
-  notes: z.string().nullable(),
-  totalAmount: z.string(),
-  professionalId: z.string(),
-  clientId: z.string(),
-  appointmentServices: z.array(appointmentServiceSchema),
-});
-type Appointment = z.infer<typeof appointmentSchema>;
-
-/* ------------------------------------------------------------------ */
-/*  Star rating sub-component                                          */
-/* ------------------------------------------------------------------ */
-
+/**
+ * Selector de calificacion de 1 a 5. Se expone como grupo de radio para que el
+ * lector de pantalla anuncie cuantas estrellas hay marcadas; al pasar el raton
+ * se pintan las estrellas sobrevoladas en lugar de las elegidas, de ahi que el
+ * relleno mire a `hovered` antes que a `value`.
+ */
 function StarRating({
   value,
   onChange,
@@ -64,15 +46,22 @@ function StarRating({
   const [hovered, setHovered] = useState(0);
 
   return (
-    <div className="flex gap-1">
+    <div
+      role="radiogroup"
+      aria-label="Calificacion"
+      className="flex gap-1"
+      onMouseLeave={() => setHovered(0)}
+    >
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
           type="button"
+          role="radio"
+          aria-checked={value === star}
+          aria-label={star === 1 ? "1 estrella" : `${star} estrellas`}
           onClick={() => onChange(star)}
           onMouseEnter={() => setHovered(star)}
-          onMouseLeave={() => setHovered(0)}
-          className="transition-transform hover:scale-110 focus:outline-none"
+          className="focus-visible:ring-ring rounded transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2"
         >
           <Star
             className={cn(
@@ -88,10 +77,6 @@ function StarRating({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
-
 export default function ReviewPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -102,7 +87,7 @@ export default function ReviewPage() {
     isLoading: loading,
     error: loadError,
   } = useApi<Appointment>(
-    id ? `/booking/appointments/${id}` : null,
+    id ? `/booking/appointments/mine/${id}` : null,
     undefined,
     appointmentSchema
   );
@@ -110,40 +95,47 @@ export default function ReviewPage() {
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
-  const [photos, setPhotos] = useState<string[]>([""]);
+  // Cada campo lleva un id propio: con la posicion del array como key, borrar
+  // una foto intermedia desplazaba el texto de los inputs siguientes.
+  const [photos, setPhotos] = useState<{ id: number; url: string }[]>([
+    { id: 0, url: "" },
+  ]);
+  const siguienteIdFoto = useRef(1);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  /* ---- Validation ---- */
+  // Una calificacion baja obliga a explicarla: sin motivo, el negocio no puede
+  // hacer nada con la resena.
   const commentRequired = rating > 0 && rating < 4;
   const commentValid = commentRequired ? comment.trim().length > 0 : true;
   const isValid = rating > 0 && commentValid;
 
-  /* ---- Photo URL helpers ---- */
-  const handlePhotoChange = (index: number, value: string) => {
-    const updated = [...photos];
-    updated[index] = value;
-    setPhotos(updated);
+  const handlePhotoChange = (id: number, url: string) => {
+    setPhotos((actuales) =>
+      actuales.map((foto) => (foto.id === id ? { ...foto, url } : foto))
+    );
   };
 
   const addPhotoField = () => {
     if (photos.length < 3) {
-      setPhotos([...photos, ""]);
+      setPhotos((actuales) => [
+        ...actuales,
+        { id: siguienteIdFoto.current++, url: "" },
+      ]);
     }
   };
 
-  const removePhotoField = (index: number) => {
-    setPhotos(photos.filter((_, i) => i !== index));
+  const removePhotoField = (id: number) => {
+    setPhotos((actuales) => actuales.filter((foto) => foto.id !== id));
   };
 
-  /* ---- Submit ---- */
   const handleSubmit = async () => {
     if (!appointment || !isValid) return;
 
     const effectiveBusinessId = businessId;
     if (!effectiveBusinessId) {
       setError(
-        "No se pudo determinar el negocio. Vuelve a iniciar sesion e intentalo de nuevo."
+        "No se pudo determinar el negocio. Vuelve a iniciar sesión e intentalo de nuevo."
       );
       return;
     }
@@ -151,7 +143,9 @@ export default function ReviewPage() {
     setSubmitting(true);
     setError(null);
 
-    const cleanPhotos = photos.map((p) => p.trim()).filter((p) => p.length > 0);
+    const cleanPhotos = photos
+      .map((foto) => foto.url.trim())
+      .filter((url) => url.length > 0);
 
     try {
       await api.post("/marketplace/reviews", {
@@ -165,15 +159,12 @@ export default function ReviewPage() {
       });
       setSuccess(true);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Error al publicar la reseña";
-      setError(message);
+      logger.error(err);
+      setError(mensajeDeError(err));
     } finally {
       setSubmitting(false);
     }
   };
-
-  /* ---- Render ---- */
 
   if (loading) {
     return (
@@ -199,7 +190,6 @@ export default function ReviewPage() {
 
   if (!appointment) return null;
 
-  /* ---- Success state ---- */
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -250,7 +240,7 @@ export default function ReviewPage() {
                   <div key={idx} className="flex justify-between text-sm">
                     <span>{svc.serviceName}</span>
                     <span className="font-medium">
-                      {formatCurrency(parseFloat(svc.price))}
+                      {formatCurrency(svc.price)}
                     </span>
                   </div>
                 ))}
@@ -291,22 +281,23 @@ export default function ReviewPage() {
             <CardHeader>
               <CardTitle className="text-base">Comentario</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <Textarea
-                placeholder="Cuenta como fue tu experiencia..."
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                rows={4}
-              />
-              {commentRequired && !commentValid && rating > 0 && (
-                <p className="text-sm text-amber-600">
-                  Para calificaciones menores a 4 estrellas, el comentario es
-                  obligatorio
-                </p>
-              )}
-              <p className="text-muted-foreground text-xs">
-                {comment.length}/500 caracteres
-              </p>
+            <CardContent>
+              <Field
+                label="Tu comentario"
+                hint={`${comment.length}/500 caracteres`}
+                error={
+                  commentRequired && !commentValid
+                    ? "Para calificaciones menores a 4 estrellas, el comentario es obligatorio"
+                    : undefined
+                }
+              >
+                <Textarea
+                  placeholder="Cuenta como fue tu experiencia..."
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  rows={4}
+                />
+              </Field>
             </CardContent>
           </Card>
 
@@ -318,19 +309,21 @@ export default function ReviewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {photos.map((url, idx) => (
-                <div key={idx} className="flex items-center gap-2">
+              {photos.map((foto, idx) => (
+                <div key={foto.id} className="flex items-center gap-2">
                   <Input
                     placeholder="URL de la imagen (ej. https://...)"
-                    value={url}
-                    onChange={(e) => handlePhotoChange(idx, e.target.value)}
+                    aria-label={`URL de la foto ${idx + 1}`}
+                    value={foto.url}
+                    onChange={(e) => handlePhotoChange(foto.id, e.target.value)}
                   />
                   {photos.length > 1 && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      onClick={() => removePhotoField(idx)}
+                      aria-label={`Quitar la foto ${idx + 1}`}
+                      onClick={() => removePhotoField(foto.id)}
                       className="shrink-0"
                     >
                       <X className="h-4 w-4" />

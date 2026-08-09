@@ -21,54 +21,25 @@ import {
   FileText,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { mensajeDeError } from "@/lib/error-message";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
 import { useApi } from "@/lib/swr";
 import Link from "next/link";
 
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
-const appointmentServiceSchema = z.object({
-  serviceName: z.string(),
-  price: z.string(),
-  duration: z.number(),
-});
-
-const appointmentSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  startTime: z.string(),
-  endTime: z.string(),
-  status: z.string(),
-  notes: z.string().nullable(),
-  totalAmount: z.string(),
-  professionalId: z.string(),
-  clientId: z.string(),
-  appointmentServices: z.array(appointmentServiceSchema),
-});
-type Appointment = z.infer<typeof appointmentSchema>;
-
-const reviewSchema = z.object({
-  id: z.string(),
-  appointmentId: z.string(),
-});
-type Review = z.infer<typeof reviewSchema>;
-
-/* ------------------------------------------------------------------ */
-/*  Status config                                                      */
-/* ------------------------------------------------------------------ */
-
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
+import {
+  appointmentSchema,
+  reviewSchema,
+  type Appointment,
+  type Review,
+} from "@/lib/schemas/appointment";
 
 export default function AppointmentDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
 
-  const appointmentKey = id ? `/booking/appointments/${id}` : null;
+  const appointmentKey = id ? `/booking/appointments/mine/${id}` : null;
   const reviewsKey = id ? `/marketplace/reviews/appointment/${id}` : null;
   const {
     data: appointment,
@@ -87,32 +58,31 @@ export default function AppointmentDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
-  const error = fetchError
-    ? fetchError instanceof Error
-      ? fetchError.message
-      : "Error al cargar la cita"
-    : cancelError;
+  const error = fetchError ? mensajeDeError(fetchError) : cancelError;
 
   const handleCancel = async () => {
     if (!appointment) return;
     setCancelling(true);
     try {
-      await api.post(`/booking/appointments/${appointment.id}/cancel`, {
+      await api.post(`/booking/appointments/mine/${appointment.id}/cancel`, {
         reason: "Cancelado por el cliente",
       });
       await mutateAppointment();
       await mutate("/booking/appointments");
       setCancelDialogOpen(false);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Error al cancelar la cita";
-      setCancelError(message);
+      logger.error(err);
+      setCancelError(mensajeDeError(err));
     } finally {
       setCancelling(false);
     }
   };
 
-  /* ---- Helpers ---- */
+  /**
+   * Si la fecha "YYYY-MM-DD" es hoy o posterior. El mediodia fijo evita que en
+   * timezones negativos, donde la medianoche UTC cae en el dia anterior, la cita
+   * de hoy se tome por pasada.
+   */
   const isFuture = (date: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -131,8 +101,6 @@ export default function AppointmentDetailPage() {
 
   const canReview =
     appointment && appointment.status === "COMPLETED" && !hasReview;
-
-  /* ---- Render ---- */
 
   if (loading) {
     return (
@@ -179,7 +147,7 @@ export default function AppointmentDetailPage() {
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">Detalle de cita</h1>
-          <Badge className={status.color}>{status.label}</Badge>
+          <Badge variant={status.variant}>{status.label}</Badge>
         </div>
       </div>
 
@@ -206,7 +174,7 @@ export default function AppointmentDetailPage() {
                       </p>
                     </div>
                     <span className="font-semibold">
-                      {formatCurrency(parseFloat(svc.price))}
+                      {formatCurrency(svc.price)}
                     </span>
                   </div>
                 ))}
@@ -216,7 +184,7 @@ export default function AppointmentDetailPage() {
                   Total ({totalDuration} min)
                 </span>
                 <span className="text-lg font-bold">
-                  {formatCurrency(parseFloat(appointment.totalAmount))}
+                  {formatCurrency(appointment.totalAmount)}
                 </span>
               </div>
             </CardContent>

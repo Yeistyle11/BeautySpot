@@ -98,6 +98,12 @@ export const PAGES: PageAccess[] = [
     roles: ["CLIENT"],
   },
   {
+    path: "/dashboard/onboarding",
+    label: "Crear mi negocio",
+    icon: "Store",
+    roles: ["CLIENT"],
+  },
+  {
     path: "/dashboard/marketplace",
     label: "Marketplace",
     icon: "Megaphone",
@@ -111,7 +117,7 @@ export const PAGES: PageAccess[] = [
   },
   {
     path: "/dashboard/settings",
-    label: "Configuracion",
+    label: "Configuración",
     icon: "Settings",
     roles: ["SUPER_ADMIN", "OWNER", "ADMIN", "PROFESSIONAL", "CLIENT"],
   },

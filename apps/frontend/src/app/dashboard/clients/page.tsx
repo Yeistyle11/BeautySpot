@@ -12,7 +12,18 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Pagination } from "@/components/ui/pagination";
-import { Plus, Search, Phone, Mail, Award, Calendar, Edit } from "lucide-react";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Plus,
+  Search,
+  Phone,
+  Mail,
+  Award,
+  Calendar,
+  Edit,
+  Users,
+} from "lucide-react";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
@@ -48,6 +59,8 @@ export default function ClientsPage() {
     meta,
     setPage,
     isLoading: loading,
+    error: loadError,
+    reload: recargarClientes,
     isEmptySearch,
     create: createClient,
     update: updateClient,
@@ -167,6 +180,8 @@ export default function ClientsPage() {
         <div className="relative max-w-sm">
           <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
           <Input
+            type="search"
+            aria-label="Buscar cliente"
             placeholder="Buscar cliente..."
             className="pl-10"
             value={search}
@@ -179,6 +194,29 @@ export default function ClientsPage() {
         <p className="text-muted-foreground py-8 text-center">
           No se encontraron clientes para &quot;{search}&quot;
         </p>
+      )}
+
+      {loadError && (
+        <ErrorDeCarga
+          error={loadError}
+          recurso="los clientes"
+          onReintentar={() => void recargarClientes()}
+        />
+      )}
+
+      {!loading && !loadError && !isEmptySearch && clients.length === 0 && (
+        <EmptyState
+          icon={Users}
+          titulo="Aun no hay clientes"
+          descripcion="Registra a quien atiendes para llevar su historial y sus citas."
+          accion={
+            canDo(role, "clients_create") && (
+              <Button onClick={() => setCreateDialog(true)}>
+                Nuevo cliente
+              </Button>
+            )
+          }
+        />
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -257,8 +295,10 @@ export default function ClientsPage() {
                 }
               />
             </Field>
-            <Field label="Telefono">
+            <Field label="Teléfono">
               <Input
+                type="tel"
+                inputMode="tel"
                 placeholder="+57 300 1234567"
                 value={createForm.phone}
                 onChange={(e) =>
@@ -409,8 +449,10 @@ export default function ClientsPage() {
                 }
               />
             </Field>
-            <Field label="Telefono">
+            <Field label="Teléfono">
               <Input
+                type="tel"
+                inputMode="tel"
                 value={editForm.phone}
                 onChange={(e) =>
                   setEditForm({ ...editForm, phone: e.target.value })

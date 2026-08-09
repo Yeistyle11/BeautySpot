@@ -2,54 +2,37 @@
 
 // Mis citas: historial y proximas citas del cliente.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, Scissors, Star, Plus } from "lucide-react";
-import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
+import { Calendar, Clock, Scissors, Star, Plus, Store } from "lucide-react";
+import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
-import { useApi, paginatedSchema } from "@/lib/swr";
+import { useApi, useApiPublic, paginatedSchema } from "@/lib/swr";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
+import { FilterChip } from "@/components/ui/filter-chip";
 import Link from "next/link";
-
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
 
 import {
   appointmentSchema,
+  negocioPublicoSchema,
+  reviewSchema,
   MY_APPOINTMENTS_KEY,
   type Appointment,
+  type NegocioPublico,
+  type Review,
 } from "@/lib/schemas/appointment";
-
-const reviewSchema = z.object({
-  id: z.string(),
-  appointmentId: z.string(),
-});
-type Review = z.infer<typeof reviewSchema>;
-
-/* ------------------------------------------------------------------ */
-/*  Status config                                                      */
-/* ------------------------------------------------------------------ */
-
-/* ------------------------------------------------------------------ */
-/*  Tab type                                                           */
-/* ------------------------------------------------------------------ */
 
 type TabKey = "all" | "upcoming" | "completed" | "cancelled";
 
 const tabs: { key: TabKey; label: string }[] = [
   { key: "all", label: "Todas" },
-  { key: "upcoming", label: "Proximas" },
+  { key: "upcoming", label: "Próximas" },
   { key: "completed", label: "Completadas" },
   { key: "cancelled", label: "Canceladas" },
 ];
-
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
 
 function filterByTab(appointments: Appointment[], tab: TabKey): Appointment[] {
   switch (tab) {
@@ -68,10 +51,6 @@ function filterByTab(appointments: Appointment[], tab: TabKey): Appointment[] {
   }
 }
 
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
-
 export default function AppointmentsPage() {
   const {
     data: pagina,
@@ -83,7 +62,10 @@ export default function AppointmentsPage() {
     undefined,
     paginatedSchema(appointmentSchema)
   );
-  const appointments: Appointment[] = pagina?.data ?? [];
+  const appointments: Appointment[] = useMemo(
+    () => pagina?.data ?? [],
+    [pagina?.data]
+  );
   const { data: reviews } = useApi<Review[]>(
     "/marketplace/reviews/mine",
     undefined,
@@ -91,12 +73,36 @@ export default function AppointmentsPage() {
   );
   const [activeTab, setActiveTab] = useState<TabKey>("all");
 
-  const reviewedIds = new Set((reviews ?? []).map((r) => r.appointmentId));
-  const filtered = filterByTab(appointments ?? [], activeTab).sort((a, b) =>
-    `${b.date}${b.startTime}`.localeCompare(`${a.date}${a.startTime}`)
+  // La cita solo guarda el id del negocio; el nombre se resuelve contra el
+  // listado publico, el mismo que alimenta el buscador del marketplace.
+  const { data: negocios } = useApiPublic<NegocioPublico[]>(
+    "/core/public/businesses",
+    undefined,
+    z.array(negocioPublicoSchema)
   );
 
-  /* ---- Render ---- */
+  const nombreDelNegocio = useMemo(() => {
+    const nombres: Record<string, string> = {};
+    (negocios ?? []).forEach((n) => {
+      nombres[n.id] = n.name;
+    });
+    return nombres;
+  }, [negocios]);
+
+  const reviewedIds = useMemo(
+    () => new Set((reviews ?? []).map((r) => r.appointmentId)),
+    [reviews]
+  );
+  // El filtro devuelve el array original en la pestana "todas", asi que hay que
+  // copiarlo antes de ordenar: sin la copia se reordena la cache de SWR.
+  const filtered = useMemo(
+    () =>
+      [...filterByTab(appointments, activeTab)].sort((a, b) =>
+        `${b.date}${b.startTime}`.localeCompare(`${a.date}${a.startTime}`)
+      ),
+    [appointments, activeTab]
+  );
+
   return (
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -112,20 +118,20 @@ export default function AppointmentsPage() {
         </Link>
       </div>
 
-      <div className="bg-muted mb-6 flex gap-1 rounded-lg p-1">
+      <div
+        role="group"
+        aria-label="Filtrar citas por estado"
+        className="bg-muted mb-6 flex gap-1 rounded-lg p-1"
+      >
         {tabs.map((tab) => (
-          <button
+          <FilterChip
             key={tab.key}
+            variante="segment"
+            activo={activeTab === tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={cn(
-              "flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-              activeTab === tab.key
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            )}
           >
             {tab.label}
-          </button>
+          </FilterChip>
         ))}
       </div>
 
@@ -146,7 +152,7 @@ export default function AppointmentsPage() {
           <CardContent className="p-8 text-center">
             <Calendar className="text-muted-foreground mx-auto h-12 w-12 opacity-20" />
             <p className="text-muted-foreground mt-2">
-              No tienes citas en esta categoria
+              No tienes citas en esta categoría
             </p>
             <Link href="/marketplace">
               <Button variant="outline" className="mt-4">
@@ -162,66 +168,72 @@ export default function AppointmentsPage() {
             const hasReview = reviewedIds.has(appt.id);
             const canReview = appt.status === "COMPLETED" && !hasReview;
 
+            // El enlace al detalle se extiende sobre toda la tarjeta con un overlay
+            // absoluto en vez de envolverla: "Dejar reseña" es otro enlace y anidar
+            // anclas es HTML invalido, ademas de dejarlo inalcanzable por teclado.
             return (
-              <Link
+              <Card
                 key={appt.id}
-                href={`/dashboard/client/appointments/${appt.id}`}
+                className="relative border-0 shadow-sm transition-shadow hover:shadow-md"
               >
-                <Card className="cursor-pointer border-0 shadow-sm transition-shadow hover:shadow-md">
-                  <CardContent className="p-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="bg-primary/10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl">
-                          <Scissors className="text-primary h-5 w-5" />
-                        </div>
-                        <div>
-                          <p className="font-semibold">
-                            {appt.appointmentServices
-                              .map((s) => s.serviceName)
-                              .join(", ")}
-                          </p>
-                          <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-3 text-sm">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {formatDate(appt.date)}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {formatTime(appt.startTime)} -{" "}
-                              {formatTime(appt.endTime)}
-                            </span>
-                          </div>
-                        </div>
+                <CardContent className="p-5">
+                  <Link
+                    href={`/dashboard/client/appointments/${appt.id}`}
+                    className="focus-visible:ring-ring absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2"
+                  >
+                    <span className="sr-only">
+                      Ver detalle de la cita del {formatDate(appt.date)}
+                    </span>
+                  </Link>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-primary/10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl">
+                        <Scissors className="text-primary h-5 w-5" />
                       </div>
-
-                      <div className="flex items-center gap-3 sm:shrink-0">
-                        <span className="font-semibold">
-                          {formatCurrency(appt.totalAmount)}
-                        </span>
-                        <Badge className={status.color}>{status.label}</Badge>
-                        {canReview && (
-                          <span
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }}
-                            className="ml-1"
-                          >
-                            <Link
-                              href={`/dashboard/client/appointments/${appt.id}/review`}
-                              className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 hover:underline"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Star className="h-3 w-3" />
-                              Dejar reseña
-                            </Link>
-                          </span>
+                      <div>
+                        <p className="font-semibold">
+                          {appt.appointmentServices
+                            .map((s) => s.serviceName)
+                            .join(", ")}
+                        </p>
+                        {nombreDelNegocio[appt.businessId] && (
+                          <p className="text-muted-foreground mt-0.5 flex items-center gap-1 text-sm">
+                            <Store className="h-3 w-3" />
+                            {nombreDelNegocio[appt.businessId]}
+                          </p>
                         )}
+                        <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-3 text-sm">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(appt.date)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatTime(appt.startTime)} -{" "}
+                            {formatTime(appt.endTime)}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </Link>
+
+                    <div className="flex items-center gap-3 sm:shrink-0">
+                      <span className="font-semibold">
+                        {formatCurrency(appt.totalAmount)}
+                      </span>
+                      <Badge variant={status.variant}>{status.label}</Badge>
+                      {canReview && (
+                        <Link
+                          href={`/dashboard/client/appointments/${appt.id}/review`}
+                          className="relative ml-1 inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 hover:underline"
+                        >
+                          <Star className="h-3 w-3" />
+                          Dejar reseña
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             );
           })}
         </div>
