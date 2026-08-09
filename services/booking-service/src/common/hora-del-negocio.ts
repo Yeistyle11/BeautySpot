@@ -6,10 +6,10 @@
  * donde viva el servidor.
  *
  * La lógica vive en `@beautyspot/shared-utils`, compartida con analytics y
- * payment. Aquí quedan los envoltorios que usan el huso **por defecto**, para el
- * worker de recordatorios, que recorre ventanas de tiempo globales y no tiene un
- * negocio al que preguntar. Todo lo que sí conoce su `businessId` —agenda,
- * reservas, reagendado— resuelve el huso con `ZonaDelNegocioService`.
+ * payment. Aquí quedan los envoltorios que usan el huso **por defecto**, para lo
+ * que no tiene un negocio al que preguntar. Todo lo que sí conoce su
+ * `businessId` —agenda, reservas, reagendado, recordatorios— resuelve el huso
+ * con `ZonaDelNegocioService`.
  */
 import {
   ahoraEnLaZona,
