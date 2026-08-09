@@ -25,6 +25,7 @@ import { BusinessHoursModule } from "./modules/business-hours/business-hours.mod
 import { ImagesModule } from "./modules/images/images.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
 import { ServiceCategoriesModule } from "./modules/service-categories/service-categories.module";
+import { ClientFieldsModule } from "./modules/client-fields/client-fields.module";
 import { CoreEventListenersModule } from "./modules/event-listeners/core-event-listeners.module";
 
 @Module({
@@ -55,6 +56,7 @@ import { CoreEventListenersModule } from "./modules/event-listeners/core-event-l
     ImagesModule,
     CategoriesModule,
     ServiceCategoriesModule,
+    ClientFieldsModule,
   ],
 })
 /** Módulo raíz del core-service: agrupa negocios, sedes, servicios, profesionales, clientes e imágenes. */

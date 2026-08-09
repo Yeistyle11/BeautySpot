@@ -1,4 +1,8 @@
-import { ConflictException, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { TenantCrudService, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
@@ -11,9 +15,16 @@ import {
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
 import { Client } from "../../entities/client.entity";
+import {
+  CampoDeFicha,
+  TipoDeCampo,
+} from "../../entities/campo-de-ficha.entity";
 
 /** Rótulo con el que se queda una ficha tras suprimir sus datos. */
 const NOMBRE_ANONIMO = "Cliente anonimizado";
+
+/** Fecha de calendario, que es como viaja un campo de tipo fecha. */
+const PATRON_FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Deja correo y teléfono en su forma canónica, para poder cotejarlos. */
 function normalizarContacto(data: Partial<Client>): {
@@ -31,6 +42,8 @@ function normalizarContacto(data: Partial<Client>): {
 export class ClientsService extends TenantCrudService<Client> {
   constructor(
     @InjectRepository(Client) repo: Repository<Client>,
+    @InjectRepository(CampoDeFicha)
+    private readonly camposRepo: Repository<CampoDeFicha>,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly outbox: OutboxService
   ) {
@@ -41,6 +54,7 @@ export class ClientsService extends TenantCrudService<Client> {
   async create(businessId: string, data: Partial<Client>): Promise<Client> {
     const contacto = normalizarContacto(data);
     await this.rechazarSiYaExiste(businessId, contacto);
+    await this.validarFicha(businessId, data.ficha);
 
     const client = this.repo.create({ ...data, ...contacto, businessId });
 
@@ -100,7 +114,79 @@ export class ClientsService extends TenantCrudService<Client> {
     data: Partial<Client>
   ): Promise<Client> {
     await this.rechazarSiEstaAnonimizado(id, businessId);
+    await this.validarFicha(businessId, data.ficha);
     return super.update(id, businessId, data);
+  }
+
+  /**
+   * Comprueba la ficha contra los campos que el negocio tiene definidos: no se
+   * aceptan claves que nadie declaró, ni valores que no cuadren con su tipo.
+   *
+   * Los obligatorios solo se exigen cuando se envía ficha; dar de alta a alguien
+   * por teléfono sin más datos tiene que seguir siendo posible.
+   */
+  private async validarFicha(
+    businessId: string,
+    ficha: Record<string, unknown> | null | undefined
+  ): Promise<void> {
+    if (ficha === undefined || ficha === null) return;
+
+    const campos = await this.camposRepo.find({
+      where: { businessId, active: true },
+    });
+    const porId = new Map(campos.map((campo) => [campo.id, campo]));
+
+    for (const clave of Object.keys(ficha)) {
+      if (!porId.has(clave)) {
+        throw new BadRequestException(
+          "La ficha trae un campo que este negocio no tiene definido"
+        );
+      }
+    }
+
+    for (const campo of campos) {
+      const valor = ficha[campo.id];
+      if (valor === undefined || valor === null || valor === "") {
+        if (campo.obligatorio) {
+          throw new BadRequestException(`«${campo.etiqueta}» es obligatorio`);
+        }
+        continue;
+      }
+      this.validarValor(campo, valor);
+    }
+  }
+
+  /** Contrasta un valor con el tipo declarado en su campo. */
+  private validarValor(campo: CampoDeFicha, valor: unknown): void {
+    const invalido = (motivo: string) => {
+      throw new BadRequestException(`«${campo.etiqueta}» ${motivo}`);
+    };
+
+    switch (campo.tipo) {
+      case TipoDeCampo.NUMERO:
+        if (typeof valor !== "number" || Number.isNaN(valor)) {
+          invalido("tiene que ser un número");
+        }
+        break;
+      case TipoDeCampo.SI_NO:
+        if (typeof valor !== "boolean") invalido("tiene que ser sí o no");
+        break;
+      case TipoDeCampo.FECHA:
+        if (typeof valor !== "string" || !PATRON_FECHA.test(valor)) {
+          invalido("tiene que ser una fecha (AAAA-MM-DD)");
+        }
+        break;
+      case TipoDeCampo.OPCIONES:
+        if (
+          typeof valor !== "string" ||
+          !(campo.opciones ?? []).includes(valor)
+        ) {
+          invalido("no admite ese valor");
+        }
+        break;
+      default:
+        if (typeof valor !== "string") invalido("tiene que ser texto");
+    }
   }
 
   /**
@@ -122,6 +208,7 @@ export class ClientsService extends TenantCrudService<Client> {
         documento: null,
         notes: null,
         tags: null,
+        ficha: null,
         userId: null,
         active: false,
         anonymizedAt: new Date(),

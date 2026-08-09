@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Building2, Clock } from "lucide-react";
+import { User, Building2, Clock, ClipboardList } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
@@ -16,13 +16,18 @@ import { getErrorMessage } from "@/lib/utils";
 import { AccountTab } from "./account-tab";
 import { BusinessTab } from "./business-tab";
 import { HoursTab } from "./hours-tab";
+import { FieldsTab, type NuevoCampo } from "./fields-tab";
 import {
   businessDataSchema,
   businessHourSchema,
+  campoDeFichaSchema,
+  servicioBreveSchema,
   DAYS,
   defaultHours,
   type BusinessData,
   type BusinessHour,
+  type CampoDeFicha,
+  type ServicioBreve,
   type Feedback,
 } from "./schemas";
 
@@ -59,6 +64,20 @@ export default function SettingsPage() {
   const { data: hoursData, mutate: mutateHours } = useApi<
     BusinessHour[] | null
   >(hoursKey, undefined, z.array(businessHourSchema).nullable());
+
+  // Los campos de la ficha y el catálogo solo hacen falta en su pestaña, pero
+  // se piden aquí porque el guardado también vive en la página.
+  const puedeEditarNegocio = canDo(role, "business_edit");
+  const { data: campos, mutate: mutateCampos } = useApi<CampoDeFicha[] | null>(
+    puedeEditarNegocio ? "/core/client-fields" : null,
+    undefined,
+    z.array(campoDeFichaSchema).nullable()
+  );
+  const { data: servicios } = useApi<ServicioBreve[] | null>(
+    puedeEditarNegocio ? "/core/services" : null,
+    undefined,
+    z.array(servicioBreveSchema).nullable()
+  );
 
   const [businessForm, setBusinessForm] = useState<Partial<BusinessData>>({});
   const [hours, setHours] = useState<BusinessHour[]>(defaultHours);
@@ -180,6 +199,43 @@ export default function SettingsPage() {
     }
   };
 
+  const crearCampo = async (campo: NuevoCampo) => {
+    setSaving("fields");
+    try {
+      await api.post("/core/client-fields", {
+        etiqueta: campo.etiqueta.trim(),
+        tipo: campo.tipo,
+        obligatorio: campo.obligatorio,
+        // El backend cuenta la lista vacía como "aplica a todos", pero prefiere
+        // no recibirla a recibirla vacía.
+        serviceIds: campo.serviceIds.length > 0 ? campo.serviceIds : undefined,
+        opciones:
+          campo.tipo === "opciones"
+            ? campo.opciones
+                .split(",")
+                .map((o) => o.trim())
+                .filter(Boolean)
+            : undefined,
+      });
+      await mutateCampos();
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const quitarCampo = async (id: string) => {
+    try {
+      await api.delete(`/core/client-fields/${id}`);
+      await mutateCampos();
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    }
+  };
+
   const updateHour = (
     dayOfWeek: number,
     field: keyof BusinessHour,
@@ -212,6 +268,11 @@ export default function SettingsPage() {
           {canDo(role, "business_hours_edit") && (
             <TabsTrigger value="hours" className="gap-2">
               <Clock className="h-4 w-4" /> Horarios
+            </TabsTrigger>
+          )}
+          {canDo(role, "business_edit") && (
+            <TabsTrigger value="fields" className="gap-2">
+              <ClipboardList className="h-4 w-4" /> Ficha
             </TabsTrigger>
           )}
         </TabsList>
@@ -252,6 +313,19 @@ export default function SettingsPage() {
               onUpdate={updateHour}
               onSave={saveHours}
               saving={saving === "hours"}
+              role={role}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="fields">
+          {canDo(role, "business_edit") && (
+            <FieldsTab
+              campos={campos ?? []}
+              servicios={servicios ?? []}
+              onCreate={crearCampo}
+              onRemove={quitarCampo}
+              saving={saving === "fields"}
               role={role}
             />
           )}

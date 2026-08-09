@@ -4,6 +4,7 @@ import {
   IsArray,
   IsBoolean,
   IsEmail,
+  IsObject,
   Matches,
   ValidateIf,
   MaxLength,
@@ -46,6 +47,12 @@ export class CreateClientDto {
   notes?: string;
   @IsOptional() @IsString() userId?: string;
   @IsOptional() @IsArray() tags?: string[];
+  /**
+   * Valores de la ficha que el negocio se haya definido, por id de campo. Se
+   * declara aquí porque el `ValidationPipe` global descarta lo que no esté en el
+   * DTO; el contenido lo contrasta `ClientsService` con los campos del negocio.
+   */
+  @IsOptional() @IsObject() ficha?: Record<string, unknown>;
 }
 
 /** Campos editables de un cliente (todos opcionales). */
@@ -76,5 +83,11 @@ export class UpdateClientDto {
   @MaxLength(1000, { message: "Las notas no pueden pasar de 1000 caracteres" })
   notes?: string;
   @IsOptional() @IsArray() tags?: string[];
+  /**
+   * Valores de la ficha que el negocio se haya definido, por id de campo. Se
+   * declara aquí porque el `ValidationPipe` global descarta lo que no esté en el
+   * DTO; el contenido lo contrasta `ClientsService` con los campos del negocio.
+   */
+  @IsOptional() @IsObject() ficha?: Record<string, unknown>;
   @IsOptional() @IsBoolean() active?: boolean;
 }
