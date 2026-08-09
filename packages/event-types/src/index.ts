@@ -154,7 +154,16 @@ export type AppointmentRescheduledEvent = IBaseEvent<
     previousStartTime: string;
   }
 >;
-export type AppointmentReminderDueEvent = IBaseEvent<AppointmentCreatedPayload>;
+/**
+ * Cuál de los dos recordatorios se está pidiendo. Lo decide quien lo emite: el
+ * consumidor no puede deducirlo de la hora, porque un aviso atrasado —el worker
+ * estuvo caído— llega fuera de su franja y aun así hay que enviarlo.
+ */
+export type TipoDeRecordatorio = "24h" | "1h";
+
+export type AppointmentReminderDueEvent = IBaseEvent<
+  AppointmentCreatedPayload & { reminderType: TipoDeRecordatorio }
+>;
 
 // ─── Payment Events ───────────────────────────────────────────
 

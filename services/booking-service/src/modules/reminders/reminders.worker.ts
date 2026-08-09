@@ -7,27 +7,39 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource, In, IsNull, Between } from "typeorm";
-import { OutboxService } from "@beautyspot/nest-common";
+import { OutboxService, ZonaDelNegocioService } from "@beautyspot/nest-common";
+import { instanteDe } from "@beautyspot/shared-utils";
 import { EventNames } from "@beautyspot/event-types";
 import { AppointmentStatus } from "@beautyspot/shared-types";
 import { Appointment } from "../../entities/appointment.entity";
 
 const DEFAULT_POLL_INTERVAL_MS = 60000;
 
-/** Citas que se examinan por sondeo, para no traer a memoria las de toda la plataforma. */
+/** Citas que se traen a memoria por página, para no cargar las de toda la plataforma. */
 const MAXIMO_POR_SONDEO = 1000;
 
-/** Ventana horaria (en horas antes de la cita) que dispara cada recordatorio. */
+/** Páginas por ciclo; el resto espera al siguiente en vez de alargar el sondeo. */
+const MAXIMO_PAGINAS = 10;
+
+/**
+ * Cada recordatorio se dispara **por debajo** de su umbral, no dentro de una
+ * franja: si el worker estuvo caído a las 24 h, el aviso sale en cuanto vuelve.
+ * `minimo` es la antelación por debajo de la cual ese aviso ya no aporta —el de
+ * 1 h lo releva, o la cita ya empezó— y se marca sin enviar nada.
+ */
 const VENTANAS = {
-  "24h": { desde: 23, hasta: 25, columna: "reminder24hSentAt" },
-  "1h": { desde: 0.5, hasta: 1.5, columna: "reminder1hSentAt" },
+  "24h": { umbral: 24, minimo: 1, columna: "reminder24hSentAt" },
+  "1h": { umbral: 1, minimo: 0, columna: "reminder1hSentAt" },
 } as const;
 
 type Ventana = keyof typeof VENTANAS;
 
+/** Qué hacer con un recordatorio pendiente en este ciclo. */
+type Decision = "esperar" | "emitir" | "descartar";
+
 /**
  * Sondea las citas próximas y publica `booking.appointment.reminder-due` cuando
- * entran en la ventana de 24h o de 1h.
+ * entran en el umbral de 24h o de 1h.
  *
  * Cada recordatorio se marca en la propia cita dentro de la misma transacción que
  * el evento del outbox, así que no se repite aunque haya varias instancias
@@ -44,6 +56,7 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly outbox: OutboxService,
+    private readonly zonas: ZonaDelNegocioService,
     private readonly configService: ConfigService
   ) {
     const raw = this.configService.get("REMINDERS_INTERVAL_MS");
@@ -83,15 +96,18 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /** Recorre las citas de los próximos dos días y publica las que tocan. */
+  /** Recorre las citas de los próximos días y resuelve las que tocan. */
   async poll(): Promise<void> {
     if (this.running) return;
     this.running = true;
     try {
       const ahora = new Date();
+      // El rango se abre un día por cada lado del tramo que interesa: la fecha
+      // de la cita es hora de pared de su negocio y aquí aún no se sabe en qué
+      // huso está. El corte fino lo hace `decidir`, ya con la zona resuelta.
       const rango = Between(
-        this.aFecha(ahora),
-        this.aFecha(this.sumarHoras(ahora, 26))
+        this.aFecha(this.sumarHoras(ahora, -24)),
+        this.aFecha(this.sumarHoras(ahora, 48))
       );
       const estados = In([
         AppointmentStatus.PENDING,
@@ -99,46 +115,78 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
       ]);
       // Descartar en la consulta las citas con ambos avisos ya enviados: es el
       // mismo predicado del índice parcial idx_appointments_recordatorios.
-      const candidatas = await this.dataSource.getRepository(Appointment).find({
-        where: [
-          { date: rango, status: estados, reminder24hSentAt: IsNull() },
-          { date: rango, status: estados, reminder1hSentAt: IsNull() },
-        ],
-        order: { date: "ASC", startTime: "ASC" },
-        take: MAXIMO_POR_SONDEO,
-      });
+      const where = [
+        { date: rango, status: estados, reminder24hSentAt: IsNull() },
+        { date: rango, status: estados, reminder1hSentAt: IsNull() },
+      ];
 
-      if (candidatas.length === MAXIMO_POR_SONDEO) {
-        this.logger.warn(
-          `El sondeo alcanzó el tope de ${MAXIMO_POR_SONDEO} citas; las restantes se atenderán en el siguiente ciclo`
-        );
+      for (let pagina = 0; pagina < MAXIMO_PAGINAS; pagina++) {
+        const candidatas = await this.dataSource
+          .getRepository(Appointment)
+          .find({
+            where,
+            order: { date: "ASC", startTime: "ASC" },
+            take: MAXIMO_POR_SONDEO,
+            skip: pagina * MAXIMO_POR_SONDEO,
+          });
+
+        for (const cita of candidatas) {
+          await this.resolver(cita, ahora);
+        }
+
+        if (candidatas.length < MAXIMO_POR_SONDEO) return;
       }
 
-      for (const cita of candidatas) {
-        const ventana = this.ventanaDe(cita, ahora);
-        if (!ventana) continue;
-        if (cita[VENTANAS[ventana].columna]) continue;
-        await this.publicar(cita, ventana);
-      }
+      this.logger.warn(
+        `El sondeo agotó sus ${MAXIMO_PAGINAS} páginas; el resto se atenderá en el siguiente ciclo`
+      );
     } finally {
       this.running = false;
     }
   }
 
-  /** Devuelve la ventana en la que cae la cita, o null si aún no toca recordarla. */
-  private ventanaDe(cita: Appointment, ahora: Date): Ventana | null {
-    const inicio = new Date(`${cita.date}T${cita.startTime}`);
-    const horas = (inicio.getTime() - ahora.getTime()) / 3600000;
-    for (const [nombre, ventana] of Object.entries(VENTANAS)) {
-      if (horas >= ventana.desde && horas <= ventana.hasta) {
-        return nombre as Ventana;
-      }
+  /** Aplica a una cita lo que toque en cada uno de sus recordatorios pendientes. */
+  private async resolver(cita: Appointment, ahora: Date): Promise<void> {
+    const zona = await this.zonas.de(cita.businessId);
+    const inicio = instanteDe(zona, cita.date, cita.startTime);
+    const faltan = (inicio.getTime() - ahora.getTime()) / 3600000;
+    const antelacion =
+      (inicio.getTime() - new Date(cita.createdAt).getTime()) / 3600000;
+
+    for (const ventana of Object.keys(VENTANAS) as Ventana[]) {
+      if (cita[VENTANAS[ventana].columna]) continue;
+
+      const decision = this.decidir(ventana, faltan, antelacion);
+      if (decision === "esperar") continue;
+      await this.marcar(cita, ventana, decision === "emitir");
     }
-    return null;
   }
 
-  /** Marca el recordatorio y encola el evento en la misma transacción. */
-  private async publicar(cita: Appointment, ventana: Ventana): Promise<void> {
+  /** Decide qué hacer con un recordatorio según lo que falta para la cita. */
+  private decidir(
+    ventana: Ventana,
+    faltan: number,
+    antelacion: number
+  ): Decision {
+    const { umbral, minimo } = VENTANAS[ventana];
+
+    if (faltan > umbral) return "esperar";
+    // Reservada cuando el umbral ya había pasado: el cliente acaba de elegir esa
+    // hora y recordársela no aporta nada.
+    if (antelacion <= umbral) return "descartar";
+    return faltan > minimo ? "emitir" : "descartar";
+  }
+
+  /**
+   * Marca el recordatorio y, si toca avisar, encola el evento en la misma
+   * transacción. Los descartados se marcan igual, para no reevaluarlos cada
+   * ciclo mientras la cita siga en el rango.
+   */
+  private async marcar(
+    cita: Appointment,
+    ventana: Ventana,
+    avisar: boolean
+  ): Promise<void> {
     const columna = VENTANAS[ventana].columna;
     await this.dataSource.transaction(async (manager) => {
       const marcada = await manager.update(
@@ -148,6 +196,7 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
       );
       // Otra instancia se adelantó y ya lo marcó.
       if (!marcada.affected) return;
+      if (!avisar) return;
 
       await this.outbox.enqueue(manager, {
         eventType: EventNames.BOOKING_APPOINTMENT_REMINDER_DUE,
@@ -162,6 +211,7 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
           startTime: cita.startTime,
           endTime: cita.endTime,
           totalAmount: cita.totalAmount,
+          reminderType: ventana,
         },
       });
       this.logger.log(`Recordatorio de ${ventana} para la cita ${cita.id}`);

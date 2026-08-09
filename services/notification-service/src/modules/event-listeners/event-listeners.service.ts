@@ -579,6 +579,7 @@ export class NotificationEventListeners {
       clientId,
       professionalId,
       businessId,
+      reminderType,
     } = event.payload;
 
     this.logger.log(`Recordatorio de cita pendiente: ${appointmentId}`);
@@ -588,9 +589,6 @@ export class NotificationEventListeners {
         event,
         "notification:recordatorio de cita",
         async () => {
-          const reminderType = this.determineReminderType(date, startTime);
-          if (!reminderType) return;
-
           const data = await this.dataEnricher.enrichAppointmentParticipants(
             clientId,
             professionalId,
@@ -766,27 +764,6 @@ export class NotificationEventListeners {
     } catch (error) {
       this.logError("pago", error);
     }
-  }
-
-  /** Decide si el recordatorio corresponde a la ventana de 24h, la de 1h, o ninguna. */
-  private determineReminderType(
-    appointmentDate: string,
-    appointmentTime: string
-  ): "24h" | "1h" | null {
-    const appointmentDateTime = new Date(
-      `${appointmentDate}T${appointmentTime}`
-    );
-    const now = new Date();
-    const diffMs = appointmentDateTime.getTime() - now.getTime();
-    const diffHours = diffMs / (1000 * 60 * 60);
-
-    if (diffHours <= 1.5 && diffHours >= 0.5) {
-      return "1h";
-    } else if (diffHours <= 25 && diffHours >= 23) {
-      return "24h";
-    }
-
-    return null;
   }
 
   /** Publica en RabbitMQ el evento de correo encolado, para trazabilidad. */

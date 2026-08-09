@@ -679,28 +679,13 @@ describe("NotificationEventListeners", () => {
   });
 
   describe("handleAppointmentReminder", () => {
-    const buildReminderEvent = (hoursAhead: number) => {
-      const now = new Date();
-      const appointmentDate = new Date(
-        now.getTime() + hoursAhead * 60 * 60 * 1000
-      );
-      const year = appointmentDate.getFullYear();
-      const month = String(appointmentDate.getMonth() + 1).padStart(2, "0");
-      const day = String(appointmentDate.getDate()).padStart(2, "0");
-      const hours = String(appointmentDate.getHours()).padStart(2, "0");
-      const minutes = String(appointmentDate.getMinutes()).padStart(2, "0");
-      return {
-        ...mockAppointmentReminderEvent,
-        payload: {
-          ...mockAppointmentReminderEvent.payload,
-          date: `${year}-${month}-${day}`,
-          startTime: `${hours}:${minutes}`,
-        },
-      };
-    };
+    const buildReminderEvent = (reminderType: "24h" | "1h") => ({
+      ...mockAppointmentReminderEvent,
+      payload: { ...mockAppointmentReminderEvent.payload, reminderType },
+    });
 
     it("debería enviar recordatorio de 24h cuando corresponde", async () => {
-      await service.handleAppointmentReminder(buildReminderEvent(24));
+      await service.handleAppointmentReminder(buildReminderEvent("24h"));
 
       expect(mockEmailService.queueAppointmentReminder24h).toHaveBeenCalledWith(
         "juan@example.com",
@@ -712,7 +697,7 @@ describe("NotificationEventListeners", () => {
     });
 
     it("debería enviar recordatorio de 1h cuando corresponde", async () => {
-      await service.handleAppointmentReminder(buildReminderEvent(1.2));
+      await service.handleAppointmentReminder(buildReminderEvent("1h"));
 
       expect(mockEmailService.queueAppointmentReminder1h).toHaveBeenCalled();
       expect(
@@ -720,15 +705,14 @@ describe("NotificationEventListeners", () => {
       ).not.toHaveBeenCalled();
     });
 
-    it("no debería enviar recordatorio cuando no corresponde", async () => {
-      await service.handleAppointmentReminder(buildReminderEvent(5));
+    it("envía el aviso atrasado, sin recalcular si aún cae en su franja", async () => {
+      // La fecha del fixture no cae en ninguna ventana: antes, un aviso que
+      // llegaba fuera de su franja se descartaba en silencio.
+      await service.handleAppointmentReminder(buildReminderEvent("1h"));
 
-      expect(
-        mockEmailService.queueAppointmentReminder24h
-      ).not.toHaveBeenCalled();
-      expect(
-        mockEmailService.queueAppointmentReminder1h
-      ).not.toHaveBeenCalled();
+      expect(mockEmailService.queueAppointmentReminder1h).toHaveBeenCalledTimes(
+        1
+      );
     });
 
     it("debería propagar el error para que el mensaje llegue a la cola de fallidos", async () => {
@@ -737,7 +721,7 @@ describe("NotificationEventListeners", () => {
       );
 
       await expect(
-        service.handleAppointmentReminder(buildReminderEvent(24))
+        service.handleAppointmentReminder(buildReminderEvent("24h"))
       ).rejects.toThrow();
     });
   });
@@ -866,42 +850,6 @@ describe("NotificationEventListeners", () => {
       await service.handleAppointmentCompleted(mockAppointmentCompletedEvent);
 
       expect(mockNotifications.create).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("determineReminderType (privado)", () => {
-    it("debería retornar 24h para citas en 24 horas", () => {
-      const now = new Date();
-      const appointmentDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      const year = appointmentDate.getFullYear();
-      const month = String(appointmentDate.getMonth() + 1).padStart(2, "0");
-      const day = String(appointmentDate.getDate()).padStart(2, "0");
-      const hours = String(appointmentDate.getHours()).padStart(2, "0");
-      const minutes = String(appointmentDate.getMinutes()).padStart(2, "0");
-
-      const result = (service as any).determineReminderType(
-        `${year}-${month}-${day}`,
-        `${hours}:${minutes}`
-      );
-
-      expect(result).toBe("24h");
-    });
-
-    it("debería retornar null para tiempos fuera de rango", () => {
-      const now = new Date();
-      const appointmentDate = new Date(now.getTime() + 5 * 60 * 60 * 1000);
-      const year = appointmentDate.getFullYear();
-      const month = String(appointmentDate.getMonth() + 1).padStart(2, "0");
-      const day = String(appointmentDate.getDate()).padStart(2, "0");
-      const hours = String(appointmentDate.getHours()).padStart(2, "0");
-      const minutes = String(appointmentDate.getMinutes()).padStart(2, "0");
-
-      const result = (service as any).determineReminderType(
-        `${year}-${month}-${day}`,
-        `${hours}:${minutes}`
-      );
-
-      expect(result).toBeNull();
     });
   });
 });
