@@ -48,6 +48,7 @@ function facturaDeEjemplo(cambios: Partial<InvoiceData> = {}): InvoiceData {
       { name: "Barba", quantity: 1, price: 15000 },
     ],
     subtotal: 45000,
+    taxRate: 0.19,
     tax: 8550,
     total: 53550,
     paymentMethod: "Efectivo",
@@ -80,6 +81,44 @@ describe("construirPdfFactura", () => {
     expect(escrito).toContain("Beauty Bar");
     expect(escrito).toContain("Factura #INV-2023-001");
     expect(escrito).toContain("NIT: 900123456-1");
+  });
+
+  it("firma el pie con el negocio que emite, no con la plataforma", async () => {
+    await construirPdfFactura(
+      facturaDeEjemplo({
+        business: {
+          name: "Salón Aurora",
+          nit: "901555222-3",
+          address: "Carrera 7 #12-34",
+          phone: "+57 320 000 0000",
+          email: "hola@aurora.co",
+        },
+      })
+    );
+
+    const escrito = doc.text.mock.calls.map((c) => String(c[0]));
+    expect(escrito).toContain("Salón Aurora");
+    expect(escrito).toContain("NIT: 901555222-3");
+    expect(escrito).toContain("Email: hola@aurora.co");
+    expect(escrito).not.toContain("BeautySpot S.A.S.");
+  });
+
+  it("omite el NIT cuando el negocio no ha configurado su facturación", async () => {
+    await construirPdfFactura(
+      facturaDeEjemplo({
+        business: { ...facturaDeEjemplo().business, nit: "" },
+      })
+    );
+
+    const escrito = doc.text.mock.calls.map((c) => String(c[0]));
+    expect(escrito.some((t) => t.startsWith("NIT:"))).toBe(false);
+  });
+
+  it("imprime el tipo de impuesto que traiga la factura", async () => {
+    await construirPdfFactura(facturaDeEjemplo({ taxRate: 0.05 }));
+
+    const escrito = doc.text.mock.calls.map((c) => String(c[0]));
+    expect(escrito).toContain("IVA (5%):");
   });
 
   it("escribe una línea por cada servicio facturado", async () => {

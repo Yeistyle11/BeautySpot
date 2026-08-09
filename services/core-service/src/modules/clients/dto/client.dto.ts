@@ -38,6 +38,10 @@ export class CreateClientDto {
   phone?: string;
   @IsOptional()
   @IsString()
+  @MaxLength(30, { message: "El documento no puede pasar de 30 caracteres" })
+  documento?: string;
+  @IsOptional()
+  @IsString()
   @MaxLength(1000, { message: "Las notas no pueden pasar de 1000 caracteres" })
   notes?: string;
   @IsOptional() @IsString() userId?: string;
@@ -63,6 +67,10 @@ export class UpdateClientDto {
   @Matches(PATRON_TELEFONO, { message: MENSAJE_TELEFONO })
   @MaxLength(30, { message: "El teléfono no puede pasar de 30 caracteres" })
   phone?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(30, { message: "El documento no puede pasar de 30 caracteres" })
+  documento?: string;
   @IsOptional()
   @IsString()
   @MaxLength(1000, { message: "Las notas no pueden pasar de 1000 caracteres" })

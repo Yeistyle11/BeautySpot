@@ -18,6 +18,7 @@ describe("ClientsService", () => {
     name: "Juan Pérez",
     email: "juan@example.com",
     phone: "+573001234567",
+    documento: "1020304050",
     notes: "",
     tags: [],
     loyaltyPoints: 100,

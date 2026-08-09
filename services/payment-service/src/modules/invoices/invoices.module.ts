@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { OutboxModule } from "@beautyspot/nest-common";
+import { OutboxModule, InternalHttpModule } from "@beautyspot/nest-common";
 import { InvoiceEntity } from "./invoice.entity";
 import { InvoiceItemEntity } from "./invoice-item.entity";
 import { InvoicesService } from "./invoices.service";
@@ -10,6 +10,7 @@ import { PdfModule } from "./pdf/pdf.module";
 @Module({
   imports: [
     TypeOrmModule.forFeature([InvoiceEntity, InvoiceItemEntity, OutboxModule]),
+    InternalHttpModule,
     PdfModule,
   ],
   controllers: [InvoicesController],

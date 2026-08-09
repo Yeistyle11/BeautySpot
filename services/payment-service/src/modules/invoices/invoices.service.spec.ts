@@ -8,6 +8,23 @@ import { InvoiceItemEntity } from "./invoice-item.entity";
 import { InvoiceStatus } from "@beautyspot/shared-types";
 import { NotFoundException } from "@nestjs/common";
 import { PdfService } from "./pdf/pdf.service";
+import { InternalHttpClient } from "@beautyspot/nest-common";
+
+/** Emisor y receptor tal y como los resuelve el core-service. */
+const PERFILES = {
+  client: { name: "Juan Pérez", documento: "1020304050" },
+  business: {
+    name: "Salón Aurora",
+    address: "Carrera 7 #12-34",
+    phone: "+57 320 000 0000",
+    email: "hola@aurora.co",
+    facturacion: {
+      nit: "901555222-3",
+      razonSocial: "Aurora Belleza S.A.S.",
+      direccionFiscal: "Carrera 7 #12-34 of. 201",
+    },
+  },
+};
 
 describe("InvoicesService", () => {
   let service: InvoicesService;
@@ -15,6 +32,7 @@ describe("InvoicesService", () => {
   let mockItemRepo: jest.Mocked<Repository<InvoiceItemEntity>>;
   let mockPdfService: jest.Mocked<PdfService>;
   let mockReservarNumero: jest.Mock;
+  let mockHttp: { pedir: jest.Mock };
 
   const mockInvoiceItem: InvoiceItemEntity = {
     id: "item-123",
@@ -34,7 +52,10 @@ describe("InvoicesService", () => {
     number: "INV-2024-000001",
     date: "2024-01-15",
     dueDate: "2024-02-14",
-    total: 30000,
+    subtotal: 30000,
+    taxRate: 0.19,
+    tax: 5700,
+    total: 35700,
     status: InvoiceStatus.DRAFT,
     notes: "Factura de prueba",
     items: [mockInvoiceItem],
@@ -61,6 +82,8 @@ describe("InvoicesService", () => {
     mockPdfService = {
       generateInvoicePdf: jest.fn().mockResolvedValue(Buffer.from("PDF data")),
     } as any;
+
+    mockHttp = { pedir: jest.fn().mockResolvedValue(PERFILES) };
 
     const mockOutboxSpec = { enqueue: jest.fn().mockResolvedValue(undefined) };
     // La transacción entrega el repositorio simulado y resuelve la reserva del
@@ -91,6 +114,10 @@ describe("InvoicesService", () => {
         {
           provide: PdfService,
           useValue: mockPdfService,
+        },
+        {
+          provide: InternalHttpClient,
+          useValue: mockHttp,
         },
       ],
     }).compile();
@@ -155,7 +182,30 @@ describe("InvoicesService", () => {
       expect(createCall.status).toBe(InvoiceStatus.DRAFT);
     });
 
-    it("debería calcular el total correctamente", async () => {
+    it("guarda el desglose del impuesto, no solo el total", async () => {
+      const dto = {
+        clientId: "client-123",
+        items: [{ description: "Corte", quantity: 1, unitPrice: 100000 }],
+      };
+
+      mockItemRepo.create.mockReturnValue(mockInvoiceItem);
+      mockInvoiceRepo.create.mockReturnValue(mockInvoice);
+      mockInvoiceRepo.save.mockResolvedValue(mockInvoice);
+
+      await service.create("business-123", dto);
+
+      const createCall = mockInvoiceRepo.create.mock.calls[0][0];
+      expect(createCall).toMatchObject({
+        subtotal: 100000,
+        taxRate: 0.19,
+        tax: 19000,
+        total: 119000,
+      });
+      // El total tiene que ser exactamente la suma de sus partes.
+      expect(createCall.total).toBe(createCall.subtotal! + createCall.tax!);
+    });
+
+    it("debería calcular la base imponible sumando las líneas", async () => {
       const dto = {
         clientId: "client-123",
         items: [
@@ -171,7 +221,7 @@ describe("InvoicesService", () => {
       await service.create("business-123", dto);
 
       const createCall = mockInvoiceRepo.create.mock.calls[0][0];
-      expect(createCall.total).toBe(80000);
+      expect(createCall.subtotal).toBe(80000);
     });
 
     it("debería numerar la factura con la serie del negocio", async () => {
@@ -359,7 +409,7 @@ describe("InvoicesService", () => {
       expect(Buffer.isBuffer(result)).toBe(true);
     });
 
-    it("debería calcular subtotal e impuestos", async () => {
+    it("imprime el desglose tal y como se guardó al emitir", async () => {
       mockInvoiceRepo.findOne.mockResolvedValue(mockInvoice);
       mockPdfService.generateInvoicePdf.mockResolvedValue(
         Buffer.from("PDF data")
@@ -367,12 +417,67 @@ describe("InvoicesService", () => {
 
       await service.generateInvoicePdf("invoice-123", "business-123");
 
-      // El total lleva el IVA incluido: la base es total / 1,19 y el impuesto,
-      // lo que falta hasta el total.
+      // Los importes salen de la factura, no de deducirlos del total.
       const pdfData = mockPdfService.generateInvoicePdf.mock.calls[0][0];
-      expect(pdfData.subtotal).toBeCloseTo(30000 / 1.19, 2);
-      expect(pdfData.tax).toBeCloseTo(30000 - 30000 / 1.19, 2);
-      expect(pdfData.subtotal + pdfData.tax).toBeCloseTo(30000, 6);
+      expect(pdfData).toMatchObject({
+        subtotal: 30000,
+        taxRate: 0.19,
+        tax: 5700,
+        total: 35700,
+      });
+      expect(pdfData.subtotal + pdfData.tax).toBe(pdfData.total);
+    });
+
+    it("identifica al negocio emisor y al cliente reales", async () => {
+      mockInvoiceRepo.findOne.mockResolvedValue(mockInvoice);
+
+      await service.generateInvoicePdf("invoice-123", "business-123");
+
+      const pdfData = mockPdfService.generateInvoicePdf.mock.calls[0][0];
+      expect(pdfData.business).toMatchObject({
+        // La razón social y la dirección fiscal mandan sobre las comerciales.
+        name: "Aurora Belleza S.A.S.",
+        nit: "901555222-3",
+        address: "Carrera 7 #12-34 of. 201",
+        email: "hola@aurora.co",
+      });
+      expect(pdfData.client).toEqual({
+        name: "Juan Pérez",
+        document: "1020304050",
+      });
+      expect(mockHttp.pedir).toHaveBeenCalledWith(
+        "core",
+        expect.stringContaining("/internal/profiles/resolve")
+      );
+    });
+
+    it("cae al nombre comercial cuando no hay datos fiscales configurados", async () => {
+      mockInvoiceRepo.findOne.mockResolvedValue(mockInvoice);
+      mockHttp.pedir.mockResolvedValue({
+        client: null,
+        business: { ...PERFILES.business, facturacion: {} },
+      });
+
+      await service.generateInvoicePdf("invoice-123", "business-123");
+
+      const pdfData = mockPdfService.generateInvoicePdf.mock.calls[0][0];
+      expect(pdfData.business).toMatchObject({
+        name: "Salón Aurora",
+        nit: "",
+        address: "Carrera 7 #12-34",
+      });
+      // Sin cliente resuelto se deja en blanco, nunca un documento inventado.
+      expect(pdfData.client).toEqual({ name: "", document: "" });
+    });
+
+    it("no emite la factura si no puede resolver al negocio", async () => {
+      mockInvoiceRepo.findOne.mockResolvedValue(mockInvoice);
+      mockHttp.pedir.mockResolvedValue({ client: null, business: null });
+
+      await expect(
+        service.generateInvoicePdf("invoice-123", "business-123")
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPdfService.generateInvoicePdf).not.toHaveBeenCalled();
     });
 
     it("debería lanzar NotFoundException si la factura no existe", async () => {

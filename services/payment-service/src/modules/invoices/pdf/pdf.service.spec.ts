@@ -55,6 +55,7 @@ const facturaMinima: InvoiceData = {
   client: { name: "Juan Pérez", document: "123456789" },
   items: [{ name: "Corte", quantity: 1, price: 30000 }],
   subtotal: 30000,
+  taxRate: 0.19,
   tax: 5700,
   total: 35700,
   paymentMethod: "Efectivo",
