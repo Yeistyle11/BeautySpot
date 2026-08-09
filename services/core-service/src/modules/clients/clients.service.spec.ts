@@ -327,6 +327,25 @@ describe("ClientsService", () => {
         -20
       );
     });
+
+    it("usa el repositorio de la transacción cuando se le pasa un manager", async () => {
+      // Acreditar puntos y marcar el evento como procesado tienen que
+      // confirmarse juntos, así que el incremento va por el manager de quien
+      // llama y no por el repositorio propio.
+      const incrementEnTx = jest.fn().mockResolvedValue({ affected: 1 });
+      const manager = {
+        getRepository: jest.fn().mockReturnValue({ increment: incrementEnTx }),
+      } as any;
+
+      await service.addLoyaltyPoints("client-123", "business-123", 50, manager);
+
+      expect(incrementEnTx).toHaveBeenCalledWith(
+        { id: "client-123", businessId: "business-123" },
+        "loyaltyPoints",
+        50
+      );
+      expect(mockRepo.increment).not.toHaveBeenCalled();
+    });
   });
 
   describe("subtractLoyaltyPoints", () => {

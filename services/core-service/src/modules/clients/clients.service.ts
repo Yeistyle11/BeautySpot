@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { TenantCrudService, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
-import { Repository, Like, DataSource } from "typeorm";
+import { Repository, Like, DataSource, EntityManager } from "typeorm";
 import { escapeLikePattern } from "@beautyspot/shared-utils";
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
@@ -96,13 +96,21 @@ export class ClientsService extends TenantCrudService<Client> {
     return this.findMineByUser(userId);
   }
 
-  /** Suma puntos de fidelidad al cliente. */
+  /**
+   * Suma puntos de fidelidad al cliente.
+   *
+   * Acepta un `manager` para poder correr dentro de la transacción de quien
+   * llame: acreditar puntos es dinero, y el incremento tiene que confirmarse a
+   * la vez que la marca de evento procesado o se duplican o se pierden.
+   */
   async addLoyaltyPoints(
     id: string,
     businessId: string,
-    points: number
+    points: number,
+    manager?: EntityManager
   ): Promise<void> {
-    await this.repo.increment({ id, businessId }, "loyaltyPoints", points);
+    const repo = manager ? manager.getRepository(Client) : this.repo;
+    await repo.increment({ id, businessId }, "loyaltyPoints", points);
   }
 
   /** Resta puntos de fidelidad al cliente, sin bajar de cero. */

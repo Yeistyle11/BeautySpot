@@ -8,6 +8,7 @@ import {
   HealthModule,
   OutboxModule,
   InternalHttpModule,
+  IdempotencyModule,
 } from "@beautyspot/nest-common";
 import { entities } from "./orm-entities";
 import { BusinessesModule } from "./modules/businesses/businesses.module";
@@ -23,6 +24,7 @@ import { BusinessHoursModule } from "./modules/business-hours/business-hours.mod
 import { ImagesModule } from "./modules/images/images.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
 import { ServiceCategoriesModule } from "./modules/service-categories/service-categories.module";
+import { CoreEventListenersModule } from "./modules/event-listeners/core-event-listeners.module";
 
 @Module({
   imports: [
@@ -36,6 +38,8 @@ import { ServiceCategoriesModule } from "./modules/service-categories/service-ca
     InternalHttpModule,
     HealthModule,
     OutboxModule,
+    IdempotencyModule,
+    CoreEventListenersModule,
     BusinessesModule,
     BranchesModule,
     ProfessionalsModule,
