@@ -24,6 +24,8 @@ interface AuthState {
   setAuth: (user: User) => void;
   setBusinessId: (id: string) => void;
   setRole: (role: Role) => void;
+  /** Cambia de negocio: el rol es el que el usuario tiene en ese negocio. */
+  setNegocioActivo: (id: string, role: Role) => void;
   logout: () => void;
   hydrated: boolean;
   hydrate: () => void;
@@ -114,6 +116,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   setRole: (role) => {
     localStorage.setItem(KEYS.role, role);
     set({ role });
+  },
+  setNegocioActivo: (id, role) => {
+    localStorage.setItem(KEYS.businessId, id);
+    localStorage.setItem(KEYS.role, role);
+    set({ businessId: id, role });
   },
   /** Limpia el estado local; las cookies las borra el gateway en /auth/logout. */
   logout: () => {

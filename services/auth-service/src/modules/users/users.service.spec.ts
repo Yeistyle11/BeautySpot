@@ -12,7 +12,11 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { Role } from "@beautyspot/shared-types";
-import { TokenVersionStore, OutboxService } from "@beautyspot/nest-common";
+import {
+  TokenVersionStore,
+  OutboxService,
+  InternalHttpClient,
+} from "@beautyspot/nest-common";
 import { CreateStaffDto } from "./dto/create-staff.dto";
 import { UpdateStaffDto } from "./dto/update-staff.dto";
 
@@ -20,6 +24,7 @@ describe("UsersService", () => {
   let service: UsersService;
   let mockUserRepository: jest.Mocked<any>;
   let mockMembershipRepository: jest.Mocked<any>;
+  let mockHttpUsers: { enviar: jest.Mock };
   let mockAuditLogRepository: jest.Mocked<any>;
   let mockTokenVersionStore: jest.Mocked<TokenVersionStore>;
 
@@ -92,10 +97,18 @@ describe("UsersService", () => {
     } as any;
 
     const mockOutboxUsers = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    // Los nombres de negocio los resuelve core; por defecto no devuelve ninguno.
+    mockHttpUsers = { enviar: jest.fn().mockResolvedValue([]) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         { provide: OutboxService, useValue: mockOutboxUsers },
+        {
+          // Los nombres de negocio los resuelve core; aquí basta con que no
+          // devuelva ninguno.
+          provide: InternalHttpClient,
+          useValue: mockHttpUsers,
+        },
         UsersService,
         {
           provide: getRepositoryToken(User),
@@ -344,15 +357,44 @@ describe("UsersService", () => {
 
   describe("getUserMemberships", () => {
     it("debería retornar membresías activas del usuario", async () => {
-      const mockMemberships = [mockMembership];
-      mockMembershipRepository.find.mockResolvedValue(mockMemberships);
+      mockMembershipRepository.find.mockResolvedValue([mockMembership]);
 
       const result = await service.getUserMemberships("user-123");
 
-      expect(result).toEqual(mockMemberships);
+      expect(result).toEqual([
+        {
+          id: mockMembership.id,
+          businessId: mockMembership.businessId,
+          role: mockMembership.role,
+          businessName: "",
+        },
+      ]);
       expect(mockMembershipRepository.find).toHaveBeenCalledWith({
         where: { userId: "user-123", active: true },
       });
+    });
+
+    it("etiqueta cada membresía con el nombre que resuelve core", async () => {
+      mockMembershipRepository.find.mockResolvedValue([mockMembership]);
+      mockHttpUsers.enviar.mockResolvedValue([
+        { id: mockMembership.businessId, name: "Salón Aurora" },
+      ]);
+
+      const [membresia] = await service.getUserMemberships("user-123");
+
+      expect(membresia.businessName).toBe("Salón Aurora");
+    });
+
+    // El nombre es una etiqueta: quedarse sin la lista por no poder pintarla
+    // sería peor que mostrarla sin nombre.
+    it("devuelve las membresías aunque core no responda", async () => {
+      mockMembershipRepository.find.mockResolvedValue([mockMembership]);
+      mockHttpUsers.enviar.mockRejectedValue(new Error("core caído"));
+
+      const result = await service.getUserMemberships("user-123");
+
+      expect(result).toHaveLength(1);
+      expect(result[0].businessName).toBe("");
     });
 
     it("debería retornar array vacío si no hay membresías", async () => {
@@ -388,7 +430,10 @@ describe("UsersService", () => {
       const result = await service.getUserMemberships("user-123");
 
       expect(result).toHaveLength(2);
-      expect(result).toContainEqual(mockMembership);
+      expect(result.map((m) => m.businessId)).toEqual([
+        "business-123",
+        "business-456",
+      ]);
     });
   });
 

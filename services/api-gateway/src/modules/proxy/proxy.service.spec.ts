@@ -1,4 +1,6 @@
 import { Test } from "@nestjs/testing";
+import { ForbiddenException } from "@nestjs/common";
+import { Role } from "@beautyspot/shared-types";
 import { ProxyService } from "./proxy.service";
 import { ServiceUrlsConfig } from "../../config/service-urls";
 
@@ -24,6 +26,66 @@ describe("ProxyService", () => {
     }).compile();
 
     service = module.get<ProxyService>(ProxyService);
+  });
+
+  describe("buildForwardedHeaders", () => {
+    const NEGOCIO_A = "11111111-1111-4111-8111-111111111111";
+    const NEGOCIO_B = "22222222-2222-4222-8222-222222222222";
+    const AJENO = "33333333-3333-4333-8333-333333333333";
+
+    /** Petición con la sesión ya resuelta por el guard del gateway. */
+    function peticion(user: unknown, pedido?: string) {
+      return {
+        method: "GET",
+        headers: {
+          authorization: "Bearer t",
+          ...(pedido ? { "x-business-id": pedido } : {}),
+        },
+        user,
+      } as never;
+    }
+
+    it("usa el negocio por defecto cuando el cliente no pide ninguno", () => {
+      const headers = service.buildForwardedHeaders(
+        peticion({ businessId: NEGOCIO_A, businessIds: [NEGOCIO_A] })
+      );
+
+      expect(headers["x-business-id"]).toBe(NEGOCIO_A);
+    });
+
+    // Quien trabaja en dos sitios tiene que poder decir en cuál está.
+    it("respeta el negocio que pide el cliente si tiene membresía", () => {
+      const headers = service.buildForwardedHeaders(
+        peticion(
+          { businessId: NEGOCIO_A, businessIds: [NEGOCIO_A, NEGOCIO_B] },
+          NEGOCIO_B
+        )
+      );
+
+      expect(headers["x-business-id"]).toBe(NEGOCIO_B);
+    });
+
+    it("rechaza un negocio en el que el usuario no tiene membresía", () => {
+      expect(() =>
+        service.buildForwardedHeaders(
+          peticion({ businessId: NEGOCIO_A, businessIds: [NEGOCIO_A] }, AJENO)
+        )
+      ).toThrow(ForbiddenException);
+    });
+
+    it("SUPER_ADMIN puede operar sobre cualquier negocio", () => {
+      const headers = service.buildForwardedHeaders(
+        peticion({ role: Role.SUPER_ADMIN, businessIds: [] }, AJENO)
+      );
+
+      expect(headers["x-business-id"]).toBe(AJENO);
+    });
+
+    it("no manda negocio si la petición no lleva sesión", () => {
+      const headers = service.buildForwardedHeaders(peticion(undefined));
+
+      expect(headers["x-business-id"]).toBeUndefined();
+    });
   });
 
   describe("getServiceUrl", () => {

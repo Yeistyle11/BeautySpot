@@ -16,7 +16,11 @@ import {
   SkipBusinessScope,
 } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
-import { CreateBusinessDto, UpdateBusinessDto } from "./dto/business.dto";
+import {
+  CreateBusinessDto,
+  ResolveBusinessNamesDto,
+  UpdateBusinessDto,
+} from "./dto/business.dto";
 
 /** Endpoints CRUD de negocios para dueños y administradores. */
 @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
@@ -115,6 +119,12 @@ export class InternalBusinessesController {
   @Get("resolve")
   async resolveBySlug(@Query("slug") slug: string) {
     return this.service.findBySlug(slug);
+  }
+
+  /** Nombre de cada negocio pedido, para etiquetar listas de otros servicios. */
+  @Post("names")
+  async names(@Body() dto: ResolveBusinessNamesDto) {
+    return this.service.namesByIds(dto.ids);
   }
 
   /** Crea un negocio a petición de otro microservicio (p. ej. al registrarse). */

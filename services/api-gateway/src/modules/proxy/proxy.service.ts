@@ -1,6 +1,12 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import {
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+} from "@nestjs/common";
 import { Request } from "express";
 import { REQUEST_ID_HEADER } from "@beautyspot/nest-common";
+import { Role } from "@beautyspot/shared-types";
 import { ServiceUrlsConfig } from "../../config/service-urls";
 import { ACCESS_COOKIE, leerCookie } from "../session/session-cookies";
 
@@ -66,15 +72,9 @@ export class ProxyService {
       headers[REQUEST_ID_HEADER] = requestId;
     }
 
-    const user = (
-      req as Request & {
-        user?: { businessId?: string; businessIds?: string[] };
-      }
-    ).user;
-    if (user?.businessId) {
-      headers["x-business-id"] = user.businessId;
-    } else if (user?.businessIds?.length) {
-      headers["x-business-id"] = user.businessIds[0];
+    const negocio = this.negocioDeLaPeticion(req);
+    if (negocio) {
+      headers["x-business-id"] = negocio;
     }
 
     if (!["GET", "HEAD"].includes(req.method)) {
@@ -82,6 +82,36 @@ export class ProxyService {
     }
 
     return headers;
+  }
+
+  /**
+   * Negocio sobre el que va la petición: el que pide el cliente si tiene
+   * membresía en él, y si no el suyo por defecto.
+   *
+   * Quien trabaja en dos sitios necesita poder decir en cuál está operando; sin
+   * atender esa cabecera, solo podría entrar al primero de su lista.
+   */
+  private negocioDeLaPeticion(req: Request): string | undefined {
+    const user = (
+      req as Request & {
+        user?: { role?: string; businessId?: string; businessIds?: string[] };
+      }
+    ).user;
+    if (!user) return undefined;
+
+    const pedido = req.headers["x-business-id"];
+    const porDefecto = user.businessId ?? user.businessIds?.[0];
+    if (typeof pedido !== "string" || !pedido) return porDefecto;
+
+    if (user.role === Role.SUPER_ADMIN) return pedido;
+
+    const suyos =
+      user.businessIds ?? (user.businessId ? [user.businessId] : []);
+    if (!suyos.includes(pedido)) {
+      throw new ForbiddenException("No tienes acceso a este negocio");
+    }
+
+    return pedido;
   }
 
   /** Parsea el cuerpo de la respuesta tolerando 204, cuerpo vacío o texto no-JSON. */

@@ -9,13 +9,25 @@ export enum Role {
 }
 
 /** Contenido del JWT emitido por auth-service y validado en el API Gateway. */
+/** Rol que el usuario tiene en un negocio concreto. */
+export interface Membresia {
+  businessId: string;
+  role: Role;
+}
+
 export interface IJwtPayload {
   sub: string;
   email: string;
+  /** Rol en el negocio por defecto; el de cada negocio va en `memberships`. */
   role: Role;
   businessId?: string;
   /** Lista de businessIds donde el usuario tiene membresía activa */
   businessIds?: string[];
+  /**
+   * Rol por negocio. Un mismo usuario puede ser dueño en uno y profesional en
+   * otro, así que un único `role` no basta para decidir qué puede hacer.
+   */
+  memberships?: Membresia[];
   /** Versión del token para invalidación (ver TokenVersionStore en nest-common) */
   tokenVersion?: number;
   /** Identificador del refresh token, para poder retirarlo al canjearlo. */
