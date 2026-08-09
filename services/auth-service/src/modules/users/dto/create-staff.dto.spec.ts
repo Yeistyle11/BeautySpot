@@ -6,7 +6,7 @@ import { CreateStaffDto } from "./create-staff.dto";
 function build(overrides: Partial<CreateStaffDto> = {}): CreateStaffDto {
   return Object.assign(new CreateStaffDto(), {
     email: "nuevo@negocio.com",
-    password: "contrasena-larga",
+    password: "ClaveSegura9",
     name: "Nuevo Staff",
     role: Role.PROFESSIONAL,
     ...overrides,

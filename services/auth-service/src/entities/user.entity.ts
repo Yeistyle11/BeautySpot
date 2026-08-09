@@ -39,6 +39,18 @@ export class User extends BaseEntity {
   @Column({ type: "int", default: 0, name: "token_version" })
   tokenVersion!: number;
 
+  /** Fallos de contraseña seguidos; vuelve a cero al entrar bien. */
+  @Column({ type: "int", default: 0, name: "failed_login_attempts" })
+  failedLoginAttempts!: number;
+
+  /** Momento hasta el que la cuenta no admite intentos. */
+  @Column({ type: "timestamptz", nullable: true, name: "locked_until" })
+  lockedUntil!: Date | null;
+
+  /** Bloqueos encadenados; cada uno alarga la espera del siguiente. */
+  @Column({ type: "int", default: 0, name: "lockout_count" })
+  lockoutCount!: number;
+
   @OneToMany(() => Membership, (membership) => membership.user)
   memberships!: Membership[];
 

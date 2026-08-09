@@ -69,6 +69,9 @@ CREATE TABLE users (
   avatar          VARCHAR(500),
   email_verified  BOOLEAN NOT NULL DEFAULT FALSE,
   active          BOOLEAN NOT NULL DEFAULT TRUE,
+  failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+  locked_until    TIMESTAMPTZ,
+  lockout_count   INTEGER NOT NULL DEFAULT 0,
   current_business_id UUID,
   created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMP NOT NULL DEFAULT NOW()
@@ -115,6 +118,23 @@ CREATE TABLE password_resets (
 
 CREATE INDEX idx_password_resets_token ON password_resets(token);
 CREATE INDEX idx_password_resets_user ON password_resets(user_id);
+```
+
+### email_verifications
+
+Confirmación del correo del alta. Como en `password_resets`, solo se guarda el
+hash del token; el enlace vale 24 h y un solo uso.
+
+```sql
+CREATE TABLE email_verifications (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES users(id),
+  token_hash VARCHAR(255) NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 ```
 
 ### audit_logs

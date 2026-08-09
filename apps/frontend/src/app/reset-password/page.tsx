@@ -19,9 +19,14 @@ import { Scissors, Eye, EyeOff } from "lucide-react";
 import { apiPublic } from "@/lib/api";
 import { mensajeDeError } from "@/lib/error-message";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  LONGITUD_MINIMA_CONTRASENA,
+  MENSAJE_CONTRASENA,
+  PATRON_CONTRASENA,
+} from "@beautyspot/shared-constants";
 
 const ERROR_ID = "reset-error";
-const MINIMO = 8;
+const MINIMO = LONGITUD_MINIMA_CONTRASENA;
 
 function ResetPasswordInner() {
   const router = useRouter();
@@ -36,6 +41,10 @@ function ResetPasswordInner() {
     setError("");
     if (form.password !== form.confirmacion) {
       setError("Las contraseñas no coinciden");
+      return;
+    }
+    if (!PATRON_CONTRASENA.test(form.password)) {
+      setError(MENSAJE_CONTRASENA);
       return;
     }
     setLoading(true);
@@ -127,7 +136,8 @@ function ResetPasswordInner() {
                     </button>
                   </div>
                   <p id="reset-pista" className="text-muted-foreground text-xs">
-                    Minimo {MINIMO} caracteres
+                    Minimo {MINIMO} caracteres, con mayusculas, minusculas y
+                    numeros
                   </p>
                 </div>
                 <div className="space-y-2">

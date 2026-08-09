@@ -9,6 +9,7 @@ import { AuthService } from "./auth.service";
 import { RefreshTokenStore } from "./refresh-token.store";
 import { User } from "../../entities/user.entity";
 import { PasswordReset } from "../../entities/password-reset.entity";
+import { EmailVerification } from "../../entities/email-verification.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
 import {
   UnauthorizedException,
@@ -18,6 +19,11 @@ import {
 } from "@nestjs/common";
 import { Role } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
+import {
+  BLOQUEO_BASE_MINUTOS,
+  BLOQUEO_MAXIMO_MINUTOS,
+  MAX_INTENTOS_FALLIDOS,
+} from "@beautyspot/shared-constants";
 import {
   EventBusService,
   TokenVersionStore,
@@ -34,6 +40,9 @@ describe("AuthService", () => {
   let service: AuthService;
   let mockUserRepository: jest.Mocked<Repository<User>>;
   let mockPasswordResetRepository: jest.Mocked<Repository<PasswordReset>>;
+  let mockEmailVerificationRepository: jest.Mocked<
+    Repository<EmailVerification>
+  >;
   let mockAuditLogRepository: jest.Mocked<Repository<AuditLog>>;
   let mockJwtService: jest.Mocked<JwtService>;
   let mockConfigService: jest.Mocked<ConfigService>;
@@ -48,7 +57,10 @@ describe("AuthService", () => {
     password: "hashed-password",
     active: true,
     avatar: "",
-    emailVerified: false,
+    emailVerified: true,
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    lockoutCount: 0,
     currentBusinessId: "",
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -97,6 +109,13 @@ describe("AuthService", () => {
       update: jest.fn(),
     } as any;
 
+    mockEmailVerificationRepository = {
+      findOne: jest.fn(),
+      create: jest.fn((datos: any) => datos),
+      save: jest.fn((datos: any) => Promise.resolve(datos)),
+      update: jest.fn(),
+    } as any;
+
     mockAuditLogRepository = {
       create: jest.fn(),
       save: jest.fn(),
@@ -132,6 +151,8 @@ describe("AuthService", () => {
       getRepository: jest.fn((target: any) => {
         if (target === User) return mockUserRepository;
         if (target === PasswordReset) return mockPasswordResetRepository;
+        if (target === EmailVerification)
+          return mockEmailVerificationRepository;
         return mockAuditLogRepository;
       }),
     };
@@ -160,6 +181,10 @@ describe("AuthService", () => {
         {
           provide: getRepositoryToken(PasswordReset),
           useValue: mockPasswordResetRepository,
+        },
+        {
+          provide: getRepositoryToken(EmailVerification),
+          useValue: mockEmailVerificationRepository,
         },
         {
           provide: getRepositoryToken(AuditLog),
@@ -226,10 +251,18 @@ describe("AuthService", () => {
           }),
         })
       );
-      expect(mockJwtService.sign).toHaveBeenCalledTimes(2);
+      // El alta no emite tokens: la cuenta entra cuando confirma el correo.
+      expect(mockJwtService.sign).not.toHaveBeenCalled();
+      expect(mockOutboxService.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.AUTH_EMAIL_VERIFICATION_REQUESTED,
+          payload: expect.objectContaining({ email: mockUser.email }),
+        })
+      );
       expect(result.user).not.toHaveProperty("password");
-      expect(result.accessToken).toBe("mock-token");
-      expect(result.refreshToken).toBe("mock-token");
+      expect(result).not.toHaveProperty("accessToken");
+      expect(result.message).toContain("confirmar");
     });
 
     it("debería lanzar ConflictException si el email ya existe", async () => {
@@ -917,6 +950,194 @@ describe("AuthService", () => {
         entityId: mockUser.id,
       });
       expect(mockAuditLogRepository.save).toHaveBeenCalled();
+    });
+  });
+
+  describe("verifyEmail", () => {
+    const verificacion = {
+      id: "verif-123",
+      userId: mockUser.id,
+      tokenHash: hashResetToken("token-bueno"),
+      expiresAt: new Date(Date.now() + 3600000),
+      usedAt: null,
+    };
+
+    it("marca el correo como verificado y gasta el token", async () => {
+      mockEmailVerificationRepository.findOne.mockResolvedValue(
+        verificacion as any
+      );
+      mockAuditLogRepository.create.mockReturnValue(mockAuditLog);
+      mockAuditLogRepository.save.mockResolvedValue(mockAuditLog);
+
+      const result = await service.verifyEmail("token-bueno");
+
+      expect(mockUserRepository.update).toHaveBeenCalledWith(mockUser.id, {
+        emailVerified: true,
+      });
+      expect(mockEmailVerificationRepository.update).toHaveBeenCalledWith(
+        verificacion.id,
+        expect.objectContaining({ usedAt: expect.any(Date) })
+      );
+      expect(result.message).toContain("Correo confirmado");
+    });
+
+    it("rechaza un token desconocido", async () => {
+      mockEmailVerificationRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.verifyEmail("token-malo")).rejects.toThrow(
+        BadRequestException
+      );
+    });
+
+    it("rechaza un token ya gastado", async () => {
+      mockEmailVerificationRepository.findOne.mockResolvedValue({
+        ...verificacion,
+        usedAt: new Date(),
+      } as any);
+
+      await expect(service.verifyEmail("token-bueno")).rejects.toThrow(
+        BadRequestException
+      );
+    });
+
+    it("rechaza un token vencido", async () => {
+      mockEmailVerificationRepository.findOne.mockResolvedValue({
+        ...verificacion,
+        expiresAt: new Date(Date.now() - 1000),
+      } as any);
+
+      await expect(service.verifyEmail("token-bueno")).rejects.toThrow(
+        BadRequestException
+      );
+    });
+  });
+
+  describe("resendVerification", () => {
+    it("emite otro enlace si la cuenta existe y falta confirmarla", async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        emailVerified: false,
+      });
+
+      const result = await service.resendVerification(mockUser.email);
+
+      expect(mockOutboxService.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.AUTH_EMAIL_VERIFICATION_REQUESTED,
+        })
+      );
+      expect(result.message).toContain("Si la cuenta existe");
+    });
+
+    it("responde lo mismo sin emitir nada si la cuenta no existe", async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      const result = await service.resendVerification("nadie@example.com");
+
+      expect(mockOutboxService.enqueue).not.toHaveBeenCalled();
+      expect(result.message).toContain("Si la cuenta existe");
+    });
+
+    it("no reenvía nada a una cuenta ya confirmada", async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+
+      await service.resendVerification(mockUser.email);
+
+      expect(mockOutboxService.enqueue).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("bloqueo por intentos fallidos", () => {
+    const validar = (usuario: any) =>
+      (service as any).validateUser(usuario.email, "Password123");
+
+    it("suma el fallo sin bloquear mientras no llegue al máximo", async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        failedLoginAttempts: 1,
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      await expect(validar(mockUser)).rejects.toThrow(UnauthorizedException);
+
+      expect(mockUserRepository.update).toHaveBeenCalledWith(mockUser.id, {
+        failedLoginAttempts: 2,
+      });
+    });
+
+    it("bloquea al llegar al máximo, con la espera base el primer bloqueo", async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        failedLoginAttempts: MAX_INTENTOS_FALLIDOS - 1,
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      mockAuditLogRepository.create.mockReturnValue(mockAuditLog);
+      mockAuditLogRepository.save.mockResolvedValue(mockAuditLog);
+
+      const antes = Date.now();
+      await expect(validar(mockUser)).rejects.toThrow(UnauthorizedException);
+
+      const cambios = mockUserRepository.update.mock.calls[0][1] as any;
+      expect(cambios.lockoutCount).toBe(1);
+      expect(cambios.lockedUntil.getTime() - antes).toBeGreaterThanOrEqual(
+        BLOQUEO_BASE_MINUTOS * 60000 - 1000
+      );
+    });
+
+    it("dobla la espera en cada bloqueo encadenado, hasta el tope", async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        failedLoginAttempts: MAX_INTENTOS_FALLIDOS - 1,
+        lockoutCount: 99,
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      mockAuditLogRepository.create.mockReturnValue(mockAuditLog);
+      mockAuditLogRepository.save.mockResolvedValue(mockAuditLog);
+
+      const antes = Date.now();
+      await expect(validar(mockUser)).rejects.toThrow(UnauthorizedException);
+
+      const cambios = mockUserRepository.update.mock.calls[0][1] as any;
+      expect(cambios.lockedUntil.getTime() - antes).toBeLessThanOrEqual(
+        BLOQUEO_MAXIMO_MINUTOS * 60000 + 1000
+      );
+    });
+
+    it("rechaza el intento mientras el bloqueo sigue vigente", async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        lockedUntil: new Date(Date.now() + 5 * 60000),
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await expect(validar(mockUser)).rejects.toThrow("Cuenta bloqueada");
+    });
+
+    it("limpia los fallos tras un acceso correcto", async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        failedLoginAttempts: 3,
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await validar(mockUser);
+
+      expect(mockUserRepository.update).toHaveBeenCalledWith(mockUser.id, {
+        failedLoginAttempts: 0,
+        lockoutCount: 0,
+        lockedUntil: null,
+      });
+    });
+
+    it("no deja entrar a una cuenta sin confirmar", async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        emailVerified: false,
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await expect(validar(mockUser)).rejects.toThrow("Confirma tu correo");
     });
   });
 });

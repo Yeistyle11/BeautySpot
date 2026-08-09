@@ -43,6 +43,17 @@ export interface PasswordResetRequestedPayload {
 export type PasswordResetRequestedEvent =
   IBaseEvent<PasswordResetRequestedPayload>;
 
+export interface EmailVerificationRequestedPayload {
+  userId: string;
+  email: string;
+  name: string;
+  verificationToken: string;
+  expiresAt: string;
+}
+
+export type EmailVerificationRequestedEvent =
+  IBaseEvent<EmailVerificationRequestedPayload>;
+
 export interface MembershipCreatedPayload {
   membershipId: string;
   userId: string;
@@ -264,6 +275,7 @@ export const EventNames = {
   AUTH_USER_REGISTERED: "auth.user.registered",
   AUTH_USER_LOGGED_IN: "auth.user.logged-in",
   AUTH_PASSWORD_RESET_REQUESTED: "auth.password-reset.requested",
+  AUTH_EMAIL_VERIFICATION_REQUESTED: "auth.email-verification.requested",
   AUTH_MEMBERSHIP_CREATED: "auth.membership.created",
   AUTH_MEMBERSHIP_ROLE_CHANGED: "auth.membership.role-changed",
 

@@ -22,6 +22,13 @@ import { LoginDto } from "./dto/login.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { Role, IJwtPayload, Membresia } from "@beautyspot/shared-types";
+import {
+  BLOQUEO_BASE_MINUTOS,
+  BLOQUEO_MAXIMO_MINUTOS,
+  HORAS_VERIFICACION_CORREO,
+  MAX_INTENTOS_FALLIDOS,
+} from "@beautyspot/shared-constants";
+import { EmailVerification } from "../../entities/email-verification.entity";
 import { EventNames } from "@beautyspot/event-types";
 import {
   EventBusService,
@@ -53,6 +60,8 @@ export class AuthService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(PasswordReset)
     private readonly passwordResetRepository: Repository<PasswordReset>,
+    @InjectRepository(EmailVerification)
+    private readonly emailVerificationRepository: Repository<EmailVerification>,
     @InjectRepository(AuditLog)
     private readonly auditLogRepository: Repository<AuditLog>,
     private readonly jwtService: JwtService,
@@ -64,10 +73,13 @@ export class AuthService {
     private readonly tokenVersionStore: TokenVersionStore
   ) {}
 
-  /** Crea la cuenta (rechazando emails duplicados), la audita y devuelve el par de tokens. */
+  /**
+   * Crea la cuenta (rechazando emails duplicados), la audita y encola el correo
+   * de confirmación. No emite tokens: la cuenta entra cuando confirma.
+   */
   async register(
     dto: RegisterDto
-  ): Promise<{ user: SafeUser; accessToken: string; refreshToken: string }> {
+  ): Promise<{ user: SafeUser; message: string }> {
     const existing = await this.userRepository.findOne({
       where: { email: dto.email },
     });
@@ -109,11 +121,96 @@ export class AuthService {
         },
       });
 
+      await this.emitirVerificacion(manager, saved);
       return saved;
     });
 
-    const { accessToken, refreshToken } = await this.generateTokens(user);
-    return { user: toSafeUser(user), accessToken, refreshToken };
+    // Sin tokens: la cuenta no puede entrar hasta confirmar el correo.
+    return {
+      user: toSafeUser(user),
+      message: "Te enviamos un correo para confirmar tu cuenta",
+    };
+  }
+
+  /** Genera el token de verificación y encola el correo en la misma transacción. */
+  private async emitirVerificacion(
+    manager: EntityManager,
+    user: User
+  ): Promise<void> {
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(
+      Date.now() + HORAS_VERIFICACION_CORREO * 60 * 60 * 1000
+    );
+
+    const verificacion = manager.getRepository(EmailVerification).create({
+      userId: user.id,
+      tokenHash: hashResetToken(rawToken),
+      expiresAt,
+    });
+    await manager.getRepository(EmailVerification).save(verificacion);
+
+    await this.outboxService.enqueue(manager, {
+      eventType: EventNames.AUTH_EMAIL_VERIFICATION_REQUESTED,
+      aggregateType: "users",
+      aggregateId: user.id,
+      payload: {
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        verificationToken: rawToken,
+        expiresAt: expiresAt.toISOString(),
+      },
+    });
+  }
+
+  /** Marca el correo como verificado y gasta el token. */
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    const verificacion = await this.emailVerificationRepository.findOne({
+      where: { tokenHash: hashResetToken(token) },
+    });
+
+    if (
+      !verificacion ||
+      verificacion.usedAt ||
+      verificacion.expiresAt.getTime() <= Date.now()
+    ) {
+      throw new BadRequestException("El enlace no es válido o ya venció");
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager
+        .getRepository(User)
+        .update(verificacion.userId, { emailVerified: true });
+      await manager
+        .getRepository(EmailVerification)
+        .update(verificacion.id, { usedAt: new Date() });
+    });
+
+    await this.logAction(
+      verificacion.userId,
+      "EMAIL_VERIFIED",
+      "users",
+      verificacion.userId
+    );
+    return { message: "Correo confirmado: ya puedes iniciar sesión" };
+  }
+
+  /**
+   * Reenvía el correo de confirmación. Responde siempre lo mismo para no
+   * revelar qué direcciones están dadas de alta.
+   */
+  async resendVerification(email: string): Promise<{ message: string }> {
+    const generico = {
+      message: "Si la cuenta existe y falta confirmarla, recibirás un correo",
+    };
+
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user || user.emailVerified) return generico;
+
+    await this.dataSource.transaction((manager) =>
+      this.emitirVerificacion(manager, user)
+    );
+    return generico;
   }
 
   /** Valida credenciales y emite un nuevo par de tokens para el usuario. */
@@ -370,14 +467,75 @@ export class AuthService {
     const hashToCompare = user?.password ?? (await this.getDecoyHash());
     const isPasswordValid = await bcrypt.compare(password, hashToCompare);
 
+    // El bloqueo se comprueba después de bcrypt para no acortar la respuesta.
+    if (user) this.rechazarSiEstaBloqueada(user);
+
     if (!user || !isPasswordValid) {
+      if (user) await this.anotarFalloDeAcceso(user);
       throw new UnauthorizedException("Credenciales inválidas");
     }
     if (!user.active) {
       throw new UnauthorizedException("Cuenta desactivada");
     }
+    if (!user.emailVerified) {
+      throw new UnauthorizedException(
+        "Confirma tu correo antes de iniciar sesión. Puedes pedir un enlace nuevo"
+      );
+    }
 
+    await this.limpiarFallosDeAcceso(user);
     return user;
+  }
+
+  /** Corta el intento mientras el bloqueo siga vigente. */
+  private rechazarSiEstaBloqueada(user: User): void {
+    if (!user.lockedUntil || user.lockedUntil.getTime() <= Date.now()) return;
+
+    const minutos = Math.ceil(
+      (user.lockedUntil.getTime() - Date.now()) / 60000
+    );
+    throw new UnauthorizedException(
+      `Cuenta bloqueada por varios intentos fallidos. Vuelve a intentarlo en ${minutos} minuto(s)`
+    );
+  }
+
+  /**
+   * Suma un fallo y bloquea la cuenta al llegar al máximo. Cada bloqueo
+   * encadenado dobla la espera del siguiente, hasta el tope.
+   */
+  private async anotarFalloDeAcceso(user: User): Promise<void> {
+    const intentos = user.failedLoginAttempts + 1;
+
+    if (intentos < MAX_INTENTOS_FALLIDOS) {
+      await this.userRepository.update(user.id, {
+        failedLoginAttempts: intentos,
+      });
+      return;
+    }
+
+    const bloqueos = user.lockoutCount + 1;
+    const minutos = Math.min(
+      BLOQUEO_BASE_MINUTOS * 2 ** (bloqueos - 1),
+      BLOQUEO_MAXIMO_MINUTOS
+    );
+
+    await this.userRepository.update(user.id, {
+      failedLoginAttempts: 0,
+      lockoutCount: bloqueos,
+      lockedUntil: new Date(Date.now() + minutos * 60000),
+    });
+    await this.logAction(user.id, "USER_LOCKED_OUT", "users", user.id);
+  }
+
+  /** Devuelve la cuenta a su estado limpio tras un acceso correcto. */
+  private async limpiarFallosDeAcceso(user: User): Promise<void> {
+    if (user.failedLoginAttempts === 0 && user.lockoutCount === 0) return;
+
+    await this.userRepository.update(user.id, {
+      failedLoginAttempts: 0,
+      lockoutCount: 0,
+      lockedUntil: null,
+    });
   }
 
   /**

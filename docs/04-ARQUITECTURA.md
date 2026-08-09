@@ -106,30 +106,32 @@ El API Gateway es el unico punto de entrada para todas las solicitudes del front
 
 ### Tabla de Enrutamiento
 
-| Patron de Ruta                      | Servicio Destino | Autenticacion                 | Roles Permitidos                                 |
-| ----------------------------------- | ---------------- | ----------------------------- | ------------------------------------------------ |
-| `POST /api/v1/auth/login`           | Auth             | No                            | Publico                                          |
-| `POST /api/v1/auth/register`        | Auth             | No                            | Publico                                          |
-| `POST /api/v1/auth/refresh`         | Auth             | No (refresh token)            | Publico                                          |
-| `POST /api/v1/auth/forgot-password` | Auth             | No                            | Publico                                          |
-| `POST /api/v1/auth/reset-password`  | Auth             | No (token)                    | Publico                                          |
-| `POST /api/v1/auth/logout`          | Auth             | Si                            | Todos                                            |
-| `GET /api/v1/auth/me`               | Auth             | Si                            | Todos                                            |
-| `* /api/v1/businesses/*`            | Core             | Si                            | SUPER_ADMIN                                      |
-| `* /api/v1/branches/*`              | Core             | Si                            | OWNER, ADMIN                                     |
-| `* /api/v1/professionals/*`         | Core             | Si                            | OWNER, ADMIN, PROFESSIONAL                       |
-| `* /api/v1/services/*`              | Core             | Si                            | OWNER, ADMIN                                     |
-| `* /api/v1/clients/*`               | Core             | Si                            | OWNER, ADMIN, RECEPTIONIST                       |
-| `* /api/v1/appointments/*`          | Booking          | Si                            | OWNER, ADMIN, PROFESSIONAL, RECEPTIONIST, CLIENT |
-| `* /api/v1/availability/*`          | Booking          | Si                            | OWNER, ADMIN, PROFESSIONAL                       |
-| `* /api/v1/payments/*`              | Payment          | Si                            | OWNER, ADMIN, RECEPTIONIST                       |
-| `* /api/v1/invoices/*`              | Payment          | Si                            | OWNER, ADMIN                                     |
-| `* /api/v1/cash-sessions/*`         | Payment          | Si                            | OWNER, ADMIN, RECEPTIONIST                       |
-| `* /api/v1/notifications/*`         | Notification     | Si                            | Todos                                            |
-| `* /api/v1/marketplace/*`           | Marketplace      | No                            | Publico                                          |
-| `* /api/v1/profiles/*`              | Marketplace      | No                            | Publico                                          |
-| `* /api/v1/reviews/*`               | Marketplace      | Si (escritura) / No (lectura) | CLIENT                                           |
-| `* /api/v1/analytics/*`             | Analytics        | Si                            | OWNER, ADMIN, SUPER_ADMIN                        |
+| Patron de Ruta                          | Servicio Destino | Autenticacion                 | Roles Permitidos                                 |
+| --------------------------------------- | ---------------- | ----------------------------- | ------------------------------------------------ |
+| `POST /api/v1/auth/login`               | Auth             | No                            | Publico                                          |
+| `POST /api/v1/auth/register`            | Auth             | No                            | Publico                                          |
+| `POST /api/v1/auth/verify-email`        | Auth             | No (token)                    | Publico                                          |
+| `POST /api/v1/auth/resend-verification` | Auth             | No                            | Publico                                          |
+| `POST /api/v1/auth/refresh`             | Auth             | No (refresh token)            | Publico                                          |
+| `POST /api/v1/auth/forgot-password`     | Auth             | No                            | Publico                                          |
+| `POST /api/v1/auth/reset-password`      | Auth             | No (token)                    | Publico                                          |
+| `POST /api/v1/auth/logout`              | Auth             | Si                            | Todos                                            |
+| `GET /api/v1/auth/me`                   | Auth             | Si                            | Todos                                            |
+| `* /api/v1/businesses/*`                | Core             | Si                            | SUPER_ADMIN                                      |
+| `* /api/v1/branches/*`                  | Core             | Si                            | OWNER, ADMIN                                     |
+| `* /api/v1/professionals/*`             | Core             | Si                            | OWNER, ADMIN, PROFESSIONAL                       |
+| `* /api/v1/services/*`                  | Core             | Si                            | OWNER, ADMIN                                     |
+| `* /api/v1/clients/*`                   | Core             | Si                            | OWNER, ADMIN, RECEPTIONIST                       |
+| `* /api/v1/appointments/*`              | Booking          | Si                            | OWNER, ADMIN, PROFESSIONAL, RECEPTIONIST, CLIENT |
+| `* /api/v1/availability/*`              | Booking          | Si                            | OWNER, ADMIN, PROFESSIONAL                       |
+| `* /api/v1/payments/*`                  | Payment          | Si                            | OWNER, ADMIN, RECEPTIONIST                       |
+| `* /api/v1/invoices/*`                  | Payment          | Si                            | OWNER, ADMIN                                     |
+| `* /api/v1/cash-sessions/*`             | Payment          | Si                            | OWNER, ADMIN, RECEPTIONIST                       |
+| `* /api/v1/notifications/*`             | Notification     | Si                            | Todos                                            |
+| `* /api/v1/marketplace/*`               | Marketplace      | No                            | Publico                                          |
+| `* /api/v1/profiles/*`                  | Marketplace      | No                            | Publico                                          |
+| `* /api/v1/reviews/*`                   | Marketplace      | Si (escritura) / No (lectura) | CLIENT                                           |
+| `* /api/v1/analytics/*`                 | Analytics        | Si                            | OWNER, ADMIN, SUPER_ADMIN                        |
 
 ### Flujo de una Solicitud
 
@@ -227,24 +229,24 @@ Se utiliza para eventos de dominio que no requieren respuesta inmediata y para d
 
 ```
 1. Cliente envia POST /api/v1/auth/register
-   { email, password, name, role: "CLIENT" }
+   { email, password, name, phone? }
 
-2. Auth Service valida datos (Zod schema)
+2. Auth Service valida datos (class-validator)
    - Email unico en la plataforma
-   - Password cumple requisitos
+   - Password: 10 caracteres, mayusculas + minusculas + digitos, y no comun
 
 3. Auth Service hashea password (bcrypt, 12 rounds)
 
-4. Auth Service crea usuario en auth_db
-   - Estado: PENDING_VERIFICATION (si verificacion de email activa)
-   - Estado: ACTIVE (si verificacion no requerida en MVP)
+4. Auth Service crea el usuario en auth_db con email_verified = false
 
-5. Auth Service genera token de verificacion y publica evento
-   -> Exchange: auth.events, Routing Key: user.registered
+5. En la misma transaccion, guarda el hash del token de confirmacion
+   (24 h, un solo uso) y encola por Outbox
+   -> auth.user.registered  y  auth.email-verification.requested
 
-6. Notification Service consume el evento y envia email de bienvenida
+6. Notification Service consume ambos: bienvenida y enlace de confirmacion
 
-7. Respuesta al cliente: { user, accessToken, refreshToken }
+7. Respuesta al cliente: { user, message } — sin tokens; la cuenta no
+   entra hasta canjear el enlace en POST /api/v1/auth/verify-email
 ```
 
 ### 5.2 Login
@@ -254,8 +256,8 @@ Se utiliza para eventos de dominio que no requieren respuesta inmediata y para d
    { email, password }
 
 2. Auth Service busca usuario por email
-   - Verificar estado activo
-   - Verificar intentos fallidos (rate limit)
+   - Verificar estado activo y correo confirmado
+   - Verificar bloqueo vigente (users.locked_until)
 
 3. Auth Service compara password (bcrypt.compare)
 
@@ -268,8 +270,9 @@ Se utiliza para eventos de dominio que no requieren respuesta inmediata y para d
    d. Publicar evento: auth.events / user.loggedIn
 
 5. Si fallido:
-   a. Incrementar contador de intentos fallidos en Redis
-   b. Si alcanza 5 intentos: bloquear por 15 minutos
+   a. Incrementar users.failed_login_attempts
+   b. Al llegar a 5: bloquear 15 min; cada bloqueo encadenado dobla la
+      espera, hasta 24 h
    c. Publicar evento: auth.events / user.loginFailed
 
 6. Respuesta: { accessToken, refreshToken, user }
