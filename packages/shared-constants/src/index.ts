@@ -38,3 +38,42 @@ export const PATRON_TELEFONO = /^\+?[\d][\d\s().-]{5,19}$/;
 /** Mensaje único para el teléfono, para que todos los formularios digan lo mismo. */
 export const MENSAJE_TELEFONO =
   "El teléfono debe tener entre 7 y 20 dígitos, con prefijo internacional opcional";
+
+/** Horas que vale el enlace de confirmación de correo. */
+export const HORAS_VERIFICACION_CORREO = 24;
+
+/** Fallos de contraseña seguidos que bloquean la cuenta. */
+export const MAX_INTENTOS_FALLIDOS = 5;
+
+/** Minutos que dura el primer bloqueo; los siguientes doblan la espera. */
+export const BLOQUEO_BASE_MINUTOS = 15;
+
+/** Tope de la espera, para que un bloqueo no se vuelva permanente. */
+export const BLOQUEO_MAXIMO_MINUTOS = 24 * 60;
+
+/** Longitud mínima de una contraseña. */
+export const LONGITUD_MINIMA_CONTRASENA = 10;
+
+/** Contraseña aceptada: al menos una minúscula, una mayúscula y un dígito. */
+export const PATRON_CONTRASENA = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/;
+
+/** Mensaje único para la contraseña, para que todos los formularios digan lo mismo. */
+export const MENSAJE_CONTRASENA =
+  "La contraseña debe combinar mayúsculas, minúsculas y números";
+
+/**
+ * Contraseñas descartadas por comunes. La lista es corta a propósito: cubre lo
+ * que aparece primero en cualquier ataque de diccionario sin pretender ser un
+ * catálogo, que es trabajo de un servicio dedicado.
+ */
+export const CONTRASENAS_PROHIBIDAS = [
+  "password",
+  "contrasena",
+  "contraseña",
+  "12345678",
+  "123456789",
+  "1234567890",
+  "qwertyuiop",
+  "beautyspot",
+  "administrador",
+];

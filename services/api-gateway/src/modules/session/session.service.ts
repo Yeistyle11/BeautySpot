@@ -9,7 +9,7 @@ import {
   limpiarCookiesDeSesion,
 } from "./session-cookies";
 
-/** Cuerpo que devuelve auth-service en login, registro y renovación. */
+/** Cuerpo que devuelve auth-service en login y renovación. */
 interface RespuestaConTokens {
   accessToken?: string;
   refreshToken?: string;
@@ -24,7 +24,8 @@ interface PistaSesion {
   expiresAt?: number;
 }
 
-const RUTAS_LOGIN = ["/auth/login", "/auth/register"];
+// El registro no abre sesión: no emite tokens que convertir en cookies.
+const RUTAS_LOGIN = ["/auth/login"];
 const RUTA_REFRESH = "/auth/refresh";
 const RUTA_LOGOUT = "/auth/logout";
 

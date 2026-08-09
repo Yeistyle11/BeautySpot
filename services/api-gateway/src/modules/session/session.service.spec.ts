@@ -39,7 +39,6 @@ describe("SessionService", () => {
   describe("esRutaDeSesion", () => {
     it.each([
       "/api/v1/auth/login",
-      "/api/v1/auth/register",
       "/api/v1/auth/refresh",
       "/api/v1/auth/logout",
       "/api/v1/auth-service/login",
@@ -49,6 +48,10 @@ describe("SessionService", () => {
 
     it("ignora el resto de rutas", () => {
       expect(service.esRutaDeSesion("/api/v1/core/businesses")).toBe(false);
+    });
+
+    it("deja el registro fuera, porque ya no emite tokens", () => {
+      expect(service.esRutaDeSesion("/api/v1/auth/register")).toBe(false);
     });
   });
 

@@ -12,6 +12,7 @@ import { LoginDto } from "./dto/login.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
+import { VerifyEmailDto } from "./dto/verify-email.dto";
 import {
   Public,
   CurrentUser,
@@ -24,12 +25,28 @@ import {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  /** Registra una cuenta nueva y devuelve el usuario con sus tokens. */
+  /** Registra una cuenta nueva y encola el correo de confirmación. */
   @Public()
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  /** Confirma el correo con el token del enlace. */
+  @Public()
+  @Post("verify-email")
+  @HttpCode(HttpStatus.OK)
+  async verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.authService.verifyEmail(dto.token);
+  }
+
+  /** Reenvía el correo de confirmación. */
+  @Public()
+  @Post("resend-verification")
+  @HttpCode(HttpStatus.OK)
+  async resendVerification(@Body() dto: ForgotPasswordDto) {
+    return this.authService.resendVerification(dto.email);
   }
 
   /** Inicia sesión con email y contraseña. */

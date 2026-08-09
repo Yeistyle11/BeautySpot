@@ -2,15 +2,22 @@ import { Injectable, ExecutionContext } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { Request } from "express";
 
-/** Rutas accesibles sin token: login, registro y recuperación de contraseña. */
+/**
+ * Rutas accesibles sin token: login, registro, confirmación de correo y
+ * recuperación de contraseña.
+ */
 const PUBLIC_PATHS = [
   "/api/v1/auth/login",
   "/api/v1/auth/register",
+  "/api/v1/auth/verify-email",
+  "/api/v1/auth/resend-verification",
   "/api/v1/auth/forgot-password",
   "/api/v1/auth/reset-password",
   "/api/v1/auth/refresh",
   "/api/v1/auth-service/login",
   "/api/v1/auth-service/register",
+  "/api/v1/auth-service/verify-email",
+  "/api/v1/auth-service/resend-verification",
   "/api/v1/auth-service/forgot-password",
   "/api/v1/auth-service/reset-password",
   "/api/v1/auth-service/refresh",

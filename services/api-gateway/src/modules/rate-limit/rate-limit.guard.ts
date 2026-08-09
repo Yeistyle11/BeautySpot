@@ -37,6 +37,8 @@ const RUTAS_DE_CREDENCIALES = [
   "/auth/register",
   "/auth/forgot-password",
   "/auth/reset-password",
+  "/auth/verify-email",
+  "/auth/resend-verification",
 ];
 
 @Injectable()

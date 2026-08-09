@@ -28,6 +28,13 @@ describe("AuthGatewayGuard", () => {
       );
     });
 
+    it.each(["/api/v1/auth/verify-email", "/api/v1/auth/resend-verification"])(
+      "deja pasar %s, que se usa justo antes de tener sesión",
+      (ruta) => {
+        expect(guard.canActivate(contextoDe(ruta, "POST"))).toBe(true);
+      }
+    );
+
     it("deja pasar el escaparate del marketplace por GET", () => {
       expect(
         guard.canActivate(

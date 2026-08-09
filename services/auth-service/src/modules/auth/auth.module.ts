@@ -7,12 +7,18 @@ import { AuthService } from "./auth.service";
 import { RefreshTokenStore } from "./refresh-token.store";
 import { User } from "../../entities/user.entity";
 import { PasswordReset } from "../../entities/password-reset.entity";
+import { EmailVerification } from "../../entities/email-verification.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
 import { EventBusModule } from "@beautyspot/nest-common";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, PasswordReset, AuditLog]),
+    TypeOrmModule.forFeature([
+      User,
+      PasswordReset,
+      EmailVerification,
+      AuditLog,
+    ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({

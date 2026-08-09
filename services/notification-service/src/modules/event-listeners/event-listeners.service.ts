@@ -20,6 +20,7 @@ import { ocultarCorreo } from "@beautyspot/shared-utils";
 import {
   UserRegisteredEvent,
   PasswordResetRequestedEvent,
+  EmailVerificationRequestedEvent,
   AppointmentCreatedEvent,
   AppointmentConfirmedEvent,
   AppointmentCompletedEvent,
@@ -147,6 +148,57 @@ export class NotificationEventListeners {
       );
     } catch (error) {
       this.logError("reset de contraseña", error);
+    }
+  }
+
+  /** Ante un alta o un reenvío, arma el enlace de confirmación y encola el correo. */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.AUTH_EMAIL_VERIFICATION_REQUESTED,
+    queue: nombreDeCola(
+      "notification",
+      EventNames.AUTH_EMAIL_VERIFICATION_REQUESTED
+    ),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleEmailVerificationRequested(
+    event: EmailVerificationRequestedEvent
+  ) {
+    const { email, name, verificationToken, expiresAt } = event.payload;
+
+    this.logger.log(
+      `Solicitud de confirmación de correo para: ${ocultarCorreo(email)}`
+    );
+
+    try {
+      await this.processedEvents.once(
+        event,
+        "notification:confirmación de correo",
+        async () => {
+          const appUrl = this.configService.get<string>(
+            "APP_URL",
+            "http://localhost:3000"
+          );
+          const verificationLink = `${appUrl}/verify-email?token=${verificationToken}`;
+          const expiryHours = Math.ceil(
+            (new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60)
+          );
+
+          const { jobId } = await this.emailService.queueEmailVerification(
+            email,
+            { clientName: name, verificationLink, expiryHours }
+          );
+
+          await this.emitEmailQueuedEvent(
+            jobId,
+            email,
+            "email-verification",
+            "Confirma tu cuenta - BeautySpot"
+          );
+        }
+      );
+    } catch (error) {
+      this.logError("confirmación de correo", error);
     }
   }
 

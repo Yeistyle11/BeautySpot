@@ -104,6 +104,8 @@ describe("RateLimitGuard", () => {
   it.each([
     "/api/v1/auth/forgot-password",
     "/api/v1/auth-service/reset-password",
+    "/api/v1/auth/verify-email",
+    "/api/v1/auth/resend-verification",
   ])("trata %s como ruta de credenciales", async (path) => {
     redis.eval.mockResolvedValue(RATE_LIMIT_AUTH_REQUESTS + 1);
 

@@ -406,6 +406,20 @@ export class EmailService {
     });
   }
 
+  /** Encola el correo de confirmación de cuenta (prioridad alta). */
+  async queueEmailVerification(
+    to: string,
+    data: { clientName: string; verificationLink: string; expiryHours: number }
+  ): Promise<{ jobId: string }> {
+    return this.queueEmail({
+      to,
+      template: "email-verification",
+      data,
+      subject: "Confirma tu cuenta - BeautySpot",
+      priority: "high",
+    });
+  }
+
   /** Encola el correo de bienvenida (prioridad baja). */
   async queueWelcomeEmail(
     to: string,

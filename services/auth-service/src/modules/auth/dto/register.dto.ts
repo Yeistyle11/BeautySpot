@@ -10,14 +10,14 @@ import {
   PATRON_TELEFONO,
   MENSAJE_TELEFONO,
 } from "@beautyspot/shared-constants";
+import { EsContrasenaValida } from "./contrasena.decorator";
 
 /** Datos para registrar una cuenta nueva: email, contraseña, nombre y teléfono. */
 export class RegisterDto {
   @IsEmail({}, { message: "El email no tiene un formato válido" })
   email!: string;
 
-  @IsString({ message: "La contraseña es obligatoria" })
-  @MinLength(8, { message: "La contraseña debe tener al menos 8 caracteres" })
+  @EsContrasenaValida()
   password!: string;
 
   @IsString({ message: "El nombre es obligatorio" })

@@ -15,10 +15,13 @@ describe("AuthController", () => {
     password: "hashed-password",
     phone: "+573001234567",
     avatar: "",
-    emailVerified: false,
+    emailVerified: true,
     active: true,
     currentBusinessId: "",
     tokenVersion: 0,
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    lockoutCount: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
     memberships: [],
@@ -30,6 +33,11 @@ describe("AuthController", () => {
     user: mockUser,
     accessToken: "access-token",
     refreshToken: "refresh-token",
+  };
+
+  const mockRegistroResponse = {
+    user: mockUser,
+    message: "Te enviamos un correo para confirmar tu cuenta",
   };
 
   beforeEach(async () => {
@@ -71,12 +79,12 @@ describe("AuthController", () => {
         phone: "+573009876543",
       };
 
-      mockAuthService.register.mockResolvedValue(mockAuthResponse);
+      mockAuthService.register.mockResolvedValue(mockRegistroResponse);
 
       const result = await controller.register(registerDto as any);
 
       expect(mockAuthService.register).toHaveBeenCalledWith(registerDto);
-      expect(result).toEqual(mockAuthResponse);
+      expect(result).toEqual(mockRegistroResponse);
     });
 
     it("debería lanzar error cuando el email ya existe", async () => {

@@ -48,6 +48,20 @@ describe("NotificationEventListeners", () => {
     },
   };
 
+  const mockEmailVerificationEvent = {
+    eventType: "auth.email-verification.requested",
+    eventId: "evt-130",
+    correlationId: "corr-130",
+    timestamp: new Date(),
+    payload: {
+      userId: "user-123",
+      email: "nuevo@example.com",
+      name: "Nuevo Usuario",
+      verificationToken: "raw-token-xyz",
+      expiresAt: new Date(Date.now() + 3600000).toISOString(),
+    },
+  };
+
   const mockAppointmentConfirmedEvent = {
     eventType: "booking.appointment.confirmed",
     eventId: "evt-124",
@@ -144,6 +158,7 @@ describe("NotificationEventListeners", () => {
     mockEmailService = {
       queueWelcomeEmail: jest.fn().mockResolvedValue({ jobId: "job-123" }),
       queuePasswordReset: jest.fn().mockResolvedValue({ jobId: "job-129" }),
+      queueEmailVerification: jest.fn().mockResolvedValue({ jobId: "job-130" }),
       queueAppointmentConfirmation: jest
         .fn()
         .mockResolvedValue({ jobId: "job-124" }),
@@ -290,6 +305,35 @@ describe("NotificationEventListeners", () => {
 
       await expect(
         service.handlePasswordResetRequested(mockPasswordResetEvent)
+      ).rejects.toThrow();
+    });
+  });
+
+  describe("handleEmailVerificationRequested", () => {
+    it("encola el correo con el enlace de confirmación", async () => {
+      await service.handleEmailVerificationRequested(
+        mockEmailVerificationEvent
+      );
+
+      expect(mockEmailService.queueEmailVerification).toHaveBeenCalledWith(
+        "nuevo@example.com",
+        expect.objectContaining({
+          clientName: "Nuevo Usuario",
+          verificationLink:
+            "http://localhost:3000/verify-email?token=raw-token-xyz",
+          expiryHours: expect.any(Number),
+        })
+      );
+      expect(mockAmqpConnection.publish).toHaveBeenCalled();
+    });
+
+    it("debería propagar el error para que el mensaje llegue a la cola de fallidos", async () => {
+      mockEmailService.queueEmailVerification.mockRejectedValue(
+        new Error("Error")
+      );
+
+      await expect(
+        service.handleEmailVerificationRequested(mockEmailVerificationEvent)
       ).rejects.toThrow();
     });
   });
