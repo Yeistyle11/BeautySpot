@@ -38,13 +38,25 @@ interface Appointment {
   clientId: string;
 }
 
+// El analytics-service solo guarda identificadores: el nombre del profesional
+// se cruza aqui contra /core/professionals, igual que se hace con el cliente de
+// cada cita.
 const topProfessionalSchema = z.object({
   professionalId: z.string(),
-  professionalName: z.string(),
   appointments: z.number(),
   revenue: z.number(),
 });
 type TopProfessional = z.infer<typeof topProfessionalSchema>;
+
+const professionalRefSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+type ProfessionalRef = z.infer<typeof professionalRefSchema>;
+const professionalRefListSchema = z.union([
+  z.array(professionalRefSchema),
+  z.object({ items: z.array(professionalRefSchema) }),
+]);
 
 const revenuePointSchema = z.object({
   date: z.string(),
@@ -108,6 +120,13 @@ export default function DashboardPage() {
     businessId ? "/analytics/dashboard/top-professionals?limit=5" : null,
     undefined,
     z.array(topProfessionalSchema)
+  );
+  const { data: rawProfessionals } = useApi<
+    ProfessionalRef[] | { items: ProfessionalRef[] }
+  >(
+    businessId ? "/core/professionals?limit=100" : null,
+    undefined,
+    professionalRefListSchema
   );
   const { data: revenueChart } = useApi<RevenuePoint[]>(
     businessId ? "/analytics/dashboard/revenue-chart?days=7" : null,
@@ -197,6 +216,17 @@ export default function DashboardPage() {
     [appointments]
   );
 
+  const nombresDeProfesional = useMemo(() => {
+    const lista: ProfessionalRef[] = Array.isArray(rawProfessionals)
+      ? rawProfessionals
+      : (rawProfessionals?.items ?? []);
+    const nombres: Record<string, string> = {};
+    lista.forEach((p) => {
+      nombres[p.id] = p.name;
+    });
+    return nombres;
+  }, [rawProfessionals]);
+
   const maxRevenue = useMemo(
     () => Math.max(...(revenueChart ?? []).map((r) => r.revenue), 1),
     [revenueChart]
@@ -236,7 +266,7 @@ export default function DashboardPage() {
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4">
               <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                <TrendingUp className="h-4 w-4" /> Ingresos 30 dias
+                <TrendingUp className="h-4 w-4" /> Ingresos 30 días
               </div>
               <p className="mt-1 text-xl font-bold">
                 {formatCurrency(kpiData.last30Days.totalRevenue)}
@@ -246,7 +276,7 @@ export default function DashboardPage() {
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4">
               <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4" /> Citas 30 dias
+                <Calendar className="h-4 w-4" /> Citas 30 días
               </div>
               <p className="mt-1 text-xl font-bold">
                 {kpiData.last30Days.totalAppointments}
@@ -279,8 +309,11 @@ export default function DashboardPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card className="border-0 shadow-sm">
           <CardHeader>
+            {/* "Pendientes" y no "de hoy" a secas: la tarjeta de arriba cuenta
+                todas las citas del dia y este panel solo las que quedan por
+                atender, asi que dos numeros distintos son correctos. */}
             <CardTitle className="text-lg">
-              Citas de hoy ({upcoming.length})
+              Citas pendientes de hoy ({upcoming.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -337,7 +370,7 @@ export default function DashboardPage() {
 
         <Card className="border-0 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Ingresos ultimos 7 dias</CardTitle>
+            <CardTitle className="text-lg">Ingresos últimos 7 días</CardTitle>
           </CardHeader>
           <CardContent>
             {(revenueChart ?? []).length > 0 ? (
@@ -380,7 +413,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Star className="h-5 w-5 text-amber-500" /> Top profesionales (30
-              dias)
+              días)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -394,7 +427,9 @@ export default function DashboardPage() {
                     {i + 1}
                   </div>
                   <div>
-                    <p className="text-sm font-medium">{p.professionalName}</p>
+                    <p className="text-sm font-medium">
+                      {nombresDeProfesional[p.professionalId] || "Profesional"}
+                    </p>
                     <p className="text-muted-foreground text-xs">
                       {p.appointments} citas · {formatCurrency(p.revenue)}
                     </p>

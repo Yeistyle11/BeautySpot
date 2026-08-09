@@ -35,8 +35,8 @@ export class CashSessionEntity extends TenantEntity {
     nullable: true,
   })
   closingAmount!: number;
-  @Column({ type: "timestamp", name: "opened_at" }) openedAt!: Date;
-  @Column({ type: "timestamp", name: "closed_at", nullable: true })
+  @Column({ type: "timestamptz", name: "opened_at" }) openedAt!: Date;
+  @Column({ type: "timestamptz", name: "closed_at", nullable: true })
   closedAt!: Date;
   @Column({ type: "text", nullable: true }) notes!: string;
 

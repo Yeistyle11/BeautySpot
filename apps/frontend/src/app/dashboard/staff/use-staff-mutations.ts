@@ -22,7 +22,7 @@ export async function saveMemberChanges(
   linkedPro: Professional | undefined
 ): Promise<void> {
   if (form.newPassword && form.newPassword !== form.confirmPassword) {
-    throw new Error("Las contrasenas no coinciden");
+    throw new Error("Las contraseñas no coinciden");
   }
 
   const requests: Promise<unknown>[] = [

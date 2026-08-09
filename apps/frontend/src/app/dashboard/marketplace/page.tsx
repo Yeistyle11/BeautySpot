@@ -53,7 +53,7 @@ const AddImageDialog = dynamic(
 const TAB_LABELS: Record<string, string> = {
   overview: "Resumen",
   profile: "Perfil",
-  gallery: "Galeria",
+  gallery: "Galería",
   sections: "Secciones",
   reviews: "Reseñas",
 };
@@ -243,7 +243,7 @@ export default function MarketplacePage() {
             <Megaphone className="mx-auto h-12 w-12 opacity-20" />
             <p className="mt-2 font-medium">Perfil no disponible</p>
             <p className="text-muted-foreground text-sm">
-              Primero configura tu negocio en la seccion de Configuracion para
+              Primero configura tu negocio en la seccion de Configuración para
               activar tu perfil en el marketplace.
             </p>
           </CardContent>

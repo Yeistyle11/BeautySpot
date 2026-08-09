@@ -7,19 +7,21 @@ import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, Scissors, Star, Plus } from "lucide-react";
+import { Calendar, Clock, Scissors, Star, Plus, Store } from "lucide-react";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
-import { useApi, paginatedSchema } from "@/lib/swr";
+import { useApi, useApiPublic, paginatedSchema } from "@/lib/swr";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { FilterChip } from "@/components/ui/filter-chip";
 import Link from "next/link";
 
 import {
   appointmentSchema,
+  negocioPublicoSchema,
   reviewSchema,
   MY_APPOINTMENTS_KEY,
   type Appointment,
+  type NegocioPublico,
   type Review,
 } from "@/lib/schemas/appointment";
 
@@ -27,7 +29,7 @@ type TabKey = "all" | "upcoming" | "completed" | "cancelled";
 
 const tabs: { key: TabKey; label: string }[] = [
   { key: "all", label: "Todas" },
-  { key: "upcoming", label: "Proximas" },
+  { key: "upcoming", label: "Próximas" },
   { key: "completed", label: "Completadas" },
   { key: "cancelled", label: "Canceladas" },
 ];
@@ -70,6 +72,22 @@ export default function AppointmentsPage() {
     z.array(reviewSchema)
   );
   const [activeTab, setActiveTab] = useState<TabKey>("all");
+
+  // La cita solo guarda el id del negocio; el nombre se resuelve contra el
+  // listado publico, el mismo que alimenta el buscador del marketplace.
+  const { data: negocios } = useApiPublic<NegocioPublico[]>(
+    "/core/public/businesses",
+    undefined,
+    z.array(negocioPublicoSchema)
+  );
+
+  const nombreDelNegocio = useMemo(() => {
+    const nombres: Record<string, string> = {};
+    (negocios ?? []).forEach((n) => {
+      nombres[n.id] = n.name;
+    });
+    return nombres;
+  }, [negocios]);
 
   const reviewedIds = useMemo(
     () => new Set((reviews ?? []).map((r) => r.appointmentId)),
@@ -134,7 +152,7 @@ export default function AppointmentsPage() {
           <CardContent className="p-8 text-center">
             <Calendar className="text-muted-foreground mx-auto h-12 w-12 opacity-20" />
             <p className="text-muted-foreground mt-2">
-              No tienes citas en esta categoria
+              No tienes citas en esta categoría
             </p>
             <Link href="/marketplace">
               <Button variant="outline" className="mt-4">
@@ -178,6 +196,12 @@ export default function AppointmentsPage() {
                             .map((s) => s.serviceName)
                             .join(", ")}
                         </p>
+                        {nombreDelNegocio[appt.businessId] && (
+                          <p className="text-muted-foreground mt-0.5 flex items-center gap-1 text-sm">
+                            <Store className="h-3 w-3" />
+                            {nombreDelNegocio[appt.businessId]}
+                          </p>
+                        )}
                         <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-3 text-sm">
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />

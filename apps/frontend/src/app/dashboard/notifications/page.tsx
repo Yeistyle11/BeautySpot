@@ -90,7 +90,7 @@ export default function NotificationsPage() {
           <EmptyState
             icon={Bell}
             titulo="No hay notificaciones"
-            descripcion="Aqui apareceran los avisos de tus citas y pagos."
+            descripcion="Aquí aparecerán los avisos de tus citas y pagos."
           />
         ) : (
           list.map((n) => (

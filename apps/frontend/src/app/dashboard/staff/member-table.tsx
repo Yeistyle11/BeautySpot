@@ -38,7 +38,7 @@ const COLUMNS: {
 }[] = [
   { label: "Nombre", field: "name" },
   { label: "Email", field: "email" },
-  { label: "Telefono", hiddenOnMobile: true },
+  { label: "Teléfono", hiddenOnMobile: true },
   { label: "Rol", field: "role" },
   { label: "Estado", field: "active" },
 ];
@@ -46,7 +46,7 @@ const COLUMNS: {
 function exportMembers(members: StaffMember[], filename: string) {
   downloadCsv(
     filename,
-    ["Nombre", "Email", "Telefono", "Rol", "Estado", "Fecha registro"],
+    ["Nombre", "Email", "Teléfono", "Rol", "Estado", "Fecha registro"],
     members.map((s) => [
       s.name,
       s.email,

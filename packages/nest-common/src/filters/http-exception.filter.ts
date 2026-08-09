@@ -27,6 +27,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
+    // Quien ya respondió (el proxy del gateway al propagar un cuerpo del
+    // backend) no puede recibir un segundo cuerpo: escribirlo revienta con
+    // ERR_HTTP_HEADERS_SENT y tapa el error original en el log.
+    if (response.headersSent) {
+      this.logger.error(
+        exception instanceof Error ? exception.stack : String(exception)
+      );
+      return;
+    }
+
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = "Error interno del servidor";
     let code = "INTERNAL_ERROR";

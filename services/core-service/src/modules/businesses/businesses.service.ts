@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { OutboxService } from "@beautyspot/nest-common";
+import { OutboxService, InternalHttpClient } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { In, Repository, DataSource } from "typeorm";
 import { Business } from "../../entities/business.entity";
@@ -38,7 +38,8 @@ export class BusinessesService {
     @InjectRepository(Professional)
     private readonly professionalRepo: Repository<Professional>,
     private readonly dataSource: DataSource,
-    private readonly outbox: OutboxService
+    private readonly outbox: OutboxService,
+    private readonly http: InternalHttpClient
   ) {}
 
   /** Crea un negocio generando un slug único a partir del nombre. */
@@ -69,6 +70,40 @@ export class BusinessesService {
 
       return creado;
     });
+  }
+
+  /**
+   * Alta de negocio por parte de quien lo va a regentar: crea el negocio y lo
+   * deja con su membresía de OWNER.
+   *
+   * La membresía vive en auth-service, así que se pide por HTTP interno en vez
+   * de por evento: sin ella el usuario no tendría negocio en su token y no
+   * podría entrar al panel que acaba de crear.
+   */
+  async createWithOwner(
+    data: Partial<Business>,
+    ownerId: string
+  ): Promise<Business> {
+    const creado = await this.create(data, ownerId);
+
+    try {
+      await this.http.enviar("auth", "/internal/memberships", {
+        userId: ownerId,
+        businessId: creado.id,
+        role: Role.OWNER,
+      });
+    } catch (error) {
+      // Sin membresía el negocio queda huérfano y el usuario atascado, así que
+      // se deshace en vez de dejar un alta a medias.
+      await this.repo.delete({ id: creado.id });
+      this.logger.error(
+        `No se pudo crear la membresía OWNER del negocio ${creado.id}`,
+        error instanceof Error ? error.stack : undefined
+      );
+      throw error;
+    }
+
+    return creado;
   }
 
   /**

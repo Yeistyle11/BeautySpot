@@ -23,10 +23,17 @@ interface PaymentCardProps {
   payment: Payment;
   canEdit: boolean;
   onEdit: (payment: Payment) => void;
+  /** Nombre del cliente; el pago solo guarda su id. */
+  clientName?: string;
 }
 
 /** Fila del historial de pagos. */
-export function PaymentCard({ payment, canEdit, onEdit }: PaymentCardProps) {
+export function PaymentCard({
+  payment,
+  canEdit,
+  onEdit,
+  clientName,
+}: PaymentCardProps) {
   const Icon = METHOD_ICONS[payment.method] || DollarSign;
   const amount = formatCurrency(payment.amount);
 
@@ -39,12 +46,22 @@ export function PaymentCard({ payment, canEdit, onEdit }: PaymentCardProps) {
               <Icon className="text-success h-5 w-5" />
             </div>
             <div>
-              <p className="font-semibold">{amount}</p>
+              <p className="font-semibold">
+                {amount}
+                {clientName && (
+                  <span className="text-muted-foreground font-normal">
+                    {" "}
+                    · {clientName}
+                  </span>
+                )}
+              </p>
               <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
                 <span>{formatDateTimeStamp(payment.createdAt)}</span>
+                {/* El cobro viene de una cita; su identificador no aporta
+                    nada en el listado. */}
                 {payment.appointmentId && (
                   <span className="bg-muted rounded px-1.5 py-0.5 text-xs">
-                    Cita: {payment.appointmentId.slice(0, 8)}...
+                    Con cita
                   </span>
                 )}
                 {payment.reference && (

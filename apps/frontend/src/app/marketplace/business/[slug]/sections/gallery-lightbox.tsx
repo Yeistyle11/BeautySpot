@@ -63,7 +63,7 @@ export function GalleryLightbox({
           aria-describedby={undefined}
         >
           <DialogPrimitive.Title className="sr-only">
-            Galeria de fotos
+            Galería de fotos
           </DialogPrimitive.Title>
 
           {total > 1 && (
@@ -98,7 +98,7 @@ export function GalleryLightbox({
           )}
 
           <DialogPrimitive.Close
-            aria-label="Cerrar galeria"
+            aria-label="Cerrar galería"
             className="focus-visible:ring-ring absolute right-4 top-4 rounded-full p-2 text-white/70 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2"
           >
             <X className="h-6 w-6" />

@@ -54,18 +54,18 @@ export function toServicePayload(
   categorias: ServiceCategory[],
   incluirActivo = false
 ) {
+  // La categoria es la entidad que se elige en el desplegable; `category`
+  // guarda su nombre, que es lo que lee el escaparate publico.
   const nombreCategoria = form.categoryId
-    ? categorias.find((c) => c.id === form.categoryId)?.name ||
-      form.category ||
-      undefined
-    : form.category || undefined;
+    ? categorias.find((c) => c.id === form.categoryId)?.name
+    : undefined;
 
   return {
     name: form.name,
     description: form.description || undefined,
     price: Number(form.price),
     duration: Number(form.duration),
-    category: nombreCategoria,
+    category: nombreCategoria ?? "",
     categoryId: form.categoryId || undefined,
     ...(incluirActivo ? { active: form.active } : {}),
   };

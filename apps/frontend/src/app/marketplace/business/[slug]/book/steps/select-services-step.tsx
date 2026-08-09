@@ -64,7 +64,7 @@ export function SelectServicesStep({
               <span className="font-semibold">
                 {formatCurrency(totalAmount)}
               </span>{" "}
-              · Duracion: {totalDuration} min
+              · Duración: {totalDuration} min
             </p>
           </div>
         )}

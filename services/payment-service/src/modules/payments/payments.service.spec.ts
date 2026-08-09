@@ -4,7 +4,11 @@ import { Repository, DataSource } from "typeorm";
 import { PaymentsService } from "./payments.service";
 import { PaymentEntity } from "./payment.entity";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
-import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
+import {
+  PaymentMethod,
+  PaymentStatus,
+  CashMovementType,
+} from "@beautyspot/shared-types";
 import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 
@@ -50,6 +54,10 @@ describe("PaymentsService", () => {
     mockManagerRepo = {
       save: jest.fn(),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
+      // El efectivo se anota en la caja abierta, así que la transacción también
+      // consulta y crea sobre las entidades de arqueo.
+      findOne: jest.fn().mockResolvedValue({ id: "cash-session-1" }),
+      create: jest.fn((data) => data),
     };
     mockManager = {
       getRepository: jest.fn().mockReturnValue(mockManagerRepo),
@@ -115,6 +123,61 @@ describe("PaymentsService", () => {
         })
       );
       expect(result).toEqual(mockPayment);
+    });
+
+    it("anota el efectivo como entrada en la caja abierta", async () => {
+      const data = {
+        clientId: "client-123",
+        amount: 100,
+        method: PaymentMethod.CASH,
+        registeredBy: "user-123",
+      };
+
+      mockRepo.create.mockReturnValue(mockPayment);
+      mockManagerRepo.save.mockResolvedValue(mockPayment);
+
+      await service.create("business-123", data);
+
+      expect(mockManagerRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cashSessionId: "cash-session-1",
+          type: CashMovementType.IN,
+          amount: Number(mockPayment.amount),
+        })
+      );
+    });
+
+    it("rechaza el efectivo si no hay caja abierta, para que el arqueo cuadre", async () => {
+      const data = {
+        clientId: "client-123",
+        amount: 100,
+        method: PaymentMethod.CASH,
+        registeredBy: "user-123",
+      };
+
+      mockRepo.create.mockReturnValue(mockPayment);
+      mockManagerRepo.save.mockResolvedValue(mockPayment);
+      mockManagerRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.create("business-123", data)).rejects.toThrow(
+        "No hay una caja abierta: abre la caja antes de registrar un pago en efectivo"
+      );
+    });
+
+    it("no toca la caja cuando el pago no es en efectivo", async () => {
+      const data = {
+        clientId: "client-123",
+        amount: 100,
+        method: PaymentMethod.CARD,
+        registeredBy: "user-123",
+      };
+
+      mockRepo.create.mockReturnValue(mockPayment);
+      mockManagerRepo.save.mockResolvedValue(mockPayment);
+      mockManagerRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.create("business-123", data)).resolves.toBeDefined();
+      expect(mockManagerRepo.create).not.toHaveBeenCalled();
     });
 
     it("debería propagar errores de la transacción", async () => {

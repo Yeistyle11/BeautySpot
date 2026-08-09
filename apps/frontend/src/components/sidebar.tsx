@@ -22,6 +22,7 @@ import {
   Wallet,
   Tag,
   LayoutGrid,
+  Store,
   Menu,
   X,
 } from "lucide-react";
@@ -42,6 +43,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Megaphone,
   Bell,
   Settings,
+  Store,
 };
 
 /**
@@ -110,7 +112,7 @@ export function Sidebar() {
           <div className="flex-1">
             <p className="text-sm font-bold">BeautySpot</p>
             <p className="text-muted-foreground text-[10px]">
-              Panel de gestion
+              Panel de gestión
             </p>
           </div>
           <button
@@ -165,7 +167,7 @@ export function Sidebar() {
             <button
               onClick={handleLogout}
               className="text-muted-foreground hover:text-destructive transition-colors"
-              aria-label="Cerrar sesion"
+              aria-label="Cerrar sesión"
             >
               <LogOut className="h-4 w-4" />
             </button>

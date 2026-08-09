@@ -14,11 +14,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   // Las paginas publicas definen su propio titulo; el resto hereda el default.
   title: {
-    default: "BeautySpot - Panel de Gestion",
+    default: "BeautySpot - Panel de Gestión",
     template: "%s",
   },
   description:
-    "Plataforma de gestion para centro de bellezas y salones de belleza",
+    "Plataforma de gestión para barberías, salones de belleza, spas y centros estéticos",
 };
 
 export default function RootLayout({

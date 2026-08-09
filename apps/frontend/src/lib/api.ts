@@ -85,12 +85,16 @@ async function request<T>(
       }
       onUnauthorized?.();
     }
-    const error = data.error as { message?: string } | undefined;
+    const error = data.error as
+      | { message?: string; details?: { validation?: string[] } }
+      | undefined;
+    const detalles = error?.details?.validation;
     throw new ApiError(
       res.status,
       error?.message ||
         (data.message as string | undefined) ||
-        `Error en la solicitud (${res.status})`
+        `Error en la solicitud (${res.status})`,
+      Array.isArray(detalles) ? detalles : []
     );
   }
   return (data.success !== undefined ? data.data : data) as T;

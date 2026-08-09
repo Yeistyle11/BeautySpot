@@ -103,7 +103,7 @@ export function SelectSlotStep({
 
         <div className="flex gap-2">
           <Button variant="outline" onClick={onBack} className="flex-1">
-            Atras
+            Atrás
           </Button>
           <Button
             disabled={!date || !startTime}

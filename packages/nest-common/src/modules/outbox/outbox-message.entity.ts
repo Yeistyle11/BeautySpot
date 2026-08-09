@@ -49,10 +49,10 @@ export class OutboxMessageEntity {
   @Column({ type: "text", name: "last_error", nullable: true })
   lastError!: string | null;
 
-  @CreateDateColumn({ name: "created_at" })
+  @CreateDateColumn({ type: "timestamptz", name: "created_at" })
   createdAt!: Date;
 
-  @Column({ type: "timestamp", name: "processed_at", nullable: true })
+  @Column({ type: "timestamptz", name: "processed_at", nullable: true })
   processedAt!: Date | null;
 
   @BeforeInsert()

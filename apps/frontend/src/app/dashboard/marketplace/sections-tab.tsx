@@ -52,11 +52,11 @@ function SectionRow({
       <span className="flex-1 text-sm font-medium">{label}</span>
       <Input
         id={titleId}
-        placeholder="Titulo personalizado (opcional)"
+        placeholder="Título personalizado (opcional)"
         value={section.customTitle || ""}
         onChange={(e) => onRename(e.target.value)}
         className="h-8 max-w-48 text-sm"
-        aria-label={`Titulo personalizado de ${label}`}
+        aria-label={`Título personalizado de ${label}`}
       />
     </div>
   );

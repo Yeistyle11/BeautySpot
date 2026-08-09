@@ -216,6 +216,25 @@ export class ReviewsService {
   }
 
   /**
+   * Reseñas escritas por el usuario autenticado. `clientId` guarda el id de
+   * usuario del token, el mismo que recibe `create`.
+   */
+  async findByClientUser(userId: string): Promise<ReviewEntity[]> {
+    return this.repo.find({
+      where: { clientId: userId },
+      order: { createdAt: "DESC" },
+    });
+  }
+
+  /** Reseñas asociadas a una cita; el listado del cliente comprueba si ya opinó. */
+  async findByAppointment(appointmentId: string): Promise<ReviewEntity[]> {
+    return this.repo.find({
+      where: { appointmentId },
+      order: { createdAt: "DESC" },
+    });
+  }
+
+  /**
    * Registra la respuesta del negocio a una reseña suya; rechaza si ya tiene
    * una.
    */

@@ -68,9 +68,9 @@ export const SECTION_TYPES = [
   { id: "story", label: "Nuestra Historia" },
   { id: "services", label: "Servicios" },
   { id: "team", label: "Equipo" },
-  { id: "gallery", label: "Galeria" },
+  { id: "gallery", label: "Galería" },
   { id: "reviews", label: "Reseñas" },
-  { id: "location", label: "Ubicacion" },
+  { id: "location", label: "Ubicación" },
 ];
 
 export const defaultSections: SectionItem[] = SECTION_TYPES.map((s, i) => ({

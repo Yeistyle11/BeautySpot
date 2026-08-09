@@ -6,9 +6,15 @@ import {
   Param,
   Body,
   Query,
+  NotFoundException,
 } from "@nestjs/common";
 import { ClientsService } from "./clients.service";
-import { Roles, BusinessId } from "@beautyspot/nest-common";
+import {
+  Roles,
+  BusinessId,
+  CurrentUser,
+  SkipBusinessScope,
+} from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import { CreateClientDto, UpdateClientDto } from "./dto/client.dto";
@@ -35,6 +41,33 @@ export class ClientsController {
   ) {
     const pagination = parsePaginationQuery(query, ["name", "createdAt"]);
     return this.service.findByBusiness(businessId, search, pagination);
+  }
+
+  /** Ficha del cliente autenticado; `null` si aún no tiene ninguna. */
+  @Roles(Role.CLIENT)
+  @SkipBusinessScope()
+  @Get("me")
+  async findMine(@CurrentUser("userId") userId: string) {
+    return this.service.findMineByUser(userId);
+  }
+
+  /**
+   * Actualiza los datos personales del cliente autenticado. Devuelve 404 si
+   * reservó como invitado y no tiene ficha, para que el llamador recurra a su
+   * usuario de auth-service.
+   */
+  @Roles(Role.CLIENT)
+  @SkipBusinessScope()
+  @Patch("me")
+  async updateMine(
+    @CurrentUser("userId") userId: string,
+    @Body() dto: UpdateClientDto
+  ) {
+    const actualizado = await this.service.updateMineByUser(userId, dto);
+    if (!actualizado) {
+      throw new NotFoundException("El usuario no tiene ficha de cliente");
+    }
+    return actualizado;
   }
 
   /** Obtiene un cliente por id. */

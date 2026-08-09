@@ -8,6 +8,7 @@ import {
   AppointmentCancelledEvent,
   AppointmentNoShowedEvent,
   PaymentRegisteredEvent,
+  ClientCreatedEvent,
   ReviewCreatedEvent,
   EventNames,
   IBaseEvent,
@@ -17,14 +18,15 @@ import {
 } from "@beautyspot/event-types";
 import { ProcessedEventsStore } from "@beautyspot/nest-common";
 import { MetricsService } from "../metrics/metrics.service";
-
-/** Fecha de hoy en UTC en formato YYYY-MM-DD, usada como clave de las métricas diarias. */
-function todayUtc(): string {
-  return new Date().toISOString().split("T")[0];
-}
+import { fechaDeHoy } from "../../common/fecha";
 
 /**
  * Acumula las métricas diarias y por profesional a partir de los eventos de dominio.
+ *
+ * Las métricas de una cita se anotan en **la fecha de la cita**, no en la del
+ * evento: son las cifras que el dueño compara con su agenda, así que una cita
+ * creada hoy para la semana que viene no puede contar como cita de hoy.
+ * Los ingresos son la excepción — el dinero entra el día en que se cobra.
  *
  * Cada handler se ejecuta a través de {@link ProcessedEventsStore}, que descarta
  * los eventos ya aplicados. Es imprescindible aquí y no un adorno: las métricas
@@ -41,7 +43,12 @@ export class AnalyticsEventListeners {
     private readonly processedEvents: ProcessedEventsStore
   ) {}
 
-  /** Cuenta la cita creada y suma su importe a los ingresos del día. */
+  /**
+   * Cuenta la cita en su fecha, para el negocio y para el profesional.
+   *
+   * No toca los ingresos: el importe de una cita es una previsión, y el dinero
+   * lo anota el pago.
+   */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
     routingKey: EventNames.BOOKING_APPOINTMENT_CREATED,
@@ -52,18 +59,30 @@ export class AnalyticsEventListeners {
     event: AppointmentCreatedEvent
   ): Promise<void> {
     this.logger.log(`Cita creada: ${event.payload.appointmentId}`);
-    const { businessId, totalAmount } = event.payload;
-    await this.aplicar(event, "cita creada", (manager) =>
-      this.metricsService.incrementDailyMetric(
+    const { businessId, professionalId, date } = event.payload;
+
+    await this.aplicar(event, "cita creada", async (manager) => {
+      await this.metricsService.incrementDailyMetric(
         businessId,
-        todayUtc(),
-        { totalAppointments: 1, totalRevenue: totalAmount },
+        date,
+        { totalAppointments: 1 },
         manager
-      )
-    );
+      );
+      await this.metricsService.incrementProfessionalMetric(
+        businessId,
+        professionalId,
+        date,
+        { appointments: 1 },
+        manager
+      );
+    });
   }
 
-  /** Suma la cita confirmada a las métricas del profesional. */
+  /**
+   * La confirmación no mueve ninguna métrica: la cita ya se contó al crearse y
+   * el ingreso se anota cuando se cobra. Se sigue escuchando para dejar
+   * constancia del cambio de estado en el log.
+   */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
     routingKey: EventNames.BOOKING_APPOINTMENT_CONFIRMED,
@@ -74,19 +93,12 @@ export class AnalyticsEventListeners {
     event: AppointmentConfirmedEvent
   ): Promise<void> {
     this.logger.log(`Cita confirmada: ${event.payload.appointmentId}`);
-    const { businessId, professionalId, totalAmount } = event.payload;
-    await this.aplicar(event, "cita confirmada", (manager) =>
-      this.metricsService.incrementProfessionalMetric(
-        businessId,
-        professionalId,
-        todayUtc(),
-        { appointments: 1, revenue: totalAmount },
-        manager
-      )
-    );
   }
 
-  /** Cuenta la cita completada en el día y en las métricas del profesional. */
+  /**
+   * Cuenta la cita completada en su fecha y anota el ingreso al profesional,
+   * que es lo que ordena el ranking.
+   */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
     routingKey: EventNames.BOOKING_APPOINTMENT_COMPLETED,
@@ -97,8 +109,7 @@ export class AnalyticsEventListeners {
     event: AppointmentCompletedEvent
   ): Promise<void> {
     this.logger.log(`Cita completada: ${event.payload.appointmentId}`);
-    const { businessId, professionalId, totalAmount } = event.payload;
-    const date = todayUtc();
+    const { businessId, professionalId, totalAmount, date } = event.payload;
 
     await this.aplicar(event, "cita completada", async (manager) => {
       await this.metricsService.incrementDailyMetric(
@@ -111,7 +122,7 @@ export class AnalyticsEventListeners {
         businessId,
         professionalId,
         date,
-        { appointments: 1, revenue: totalAmount },
+        { revenue: totalAmount },
         manager
       );
     });
@@ -128,24 +139,16 @@ export class AnalyticsEventListeners {
     event: AppointmentCancelledEvent
   ): Promise<void> {
     this.logger.log(`Cita cancelada: ${event.payload.appointmentId}`);
-    const { businessId, professionalId } = event.payload;
-    const date = todayUtc();
+    const { businessId, date } = event.payload;
 
-    await this.aplicar(event, "cita cancelada", async (manager) => {
-      await this.metricsService.incrementDailyMetric(
+    await this.aplicar(event, "cita cancelada", (manager) =>
+      this.metricsService.incrementDailyMetric(
         businessId,
         date,
         { cancelledAppointments: 1 },
         manager
-      );
-      await this.metricsService.incrementProfessionalMetric(
-        businessId,
-        professionalId,
-        date,
-        { appointments: 1 },
-        manager
-      );
-    });
+      )
+    );
   }
 
   /** Cuenta el no-show en el día y en las métricas del profesional. */
@@ -159,27 +162,39 @@ export class AnalyticsEventListeners {
     event: AppointmentNoShowedEvent
   ): Promise<void> {
     this.logger.log(`No-show: ${event.payload.appointmentId}`);
-    const { businessId, professionalId } = event.payload;
-    const date = todayUtc();
+    const { businessId, date } = event.payload;
 
-    await this.aplicar(event, "no-show", async (manager) => {
-      await this.metricsService.incrementDailyMetric(
+    await this.aplicar(event, "no-show", (manager) =>
+      this.metricsService.incrementDailyMetric(
         businessId,
         date,
         { noShowAppointments: 1 },
         manager
-      );
-      await this.metricsService.incrementProfessionalMetric(
-        businessId,
-        professionalId,
-        date,
-        { appointments: 1 },
-        manager
-      );
-    });
+      )
+    );
   }
 
-  /** Suma el importe del pago a los ingresos del día. */
+  /** Cuenta el alta de cliente como cliente nuevo del día. */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.CORE_CLIENT_CREATED,
+    queue: nombreDeCola("analytics", EventNames.CORE_CLIENT_CREATED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleClientCreated(event: ClientCreatedEvent): Promise<void> {
+    this.logger.log(`Cliente creado: ${event.payload.clientId}`);
+    const { businessId } = event.payload;
+    await this.aplicar(event, "cliente nuevo", (manager) =>
+      this.metricsService.incrementDailyMetric(
+        businessId,
+        fechaDeHoy(),
+        { newClients: 1 },
+        manager
+      )
+    );
+  }
+
+  /** Suma el importe del pago a los ingresos del día en que se cobra. */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
     routingKey: EventNames.PAYMENT_PAYMENT_REGISTERED,
@@ -192,7 +207,7 @@ export class AnalyticsEventListeners {
     await this.aplicar(event, "pago", (manager) =>
       this.metricsService.incrementDailyMetric(
         businessId,
-        todayUtc(),
+        fechaDeHoy(),
         { totalRevenue: amount },
         manager
       )
@@ -219,7 +234,7 @@ export class AnalyticsEventListeners {
       this.metricsService.setProfessionalRating(
         businessId,
         professionalId,
-        todayUtc(),
+        fechaDeHoy(),
         rating,
         manager
       )

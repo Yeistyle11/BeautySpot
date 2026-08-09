@@ -108,6 +108,16 @@ export default function AppointmentsPage() {
   const [payment, setPayment] = useState<PaymentDraft>(emptyPaymentDraft);
   const [completingAction, setCompletingAction] = useState(false);
 
+  // Las citas solo traen el id del cliente —vive en otro servicio—, asi que el
+  // nombre se cruza contra la lista que la pagina carga para el formulario.
+  const clientMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    clients.forEach((c) => {
+      map[c.id] = c.name;
+    });
+    return map;
+  }, [clients]);
+
   const professionalMap = useMemo(() => {
     const map: Record<string, string> = {};
     (professionals ?? []).forEach((p) => {
@@ -157,6 +167,10 @@ export default function AppointmentsPage() {
     (id: string) => handleAction(id, "cancel"),
     [handleAction]
   );
+  const handleNoShow = useCallback(
+    (id: string) => handleAction(id, "no-show"),
+    [handleAction]
+  );
 
   const openCompleteDialog = useCallback((appt: Appointment) => {
     setCompletingAppt(appt);
@@ -167,6 +181,20 @@ export default function AppointmentsPage() {
     if (!completingAppt) return;
     setCompletingAction(true);
     try {
+      // El efectivo necesita una caja abierta donde anotarse. Se comprueba
+      // antes de completar para no dejar la cita cerrada y el cobro sin hacer.
+      if (registerPayment && payment.method === "CASH") {
+        const caja = await api.get<{ id: string } | null>(
+          "/payment/cash-register/active"
+        );
+        if (!caja) {
+          toast.error(
+            "No hay una caja abierta: abre la caja antes de cobrar en efectivo"
+          );
+          return;
+        }
+      }
+
       await api.post(`/booking/appointments/${completingAppt.id}/complete`, {});
 
       if (registerPayment) {
@@ -301,7 +329,7 @@ export default function AppointmentsPage() {
             id="appointment-search-hint"
             className="text-muted-foreground mt-1.5 text-xs"
           >
-            Filtra las citas de esta pagina.
+            Filtra las citas de esta página.
           </p>
         </div>
       )}
@@ -317,10 +345,12 @@ export default function AppointmentsPage() {
               <CalendarView
                 appointments={appointments}
                 onComplete={openCompleteDialog}
-                onConfirm={(id) => handleAction(id, "confirm")}
-                onCancel={(id) => handleAction(id, "cancel")}
+                onConfirm={handleConfirm}
+                onCancel={handleCancel}
+                onNoShow={handleNoShow}
                 canConfirm={canDo(role, "appointments_confirm")}
                 canCancel={canDo(role, "appointments_cancel")}
+                clientNames={clientMap}
               />
             )}
           </CardContent>
@@ -355,11 +385,13 @@ export default function AppointmentsPage() {
                   professionalMap[appt.professionalId] ||
                   appt.professionalId.slice(0, 8)
                 }
+                clientName={clientMap[appt.clientId]}
                 canConfirm={canDo(role, "appointments_confirm")}
                 canCancel={canDo(role, "appointments_cancel")}
                 onConfirm={handleConfirm}
                 onComplete={openCompleteDialog}
                 onCancel={handleCancel}
+                onNoShow={handleNoShow}
               />
             ))
           )}

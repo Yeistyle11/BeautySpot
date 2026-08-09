@@ -41,9 +41,9 @@ export class Appointment extends AuditableEntity {
   })
   totalAmount!: number;
 
-  @Column({ type: "timestamp", name: "reminder_24h_sent_at", nullable: true })
+  @Column({ type: "timestamptz", name: "reminder_24h_sent_at", nullable: true })
   reminder24hSentAt!: Date | null;
-  @Column({ type: "timestamp", name: "reminder_1h_sent_at", nullable: true })
+  @Column({ type: "timestamptz", name: "reminder_1h_sent_at", nullable: true })
   reminder1hSentAt!: Date | null;
 
   @OneToMany(() => AppointmentServiceEntity, (as) => as.appointment)

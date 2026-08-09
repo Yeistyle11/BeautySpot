@@ -67,7 +67,7 @@ export function ProfileTab({
     <Card className="border-0 shadow-sm">
       <CardHeader>
         <CardTitle className="text-lg">
-          Configuracion del perfil inmersivo
+          Configuración del perfil inmersivo
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -85,7 +85,7 @@ export function ProfileTab({
 
         <div className="space-y-4 border-t pt-4">
           <h4 className="font-medium">Nuestra Historia</h4>
-          <Field label="Titulo">
+          <Field label="Título">
             <Input
               placeholder="Como empezamos..."
               value={form.storyTitle}
@@ -178,7 +178,7 @@ export function ProfileTab({
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            Guardar configuracion
+            Guardar configuración
           </Button>
         )}
       </CardContent>

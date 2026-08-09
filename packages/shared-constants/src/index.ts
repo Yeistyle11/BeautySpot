@@ -25,3 +25,16 @@ export const IVA = 0.19;
 
 /** Validez (segundos) de las URLs prefirmadas de subida y descarga de imágenes. */
 export const URL_PREFIRMADA_SEGUNDOS = 3600;
+
+// ─── Validación de datos de contacto ───────────────────────────────
+
+/**
+ * Teléfono aceptado: entre 7 y 20 dígitos, con el prefijo internacional y los
+ * separadores habituales opcionales. Es deliberadamente permisiva —los formatos
+ * varían por país— pero descarta el texto libre.
+ */
+export const PATRON_TELEFONO = /^\+?[\d][\d\s().-]{5,19}$/;
+
+/** Mensaje único para el teléfono, para que todos los formularios digan lo mismo. */
+export const MENSAJE_TELEFONO =
+  "El teléfono debe tener entre 7 y 20 dígitos, con prefijo internacional opcional";

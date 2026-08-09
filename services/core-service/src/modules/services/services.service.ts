@@ -24,10 +24,20 @@ export class ServicesService extends TenantCrudService<Service> {
     await this.categories.findById(categoryId, businessId);
   }
 
-  /** Crea un servicio en el catálogo del negocio. */
+  /**
+   * Crea un servicio en el catálogo del negocio.
+   *
+   * La descripción y la categoría son opcionales para quien da de alta, pero
+   * sus columnas no admiten nulo: lo que no se rellena se guarda vacío.
+   */
   async create(businessId: string, data: Partial<Service>): Promise<Service> {
     await this.validarCategoria(data.categoryId, businessId);
-    const service = this.repo.create({ ...data, businessId });
+    const service = this.repo.create({
+      ...data,
+      description: data.description ?? "",
+      category: data.category ?? "",
+      businessId,
+    });
     return this.repo.save(service);
   }
 

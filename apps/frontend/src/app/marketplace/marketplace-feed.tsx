@@ -1,7 +1,7 @@
 "use client";
 
 // Feed del marketplace: buscador y rejilla de negocios publicos.
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { imageUnoptimized } from "@/lib/image";
@@ -75,6 +75,22 @@ export default function MarketplaceFeed({
 
   const isSearching = busquedaDiferida !== "" || activeCategory !== null;
 
+  // Los contadores del feed cuentan todo el catalogo, asi que con una busqueda
+  // activa se recalculan sobre lo encontrado. Solo si han llegado todos los
+  // resultados: sobre una lista recortada el numero seria falso.
+  const conteosVisibles = useMemo(() => {
+    if (!busquedaDiferida || !searchResults) return null;
+    if (searchResults.items.length < searchResults.total) return null;
+
+    const conteos: Record<string, number> = {};
+    searchResults.items.forEach((p) => {
+      if (p.businessType) {
+        conteos[p.businessType] = (conteos[p.businessType] ?? 0) + 1;
+      }
+    });
+    return conteos;
+  }, [busquedaDiferida, searchResults]);
+
   return (
     <div className="from-background to-muted/30 min-h-screen bg-gradient-to-b">
       <div className="from-primary/10 via-background to-primary/5 relative overflow-hidden bg-gradient-to-br">
@@ -82,7 +98,7 @@ export default function MarketplaceFeed({
           <div className="text-center">
             <div className="bg-primary/10 text-primary mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium">
               <Sparkles className="h-4 w-4" />
-              Descubre tu proximo lugar favorito
+              Descubre tu próximo lugar favorito
             </div>
             <h1 className="text-5xl font-bold tracking-tight">
               Beauty<span className="text-primary">Spot</span>
@@ -135,7 +151,16 @@ export default function MarketplaceFeed({
                 >
                   {CATEGORY_ICONS[cat.icon]}
                   {cat.name}
-                  <span className="text-xs opacity-70">({cat.count})</span>
+                  {(() => {
+                    const cuenta = conteosVisibles
+                      ? (conteosVisibles[cat.id] ?? 0)
+                      : busquedaDiferida
+                        ? null
+                        : cat.count;
+                    return cuenta === null ? null : (
+                      <span className="text-xs opacity-70">({cuenta})</span>
+                    );
+                  })()}
                 </button>
               ))}
             </div>

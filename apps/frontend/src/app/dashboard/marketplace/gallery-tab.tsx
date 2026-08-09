@@ -31,7 +31,7 @@ export function GalleryTab({
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">
-            Galeria ({gallery.length} imagenes)
+            Galería ({gallery.length} imagenes)
           </CardTitle>
           {canEdit && (
             <Button size="sm" onClick={onAdd}>

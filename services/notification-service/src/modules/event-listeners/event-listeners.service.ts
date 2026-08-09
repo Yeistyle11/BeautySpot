@@ -3,7 +3,11 @@ import { Injectable, Logger } from "@nestjs/common";
 import { RabbitSubscribe } from "@golevelup/nestjs-rabbitmq";
 import { AmqpConnection } from "@golevelup/nestjs-rabbitmq";
 import { ConfigService } from "@nestjs/config";
-import { ProcessedEventsStore } from "@beautyspot/nest-common";
+import {
+  ProcessedEventsStore,
+  InternalHttpClient,
+} from "@beautyspot/nest-common";
+import { Role } from "@beautyspot/shared-types";
 import { EmailService } from "../emails/email.service";
 import { DataEnricherService } from "../data-enricher/data-enricher.service";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -12,7 +16,9 @@ import { ocultarCorreo } from "@beautyspot/shared-utils";
 import {
   UserRegisteredEvent,
   PasswordResetRequestedEvent,
+  AppointmentCreatedEvent,
   AppointmentConfirmedEvent,
+  AppointmentCompletedEvent,
   AppointmentCancelledEvent,
   AppointmentReminderDueEvent,
   InvoiceGeneratedEvent,
@@ -23,9 +29,13 @@ import {
   nombreDeCola,
 } from "@beautyspot/event-types";
 
+/** Quién, dentro del negocio, recibe los avisos de la agenda. */
+const ROLES_DE_GESTION: string[] = [Role.OWNER, Role.ADMIN, Role.RECEPTIONIST];
+
 /**
  * Escucha los eventos de dominio de otros servicios y, según cada uno, enriquece
- * los datos y encola el correo correspondiente (bienvenida, recordatorios, etc.).
+ * los datos, deja el aviso dentro de la aplicación y encola el correo
+ * correspondiente (bienvenida, recordatorios, etc.).
  */
 @Injectable()
 export class NotificationEventListeners {
@@ -37,7 +47,8 @@ export class NotificationEventListeners {
     private readonly configService: ConfigService,
     private readonly dataEnricher: DataEnricherService,
     private readonly processedEvents: ProcessedEventsStore,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly http: InternalHttpClient
   ) {}
 
   /** Al registrarse un usuario, encola el correo de bienvenida. */
@@ -124,6 +135,104 @@ export class NotificationEventListeners {
     }
   }
 
+  /**
+   * Al reservarse una cita, avisa dentro de la aplicación al cliente y al equipo
+   * del negocio, que es quien tiene que atenderla.
+   */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.BOOKING_APPOINTMENT_CREATED,
+    queue: nombreDeCola("notification", EventNames.BOOKING_APPOINTMENT_CREATED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleAppointmentCreated(event: AppointmentCreatedEvent) {
+    const {
+      appointmentId,
+      clientId,
+      professionalId,
+      businessId,
+      date,
+      startTime,
+    } = event.payload;
+
+    this.logger.log(`Cita creada: ${appointmentId}`);
+
+    try {
+      await this.processedEvents.once(
+        event,
+        "notification:cita nueva",
+        async () => {
+          const data = await this.dataEnricher.enrichAppointmentParticipants(
+            clientId,
+            professionalId,
+            businessId
+          );
+
+          await this.avisarEnLaApp(
+            data.clientUserId,
+            businessId,
+            NotificationType.APPOINTMENT_CREATED,
+            "Cita reservada",
+            `Tu cita en ${data.businessName} el ${date} a las ${startTime} quedó reservada.`,
+            { appointmentId }
+          );
+
+          await this.avisarAlNegocio(
+            businessId,
+            NotificationType.APPOINTMENT_CREATED,
+            "Cita nueva",
+            `${data.clientName} reservó el ${date} a las ${startTime} con ${data.professionalName}.`,
+            { appointmentId }
+          );
+        }
+      );
+    } catch (error) {
+      this.logError("cita nueva", error);
+    }
+  }
+
+  /** Al completarse una cita, avisa al cliente de que ya puede valorarla. */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.BOOKING_APPOINTMENT_COMPLETED,
+    queue: nombreDeCola(
+      "notification",
+      EventNames.BOOKING_APPOINTMENT_COMPLETED
+    ),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleAppointmentCompleted(event: AppointmentCompletedEvent) {
+    const { appointmentId, clientId, professionalId, businessId } =
+      event.payload;
+
+    this.logger.log(`Cita completada: ${appointmentId}`);
+
+    try {
+      await this.processedEvents.once(
+        event,
+        "notification:cita completada",
+        async () => {
+          const data = await this.dataEnricher.enrichAppointmentParticipants(
+            clientId,
+            professionalId,
+            businessId
+          );
+
+          await this.avisarEnLaApp(
+            data.clientUserId,
+            businessId,
+            NotificationType.APPOINTMENT_COMPLETED,
+            "Cita atendida",
+            `Gracias por tu visita a ${data.businessName}. Ya puedes dejar tu reseña.`,
+            { appointmentId }
+          );
+        }
+      );
+    } catch (error) {
+      this.logError("cita completada", error);
+    }
+  }
+
   /** Al confirmarse una cita, encola el correo de confirmación con los datos enriquecidos. */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
@@ -157,28 +266,8 @@ export class NotificationEventListeners {
             businessId
           );
 
-          const { jobId } =
-            await this.emailService.queueAppointmentConfirmation(
-              data.clientEmail,
-              {
-                clientName: data.clientName,
-                professionalName: data.professionalName,
-                serviceName: "Servicio",
-                appointmentDate: date,
-                appointmentTime: startTime,
-                businessName: data.businessName,
-                businessAddress: data.businessAddress,
-                businessPhone: data.businessPhone,
-              }
-            );
-
-          await this.emitEmailQueuedEvent(
-            jobId,
-            data.clientEmail,
-            "appointment-confirmed",
-            `Confirmación de cita en ${data.businessName}`
-          );
-
+          // Primero y aparte del correo: el aviso en la aplicación no depende
+          // de la cola, y un fallo de esta no debe arrastrarlo.
           await this.avisarEnLaApp(
             data.clientUserId,
             businessId,
@@ -187,6 +276,30 @@ export class NotificationEventListeners {
             `Tu cita en ${data.businessName} el ${date} a las ${startTime} está confirmada.`,
             { appointmentId }
           );
+
+          await this.intentarCorreo("confirmación", async () => {
+            const { jobId } =
+              await this.emailService.queueAppointmentConfirmation(
+                data.clientEmail,
+                {
+                  clientName: data.clientName,
+                  professionalName: data.professionalName,
+                  serviceName: "Servicio",
+                  appointmentDate: date,
+                  appointmentTime: startTime,
+                  businessName: data.businessName,
+                  businessAddress: data.businessAddress,
+                  businessPhone: data.businessPhone,
+                }
+              );
+
+            await this.emitEmailQueuedEvent(
+              jobId,
+              data.clientEmail,
+              "appointment-confirmed",
+              `Confirmación de cita en ${data.businessName}`
+            );
+          });
         }
       );
     } catch (error) {
@@ -194,7 +307,7 @@ export class NotificationEventListeners {
     }
   }
 
-  /** Al cancelarse una cita, encola el correo de cancelación al cliente. */
+  /** Al cancelarse una cita, avisa al cliente y al negocio, y encola el correo. */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
     routingKey: EventNames.BOOKING_APPOINTMENT_CANCELLED,
@@ -209,6 +322,7 @@ export class NotificationEventListeners {
       appointmentId,
       cancelReason,
       date,
+      startTime,
       clientId,
       professionalId,
       businessId,
@@ -229,25 +343,6 @@ export class NotificationEventListeners {
             businessId
           );
 
-          const { jobId } = await this.emailService.queueAppointmentCancelled(
-            data.clientEmail,
-            {
-              clientName: data.clientName,
-              professionalName: data.professionalName,
-              serviceName: "Servicio",
-              cancelledDate: date,
-              reason: cancelReason || "Sin motivo",
-              businessName: data.businessName,
-            }
-          );
-
-          await this.emitEmailQueuedEvent(
-            jobId,
-            data.clientEmail,
-            "appointment-cancelled",
-            `Cita cancelada - ${data.businessName}`
-          );
-
           await this.avisarEnLaApp(
             data.clientUserId,
             businessId,
@@ -256,6 +351,35 @@ export class NotificationEventListeners {
             `Tu cita en ${data.businessName} del ${date} se ha cancelado.`,
             { appointmentId, cancelReason }
           );
+
+          await this.avisarAlNegocio(
+            businessId,
+            NotificationType.APPOINTMENT_CANCELLED,
+            "Cita cancelada",
+            `${data.clientName} canceló su cita del ${date} a las ${startTime}.`,
+            { appointmentId, cancelReason }
+          );
+
+          await this.intentarCorreo("cancelación", async () => {
+            const { jobId } = await this.emailService.queueAppointmentCancelled(
+              data.clientEmail,
+              {
+                clientName: data.clientName,
+                professionalName: data.professionalName,
+                serviceName: "Servicio",
+                cancelledDate: date,
+                reason: cancelReason || "Sin motivo",
+                businessName: data.businessName,
+              }
+            );
+
+            await this.emitEmailQueuedEvent(
+              jobId,
+              data.clientEmail,
+              "appointment-cancelled",
+              `Cita cancelada - ${data.businessName}`
+            );
+          });
         }
       );
     } catch (error) {
@@ -414,31 +538,48 @@ export class NotificationEventListeners {
 
     try {
       await this.processedEvents.once(event, "notification:pago", async () => {
+        const { clientId, businessId, paymentId, amount } = event.payload;
+        const [clientEmail, businessData, clientUserId] = await Promise.all([
+          this.dataEnricher.enrichClientEmail(clientId),
+          this.dataEnricher.enrichBusinessData(businessId),
+          this.dataEnricher.enrichClientUserId(clientId),
+        ]);
+
+        await this.avisarEnLaApp(
+          clientUserId,
+          businessId,
+          NotificationType.PAYMENT_REGISTERED,
+          "Pago registrado",
+          `${businessData.businessName} registró tu pago de ${amount}.`,
+          { paymentId, amount }
+        );
+
+        // El recibo por correo solo tiene sentido en los métodos sin
+        // comprobante propio; con datáfono lo da el propio terminal.
         if (
           event.payload.method === "transfer" ||
           event.payload.method === "efectivo"
         ) {
-          const { clientId, businessId, paymentId, amount } = event.payload;
-          const [clientEmail, businessData] = await Promise.all([
-            this.dataEnricher.enrichClientEmail(clientId),
-            this.dataEnricher.enrichBusinessData(businessId),
-          ]);
+          await this.intentarCorreo("recibo", async () => {
+            const { jobId } = await this.emailService.queueInvoice(
+              clientEmail,
+              {
+                clientName: "Cliente",
+                invoiceNumber: `REC-${paymentId}`,
+                amount,
+                dueDate: new Date().toISOString().split("T")[0],
+                businessName: businessData.businessName,
+                services: [{ name: "Servicio", price: amount }],
+              }
+            );
 
-          const { jobId } = await this.emailService.queueInvoice(clientEmail, {
-            clientName: "Cliente",
-            invoiceNumber: `REC-${paymentId}`,
-            amount,
-            dueDate: new Date().toISOString().split("T")[0],
-            businessName: businessData.businessName,
-            services: [{ name: "Servicio", price: amount }],
+            await this.emitEmailQueuedEvent(
+              jobId,
+              clientEmail,
+              "invoice-generated",
+              `Recibo de pago - ${businessData.businessName}`
+            );
           });
-
-          await this.emitEmailQueuedEvent(
-            jobId,
-            clientEmail,
-            "invoice-generated",
-            `Recibo de pago - ${businessData.businessName}`
-          );
         }
       });
     } catch (error) {
@@ -515,6 +656,63 @@ export class NotificationEventListeners {
       message,
       data,
     });
+  }
+
+  /**
+   * Deja el aviso a quien atiende el negocio: dueño, administración y
+   * recepción, que son los que trabajan con la agenda. El profesional recibe
+   * los suyos por su propia membresía si la tiene.
+   */
+  private async avisarAlNegocio(
+    businessId: string,
+    type: NotificationType,
+    title: string,
+    message: string,
+    data?: Record<string, unknown>
+  ): Promise<void> {
+    const miembros = await this.equipoDelNegocio(businessId);
+    for (const userId of miembros) {
+      await this.notifications.create({
+        businessId,
+        userId,
+        type,
+        title,
+        message,
+        data,
+      });
+    }
+  }
+
+  /** Identificadores del equipo que gestiona la agenda del negocio. */
+  private async equipoDelNegocio(businessId: string): Promise<string[]> {
+    const miembros = await this.http.pedirONulo<
+      { userId: string; role: string }[]
+    >("auth", `/internal/memberships/business/${businessId}`);
+
+    return (miembros ?? [])
+      .filter((m) => ROLES_DE_GESTION.includes(m.role))
+      .map((m) => m.userId);
+  }
+
+  /**
+   * Encola el correo dejando su fallo en el log.
+   *
+   * El correo depende de la cola y del proveedor de envío; lo que ya se ha
+   * guardado —la notificación en la aplicación— no tiene por qué caer con él.
+   */
+  private async intentarCorreo(
+    contexto: string,
+    envio: () => Promise<void>
+  ): Promise<void> {
+    try {
+      await envio();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Error desconocido";
+      this.logger.error(
+        `No se pudo encolar el email de ${contexto}: ${message}`
+      );
+    }
   }
 
   /**

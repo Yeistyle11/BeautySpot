@@ -10,6 +10,22 @@ function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
 }
 
+/** Tema elegido por el usuario, o claro si aún no ha elegido. */
+export function temaGuardado(): Theme {
+  if (typeof window === "undefined") return "light";
+  return localStorage.getItem(STORAGE_KEY) === "dark" ? "dark" : "light";
+}
+
+/**
+ * Aplica el tema guardado. Vive aparte del hook porque lo llama la raíz de la
+ * aplicación, que es lo único por lo que pasan todas las páginas.
+ */
+export function aplicarTemaGuardado(): Theme {
+  const tema = temaGuardado();
+  applyTheme(tema);
+  return tema;
+}
+
 /**
  * Tema claro/oscuro: pone o quita la clase `dark` en <html>. Arranca en claro y
  * sólo pasa a oscuro si el usuario lo pide; su elección queda guardada.
@@ -19,10 +35,7 @@ export function useTheme() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    const initial: Theme = stored === "dark" ? "dark" : "light";
-    setTheme(initial);
-    applyTheme(initial);
+    setTheme(aplicarTemaGuardado());
     setMounted(true);
   }, []);
 

@@ -11,6 +11,7 @@ import {
   timeToMinutes,
   timesOverlap,
 } from "@beautyspot/shared-utils";
+import { esInstantePasado } from "../../common/hora-del-negocio";
 
 /** Franja de la agenda con su hora de inicio, de fin y si está libre. */
 export interface Franja {
@@ -122,7 +123,8 @@ export class AvailabilityQueryService {
         horarioPorProfesional.get(professionalId)!,
         bloqueosPorProfesional.get(professionalId) ?? [],
         citasPorProfesional.get(professionalId) ?? [],
-        duration
+        duration,
+        date
       )
     );
 
@@ -167,7 +169,13 @@ export class AvailabilityQueryService {
       }),
     ]);
 
-    return this.calcularFranjas(workHours, blocks, allAppointments, duration);
+    return this.calcularFranjas(
+      workHours,
+      blocks,
+      allAppointments,
+      duration,
+      date
+    );
   }
 
   /** Comprueba que la franja cae dentro del horario del profesional y no choca con un bloqueo. */
@@ -251,7 +259,8 @@ export class AvailabilityQueryService {
     workHours: Availability,
     blocks: BlockedSlot[],
     appointments: Appointment[],
-    duration: number
+    duration: number,
+    date: string
   ): Franja[] {
     const slots = getTimeSlots(
       workHours.startTime,
@@ -264,6 +273,10 @@ export class AvailabilityQueryService {
       const slotEnd = calculateEndTime(slotStart, duration);
 
       if (timeToMinutes(slotEnd) > workEndNum) {
+        return { startTime: slotStart, endTime: slotEnd, available: false };
+      }
+
+      if (esInstantePasado(date, slotStart)) {
         return { startTime: slotStart, endTime: slotEnd, available: false };
       }
 

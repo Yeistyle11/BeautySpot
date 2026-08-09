@@ -25,7 +25,7 @@ export class ReviewEntity extends TenantEntity {
 
   @Column({ type: "text", nullable: true }) response!: string;
 
-  @Column({ type: "timestamp", nullable: true, name: "responded_at" })
+  @Column({ type: "timestamptz", nullable: true, name: "responded_at" })
   respondedAt!: Date;
 
   // Campos enriquecidos

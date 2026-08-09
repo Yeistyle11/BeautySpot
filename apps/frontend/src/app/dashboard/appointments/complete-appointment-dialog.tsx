@@ -113,13 +113,13 @@ export function CompleteAppointmentDialog({
             aria-labelledby="payment-method-label"
           >
             <p id="payment-method-label" className="text-base font-semibold">
-              Metodo de pago
+              Método de pago
             </p>
             <RadioGroup
               options={PAYMENT_METHOD_OPTIONS}
               value={payment.method}
               onChange={(method) => onPaymentChange({ ...payment, method })}
-              label="Metodo de pago"
+              label="Método de pago"
             />
           </div>
 

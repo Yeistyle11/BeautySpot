@@ -87,7 +87,7 @@ export default function ReviewPage() {
     isLoading: loading,
     error: loadError,
   } = useApi<Appointment>(
-    id ? `/booking/appointments/${id}` : null,
+    id ? `/booking/appointments/mine/${id}` : null,
     undefined,
     appointmentSchema
   );
@@ -135,7 +135,7 @@ export default function ReviewPage() {
     const effectiveBusinessId = businessId;
     if (!effectiveBusinessId) {
       setError(
-        "No se pudo determinar el negocio. Vuelve a iniciar sesion e intentalo de nuevo."
+        "No se pudo determinar el negocio. Vuelve a iniciar sesión e intentalo de nuevo."
       );
       return;
     }

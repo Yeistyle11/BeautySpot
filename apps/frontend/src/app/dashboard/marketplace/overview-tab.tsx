@@ -88,7 +88,7 @@ export function OverviewTab({
               <CompletenessItem done={!!profile.storyText} label="Historia" />
               <CompletenessItem
                 done={gallery.length >= 3}
-                label="Galeria (3+)"
+                label="Galería (3+)"
               />
               <CompletenessItem
                 done={!!profile.socialLinks?.instagram}

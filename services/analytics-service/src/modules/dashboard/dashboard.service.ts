@@ -3,13 +3,28 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, Between } from "typeorm";
 import { DailyMetricEntity } from "../../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
+import { fechaDeHoy, fechaHaceDias } from "../../common/fecha";
+
+/** Fila cruda del ranking, tal como la devuelve el agregado SQL. */
+interface TopProfessionalRow {
+  professionalId: string;
+  appointments: string;
+  revenue: string;
+  avgRating: string;
+}
 
 /** Fila del ranking de profesionales: citas, ingresos y valoración media agregados. */
 export interface TopProfessionalResult {
   professionalId: string;
-  totalAppointments: string;
-  totalRevenue: string;
-  avgRating: string;
+  appointments: number;
+  revenue: number;
+  avgRating: number;
+}
+
+/** Punto de la serie de ingresos que consume la gráfica del dashboard. */
+export interface RevenuePoint {
+  date: string;
+  revenue: number;
 }
 
 /** Calcula los KPIs del dashboard a partir de las métricas agregadas del negocio. */
@@ -42,7 +57,7 @@ export class DashboardService {
       avgDailyRevenue: number;
     };
   }> {
-    const { today, thirtyDaysAgo } = this.dateRange(30);
+    const { today, thirtyDaysAgo, dias } = this.dateRange(30);
 
     const [aggregates, todayMetrics] = await Promise.all([
       this.dailyRepo
@@ -66,8 +81,6 @@ export class DashboardService {
         )
         .addSelect("COALESCE(SUM(m.new_clients), 0)", "newClients")
         .addSelect("COALESCE(SUM(m.returning_clients), 0)", "returningClients")
-        // Los días con datos salen del mismo agregado.
-        .addSelect("COUNT(*)", "dayCount")
         .where("m.business_id = :businessId", { businessId })
         .andWhere("m.date BETWEEN :from AND :to", {
           from: thirtyDaysAgo,
@@ -81,14 +94,11 @@ export class DashboardService {
           noShowAppointments: string;
           newClients: string;
           returningClients: string;
-          dayCount: string;
         }>(),
       this.dailyRepo.findOne({
         where: { businessId, date: today },
       }),
     ]);
-
-    const dayCount = Number(aggregates?.dayCount ?? 0);
 
     const agg = aggregates ?? {
       totalRevenue: "0",
@@ -132,7 +142,9 @@ export class DashboardService {
         noShowRate: this.percentage(noShowAppointments, totalAppointments),
         newClients,
         returningClients,
-        avgDailyRevenue: dayCount > 0 ? Math.round(totalRevenue / dayCount) : 0,
+        // Entre los días del periodo, no entre los que tuvieron movimiento:
+        // es el promedio diario del negocio, no el de sus días activos.
+        avgDailyRevenue: dias > 0 ? Math.round(totalRevenue / dias) : 0,
       },
     };
   }
@@ -147,8 +159,8 @@ export class DashboardService {
     const rows = await this.profRepo
       .createQueryBuilder("pm")
       .select("pm.professional_id", "professionalId")
-      .addSelect("SUM(pm.appointments)", "totalAppointments")
-      .addSelect("SUM(pm.revenue)", "totalRevenue")
+      .addSelect("SUM(pm.appointments)", "appointments")
+      .addSelect("SUM(pm.revenue)", "revenue")
       .addSelect("AVG(pm.rating)", "avgRating")
       .where("pm.business_id = :businessId", { businessId })
       .andWhere("pm.date BETWEEN :from AND :to", {
@@ -160,22 +172,34 @@ export class DashboardService {
       // minúsculas cualquier identificador sin comillas.
       .orderBy("SUM(pm.revenue)", "DESC")
       .limit(limit)
-      .getRawMany<TopProfessionalResult>();
+      .getRawMany<TopProfessionalRow>();
 
-    return rows;
+    // Los agregados de Postgres llegan como cadena; el contrato de la API son
+    // números, y quien lo consume los ordena y los formatea como tales.
+    return rows.map((row) => ({
+      professionalId: row.professionalId,
+      appointments: Number(row.appointments),
+      revenue: Number(row.revenue),
+      avgRating: Math.round(Number(row.avgRating) * 100) / 100,
+    }));
   }
 
-  /** Serie diaria de métricas para la gráfica de ingresos de los últimos N días. */
+  /** Serie diaria de ingresos de los últimos N días. */
   async getRevenueChart(
     businessId: string,
     days = 30
-  ): Promise<DailyMetricEntity[]> {
+  ): Promise<RevenuePoint[]> {
     const { today, from } = this.dateRange(days);
 
-    return this.dailyRepo.find({
+    const filas = await this.dailyRepo.find({
       where: { businessId, date: Between(from, today) },
       order: { date: "ASC" },
     });
+
+    return filas.map((fila) => ({
+      date: fila.date,
+      revenue: fila.totalRevenue,
+    }));
   }
 
   /** Devuelve la fecha de hoy y la de hace N días en formato YYYY-MM-DD. */
@@ -183,12 +207,11 @@ export class DashboardService {
     today: string;
     from: string;
     thirtyDaysAgo: string;
+    dias: number;
   } {
-    const today = new Date().toISOString().split("T")[0];
-    const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
-    return { today, from, thirtyDaysAgo: from };
+    const today = fechaDeHoy();
+    const from = fechaHaceDias(days);
+    return { today, from, thirtyDaysAgo: from, dias: days };
   }
 
   /** Porcentaje entero de `part` sobre `total`; 0 si el total es cero. */

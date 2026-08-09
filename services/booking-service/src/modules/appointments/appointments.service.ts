@@ -25,6 +25,7 @@ import {
   PROPORCION_PUNTOS_FIDELIDAD,
 } from "@beautyspot/shared-constants";
 import { calculateEndTime } from "@beautyspot/shared-utils";
+import { esInstantePasado } from "../../common/hora-del-negocio";
 
 /**
  * Orquesta el ciclo de vida de las citas (creación, confirmación, ejecución,
@@ -67,6 +68,12 @@ export class AppointmentsService {
     );
     const totalAmount = data.serviceIds.reduce((sum, s) => sum + s.price, 0);
     const endTime = calculateEndTime(data.startTime, totalDuration);
+
+    if (esInstantePasado(data.date, data.startTime)) {
+      throw new BadRequestException(
+        "No se puede agendar una cita en el pasado"
+      );
+    }
 
     // Pre-check rapido (UX): fast-fail en slots obviamente invalidos fuera
     // de transaccion. El check autoritativo corre DENTRO de la tx SERIALIZABLE.
@@ -230,6 +237,14 @@ export class AppointmentsService {
         "Solo se puede completar una cita confirmada o en progreso"
       );
     }
+    // Completar arrastra el cobro y los puntos de fidelidad: darla por atendida
+    // antes de que empiece genera un ingreso por un servicio que no se ha
+    // prestado.
+    if (!esInstantePasado(appt.date, appt.startTime)) {
+      throw new BadRequestException(
+        "La cita todavía no ha empezado: no se puede dar por atendida"
+      );
+    }
     const pointsEarned = Math.round(
       appt.totalAmount * PROPORCION_PUNTOS_FIDELIDAD
     );
@@ -370,6 +385,12 @@ export class AppointmentsService {
       );
     }
 
+    if (esInstantePasado(newDate, newStartTime)) {
+      throw new BadRequestException(
+        "No se puede reagendar a un horario pasado"
+      );
+    }
+
     const newEndTime = calculateEndTime(newStartTime, serviceDuration);
     const dayOfWeek = new Date(newDate + "T12:00:00").getDay();
     const available = await this.disponibilidad.franjaDentroDelHorario(
@@ -491,6 +512,56 @@ export class AppointmentsService {
       relations: ["appointmentServices"],
       order: { date: "DESC", startTime: "ASC" },
     });
+  }
+
+  /**
+   * Cita concreta del cliente autenticado. El negocio sale de la propia cita,
+   * no de la cabecera: un cliente no pertenece a ningún negocio.
+   */
+  async findByIdForClientUser(
+    id: string,
+    userId: string
+  ): Promise<Appointment> {
+    const cita = await this.apptRepo.findOne({
+      where: { id },
+      relations: ["appointmentServices"],
+    });
+    if (!cita) throw new NotFoundException("Cita no encontrada");
+
+    const clientIds = await this.clientIdsDelUsuario(userId);
+    if (!clientIds.includes(cita.clientId)) {
+      throw new NotFoundException("Cita no encontrada");
+    }
+
+    return cita;
+  }
+
+  /** Cancela una cita propia del cliente, con las mismas reglas que la del negocio. */
+  async cancelForClientUser(
+    id: string,
+    userId: string,
+    reason: string
+  ): Promise<Appointment> {
+    const cita = await this.findByIdForClientUser(id, userId);
+    return this.cancel(id, cita.businessId, reason, userId);
+  }
+
+  /** Reagenda una cita propia del cliente, con las mismas reglas que la del negocio. */
+  async rescheduleForClientUser(
+    id: string,
+    userId: string,
+    newDate: string,
+    newStartTime: string,
+    serviceDuration: number
+  ): Promise<Appointment> {
+    const cita = await this.findByIdForClientUser(id, userId);
+    return this.reschedule(
+      id,
+      cita.businessId,
+      newDate,
+      newStartTime,
+      serviceDuration
+    );
   }
 
   /** Pregunta a core qué fichas de cliente pertenecen a este usuario. */

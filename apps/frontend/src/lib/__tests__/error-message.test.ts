@@ -52,6 +52,44 @@ describe("mensajeDeError", () => {
     });
   });
 
+  // "Error de validación" solo repite el código de estado; lo que el usuario
+  // necesita para corregir el formulario son los motivos que enumera la API.
+  describe("errores de validación con detalle", () => {
+    it("muestra el motivo en lugar del mensaje genérico", () => {
+      const error = new ApiError(400, "Error de validación", [
+        "La contraseña debe tener al menos 8 caracteres",
+      ]);
+
+      expect(mensajeDeError(error)).toBe(
+        "La contraseña debe tener al menos 8 caracteres"
+      );
+    });
+
+    it("enumera todos los motivos cuando falla más de un campo", () => {
+      const error = new ApiError(400, "Error de validación", [
+        "El nombre es obligatorio",
+        "El precio no puede ser negativo",
+      ]);
+
+      const mensaje = mensajeDeError(error);
+
+      expect(mensaje).toContain("El nombre es obligatorio");
+      expect(mensaje).toContain("El precio no puede ser negativo");
+    });
+
+    it("cae al mensaje del backend si no hay detalle", () => {
+      expect(mensajeDeError(new ApiError(400, "El correo ya existe", []))).toBe(
+        "El correo ya existe"
+      );
+    });
+
+    it("no antepone el detalle a un error de servidor", () => {
+      const error = new ApiError(500, "Error de validación", ["da igual"]);
+
+      expect(mensajeDeError(error)).toContain("Algo falló en el servidor");
+    });
+  });
+
   describe("errores del servidor (5xx)", () => {
     it("usa el texto propio aunque el backend mande el suyo", () => {
       const mensaje = mensajeDeError(

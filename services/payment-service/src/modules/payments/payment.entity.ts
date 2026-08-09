@@ -28,7 +28,7 @@ export class PaymentEntity extends TenantEntity {
   @Column({ type: "uuid", name: "registered_by", nullable: true })
   registeredBy!: string;
 
-  @Column({ type: "timestamp", name: "refunded_at", nullable: true })
+  @Column({ type: "timestamptz", name: "refunded_at", nullable: true })
   refundedAt!: Date | null;
   @Column({
     type: "decimal",

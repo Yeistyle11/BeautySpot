@@ -17,12 +17,26 @@ export const appointmentSchema = z.object({
   status: z.string(),
   notes: z.string().nullable(),
   totalAmount: z.number(),
+  businessId: z.string(),
   professionalId: z.string(),
   clientId: z.string(),
   appointmentServices: z.array(appointmentServiceSchema),
 });
 
 export type Appointment = z.infer<typeof appointmentSchema>;
+
+/**
+ * Negocio tal como lo publica `GET /core/public/businesses`. El historial del
+ * cliente lo usa para poner nombre al negocio de cada cita, que en la cita solo
+ * viaja como identificador.
+ */
+export const negocioPublicoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  city: z.string().nullish(),
+});
+export type NegocioPublico = z.infer<typeof negocioPublicoSchema>;
 
 /** Citas del negocio, paginadas en la forma `{ data, meta }`. */
 export const APPOINTMENTS_KEY = "/booking/appointments";

@@ -21,7 +21,7 @@ export default function AnalyticsPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Reportes</h1>
-        <p className="text-muted-foreground">Analisis de tu negocio</p>
+        <p className="text-muted-foreground">Análisis de tu negocio</p>
       </div>
       {loading ? (
         <p className="text-muted-foreground">Cargando...</p>
@@ -31,7 +31,7 @@ export default function AnalyticsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Calendar className="h-5 w-5" />
-                Ultimos 30 dias
+                Últimos 30 días
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -70,7 +70,7 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Total 30 dias</span>
+                <span className="text-muted-foreground">Total 30 días</span>
                 <span className="font-semibold">
                   {formatCurrency(data.last30Days.totalRevenue)}
                 </span>

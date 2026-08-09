@@ -39,7 +39,9 @@ export function Dialog({ open, onClose, title, children, wide }: DialogProps) {
           aria-describedby={undefined}
         >
           {title ? (
-            <div className="flex items-center justify-between border-b px-6 py-4">
+            // Fija: en un dialogo con scroll, el titulo dice que se esta
+            // rellenando.
+            <div className="bg-background sticky top-0 z-10 flex items-center justify-between border-b px-6 py-4">
               <DialogPrimitive.Title className="text-lg font-semibold">
                 {title}
               </DialogPrimitive.Title>

@@ -17,6 +17,7 @@ import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
+import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { getErrorMessage } from "@/lib/utils";
 import { ServiceFormDialog } from "./service-form-dialog";
@@ -30,6 +31,9 @@ import {
   type Service,
   type ServiceCategory,
 } from "./schemas";
+
+/** Cajon de los servicios que no pertenecen a ninguna categoria del negocio. */
+const SIN_CATEGORIA = "Sin categoría";
 
 export default function ServicesPage() {
   const toast = useToast();
@@ -67,30 +71,43 @@ export default function ServicesPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
-  const categoryNames = useMemo(() => {
-    const backendCats = (categories ?? [])
-      .filter((c) => c.active)
-      .map((c) => c.name);
-    const serviceCats = Array.from(
-      new Set(services.map((s) => s.category).filter(Boolean) as string[])
-    );
-    const all = Array.from(new Set([...backendCats, ...serviceCats])).sort();
-    return all;
-  }, [categories, services]);
+  // Los filtros salen solo de las categorias dadas de alta en "Cat. Servicios",
+  // que es la taxonomia del negocio.
+  const categoryNames = useMemo(
+    () =>
+      (categories ?? [])
+        .filter((c) => c.active)
+        .map((c) => c.name)
+        .sort(),
+    [categories]
+  );
 
   const filtered = useMemo(() => {
     if (filterCategory === "all") return services;
+    if (filterCategory === SIN_CATEGORIA) {
+      return services.filter((s) => !categoryNames.includes(s.category ?? ""));
+    }
     return services.filter((s) => s.category === filterCategory);
-  }, [services, filterCategory]);
+  }, [services, filterCategory, categoryNames]);
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const s of services) {
-      if (!s.category) continue;
-      counts.set(s.category, (counts.get(s.category) ?? 0) + 1);
+      const nombre = s.category ?? "";
+      // Lo que no encaja con ninguna categoria del negocio se agrupa aparte,
+      // para que ningun servicio desaparezca del listado.
+      const clave = categoryNames.includes(nombre) ? nombre : SIN_CATEGORIA;
+      counts.set(clave, (counts.get(clave) ?? 0) + 1);
     }
     return counts;
-  }, [services]);
+  }, [services, categoryNames]);
+
+  const chips = useMemo(() => {
+    const conServicios = categoryNames.filter((c) => categoryCounts.get(c));
+    return categoryCounts.get(SIN_CATEGORIA)
+      ? [...conServicios, SIN_CATEGORIA]
+      : conServicios;
+  }, [categoryNames, categoryCounts]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,7 +190,7 @@ export default function ServicesPage() {
         )}
       </div>
 
-      {categoryNames.length > 0 && (
+      {chips.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <Tag className="text-muted-foreground h-4 w-4" />
           <FilterChip
@@ -182,7 +199,7 @@ export default function ServicesPage() {
           >
             Todos ({services.length})
           </FilterChip>
-          {categoryNames.map((cat) => {
+          {chips.map((cat) => {
             const count = categoryCounts.get(cat) ?? 0;
             return (
               <FilterChip
@@ -195,6 +212,30 @@ export default function ServicesPage() {
             );
           })}
         </div>
+      )}
+
+      {!loading && !loadError && filtered.length === 0 && (
+        <EmptyState
+          icon={Scissors}
+          titulo={
+            services.length === 0
+              ? "Aun no hay servicios"
+              : "Ningun servicio en esta categoría"
+          }
+          descripcion={
+            services.length === 0
+              ? "Crea el primero para poder agendarlo y cobrarlo."
+              : "Prueba con otra categoría o quita el filtro."
+          }
+          accion={
+            services.length === 0 &&
+            canDo(role, "services_create") && (
+              <Button onClick={() => setCreateDialog(true)}>
+                Nuevo servicio
+              </Button>
+            )
+          }
+        />
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

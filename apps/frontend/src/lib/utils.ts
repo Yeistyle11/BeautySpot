@@ -53,6 +53,21 @@ export function toLocalDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Indica si una cita ("YYYY-MM-DD" + "HH:MM") ya ha empezado.
+ *
+ * Ambos formatos son de ancho fijo y con ceros a la izquierda, asi que
+ * compararlos como texto ordena igual que compararlos como instantes, y evita
+ * construir una fecha que el navegador interpretaria en su propio huso.
+ */
+export function haComenzado(date: string, startTime: string): boolean {
+  const ahora = new Date();
+  const hora = `${String(ahora.getHours()).padStart(2, "0")}:${String(
+    ahora.getMinutes()
+  ).padStart(2, "0")}`;
+  return `${date} ${startTime}` <= `${toLocalDateKey(ahora)} ${hora}`;
+}
+
 /** Convierte una hora "HH:MM" (24h) a formato de 12h con am/pm. */
 export function formatTime(time: string): string {
   const [h, m] = time.split(":");

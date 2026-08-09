@@ -13,7 +13,17 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Pagination } from "@/components/ui/pagination";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
-import { Plus, Search, Phone, Mail, Award, Calendar, Edit } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Plus,
+  Search,
+  Phone,
+  Mail,
+  Award,
+  Calendar,
+  Edit,
+  Users,
+} from "lucide-react";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
@@ -194,6 +204,21 @@ export default function ClientsPage() {
         />
       )}
 
+      {!loading && !loadError && !isEmptySearch && clients.length === 0 && (
+        <EmptyState
+          icon={Users}
+          titulo="Aun no hay clientes"
+          descripcion="Registra a quien atiendes para llevar su historial y sus citas."
+          accion={
+            canDo(role, "clients_create") && (
+              <Button onClick={() => setCreateDialog(true)}>
+                Nuevo cliente
+              </Button>
+            )
+          }
+        />
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {loading ? (
           <p className="text-muted-foreground">Cargando...</p>
@@ -270,8 +295,10 @@ export default function ClientsPage() {
                 }
               />
             </Field>
-            <Field label="Telefono">
+            <Field label="Teléfono">
               <Input
+                type="tel"
+                inputMode="tel"
                 placeholder="+57 300 1234567"
                 value={createForm.phone}
                 onChange={(e) =>
@@ -422,8 +449,10 @@ export default function ClientsPage() {
                 }
               />
             </Field>
-            <Field label="Telefono">
+            <Field label="Teléfono">
               <Input
+                type="tel"
+                inputMode="tel"
                 value={editForm.phone}
                 onChange={(e) =>
                   setEditForm({ ...editForm, phone: e.target.value })

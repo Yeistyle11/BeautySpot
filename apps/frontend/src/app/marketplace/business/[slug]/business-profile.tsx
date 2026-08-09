@@ -16,6 +16,7 @@ import {
   Instagram,
   ExternalLink,
 } from "lucide-react";
+import { z } from "zod";
 import { useApiPublic } from "@/lib/swr";
 import { hrefSeguro } from "@/lib/url";
 
@@ -23,13 +24,19 @@ import {
   profileResponseSchema,
   reviewsResponseSchema,
   ratingDistributionSchema,
+  servicioPublicoSchema,
+  profesionalPublicoSchema,
   SECTION_TITLES,
   type Profile,
   type ProfileResponse,
+  type Professional,
+  type ProfesionalPublico,
   type Review,
   type RatingDistribution,
+  type ServicioPublico,
 } from "./schemas";
 import { StorySection } from "./sections/story-section";
+import { ServicesSection } from "./sections/services-section";
 import { TeamSection } from "./sections/team-section";
 import { GallerySection } from "./sections/gallery-section";
 import { ReviewsSection } from "./sections/reviews-section";
@@ -54,8 +61,38 @@ export default function BusinessProfile({
     profileResponseSchema
   );
   const profile = respuesta?.profile;
-  const professionals = respuesta?.professionals;
   const bid = profile?.businessId;
+
+  // Servicios y equipo se piden al core, que es donde el negocio los gestiona.
+  // El escaparate del marketplace solo guarda lo personalizado.
+  const { data: servicios } = useApiPublic<ServicioPublico[]>(
+    bid ? `/core/public/businesses/${bid}/services` : null,
+    undefined,
+    z.array(servicioPublicoSchema)
+  );
+  const { data: equipoDelNegocio } = useApiPublic<ProfesionalPublico[]>(
+    bid ? `/core/public/businesses/${bid}/professionals` : null,
+    undefined,
+    z.array(profesionalPublicoSchema)
+  );
+
+  // El equipo personalizado del escaparate manda; si no lo hay, se pinta la
+  // ficha de trabajo.
+  const professionals: Professional[] = respuesta?.professionals?.length
+    ? respuesta.professionals
+    : (equipoDelNegocio ?? []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        photo: p.photo ?? null,
+        bio: p.bio ?? null,
+        specialties: p.specialties ?? [],
+        yearsExp: p.yearsExp ?? 0,
+        tagline: null,
+        rating: p.rating ?? 0,
+        totalReviews: p.totalReviews ?? 0,
+        socialInstagram: null,
+        portfolio: null,
+      }));
   const { data: reviewsResp } = useApiPublic<{
     items: Review[];
     total: number;
@@ -100,10 +137,11 @@ export default function BusinessProfile({
     ?.filter((s) => s.enabled)
     .sort((a, b) => a.order - b.order) || [
     { id: "story", enabled: true, order: 1 },
-    { id: "team", enabled: true, order: 2 },
-    { id: "gallery", enabled: true, order: 3 },
-    { id: "reviews", enabled: true, order: 4 },
-    { id: "location", enabled: true, order: 5 },
+    { id: "services", enabled: true, order: 2 },
+    { id: "team", enabled: true, order: 3 },
+    { id: "gallery", enabled: true, order: 4 },
+    { id: "reviews", enabled: true, order: 5 },
+    { id: "location", enabled: true, order: 6 },
   ];
 
   const gallery = profile.galleryImages || [];
@@ -239,13 +277,24 @@ export default function BusinessProfile({
                   />
                 )
               );
+            case "services":
+              return (
+                (servicios ?? []).length > 0 && (
+                  <ServicesSection
+                    key={section.id}
+                    title={title}
+                    services={servicios ?? []}
+                    slug={slug}
+                  />
+                )
+              );
             case "team":
               return (
-                (professionals ?? []).length > 0 && (
+                professionals.length > 0 && (
                   <TeamSection
                     key={section.id}
                     title={title}
-                    professionals={professionals ?? []}
+                    professionals={professionals}
                     slug={slug}
                   />
                 )
@@ -317,7 +366,7 @@ export default function BusinessProfile({
         )}
 
         <div className="from-primary to-primary/80 text-primary-foreground mb-8 rounded-2xl bg-gradient-to-r p-8 text-center">
-          <h3 className="text-2xl font-bold">Listo para tu proxima cita?</h3>
+          <h3 className="text-2xl font-bold">Listo para tu próxima cita?</h3>
           <p className="text-primary-foreground/80 mt-2">
             Agenda en segundos, sin necesidad de crear una cuenta
           </p>

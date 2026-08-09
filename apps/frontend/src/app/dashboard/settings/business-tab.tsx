@@ -18,13 +18,13 @@ const TEXT_FIELDS: {
   placeholder?: string;
 }[] = [
   { key: "name", label: "Nombre" },
-  { key: "phone", label: "Telefono" },
+  { key: "phone", label: "Teléfono" },
   { key: "email", label: "Email" },
   { key: "website", label: "Sitio web" },
 ];
 
 const LOCATION_FIELDS: { key: keyof BusinessData; label: string }[] = [
-  { key: "address", label: "Direccion" },
+  { key: "address", label: "Dirección" },
   { key: "city", label: "Ciudad" },
   { key: "state", label: "Departamento" },
   { key: "country", label: "Pais" },
@@ -80,12 +80,12 @@ export function BusinessTab({
   return (
     <Card className="border-0 shadow-sm">
       <CardHeader>
-        <CardTitle className="text-lg">Informacion del negocio</CardTitle>
+        <CardTitle className="text-lg">Información del negocio</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           {TEXT_FIELDS.map((f) => field(f.key, f.label))}
-          <Field label="Descripcion" className="sm:col-span-2">
+          <Field label="Descripción" className="sm:col-span-2">
             <Textarea
               value={form.description || ""}
               onChange={(e) =>

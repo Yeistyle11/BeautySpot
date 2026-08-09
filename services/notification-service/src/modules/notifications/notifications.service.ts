@@ -37,11 +37,14 @@ export class NotificationsService {
   /** Lista las notificaciones del usuario (opcionalmente solo no leídas) con paginación. */
   async findByUser(
     userId: string,
-    businessId: string,
+    businessId: string | undefined,
     unreadOnly: boolean,
     pagination: PaginateParams
   ): Promise<IPaginatedResponse<NotificationEntity>> {
-    const where: Record<string, unknown> = { userId, businessId };
+    // El cliente final no pertenece a ningún negocio: sin tenant ve todas las
+    // suyas, que es lo que espera desde su panel.
+    const where: Record<string, unknown> = { userId };
+    if (businessId) where.businessId = businessId;
     if (unreadOnly) where.read = false;
     return paginate(this.repo, pagination, {
       where,
@@ -59,12 +62,16 @@ export class NotificationsService {
   }
 
   /** Marca como leídas todas las notificaciones no leídas del usuario en el negocio. */
-  async markAllAsRead(userId: string, businessId: string): Promise<void> {
-    await this.repo.update({ userId, businessId, read: false }, { read: true });
+  async markAllAsRead(userId: string, businessId?: string): Promise<void> {
+    const where: Record<string, unknown> = { userId, read: false };
+    if (businessId) where.businessId = businessId;
+    await this.repo.update(where, { read: true });
   }
 
   /** Devuelve el número de notificaciones no leídas del usuario. */
-  async getUnreadCount(userId: string, businessId: string): Promise<number> {
-    return this.repo.count({ where: { userId, businessId, read: false } });
+  async getUnreadCount(userId: string, businessId?: string): Promise<number> {
+    const where: Record<string, unknown> = { userId, read: false };
+    if (businessId) where.businessId = businessId;
+    return this.repo.count({ where });
   }
 }

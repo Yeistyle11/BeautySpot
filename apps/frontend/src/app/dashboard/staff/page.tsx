@@ -216,7 +216,7 @@ export default function StaffPage() {
         <div className="relative max-w-md">
           <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
           <Input
-            placeholder="Buscar por nombre, email o telefono..."
+            placeholder="Buscar por nombre, email o teléfono..."
             className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -319,8 +319,8 @@ export default function StaffPage() {
               <li>
                 La cuenta de usuario{" "}
                 {confirmMember.active
-                  ? "no podra iniciar sesion"
-                  : "podra iniciar sesion nuevamente"}
+                  ? "no podra iniciar sesión"
+                  : "podra iniciar sesión nuevamente"}
                 .
               </li>
               {confirmMember.role === "PROFESSIONAL" && (

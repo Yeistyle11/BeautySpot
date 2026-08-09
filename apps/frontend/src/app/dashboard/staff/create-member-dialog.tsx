@@ -64,7 +64,7 @@ export function CreateMemberDialog({
               required
             />
           </Field>
-          <Field label="Contrasena *">
+          <Field label="Contraseña *">
             <Input
               type="password"
               placeholder="Minimo 8 caracteres"
@@ -74,7 +74,7 @@ export function CreateMemberDialog({
               minLength={8}
             />
           </Field>
-          <Field label="Telefono">
+          <Field label="Teléfono">
             <Input
               placeholder="+57 300 123 4567"
               value={form.phone}

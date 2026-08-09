@@ -175,6 +175,18 @@ describe("AvailabilityQueryService", () => {
       expect(slots.find((s) => s.startTime === "09:00")?.available).toBe(true);
     });
 
+    it("no ofrece franjas de una fecha ya pasada", async () => {
+      mockAvailRepo.find.mockResolvedValue([jornadaCorta("pro-a")]);
+      mockApptRepo.find.mockResolvedValue([]);
+
+      const ayer = new Date(Date.now() - 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+      const slots = await service.franjasDelNegocio("business-123", ayer, 30);
+
+      expect(slots.every((s) => !s.available)).toBe(true);
+    });
+
     it("consulta el equipo entero de una vez, sin repetir por profesional", async () => {
       mockAvailRepo.find.mockResolvedValue([
         jornadaCorta("pro-a"),

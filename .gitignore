@@ -65,3 +65,8 @@ docker-compose.override.yml
 skills-lock.json
 CLAUDE.md
 
+# Informes de QA: registros de sesiones de prueba locales, con cuentas y datos
+# del entorno de desarrollo. Se trabajan en local y no se publican.
+docs/QA-HALLAZGOS.md
+docs/15-AUDITORIA-QA-PM.md
+

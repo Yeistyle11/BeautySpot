@@ -9,7 +9,12 @@ import {
   Query,
 } from "@nestjs/common";
 import { BusinessesService } from "./businesses.service";
-import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
+import {
+  Roles,
+  BusinessId,
+  CurrentUser,
+  SkipBusinessScope,
+} from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { CreateBusinessDto, UpdateBusinessDto } from "./dto/business.dto";
 
@@ -19,13 +24,19 @@ import { CreateBusinessDto, UpdateBusinessDto } from "./dto/business.dto";
 export class BusinessesController {
   constructor(private readonly service: BusinessesService) {}
 
-  /** Crea un negocio nuevo. */
+  /**
+   * Alta del negocio propio. Es la puerta de entrada al producto: quien acaba
+   * de registrarse todavía es CLIENT y no pertenece a ningún negocio, así que
+   * ni se le puede exigir el tenant ni un rol de gestión.
+   */
   @Post()
+  @Roles(Role.CLIENT, Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
+  @SkipBusinessScope()
   async create(
     @Body() dto: CreateBusinessDto,
     @CurrentUser("userId") userId: string
   ) {
-    return this.service.create(dto, userId);
+    return this.service.createWithOwner(dto, userId);
   }
 
   @Roles(

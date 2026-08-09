@@ -4,11 +4,20 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
-import { Repository, DataSource, EntityManager, Between } from "typeorm";
+import {
+  Repository,
+  DataSource,
+  EntityManager,
+  Between,
+  IsNull,
+} from "typeorm";
 import { PaymentEntity } from "./payment.entity";
+import { CashSessionEntity } from "../cash-register/cash-session.entity";
+import { CashMovementEntity } from "../cash-register/cash-movement.entity";
 import {
   PaymentMethod,
   PaymentStatus,
+  CashMovementType,
   IPaginatedResponse,
 } from "@beautyspot/shared-types";
 import { OutboxService } from "@beautyspot/nest-common";
@@ -51,6 +60,10 @@ export class PaymentsService {
         .getRepository(PaymentEntity)
         .save(payment);
 
+      if (data.method === PaymentMethod.CASH) {
+        await this.registrarEntradaEnCaja(manager, businessId, savedPayment);
+      }
+
       await this.outbox.enqueue(manager, {
         eventType: EventNames.PAYMENT_PAYMENT_REGISTERED,
         aggregateType: "payment",
@@ -67,6 +80,63 @@ export class PaymentsService {
 
       return savedPayment;
     });
+  }
+
+  /**
+   * Anota el efectivo en la sesión de caja abierta, en la misma transacción que
+   * el pago: si el arqueo no lo recoge, el cierre nunca cuadra.
+   */
+  private async registrarEntradaEnCaja(
+    manager: EntityManager,
+    businessId: string,
+    payment: PaymentEntity
+  ): Promise<void> {
+    const session = await manager.getRepository(CashSessionEntity).findOne({
+      where: { businessId, closedAt: IsNull() },
+    });
+    if (!session) {
+      throw new BadRequestException(
+        "No hay una caja abierta: abre la caja antes de registrar un pago en efectivo"
+      );
+    }
+
+    await manager.getRepository(CashMovementEntity).save(
+      manager.getRepository(CashMovementEntity).create({
+        cashSessionId: session.id,
+        type: CashMovementType.IN,
+        amount: Number(payment.amount),
+        concept: `Pago ${payment.id}`,
+        registeredBy: payment.registeredBy,
+      })
+    );
+  }
+
+  /** Devuelve el efectivo reembolsado a la caja abierta, si la hay. */
+  private async registrarSalidaEnCaja(
+    manager: EntityManager,
+    businessId: string,
+    payment: PaymentEntity,
+    amount: number,
+    refundedBy: string
+  ): Promise<void> {
+    const session = await manager.getRepository(CashSessionEntity).findOne({
+      where: { businessId, closedAt: IsNull() },
+    });
+    if (!session) {
+      throw new BadRequestException(
+        "No hay una caja abierta: abre la caja antes de reembolsar en efectivo"
+      );
+    }
+
+    await manager.getRepository(CashMovementEntity).save(
+      manager.getRepository(CashMovementEntity).create({
+        cashSessionId: session.id,
+        type: CashMovementType.OUT,
+        amount,
+        concept: `Reembolso ${payment.id}`,
+        registeredBy: refundedBy,
+      })
+    );
   }
 
   /** Lista los pagos del negocio con filtros (método, estado, rango de fechas) y paginación. */
@@ -168,6 +238,15 @@ export class PaymentsService {
         reason: finalReason,
         refundedBy: options.refundedBy,
       });
+      if (payment.method === PaymentMethod.CASH) {
+        await this.registrarSalidaEnCaja(
+          manager,
+          businessId,
+          payment,
+          finalAmount,
+          options.refundedBy
+        );
+      }
       await this.enqueueRefundEvent(
         manager,
         refunded,

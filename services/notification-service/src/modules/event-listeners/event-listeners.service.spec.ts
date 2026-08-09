@@ -3,7 +3,10 @@ import { AmqpConnection } from "@golevelup/nestjs-rabbitmq";
 import { ConfigService } from "@nestjs/config";
 import { EmailService } from "../emails/email.service";
 import { DataEnricherService } from "../data-enricher/data-enricher.service";
-import { ProcessedEventsStore } from "@beautyspot/nest-common";
+import {
+  ProcessedEventsStore,
+  InternalHttpClient,
+} from "@beautyspot/nest-common";
 import { NotificationsService } from "../notifications/notifications.service";
 import { NotificationEventListeners } from "./event-listeners.service";
 
@@ -14,6 +17,7 @@ describe("NotificationEventListeners", () => {
   let mockConfigService: jest.Mocked<ConfigService>;
   let mockDataEnricher: jest.Mocked<DataEnricherService>;
   let mockNotifications: { create: jest.Mock };
+  let mockHttp: jest.Mocked<InternalHttpClient>;
 
   const mockUserRegisteredEvent = {
     eventType: "auth.user.registered",
@@ -166,6 +170,7 @@ describe("NotificationEventListeners", () => {
     mockDataEnricher = {
       enrichAppointmentParticipants: jest.fn().mockResolvedValue(enrichedData),
       enrichClientEmail: jest.fn().mockResolvedValue("juan@example.com"),
+      enrichClientUserId: jest.fn().mockResolvedValue("user-cliente"),
       enrichBusinessData: jest.fn().mockResolvedValue({
         businessName: "EliteBarbers",
         businessAddress: "Calle 123",
@@ -175,6 +180,14 @@ describe("NotificationEventListeners", () => {
 
     mockNotifications = { create: jest.fn().mockResolvedValue(undefined) };
 
+    // El equipo del negocio se resuelve contra auth-service; aquí basta con un
+    // dueño para comprobar que el aviso también le llega a él.
+    mockHttp = {
+      pedirONulo: jest
+        .fn()
+        .mockResolvedValue([{ userId: "user-dueno", role: "OWNER" }]),
+    } as any;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotificationEventListeners,
@@ -183,6 +196,7 @@ describe("NotificationEventListeners", () => {
         { provide: ConfigService, useValue: mockConfigService },
         { provide: DataEnricherService, useValue: mockDataEnricher },
         { provide: NotificationsService, useValue: mockNotifications },
+        { provide: InternalHttpClient, useValue: mockHttp },
         {
           // El store real se prueba aparte; aquí basta con que deje pasar el
           // trabajo, que es el comportamiento cuando el evento es nuevo.
@@ -330,6 +344,75 @@ describe("NotificationEventListeners", () => {
       await expect(
         service.handleAppointmentConfirmed(mockAppointmentConfirmedEvent)
       ).rejects.toThrow();
+    });
+
+    // El correo depende de la cola y del proveedor de envío; la notificación
+    // dentro de la aplicación, no.
+    it("deja la notificación aunque falle el encolado del correo", async () => {
+      mockEmailService.queueAppointmentConfirmation.mockRejectedValue(
+        new Error("Redis caído")
+      );
+
+      await service.handleAppointmentConfirmed(mockAppointmentConfirmedEvent);
+
+      expect(mockNotifications.create).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "APPOINTMENT_CONFIRMED" })
+      );
+    });
+  });
+
+  describe("handleAppointmentCreated", () => {
+    const mockAppointmentCreatedEvent = {
+      eventType: "booking.appointment.created",
+      eventId: "evt-130",
+      correlationId: "corr-130",
+      timestamp: new Date(),
+      payload: {
+        appointmentId: "appointment-130",
+        clientId: "client-123",
+        professionalId: "professional-123",
+        businessId: "business-123",
+        date: "2026-08-10",
+        startTime: "10:00",
+        endTime: "11:00",
+        totalAmount: 50000,
+      },
+    } as any;
+
+    it("avisa al cliente de su reserva", async () => {
+      await service.handleAppointmentCreated(mockAppointmentCreatedEvent);
+
+      expect(mockNotifications.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-cliente",
+          type: "APPOINTMENT_CREATED",
+        })
+      );
+    });
+
+    // Una reserva desde el marketplace la dispara el cliente: si no se avisa
+    // aquí, al negocio no le consta hasta que alguien mira la agenda.
+    it("avisa también al equipo del negocio", async () => {
+      await service.handleAppointmentCreated(mockAppointmentCreatedEvent);
+
+      expect(mockNotifications.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-dueno",
+          type: "APPOINTMENT_CREATED",
+        })
+      );
+    });
+
+    it("no avisa a quien no gestiona la agenda", async () => {
+      mockHttp.pedirONulo.mockResolvedValue([
+        { userId: "user-pro", role: "PROFESSIONAL" },
+      ] as never);
+
+      await service.handleAppointmentCreated(mockAppointmentCreatedEvent);
+
+      expect(mockNotifications.create).not.toHaveBeenCalledWith(
+        expect.objectContaining({ userId: "user-pro" })
+      );
     });
   });
 
@@ -502,12 +585,70 @@ describe("NotificationEventListeners", () => {
       expect(mockEmailService.queueInvoice).not.toHaveBeenCalled();
     });
 
+    it("avisa del cobro dentro de la aplicación sea cual sea el método", async () => {
+      const cardEvent = {
+        ...mockPaymentRegisteredEvent,
+        payload: { ...mockPaymentRegisteredEvent.payload, method: "card" },
+      };
+
+      await service.handlePaymentRegistered(cardEvent);
+
+      expect(mockNotifications.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-cliente",
+          type: "PAYMENT_REGISTERED",
+        })
+      );
+    });
+
     it("debería propagar el error para que el mensaje llegue a la cola de fallidos", async () => {
       mockDataEnricher.enrichClientEmail.mockRejectedValue(new Error("Error"));
 
       await expect(
         service.handlePaymentRegistered(mockPaymentRegisteredEvent)
       ).rejects.toThrow();
+    });
+  });
+
+  describe("handleAppointmentCompleted", () => {
+    const mockAppointmentCompletedEvent = {
+      eventType: "booking.appointment.completed",
+      eventId: "evt-131",
+      correlationId: "corr-131",
+      timestamp: new Date(),
+      payload: {
+        appointmentId: "appointment-131",
+        clientId: "client-123",
+        professionalId: "professional-123",
+        businessId: "business-123",
+        date: "2026-08-01",
+        startTime: "10:00",
+        endTime: "11:00",
+        totalAmount: 50000,
+        pointsEarned: 5000,
+      },
+    } as any;
+
+    it("invita al cliente a dejar su reseña", async () => {
+      await service.handleAppointmentCompleted(mockAppointmentCompletedEvent);
+
+      expect(mockNotifications.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-cliente",
+          type: "APPOINTMENT_COMPLETED",
+        })
+      );
+    });
+
+    it("no avisa a quien reservó sin cuenta", async () => {
+      mockDataEnricher.enrichAppointmentParticipants.mockResolvedValue({
+        ...enrichedData,
+        clientUserId: null,
+      });
+
+      await service.handleAppointmentCompleted(mockAppointmentCompletedEvent);
+
+      expect(mockNotifications.create).not.toHaveBeenCalled();
     });
   });
 

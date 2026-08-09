@@ -50,7 +50,7 @@ export default function ClientDashboardPage() {
 
   const stats = [
     {
-      title: "Proximas citas",
+      title: "Próximas citas",
       value: upcoming.length,
       icon: Calendar,
       color: "text-info",
@@ -114,7 +114,7 @@ export default function ClientDashboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="flex items-center gap-2 text-lg font-bold">
-              <Sparkles className="h-5 w-5" /> Listo para tu proxima cita?
+              <Sparkles className="h-5 w-5" /> Listo para tu próxima cita?
             </h3>
             <p className="mt-1 text-sm text-white/80">
               Encuentra el mejor lugar y reserva en segundos
@@ -130,7 +130,7 @@ export default function ClientDashboardPage() {
 
       <div className="mt-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Proximas citas</h2>
+          <h2 className="text-lg font-semibold">Próximas citas</h2>
           <Link href="/dashboard/client/appointments">
             <Button variant="ghost" size="sm" className="gap-1">
               Ver todas <ArrowRight className="h-3 w-3" />
@@ -155,7 +155,7 @@ export default function ClientDashboardPage() {
             <CardContent className="p-8 text-center">
               <Calendar className="text-muted-foreground mx-auto h-12 w-12 opacity-20" />
               <p className="text-muted-foreground mt-2">
-                No tienes citas proximas
+                No tienes citas próximas
               </p>
               <Link href="/marketplace">
                 {" "}

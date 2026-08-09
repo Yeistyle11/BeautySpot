@@ -8,13 +8,30 @@ import {
   IsUUID,
 } from "class-validator";
 
-/** Datos para crear un servicio: nombre, descripción, precio, duración y categoría. */
+/**
+ * Datos para crear un servicio. Solo el nombre, el precio y la duración son
+ * obligatorios; la descripción y la categoría se rellenan si se quiere.
+ */
 export class CreateServiceDto {
-  @IsString() @MaxLength(200) name!: string;
-  @IsString() @MaxLength(1000) description!: string;
-  @IsNumber() @Min(0) price!: number;
-  @IsNumber() @Min(5) duration!: number;
-  @IsString() @MaxLength(100) category!: string;
+  @IsString({ message: "El nombre es obligatorio" })
+  @MaxLength(200, { message: "El nombre no puede pasar de 200 caracteres" })
+  name!: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000, {
+    message: "La descripción no puede pasar de 1000 caracteres",
+  })
+  description?: string;
+  @IsNumber({}, { message: "El precio debe ser un número" })
+  @Min(0, { message: "El precio no puede ser negativo" })
+  price!: number;
+  @IsNumber({}, { message: "La duración debe ser un número" })
+  @Min(5, { message: "La duración mínima es de 5 minutos" })
+  duration!: number;
+  @IsOptional()
+  @IsString()
+  @MaxLength(100, { message: "La categoría no puede pasar de 100 caracteres" })
+  category?: string;
   @IsOptional() @IsUUID() categoryId?: string;
   @IsOptional() @IsString() image?: string;
 }

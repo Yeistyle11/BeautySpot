@@ -50,14 +50,14 @@ export default function PublicLayout({
   const isAuthenticated = hydrated && !!role && !!user;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50">
+    <div className="from-primary/5 via-background to-primary/10 min-h-screen bg-gradient-to-br">
       <a
         href="#contenido"
         className="bg-primary text-primary-foreground focus:ring-ring sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:px-4 focus:py-2 focus:ring-2"
       >
         Saltar al contenido
       </a>
-      <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm">
+      <header className="bg-background/80 sticky top-0 z-50 border-b backdrop-blur-sm">
         <nav
           aria-label="Principal"
           className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4"
@@ -85,7 +85,7 @@ export default function PublicLayout({
               {dropdownOpen && (
                 <div
                   role="menu"
-                  className="absolute right-0 z-50 mt-2 w-48 rounded-lg border bg-white py-1 shadow-lg"
+                  className="bg-popover absolute right-0 z-50 mt-2 w-48 rounded-lg border py-1 shadow-lg"
                 >
                   <Link
                     href="/dashboard/client"
@@ -105,7 +105,7 @@ export default function PublicLayout({
                     className="hover:bg-accent flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors"
                   >
                     <LogOut className="h-4 w-4" />
-                    Cerrar sesion
+                    Cerrar sesión
                   </button>
                 </div>
               )}
@@ -116,16 +116,16 @@ export default function PublicLayout({
               className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
             >
               <LogIn className="h-4 w-4" />
-              Iniciar sesion
+              Iniciar sesión
             </Link>
           )}
         </nav>
       </header>
       <main id="contenido">{children}</main>
-      <footer className="text-muted-foreground border-t bg-white py-6 text-center text-sm">
+      <footer className="text-muted-foreground bg-background border-t py-6 text-center text-sm">
         <p>
-          BeautySpot — Plataforma de gestion para centro de bellezas y salones
-          de belleza
+          BeautySpot — Plataforma de gestión para barberías, salones de belleza,
+          spas y centros estéticos
         </p>
       </footer>
     </div>

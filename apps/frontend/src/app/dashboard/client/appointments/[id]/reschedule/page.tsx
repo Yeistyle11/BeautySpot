@@ -21,7 +21,13 @@ import { api } from "@/lib/api";
 import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 import { mensajeDeError } from "@/lib/error-message";
-import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatDate,
+  formatTime,
+  cn,
+  toLocalDateKey,
+} from "@/lib/utils";
 import Link from "next/link";
 
 import {
@@ -40,7 +46,7 @@ export default function ReschedulePage() {
     isLoading: loading,
     error: loadError,
   } = useApi<Appointment>(
-    id ? `/booking/appointments/${id}` : null,
+    id ? `/booking/appointments/mine/${id}` : null,
     undefined,
     appointmentSchema
   );
@@ -72,7 +78,7 @@ export default function ReschedulePage() {
     setSelectedSlot(null);
   }, [selectedDate, appointment?.professionalId, totalDuration]);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = toLocalDateKey(new Date());
 
   const handleConfirm = async () => {
     if (!appointment || !selectedDate || !selectedSlot) return;
@@ -80,10 +86,13 @@ export default function ReschedulePage() {
     setError(null);
 
     try {
-      await api.patch(`/booking/appointments/${appointment.id}/reschedule`, {
-        date: selectedDate,
-        startTime: selectedSlot,
-      });
+      await api.patch(
+        `/booking/appointments/mine/${appointment.id}/reschedule`,
+        {
+          date: selectedDate,
+          startTime: selectedSlot,
+        }
+      );
       setSuccess(true);
     } catch (err: unknown) {
       logger.error(err);

@@ -125,7 +125,7 @@ export default function ClientProfilePage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Mi Perfil</h1>
         <p className="text-muted-foreground">
-          Administra tu informacion personal
+          Administra tu información personal
         </p>
       </div>
 
@@ -147,7 +147,7 @@ export default function ClientProfilePage() {
               <div>
                 <div className="mb-2 flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Proximo: {nextTier.label}
+                    Próximo: {nextTier.label}
                   </span>
                   <span className="font-medium">
                     {nextTier.min - loyaltyPoints} pts
@@ -179,7 +179,7 @@ export default function ClientProfilePage() {
 
         <Card className="border-0 shadow-sm lg:col-span-2">
           <CardContent className="p-6">
-            <h2 className="mb-6 font-semibold">Informacion personal</h2>
+            <h2 className="mb-6 font-semibold">Información personal</h2>
 
             <div className="space-y-5">
               <div className="flex items-center gap-4">
@@ -225,7 +225,7 @@ export default function ClientProfilePage() {
                 <div className="space-y-2 sm:col-span-2">
                   <Label className="flex items-center gap-2">
                     <Phone className="h-3 w-3" />
-                    Telefono
+                    Teléfono
                   </Label>
                   <Input
                     type="tel"

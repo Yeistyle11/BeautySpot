@@ -47,7 +47,7 @@ export function GallerySection({
         >
           <Image
             src={images[0].url}
-            alt={images[0].title || "Galeria"}
+            alt={images[0].title || "Galería"}
             width={800}
             height={600}
             unoptimized={imageUnoptimized(images[0].url)}

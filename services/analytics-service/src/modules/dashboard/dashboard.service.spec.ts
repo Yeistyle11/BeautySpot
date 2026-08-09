@@ -77,8 +77,6 @@ describe("DashboardService", () => {
         noShowAppointments: "2",
         newClients: "6",
         returningClients: "14",
-        // Los días con datos vienen en el mismo agregado, no en un count aparte.
-        dayCount: "2",
       };
 
       (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
@@ -98,7 +96,9 @@ describe("DashboardService", () => {
       expect(result.last30Days.completionRate).toBe(82);
       expect(result.last30Days.cancellationRate).toBe(9);
       expect(result.last30Days.noShowRate).toBe(9);
-      expect(result.last30Days.avgDailyRevenue).toBe(550000);
+      // El promedio se reparte entre los 30 días del periodo, no entre los que
+      // tuvieron movimiento: 1.100.000 / 30.
+      expect(result.last30Days.avgDailyRevenue).toBe(36667);
     });
 
     it("debería retornar KPIs vacíos si no hay datos", async () => {
@@ -150,28 +150,43 @@ describe("DashboardService", () => {
 
   describe("getTopProfessionals", () => {
     it("debería retornar profesionales top con SQL aggregation", async () => {
-      const topProfessionals = [
+      // Postgres devuelve los agregados como cadena; el contrato de la API son
+      // números, que es lo que el dashboard ordena y formatea.
+      const filas = [
         {
           professionalId: "prof-123",
-          totalAppointments: "20",
-          totalRevenue: "800000",
+          appointments: "20",
+          revenue: "800000",
           avgRating: "4.8",
         },
         {
           professionalId: "prof-456",
-          totalAppointments: "15",
-          totalRevenue: "600000",
+          appointments: "15",
+          revenue: "600000",
           avgRating: "4.9",
         },
       ];
 
       (mockProfRepo.createQueryBuilder as any).mockReturnValue(
-        buildQueryBuilder(topProfessionals)
+        buildQueryBuilder(filas)
       );
 
       const result = await service.getTopProfessionals("business-123", 10);
 
-      expect(result).toEqual(topProfessionals);
+      expect(result).toEqual([
+        {
+          professionalId: "prof-123",
+          appointments: 20,
+          revenue: 800000,
+          avgRating: 4.8,
+        },
+        {
+          professionalId: "prof-456",
+          appointments: 15,
+          revenue: 600000,
+          avgRating: 4.9,
+        },
+      ]);
     });
 
     it("debería usar límite por defecto de 10", async () => {
@@ -194,7 +209,9 @@ describe("DashboardService", () => {
   });
 
   describe("getRevenueChart", () => {
-    it("debería retornar datos de ingresos ordenados por fecha", async () => {
+    // La gráfica del dashboard consume {date, revenue}: con la entidad entera
+    // su validación falla y la serie se pinta vacía.
+    it("devuelve la serie como puntos {date, revenue}", async () => {
       const revenueData = [
         { ...mockDailyMetric, date: "2024-01-15", totalRevenue: 500000 } as any,
         { ...mockDailyMetric, date: "2024-01-16", totalRevenue: 600000 } as any,
@@ -208,7 +225,10 @@ describe("DashboardService", () => {
         where: { businessId: "business-123", date: expect.any(Object) },
         order: { date: "ASC" },
       });
-      expect(result).toEqual(revenueData);
+      expect(result).toEqual([
+        { date: "2024-01-15", revenue: 500000 },
+        { date: "2024-01-16", revenue: 600000 },
+      ]);
     });
 
     it("debería retornar array vacío si no hay datos", async () => {

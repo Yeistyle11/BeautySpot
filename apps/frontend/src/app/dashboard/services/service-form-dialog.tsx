@@ -64,7 +64,7 @@ export function ServiceFormDialog({
               required
             />
           </Field>
-          <Field label="Duracion (min)">
+          <Field label="Duración (min)">
             <Input
               type="number"
               placeholder="30"
@@ -89,9 +89,9 @@ export function ServiceFormDialog({
               ))}
           </Select>
         </Field>
-        <Field label="Descripcion">
+        <Field label="Descripción">
           <Textarea
-            placeholder="Descripcion del servicio"
+            placeholder="Descripción del servicio"
             value={form.description}
             onChange={(e) => set({ description: e.target.value })}
             rows={3}

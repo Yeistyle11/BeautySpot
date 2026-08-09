@@ -15,6 +15,29 @@ import { SessionService } from "../session/session.service";
 
 const SERVER_ERROR_THRESHOLD = 500;
 
+/** Respuesta ya obtenida del microservicio, pendiente de escribir. */
+interface RespuestaReenviada {
+  estado: number;
+  cuerpo: unknown;
+}
+
+/**
+ * Un 5xx del microservicio: cuenta como fallo para el circuit breaker pero su
+ * cuerpo es el que hay que devolverle al cliente, así que viaja con la
+ * excepción en lugar de escribirse antes de lanzarla.
+ */
+class ErrorDeServicio extends HttpException {
+  constructor(
+    service: string,
+    readonly respuesta: RespuestaReenviada
+  ) {
+    super(
+      `Servicio ${service} respondió ${respuesta.estado}`,
+      HttpStatus.BAD_GATEWAY
+    );
+  }
+}
+
 /**
  * Detecta intentos de subir de directorio en la ruta reenviada, tanto escritos
  * en claro como codificados (`%2e%2e`).
@@ -61,17 +84,30 @@ export class ProxyController {
       throw new HttpException("Ruta no válida", HttpStatus.BAD_REQUEST);
     }
 
-    return this.circuitBreaker.execute(service, () =>
-      this.proxiedRequest(service, req, res)
-    );
+    // Una sola escritura, y fuera del breaker: la excepción que cuenta el
+    // fallo viaja después, cuando ya no queda nada por responder.
+    let respuesta: RespuestaReenviada;
+    try {
+      respuesta = await this.circuitBreaker.execute(service, () =>
+        this.proxiedRequest(service, req, res)
+      );
+    } catch (error) {
+      if (error instanceof ErrorDeServicio) {
+        respuesta = error.respuesta;
+      } else {
+        throw error;
+      }
+    }
+
+    res.status(respuesta.estado).json(respuesta.cuerpo);
   }
 
-  /** Ejecuta el fetch reenviado con timeout y propaga la respuesta del backend. */
+  /** Ejecuta el fetch reenviado con timeout y devuelve la respuesta del backend. */
   private async proxiedRequest(
     service: string,
     req: Request,
     res: Response
-  ): Promise<void> {
+  ): Promise<RespuestaReenviada> {
     const targetUrl = this.proxyService.buildTargetUrl(service, req);
     const headers = this.proxyService.buildForwardedHeaders(req);
 
@@ -101,14 +137,16 @@ export class ProxyController {
         data = this.sessionService.aplicarRespuesta(req, res, data);
       }
 
-      res.status(response.status).json(data);
+      const respuesta: RespuestaReenviada = {
+        estado: response.status,
+        cuerpo: data,
+      };
 
       if (response.status >= SERVER_ERROR_THRESHOLD) {
-        throw new HttpException(
-          `Servicio ${service} respondió ${response.status}`,
-          HttpStatus.BAD_GATEWAY
-        );
+        throw new ErrorDeServicio(service, respuesta);
       }
+
+      return respuesta;
     } catch (error) {
       clearTimeout(timeout);
       throw this.proxyService.mapProxyError(service, error);

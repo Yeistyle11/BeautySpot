@@ -122,7 +122,7 @@ export default function SettingsPage() {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       setPasswordFeedback({
         type: "error",
-        message: "Las contrasenas no coinciden",
+        message: "Las contraseñas no coinciden",
       });
       return;
     }
@@ -139,14 +139,14 @@ export default function SettingsPage() {
       });
       setPasswordFeedback({
         type: "success",
-        message: "Contrasena actualizada",
+        message: "Contraseña actualizada",
       });
     } catch (err) {
       logger.error(err);
       toast.error(mensajeDeError(err));
       setPasswordFeedback({
         type: "error",
-        message: getErrorMessage(err, "No se pudo actualizar la contrasena"),
+        message: getErrorMessage(err, "No se pudo actualizar la contraseña"),
       });
     } finally {
       setSaving(null);
@@ -195,7 +195,7 @@ export default function SettingsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Configuracion</h1>
+        <h1 className="text-2xl font-bold">Configuración</h1>
         <p className="text-muted-foreground">Ajustes de tu cuenta y negocio</p>
       </div>
 

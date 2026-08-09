@@ -6,6 +6,7 @@ import {
   Param,
   Body,
   Query,
+  ParseUUIDPipe,
 } from "@nestjs/common";
 import { ReviewsService } from "./reviews.service";
 import {
@@ -54,10 +55,28 @@ export class ReviewsController {
     return this.service.findByBusiness(businessId, query);
   }
 
+  /** Reseñas escritas por el usuario autenticado. */
+  @Get("mine")
+  @Roles(Role.CLIENT)
+  @SkipBusinessScope()
+  async findMine(@CurrentUser("userId") userId: string) {
+    return this.service.findByClientUser(userId);
+  }
+
+  /** Reseñas de una cita concreta. */
+  @Get("appointment/:appointmentId")
+  @Roles(Role.CLIENT)
+  @SkipBusinessScope()
+  async findByAppointment(
+    @Param("appointmentId", ParseUUIDPipe) appointmentId: string
+  ) {
+    return this.service.findByAppointment(appointmentId);
+  }
+
   /** Obtiene una reseña por id. */
   @Get(":id")
   @Public()
-  async findById(@Param("id") id: string) {
+  async findById(@Param("id", ParseUUIDPipe) id: string) {
     return this.service.findById(id);
   }
 
@@ -65,7 +84,7 @@ export class ReviewsController {
   @Post(":id/respond")
   @Roles(Role.OWNER, Role.ADMIN)
   async respond(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Body() dto: RespondReviewDto
   ) {
@@ -76,7 +95,7 @@ export class ReviewsController {
   @Post(":id/helpful")
   @SkipBusinessScope()
   async markHelpful(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @CurrentUser("userId") userId: string
   ) {
     await this.service.markHelpful(id, userId);
@@ -87,7 +106,7 @@ export class ReviewsController {
   @Delete(":id/helpful")
   @SkipBusinessScope()
   async unmarkHelpful(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @CurrentUser("userId") userId: string
   ) {
     await this.service.unmarkHelpful(id, userId);

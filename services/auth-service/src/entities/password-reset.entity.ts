@@ -11,10 +11,10 @@ export class PasswordReset extends BaseEntity {
   @Column({ unique: true, name: "token_hash" })
   tokenHash!: string;
 
-  @Column({ type: "timestamp", name: "expires_at" })
+  @Column({ type: "timestamptz", name: "expires_at" })
   expiresAt!: Date;
 
-  @Column({ type: "timestamp", nullable: true, name: "used_at" })
+  @Column({ type: "timestamptz", nullable: true, name: "used_at" })
   usedAt!: Date;
 
   // Sin @JoinColumn, TypeORM no reutiliza `user_id`: genera una segunda columna

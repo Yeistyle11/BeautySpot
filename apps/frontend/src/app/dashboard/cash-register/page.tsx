@@ -175,6 +175,11 @@ export default function CashRegisterPage() {
   );
   const openingAmt = activeSession?.openingAmount ?? 0;
   const expectedTotal = openingAmt + totalIn - totalOut;
+  // Descuadre del arqueo mientras se teclea: negativo falta, positivo sobra.
+  const diferenciaCierre =
+    closeAmount === "" || Number.isNaN(Number(closeAmount))
+      ? null
+      : Number(closeAmount) - expectedTotal;
 
   if (loading) {
     return (
@@ -395,14 +400,19 @@ export default function CashRegisterPage() {
               placeholder="Observaciones..."
             />
           </Field>
-          <Button onClick={handleOpen} disabled={opening}>
-            {opening ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Wallet className="mr-2 h-4 w-4" />
-            )}
-            Abrir caja
-          </Button>
+          <div className="flex gap-3">
+            <Button onClick={handleOpen} disabled={opening}>
+              {opening ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Wallet className="mr-2 h-4 w-4" />
+              )}
+              Abrir caja
+            </Button>
+            <Button variant="outline" onClick={() => setOpenDialog(false)}>
+              Cancelar
+            </Button>
+          </div>
         </div>
       </Dialog>
 
@@ -472,6 +482,19 @@ export default function CashRegisterPage() {
               required
             />
           </Field>
+          {diferenciaCierre !== null && diferenciaCierre !== 0 && (
+            <div
+              className={
+                diferenciaCierre < 0
+                  ? "rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                  : "rounded-lg bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+              }
+            >
+              {diferenciaCierre < 0 ? "Faltan " : "Sobran "}
+              <strong>{formatCurrency(Math.abs(diferenciaCierre))}</strong>{" "}
+              respecto al total esperado. Anota el motivo antes de cerrar.
+            </div>
+          )}
           <Field label="Notas (opcional)">
             <Textarea
               value={closeNotes}

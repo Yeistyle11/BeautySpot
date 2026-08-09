@@ -39,7 +39,7 @@ export default function AppointmentDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
 
-  const appointmentKey = id ? `/booking/appointments/${id}` : null;
+  const appointmentKey = id ? `/booking/appointments/mine/${id}` : null;
   const reviewsKey = id ? `/marketplace/reviews/appointment/${id}` : null;
   const {
     data: appointment,
@@ -64,7 +64,7 @@ export default function AppointmentDetailPage() {
     if (!appointment) return;
     setCancelling(true);
     try {
-      await api.post(`/booking/appointments/${appointment.id}/cancel`, {
+      await api.post(`/booking/appointments/mine/${appointment.id}/cancel`, {
         reason: "Cancelado por el cliente",
       });
       await mutateAppointment();
