@@ -142,7 +142,8 @@ export class AppointmentsController {
     @Query("status") status?: AppointmentStatus,
     @Query("date") date?: string,
     @Query("professionalId") professionalId?: string,
-    @Query("clientId") clientId?: string
+    @Query("clientId") clientId?: string,
+    @Query("search") search?: string
   ) {
     const pagination = parsePaginationQuery(query, [
       "date",
@@ -152,7 +153,7 @@ export class AppointmentsController {
     ]);
     return this.service.findByBusiness(
       businessId,
-      { status, date, professionalId, clientId },
+      { status, date, professionalId, clientId, search },
       pagination
     );
   }
@@ -185,16 +186,15 @@ export class AppointmentsController {
     return this.service.complete(id, businessId);
   }
 
-  /** Cancela una cita aplicando la política de anticipación. */
+  /** Cancela una cita desde el panel, sin la antelación mínima del cliente. */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Post(":id/cancel")
   async cancel(
     @Param("id") id: string,
     @BusinessId() businessId: string,
-    @CurrentUser("userId") userId: string,
     @Body() dto: CancelDto
   ) {
-    return this.service.cancel(id, businessId, dto.reason, userId);
+    return this.service.cancel(id, businessId, dto.reason);
   }
 
   /** Marca la cita como "no asistió". */
@@ -225,9 +225,10 @@ export class InternalAppointmentsController {
   /** Indica si un profesional tiene historial de citas (usado antes de eliminarlo). */
   @Get("professional/:professionalId/has-history")
   async professionalHasHistory(
-    @Param("professionalId") professionalId: string
+    @Param("professionalId") professionalId: string,
+    @Query("businessId") businessId: string
   ) {
-    return this.service.professionalHasHistory(professionalId);
+    return this.service.professionalHasHistory(professionalId, businessId);
   }
 
   /** Datos de cobro de una cita del negocio: importe, estado y cliente. */

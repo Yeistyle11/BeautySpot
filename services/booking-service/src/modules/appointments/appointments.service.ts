@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
-import { Repository, DataSource, In } from "typeorm";
+import { Repository, DataSource, ILike, In } from "typeorm";
 import { Appointment } from "../../entities/appointment.entity";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 import {
@@ -21,12 +21,11 @@ import {
 } from "@beautyspot/nest-common";
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { AvailabilityQueryService } from "./availability-query.service";
-import {
-  HORAS_MINIMAS_CANCELACION,
-  PROPORCION_PUNTOS_FIDELIDAD,
-} from "@beautyspot/shared-constants";
+import { PoliticaDeReservaService } from "./politica-de-reserva.service";
+import { PROPORCION_PUNTOS_FIDELIDAD } from "@beautyspot/shared-constants";
 import {
   calculateEndTime,
+  escapeLikePattern,
   esInstantePasadoEn,
   instanteDe,
 } from "@beautyspot/shared-utils";
@@ -59,7 +58,8 @@ export class AppointmentsService {
     private readonly outbox: OutboxService,
     private readonly http: InternalHttpClient,
     private readonly disponibilidad: AvailabilityQueryService,
-    private readonly zonas: ZonaDelNegocioService
+    private readonly zonas: ZonaDelNegocioService,
+    private readonly politica: PoliticaDeReservaService
   ) {}
 
   /** Indica si a la cita le falta menos de la antelación mínima. */
@@ -67,11 +67,14 @@ export class AppointmentsService {
     businessId: string,
     appt: Pick<Appointment, "date" | "startTime">
   ): Promise<boolean> {
-    const zona = await this.zonas.de(businessId);
+    const [zona, minimas] = await Promise.all([
+      this.zonas.de(businessId),
+      this.politica.horasMinimasDeCancelacion(businessId),
+    ]);
     const inicio = instanteDe(zona, appt.date, appt.startTime);
     const horasQueFaltan = (inicio.getTime() - Date.now()) / (1000 * 60 * 60);
 
-    return horasQueFaltan < HORAS_MINIMAS_CANCELACION;
+    return horasQueFaltan < minimas;
   }
 
   /**
@@ -336,12 +339,18 @@ export class AppointmentsService {
     return this.findById(id, businessId);
   }
 
-  /** Cancela la cita si aún queda margen suficiente antes de la hora. */
+  /**
+   * Cancela la cita.
+   *
+   * La antelación mínima solo se le exige al cliente: el negocio tiene que poder
+   * cancelar lo que se le cae encima —un profesional enfermo, un imprevisto— sin
+   * pelearse con su propio sistema.
+   */
   async cancel(
     id: string,
     businessId: string,
     reason: string,
-    _userId: string
+    opciones: { esCliente: boolean } = { esCliente: false }
   ): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
     if (
@@ -353,10 +362,13 @@ export class AppointmentsService {
       );
     }
 
-    // Verificar politica de cancelacion (2 horas antes)
-    if (await this.faltaMenosDeLoMinimo(businessId, appt)) {
+    if (
+      opciones.esCliente &&
+      (await this.faltaMenosDeLoMinimo(businessId, appt))
+    ) {
+      const horas = await this.politica.horasMinimasDeCancelacion(businessId);
       throw new ForbiddenException(
-        "No se puede cancelar con menos de 2 horas de anticipacion"
+        `No se puede cancelar con menos de ${horas} horas de anticipacion`
       );
     }
 
@@ -428,7 +440,8 @@ export class AppointmentsService {
     id: string,
     businessId: string,
     newDate: string,
-    newStartTime: string
+    newStartTime: string,
+    opciones: { esCliente: boolean } = { esCliente: false }
   ): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
 
@@ -438,9 +451,7 @@ export class AppointmentsService {
       );
     }
 
-    // La duración sale de los servicios de la cita. Darla por supuesta hacía
-    // que una cita de 90 minutos pasara a ocupar 30 y el sistema vendiera
-    // encima de la hora que en realidad seguía ocupada.
+    // La duración sale de los servicios de la cita.
     const serviceDuration = appt.appointmentServices.reduce(
       (total, s) => total + s.duration,
       0
@@ -451,9 +462,13 @@ export class AppointmentsService {
       );
     }
 
-    if (await this.faltaMenosDeLoMinimo(businessId, appt)) {
+    if (
+      opciones.esCliente &&
+      (await this.faltaMenosDeLoMinimo(businessId, appt))
+    ) {
+      const horas = await this.politica.horasMinimasDeCancelacion(businessId);
       throw new ForbiddenException(
-        "No se puede reagendar con menos de 2 horas de anticipacion"
+        `No se puede reagendar con menos de ${horas} horas de anticipacion`
       );
     }
 
@@ -557,20 +572,50 @@ export class AppointmentsService {
       date?: string;
       professionalId?: string;
       clientId?: string;
+      search?: string;
     },
     pagination: PaginateParams
   ): Promise<IPaginatedResponse<Appointment>> {
-    const where: Record<string, unknown> = { businessId };
-    if (filters.status) where.status = filters.status;
-    if (filters.date) where.date = filters.date;
-    if (filters.professionalId) where.professionalId = filters.professionalId;
-    if (filters.clientId) where.clientId = filters.clientId;
+    const base: Record<string, unknown> = { businessId };
+    if (filters.status) base.status = filters.status;
+    if (filters.date) base.date = filters.date;
+    if (filters.professionalId) base.professionalId = filters.professionalId;
+    if (filters.clientId) base.clientId = filters.clientId;
 
     return paginate(this.apptRepo, pagination, {
-      where,
+      where: await this.condicionesDeBusqueda(businessId, base, filters.search),
       relations: ["appointmentServices"],
       order: { date: "DESC", startTime: "ASC" },
     });
+  }
+
+  /**
+   * Traduce el texto buscado a condiciones sobre la cita: el cliente se resuelve
+   * en core, que es quien guarda su nombre, y el servicio se busca por el nombre
+   * congelado en la propia cita.
+   */
+  private async condicionesDeBusqueda(
+    businessId: string,
+    base: Record<string, unknown>,
+    search?: string
+  ): Promise<Record<string, unknown> | Record<string, unknown>[]> {
+    const texto = search?.trim();
+    if (!texto) return base;
+
+    const clientIds = await this.http.pedirONulo<string[]>(
+      "core",
+      `/internal/clients/search?businessId=${businessId}&q=${encodeURIComponent(texto)}`
+    );
+
+    const patron = ILike(`%${escapeLikePattern(texto)}%`);
+    const condiciones: Record<string, unknown>[] = [
+      { ...base, appointmentServices: { serviceName: patron } },
+    ];
+    if (clientIds?.length) {
+      condiciones.push({ ...base, clientId: In(clientIds) });
+    }
+
+    return condiciones;
   }
 
   /**
@@ -626,17 +671,17 @@ export class AppointmentsService {
     return cita;
   }
 
-  /** Cancela una cita propia del cliente, con las mismas reglas que la del negocio. */
+  /** Cancela una cita propia del cliente, sujeta a la antelación mínima. */
   async cancelForClientUser(
     id: string,
     userId: string,
     reason: string
   ): Promise<Appointment> {
     const cita = await this.findByIdForClientUser(id, userId);
-    return this.cancel(id, cita.businessId, reason, userId);
+    return this.cancel(id, cita.businessId, reason, { esCliente: true });
   }
 
-  /** Reagenda una cita propia del cliente, con las mismas reglas que la del negocio. */
+  /** Reagenda una cita propia del cliente, sujeta a la antelación mínima. */
   async rescheduleForClientUser(
     id: string,
     userId: string,
@@ -644,7 +689,9 @@ export class AppointmentsService {
     newStartTime: string
   ): Promise<Appointment> {
     const cita = await this.findByIdForClientUser(id, userId);
-    return this.reschedule(id, cita.businessId, newDate, newStartTime);
+    return this.reschedule(id, cita.businessId, newDate, newStartTime, {
+      esCliente: true,
+    });
   }
 
   /** Pregunta a core qué fichas de cliente pertenecen a este usuario. */
@@ -665,17 +712,24 @@ export class AppointmentsService {
    * Cuenta las citas de un profesional, totales y atendidas; lo consulta core
    * para decidir si puede eliminarlo o solo inactivarlo.
    */
-  async professionalHasHistory(professionalId: string): Promise<{
+  async professionalHasHistory(
+    professionalId: string,
+    businessId: string
+  ): Promise<{
     hasHistory: boolean;
     totalAppointments: number;
     completedAppointments: number;
   }> {
     const totalAppointments = await this.apptRepo.count({
-      where: { professionalId },
+      where: { professionalId, businessId },
     });
 
     const completedAppointments = await this.apptRepo.count({
-      where: { professionalId, status: AppointmentStatus.COMPLETED },
+      where: {
+        professionalId,
+        businessId,
+        status: AppointmentStatus.COMPLETED,
+      },
     });
 
     return {

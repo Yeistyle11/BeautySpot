@@ -4,6 +4,7 @@ import {
   ZonaDelNegocioService,
 } from "@beautyspot/nest-common";
 import { HorarioDelNegocioService } from "./horario-del-negocio.service";
+import { PoliticaDeReservaService } from "./politica-de-reserva.service";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository, In } from "typeorm";
 import { DataSource } from "typeorm";
@@ -58,6 +59,7 @@ describe("AppointmentsService", () => {
   let mockHttp: { pedir: jest.Mock; enviar: jest.Mock };
   let mockZonas: ZonaDelNegocioService;
   let mockHorarioDelNegocio: HorarioDelNegocioService;
+  let mockPolitica: { horasMinimasDeCancelacion: jest.Mock };
 
   /** Lo que el catálogo del core-service devuelve para el servicio del fixture. */
   const CORTE = {
@@ -171,6 +173,9 @@ describe("AppointmentsService", () => {
     mockHorarioDelNegocio = {
       tramosDelDia: jest.fn().mockResolvedValue(null),
     } as never;
+    mockPolitica = {
+      horasMinimasDeCancelacion: jest.fn().mockResolvedValue(2),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -194,6 +199,7 @@ describe("AppointmentsService", () => {
             ),
         },
         { provide: ZonaDelNegocioService, useValue: mockZonas },
+        { provide: PoliticaDeReservaService, useValue: mockPolitica },
         {
           provide: DataSource,
           useValue: mockDataSource,
@@ -604,12 +610,7 @@ describe("AppointmentsService", () => {
       mockApptRepo.findOne.mockResolvedValue(futureAppt);
       mockApptRepo.update.mockResolvedValue({ affected: 1 } as any);
 
-      await service.cancel(
-        "appt-123",
-        "business-123",
-        "Cambio de planes",
-        "user-123"
-      );
+      await service.cancel("appt-123", "business-123", "Cambio de planes");
 
       expect(mockOutbox.enqueue).toHaveBeenCalledWith(
         expect.anything(),
@@ -631,13 +632,38 @@ describe("AppointmentsService", () => {
       } as any);
 
       await expect(
-        service.cancel(
-          "appt-123",
-          "business-123",
-          "Cambio de planes",
-          "user-123"
-        )
+        service.cancel("appt-123", "business-123", "Cambio de planes", {
+          esCliente: true,
+        })
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    // Si el profesional se enferma, el salón tiene que poder vaciar la agenda
+    // de las próximas dos horas.
+    it("el negocio puede cancelar una cita inminente", async () => {
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        ...dentroDeMinutos(60),
+      } as any);
+      mockApptRepo.update.mockResolvedValue({ affected: 1 } as any);
+
+      await expect(
+        service.cancel("appt-123", "business-123", "Profesional enfermo")
+      ).resolves.toBeDefined();
+    });
+
+    it("respeta el umbral que configure el negocio", async () => {
+      mockPolitica.horasMinimasDeCancelacion.mockResolvedValue(24);
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        ...dentroDeMinutos(60 * 5),
+      } as any);
+
+      await expect(
+        service.cancel("appt-123", "business-123", "Cambio de planes", {
+          esCliente: true,
+        })
+      ).rejects.toThrow(/24 horas/);
     });
 
     it("debería lanzar BadRequestException si la cita ya está completada", async () => {
@@ -649,12 +675,7 @@ describe("AppointmentsService", () => {
       mockApptRepo.findOne.mockResolvedValue(completedAppt);
 
       await expect(
-        service.cancel(
-          "appt-123",
-          "business-123",
-          "Cambio de planes",
-          "user-123"
-        )
+        service.cancel("appt-123", "business-123", "Cambio de planes")
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -874,8 +895,24 @@ describe("AppointmentsService", () => {
       mockApptRepo.find.mockResolvedValue([]);
 
       return expect(
-        service.reschedule("appt-123", "business-123", FECHA_CITA, "15:00")
+        service.reschedule("appt-123", "business-123", FECHA_CITA, "15:00", {
+          esCliente: true,
+        })
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("el negocio puede reagendar una cita inminente", async () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date(`${FECHA_CITA}T09:30:00`));
+
+      mockApptRepo.findOne.mockResolvedValue(mockAppointment);
+      mockAvailRepo.find.mockResolvedValue([mockAvailability]);
+      mockBlockRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([]);
+
+      await expect(
+        service.reschedule("appt-123", "business-123", FECHA_CITA, "15:00")
+      ).resolves.toBeDefined();
     });
 
     it("debería lanzar BadRequestException si el nuevo horario no está disponible", async () => {

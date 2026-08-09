@@ -366,9 +366,11 @@ describe("ProfessionalsService", () => {
 
       await service.remove("prof-123", "business-123");
 
+      // La consulta va acotada al negocio: contar citas del profesional en
+      // toda la plataforma filtraba datos de otros negocios.
       expect(mockHttp.pedir).toHaveBeenCalledWith(
         "booking",
-        "/internal/appointments/professional/prof-123/has-history"
+        "/internal/appointments/professional/prof-123/has-history?businessId=business-123"
       );
       expect(mockRepo.update).toHaveBeenCalledWith(
         { id: "prof-123", businessId: "business-123" },

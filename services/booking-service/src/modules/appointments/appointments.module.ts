@@ -4,6 +4,7 @@ import { ZonaDelNegocioModule } from "@beautyspot/nest-common";
 import { AppointmentsService } from "./appointments.service";
 import { AvailabilityQueryService } from "./availability-query.service";
 import { HorarioDelNegocioService } from "./horario-del-negocio.service";
+import { PoliticaDeReservaService } from "./politica-de-reserva.service";
 import {
   AppointmentsController,
   InternalAppointmentsController,
@@ -28,6 +29,7 @@ import { BlockedSlot } from "../../entities/blocked-slot.entity";
     AppointmentsService,
     AvailabilityQueryService,
     HorarioDelNegocioService,
+    PoliticaDeReservaService,
   ],
   exports: [AppointmentsService, AvailabilityQueryService],
 })
