@@ -23,13 +23,19 @@ import {
 } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
-/** Endpoints de reseñas del marketplace; la lectura y el alta son públicas, la respuesta la da el negocio. */
+/** Endpoints de reseñas del marketplace; la lectura es pública, el alta la firma un cliente y la respuesta la da el negocio. */
 @Controller("reviews")
 export class ReviewsController {
   constructor(private readonly service: ReviewsService) {}
 
-  /** Crea una reseña a nombre del usuario del token, no del cuerpo. */
+  /**
+   * Crea una reseña a nombre del usuario del token, no del cuerpo.
+   *
+   * `@SkipBusinessScope` se queda porque un cliente no lleva negocio en el
+   * token; el negocio lo aporta la cita, que sí se verifica.
+   */
   @Post()
+  @Roles(Role.CLIENT)
   @SkipBusinessScope()
   async create(
     @CurrentUser("userId") userId: string,

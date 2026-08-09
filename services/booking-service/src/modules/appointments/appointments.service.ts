@@ -678,23 +678,37 @@ export class AppointmentsService {
 
   /**
    * Indica si un usuario puede reseñar una cita: existe, es suya, es de ese
-   * negocio y ya se atendió. Lo consulta el marketplace para conceder el
-   * distintivo de reseña verificada.
+   * negocio y ya se atendió. Lo consulta el marketplace para decidir si acepta
+   * la reseña.
+   *
+   * Devuelve también a quién y qué se atendió, para que el marketplace no
+   * tenga que fiarse de lo que el autor escriba en el cuerpo.
    */
   async citaReseñablePor(
     appointmentId: string,
     userId: string,
     businessId: string
-  ): Promise<{ resenable: boolean }> {
+  ): Promise<{
+    resenable: boolean;
+    professionalId?: string;
+    servicios?: string[];
+  }> {
     const cita = await this.apptRepo.findOne({
       where: { id: appointmentId, businessId },
+      relations: { appointmentServices: true },
     });
     if (!cita || cita.status !== AppointmentStatus.COMPLETED) {
       return { resenable: false };
     }
 
     const fichas = await this.clientIdsDelUsuario(userId);
-    return { resenable: fichas.includes(cita.clientId) };
+    if (!fichas.includes(cita.clientId)) return { resenable: false };
+
+    return {
+      resenable: true,
+      professionalId: cita.professionalId,
+      servicios: cita.appointmentServices.map((s) => s.serviceName),
+    };
   }
 
   // ─── Helpers privados ──────────────────────────────────────

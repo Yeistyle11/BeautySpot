@@ -1004,7 +1004,9 @@ describe("AppointmentsService", () => {
     const completada: Appointment = {
       ...mockAppointment,
       clientId: "ficha-a",
+      professionalId: "prof-123",
       status: AppointmentStatus.COMPLETED,
+      appointmentServices: [{ serviceName: "Corte" } as never],
       generateId: () => {},
     };
 
@@ -1014,7 +1016,31 @@ describe("AppointmentsService", () => {
 
       await expect(
         service.citaReseñablePor("appt-1", "user-1", "business-123")
-      ).resolves.toEqual({ resenable: true });
+      ).resolves.toMatchObject({ resenable: true });
+    });
+
+    // El marketplace los usa para no fiarse de lo que el autor escriba en el
+    // cuerpo de la reseña.
+    it("devuelve el profesional y los servicios atendidos", async () => {
+      mockApptRepo.findOne.mockResolvedValue(completada);
+      mockHttp.pedir.mockResolvedValue([{ id: "ficha-a" }]);
+
+      await expect(
+        service.citaReseñablePor("appt-1", "user-1", "business-123")
+      ).resolves.toEqual({
+        resenable: true,
+        professionalId: "prof-123",
+        servicios: ["Corte"],
+      });
+    });
+
+    it("no filtra el profesional de una cita que no es del usuario", async () => {
+      mockApptRepo.findOne.mockResolvedValue(completada);
+      mockHttp.pedir.mockResolvedValue([{ id: "ficha-de-otro" }]);
+
+      await expect(
+        service.citaReseñablePor("appt-1", "user-1", "business-123")
+      ).resolves.toEqual({ resenable: false });
     });
 
     it("rechaza una cita de otro usuario", async () => {
@@ -1044,9 +1070,11 @@ describe("AppointmentsService", () => {
         service.citaReseñablePor("inventada", "user-1", "business-123")
       ).resolves.toEqual({ resenable: false });
       // La búsqueda va acotada al negocio que dice la reseña.
-      expect(mockApptRepo.findOne).toHaveBeenCalledWith({
-        where: { id: "inventada", businessId: "business-123" },
-      });
+      expect(mockApptRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "inventada", businessId: "business-123" },
+        })
+      );
     });
   });
 

@@ -80,7 +80,7 @@ function StarRating({
 export default function ReviewPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
-  const { businessId, user } = useAuthStore();
+  const { businessId } = useAuthStore();
 
   const {
     data: appointment,
@@ -148,11 +148,11 @@ export default function ReviewPage() {
       .filter((url) => url.length > 0);
 
     try {
+      // Ni el autor ni el profesional se envian: el primero sale del token y
+      // el segundo de la cita, que el backend verifica.
       await api.post("/marketplace/reviews", {
         businessId: effectiveBusinessId,
         appointmentId: appointment.id,
-        clientId: user?.id || appointment.clientId,
-        professionalId: appointment.professionalId,
         rating,
         comment: comment.trim(),
         photos: cleanPhotos,
