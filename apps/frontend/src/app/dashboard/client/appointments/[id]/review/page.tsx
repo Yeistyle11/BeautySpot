@@ -2,8 +2,9 @@
 
 // Resena de una cita completada: calificacion y comentario del cliente.
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,17 @@ import { useAuthStore } from "@/lib/store";
 import Link from "next/link";
 
 import { appointmentSchema, type Appointment } from "@/lib/schemas/appointment";
+
+/** Reseña ya publicada de esta cita, tal como la devuelve el marketplace. */
+const resenaSchema = z.object({
+  id: z.string(),
+  rating: z.number(),
+  comment: z.string().nullable().optional(),
+  photos: z.array(z.string()).nullable().optional(),
+  editedAt: z.string().nullable().optional(),
+});
+
+type Resena = z.infer<typeof resenaSchema>;
 
 /**
  * Selector de calificacion de 1 a 5. Se expone como grupo de radio para que el
@@ -91,6 +103,14 @@ export default function ReviewPage() {
     undefined,
     appointmentSchema
   );
+  // Resena ya publicada de esta cita, si la hay: la pantalla sirve igual para
+  // escribirla que para corregirla.
+  const { data: existentes, mutate: recargarResena } = useApi<Resena[]>(
+    id ? `/marketplace/reviews/appointment/${id}` : null,
+    undefined,
+    z.array(resenaSchema)
+  );
+  const existente = existentes?.[0] ?? null;
   const [error, setError] = useState<string | null>(null);
 
   const [rating, setRating] = useState(0);
@@ -102,7 +122,25 @@ export default function ReviewPage() {
   ]);
   const siguienteIdFoto = useRef(1);
   const [submitting, setSubmitting] = useState(false);
+  const [borrando, setBorrando] = useState(false);
   const [success, setSuccess] = useState(false);
+  // La resena llega despues del primer render: se vuelca una sola vez para no
+  // pisar lo que el usuario ya esté escribiendo.
+  const volcada = useRef(false);
+
+  useEffect(() => {
+    if (!existente || volcada.current) return;
+    volcada.current = true;
+    setRating(existente.rating);
+    setComment(existente.comment ?? "");
+    const fotos = existente.photos ?? [];
+    setPhotos(
+      fotos.length > 0
+        ? fotos.map((url, i) => ({ id: i, url }))
+        : [{ id: 0, url: "" }]
+    );
+    siguienteIdFoto.current = Math.max(fotos.length, 1);
+  }, [existente]);
 
   // Una calificacion baja obliga a explicarla: sin motivo, el negocio no puede
   // hacer nada con la resena.
@@ -148,21 +186,49 @@ export default function ReviewPage() {
       .filter((url) => url.length > 0);
 
     try {
-      // Ni el autor ni el profesional se envian: el primero sale del token y
-      // el segundo de la cita, que el backend verifica.
-      await api.post("/marketplace/reviews", {
-        businessId: effectiveBusinessId,
-        appointmentId: appointment.id,
-        rating,
-        comment: comment.trim(),
-        photos: cleanPhotos,
-      });
+      if (existente) {
+        await api.patch(`/marketplace/reviews/${existente.id}`, {
+          rating,
+          comment: comment.trim(),
+          photos: cleanPhotos,
+        });
+      } else {
+        // Ni el autor ni el profesional se envian: el primero sale del token y
+        // el segundo de la cita, que el backend verifica.
+        await api.post("/marketplace/reviews", {
+          businessId: effectiveBusinessId,
+          appointmentId: appointment.id,
+          rating,
+          comment: comment.trim(),
+          photos: cleanPhotos,
+        });
+      }
+      await recargarResena();
       setSuccess(true);
     } catch (err: unknown) {
       logger.error(err);
       setError(mensajeDeError(err));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!existente) return;
+    setBorrando(true);
+    setError(null);
+    try {
+      await api.delete(`/marketplace/reviews/${existente.id}`);
+      await recargarResena();
+      volcada.current = false;
+      setRating(0);
+      setComment("");
+      setPhotos([{ id: 0, url: "" }]);
+    } catch (err: unknown) {
+      logger.error(err);
+      setError(mensajeDeError(err));
+    } finally {
+      setBorrando(false);
     }
   };
 
@@ -194,7 +260,9 @@ export default function ReviewPage() {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <CheckCircle className="mb-4 h-16 w-16 text-emerald-500" />
-        <h2 className="text-xl font-bold">Reseña publicada</h2>
+        <h2 className="text-xl font-bold">
+          {existente ? "Reseña actualizada" : "Reseña publicada"}
+        </h2>
         <p className="text-muted-foreground mt-2">
           Gracias por compartir tu experiencia
         </p>
@@ -223,7 +291,9 @@ export default function ReviewPage() {
         Volver al detalle de la cita
       </Link>
 
-      <h1 className="mb-6 text-2xl font-bold">Dejar reseña</h1>
+      <h1 className="mb-6 text-2xl font-bold">
+        {existente ? "Editar reseña" : "Dejar reseña"}
+      </h1>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">
@@ -356,6 +426,21 @@ export default function ReviewPage() {
           )}
 
           <div className="flex justify-end gap-3">
+            {existente && (
+              <Button
+                variant="outline"
+                onClick={handleDelete}
+                disabled={borrando || submitting}
+                className="text-destructive mr-auto gap-2"
+              >
+                {borrando ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <X className="h-4 w-4" />
+                )}
+                Borrar reseña
+              </Button>
+            )}
             <Link href={`/dashboard/client/appointments/${id}`}>
               <Button variant="outline">Cancelar</Button>
             </Link>
@@ -367,12 +452,12 @@ export default function ReviewPage() {
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Publicando...
+                  {existente ? "Guardando..." : "Publicando..."}
                 </>
               ) : (
                 <>
                   <Star className="h-4 w-4" />
-                  Publicar reseña
+                  {existente ? "Guardar cambios" : "Publicar reseña"}
                 </>
               )}
             </Button>

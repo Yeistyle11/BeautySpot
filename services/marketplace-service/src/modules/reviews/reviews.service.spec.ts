@@ -74,6 +74,7 @@ describe("ReviewsService", () => {
 
     mockManagerRepo = {
       save: jest.fn(),
+      delete: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     mockManager = {
       getRepository: jest.fn().mockReturnValue(mockManagerRepo),
@@ -700,6 +701,136 @@ describe("ReviewsService", () => {
       await expect(
         service.respond("review-123", "business-123", "Nueva respuesta")
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe("editarRespuesta y borrarRespuesta", () => {
+    const conRespuesta = () =>
+      ({
+        ...mockReview,
+        response: "Gracias!",
+        respondedAt: new Date(),
+        generateId: () => undefined,
+      }) as any;
+
+    it("reescribe la respuesta del negocio", async () => {
+      const review = conRespuesta();
+      mockRepo.findOne.mockResolvedValue(review);
+      mockRepo.save.mockImplementation(async (r: any) => r);
+
+      await service.editarRespuesta(
+        "review-123",
+        "business-123",
+        "Mejor redactado"
+      );
+
+      expect(review.response).toBe("Mejor redactado");
+      expect(mockRepo.save).toHaveBeenCalledWith(review);
+    });
+
+    it("no deja editar una respuesta que no existe", async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockReview,
+        response: null,
+      } as any);
+
+      await expect(
+        service.editarRespuesta("review-123", "business-123", "Hola")
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("retira la respuesta y deja la reseña intacta", async () => {
+      const review = conRespuesta();
+      mockRepo.findOne.mockResolvedValue(review);
+      mockRepo.save.mockImplementation(async (r: any) => r);
+
+      await service.borrarRespuesta("review-123", "business-123");
+
+      expect(review.response).toBeNull();
+      expect(review.respondedAt).toBeNull();
+      expect(review.rating).toBe(mockReview.rating);
+    });
+
+    it("no toca la respuesta de otro negocio", async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.borrarRespuesta("review-123", "otro-negocio")
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("update y remove", () => {
+    const propia = () =>
+      ({
+        ...mockReview,
+        clientId: "user-123",
+        generateId: () => undefined,
+      }) as any;
+
+    it("corrige la reseña propia y recalcula las medias", async () => {
+      const review = propia();
+      mockRepo.findOne.mockResolvedValue(review);
+      mockManagerRepo.save.mockImplementation(async (r: any) => r);
+
+      const result = await service.update("review-123", "user-123", {
+        rating: 4,
+        comment: "Mejor de lo que puse",
+      });
+
+      expect(result.rating).toBe(4);
+      expect(result.editedAt).toBeInstanceOf(Date);
+      expect(mockProfilesService.updateRating).toHaveBeenCalledWith(
+        "business-123",
+        mockManager
+      );
+      expect(mockProfessionalService.updateRating).toHaveBeenCalledWith(
+        "prof-123",
+        mockManager
+      );
+      expect(mockProfilesService.invalidarCache).toHaveBeenCalledWith(
+        "business-123"
+      );
+    });
+
+    it("no deja tocar la reseña de otro", async () => {
+      mockRepo.findOne.mockResolvedValue(propia());
+
+      await expect(
+        service.update("review-123", "otro-usuario", { rating: 1 })
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("sigue exigiendo comentario por debajo de 4 estrellas", async () => {
+      mockRepo.findOne.mockResolvedValue({ ...propia(), comment: null });
+
+      await expect(
+        service.update("review-123", "user-123", { rating: 2 })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("borra la propia y recalcula las medias", async () => {
+      mockRepo.findOne.mockResolvedValue(propia());
+
+      await service.remove("review-123", "user-123");
+
+      expect(mockManagerRepo.delete).toHaveBeenCalledWith({ id: "review-123" });
+      expect(mockProfilesService.updateRating).toHaveBeenCalledWith(
+        "business-123",
+        mockManager
+      );
+      expect(mockProfilesService.invalidarCache).toHaveBeenCalledWith(
+        "business-123"
+      );
+    });
+
+    it("no deja borrar la reseña de otro", async () => {
+      mockRepo.findOne.mockResolvedValue(propia());
+
+      await expect(
+        service.remove("review-123", "otro-usuario")
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockManagerRepo.delete).not.toHaveBeenCalled();
     });
   });
 

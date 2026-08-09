@@ -189,17 +189,33 @@ export default function MarketplacePage() {
     }
   };
 
-  const respondToReview = async (reviewId: string) => {
+  /** Publica la respuesta, o la reescribe si la reseña ya tenía una. */
+  const respondToReview = async (reviewId: string, yaRespondida: boolean) => {
     const response = reviewDrafts[reviewId];
     if (!response?.trim()) return;
+    const ruta = `/marketplace/reviews/${reviewId}/respond`;
     try {
-      await api.post(`/marketplace/reviews/${reviewId}/respond`, { response });
+      if (yaRespondida) {
+        await api.patch(ruta, { response });
+      } else {
+        await api.post(ruta, { response });
+      }
       await mutateReviews();
       setReviewDrafts((prev) => {
         const next = { ...prev };
         delete next[reviewId];
         return next;
       });
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    }
+  };
+
+  const removeReviewResponse = async (reviewId: string) => {
+    try {
+      await api.delete(`/marketplace/reviews/${reviewId}/respond`);
+      await mutateReviews();
     } catch (err) {
       logger.error(err);
       toast.error(mensajeDeError(err));
@@ -342,6 +358,7 @@ export default function MarketplacePage() {
           drafts={reviewDrafts}
           onDraftChange={setReviewDrafts}
           onRespond={respondToReview}
+          onRemoveResponse={removeReviewResponse}
         />
       )}
 

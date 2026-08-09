@@ -24,10 +24,14 @@ export class ReviewEntity extends TenantEntity {
 
   @Column({ type: "text", nullable: true }) comment!: string;
 
-  @Column({ type: "text", nullable: true }) response!: string;
+  @Column({ type: "text", nullable: true }) response!: string | null;
 
   @Column({ type: "timestamptz", nullable: true, name: "responded_at" })
-  respondedAt!: Date;
+  respondedAt!: Date | null;
+
+  /** Última edición del autor; se muestra para que se sepa que se cambió. */
+  @Column({ type: "timestamptz", nullable: true, name: "edited_at" })
+  editedAt!: Date | null;
 
   // Campos enriquecidos
 

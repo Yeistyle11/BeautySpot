@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Param, Body } from "@nestjs/common";
+import { Controller, Get, Post, Param, Body, Query } from "@nestjs/common";
+import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import { CashRegisterService } from "./cash-register.service";
 import {
   OpenSessionDto,
@@ -57,10 +58,14 @@ export class CashRegisterController {
     return this.service.getActiveSession(businessId);
   }
 
-  /** Lista el historial de sesiones de caja del negocio. */
+  /** Lista el historial de sesiones de caja del negocio, paginado. */
   @Get("history")
-  async getSessionHistory(@BusinessId() businessId: string) {
-    return this.service.getSessionHistory(businessId);
+  async getSessionHistory(
+    @BusinessId() businessId: string,
+    @Query() query: Record<string, unknown>
+  ) {
+    const pagination = parsePaginationQuery(query, ["openedAt", "closedAt"]);
+    return this.service.getSessionHistory(businessId, pagination);
   }
 
   /** Devuelve el resumen de una sesión con sus movimientos y total esperado. */

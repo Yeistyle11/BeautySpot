@@ -8,8 +8,12 @@ import {
   IsUrl,
   IsUUID,
   MaxLength,
+  ArrayMaxSize,
 } from "class-validator";
 import { Type } from "class-transformer";
+
+/** Fotos que admite una reseña. */
+export const MAXIMO_FOTOS = 3;
 
 /**
  * Datos para crear una reseña: la cita reseñada, la calificación, el comentario
@@ -32,6 +36,27 @@ export class CreateReviewDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(MAXIMO_FOTOS, {
+    message: `No se pueden adjuntar más de ${MAXIMO_FOTOS} fotos`,
+  })
+  @IsUrl({}, { each: true })
+  photos?: string[];
+}
+
+/**
+ * Cambios que el autor puede hacer sobre su reseña. Ni la cita ni el negocio se
+ * pueden mover: eso convertiría la reseña en otra distinta.
+ */
+export class UpdateReviewDto {
+  @IsOptional() @IsNumber() @Min(1) @Max(5) rating?: number;
+
+  @IsOptional() @IsString() @MaxLength(1000) comment?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAXIMO_FOTOS, {
+    message: `No se pueden adjuntar más de ${MAXIMO_FOTOS} fotos`,
+  })
   @IsUrl({}, { each: true })
   photos?: string[];
 }

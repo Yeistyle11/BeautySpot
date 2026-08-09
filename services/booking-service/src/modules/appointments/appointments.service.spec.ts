@@ -55,6 +55,8 @@ describe("AppointmentsService", () => {
   let mockAvailRepo: jest.Mocked<Repository<Availability>>;
   let mockBlockRepo: jest.Mocked<Repository<BlockedSlot>>;
   let mockDataSource: jest.Mocked<DataSource>;
+  /** Manager que recibió el último callback de `transaction`. */
+  let mockManager: { update: jest.Mock; [clave: string]: unknown };
   let mockOutbox: any;
   let mockHttp: { pedir: jest.Mock; enviar: jest.Mock };
   let mockZonas: ZonaDelNegocioService;
@@ -85,6 +87,8 @@ describe("AppointmentsService", () => {
     cancelReason: "",
     reminder24hSentAt: null,
     reminder1hSentAt: null,
+    startedAt: null,
+    completedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     // Reagendar saca la duración de aquí, así que el fixture la trae: son los
@@ -134,7 +138,9 @@ describe("AppointmentsService", () => {
               typeof isolationOrCallback === "function"
                 ? isolationOrCallback
                 : maybeCallback;
-            const manager = {
+            // Se guarda fuera para poder comprobar lo que se escribió dentro
+            // de la transacción.
+            mockManager = {
               create: jest.fn((_, data) => ({
                 id: "test-id",
                 ...data,
@@ -151,7 +157,7 @@ describe("AppointmentsService", () => {
               find: jest.fn().mockResolvedValue([]),
               update: jest.fn().mockResolvedValue({ affected: 1 }),
             };
-            return await callback(manager);
+            return await callback(mockManager);
           }
         ),
     } as any;
@@ -501,7 +507,28 @@ describe("AppointmentsService", () => {
 
       expect(mockApptRepo.update).toHaveBeenCalledWith(
         { id: "appt-123", businessId: "business-123" },
-        { status: AppointmentStatus.IN_PROGRESS }
+        {
+          status: AppointmentStatus.IN_PROGRESS,
+          startedAt: expect.any(Date),
+        }
+      );
+    });
+
+    it("no pisa la hora real de inicio al reiniciar una cita", async () => {
+      const empezada = new Date("2026-01-01T10:03:00Z");
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        status: AppointmentStatus.CONFIRMED,
+        startedAt: empezada,
+        generateId: () => {},
+      } as any);
+      mockApptRepo.update.mockResolvedValue({ affected: 1 } as any);
+
+      await service.startService("appt-123", "business-123");
+
+      expect(mockApptRepo.update).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ startedAt: empezada })
       );
     });
 
@@ -539,6 +566,24 @@ describe("AppointmentsService", () => {
           aggregateId: "appt-123",
           payload: expect.objectContaining({ pointsEarned: 5000 }),
         })
+      );
+    });
+
+    it("guarda la hora real de fin", async () => {
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        ...dentroDeMinutos(-30),
+        status: AppointmentStatus.IN_PROGRESS,
+        generateId: () => {},
+      } as any);
+      mockApptRepo.update.mockResolvedValue({ affected: 1 } as any);
+
+      await service.complete("appt-123", "business-123");
+
+      expect(mockManager.update).toHaveBeenCalledWith(
+        Appointment,
+        { id: "appt-123", businessId: "business-123" },
+        expect.objectContaining({ completedAt: expect.any(Date) })
       );
     });
 

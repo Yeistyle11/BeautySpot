@@ -10,7 +10,8 @@ import { ProfessionalCategoryEntity } from "./category.entity";
 export class Professional extends TenantEntity {
   @Column({ type: "uuid", name: "branch_id", nullable: true })
   branchId!: string;
-  @Column({ type: "uuid", name: "user_id", nullable: true }) userId!: string;
+  @Column({ type: "uuid", name: "user_id", nullable: true })
+  userId!: string | null;
   @Column() name!: string;
   @Column({ nullable: true }) photo!: string;
   @Column({ type: "text", nullable: true }) bio!: string;

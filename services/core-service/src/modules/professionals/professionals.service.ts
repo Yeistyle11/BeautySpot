@@ -207,9 +207,7 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
       );
     }
 
-    await this.repo.update({ id, businessId }, {
-      userId: null,
-    } as unknown as Parameters<typeof this.repo.update>[1]);
+    await this.repo.update({ id, businessId }, { userId: null });
     return this.findById(id, businessId);
   }
 
