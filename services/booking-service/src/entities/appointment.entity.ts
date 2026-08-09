@@ -1,6 +1,6 @@
 import { Entity, Column, OneToMany, Index } from "typeorm";
 import { AuditableEntity, numericTransformer } from "@beautyspot/database";
-import { AppointmentStatus } from "@beautyspot/shared-types";
+import { AppointmentStatus, CancelReason } from "@beautyspot/shared-types";
 import { AppointmentServiceEntity } from "./appointment-service.entity";
 
 /** Cita: reserva de un cliente con un profesional en una fecha/hora, su estado y los servicios incluidos. */
@@ -30,7 +30,19 @@ export class Appointment extends AuditableEntity {
   })
   status!: AppointmentStatus;
   @Column({ nullable: true }) notes!: string;
-  @Column({ name: "cancel_reason", nullable: true }) cancelReason!: string;
+  /** Nota libre de quien cancela; el motivo tipificado va en `cancelReasonType`. */
+  @Column({ type: "varchar", name: "cancel_reason", nullable: true })
+  cancelReason!: string | null;
+  @Column({
+    type: "varchar",
+    name: "cancel_reason_type",
+    nullable: true,
+  })
+  cancelReasonType!: CancelReason | null;
+  @Column({ type: "uuid", name: "cancelled_by", nullable: true })
+  cancelledBy!: string | null;
+  @Column({ type: "timestamptz", name: "cancelled_at", nullable: true })
+  cancelledAt!: Date | null;
   @Column({ name: "points_earned", default: 0 }) pointsEarned!: number;
   @Column({
     type: "decimal",

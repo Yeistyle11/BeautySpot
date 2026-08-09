@@ -7,6 +7,9 @@ import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Field } from "@/components/ui/field";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog } from "@/components/ui/dialog";
 import { Pagination } from "@/components/ui/pagination";
 import {
   Calendar,
@@ -40,6 +43,7 @@ import {
   clientSchema,
   CLIENTS_KEY,
   emptyForm,
+  MOTIVOS_DE_CANCELACION,
   professionalSchema,
   PROFESSIONALS_KEY,
   serviceSchema,
@@ -129,6 +133,12 @@ export default function AppointmentsPage() {
   const [payment, setPayment] = useState<PaymentDraft>(emptyPaymentDraft);
   const [completingAction, setCompletingAction] = useState(false);
 
+  const [cancelandoId, setCancelandoId] = useState<string | null>(null);
+  const [motivoCancelacion, setMotivoCancelacion] = useState<string>(
+    MOTIVOS_DE_CANCELACION[0].value
+  );
+  const [notaCancelacion, setNotaCancelacion] = useState("");
+
   // Las citas solo traen el id del cliente —vive en otro servicio—, asi que el
   // nombre se cruza contra la lista que la pagina carga para el formulario.
   const clientMap = useMemo(() => {
@@ -155,12 +165,9 @@ export default function AppointmentsPage() {
   // estable, AppointmentCard se re-renderizaria entera con cada pulsacion del
   // buscador.
   const handleAction = useCallback(
-    async (id: string, action: string) => {
+    async (id: string, action: string, cuerpo: unknown = {}) => {
       try {
-        await api.post(
-          `/booking/appointments/${id}/${action}`,
-          action === "cancel" ? { reason: "Cancelado por usuario" } : {}
-        );
+        await api.post(`/booking/appointments/${id}/${action}`, cuerpo);
         await revalidatePrefix(APPOINTMENTS_KEY);
       } catch (err) {
         logger.error(err);
@@ -174,10 +181,19 @@ export default function AppointmentsPage() {
     (id: string) => handleAction(id, "confirm"),
     [handleAction]
   );
-  const handleCancel = useCallback(
-    (id: string) => handleAction(id, "cancel"),
-    [handleAction]
-  );
+  // Cancelar pide motivo: el diálogo se abre con el id y confirma después.
+  const handleCancel = useCallback((id: string) => setCancelandoId(id), []);
+
+  const confirmarCancelacion = useCallback(async () => {
+    if (!cancelandoId) return;
+    await handleAction(cancelandoId, "cancel", {
+      motivo: motivoCancelacion,
+      nota: notaCancelacion || undefined,
+    });
+    setCancelandoId(null);
+    setMotivoCancelacion(MOTIVOS_DE_CANCELACION[0].value);
+    setNotaCancelacion("");
+  }, [cancelandoId, handleAction, motivoCancelacion, notaCancelacion]);
   const handleNoShow = useCallback(
     (id: string) => handleAction(id, "no-show"),
     [handleAction]
@@ -439,6 +455,44 @@ export default function AppointmentsPage() {
         onComplete={handleCompleteWithPayment}
         pending={completingAction}
       />
+
+      <Dialog
+        open={!!cancelandoId}
+        onClose={() => setCancelandoId(null)}
+        title="Cancelar la cita"
+      >
+        <div className="space-y-4">
+          <Field label="Motivo">
+            <select
+              className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+              value={motivoCancelacion}
+              onChange={(e) => setMotivoCancelacion(e.target.value)}
+            >
+              {MOTIVOS_DE_CANCELACION.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Nota (opcional)">
+            <Textarea
+              placeholder="Detalle para el historial"
+              value={notaCancelacion}
+              onChange={(e) => setNotaCancelacion(e.target.value)}
+              rows={2}
+            />
+          </Field>
+          <div className="flex gap-3">
+            <Button variant="destructive" onClick={confirmarCancelacion}>
+              Cancelar la cita
+            </Button>
+            <Button variant="outline" onClick={() => setCancelandoId(null)}>
+              Volver
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

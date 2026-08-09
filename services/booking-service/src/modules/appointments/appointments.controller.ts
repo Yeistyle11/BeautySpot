@@ -23,6 +23,7 @@ import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import {
   CreateAppointmentDto,
   CancelDto,
+  CancelMineDto,
   RescheduleDto,
   AvailabilityQueryDto,
 } from "./dto/appointment.dto";
@@ -111,9 +112,9 @@ export class AppointmentsController {
   async cancelMine(
     @Param("id", ParseUUIDPipe) id: string,
     @CurrentUser("userId") userId: string,
-    @Body() dto: CancelDto
+    @Body() dto: CancelMineDto
   ) {
-    return this.service.cancelForClientUser(id, userId, dto.reason);
+    return this.service.cancelForClientUser(id, userId, dto.nota);
   }
 
   /** Reagendado de una cita propia por parte del cliente. */
@@ -192,9 +193,14 @@ export class AppointmentsController {
   async cancel(
     @Param("id") id: string,
     @BusinessId() businessId: string,
+    @CurrentUser("userId") userId: string,
     @Body() dto: CancelDto
   ) {
-    return this.service.cancel(id, businessId, dto.reason);
+    return this.service.cancel(id, businessId, {
+      tipo: dto.motivo,
+      nota: dto.nota,
+      canceladaPor: userId,
+    });
   }
 
   /** Marca la cita como "no asistió". */

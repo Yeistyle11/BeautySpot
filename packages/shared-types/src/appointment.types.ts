@@ -7,3 +7,12 @@ export enum AppointmentStatus {
   CANCELLED = "CANCELLED",
   NO_SHOW = "NO_SHOW",
 }
+
+/** Motivos por los que se cancela una cita. */
+export enum CancelReason {
+  CLIENTE_CANCELA = "CLIENTE_CANCELA",
+  NEGOCIO_CANCELA = "NEGOCIO_CANCELA",
+  PROFESIONAL_NO_DISPONIBLE = "PROFESIONAL_NO_DISPONIBLE",
+  DUPLICADA = "DUPLICADA",
+  OTRO = "OTRO",
+}

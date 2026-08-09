@@ -5,9 +5,12 @@ import {
   IsArray,
   IsNumber,
   IsUUID,
+  IsEnum,
+  MaxLength,
   Min,
 } from "class-validator";
 import { Type } from "class-transformer";
+import { CancelReason } from "@beautyspot/shared-types";
 import { EsFechaSola } from "../../../common/es-fecha-sola.decorator";
 
 /** Datos para crear una cita: profesional, cliente, servicios, fecha y hora de inicio. */
@@ -26,8 +29,21 @@ export class CreateAppointmentDto {
 }
 
 /** Motivo de cancelación de una cita. */
+/** Cancelación del propio cliente: el motivo lo fija el backend. */
+export class CancelMineDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500, { message: "La nota no puede pasar de 500 caracteres" })
+  nota?: string;
+}
+
 export class CancelDto {
-  @IsString() reason!: string;
+  @IsEnum(CancelReason, { message: "El motivo de cancelación no es válido" })
+  motivo!: CancelReason;
+  @IsOptional()
+  @IsString()
+  @MaxLength(500, { message: "La nota no puede pasar de 500 caracteres" })
+  nota?: string;
 }
 
 /** Nueva fecha y hora de inicio para reagendar una cita. */

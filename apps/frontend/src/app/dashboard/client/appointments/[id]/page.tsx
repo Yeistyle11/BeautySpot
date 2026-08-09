@@ -64,9 +64,8 @@ export default function AppointmentDetailPage() {
     if (!appointment) return;
     setCancelling(true);
     try {
-      await api.post(`/booking/appointments/mine/${appointment.id}/cancel`, {
-        reason: "Cancelado por el cliente",
-      });
+      // El motivo lo fija el backend: desde aqui solo cancela el cliente.
+      await api.post(`/booking/appointments/mine/${appointment.id}/cancel`, {});
       await mutateAppointment();
       await mutate("/booking/appointments");
       setCancelDialogOpen(false);

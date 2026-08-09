@@ -300,6 +300,16 @@ export class ClientsService extends TenantCrudService<Client> {
     await repo.increment({ id, businessId }, "loyaltyPoints", points);
   }
 
+  /** Suma una falta al cliente, dentro de la transacción de quien llame. */
+  async addNoShow(
+    id: string,
+    businessId: string,
+    manager?: EntityManager
+  ): Promise<void> {
+    const repo = manager ? manager.getRepository(Client) : this.repo;
+    await repo.increment({ id, businessId }, "noShowCount", 1);
+  }
+
   /** Resta puntos de fidelidad al cliente, sin bajar de cero. */
   async subtractLoyaltyPoints(
     id: string,

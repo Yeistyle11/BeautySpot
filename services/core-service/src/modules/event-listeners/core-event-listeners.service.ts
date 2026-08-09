@@ -3,6 +3,7 @@ import { RabbitSubscribe } from "@golevelup/nestjs-rabbitmq";
 import { ProcessedEventsStore } from "@beautyspot/nest-common";
 import {
   AppointmentCompletedEvent,
+  AppointmentNoShowedEvent,
   EventNames,
   EVENTS_EXCHANGE,
   DEAD_LETTER_EXCHANGE,
@@ -60,6 +61,27 @@ export class CoreEventListeners {
 
     this.logger.log(
       `Acreditados ${pointsEarned} puntos al cliente ${clientId} por la cita ${appointmentId}`
+    );
+  }
+
+  /** Suma una falta al cliente que no se presentó. */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.BOOKING_APPOINTMENT_NO_SHOWED,
+    queue: nombreDeCola("core", EventNames.BOOKING_APPOINTMENT_NO_SHOWED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleAppointmentNoShowed(
+    event: AppointmentNoShowedEvent
+  ): Promise<void> {
+    const { clientId, businessId } = event.payload;
+
+    await this.processedEvents.once(
+      event,
+      "core:falta del cliente",
+      async (manager) => {
+        await this.clients.addNoShow(clientId, businessId, manager);
+      }
     );
   }
 }
