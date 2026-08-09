@@ -1,4 +1,7 @@
-import { OutboxMessageEntity } from "@beautyspot/nest-common";
+import {
+  OutboxMessageEntity,
+  ProcessedEventEntity,
+} from "@beautyspot/nest-common";
 import { Business } from "./entities/business.entity";
 import { Branch } from "./entities/branch.entity";
 import { Professional } from "./entities/professional.entity";
@@ -12,6 +15,7 @@ import { ServiceCategoryEntity } from "./entities/service-category.entity";
 
 /** Entidades que gestiona este servicio, compartidas por app.module y data-source. */
 export const entities = [
+  ProcessedEventEntity,
   Business,
   Branch,
   Professional,
