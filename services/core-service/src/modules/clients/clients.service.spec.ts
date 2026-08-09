@@ -4,12 +4,21 @@ import { DataSource, Repository } from "typeorm";
 import { OutboxService } from "@beautyspot/nest-common";
 import { ClientsService } from "./clients.service";
 import { Client } from "../../entities/client.entity";
-import { ConflictException, NotFoundException } from "@nestjs/common";
+import {
+  CampoDeFicha,
+  TipoDeCampo,
+} from "../../entities/campo-de-ficha.entity";
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from "@nestjs/common";
 
 describe("ClientsService", () => {
   let service: ClientsService;
   let mockRepo: jest.Mocked<Repository<Client>>;
   let mockOutbox: { enqueue: jest.Mock };
+  let mockCamposRepo: jest.Mocked<Repository<CampoDeFicha>>;
 
   const mockClient: Client = {
     id: "client-123",
@@ -23,6 +32,7 @@ describe("ClientsService", () => {
     tags: [],
     loyaltyPoints: 100,
     active: true,
+    ficha: null,
     anonymizedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -41,6 +51,9 @@ describe("ClientsService", () => {
       increment: jest.fn(),
     } as any;
 
+    // Sin campos definidos, la ficha no se valida contra nada.
+    mockCamposRepo = { find: jest.fn().mockResolvedValue([]) } as any;
+
     mockOutbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
     // La transacción entrega el mismo repositorio simulado del test.
     const mockDataSource = {
@@ -55,6 +68,10 @@ describe("ClientsService", () => {
         {
           provide: getRepositoryToken(Client),
           useValue: mockRepo,
+        },
+        {
+          provide: getRepositoryToken(CampoDeFicha),
+          useValue: mockCamposRepo,
         },
         { provide: DataSource, useValue: mockDataSource },
         { provide: OutboxService, useValue: mockOutbox },
@@ -313,6 +330,86 @@ describe("ClientsService", () => {
         service.update("client-123", "business-123", { name: "Otro" })
       ).rejects.toThrow(ConflictException);
       expect(mockRepo.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("ficha configurable", () => {
+    const CAMPO_ALERGIAS = "11111111-1111-4111-8111-111111111111";
+    const CAMPO_PIEL = "22222222-2222-4222-8222-222222222222";
+
+    /** Alergias (texto, obligatorio) y tipo de piel (opciones). */
+    const definirCampos = () => {
+      mockCamposRepo.find.mockResolvedValue([
+        {
+          id: CAMPO_ALERGIAS,
+          etiqueta: "Alergias",
+          tipo: TipoDeCampo.TEXTO,
+          obligatorio: true,
+          opciones: null,
+        },
+        {
+          id: CAMPO_PIEL,
+          etiqueta: "Tipo de piel",
+          tipo: TipoDeCampo.OPCIONES,
+          obligatorio: false,
+          opciones: ["Grasa", "Seca", "Mixta"],
+        },
+      ] as any);
+    };
+
+    beforeEach(() => {
+      definirCampos();
+      mockRepo.findOne.mockResolvedValue(mockClient);
+      mockRepo.update.mockResolvedValue({ affected: 1 } as any);
+    });
+
+    it("guarda una ficha que cuadra con los campos definidos", async () => {
+      const ficha = { [CAMPO_ALERGIAS]: "Látex", [CAMPO_PIEL]: "Mixta" };
+
+      await service.update("client-123", "business-123", { ficha });
+
+      expect(mockRepo.update).toHaveBeenCalledWith(
+        { id: "client-123", businessId: "business-123" },
+        { ficha }
+      );
+    });
+
+    it("rechaza una clave que el negocio no definió", async () => {
+      await expect(
+        service.update("client-123", "business-123", {
+          ficha: { "33333333-3333-4333-8333-333333333333": "algo" },
+        })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rechaza un valor que no cuadra con el tipo del campo", async () => {
+      await expect(
+        service.update("client-123", "business-123", {
+          ficha: { [CAMPO_ALERGIAS]: 42 },
+        })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rechaza una opción que no está en la lista", async () => {
+      await expect(
+        service.update("client-123", "business-123", {
+          ficha: { [CAMPO_ALERGIAS]: "Ninguna", [CAMPO_PIEL]: "Escamosa" },
+        })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("exige los obligatorios cuando se envía ficha", async () => {
+      await expect(
+        service.update("client-123", "business-123", {
+          ficha: { [CAMPO_PIEL]: "Seca" },
+        })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("no exige nada si no se envía ficha", async () => {
+      await service.update("client-123", "business-123", { name: "Otro" });
+
+      expect(mockRepo.update).toHaveBeenCalled();
     });
   });
 

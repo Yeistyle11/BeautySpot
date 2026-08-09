@@ -292,18 +292,51 @@ CREATE TABLE clients (
   name           VARCHAR(255) NOT NULL,
   email          VARCHAR(255),
   phone          VARCHAR(30),
+  documento      VARCHAR(30),
   notes          TEXT,
   loyalty_points INTEGER NOT NULL DEFAULT 0,
   tags           VARCHAR(500),
+  ficha          JSONB,
   active         BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
-  updated_at     TIMESTAMP NOT NULL DEFAULT NOW()
+  anonymized_at  TIMESTAMPTZ,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_clients_business ON clients(business_id);
 CREATE INDEX idx_clients_email ON clients(business_id, email);
 CREATE INDEX idx_clients_phone ON clients(business_id, phone);
 CREATE INDEX idx_clients_name ON clients(business_id, name);
+```
+
+`anonymized_at` marca el ejercicio del derecho de supresión: la fila se conserva
+con los datos personales vaciados porque sus citas y facturas la referencian.
+
+### campos_de_ficha
+
+Campos que cada negocio añade a la ficha de sus clientes; sus valores viven en
+`clients.ficha`, indexados por el id del campo. Son configurables y no columnas
+fijas porque una barbería y un centro estético no preguntan lo mismo.
+
+```sql
+CREATE TABLE campos_de_ficha (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES businesses(id),
+  etiqueta    VARCHAR(255) NOT NULL,
+  -- texto | numero | fecha | si_no | opciones
+  tipo        VARCHAR(255) NOT NULL DEFAULT 'texto',
+  opciones    JSONB,
+  obligatorio BOOLEAN NOT NULL DEFAULT FALSE,
+  orden       INTEGER NOT NULL DEFAULT 0,
+  -- vacío o nulo = el campo aplica a todo cliente del negocio
+  service_ids JSONB,
+  active      BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX ON campos_de_ficha(business_id);
+CREATE INDEX ON campos_de_ficha(business_id, active);
 ```
 
 ### business_hours

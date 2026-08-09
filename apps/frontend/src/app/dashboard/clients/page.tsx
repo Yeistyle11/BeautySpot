@@ -36,22 +36,19 @@ import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
 import { getAppointmentStatus } from "@/lib/status";
 import { appointmentSchema, type Appointment } from "@/lib/schemas/appointment";
-
-const clientSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  email: z.string().nullable(),
-  phone: z.string().nullable(),
-  loyaltyPoints: z.number(),
-  notes: z.string().nullable(),
-  active: z.boolean(),
-  anonymizedAt: z.string().nullable().optional(),
-});
-type Client = z.infer<typeof clientSchema>;
+import { FichaSection } from "./ficha-section";
+import {
+  clientSchema,
+  campoDeFichaSchema,
+  servicioBreveSchema,
+  CLIENTS_KEY,
+  CLIENT_FIELDS_KEY,
+  type Client,
+  type CampoDeFicha,
+  type ServicioBreve,
+} from "./schemas";
 
 const emptyForm = { name: "", email: "", phone: "" };
-
-const CLIENTS_KEY = "/core/clients";
 
 export default function ClientsPage() {
   const toast = useToast();
@@ -91,6 +88,33 @@ export default function ClientsPage() {
 
   const [clienteASuprimir, setClienteASuprimir] = useState<Client | null>(null);
   const [suprimiendo, setSuprimiendo] = useState(false);
+
+  const { data: campos } = useApi<CampoDeFicha[] | null>(
+    CLIENT_FIELDS_KEY,
+    undefined,
+    z.array(campoDeFichaSchema).nullable()
+  );
+  const { data: servicios } = useApi<ServicioBreve[] | null>(
+    "/core/services",
+    undefined,
+    z.array(servicioBreveSchema).nullable()
+  );
+  const [guardandoFicha, setGuardandoFicha] = useState(false);
+
+  const handleSaveFicha = async (ficha: Record<string, unknown>) => {
+    if (!selectedClient) return;
+    setGuardandoFicha(true);
+    try {
+      await updateClient(selectedClient.id, { ficha });
+      setSelectedClient({ ...selectedClient, ficha });
+      toast.exito("Ficha guardada");
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    } finally {
+      setGuardandoFicha(false);
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -414,6 +438,17 @@ export default function ClientsPage() {
                 </span>
               </div>
             )}
+
+            <FichaSection
+              campos={campos ?? []}
+              servicios={servicios ?? []}
+              valores={selectedClient.ficha ?? {}}
+              onSave={handleSaveFicha}
+              saving={guardandoFicha}
+              puedeEditar={
+                canDo(role, "clients_edit") && !selectedClient.anonymizedAt
+              }
+            />
 
             <div>
               <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold">

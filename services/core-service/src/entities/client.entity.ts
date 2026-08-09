@@ -22,6 +22,13 @@ export class Client extends TenantEntity {
   @Column({ type: "text", nullable: true }) notes!: string | null;
   @Column({ name: "loyalty_points", default: 0 }) loyaltyPoints!: number;
   @Column({ type: "simple-array", nullable: true }) tags!: string[] | null;
+  /**
+   * Valores de la ficha que el negocio se haya definido, indexados por el id de
+   * cada campo. Va en jsonb y no en columnas porque los campos los decide cada
+   * negocio y cambian sin migrar el esquema.
+   */
+  @Column({ type: "jsonb", nullable: true })
+  ficha!: Record<string, unknown> | null;
   @Column({ default: true }) active!: boolean;
   /**
    * Fecha en la que se ejerció el derecho de supresión. La fila se conserva

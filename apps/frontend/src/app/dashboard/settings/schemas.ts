@@ -48,6 +48,34 @@ export const defaultHours: BusinessHour[] = DAYS.map((d) => ({
   active: d.value >= 1 && d.value <= 5,
 }));
 
+/** Tipos de dato que puede pedir un campo de la ficha del cliente. */
+export const TIPOS_DE_CAMPO = [
+  { value: "texto", label: "Texto" },
+  { value: "numero", label: "Número" },
+  { value: "fecha", label: "Fecha" },
+  { value: "si_no", label: "Sí / No" },
+  { value: "opciones", label: "Lista de opciones" },
+] as const;
+
+export const campoDeFichaSchema = z.object({
+  id: z.string(),
+  etiqueta: z.string(),
+  tipo: z.enum(["texto", "numero", "fecha", "si_no", "opciones"]),
+  opciones: z.array(z.string()).nullish(),
+  obligatorio: z.boolean(),
+  orden: z.number(),
+  serviceIds: z.array(z.string()).nullish(),
+  active: z.boolean(),
+});
+export type CampoDeFicha = z.infer<typeof campoDeFichaSchema>;
+
+/** Servicio del catálogo, para elegir a cuáles aplica un campo. */
+export const servicioBreveSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+export type ServicioBreve = z.infer<typeof servicioBreveSchema>;
+
 export interface Feedback {
   type: "error" | "success";
   message: string;

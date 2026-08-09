@@ -12,6 +12,7 @@ import { BusinessHours } from "./entities/business-hours.entity";
 import { BusinessConfig } from "./entities/business-config.entity";
 import { ProfessionalCategoryEntity } from "./entities/category.entity";
 import { ServiceCategoryEntity } from "./entities/service-category.entity";
+import { CampoDeFicha } from "./entities/campo-de-ficha.entity";
 
 /** Entidades que gestiona este servicio, compartidas por app.module y data-source. */
 export const entities = [
@@ -26,5 +27,6 @@ export const entities = [
   BusinessConfig,
   ProfessionalCategoryEntity,
   ServiceCategoryEntity,
+  CampoDeFicha,
   OutboxMessageEntity,
 ];
