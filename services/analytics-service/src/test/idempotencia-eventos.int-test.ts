@@ -90,7 +90,9 @@ describe("Integración: los eventos duplicados no inflan las métricas", () => {
 
     const metrica = await metricaDiaria();
     expect(metrica?.totalAppointments).toBe(1);
-    expect(Number(metrica?.totalRevenue)).toBe(50000);
+    // Crear la cita no mueve los ingresos: su importe es una previsión y el
+    // dinero lo anota el evento de pago, el día en que se cobra.
+    expect(Number(metrica?.totalRevenue)).toBe(0);
   });
 
   it("cuenta por separado dos eventos distintos", async () => {
@@ -103,7 +105,7 @@ describe("Integración: los eventos duplicados no inflan las métricas", () => {
 
     const metrica = await metricaDiaria();
     expect(metrica?.totalAppointments).toBe(2);
-    expect(Number(metrica?.totalRevenue)).toBe(30000);
+    expect(Number(metrica?.totalRevenue)).toBe(0);
   });
 
   it("deja constancia del evento aplicado con su handler", async () => {

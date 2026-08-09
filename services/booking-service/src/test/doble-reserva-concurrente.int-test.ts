@@ -6,6 +6,7 @@ import { entities } from "../orm-entities";
 import { AppointmentsService } from "../modules/appointments/appointments.service";
 import { AvailabilityQueryService } from "../modules/appointments/availability-query.service";
 import { PublicBookingService } from "../modules/public-booking/public-booking.service";
+import { ahoraEnElNegocio } from "../common/hora-del-negocio";
 import { Appointment } from "../entities/appointment.entity";
 import { Availability } from "../entities/availability.entity";
 import { BlockedSlot } from "../entities/blocked-slot.entity";
@@ -14,7 +15,18 @@ const NEGOCIO = "11111111-1111-4111-8111-111111111111";
 const PROFESIONAL = "22222222-2222-4222-8222-222222222222";
 const CLIENTE_A = "33333333-3333-4333-8333-333333333333";
 const CLIENTE_B = "44444444-4444-4444-8444-444444444444";
-const FECHA = "2026-08-03"; // lunes
+/**
+ * Fecha futura calculada, no escrita a mano: el servicio rechaza agendar en el
+ * pasado, así que una constante fija caduca sola y tumba la suite el día que el
+ * calendario la alcanza. Se deriva del mismo reloj que usa esa validación para
+ * que test y código no puedan discrepar. El día de la semana da igual: el
+ * `beforeEach` da disponibilidad los siete.
+ */
+const FECHA = (() => {
+  const dia = new Date(`${ahoraEnElNegocio().fecha}T00:00:00Z`);
+  dia.setUTCDate(dia.getUTCDate() + 30);
+  return dia.toISOString().split("T")[0];
+})();
 const HORA = "10:00";
 
 /**
