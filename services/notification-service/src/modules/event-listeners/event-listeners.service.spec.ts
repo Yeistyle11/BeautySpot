@@ -9,6 +9,7 @@ import {
 } from "@beautyspot/nest-common";
 import { NotificationsService } from "../notifications/notifications.service";
 import { NotificationEventListeners } from "./event-listeners.service";
+import { PaymentMethod } from "@beautyspot/shared-types";
 
 describe("NotificationEventListeners", () => {
   let service: NotificationEventListeners;
@@ -121,7 +122,7 @@ describe("NotificationEventListeners", () => {
       paymentId: "payment-123",
       invoiceId: "invoice-123",
       amount: 80000,
-      method: "transfer",
+      method: PaymentMethod.TRANSFER,
       clientId: "client-123",
       businessId: "business-123",
     },
@@ -154,6 +155,9 @@ describe("NotificationEventListeners", () => {
         .fn()
         .mockResolvedValue({ jobId: "job-127" }),
       queueInvoice: jest.fn().mockResolvedValue({ jobId: "job-128" }),
+      queueAppointmentCreated: jest
+        .fn()
+        .mockResolvedValue({ jobId: "job-130" }),
     } as any;
 
     mockAmqpConnection = {
@@ -170,6 +174,7 @@ describe("NotificationEventListeners", () => {
     mockDataEnricher = {
       enrichAppointmentParticipants: jest.fn().mockResolvedValue(enrichedData),
       enrichClientEmail: jest.fn().mockResolvedValue("juan@example.com"),
+      enrichClientName: jest.fn().mockResolvedValue("Juan Cliente"),
       enrichClientUserId: jest.fn().mockResolvedValue("user-cliente"),
       enrichBusinessData: jest.fn().mockResolvedValue({
         businessName: "EliteBarbers",
@@ -414,6 +419,90 @@ describe("NotificationEventListeners", () => {
         expect.objectContaining({ userId: "user-pro" })
       );
     });
+
+    // Quien reserva desde el marketplace no entra al panel: el aviso in-app no
+    // le llega a ninguna parte.
+    it("manda el acuse por correo al cliente", async () => {
+      await service.handleAppointmentCreated(mockAppointmentCreatedEvent);
+
+      expect(mockEmailService.queueAppointmentCreated).toHaveBeenCalledWith(
+        "juan@example.com",
+        expect.objectContaining({
+          clientName: "Juan Cliente",
+          appointmentDate: "2026-08-10",
+          appointmentTime: "10:00",
+          businessName: "EliteBarbers",
+        })
+      );
+    });
+
+    it("no usa la plantilla de cita confirmada, que aún no lo está", async () => {
+      await service.handleAppointmentCreated(mockAppointmentCreatedEvent);
+
+      expect(
+        mockEmailService.queueAppointmentConfirmation
+      ).not.toHaveBeenCalled();
+    });
+
+    it("deja el aviso in-app aunque el correo falle", async () => {
+      mockEmailService.queueAppointmentCreated.mockRejectedValue(
+        new Error("SMTP caído")
+      );
+
+      await service.handleAppointmentCreated(mockAppointmentCreatedEvent);
+
+      expect(mockNotifications.create).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: "user-cliente" })
+      );
+    });
+  });
+
+  describe("handleAppointmentRescheduled", () => {
+    const mockAppointmentRescheduledEvent = {
+      eventType: "booking.appointment.rescheduled",
+      eventId: "evt-140",
+      correlationId: "corr-140",
+      timestamp: new Date(),
+      payload: {
+        appointmentId: "appointment-140",
+        clientId: "client-123",
+        professionalId: "professional-123",
+        businessId: "business-123",
+        date: "2026-08-12",
+        startTime: "16:00",
+        endTime: "17:00",
+        totalAmount: 50000,
+        previousDate: "2026-08-10",
+        previousStartTime: "10:00",
+      },
+    } as any;
+
+    it("avisa al cliente del cambio, indicando de dónde venía", async () => {
+      await service.handleAppointmentRescheduled(
+        mockAppointmentRescheduledEvent
+      );
+
+      expect(mockNotifications.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-cliente",
+          type: "APPOINTMENT_RESCHEDULED",
+          message: expect.stringContaining("2026-08-10"),
+        })
+      );
+    });
+
+    it("avisa también al equipo del negocio", async () => {
+      await service.handleAppointmentRescheduled(
+        mockAppointmentRescheduledEvent
+      );
+
+      expect(mockNotifications.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-dueno",
+          type: "APPOINTMENT_RESCHEDULED",
+        })
+      );
+    });
   });
 
   describe("handleAppointmentCancelled", () => {
@@ -551,6 +640,12 @@ describe("NotificationEventListeners", () => {
   });
 
   describe("handlePaymentRegistered", () => {
+    /** El mismo pago, cobrado por el método indicado. */
+    const pagadoCon = (method: PaymentMethod) => ({
+      ...mockPaymentRegisteredEvent,
+      payload: { ...mockPaymentRegisteredEvent.payload, method },
+    });
+
     it("debería enviar recibo para pagos por transferencia", async () => {
       await service.handlePaymentRegistered(mockPaymentRegisteredEvent);
 
@@ -559,39 +654,29 @@ describe("NotificationEventListeners", () => {
         expect.objectContaining({
           invoiceNumber: "REC-payment-123",
           amount: 80000,
+          // El nombre sale del cliente resuelto, no de un literal.
+          clientName: "Juan Cliente",
         })
       );
     });
 
-    it("debería enviar recibo para pagos en efectivo", async () => {
-      const cashEvent = {
-        ...mockPaymentRegisteredEvent,
-        payload: { ...mockPaymentRegisteredEvent.payload, method: "efectivo" },
-      };
+    // Un caso por cada valor del enum: la condición se comparaba antes contra
+    // literales que el enum no produce, así que el recibo no salía nunca.
+    it.each([
+      [PaymentMethod.CASH, true],
+      [PaymentMethod.TRANSFER, true],
+      [PaymentMethod.CARD, false],
+      [PaymentMethod.OTHER, false],
+    ])("con %s el recibo por correo sale: %s", async (method, esperado) => {
+      await service.handlePaymentRegistered(pagadoCon(method));
 
-      await service.handlePaymentRegistered(cashEvent);
-
-      expect(mockEmailService.queueInvoice).toHaveBeenCalled();
-    });
-
-    it("no debería enviar recibo para otros métodos de pago", async () => {
-      const cardEvent = {
-        ...mockPaymentRegisteredEvent,
-        payload: { ...mockPaymentRegisteredEvent.payload, method: "card" },
-      };
-
-      await service.handlePaymentRegistered(cardEvent);
-
-      expect(mockEmailService.queueInvoice).not.toHaveBeenCalled();
+      expect(mockEmailService.queueInvoice).toHaveBeenCalledTimes(
+        esperado ? 1 : 0
+      );
     });
 
     it("avisa del cobro dentro de la aplicación sea cual sea el método", async () => {
-      const cardEvent = {
-        ...mockPaymentRegisteredEvent,
-        payload: { ...mockPaymentRegisteredEvent.payload, method: "card" },
-      };
-
-      await service.handlePaymentRegistered(cardEvent);
+      await service.handlePaymentRegistered(pagadoCon(PaymentMethod.CARD));
 
       expect(mockNotifications.create).toHaveBeenCalledWith(
         expect.objectContaining({

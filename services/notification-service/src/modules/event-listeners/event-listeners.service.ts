@@ -7,7 +7,7 @@ import {
   ProcessedEventsStore,
   InternalHttpClient,
 } from "@beautyspot/nest-common";
-import { Role } from "@beautyspot/shared-types";
+import { PaymentMethod, Role } from "@beautyspot/shared-types";
 import { EmailService } from "../emails/email.service";
 import { DataEnricherService } from "../data-enricher/data-enricher.service";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -20,6 +20,7 @@ import {
   AppointmentConfirmedEvent,
   AppointmentCompletedEvent,
   AppointmentCancelledEvent,
+  AppointmentRescheduledEvent,
   AppointmentReminderDueEvent,
   InvoiceGeneratedEvent,
   PaymentRegisteredEvent,
@@ -31,6 +32,15 @@ import {
 
 /** Quién, dentro del negocio, recibe los avisos de la agenda. */
 const ROLES_DE_GESTION: string[] = [Role.OWNER, Role.ADMIN, Role.RECEPTIONIST];
+
+/**
+ * Métodos de pago que no dejan comprobante al cliente y por eso llevan recibo
+ * por correo. Con datáfono lo da el propio terminal.
+ */
+const METODOS_CON_RECIBO: PaymentMethod[] = [
+  PaymentMethod.CASH,
+  PaymentMethod.TRANSFER,
+];
 
 /**
  * Escucha los eventos de dominio de otros servicios y, según cada uno, enriquece
@@ -184,10 +194,92 @@ export class NotificationEventListeners {
             `${data.clientName} reservó el ${date} a las ${startTime} con ${data.professionalName}.`,
             { appointmentId }
           );
+
+          // Quien reserva desde el marketplace no entra al panel: sin este
+          // correo no recibía nada hasta que alguien confirmara a mano.
+          await this.intentarCorreo("cita nueva", async () => {
+            const { jobId } = await this.emailService.queueAppointmentCreated(
+              data.clientEmail,
+              {
+                clientName: data.clientName,
+                professionalName: data.professionalName,
+                appointmentDate: date,
+                appointmentTime: startTime,
+                businessName: data.businessName,
+                businessAddress: data.businessAddress,
+                businessPhone: data.businessPhone,
+              }
+            );
+
+            await this.emitEmailQueuedEvent(
+              jobId,
+              data.clientEmail,
+              "appointment-created",
+              `Recibimos tu solicitud de cita en ${data.businessName}`
+            );
+          });
         }
       );
     } catch (error) {
       this.logError("cita nueva", error);
+    }
+  }
+
+  /** Al mover una cita de fecha, avisa al cliente y al negocio del cambio. */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.BOOKING_APPOINTMENT_RESCHEDULED,
+    queue: nombreDeCola(
+      "notification",
+      EventNames.BOOKING_APPOINTMENT_RESCHEDULED
+    ),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleAppointmentRescheduled(event: AppointmentRescheduledEvent) {
+    const {
+      appointmentId,
+      clientId,
+      professionalId,
+      businessId,
+      date,
+      startTime,
+      previousDate,
+      previousStartTime,
+    } = event.payload;
+
+    this.logger.log(`Cita reagendada: ${appointmentId}`);
+
+    try {
+      await this.processedEvents.once(
+        event,
+        "notification:cita reagendada",
+        async () => {
+          const data = await this.dataEnricher.enrichAppointmentParticipants(
+            clientId,
+            professionalId,
+            businessId
+          );
+
+          await this.avisarEnLaApp(
+            data.clientUserId,
+            businessId,
+            NotificationType.APPOINTMENT_RESCHEDULED,
+            "Cita reagendada",
+            `Tu cita en ${data.businessName} pasó del ${previousDate} a las ${previousStartTime} al ${date} a las ${startTime}.`,
+            { appointmentId }
+          );
+
+          await this.avisarAlNegocio(
+            businessId,
+            NotificationType.APPOINTMENT_RESCHEDULED,
+            "Cita reagendada",
+            `La cita de ${data.clientName} con ${data.professionalName} pasó al ${date} a las ${startTime}.`,
+            { appointmentId }
+          );
+        }
+      );
+    } catch (error) {
+      this.logError("cita reagendada", error);
     }
   }
 
@@ -499,13 +591,14 @@ export class NotificationEventListeners {
         event,
         "notification:factura",
         async () => {
-          const [clientEmail, businessData] = await Promise.all([
+          const [clientEmail, clientName, businessData] = await Promise.all([
             this.dataEnricher.enrichClientEmail(clientId),
+            this.dataEnricher.enrichClientName(clientId),
             this.dataEnricher.enrichBusinessData(businessId),
           ]);
 
           const { jobId } = await this.emailService.queueInvoice(clientEmail, {
-            clientName: "Cliente",
+            clientName,
             invoiceNumber: number.toString(),
             amount: total,
             dueDate: new Date().toISOString().split("T")[0],
@@ -556,15 +649,13 @@ export class NotificationEventListeners {
 
         // El recibo por correo solo tiene sentido en los métodos sin
         // comprobante propio; con datáfono lo da el propio terminal.
-        if (
-          event.payload.method === "transfer" ||
-          event.payload.method === "efectivo"
-        ) {
+        if (METODOS_CON_RECIBO.includes(event.payload.method)) {
+          const clientName = await this.dataEnricher.enrichClientName(clientId);
           await this.intentarCorreo("recibo", async () => {
             const { jobId } = await this.emailService.queueInvoice(
               clientEmail,
               {
-                clientName: "Cliente",
+                clientName,
                 invoiceNumber: `REC-${paymentId}`,
                 amount,
                 dueDate: new Date().toISOString().split("T")[0],

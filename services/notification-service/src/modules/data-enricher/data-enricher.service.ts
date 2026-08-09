@@ -69,6 +69,12 @@ export class DataEnricherService {
     return resolution.client?.email ?? "";
   }
 
+  /** Devuelve el nombre de un cliente, o el de reserva si no se pudo resolver. */
+  async enrichClientName(clientId: string): Promise<string> {
+    const resolution = await this.resolveProfiles({ clientId });
+    return resolution.client?.name ?? FALLBACK.clientName;
+  }
+
   /** Cuenta del cliente, o null si reservó como invitado o no se pudo resolver. */
   async enrichClientUserId(clientId: string): Promise<string | null> {
     const resolution = await this.resolveProfiles({ clientId });

@@ -825,7 +825,7 @@ describe("AppointmentsService", () => {
           eventType: EventNames.BOOKING_APPOINTMENT_RESCHEDULED,
           payload: expect.objectContaining({
             startTime: "10:00",
-            horaAnterior: "14:00",
+            previousStartTime: "14:00",
           }),
         })
       );
