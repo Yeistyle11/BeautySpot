@@ -1,10 +1,18 @@
 import {
+  ArrayNotEmpty,
+  IsArray,
   IsString,
   IsOptional,
   IsNumber,
   IsBoolean,
+  IsUUID,
   MaxLength,
 } from "class-validator";
+
+/** Negocios de los que se piden los nombres. */
+export class ResolveBusinessNamesDto {
+  @IsArray() @ArrayNotEmpty() @IsUUID("4", { each: true }) ids!: string[];
+}
 
 /** Datos para crear un negocio: nombre, contacto, ubicación y preferencias regionales. */
 export class CreateBusinessDto {

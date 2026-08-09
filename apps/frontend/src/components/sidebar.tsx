@@ -6,6 +6,7 @@ import { useAuthStore } from "@/lib/store";
 import { useLogout } from "@/lib/use-logout";
 import { getPagesForRole } from "@/lib/permissions";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { BusinessSwitcher } from "@/components/business-switcher";
 import {
   Scissors,
   LayoutDashboard,
@@ -122,6 +123,10 @@ export function Sidebar() {
           >
             <X className="h-4 w-4" />
           </button>
+        </div>
+
+        <div className="border-b">
+          <BusinessSwitcher />
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">

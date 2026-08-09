@@ -24,7 +24,8 @@ describe("JwtAuthGuard", () => {
   const mockExecutionContext = (
     url: string,
     authHeader?: string,
-    user?: any
+    user?: any,
+    businessId?: string
   ) => {
     const context = {
       getHandler: jest.fn(),
@@ -33,7 +34,10 @@ describe("JwtAuthGuard", () => {
       switchToHttp: jest.fn().mockReturnValue({
         getRequest: jest.fn().mockReturnValue({
           url,
-          headers: { authorization: authHeader },
+          headers: {
+            authorization: authHeader,
+            ...(businessId ? { "x-business-id": businessId } : {}),
+          },
           user,
         }),
       }),
@@ -150,7 +154,68 @@ describe("JwtAuthGuard", () => {
         role: "CLIENT",
         businessId: "business-123",
         businessIds: ["business-123", "business-456"],
+        memberships: [],
       });
+    });
+
+    // Un mismo usuario puede ser dueño de un salón y profesional en otro: con
+    // un único rol en el token, el segundo negocio hereda los permisos del
+    // primero.
+    it("usa el rol de la membresía del negocio de la petición", async () => {
+      (jwt.verify as jest.Mock).mockReturnValue({
+        ...mockDecoded,
+        role: "OWNER",
+        memberships: [
+          { businessId: "business-123", role: "OWNER" },
+          { businessId: "business-456", role: "PROFESSIONAL" },
+        ],
+      } as any);
+
+      const context = mockExecutionContext(
+        "/api/test",
+        `Bearer ${validToken}`,
+        undefined,
+        "business-456"
+      );
+
+      await guard.canActivate(context);
+
+      expect(context.switchToHttp().getRequest().user.role).toBe(
+        "PROFESSIONAL"
+      );
+    });
+
+    it("cae al rol del token si la petición no dice el negocio", async () => {
+      (jwt.verify as jest.Mock).mockReturnValue({
+        ...mockDecoded,
+        role: "OWNER",
+        memberships: [{ businessId: "business-123", role: "OWNER" }],
+      } as any);
+
+      const context = mockExecutionContext("/api/test", `Bearer ${validToken}`);
+
+      await guard.canActivate(context);
+
+      expect(context.switchToHttp().getRequest().user.role).toBe("OWNER");
+    });
+
+    it("SUPER_ADMIN conserva su rol en cualquier negocio", async () => {
+      (jwt.verify as jest.Mock).mockReturnValue({
+        ...mockDecoded,
+        role: "SUPER_ADMIN",
+        memberships: [{ businessId: "business-456", role: "PROFESSIONAL" }],
+      } as any);
+
+      const context = mockExecutionContext(
+        "/api/test",
+        `Bearer ${validToken}`,
+        undefined,
+        "business-456"
+      );
+
+      await guard.canActivate(context);
+
+      expect(context.switchToHttp().getRequest().user.role).toBe("SUPER_ADMIN");
     });
 
     it("debería permitir acceso con token sin prefijo Bearer", async () => {

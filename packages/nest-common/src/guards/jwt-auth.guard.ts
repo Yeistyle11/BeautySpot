@@ -8,6 +8,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { Reflector } from "@nestjs/core";
 import * as jwt from "jsonwebtoken";
+import { Membresia, Role } from "@beautyspot/shared-types";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 import { SESION_VERIFICABLE_KEY } from "../decorators/sesion-verificable.decorator";
 import { esContextoHttp } from "./http-context";
@@ -98,13 +99,38 @@ export class JwtAuthGuard implements CanActivate {
       }
     }
 
+    const memberships = (decoded.memberships ?? []) as Membresia[];
+    const negocio = request.headers["x-business-id"];
+
     request.user = {
       userId: decoded.sub,
       email: decoded.email,
-      role: decoded.role,
+      role: this.rolEnElNegocio(decoded, memberships, negocio),
       businessId: decoded.businessId,
       businessIds: decoded.businessIds,
+      memberships,
     };
     return true;
+  }
+
+  /**
+   * Rol que el usuario tiene en el negocio de la petición.
+   *
+   * Un mismo usuario puede ser dueño de un salón y profesional en otro, así que
+   * el rol del token solo vale como valor por defecto: el que decide es el de
+   * la membresía del negocio que se está usando.
+   */
+  private rolEnElNegocio(
+    decoded: jwt.JwtPayload,
+    memberships: Membresia[],
+    businessId: unknown
+  ): unknown {
+    if (decoded.role === Role.SUPER_ADMIN) return decoded.role;
+    if (typeof businessId !== "string" || memberships.length === 0) {
+      return decoded.role;
+    }
+
+    const membresia = memberships.find((m) => m.businessId === businessId);
+    return membresia ? membresia.role : decoded.role;
   }
 }

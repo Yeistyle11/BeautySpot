@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { OutboxModule } from "@beautyspot/nest-common";
+import { OutboxModule, InternalHttpModule } from "@beautyspot/nest-common";
 import { UsersService } from "./users.service";
 import { UsersController } from "./users.controller";
 import { User } from "../../entities/user.entity";
@@ -11,6 +11,7 @@ import { AuditLog } from "../../entities/audit-log.entity";
   imports: [
     TypeOrmModule.forFeature([User, Membership, AuditLog]),
     OutboxModule,
+    InternalHttpModule,
   ],
   controllers: [UsersController],
   providers: [UsersService],

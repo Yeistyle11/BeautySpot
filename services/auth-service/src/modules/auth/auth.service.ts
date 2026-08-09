@@ -21,7 +21,7 @@ import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
-import { Role, IJwtPayload } from "@beautyspot/shared-types";
+import { Role, IJwtPayload, Membresia } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
 import {
   EventBusService,
@@ -415,15 +415,19 @@ export class AuthService {
         role: Role.CLIENT,
         businessId: undefined,
         businessIds: [] as string[],
+        memberships: [] as Membresia[],
       };
     }
     const active = memberships.filter((m) => m.active);
     const primary = active[0];
-    const businessIds = active.map((m) => m.businessId);
     return {
       role: primary?.role || Role.CLIENT,
       businessId: primary?.businessId || undefined,
-      businessIds,
+      businessIds: active.map((m) => m.businessId),
+      memberships: active.map((m) => ({
+        businessId: m.businessId,
+        role: m.role as Role,
+      })),
     };
   }
 
@@ -432,7 +436,8 @@ export class AuthService {
     accessToken: string;
     refreshToken: string;
   }> {
-    const { role, businessId, businessIds } = this.getMembershipsData(user);
+    const { role, businessId, businessIds, memberships } =
+      this.getMembershipsData(user);
     const tokenVersion = await this.tokenVersionStore.getVersion(user.id);
     const payload: Omit<IJwtPayload, "iat" | "exp"> = {
       sub: user.id,
@@ -440,6 +445,7 @@ export class AuthService {
       role: role as Role,
       businessId,
       businessIds,
+      memberships,
       tokenVersion,
     };
 

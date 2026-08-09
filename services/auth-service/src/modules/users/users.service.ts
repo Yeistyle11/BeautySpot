@@ -15,7 +15,19 @@ import { CreateStaffDto } from "./dto/create-staff.dto";
 import { UpdateStaffDto } from "./dto/update-staff.dto";
 import { toSafeUser, SafeUser } from "./dto/user-response.dto";
 import { Role } from "@beautyspot/shared-types";
-import { TokenVersionStore, OutboxService } from "@beautyspot/nest-common";
+import {
+  TokenVersionStore,
+  OutboxService,
+  InternalHttpClient,
+} from "@beautyspot/nest-common";
+
+/** Membresía con el nombre del negocio, lista para pintar el selector. */
+export interface MembresiaConNegocio {
+  id: string;
+  businessId: string;
+  role: string;
+  businessName: string;
+}
 import { EventNames } from "@beautyspot/event-types";
 
 /**
@@ -34,7 +46,8 @@ export class UsersService {
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
     private readonly tokenVersionStore: TokenVersionStore,
-    private readonly outboxService: OutboxService
+    private readonly outboxService: OutboxService,
+    private readonly http: InternalHttpClient
   ) {}
 
   // --- Consultas ---
@@ -120,10 +133,40 @@ export class UsersService {
   }
 
   /** Devuelve las membresías activas de un usuario. */
-  async getUserMemberships(userId: string): Promise<Membership[]> {
-    return this.membershipRepository.find({
+  async getUserMemberships(userId: string): Promise<MembresiaConNegocio[]> {
+    const memberships = await this.membershipRepository.find({
       where: { userId, active: true },
     });
+    if (memberships.length === 0) return [];
+
+    const porId = await this.nombresDeNegocio(
+      memberships.map((m) => m.businessId)
+    );
+
+    return memberships.map((m) => ({
+      id: m.id,
+      businessId: m.businessId,
+      role: m.role,
+      businessName: porId.get(m.businessId) ?? "",
+    }));
+  }
+
+  /**
+   * Nombre de cada negocio, resuelto en core. Falla en abierto: el nombre es
+   * una etiqueta, y quedarse sin la lista de membresías por no poder pintarla
+   * sería peor.
+   */
+  private async nombresDeNegocio(ids: string[]): Promise<Map<string, string>> {
+    try {
+      const nombres = await this.http.enviar<{ id: string; name: string }[]>(
+        "core",
+        "/internal/businesses/names",
+        { ids }
+      );
+      return new Map((nombres ?? []).map((n) => [n.id, n.name]));
+    } catch {
+      return new Map();
+    }
   }
 
   // --- Admin: Crear cuenta de staff ---

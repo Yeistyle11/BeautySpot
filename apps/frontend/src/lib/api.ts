@@ -1,6 +1,7 @@
 // Cliente HTTP del frontend contra el API Gateway. Centraliza el token de sesión,
 // el parseo defensivo de respuestas y el manejo global del 401.
 import { ApiError } from "./api-error";
+import { useAuthStore } from "./store";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
@@ -59,6 +60,17 @@ async function renovarSesion(): Promise<boolean> {
  * envuelto. La sesión viaja en la cookie httpOnly. Ante un 401 renueva una vez
  * y repite la petición; si la renovación falla, cierra la sesión.
  */
+/**
+ * Negocio sobre el que va la peticion, para quien trabaja en mas de uno. El
+ * gateway comprueba que el usuario tenga membresia en el.
+ */
+function cabeceraDeNegocio(publicMode: boolean): Record<string, string> {
+  if (publicMode || typeof window === "undefined") return {};
+
+  const businessId = useAuthStore.getState().businessId;
+  return businessId ? { "X-Business-Id": businessId } : {};
+}
+
 async function request<T>(
   path: string,
   options?: RequestInit,
@@ -67,6 +79,7 @@ async function request<T>(
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    ...cabeceraDeNegocio(publicMode),
     ...(options?.headers as Record<string, string>),
   };
 

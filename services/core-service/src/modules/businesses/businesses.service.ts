@@ -237,6 +237,18 @@ export class BusinessesService {
     return business;
   }
 
+  /** Nombre de cada negocio pedido, para etiquetar listas de otros servicios. */
+  async namesByIds(ids: string[]): Promise<{ id: string; name: string }[]> {
+    if (ids.length === 0) return [];
+
+    const negocios = await this.repo.find({
+      where: { id: In([...new Set(ids)]) },
+      select: ["id", "name"],
+    });
+
+    return negocios.map((n) => ({ id: n.id, name: n.name }));
+  }
+
   /** Actualiza un negocio tras verificar el acceso del llamante. */
   async update(
     id: string,
