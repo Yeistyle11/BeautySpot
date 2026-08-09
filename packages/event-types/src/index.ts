@@ -1,3 +1,5 @@
+import { PaymentMethod } from "@beautyspot/shared-types";
+
 /** Contrato base de todos los eventos que viajan por el bus (RabbitMQ). */
 export interface IBaseEvent<T = unknown> {
   /**
@@ -151,7 +153,12 @@ export interface PaymentRegisteredPayload {
   appointmentId?: string;
   clientId: string;
   amount: number;
-  method: string;
+  /**
+   * Tipado con el enum y no con `string`: comparar contra un literal cualquiera
+   * compilaba, y así el recibo por correo llevaba desde el primer día colgado
+   * de una condición que nunca se cumplía.
+   */
+  method: PaymentMethod;
 }
 
 export type PaymentRegisteredEvent = IBaseEvent<PaymentRegisteredPayload>;

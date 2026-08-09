@@ -9,6 +9,9 @@
     "type-check": "tsc --noEmit",
     "lint": "eslint src --ext .ts"
   },
+  "dependencies": {
+    "@beautyspot/shared-types": "*"
+  },
   "devDependencies": {
     "typescript": "^5.6.3",
     "uuid": "^9.0.1"

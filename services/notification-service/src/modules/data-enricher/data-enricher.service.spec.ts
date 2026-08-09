@@ -24,6 +24,16 @@ describe("DataEnricherService", () => {
   });
 
   describe("enrichAppointmentParticipants", () => {
+    it("resuelve el nombre del cliente para los correos", async () => {
+      mockHttp.pedirONulo.mockResolvedValue({
+        client: { name: "Juan", email: "juan@test.com", userId: "user-1" },
+        professional: null,
+        business: null,
+      });
+
+      await expect(service.enrichClientName("client-1")).resolves.toBe("Juan");
+    });
+
     it("debería resolver datos de client, professional y business", async () => {
       const mockResponse = {
         client: { name: "Juan", email: "juan@test.com", userId: "user-1" },

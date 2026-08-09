@@ -520,8 +520,8 @@ export class AppointmentsService {
           startTime: newStartTime,
           endTime: newEndTime,
           totalAmount: appt.totalAmount,
-          fechaAnterior: appt.date,
-          horaAnterior: appt.startTime,
+          previousDate: appt.date,
+          previousStartTime: appt.startTime,
         },
       });
     });

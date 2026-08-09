@@ -255,6 +255,34 @@ export class EmailService {
 
   // ─── Queue methods (thin wrappers over queueEmail) ────────
 
+  /**
+   * Encola el acuse de la cita recién solicitada.
+   *
+   * Es un correo distinto al de confirmación a propósito: la cita nace
+   * PENDING, y decirle "confirmada" a quien todavía espera respuesta del
+   * negocio es prometer algo que aún no ha pasado.
+   */
+  async queueAppointmentCreated(
+    to: string,
+    data: {
+      clientName: string;
+      professionalName: string;
+      appointmentDate: string;
+      appointmentTime: string;
+      businessName: string;
+      businessAddress: string;
+      businessPhone: string;
+    }
+  ): Promise<{ jobId: string }> {
+    return this.queueEmail({
+      to,
+      template: "appointment-created",
+      data,
+      subject: `Recibimos tu solicitud de cita en ${data.businessName}`,
+      priority: "high",
+    });
+  }
+
   /** Encola el correo de confirmación de cita (prioridad alta). */
   async queueAppointmentConfirmation(
     to: string,
