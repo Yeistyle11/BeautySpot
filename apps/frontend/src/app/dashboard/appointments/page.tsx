@@ -1,7 +1,7 @@
 "use client";
 
 // Pagina de agenda: lista y calendario de citas, con busqueda, paginacion y acciones de crear/confirmar/cancelar/completar.
-import { useState, useMemo, useCallback, useDeferredValue } from "react";
+import { useState, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
@@ -58,7 +58,6 @@ export default function AppointmentsPage() {
   const { role } = useAuthStore();
 
   const [search, setSearch] = useState("");
-  const deferredSearch = useDeferredValue(search);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -77,6 +76,9 @@ export default function AppointmentsPage() {
     basePath: APPOINTMENTS_KEY,
     itemSchema: appointmentSchema,
     limit: viewMode === "calendar" ? 100 : undefined,
+    // El calendario pinta la semana entera: filtrarla por texto la dejaria a
+    // huecos, asi que la busqueda solo aplica a la lista.
+    search: viewMode === "list" ? search : "",
   });
 
   // Los profesionales se cargan siempre: ademas del formulario, la lista de citas
@@ -126,19 +128,9 @@ export default function AppointmentsPage() {
     return map;
   }, [professionals]);
 
-  // Filtro local sobre la pagina cargada: el endpoint de citas todavia no
-  // acepta busqueda de texto, asi que la UI lo dice en vez de aparentar que
-  // busca en todo el historial.
-  const filtered = useMemo(() => {
-    const q = deferredSearch.toLowerCase();
-    if (!q) return appointments;
-    return appointments.filter(
-      (a) =>
-        a.appointmentServices.some((s) =>
-          s.serviceName.toLowerCase().includes(q)
-        ) || a.id.includes(deferredSearch)
-    );
-  }, [appointments, deferredSearch]);
+  // La busqueda la resuelve el backend sobre todo el historial, por cliente y
+  // por servicio.
+  const filtered = appointments;
 
   // Los tres handlers que reciben las tarjetas van memoizados: sin identidad
   // estable, AppointmentCard se re-renderizaria entera con cada pulsacion del
@@ -306,7 +298,7 @@ export default function AppointmentsPage() {
             <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
             <Input
               id="appointment-search"
-              placeholder="Filtrar por servicio..."
+              placeholder="Buscar por cliente o servicio..."
               className="pl-10"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -317,7 +309,8 @@ export default function AppointmentsPage() {
             id="appointment-search-hint"
             className="text-muted-foreground mt-1.5 text-xs"
           >
-            Filtra las citas de esta página.
+            Busca en todo el historial por nombre, correo o teléfono del cliente
+            y por servicio.
           </p>
         </div>
       )}

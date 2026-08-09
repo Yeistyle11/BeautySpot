@@ -3,11 +3,21 @@ import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { BlockedSlotsService } from "./blocked-slots.service";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
-import { NotFoundException } from "@nestjs/common";
+import { Appointment } from "../../entities/appointment.entity";
+import { ZonaDelNegocioService } from "@beautyspot/nest-common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
+
+/** Bloquear exige futuro, así que las fechas del fixture se calculan al vuelo. */
+function dentroDeDias(dias: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + dias);
+  return d.toISOString().slice(0, 10);
+}
 
 describe("BlockedSlotsService", () => {
   let service: BlockedSlotsService;
   let mockRepo: jest.Mocked<Repository<BlockedSlot>>;
+  let mockApptRepo: jest.Mocked<Repository<Appointment>>;
 
   const mockBlockedSlot: BlockedSlot = {
     id: "block-123",
@@ -43,12 +53,23 @@ describe("BlockedSlotsService", () => {
       delete: jest.fn(),
     } as any;
 
+    // Sin citas encima: cada test que necesite un choque las pone.
+    mockApptRepo = { find: jest.fn().mockResolvedValue([]) } as any;
+
     const module = await Test.createTestingModule({
       providers: [
         BlockedSlotsService,
         {
           provide: getRepositoryToken(BlockedSlot),
           useValue: mockRepo,
+        },
+        {
+          provide: getRepositoryToken(Appointment),
+          useValue: mockApptRepo,
+        },
+        {
+          provide: ZonaDelNegocioService,
+          useValue: { de: jest.fn().mockResolvedValue("America/Bogota") },
         },
       ],
     }).compile();
@@ -109,9 +130,11 @@ describe("BlockedSlotsService", () => {
   });
 
   describe("create", () => {
+    const MANANA = dentroDeDias(1);
+
     it("debería crear un blocked slot exitosamente", async () => {
       const data = {
-        date: "2024-01-20",
+        date: MANANA,
         startTime: "12:00",
         endTime: "13:00",
         reason: "Cita médica",
@@ -133,7 +156,7 @@ describe("BlockedSlotsService", () => {
 
     it("debería crear blocked slot sin razón opcional", async () => {
       const data = {
-        date: "2024-01-20",
+        date: MANANA,
         startTime: "12:00",
         endTime: "13:00",
       };
@@ -151,9 +174,73 @@ describe("BlockedSlotsService", () => {
       expect(result).toEqual(mockBlockedSlot);
     });
 
+    it("rechaza un bloqueo que termina antes de empezar", async () => {
+      await expect(
+        service.create("business-123", "prof-123", {
+          date: MANANA,
+          startTime: "15:00",
+          endTime: "12:00",
+        })
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+
+    it.each(["9:0", "25:00", "abc"])("rechaza la hora %s", async (hora) => {
+      await expect(
+        service.create("business-123", "prof-123", {
+          date: MANANA,
+          startTime: hora,
+          endTime: "18:00",
+        })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rechaza bloquear un dia que ya paso", async () => {
+      await expect(
+        service.create("business-123", "prof-123", {
+          date: dentroDeDias(-1),
+          startTime: "12:00",
+          endTime: "13:00",
+        })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    // Un bloqueo encima de una cita viva la dejaba huérfana: seguía agendada en
+    // una franja que la agenda ya daba por cerrada.
+    it("avisa si la franja tiene citas vivas encima", async () => {
+      mockApptRepo.find.mockResolvedValue([
+        { startTime: "12:30", endTime: "13:30" },
+      ] as never);
+
+      await expect(
+        service.create("business-123", "prof-123", {
+          date: MANANA,
+          startTime: "12:00",
+          endTime: "13:00",
+        })
+      ).rejects.toThrow(/cita/i);
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("deja bloquear si las citas del dia no tocan la franja", async () => {
+      mockApptRepo.find.mockResolvedValue([
+        { startTime: "09:00", endTime: "10:00" },
+      ] as never);
+      mockRepo.create.mockReturnValue(mockBlockedSlot);
+      mockRepo.save.mockResolvedValue(mockBlockedSlot);
+
+      await expect(
+        service.create("business-123", "prof-123", {
+          date: MANANA,
+          startTime: "12:00",
+          endTime: "13:00",
+        })
+      ).resolves.toBeDefined();
+    });
+
     it("debería propagar errores del repositorio", async () => {
       const data = {
-        date: "2024-01-20",
+        date: MANANA,
         startTime: "12:00",
         endTime: "13:00",
       };

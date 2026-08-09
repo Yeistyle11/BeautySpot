@@ -38,10 +38,20 @@ export interface ResolvedBusiness {
   timezone: string;
   /** Vacío mientras el negocio no haya configurado su facturación. */
   facturacion: DatosDeFacturacion;
+  /** Vacío mientras el negocio no haya cambiado las reglas de serie. */
+  reservas: PoliticaDeReserva;
+}
+
+/** Ajustes de reserva que el negocio configura. */
+export interface PoliticaDeReserva {
+  horasMinimasCancelacion?: number;
 }
 
 /** Clave de `business_config` donde viven los datos fiscales del negocio. */
 export const CLAVE_FACTURACION = "facturacion";
+
+/** Clave de `business_config` donde viven las reglas de reserva. */
+export const CLAVE_RESERVAS = "reservas";
 
 /** Datos resueltos de cliente, profesional y negocio para enriquecer notificaciones/documentos. */
 export interface ProfileResolution {
@@ -113,28 +123,35 @@ export class InternalProfilesController {
     return { name: p.name };
   }
 
-  /** Nombre, contacto y datos fiscales del negocio indicado. */
+  /** Nombre, contacto, huso y ajustes configurables del negocio indicado. */
   private async resolveBusiness(id: string): Promise<ResolvedBusiness | null> {
-    const [b, config] = await Promise.all([
+    const [b, ajustes] = await Promise.all([
       this.businessRepo.findOne({
         where: { id },
         select: ["name", "address", "phone", "email", "timezone"],
       }),
-      // Los datos fiscales viven en business_config y no en columnas propias:
-      // la facturación electrónica va a necesitar bastantes más campos que un
-      // NIT, y ahí crecen sin migrar el esquema.
-      this.configRepo.findOne({
-        where: { businessId: id, key: CLAVE_FACTURACION },
+      // Los ajustes viven en business_config y no en columnas propias: crecen
+      // sin migrar el esquema.
+      this.configRepo.find({
+        where: [
+          { businessId: id, key: CLAVE_FACTURACION },
+          { businessId: id, key: CLAVE_RESERVAS },
+        ],
       }),
     ]);
     if (!b) return null;
+
+    const valorDe = (clave: string) =>
+      ajustes.find((a) => a.key === clave)?.value;
+
     return {
       name: b.name,
       address: b.address ?? "",
       phone: b.phone ?? "",
       email: b.email ?? "",
       timezone: b.timezone ?? ZONA_POR_DEFECTO,
-      facturacion: (config?.value as DatosDeFacturacion) ?? {},
+      facturacion: (valorDe(CLAVE_FACTURACION) as DatosDeFacturacion) ?? {},
+      reservas: (valorDe(CLAVE_RESERVAS) as PoliticaDeReserva) ?? {},
     };
   }
 }

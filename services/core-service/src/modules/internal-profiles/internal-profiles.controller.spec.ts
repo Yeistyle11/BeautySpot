@@ -3,6 +3,7 @@ import { getRepositoryToken } from "@nestjs/typeorm";
 import {
   InternalProfilesController,
   CLAVE_FACTURACION,
+  CLAVE_RESERVAS,
 } from "./internal-profiles.controller";
 import { Client } from "../../entities/client.entity";
 import { Professional } from "../../entities/professional.entity";
@@ -32,7 +33,7 @@ describe("InternalProfilesController", () => {
       findOne: jest.fn().mockResolvedValue(null),
     } as any;
     mockBusinessRepo = { findOne: jest.fn().mockResolvedValue(negocio) } as any;
-    mockConfigRepo = { findOne: jest.fn().mockResolvedValue(null) } as any;
+    mockConfigRepo = { find: jest.fn().mockResolvedValue([]) } as any;
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [InternalProfilesController],
@@ -56,9 +57,12 @@ describe("InternalProfilesController", () => {
   });
 
   it("devuelve los datos fiscales configurados por el negocio", async () => {
-    mockConfigRepo.findOne.mockResolvedValue({
-      value: { nit: "901555222-3", razonSocial: "Aurora Belleza S.A.S." },
-    });
+    mockConfigRepo.find.mockResolvedValue([
+      {
+        key: CLAVE_FACTURACION,
+        value: { nit: "901555222-3", razonSocial: "Aurora Belleza S.A.S." },
+      },
+    ]);
 
     const { business } = await controller.resolve(
       undefined,
@@ -71,9 +75,22 @@ describe("InternalProfilesController", () => {
       email: "hola@aurora.co",
       facturacion: { nit: "901555222-3" },
     });
-    expect(mockConfigRepo.findOne).toHaveBeenCalledWith({
-      where: { businessId: NEGOCIO, key: CLAVE_FACTURACION },
-    });
+  });
+
+  it("devuelve las reglas de reserva configuradas por el negocio", async () => {
+    mockConfigRepo.find.mockResolvedValue([
+      { key: CLAVE_RESERVAS, value: { horasMinimasCancelacion: 24 } },
+    ]);
+
+    const { business } = await controller.resolve(
+      undefined,
+      undefined,
+      NEGOCIO
+    );
+
+    expect(business?.reservas).toEqual({ horasMinimasCancelacion: 24 });
+    // Cada ajuste llega por su clave, sin mezclarse con los demás.
+    expect(business?.facturacion).toEqual({});
   });
 
   it("devuelve la facturación vacía si el negocio no la ha configurado", async () => {

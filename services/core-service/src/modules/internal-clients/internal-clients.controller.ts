@@ -1,8 +1,12 @@
-import { Controller, Post, Get, Body, Param } from "@nestjs/common";
+import { Controller, Post, Get, Body, Param, Query } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { ILike, Repository } from "typeorm";
+import { escapeLikePattern } from "@beautyspot/shared-utils";
 import { Client } from "../../entities/client.entity";
 import { FindOrCreateClientDto } from "./dto/find-or-create-client.dto";
+
+/** Tope de clientes que devuelve una búsqueda, para acotar el `IN` de booking. */
+const MAXIMO_CLIENTES_BUSCADOS = 200;
 
 /** Endpoint interno (servicio-a-servicio) para resolver el cliente de una reserva. */
 @Controller("internal/clients")
@@ -23,6 +27,31 @@ export class InternalClientsController {
   @Get("by-user/:userId")
   async findByUser(@Param("userId") userId: string): Promise<Client[]> {
     return this.clientRepo.find({ where: { userId } });
+  }
+
+  /**
+   * Ids de los clientes del negocio que casan con el texto por nombre, email o
+   * teléfono. Lo usa booking para buscar citas por cliente.
+   */
+  @Get("search")
+  async search(
+    @Query("businessId") businessId: string,
+    @Query("q") q: string
+  ): Promise<string[]> {
+    if (!businessId || !q?.trim()) return [];
+
+    const patron = `%${escapeLikePattern(q.trim())}%`;
+    const clientes = await this.clientRepo.find({
+      where: [
+        { businessId, name: ILike(patron) },
+        { businessId, email: ILike(patron) },
+        { businessId, phone: ILike(patron) },
+      ],
+      select: ["id"],
+      take: MAXIMO_CLIENTES_BUSCADOS,
+    });
+
+    return clientes.map((c) => c.id);
   }
 
   /** Ata la ficha al usuario que reserva, si aun no tiene ninguno. */

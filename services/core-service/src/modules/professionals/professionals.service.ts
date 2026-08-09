@@ -138,7 +138,7 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     const professional = await this.findById(id, businessId);
 
     // Verificar historial de citas via booking-service
-    const hasHistory = await this.checkProfessionalHistory(id);
+    const hasHistory = await this.checkProfessionalHistory(id, businessId);
     if (hasHistory.hasActiveAppointments) {
       throw new BadRequestException(
         "No se puede inactivar este profesional porque tiene citas pendientes o confirmadas. " +
@@ -201,7 +201,10 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
    * Consulta a booking el historial de citas del profesional; si booking no
    * responde, el error se propaga y la baja queda bloqueada.
    */
-  private async checkProfessionalHistory(professionalId: string): Promise<{
+  private async checkProfessionalHistory(
+    professionalId: string,
+    businessId: string
+  ): Promise<{
     hasHistory: boolean;
     hasActiveAppointments: boolean;
     totalAppointments: number;
@@ -212,7 +215,7 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
       hasHistory?: unknown;
     }>(
       "booking",
-      `/internal/appointments/professional/${professionalId}/has-history`
+      `/internal/appointments/professional/${professionalId}/has-history?businessId=${businessId}`
     );
 
     // Coercion segura: valores faltantes/no-numericos se tratan como 0

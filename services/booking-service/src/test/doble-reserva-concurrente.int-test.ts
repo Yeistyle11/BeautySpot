@@ -6,6 +6,7 @@ import {
   ZonaDelNegocioService,
 } from "@beautyspot/nest-common";
 import { HorarioDelNegocioService } from "../modules/appointments/horario-del-negocio.service";
+import { PoliticaDeReservaService } from "../modules/appointments/politica-de-reserva.service";
 import { createMigrationDataSourceOptions } from "@beautyspot/database";
 import { entities } from "../orm-entities";
 import { AppointmentsService } from "../modules/appointments/appointments.service";
@@ -124,7 +125,10 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
       outbox as unknown as OutboxService,
       http as unknown as InternalHttpClient,
       disponibilidad,
-      zonas
+      zonas,
+      {
+        horasMinimasDeCancelacion: jest.fn().mockResolvedValue(2),
+      } as unknown as PoliticaDeReservaService
     );
 
     reservaPublica = new PublicBookingService(
