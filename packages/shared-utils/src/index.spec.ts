@@ -1,3 +1,4 @@
+import { normalizarEmail, normalizarTelefono } from "./index";
 import {
   generateSlug,
   getTimeSlots,
@@ -245,5 +246,35 @@ describe("Shared Utils", () => {
     it("debería manejar strings vacíos", () => {
       expect(escapeLikePattern("")).toBe("");
     });
+  });
+
+  describe("normalizarEmail", () => {
+    it("quita espacios y pasa a minúsculas", () => {
+      expect(normalizarEmail("  Juan@Ejemplo.CO ")).toBe("juan@ejemplo.co");
+    });
+
+    it.each([undefined, null, ""])("devuelve vacío para %s", (valor) => {
+      expect(normalizarEmail(valor)).toBe("");
+    });
+  });
+
+  describe("normalizarTelefono", () => {
+    // Es lo que evita que la misma persona acabe con dos fichas.
+    it("reduce a la misma forma los formatos habituales", () => {
+      expect(normalizarTelefono("+57 300 123 45 67")).toBe("+573001234567");
+      expect(normalizarTelefono("+57-300-123-4567")).toBe("+573001234567");
+      expect(normalizarTelefono("(300) 123 4567")).toBe("3001234567");
+    });
+
+    it("conserva el prefijo internacional", () => {
+      expect(normalizarTelefono("+573001234567")).not.toBe("573001234567");
+    });
+
+    it.each([undefined, null, "", "   ", "sin numeros"])(
+      "devuelve vacío para %s",
+      (valor) => {
+        expect(normalizarTelefono(valor)).toBe("");
+      }
+    );
   });
 });

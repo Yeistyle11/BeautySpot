@@ -122,6 +122,29 @@ export function timesOverlap(
   return s1 < e2 && s2 < e1;
 }
 
+/**
+ * Deja un correo en su forma canónica para poder cotejarlo: sin espacios y en
+ * minúsculas.
+ */
+export function normalizarEmail(email?: string | null): string {
+  return email?.trim().toLowerCase() ?? "";
+}
+
+/**
+ * Deja un teléfono en su forma canónica para poder cotejarlo: solo dígitos,
+ * conservando el `+` inicial si lo trae. "+57 300 123 45 67" y
+ * "+573001234567" son el mismo número.
+ */
+export function normalizarTelefono(telefono?: string | null): string {
+  const texto = telefono?.trim() ?? "";
+  if (!texto) return "";
+
+  const digitos = texto.replace(/\D/g, "");
+  if (!digitos) return "";
+
+  return texto.startsWith("+") ? `+${digitos}` : digitos;
+}
+
 /** Escapa los comodines de SQL LIKE (%, _, \) para construir patrones ILIKE seguros. */
 export function escapeLikePattern(input: string): string {
   return input.replace(/[%_\\]/g, "\\$&");

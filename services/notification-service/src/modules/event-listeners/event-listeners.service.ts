@@ -11,7 +11,11 @@ import { PaymentMethod, Role } from "@beautyspot/shared-types";
 import { EmailService } from "../emails/email.service";
 import { DataEnricherService } from "../data-enricher/data-enricher.service";
 import { NotificationsService } from "../notifications/notifications.service";
-import { NotificationType } from "@beautyspot/shared-types";
+import {
+  NotificationChannel,
+  NotificationType,
+} from "@beautyspot/shared-types";
+import { NotificationPreferencesService } from "../notification-preferences/notification-preferences.service";
 import { ocultarCorreo } from "@beautyspot/shared-utils";
 import {
   UserRegisteredEvent,
@@ -58,7 +62,8 @@ export class NotificationEventListeners {
     private readonly dataEnricher: DataEnricherService,
     private readonly processedEvents: ProcessedEventsStore,
     private readonly notifications: NotificationsService,
-    private readonly http: InternalHttpClient
+    private readonly http: InternalHttpClient,
+    private readonly preferencias: NotificationPreferencesService
   ) {}
 
   /** Al registrarse un usuario, encola el correo de bienvenida. */
@@ -197,27 +202,35 @@ export class NotificationEventListeners {
 
           // Quien reserva desde el marketplace no entra al panel, así que el
           // aviso in-app no le llega: el acuse va por correo.
-          await this.intentarCorreo("cita nueva", async () => {
-            const { jobId } = await this.emailService.queueAppointmentCreated(
-              data.clientEmail,
-              {
-                clientName: data.clientName,
-                professionalName: data.professionalName,
-                appointmentDate: date,
-                appointmentTime: startTime,
-                businessName: data.businessName,
-                businessAddress: data.businessAddress,
-                businessPhone: data.businessPhone,
-              }
-            );
+          await this.intentarCorreo(
+            "cita nueva",
+            async () => {
+              const { jobId } = await this.emailService.queueAppointmentCreated(
+                data.clientEmail,
+                {
+                  clientName: data.clientName,
+                  professionalName: data.professionalName,
+                  appointmentDate: date,
+                  appointmentTime: startTime,
+                  businessName: data.businessName,
+                  businessAddress: data.businessAddress,
+                  businessPhone: data.businessPhone,
+                }
+              );
 
-            await this.emitEmailQueuedEvent(
-              jobId,
-              data.clientEmail,
-              "appointment-created",
-              `Recibimos tu solicitud de cita en ${data.businessName}`
-            );
-          });
+              await this.emitEmailQueuedEvent(
+                jobId,
+                data.clientEmail,
+                "appointment-created",
+                `Recibimos tu solicitud de cita en ${data.businessName}`
+              );
+            },
+            {
+              userId: data.clientUserId,
+              businessId,
+              type: NotificationType.APPOINTMENT_CREATED,
+            }
+          );
         }
       );
     } catch (error) {
@@ -369,29 +382,37 @@ export class NotificationEventListeners {
             { appointmentId }
           );
 
-          await this.intentarCorreo("confirmación", async () => {
-            const { jobId } =
-              await this.emailService.queueAppointmentConfirmation(
-                data.clientEmail,
-                {
-                  clientName: data.clientName,
-                  professionalName: data.professionalName,
-                  serviceName: "Servicio",
-                  appointmentDate: date,
-                  appointmentTime: startTime,
-                  businessName: data.businessName,
-                  businessAddress: data.businessAddress,
-                  businessPhone: data.businessPhone,
-                }
-              );
+          await this.intentarCorreo(
+            "confirmación",
+            async () => {
+              const { jobId } =
+                await this.emailService.queueAppointmentConfirmation(
+                  data.clientEmail,
+                  {
+                    clientName: data.clientName,
+                    professionalName: data.professionalName,
+                    serviceName: "Servicio",
+                    appointmentDate: date,
+                    appointmentTime: startTime,
+                    businessName: data.businessName,
+                    businessAddress: data.businessAddress,
+                    businessPhone: data.businessPhone,
+                  }
+                );
 
-            await this.emitEmailQueuedEvent(
-              jobId,
-              data.clientEmail,
-              "appointment-confirmed",
-              `Confirmación de cita en ${data.businessName}`
-            );
-          });
+              await this.emitEmailQueuedEvent(
+                jobId,
+                data.clientEmail,
+                "appointment-confirmed",
+                `Confirmación de cita en ${data.businessName}`
+              );
+            },
+            {
+              userId: data.clientUserId,
+              businessId,
+              type: NotificationType.APPOINTMENT_CONFIRMED,
+            }
+          );
         }
       );
     } catch (error) {
@@ -452,26 +473,35 @@ export class NotificationEventListeners {
             { appointmentId, cancelReason }
           );
 
-          await this.intentarCorreo("cancelación", async () => {
-            const { jobId } = await this.emailService.queueAppointmentCancelled(
-              data.clientEmail,
-              {
-                clientName: data.clientName,
-                professionalName: data.professionalName,
-                serviceName: "Servicio",
-                cancelledDate: date,
-                reason: cancelReason || "Sin motivo",
-                businessName: data.businessName,
-              }
-            );
+          await this.intentarCorreo(
+            "cancelación",
+            async () => {
+              const { jobId } =
+                await this.emailService.queueAppointmentCancelled(
+                  data.clientEmail,
+                  {
+                    clientName: data.clientName,
+                    professionalName: data.professionalName,
+                    serviceName: "Servicio",
+                    cancelledDate: date,
+                    reason: cancelReason || "Sin motivo",
+                    businessName: data.businessName,
+                  }
+                );
 
-            await this.emitEmailQueuedEvent(
-              jobId,
-              data.clientEmail,
-              "appointment-cancelled",
-              `Cita cancelada - ${data.businessName}`
-            );
-          });
+              await this.emitEmailQueuedEvent(
+                jobId,
+                data.clientEmail,
+                "appointment-cancelled",
+                `Cita cancelada - ${data.businessName}`
+              );
+            },
+            {
+              userId: data.clientUserId,
+              businessId,
+              type: NotificationType.APPOINTMENT_CANCELLED,
+            }
+          );
         }
       );
     } catch (error) {
@@ -651,26 +681,34 @@ export class NotificationEventListeners {
         // comprobante propio; con datáfono lo da el propio terminal.
         if (METODOS_CON_RECIBO.includes(event.payload.method)) {
           const clientName = await this.dataEnricher.enrichClientName(clientId);
-          await this.intentarCorreo("recibo", async () => {
-            const { jobId } = await this.emailService.queueInvoice(
-              clientEmail,
-              {
-                clientName,
-                invoiceNumber: `REC-${paymentId}`,
-                amount,
-                dueDate: new Date().toISOString().split("T")[0],
-                businessName: businessData.businessName,
-                services: [{ name: "Servicio", price: amount }],
-              }
-            );
+          await this.intentarCorreo(
+            "recibo",
+            async () => {
+              const { jobId } = await this.emailService.queueInvoice(
+                clientEmail,
+                {
+                  clientName,
+                  invoiceNumber: `REC-${paymentId}`,
+                  amount,
+                  dueDate: new Date().toISOString().split("T")[0],
+                  businessName: businessData.businessName,
+                  services: [{ name: "Servicio", price: amount }],
+                }
+              );
 
-            await this.emitEmailQueuedEvent(
-              jobId,
-              clientEmail,
-              "invoice-generated",
-              `Recibo de pago - ${businessData.businessName}`
-            );
-          });
+              await this.emitEmailQueuedEvent(
+                jobId,
+                clientEmail,
+                "invoice-generated",
+                `Recibo de pago - ${businessData.businessName}`
+              );
+            },
+            {
+              userId: clientUserId,
+              businessId,
+              type: NotificationType.PAYMENT_REGISTERED,
+            }
+          );
         }
       });
     } catch (error) {
@@ -739,6 +777,17 @@ export class NotificationEventListeners {
     data?: Record<string, unknown>
   ): Promise<void> {
     if (!userId) return;
+    if (
+      !(await this.aceptaRecibir(
+        userId,
+        businessId,
+        type,
+        NotificationChannel.IN_APP
+      ))
+    ) {
+      return;
+    }
+
     await this.notifications.create({
       businessId,
       userId,
@@ -747,6 +796,34 @@ export class NotificationEventListeners {
       message,
       data,
     });
+  }
+
+  /**
+   * Indica si el usuario acepta ese tipo por ese canal. Un fallo al leer la
+   * preferencia no silencia el aviso: se envía, que es el comportamiento por
+   * defecto cuando nadie ha configurado nada.
+   */
+  private async aceptaRecibir(
+    userId: string,
+    businessId: string,
+    type: NotificationType,
+    channel: NotificationChannel
+  ): Promise<boolean> {
+    try {
+      return await this.preferencias.isNotificationEnabled(
+        userId,
+        businessId,
+        type,
+        channel
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Error desconocido";
+      this.logger.warn(
+        `No se pudo leer la preferencia de ${userId}: se envia igualmente (${message})`
+      );
+      return true;
+    }
   }
 
   /**
@@ -763,14 +840,7 @@ export class NotificationEventListeners {
   ): Promise<void> {
     const miembros = await this.equipoDelNegocio(businessId);
     for (const userId of miembros) {
-      await this.notifications.create({
-        businessId,
-        userId,
-        type,
-        title,
-        message,
-        data,
-      });
+      await this.avisarEnLaApp(userId, businessId, type, title, message, data);
     }
   }
 
@@ -793,8 +863,27 @@ export class NotificationEventListeners {
    */
   private async intentarCorreo(
     contexto: string,
-    envio: () => Promise<void>
+    envio: () => Promise<void>,
+    destinatario?: {
+      userId: string | null;
+      businessId: string;
+      type: NotificationType;
+    }
   ): Promise<void> {
+    // Quien reserva como invitado no tiene cuenta y por tanto no tiene
+    // preferencias: recibe el correo, que es su único canal.
+    if (
+      destinatario?.userId &&
+      !(await this.aceptaRecibir(
+        destinatario.userId,
+        destinatario.businessId,
+        destinatario.type,
+        NotificationChannel.EMAIL
+      ))
+    ) {
+      return;
+    }
+
     try {
       await envio();
     } catch (error) {

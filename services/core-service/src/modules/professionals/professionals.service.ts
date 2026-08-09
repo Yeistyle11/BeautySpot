@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   BadRequestException,
+  NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
@@ -14,6 +15,7 @@ import { Repository, DataSource } from "typeorm";
 import { Professional } from "../../entities/professional.entity";
 import { CategoriesService } from "../categories/categories.service";
 import { ProfessionalService } from "../../entities/professional-service.entity";
+import { Service } from "../../entities/service.entity";
 
 /**
  * Gestiona el equipo de profesionales de un negocio: su ficha, los servicios
@@ -26,6 +28,8 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     repo: Repository<Professional>,
     @InjectRepository(ProfessionalService)
     private readonly psRepo: Repository<ProfessionalService>,
+    @InjectRepository(Service)
+    private readonly serviceRepo: Repository<Service>,
     private readonly http: InternalHttpClient,
     private readonly categories: CategoriesService,
     private readonly dataSource: DataSource,
@@ -100,8 +104,9 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     customPrice?: number,
     customDuration?: number
   ): Promise<ProfessionalService> {
-    // Verifica que el profesional pertenezca al negocio del llamante.
+    // Profesional y servicio, los dos del negocio del llamante.
     await this.findById(professionalId, businessId);
+    await this.validarServicio(serviceId, businessId);
 
     const ps = this.psRepo.create({
       professionalId,
@@ -110,6 +115,19 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
       customDuration,
     });
     return this.psRepo.save(ps);
+  }
+
+  /** Comprueba que el servicio pertenece al negocio antes de asignarlo. */
+  private async validarServicio(
+    serviceId: string,
+    businessId: string
+  ): Promise<void> {
+    const existe = await this.serviceRepo.exists({
+      where: { id: serviceId, businessId },
+    });
+    if (!existe) {
+      throw new NotFoundException("Servicio no encontrado");
+    }
   }
 
   /** Quita la asignación de un servicio a un profesional. */

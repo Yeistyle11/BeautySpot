@@ -6,10 +6,11 @@ import { CategoriesModule } from "../categories/categories.module";
 import { ProfessionalsController } from "./professionals.controller";
 import { Professional } from "../../entities/professional.entity";
 import { ProfessionalService } from "../../entities/professional-service.entity";
+import { Service } from "../../entities/service.entity";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Professional, ProfessionalService]),
+    TypeOrmModule.forFeature([Professional, ProfessionalService, Service]),
     CategoriesModule,
     OutboxModule,
   ],

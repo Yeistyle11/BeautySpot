@@ -6,12 +6,14 @@ import { NotificationEventListeners } from "./event-listeners.service";
 import { EmailsModule } from "../emails/emails.module";
 import { DataEnricherModule } from "../data-enricher/data-enricher.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { NotificationPreferencesModule } from "../notification-preferences/notification-preferences.module";
 
 @Module({
   imports: [
     EmailsModule,
     DataEnricherModule,
     NotificationsModule,
+    NotificationPreferencesModule,
     RabbitMQModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
