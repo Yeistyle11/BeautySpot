@@ -8,11 +8,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
-import { Calendar, Plus, Search, X, List, CalendarDays } from "lucide-react";
+import {
+  Calendar,
+  Plus,
+  Search,
+  X,
+  List,
+  CalendarDays,
+  Columns3,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
-import { getErrorMessage } from "@/lib/utils";
+import { getErrorMessage, toLocalDateKey } from "@/lib/utils";
 import { useApi, paginatedSchema, revalidatePrefix } from "@/lib/swr";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { usePaginatedList } from "@/lib/use-paginated-list";
@@ -53,6 +61,14 @@ const CalendarView = dynamic(
   }
 );
 
+const DayView = dynamic(
+  () => import("@/components/day-view").then((m) => m.DayView),
+  {
+    ssr: false,
+    loading: () => <p className="text-muted-foreground">Cargando...</p>,
+  }
+);
+
 export default function AppointmentsPage() {
   const toast = useToast();
   const { role } = useAuthStore();
@@ -61,7 +77,8 @@ export default function AppointmentsPage() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [viewMode, setViewMode] = useState<"list" | "day" | "calendar">("list");
+  const [dia, setDia] = useState(() => toLocalDateKey(new Date()));
 
   // El calendario pinta una semana entera, asi que pide el maximo que admite
   // el backend (100) en vez de paginar; la lista si pagina de 20 en 20.
@@ -75,7 +92,9 @@ export default function AppointmentsPage() {
   } = usePaginatedList<Appointment>({
     basePath: APPOINTMENTS_KEY,
     itemSchema: appointmentSchema,
-    limit: viewMode === "calendar" ? 100 : undefined,
+    // La vista día acota al servidor y no necesita traerse la semana entera.
+    params: viewMode === "day" ? { date: dia } : undefined,
+    limit: viewMode === "list" ? undefined : 100,
     // El calendario pinta la semana entera: filtrarla por texto la dejaria a
     // huecos, asi que la busqueda solo aplica a la lista.
     search: viewMode === "list" ? search : "",
@@ -257,11 +276,18 @@ export default function AppointmentsPage() {
               <List className="h-4 w-4" /> Lista
             </button>
             <button
+              onClick={() => setViewMode("day")}
+              aria-pressed={viewMode === "day"}
+              className={`flex items-center gap-1 px-3 py-1.5 text-sm ${viewMode === "day" ? "bg-primary text-primary-foreground" : ""}`}
+            >
+              <Columns3 className="h-4 w-4" /> Día
+            </button>
+            <button
               onClick={() => setViewMode("calendar")}
               aria-pressed={viewMode === "calendar"}
               className={`flex items-center gap-1 px-3 py-1.5 text-sm ${viewMode === "calendar" ? "bg-primary text-primary-foreground" : ""}`}
             >
-              <CalendarDays className="h-4 w-4" /> Calendario
+              <CalendarDays className="h-4 w-4" /> Semana
             </button>
           </div>
           {canDo(role, "appointments_create") && (
@@ -315,7 +341,31 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      {viewMode === "calendar" ? (
+      {viewMode === "day" ? (
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-4">
+            {loading ? (
+              <p className="text-muted-foreground py-8 text-center">
+                Cargando...
+              </p>
+            ) : (
+              <DayView
+                appointments={appointments}
+                professionals={professionals ?? []}
+                date={dia}
+                onDateChange={setDia}
+                onComplete={openCompleteDialog}
+                onConfirm={handleConfirm}
+                onCancel={handleCancel}
+                onNoShow={handleNoShow}
+                canConfirm={canDo(role, "appointments_confirm")}
+                canCancel={canDo(role, "appointments_cancel")}
+                clientNames={clientMap}
+              />
+            )}
+          </CardContent>
+        </Card>
+      ) : viewMode === "calendar" ? (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-4">
             {loading ? (
