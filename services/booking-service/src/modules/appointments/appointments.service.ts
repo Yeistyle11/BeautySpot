@@ -686,6 +686,30 @@ export class AppointmentsService {
   }
 
   /**
+   * Importe, estado y cliente de una cita del negocio, o `null` si no existe o
+   * es de otro. Lo consulta payment para contrastar el cobro.
+   */
+  async datosDeCobro(
+    appointmentId: string,
+    businessId: string
+  ): Promise<{
+    clientId: string;
+    totalAmount: number;
+    status: AppointmentStatus;
+  } | null> {
+    const cita = await this.apptRepo.findOne({
+      where: { id: appointmentId, businessId },
+    });
+    if (!cita) return null;
+
+    return {
+      clientId: cita.clientId,
+      totalAmount: Number(cita.totalAmount),
+      status: cita.status,
+    };
+  }
+
+  /**
    * Indica si un usuario puede reseñar una cita: existe, es suya, es de ese
    * negocio y ya se atendió. Lo consulta el marketplace para decidir si acepta
    * la reseña.

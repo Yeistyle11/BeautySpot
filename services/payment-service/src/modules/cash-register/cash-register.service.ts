@@ -101,8 +101,12 @@ export class CashRegisterService {
       else totalOut += Number(m.amount);
     }
 
+    const expectedTotal = Number(session.openingAmount) + totalIn - totalOut;
+
     session.closedBy = closedBy;
     session.closingAmount = dto.closingAmount;
+    session.expectedTotal = expectedTotal;
+    session.difference = Number(dto.closingAmount) - expectedTotal;
     session.closedAt = new Date();
     if (dto.notes) session.notes = dto.notes;
 
@@ -126,7 +130,8 @@ export class CashRegisterService {
           totalIn,
           totalOut,
           movementCount: session.movements.length,
-          expectedTotal: Number(session.openingAmount) + totalIn - totalOut,
+          expectedTotal,
+          difference: session.difference,
           openedAt: session.openedAt,
           closedAt: session.closedAt,
           notes: dto.notes,
@@ -186,6 +191,7 @@ export class CashRegisterService {
         closingAmount: session.closingAmount
           ? Number(session.closingAmount)
           : null,
+        difference: session.closedAt ? Number(session.difference) : null,
         openedAt: session.openedAt,
         closedAt: session.closedAt,
         isOpen: session.isOpen,

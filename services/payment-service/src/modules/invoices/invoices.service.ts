@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
@@ -10,6 +14,14 @@ import { InvoiceStatus, IPaginatedResponse } from "@beautyspot/shared-types";
 import { IVA } from "@beautyspot/shared-constants";
 import { CreateInvoiceDto } from "./dto/invoice.dto";
 import { PdfService } from "./pdf/pdf.service";
+
+/** Estados a los que puede pasar una factura desde cada estado. */
+const TRANSICIONES_DE_FACTURA: Record<InvoiceStatus, InvoiceStatus[]> = {
+  [InvoiceStatus.DRAFT]: [InvoiceStatus.SENT, InvoiceStatus.CANCELLED],
+  [InvoiceStatus.SENT]: [InvoiceStatus.PAID, InvoiceStatus.CANCELLED],
+  [InvoiceStatus.PAID]: [],
+  [InvoiceStatus.CANCELLED]: [],
+};
 
 /**
  * Lo que devuelve `/internal/profiles/resolve` del core-service, acotado a lo
@@ -138,12 +150,20 @@ export class InvoicesService {
     return invoice;
   }
 
-  /** Cambia el estado de una factura (borrador, emitida, pagada, etc.). */
+  /** Cambia el estado de una factura siguiendo las transiciones permitidas. */
   async updateStatus(
     id: string,
     businessId: string,
     status: InvoiceStatus
   ): Promise<InvoiceEntity> {
+    const invoice = await this.findById(id, businessId);
+
+    if (!TRANSICIONES_DE_FACTURA[invoice.status].includes(status)) {
+      throw new BadRequestException(
+        `Una factura ${invoice.status} no puede pasar a ${status}`
+      );
+    }
+
     await this.invoiceRepo.update({ id, businessId }, { status });
     return this.findById(id, businessId);
   }

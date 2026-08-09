@@ -9,9 +9,13 @@ import {
   DataSource,
   EntityManager,
   Between,
+  In,
   IsNull,
 } from "typeorm";
-import { ZonaDelNegocioService } from "@beautyspot/nest-common";
+import {
+  InternalHttpClient,
+  ZonaDelNegocioService,
+} from "@beautyspot/nest-common";
 import { diaSiguiente, instanteDe } from "@beautyspot/shared-utils";
 import { PaymentEntity } from "./payment.entity";
 import { CashSessionEntity } from "../cash-register/cash-session.entity";
@@ -29,6 +33,20 @@ import { EventNames } from "@beautyspot/event-types";
 /** Días desde el pago dentro de los que se admite un reembolso. */
 const REFUND_WINDOW_DAYS = 30;
 
+/** Datos de cobro de una cita, tal y como los devuelve booking. */
+interface CobroDeCita {
+  clientId: string;
+  totalAmount: number;
+}
+
+/** Estados a los que puede pasar un pago desde cada estado. */
+const TRANSICIONES_DE_PAGO: Record<PaymentStatus, PaymentStatus[]> = {
+  [PaymentStatus.PENDING]: [PaymentStatus.COMPLETED, PaymentStatus.CANCELLED],
+  [PaymentStatus.COMPLETED]: [],
+  [PaymentStatus.REFUNDED]: [],
+  [PaymentStatus.CANCELLED]: [],
+};
+
 /**
  * Registra pagos manuales y sus reembolsos, publicando cada operación vía Outbox
  * y protegiendo los reembolsos contra dobles aplicaciones concurrentes.
@@ -41,7 +59,8 @@ export class PaymentsService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly outbox: OutboxService,
-    private readonly zonas: ZonaDelNegocioService
+    private readonly zonas: ZonaDelNegocioService,
+    private readonly http: InternalHttpClient
   ) {}
 
   /** Registra un pago y emite el evento PAYMENT_REGISTERED en la misma transacción. */
@@ -57,6 +76,14 @@ export class PaymentsService {
       registeredBy: string;
     }
   ): Promise<PaymentEntity> {
+    if (data.appointmentId) {
+      await this.validarContraLaCita(
+        businessId,
+        data.appointmentId,
+        data.amount
+      );
+    }
+
     return this.dataSource.transaction(async (manager) => {
       const payment = this.repo.create({ ...data, businessId });
       const savedPayment = await manager
@@ -83,6 +110,43 @@ export class PaymentsService {
 
       return savedPayment;
     });
+  }
+
+  /**
+   * Comprueba que la cita existe, es del negocio, no está ya cobrada y que el
+   * importe coincide con el suyo.
+   */
+  private async validarContraLaCita(
+    businessId: string,
+    appointmentId: string,
+    amount: number
+  ): Promise<void> {
+    const cita = await this.http.pedir<CobroDeCita | null>(
+      "booking",
+      `/internal/appointments/${appointmentId}/cobro?businessId=${businessId}`
+    );
+    if (!cita) {
+      throw new BadRequestException(
+        "La cita no existe o no pertenece a este negocio"
+      );
+    }
+
+    const yaCobrada = await this.repo.findOne({
+      where: {
+        businessId,
+        appointmentId,
+        status: In([PaymentStatus.PENDING, PaymentStatus.COMPLETED]),
+      },
+    });
+    if (yaCobrada) {
+      throw new BadRequestException("Esta cita ya tiene un pago registrado");
+    }
+
+    if (Number(amount) !== cita.totalAmount) {
+      throw new BadRequestException(
+        `El importe no coincide con el de la cita ($${cita.totalAmount})`
+      );
+    }
   }
 
   /**
@@ -169,12 +233,25 @@ export class PaymentsService {
     return payment;
   }
 
-  /** Cambia el estado de un pago. */
+  /**
+   * Cambia el estado de un pago siguiendo las transiciones permitidas.
+   *
+   * `REFUNDED` no está entre ellas: la devolución exige importe, motivo, autor y
+   * ventana de 30 días, y todo eso vive en {@link refundPayment}.
+   */
   async updateStatus(
     id: string,
     businessId: string,
     status: PaymentStatus
   ): Promise<PaymentEntity> {
+    const payment = await this.findById(id, businessId);
+
+    if (!TRANSICIONES_DE_PAGO[payment.status].includes(status)) {
+      throw new BadRequestException(
+        `Un pago ${payment.status} no puede pasar a ${status}`
+      );
+    }
+
     await this.repo.update({ id, businessId }, { status });
     return this.findById(id, businessId);
   }

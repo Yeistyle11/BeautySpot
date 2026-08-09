@@ -9,7 +9,11 @@ import {
   PaymentStatus,
   CashMovementType,
 } from "@beautyspot/shared-types";
-import { OutboxService, ZonaDelNegocioService } from "@beautyspot/nest-common";
+import {
+  InternalHttpClient,
+  OutboxService,
+  ZonaDelNegocioService,
+} from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 
 describe("PaymentsService", () => {
@@ -19,6 +23,7 @@ describe("PaymentsService", () => {
   let mockManager: any;
   let mockDataSource: any;
   let mockOutbox: jest.Mocked<OutboxService>;
+  let mockHttp: { pedir: jest.Mock };
 
   const mockPayment: PaymentEntity = {
     id: "payment-123",
@@ -71,6 +76,13 @@ describe("PaymentsService", () => {
       enqueue: jest.fn().mockResolvedValue(undefined),
     } as any;
 
+    // Cita de 100, que es el importe del pago del fixture.
+    mockHttp = {
+      pedir: jest
+        .fn()
+        .mockResolvedValue({ clientId: "client-123", totalAmount: 100 }),
+    };
+
     const module = await Test.createTestingModule({
       providers: [
         PaymentsService,
@@ -84,6 +96,7 @@ describe("PaymentsService", () => {
           provide: ZonaDelNegocioService,
           useValue: { de: jest.fn().mockResolvedValue("America/Bogota") },
         },
+        { provide: InternalHttpClient, useValue: mockHttp },
       ],
     }).compile();
 
@@ -182,6 +195,69 @@ describe("PaymentsService", () => {
 
       await expect(service.create("business-123", data)).resolves.toBeDefined();
       expect(mockManagerRepo.create).not.toHaveBeenCalled();
+    });
+
+    describe("cobro asociado a una cita", () => {
+      const conCita = {
+        appointmentId: "appointment-123",
+        clientId: "client-123",
+        amount: 100,
+        method: PaymentMethod.CARD,
+        registeredBy: "user-123",
+      };
+
+      beforeEach(() => {
+        mockRepo.create.mockReturnValue(mockPayment);
+        mockManagerRepo.save.mockResolvedValue(mockPayment);
+        mockRepo.findOne.mockResolvedValue(null);
+      });
+
+      it("acepta el pago cuando el importe cuadra con el de la cita", async () => {
+        await expect(
+          service.create("business-123", conCita)
+        ).resolves.toBeDefined();
+
+        expect(mockHttp.pedir).toHaveBeenCalledWith(
+          "booking",
+          expect.stringContaining(
+            "/internal/appointments/appointment-123/cobro"
+          )
+        );
+      });
+
+      it("rechaza un importe distinto al de la cita", async () => {
+        await expect(
+          service.create("business-123", { ...conCita, amount: 50 })
+        ).rejects.toThrow(BadRequestException);
+        expect(mockDataSource.transaction).not.toHaveBeenCalled();
+      });
+
+      it("rechaza una cita que no existe o es de otro negocio", async () => {
+        mockHttp.pedir.mockResolvedValue(null);
+
+        await expect(service.create("business-123", conCita)).rejects.toThrow(
+          BadRequestException
+        );
+      });
+
+      it("rechaza cobrar dos veces la misma cita", async () => {
+        mockRepo.findOne.mockResolvedValue(mockPayment);
+
+        await expect(service.create("business-123", conCita)).rejects.toThrow(
+          BadRequestException
+        );
+      });
+
+      it("no consulta a booking si el pago no viene de una cita", async () => {
+        await service.create("business-123", {
+          clientId: "client-123",
+          amount: 100,
+          method: PaymentMethod.CARD,
+          registeredBy: "user-123",
+        });
+
+        expect(mockHttp.pedir).not.toHaveBeenCalled();
+      });
     });
 
     it("debería propagar errores de la transacción", async () => {
@@ -309,24 +385,55 @@ describe("PaymentsService", () => {
   });
 
   describe("updateStatus", () => {
-    it("debería actualizar el estado del pago", async () => {
+    /** Deja el pago en el estado indicado antes de intentar la transición. */
+    const pagoEn = (status: PaymentStatus) =>
       mockRepo.findOne.mockResolvedValue({
         ...mockPayment,
-        status: PaymentStatus.REFUNDED,
+        status,
         generateId: () => {},
       } as any);
+
+    it("debería actualizar el estado del pago", async () => {
+      pagoEn(PaymentStatus.PENDING);
 
       const result = await service.updateStatus(
         "payment-123",
         "business-123",
-        PaymentStatus.REFUNDED
+        PaymentStatus.COMPLETED
       );
 
       expect(mockRepo.update).toHaveBeenCalledWith(
         { id: "payment-123", businessId: "business-123" },
-        { status: PaymentStatus.REFUNDED }
+        { status: PaymentStatus.COMPLETED }
       );
-      expect(result.status).toBe(PaymentStatus.REFUNDED);
+      expect(result.status).toBe(PaymentStatus.PENDING);
+    });
+
+    // La devolución exige importe, motivo, autor y ventana de 30 días, y eso
+    // solo lo comprueba refundPayment.
+    it("no deja marcar un pago como reembolsado por esta vía", async () => {
+      pagoEn(PaymentStatus.COMPLETED);
+
+      await expect(
+        service.updateStatus(
+          "payment-123",
+          "business-123",
+          PaymentStatus.REFUNDED
+        )
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepo.update).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [PaymentStatus.COMPLETED, PaymentStatus.PENDING],
+      [PaymentStatus.CANCELLED, PaymentStatus.COMPLETED],
+      [PaymentStatus.REFUNDED, PaymentStatus.COMPLETED],
+    ])("no deja pasar de %s a %s", async (desde, hasta) => {
+      pagoEn(desde);
+
+      await expect(
+        service.updateStatus("payment-123", "business-123", hasta)
+      ).rejects.toThrow(BadRequestException);
     });
 
     it("debería lanzar NotFoundException si el pago no existe", async () => {
@@ -336,7 +443,7 @@ describe("PaymentsService", () => {
         service.updateStatus(
           "non-existent",
           "business-123",
-          PaymentStatus.REFUNDED
+          PaymentStatus.COMPLETED
         )
       ).rejects.toThrow(NotFoundException);
     });
