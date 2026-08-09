@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   Body,
@@ -13,6 +14,7 @@ import {
   CreateReviewDto,
   ReviewQueryDto,
   RespondReviewDto,
+  UpdateReviewDto,
 } from "./dto/review.dto";
 import {
   Roles,
@@ -86,6 +88,30 @@ export class ReviewsController {
     return this.service.findById(id);
   }
 
+  /** Corrige la reseña propia; ni la cita ni el negocio se pueden cambiar. */
+  @Patch(":id")
+  @Roles(Role.CLIENT)
+  @SkipBusinessScope()
+  async update(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser("userId") userId: string,
+    @Body() dto: UpdateReviewDto
+  ) {
+    return this.service.update(id, userId, dto);
+  }
+
+  /** Borra la reseña propia; la cita queda libre para reseñarla de nuevo. */
+  @Delete(":id")
+  @Roles(Role.CLIENT)
+  @SkipBusinessScope()
+  async remove(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser("userId") userId: string
+  ) {
+    await this.service.remove(id, userId);
+    return { deleted: true };
+  }
+
   /** Publica la respuesta del negocio a una reseña. */
   @Post(":id/respond")
   @Roles(Role.OWNER, Role.ADMIN)
@@ -95,6 +121,27 @@ export class ReviewsController {
     @Body() dto: RespondReviewDto
   ) {
     return this.service.respond(id, businessId, dto.response);
+  }
+
+  /** Reescribe la respuesta del negocio. */
+  @Patch(":id/respond")
+  @Roles(Role.OWNER, Role.ADMIN)
+  async editarRespuesta(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string,
+    @Body() dto: RespondReviewDto
+  ) {
+    return this.service.editarRespuesta(id, businessId, dto.response);
+  }
+
+  /** Retira la respuesta del negocio, dejando la reseña sin contestar. */
+  @Delete(":id/respond")
+  @Roles(Role.OWNER, Role.ADMIN)
+  async borrarRespuesta(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
+    return this.service.borrarRespuesta(id, businessId);
   }
 
   /** Marca una reseña como útil; el voto es único por usuario y reseña. */

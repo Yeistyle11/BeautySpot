@@ -12,6 +12,9 @@ import { paginate, PaginateParams } from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
 import { Client } from "../../entities/client.entity";
 
+/** Rótulo con el que se queda una ficha tras suprimir sus datos. */
+const NOMBRE_ANONIMO = "Cliente anonimizado";
+
 /** Deja correo y teléfono en su forma canónica, para poder cotejarlos. */
 function normalizarContacto(data: Partial<Client>): {
   email?: string;
@@ -88,6 +91,56 @@ export class ClientsService extends TenantCrudService<Client> {
     if (criterios.length === 0) return null;
 
     return this.repo.findOne({ where: criterios });
+  }
+
+  /** Actualiza la ficha, salvo que ya se haya ejercido la supresión sobre ella. */
+  async update(
+    id: string,
+    businessId: string,
+    data: Partial<Client>
+  ): Promise<Client> {
+    await this.rechazarSiEstaAnonimizado(id, businessId);
+    return super.update(id, businessId, data);
+  }
+
+  /**
+   * Ejerce el derecho de supresión: vacía los datos personales y deja la ficha
+   * dada de baja. La fila se conserva porque sus citas y sus facturas la
+   * referencian, y una factura emitida no se puede borrar.
+   */
+  async anonymize(id: string, businessId: string): Promise<Client> {
+    await this.rechazarSiEstaAnonimizado(id, businessId);
+
+    await this.repo.update(
+      { id, businessId },
+      {
+        // Un rótulo y no una cadena vacía: los listados ordenan por nombre y
+        // una fila sin él se vuelve imposible de identificar en pantalla.
+        name: NOMBRE_ANONIMO,
+        email: null,
+        phone: null,
+        documento: null,
+        notes: null,
+        tags: null,
+        userId: null,
+        active: false,
+        anonymizedAt: new Date(),
+      }
+    );
+    return this.findById(id, businessId);
+  }
+
+  /** Corta cualquier reescritura de una ficha ya suprimida. */
+  private async rechazarSiEstaAnonimizado(
+    id: string,
+    businessId: string
+  ): Promise<void> {
+    const client = await this.findById(id, businessId);
+    if (client.anonymizedAt) {
+      throw new ConflictException(
+        "Los datos de este cliente ya se suprimieron y no se pueden volver a tocar"
+      );
+    }
   }
 
   /** Lista los clientes activos del negocio, con búsqueda por nombre/email/teléfono y paginación. */

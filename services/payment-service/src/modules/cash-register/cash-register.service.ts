@@ -14,6 +14,8 @@ import {
   RegisterMovementDto,
 } from "./dto/cash-register.dto";
 import { OutboxService } from "@beautyspot/nest-common";
+import { paginate, PaginateParams } from "@beautyspot/database";
+import { IPaginatedResponse } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
 
 /**
@@ -217,12 +219,14 @@ export class CashRegisterService {
     });
   }
 
-  /** Lista las últimas 50 sesiones de caja del negocio, de la más reciente a la más antigua. */
-  async getSessionHistory(businessId: string): Promise<CashSessionEntity[]> {
-    return this.sessionRepo.find({
+  /** Lista las sesiones de caja del negocio, de la más reciente a la más antigua. */
+  async getSessionHistory(
+    businessId: string,
+    pagination: PaginateParams
+  ): Promise<IPaginatedResponse<CashSessionEntity>> {
+    return paginate(this.sessionRepo, pagination, {
       where: { businessId },
       order: { openedAt: "DESC" },
-      take: 50,
     });
   }
 }

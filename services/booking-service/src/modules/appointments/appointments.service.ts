@@ -284,7 +284,11 @@ export class AppointmentsService {
     }
     await this.apptRepo.update(
       { id, businessId },
-      { status: AppointmentStatus.IN_PROGRESS }
+      {
+        status: AppointmentStatus.IN_PROGRESS,
+        // Reiniciar una cita no debe perder la hora a la que empezó de verdad.
+        startedAt: appt.startedAt ?? new Date(),
+      }
     );
     return this.findById(id, businessId);
   }
@@ -316,7 +320,11 @@ export class AppointmentsService {
       await manager.update(
         Appointment,
         { id, businessId },
-        { status: AppointmentStatus.COMPLETED, pointsEarned }
+        {
+          status: AppointmentStatus.COMPLETED,
+          pointsEarned,
+          completedAt: appt.completedAt ?? new Date(),
+        }
       );
       await this.outbox.enqueue(manager, {
         eventType: EventNames.BOOKING_APPOINTMENT_COMPLETED,

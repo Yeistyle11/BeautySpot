@@ -1,7 +1,7 @@
 "use client";
 
 // Pestana de resenas: listado de valoraciones y respuesta a los clientes.
-import { MessageSquare, Star } from "lucide-react";
+import { MessageSquare, Pencil, Star, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +30,8 @@ interface ReviewsTabProps {
   role: Role | null;
   drafts: Record<string, string>;
   onDraftChange: (drafts: Record<string, string>) => void;
-  onRespond: (reviewId: string) => void;
+  onRespond: (reviewId: string, yaRespondida: boolean) => void;
+  onRemoveResponse: (reviewId: string) => void;
 }
 
 /** Resenas recibidas y respuesta publica del negocio. */
@@ -40,6 +41,7 @@ export function ReviewsTab({
   drafts,
   onDraftChange,
   onRespond,
+  onRemoveResponse,
 }: ReviewsTabProps) {
   return (
     <Card className="border-0 shadow-sm">
@@ -54,55 +56,108 @@ export function ReviewsTab({
           </div>
         ) : (
           <div className="space-y-4">
-            {reviews.map((review) => (
-              <div key={review.id} className="space-y-3 rounded-lg border p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <RatingStars rating={review.rating} />
-                    <span className="text-muted-foreground text-sm">
-                      {new Date(review.createdAt).toLocaleDateString("es-CO")}
-                    </span>
+            {reviews.map((review) => {
+              // Tener borrador es lo que distingue "escribiendo" de "ya
+              // respondida": no hace falta un estado aparte por reseña.
+              const editando = drafts[review.id] !== undefined;
+              const puedeResponder = canDo(role, "reviews_respond");
+              return (
+                <div
+                  key={review.id}
+                  className="space-y-3 rounded-lg border p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <RatingStars rating={review.rating} />
+                      <span className="text-muted-foreground text-sm">
+                        {new Date(review.createdAt).toLocaleDateString("es-CO")}
+                      </span>
+                    </div>
+                    {review.serviceName && (
+                      <Badge variant="secondary">{review.serviceName}</Badge>
+                    )}
                   </div>
-                  {review.serviceName && (
-                    <Badge variant="secondary">{review.serviceName}</Badge>
+                  {review.comment && (
+                    <p className="text-sm">{review.comment}</p>
+                  )}
+
+                  {review.response && !editando ? (
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-muted-foreground mb-1 text-xs font-medium">
+                        Tu respuesta:
+                      </p>
+                      <p className="text-sm">{review.response}</p>
+                      {puedeResponder && (
+                        <div className="mt-2 flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              onDraftChange({
+                                ...drafts,
+                                [review.id]: review.response ?? "",
+                              })
+                            }
+                          >
+                            <Pencil className="mr-2 h-3 w-3" /> Editar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive"
+                            onClick={() => onRemoveResponse(review.id)}
+                          >
+                            <Trash2 className="mr-2 h-3 w-3" /> Quitar
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    puedeResponder && (
+                      <div className="space-y-2">
+                        <Textarea
+                          placeholder="Responder a esta reseña..."
+                          value={drafts[review.id] || ""}
+                          onChange={(e) =>
+                            onDraftChange({
+                              ...drafts,
+                              [review.id]: e.target.value,
+                            })
+                          }
+                          rows={2}
+                          aria-label="Respuesta a la reseña"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() =>
+                              onRespond(review.id, Boolean(review.response))
+                            }
+                            disabled={!drafts[review.id]?.trim()}
+                          >
+                            <MessageSquare className="mr-2 h-3 w-3" />
+                            {review.response ? "Guardar" : "Responder"}
+                          </Button>
+                          {review.response && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                const resto = { ...drafts };
+                                delete resto[review.id];
+                                onDraftChange(resto);
+                              }}
+                            >
+                              Cancelar
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )
                   )}
                 </div>
-                {review.comment && <p className="text-sm">{review.comment}</p>}
-
-                {review.response ? (
-                  <div className="bg-muted/50 rounded-lg p-3">
-                    <p className="text-muted-foreground mb-1 text-xs font-medium">
-                      Tu respuesta:
-                    </p>
-                    <p className="text-sm">{review.response}</p>
-                  </div>
-                ) : (
-                  canDo(role, "reviews_respond") && (
-                    <div className="space-y-2">
-                      <Textarea
-                        placeholder="Responder a esta reseña..."
-                        value={drafts[review.id] || ""}
-                        onChange={(e) =>
-                          onDraftChange({
-                            ...drafts,
-                            [review.id]: e.target.value,
-                          })
-                        }
-                        rows={2}
-                        aria-label="Respuesta a la reseña"
-                      />
-                      <Button
-                        size="sm"
-                        onClick={() => onRespond(review.id)}
-                        disabled={!drafts[review.id]?.trim()}
-                      >
-                        <MessageSquare className="mr-2 h-3 w-3" /> Responder
-                      </Button>
-                    </div>
-                  )
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>

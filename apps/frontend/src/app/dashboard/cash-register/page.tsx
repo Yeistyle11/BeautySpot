@@ -3,7 +3,6 @@
 // Pagina de caja: apertura, cierre y movimientos de la sesion de caja del dia.
 import { useMemo, useState } from "react";
 import { mutate } from "swr";
-import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +28,8 @@ import { formatCurrency, formatDate, formatTimeStamp } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
+import { usePaginatedList } from "@/lib/use-paginated-list";
+import { Pagination } from "@/components/ui/pagination";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
@@ -68,11 +69,15 @@ export default function CashRegisterPage() {
     undefined,
     cashSessionSchema.nullable()
   );
-  const { data: history } = useApi<CashSession[]>(
-    HISTORY_KEY,
-    undefined,
-    z.array(cashSessionSchema)
-  );
+  const {
+    items: history,
+    meta: historyMeta,
+    setPage: setHistoryPage,
+    mutate: mutateHistory,
+  } = usePaginatedList<CashSession>({
+    basePath: HISTORY_KEY,
+    itemSchema: cashSessionSchema,
+  });
 
   const movementsKey = activeSession?.id
     ? `/payment/cash-register/${activeSession.id}/summary`
@@ -152,7 +157,7 @@ export default function CashRegisterPage() {
       setCloseDialog(false);
       setCloseAmount("");
       setCloseNotes("");
-      await Promise.all([mutateActive(), mutate(HISTORY_KEY)]);
+      await Promise.all([mutateActive(), mutateHistory()]);
     } catch (err) {
       logger.error(err);
       toast.error(mensajeDeError(err));
@@ -340,7 +345,7 @@ export default function CashRegisterPage() {
         </div>
       )}
 
-      {(history ?? []).length > 0 && (
+      {history.length > 0 && (
         <Card className="mt-6 border-0 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -349,7 +354,7 @@ export default function CashRegisterPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {(history ?? []).map((s) => (
+              {history.map((s) => (
                 <div
                   key={s.id}
                   className="flex items-center justify-between rounded-lg border p-3"
@@ -371,6 +376,11 @@ export default function CashRegisterPage() {
                 </div>
               ))}
             </div>
+            <Pagination
+              meta={historyMeta}
+              onPageChange={setHistoryPage}
+              itemLabel="sesiones"
+            />
           </CardContent>
         </Card>
       )}

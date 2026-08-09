@@ -73,6 +73,7 @@ describe("CashRegisterService", () => {
       save: jest.fn(),
       findOne: jest.fn(),
       find: jest.fn(),
+      findAndCount: jest.fn(),
       update: jest.fn(),
     } as any;
 
@@ -528,29 +529,42 @@ describe("CashRegisterService", () => {
   });
 
   describe("getSessionHistory", () => {
-    it("debería retornar historial de sesiones", async () => {
+    const paginacion = { page: 2, limit: 10, offset: 10 };
+
+    it("devuelve la página pedida con su meta", async () => {
       const sessions = [mockSession, mockClosedSession];
-      mockSessionRepo.find.mockResolvedValue(sessions);
+      mockSessionRepo.findAndCount.mockResolvedValue([sessions, 25]);
 
-      const result = await service.getSessionHistory("business-123");
+      const result = await service.getSessionHistory(
+        "business-123",
+        paginacion as never
+      );
 
-      expect(mockSessionRepo.find).toHaveBeenCalledWith({
-        where: { businessId: "business-123" },
-        order: { openedAt: "DESC" },
-        take: 50,
-      });
-      expect(result).toEqual(sessions);
+      expect(mockSessionRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { businessId: "business-123" },
+          order: { openedAt: "DESC" },
+          skip: 10,
+          take: 10,
+        })
+      );
+      expect(result.data).toEqual(sessions);
+      expect(result.meta).toEqual(
+        expect.objectContaining({ page: 2, limit: 10, total: 25 })
+      );
     });
 
-    it("debería limitar a 50 registros", async () => {
-      mockSessionRepo.find.mockResolvedValue([]);
+    it("ya no corta el historial en 50 sesiones", async () => {
+      mockSessionRepo.findAndCount.mockResolvedValue([[], 0]);
 
-      await service.getSessionHistory("business-123");
+      await service.getSessionHistory("business-123", {
+        page: 1,
+        limit: 100,
+        offset: 0,
+      } as never);
 
-      expect(mockSessionRepo.find).toHaveBeenCalledWith(
-        expect.objectContaining({
-          take: 50,
-        })
+      expect(mockSessionRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 100 })
       );
     });
   });

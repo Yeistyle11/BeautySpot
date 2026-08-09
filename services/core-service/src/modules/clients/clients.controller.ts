@@ -87,4 +87,14 @@ export class ClientsController {
   ) {
     return this.service.update(id, businessId, dto);
   }
+
+  /**
+   * Ejerce el derecho de supresión sobre un cliente: vacía sus datos personales
+   * y deja la ficha de baja, conservando el historial de citas y facturas.
+   */
+  @Roles(Role.OWNER, Role.ADMIN)
+  @Post(":id/anonymize")
+  async anonymize(@Param("id") id: string, @BusinessId() businessId: string) {
+    return this.service.anonymize(id, businessId);
+  }
 }

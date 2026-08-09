@@ -22,11 +22,13 @@ import {
   Award,
   Calendar,
   Edit,
+  Trash2,
   Users,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
+import { api } from "@/lib/api";
 import { useApi, paginatedSchema } from "@/lib/swr";
 import { usePaginatedCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
@@ -43,6 +45,7 @@ const clientSchema = z.object({
   loyaltyPoints: z.number(),
   notes: z.string().nullable(),
   active: z.boolean(),
+  anonymizedAt: z.string().nullable().optional(),
 });
 type Client = z.infer<typeof clientSchema>;
 
@@ -86,6 +89,9 @@ export default function ClientsPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
+  const [clienteASuprimir, setClienteASuprimir] = useState<Client | null>(null);
+  const [suprimiendo, setSuprimiendo] = useState(false);
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingCreate(true);
@@ -107,6 +113,27 @@ export default function ClientsPage() {
 
   const openDetail = (client: Client) => {
     setSelectedClient(client);
+  };
+
+  /**
+   * Ejerce el derecho de supresión. No se puede deshacer, así que se confirma
+   * explícitamente antes de llamar.
+   */
+  const handleAnonymize = async () => {
+    if (!clienteASuprimir) return;
+    setSuprimiendo(true);
+    try {
+      await api.post(`/core/clients/${clienteASuprimir.id}/anonymize`, {});
+      await recargarClientes();
+      setClienteASuprimir(null);
+      setSelectedClient(null);
+      toast.exito("Los datos del cliente se suprimieron");
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    } finally {
+      setSuprimiendo(false);
+    }
   };
 
   const openEdit = (client: Client) => {
@@ -356,15 +383,26 @@ export default function ClientsPage() {
                 </div>
               </div>
               <div className="flex gap-2">
-                {canDo(role, "clients_edit") && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openEdit(selectedClient)}
-                  >
-                    <Edit className="mr-1 h-3 w-3" /> Editar
-                  </Button>
-                )}
+                {canDo(role, "clients_edit") &&
+                  !selectedClient.anonymizedAt && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openEdit(selectedClient)}
+                      >
+                        <Edit className="mr-1 h-3 w-3" /> Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive"
+                        onClick={() => setClienteASuprimir(selectedClient)}
+                      >
+                        <Trash2 className="mr-1 h-3 w-3" /> Suprimir datos
+                      </Button>
+                    </>
+                  )}
               </div>
             </div>
 
@@ -482,6 +520,35 @@ export default function ClientsPage() {
             </Button>
           </div>
         </form>
+      </Dialog>
+
+      <Dialog
+        open={!!clienteASuprimir}
+        onClose={() => setClienteASuprimir(null)}
+        title="Suprimir los datos del cliente"
+      >
+        <div className="space-y-4">
+          <p className="text-sm">
+            Se borrarán el nombre, el correo, el teléfono, el documento y las
+            notas de <strong>{clienteASuprimir?.name}</strong>. Sus citas y sus
+            facturas se conservan, porque son documentos contables.
+          </p>
+          <p className="text-muted-foreground text-sm">
+            No se puede deshacer, y la ficha ya no se podrá editar.
+          </p>
+          <div className="flex gap-3">
+            <Button
+              variant="destructive"
+              onClick={handleAnonymize}
+              disabled={suprimiendo}
+            >
+              {suprimiendo ? "Suprimiendo..." : "Suprimir los datos"}
+            </Button>
+            <Button variant="outline" onClick={() => setClienteASuprimir(null)}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
       </Dialog>
     </div>
   );

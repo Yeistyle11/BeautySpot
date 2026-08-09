@@ -4,7 +4,7 @@ import { DataSource, Repository } from "typeorm";
 import { OutboxService } from "@beautyspot/nest-common";
 import { ClientsService } from "./clients.service";
 import { Client } from "../../entities/client.entity";
-import { NotFoundException } from "@nestjs/common";
+import { ConflictException, NotFoundException } from "@nestjs/common";
 
 describe("ClientsService", () => {
   let service: ClientsService;
@@ -23,6 +23,7 @@ describe("ClientsService", () => {
     tags: [],
     loyaltyPoints: 100,
     active: true,
+    anonymizedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     business: {} as any,
@@ -300,6 +301,58 @@ describe("ClientsService", () => {
       expect(mockRepo.findOne).toHaveBeenCalled();
       expect(result.name).toBe("Juan Pérez Actualizado");
       expect(result.phone).toBe("+573009876543");
+    });
+
+    it("no deja reescribir una ficha ya suprimida", async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockClient,
+        anonymizedAt: new Date(),
+      } as any);
+
+      await expect(
+        service.update("client-123", "business-123", { name: "Otro" })
+      ).rejects.toThrow(ConflictException);
+      expect(mockRepo.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("anonymize", () => {
+    it("vacía los datos personales y conserva la fila", async () => {
+      mockRepo.findOne.mockResolvedValue(mockClient);
+      mockRepo.update.mockResolvedValue({ affected: 1 } as any);
+
+      await service.anonymize("client-123", "business-123");
+
+      const [criterio, cambios] = mockRepo.update.mock.calls[0];
+      expect(criterio).toEqual({
+        id: "client-123",
+        businessId: "business-123",
+      });
+      expect(cambios).toEqual(
+        expect.objectContaining({
+          email: null,
+          phone: null,
+          documento: null,
+          notes: null,
+          userId: null,
+          active: false,
+          anonymizedAt: expect.any(Date),
+        })
+      );
+      // Con el nombre vacío la ficha sería imposible de reconocer en pantalla.
+      expect(cambios.name).toBeTruthy();
+    });
+
+    it("rechaza un segundo intento sobre la misma ficha", async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockClient,
+        anonymizedAt: new Date(),
+      } as any);
+
+      await expect(
+        service.anonymize("client-123", "business-123")
+      ).rejects.toThrow(ConflictException);
+      expect(mockRepo.update).not.toHaveBeenCalled();
     });
   });
 

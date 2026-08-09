@@ -41,6 +41,16 @@ export class Appointment extends AuditableEntity {
   })
   totalAmount!: number;
 
+  /**
+   * Horas a las que la cita empezó y terminó de verdad, frente a `startTime` /
+   * `endTime`, que son las previstas. La diferencia es lo que dice si la
+   * duración estimada de un servicio se ajusta a la realidad.
+   */
+  @Column({ type: "timestamptz", name: "started_at", nullable: true })
+  startedAt!: Date | null;
+  @Column({ type: "timestamptz", name: "completed_at", nullable: true })
+  completedAt!: Date | null;
+
   @Column({ type: "timestamptz", name: "reminder_24h_sent_at", nullable: true })
   reminder24hSentAt!: Date | null;
   @Column({ type: "timestamptz", name: "reminder_1h_sent_at", nullable: true })

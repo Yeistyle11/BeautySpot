@@ -6,14 +6,18 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
-import { Repository, DataSource } from "typeorm";
+import { Repository, DataSource, EntityManager } from "typeorm";
 import { ReviewEntity } from "../../entities/review.entity";
 import { ReviewHelpfulEntity } from "../../entities/review-helpful.entity";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
 import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
-import { CreateReviewDto, ReviewQueryDto } from "./dto/review.dto";
+import {
+  CreateReviewDto,
+  ReviewQueryDto,
+  UpdateReviewDto,
+} from "./dto/review.dto";
 
 /** Código de Postgres para violación de restricción única. */
 const VIOLACION_DE_UNICIDAD = "23505";
@@ -65,8 +69,6 @@ export class ReviewsService {
     if (existing)
       throw new ConflictException("Ya existe una reseña para esta cita");
 
-    dto.photos = dto.photos?.slice(0, 3);
-
     // Si rating < 4 y no hay comentario, requerirlo
     if (dto.rating < 4 && !dto.comment) {
       throw new BadRequestException(
@@ -107,6 +109,81 @@ export class ReviewsService {
     await this.profilesService.invalidarCache(dto.businessId);
 
     return saved;
+  }
+
+  /**
+   * Modifica la reseña del propio autor. La cita y el negocio no se tocan: eso
+   * la convertiría en otra reseña distinta.
+   */
+  async update(
+    id: string,
+    clientId: string,
+    dto: UpdateReviewDto
+  ): Promise<ReviewEntity> {
+    const review = await this.reseñaPropia(id, clientId);
+
+    const rating = dto.rating ?? review.rating;
+    const comment = dto.comment ?? review.comment;
+    if (rating < 4 && !comment) {
+      throw new BadRequestException(
+        "El comentario es obligatorio para calificaciones menores a 4 estrellas"
+      );
+    }
+
+    Object.assign(review, dto, { editedAt: new Date() });
+
+    const guardada = await this.dataSource.transaction(async (manager) => {
+      const actualizada = await manager
+        .getRepository(ReviewEntity)
+        .save(review);
+      await this.recalcularMedias(actualizada, manager);
+      return actualizada;
+    });
+
+    await this.profilesService.invalidarCache(review.businessId);
+    return guardada;
+  }
+
+  /**
+   * Borra la reseña del propio autor. El índice único por cita queda libre, así
+   * que puede volver a escribirla.
+   */
+  async remove(id: string, clientId: string): Promise<void> {
+    const review = await this.reseñaPropia(id, clientId);
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.getRepository(ReviewEntity).delete({ id });
+      await this.recalcularMedias(review, manager);
+    });
+
+    await this.profilesService.invalidarCache(review.businessId);
+  }
+
+  /** Reseña existente que pertenece a quien la pide; si no, 403. */
+  private async reseñaPropia(
+    id: string,
+    clientId: string
+  ): Promise<ReviewEntity> {
+    const review = await this.repo.findOne({ where: { id } });
+    if (!review) throw new NotFoundException("Reseña no encontrada");
+    if (review.clientId !== clientId) {
+      throw new ForbiddenException("Solo puedes tocar tus propias reseñas");
+    }
+    return review;
+  }
+
+  /** Recalcula la media del negocio y la del profesional de la reseña. */
+  private async recalcularMedias(
+    review: ReviewEntity,
+    manager: EntityManager
+  ): Promise<void> {
+    await this.profilesService.updateRating(review.businessId, manager);
+    if (review.professionalId) {
+      await this.professionalProfilesService.updateRating(
+        review.professionalId,
+        manager
+      );
+    }
   }
 
   /** Persiste la reseña, recalcula las medias y emite el evento, todo en una transacción. */
@@ -291,6 +368,39 @@ export class ReviewsService {
     review.response = response;
     review.respondedAt = new Date();
     return this.repo.save(review);
+  }
+
+  /** Reescribe la respuesta del negocio a una reseña ya respondida. */
+  async editarRespuesta(
+    id: string,
+    businessId: string,
+    response: string
+  ): Promise<ReviewEntity> {
+    const review = await this.reseñaDelNegocio(id, businessId);
+    if (!review.response) {
+      throw new BadRequestException("Esta reseña todavía no tiene respuesta");
+    }
+    review.response = response;
+    review.respondedAt = new Date();
+    return this.repo.save(review);
+  }
+
+  /** Retira la respuesta del negocio; la reseña se queda como estaba. */
+  async borrarRespuesta(id: string, businessId: string): Promise<ReviewEntity> {
+    const review = await this.reseñaDelNegocio(id, businessId);
+    review.response = null;
+    review.respondedAt = null;
+    return this.repo.save(review);
+  }
+
+  /** Reseña que pertenece al negocio indicado; si no, 404. */
+  private async reseñaDelNegocio(
+    id: string,
+    businessId: string
+  ): Promise<ReviewEntity> {
+    const review = await this.repo.findOne({ where: { id, businessId } });
+    if (!review) throw new NotFoundException("Reseña no encontrada");
+    return review;
   }
 
   /** Marca una reseña como útil por parte de un usuario (idempotente). */
