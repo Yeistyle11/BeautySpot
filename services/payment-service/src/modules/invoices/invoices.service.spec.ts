@@ -6,7 +6,7 @@ import { InvoicesService } from "./invoices.service";
 import { InvoiceEntity } from "./invoice.entity";
 import { InvoiceItemEntity } from "./invoice-item.entity";
 import { InvoiceStatus } from "@beautyspot/shared-types";
-import { NotFoundException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { PdfService } from "./pdf/pdf.service";
 import { InternalHttpClient } from "@beautyspot/nest-common";
 
@@ -368,11 +368,18 @@ describe("InvoicesService", () => {
   });
 
   describe("updateStatus", () => {
+    /** Deja la factura en el estado indicado antes de intentar la transición. */
+    const facturaEn = (status: InvoiceStatus) =>
+      mockInvoiceRepo.findOne.mockResolvedValue({
+        ...mockInvoice,
+        status,
+      } as any);
+
     it("debería actualizar el estado de la factura", async () => {
       mockInvoiceRepo.update.mockResolvedValue({ affected: 1 } as any);
-      mockInvoiceRepo.findOne.mockResolvedValue(mockInvoice);
+      facturaEn(InvoiceStatus.SENT);
 
-      const result = await service.updateStatus(
+      await service.updateStatus(
         "invoice-123",
         "business-123",
         InvoiceStatus.PAID
@@ -382,7 +389,29 @@ describe("InvoicesService", () => {
         { id: "invoice-123", businessId: "business-123" },
         { status: InvoiceStatus.PAID }
       );
-      expect(result).toEqual(mockInvoice);
+    });
+
+    it("emite un borrador antes de darlo por pagado", async () => {
+      mockInvoiceRepo.update.mockResolvedValue({ affected: 1 } as any);
+      facturaEn(InvoiceStatus.DRAFT);
+
+      await expect(
+        service.updateStatus("invoice-123", "business-123", InvoiceStatus.SENT)
+      ).resolves.toBeDefined();
+    });
+
+    it.each([
+      [InvoiceStatus.DRAFT, InvoiceStatus.PAID],
+      [InvoiceStatus.PAID, InvoiceStatus.DRAFT],
+      [InvoiceStatus.CANCELLED, InvoiceStatus.PAID],
+      [InvoiceStatus.PAID, InvoiceStatus.CANCELLED],
+    ])("no deja pasar de %s a %s", async (desde, hasta) => {
+      facturaEn(desde);
+
+      await expect(
+        service.updateStatus("invoice-123", "business-123", hasta)
+      ).rejects.toThrow(BadRequestException);
+      expect(mockInvoiceRepo.update).not.toHaveBeenCalled();
     });
   });
 

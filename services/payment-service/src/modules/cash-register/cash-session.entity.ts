@@ -35,6 +35,25 @@ export class CashSessionEntity extends TenantEntity {
     nullable: true,
   })
   closingAmount!: number;
+  /** Saldo que debería haber en caja: apertura + entradas − salidas. */
+  @Column({
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    transformer: numericTransformer,
+    name: "expected_total",
+    nullable: true,
+  })
+  expectedTotal!: number;
+  /** `closingAmount` − `expectedTotal`: sobrante en positivo, faltante en negativo. */
+  @Column({
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    transformer: numericTransformer,
+    nullable: true,
+  })
+  difference!: number;
   @Column({ type: "timestamptz", name: "opened_at" }) openedAt!: Date;
   @Column({ type: "timestamptz", name: "closed_at", nullable: true })
   closedAt!: Date;

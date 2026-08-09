@@ -230,6 +230,15 @@ export class InternalAppointmentsController {
     return this.service.professionalHasHistory(professionalId);
   }
 
+  /** Datos de cobro de una cita del negocio: importe, estado y cliente. */
+  @Get(":appointmentId/cobro")
+  async datosDeCobro(
+    @Param("appointmentId") appointmentId: string,
+    @Query("businessId") businessId: string
+  ) {
+    return this.service.datosDeCobro(appointmentId, businessId);
+  }
+
   /** Indica si un usuario puede reseñar una cita (usada por el marketplace). */
   @Get(":appointmentId/resenable")
   async citaResenable(

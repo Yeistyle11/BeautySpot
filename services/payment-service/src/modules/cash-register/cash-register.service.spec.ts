@@ -180,6 +180,66 @@ describe("CashRegisterService", () => {
   });
 
   describe("closeSession", () => {
+    /** Sesión abierta con 50.000 de fondo y los movimientos indicados. */
+    function sesionCon(movements: unknown[]) {
+      return {
+        ...mockSession,
+        movements,
+        isOpen: true,
+        initOpenedAt: () => {},
+        generateId: () => {},
+      } as any;
+    }
+
+    // El descuadre es el dato que da sentido al arqueo: sin él, el cierre solo
+    // registra lo que alguien dijo que había.
+    it("guarda el saldo esperado y su diferencia con el contado", async () => {
+      const sesion = sesionCon([
+        { ...mockMovement, type: CashMovementType.IN, amount: 10000 },
+        { ...mockMovement, type: CashMovementType.OUT, amount: 5000 },
+      ]);
+      mockSessionRepo.findOne.mockResolvedValue(sesion);
+      mockManagerRepo.save.mockImplementation((s: unknown) => s);
+
+      // 50.000 + 10.000 − 5.000 = 55.000 esperados; se cuentan 54.000.
+      await service.closeSession("session-123", "business-123", "user-123", {
+        closingAmount: 54000,
+      });
+
+      expect(mockManagerRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ expectedTotal: 55000, difference: -1000 })
+      );
+    });
+
+    it("registra el sobrante con signo positivo", async () => {
+      mockSessionRepo.findOne.mockResolvedValue(sesionCon([]));
+      mockManagerRepo.save.mockImplementation((s: unknown) => s);
+
+      await service.closeSession("session-123", "business-123", "user-123", {
+        closingAmount: 52000,
+      });
+
+      expect(mockManagerRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ expectedTotal: 50000, difference: 2000 })
+      );
+    });
+
+    it("lleva el descuadre en el evento de cierre", async () => {
+      mockSessionRepo.findOne.mockResolvedValue(sesionCon([]));
+      mockManagerRepo.save.mockImplementation((s: unknown) => s);
+
+      await service.closeSession("session-123", "business-123", "user-123", {
+        closingAmount: 49000,
+      });
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        mockManager,
+        expect.objectContaining({
+          payload: expect.objectContaining({ difference: -1000 }),
+        })
+      );
+    });
+
     it("debería cerrar la sesión y encolar el evento en la misma transacción", async () => {
       const dto = {
         closingAmount: 55000,
@@ -413,6 +473,7 @@ describe("CashRegisterService", () => {
           id: "session-123",
           openingAmount: 50000,
           closingAmount: null,
+          difference: null,
           openedAt: expect.any(Date),
           closedAt: null,
           isOpen: true,

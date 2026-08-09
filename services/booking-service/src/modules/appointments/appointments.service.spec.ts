@@ -1020,6 +1020,31 @@ describe("AppointmentsService", () => {
     });
   });
 
+  describe("datosDeCobro", () => {
+    it("devuelve el importe, el estado y el cliente de la cita", async () => {
+      mockApptRepo.findOne.mockResolvedValue(mockAppointment);
+
+      await expect(
+        service.datosDeCobro("appt-123", "business-123")
+      ).resolves.toEqual({
+        clientId: "client-123",
+        totalAmount: 50000,
+        status: AppointmentStatus.PENDING,
+      });
+    });
+
+    it("devuelve null para una cita de otro negocio", async () => {
+      mockApptRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.datosDeCobro("appt-123", "business-123")
+      ).resolves.toBeNull();
+      expect(mockApptRepo.findOne).toHaveBeenCalledWith({
+        where: { id: "appt-123", businessId: "business-123" },
+      });
+    });
+  });
+
   describe("citaReseñablePor", () => {
     const completada: Appointment = {
       ...mockAppointment,
