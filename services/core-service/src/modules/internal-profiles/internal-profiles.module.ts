@@ -3,10 +3,13 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { Client } from "../../entities/client.entity";
 import { Professional } from "../../entities/professional.entity";
 import { Business } from "../../entities/business.entity";
+import { BusinessConfig } from "../../entities/business-config.entity";
 import { InternalProfilesController } from "./internal-profiles.controller";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Client, Professional, Business])],
+  imports: [
+    TypeOrmModule.forFeature([Client, Professional, Business, BusinessConfig]),
+  ],
   controllers: [InternalProfilesController],
 })
 /** Cablea el endpoint interno que resuelve ids a nombres de cliente/profesional/negocio. */

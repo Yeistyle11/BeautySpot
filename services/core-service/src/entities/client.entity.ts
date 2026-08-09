@@ -15,6 +15,8 @@ export class Client extends TenantEntity {
   @Column() name!: string;
   @Column({ nullable: true }) email!: string;
   @Column({ nullable: true }) phone!: string;
+  /** Documento de identidad, necesario para identificar al receptor en la factura. */
+  @Column({ nullable: true }) documento!: string;
   @Column({ type: "text", nullable: true }) notes!: string;
   @Column({ name: "loyalty_points", default: 0 }) loyaltyPoints!: number;
   @Column({ type: "simple-array", nullable: true }) tags!: string[];

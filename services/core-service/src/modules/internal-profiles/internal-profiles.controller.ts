@@ -4,10 +4,14 @@ import { Repository } from "typeorm";
 import { Client } from "../../entities/client.entity";
 import { Professional } from "../../entities/professional.entity";
 import { Business } from "../../entities/business.entity";
+import { BusinessConfig } from "../../entities/business-config.entity";
 
 export interface ResolvedClient {
   name: string;
   email: string;
+  phone: string;
+  /** Documento de identidad; vacío si el cliente no lo aportó. */
+  documento: string;
   /** Cuenta asociada, si la ficha corresponde a un usuario registrado. */
   userId: string | null;
 }
@@ -16,11 +20,25 @@ export interface ResolvedProfessional {
   name: string;
 }
 
+/** Datos fiscales que el negocio configura para emitir sus facturas. */
+export interface DatosDeFacturacion {
+  nit?: string;
+  razonSocial?: string;
+  regimen?: string;
+  direccionFiscal?: string;
+}
+
 export interface ResolvedBusiness {
   name: string;
   address: string;
   phone: string;
+  email: string;
+  /** Vacío mientras el negocio no haya configurado su facturación. */
+  facturacion: DatosDeFacturacion;
 }
+
+/** Clave de `business_config` donde viven los datos fiscales del negocio. */
+export const CLAVE_FACTURACION = "facturacion";
 
 /** Datos resueltos de cliente, profesional y negocio para enriquecer notificaciones/documentos. */
 export interface ProfileResolution {
@@ -41,7 +59,9 @@ export class InternalProfilesController {
     @InjectRepository(Professional)
     private readonly professionalRepo: Repository<Professional>,
     @InjectRepository(Business)
-    private readonly businessRepo: Repository<Business>
+    private readonly businessRepo: Repository<Business>,
+    @InjectRepository(BusinessConfig)
+    private readonly configRepo: Repository<BusinessConfig>
   ) {}
 
   /** Resuelve en paralelo los datos de los ids recibidos; cada campo es null si no se pidió o no existe. */
@@ -60,16 +80,22 @@ export class InternalProfilesController {
     return { client, professional, business };
   }
 
-  /** Nombre y email del cliente indicado. */
+  /** Nombre y datos de contacto e identificación del cliente indicado. */
   private async resolveClient(id: string): Promise<ResolvedClient | null> {
     const c = await this.clientRepo.findOne({
       where: { id },
-      select: ["name", "email", "userId"],
+      select: ["name", "email", "phone", "documento", "userId"],
     });
     if (!c) return null;
     // El invitado que reserva sin cuenta no tiene usuario, y sin él no se le
     // puede dejar una notificación dentro de la aplicación.
-    return { name: c.name, email: c.email ?? "", userId: c.userId ?? null };
+    return {
+      name: c.name,
+      email: c.email ?? "",
+      phone: c.phone ?? "",
+      documento: c.documento ?? "",
+      userId: c.userId ?? null,
+    };
   }
 
   /** Nombre del profesional indicado. */
@@ -84,17 +110,27 @@ export class InternalProfilesController {
     return { name: p.name };
   }
 
-  /** Nombre y datos de contacto del negocio indicado. */
+  /** Nombre, contacto y datos fiscales del negocio indicado. */
   private async resolveBusiness(id: string): Promise<ResolvedBusiness | null> {
-    const b = await this.businessRepo.findOne({
-      where: { id },
-      select: ["name", "address", "phone"],
-    });
+    const [b, config] = await Promise.all([
+      this.businessRepo.findOne({
+        where: { id },
+        select: ["name", "address", "phone", "email"],
+      }),
+      // Los datos fiscales viven en business_config y no en columnas propias:
+      // la facturación electrónica va a necesitar bastantes más campos que un
+      // NIT, y ahí crecen sin migrar el esquema.
+      this.configRepo.findOne({
+        where: { businessId: id, key: CLAVE_FACTURACION },
+      }),
+    ]);
     if (!b) return null;
     return {
       name: b.name,
       address: b.address ?? "",
       phone: b.phone ?? "",
+      email: b.email ?? "",
+      facturacion: (config?.value as DatosDeFacturacion) ?? {},
     };
   }
 }

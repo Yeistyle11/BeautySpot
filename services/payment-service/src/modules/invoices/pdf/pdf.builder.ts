@@ -26,6 +26,8 @@ export interface InvoiceData {
     price: number;
   }[];
   subtotal: number;
+  /** Tipo aplicado, en tanto por uno: se imprime junto al importe del impuesto. */
+  taxRate: number;
   tax: number;
   total: number;
   paymentMethod: string;
@@ -81,7 +83,11 @@ function addInvoiceHeader(doc: Documento, data: InvoiceData): void {
 function addInvoiceInfo(doc: Documento, data: InvoiceData): void {
   doc.fontSize(10).fillColor("#666").text("Información de la Empresa", 50, 130);
 
-  doc.fillColor("#000").text(`NIT: ${data.business.nit}`, 50, 150);
+  // Sin datos fiscales configurados no hay NIT que imprimir; una etiqueta
+  // vacía en una factura confunde más que su ausencia.
+  doc
+    .fillColor("#000")
+    .text(data.business.nit ? `NIT: ${data.business.nit}` : "", 50, 150);
   doc.text(`Dirección: ${data.business.address}`, 50, 165);
   doc.text(`Teléfono: ${data.business.phone}`, 50, 180);
   doc.text(`Email: ${data.business.email}`, 50, 195);
@@ -158,7 +164,8 @@ function addTotals(doc: Documento, data: InvoiceData): void {
   });
   y += 20;
 
-  doc.text("IVA (19%):", 400, y, { width: 100, align: "right" });
+  const porcentaje = (data.taxRate * 100).toFixed(0);
+  doc.text(`IVA (${porcentaje}%):`, 400, y, { width: 100, align: "right" });
   doc.text(formatCurrency(data.tax), 505, y, {
     width: 100,
     align: "right",
@@ -186,7 +193,7 @@ function addTotals(doc: Documento, data: InvoiceData): void {
 }
 
 /** Dibuja el pie con los datos legales del emisor y el mensaje de cortesía. */
-function addFooter(doc: Documento): void {
+function addFooter(doc: Documento, data: InvoiceData): void {
   const pageHeight = doc.page.height;
 
   doc
@@ -194,11 +201,14 @@ function addFooter(doc: Documento): void {
     .lineTo(550, pageHeight - 80)
     .stroke();
 
+  // El emisor es el negocio que factura, no la plataforma.
   doc.fontSize(9).fillColor("#666");
-  doc.text("BeautySpot S.A.S.", 50, pageHeight - 70);
-  doc.text("NIT: 900123456-1", 50, pageHeight - 60);
-  doc.text("Teléfono: +57 300 123 4567", 50, pageHeight - 50);
-  doc.text("Email: info@beautyspot.co", 50, pageHeight - 40);
+  doc.text(data.business.name, 50, pageHeight - 70);
+  if (data.business.nit) {
+    doc.text(`NIT: ${data.business.nit}`, 50, pageHeight - 60);
+  }
+  doc.text(`Teléfono: ${data.business.phone}`, 50, pageHeight - 50);
+  doc.text(`Email: ${data.business.email}`, 50, pageHeight - 40);
 
   doc.text(
     "Gracias por su preferencia. Esta factura ha sido generada electrónicamente.",
@@ -228,7 +238,7 @@ export function construirPdfFactura(data: InvoiceData): Promise<Buffer> {
     addClientInfo(doc, data);
     addItemsTable(doc, data);
     addTotals(doc, data);
-    addFooter(doc);
+    addFooter(doc, data);
 
     doc.end();
   });

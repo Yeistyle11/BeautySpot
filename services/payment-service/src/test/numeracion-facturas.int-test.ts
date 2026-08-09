@@ -1,5 +1,5 @@
 import { DataSource } from "typeorm";
-import { OutboxService } from "@beautyspot/nest-common";
+import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
 import { entities } from "../orm-entities";
 import { InvoiceEntity } from "../modules/invoices/invoice.entity";
 import { InvoicesService } from "../modules/invoices/invoices.service";
@@ -41,7 +41,10 @@ describe("Integración: numeración de facturas por negocio", () => {
       dataSource.getRepository("invoice_items") as never,
       {} as PdfService,
       dataSource,
-      outbox as unknown as OutboxService
+      outbox as unknown as OutboxService,
+      // Aquí solo se emiten facturas; el PDF, que es quien consulta a core, no
+      // se genera.
+      {} as InternalHttpClient
     );
   }, 60000);
 

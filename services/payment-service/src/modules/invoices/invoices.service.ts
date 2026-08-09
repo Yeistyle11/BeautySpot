@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { OutboxService } from "@beautyspot/nest-common";
+import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { Between, Repository, DataSource, EntityManager } from "typeorm";
 import { paginate, PaginateParams } from "@beautyspot/database";
@@ -10,6 +10,25 @@ import { InvoiceStatus, IPaginatedResponse } from "@beautyspot/shared-types";
 import { IVA } from "@beautyspot/shared-constants";
 import { CreateInvoiceDto } from "./dto/invoice.dto";
 import { PdfService } from "./pdf/pdf.service";
+
+/**
+ * Lo que devuelve `/internal/profiles/resolve` del core-service, acotado a lo
+ * que necesita la factura.
+ */
+interface ProfileResolution {
+  client: { name: string; documento: string } | null;
+  business: {
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+    facturacion: {
+      nit?: string;
+      razonSocial?: string;
+      direccionFiscal?: string;
+    };
+  } | null;
+}
 
 /** Gestiona las facturas del negocio: creación con numeración propia, consulta y generación de PDF. */
 @Injectable()
@@ -21,7 +40,8 @@ export class InvoicesService {
     private readonly itemRepo: Repository<InvoiceItemEntity>,
     private readonly pdfService: PdfService,
     private readonly dataSource: DataSource,
-    private readonly outbox: OutboxService
+    private readonly outbox: OutboxService,
+    private readonly http: InternalHttpClient
   ) {}
 
   /** Crea una factura calculando los totales de sus líneas y asignándole un número. */
@@ -32,10 +52,10 @@ export class InvoicesService {
     const date = dto.date || new Date().toISOString().split("T")[0];
     const dueDate = dto.dueDate || this.getDefaultDueDate();
 
-    let total = 0;
+    let subtotal = 0;
     const items = dto.items.map((item) => {
       const itemTotal = Number(item.quantity) * Number(item.unitPrice);
-      total += itemTotal;
+      subtotal += itemTotal;
       return this.itemRepo.create({
         description: item.description,
         quantity: item.quantity,
@@ -43,6 +63,12 @@ export class InvoicesService {
         total: itemTotal,
       });
     });
+
+    // El impuesto se calcula y se guarda al emitir, junto con el tipo aplicado:
+    // así el PDF no tiene que deducirlo del total y la factura sigue cuadrando
+    // aunque el IVA cambie por ley.
+    const tax = Math.round(subtotal * IVA * 100) / 100;
+    const total = subtotal + tax;
 
     // El número se reserva dentro de la misma transacción que la factura: si
     // esta no llega a guardarse, el número no se consume y la serie no deja
@@ -54,6 +80,9 @@ export class InvoicesService {
         number: await this.generateInvoiceNumber(businessId, manager),
         date,
         dueDate,
+        subtotal,
+        taxRate: IVA,
+        tax,
         total,
         notes: dto.notes,
         status: InvoiceStatus.DRAFT,
@@ -71,6 +100,8 @@ export class InvoicesService {
           businessId,
           clientId: guardada.clientId,
           number: guardada.number,
+          subtotal: Number(guardada.subtotal),
+          tax: Number(guardada.tax),
           total: Number(guardada.total),
         },
       });
@@ -124,32 +155,51 @@ export class InvoicesService {
   ): Promise<Buffer> {
     const invoice = await this.findById(invoiceId, businessId);
 
+    // El emisor y el receptor se resuelven contra core con `pedir`: una factura
+    // con los datos de otro es peor que una factura que no se genera, así que
+    // si core no responde esto falla en vez de caer a valores por defecto.
+    const perfiles = await this.http.pedir<ProfileResolution>(
+      "core",
+      `/internal/profiles/resolve?businessId=${businessId}&clientId=${invoice.clientId}`
+    );
+    const negocio = perfiles?.business;
+    const cliente = perfiles?.client;
+
+    if (!negocio) {
+      throw new NotFoundException(
+        "No se pudieron resolver los datos del negocio emisor"
+      );
+    }
+
+    const facturacion = negocio.facturacion ?? {};
+
     const invoiceData = {
       invoiceNumber: invoice.number,
       invoiceDate: new Date(invoice.date),
       dueDate: new Date(invoice.dueDate),
       business: {
-        name: "BeautySpot Business",
-        nit: "900123456-1",
-        address: "Calle 123 #45-67, Bogotá",
-        phone: "+57 300 123 4567",
-        email: "info@beautyspot.co",
+        name: facturacion.razonSocial || negocio.name,
+        nit: facturacion.nit ?? "",
+        address: facturacion.direccionFiscal || negocio.address,
+        phone: negocio.phone,
+        email: negocio.email,
       },
       client: {
-        name: "Cliente",
-        document: "123456789",
+        name: cliente?.name ?? "",
+        document: cliente?.documento ?? "",
       },
       items: invoice.items.map((item) => ({
         name: item.description,
         quantity: Number(item.quantity),
         price: Number(item.unitPrice),
       })),
-      // El total ya lleva el IVA incluido, así que la base se obtiene
-      // dividiendo.
-      subtotal: Number(invoice.total) / (1 + IVA),
-      tax: Number(invoice.total) - Number(invoice.total) / (1 + IVA),
+      subtotal: Number(invoice.subtotal),
+      taxRate: Number(invoice.taxRate),
+      tax: Number(invoice.tax),
       total: Number(invoice.total),
-      paymentMethod: "Efectivo",
+      // La factura todavía no está atada a un pago concreto, y afirmar un
+      // método que nadie ha registrado sería inventarlo.
+      paymentMethod: "—",
       notes: invoice.notes,
     };
 

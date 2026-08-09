@@ -14,6 +14,34 @@ export class InvoiceEntity extends TenantEntity {
   @Column() number!: string;
   @Column({ type: "date" }) date!: string;
   @Column({ type: "date", name: "due_date" }) dueDate!: string;
+  /** Suma de las líneas, sin impuesto. */
+  @Column({
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    transformer: numericTransformer,
+  })
+  subtotal!: number;
+  /**
+   * Tipo aplicado, congelado al emitir. El IVA cambia por ley y una factura de
+   * hoy no puede reimprimirse mañana con el tipo nuevo.
+   */
+  @Column({
+    type: "decimal",
+    precision: 5,
+    scale: 4,
+    name: "tax_rate",
+    transformer: numericTransformer,
+  })
+  taxRate!: number;
+  @Column({
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    transformer: numericTransformer,
+  })
+  tax!: number;
+  /** `subtotal` + `tax`: lo que se cobra. */
   @Column({
     type: "decimal",
     precision: 10,
