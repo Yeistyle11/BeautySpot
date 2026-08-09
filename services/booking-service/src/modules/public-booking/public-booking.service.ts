@@ -46,46 +46,31 @@ export class PublicBookingService {
   async createPublicAppointment(data: {
     businessId: string;
     professionalId?: string;
-    serviceIds: { id: string; name: string; price: number; duration: number }[];
+    serviceIds: string[];
     date: string;
     startTime: string;
     notes?: string;
     guestName: string;
     guestEmail?: string;
     guestPhone?: string;
-    userId?: string;
   }) {
     // 1. Resolver o crear el cliente invitado vía el endpoint interno del core-service.
     const clientId = await this.findOrCreateGuestClient(
       data.businessId,
       data.guestName,
       data.guestEmail,
-      data.guestPhone,
-      data.userId
+      data.guestPhone
     );
 
-    // 2. Calcular la hora de fin sumando la duración de los servicios.
-    const totalDuration = data.serviceIds.reduce(
-      (sum, s) => sum + s.duration,
-      0
-    );
-    const totalAmount = data.serviceIds.reduce((sum, s) => sum + s.price, 0);
-    const endTime = calculateEndTime(data.startTime, totalDuration);
-
-    // 3. Verificar disponibilidad del horario.
-    const dayOfWeek = new Date(data.date + "T12:00:00").getDay();
-
-    // Si el invitado no pidió profesional, se elige aquí; si lo pidió, la
-    // disponibilidad la valida el propio alta.
+    // 2. Elegir profesional si el invitado no pidió uno. Para eso hace falta
+    //    la hora de fin, y la duración solo la sabe el catálogo. Se resuelve
+    //    con la duración base (sin profesional, que aún no existe) y luego el
+    //    alta la vuelve a resolver ya con el elegido, por si ese profesional
+    //    tiene una duración propia. Es la única vía con dos consultas y solo
+    //    ocurre en "cualquiera disponible".
     const professionalId =
       data.professionalId ??
-      (await this.primerProfesionalLibre(
-        data.businessId,
-        data.date,
-        data.startTime,
-        endTime,
-        dayOfWeek
-      ));
+      (await this.elegirProfesional(data.businessId, data.serviceIds, data));
 
     const saved = await this.appointments.create(data.businessId, {
       professionalId,
@@ -102,23 +87,59 @@ export class PublicBookingService {
       startTime: saved.startTime,
       endTime: saved.endTime,
       status: saved.status,
-      totalAmount,
-      services: data.serviceIds.map((s) => s.name),
+      totalAmount: saved.totalAmount,
+      services: saved.appointmentServices.map((s) => s.serviceName),
     };
   }
 
-  /** Pide al core-service el cliente que coincida o uno nuevo; falla si el servicio no responde. */
+  /** Busca el primer profesional libre usando la duración base del catálogo. */
+  private async elegirProfesional(
+    businessId: string,
+    serviceIds: string[],
+    horario: { date: string; startTime: string }
+  ): Promise<string> {
+    const servicios = await this.http.enviar<{ duration: number }[]>(
+      "core",
+      "/internal/services/resolve",
+      { businessId, ids: serviceIds }
+    );
+
+    if (!Array.isArray(servicios) || servicios.length === 0) {
+      throw new BadRequestException(
+        "No se pudieron resolver los servicios de la cita"
+      );
+    }
+
+    const totalDuration = servicios.reduce((sum, s) => sum + s.duration, 0);
+    const endTime = calculateEndTime(horario.startTime, totalDuration);
+    const dayOfWeek = new Date(horario.date + "T12:00:00").getDay();
+
+    return this.primerProfesionalLibre(
+      businessId,
+      horario.date,
+      horario.startTime,
+      endTime,
+      dayOfWeek
+    );
+  }
+
+  /**
+   * Pide al core-service el cliente que coincida o uno nuevo; falla si el
+   * servicio no responde.
+   *
+   * No pasa `userId`: esta ruta no tiene token, así que no hay ninguna
+   * identidad que se pueda dar por buena para atar la ficha a una cuenta.
+   */
   private async findOrCreateGuestClient(
     businessId: string,
     name: string,
     email?: string,
-    phone?: string,
-    userId?: string
+    phone?: string
   ): Promise<string> {
     const client = await this.http.enviar<{ id?: unknown }>(
       "core",
       "/internal/clients/find-or-create",
-      { businessId, name, email, phone, userId }
+      { businessId, name, email, phone }
     );
 
     if (!client || typeof client.id !== "string" || client.id.length === 0) {

@@ -6,6 +6,19 @@ import { Appointment } from "../../entities/appointment.entity";
 import { Availability } from "../../entities/availability.entity";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
 
+/**
+ * Miércoles futuro, calculado y no escrito a mano: el servicio marca no
+ * disponible toda franja que ya pasó, así que una fecha fija deja de ofrecer
+ * huecos en cuanto el calendario la alcanza y tumba la suite sin que nadie haya
+ * tocado el código. Miércoles para que case con el `dayOfWeek: 3` de
+ * `jornadaCorta`.
+ */
+const MIERCOLES_FUTURO = (() => {
+  const dia = new Date();
+  dia.setUTCDate(dia.getUTCDate() + 7 + ((3 - dia.getUTCDay() + 7) % 7));
+  return dia.toISOString().slice(0, 10);
+})();
+
 describe("AvailabilityQueryService", () => {
   let service: AvailabilityQueryService;
   let mockApptRepo: jest.Mocked<Repository<Appointment>>;
@@ -168,7 +181,7 @@ describe("AvailabilityQueryService", () => {
 
       const slots = await service.franjasDelNegocio(
         "business-123",
-        "2026-08-19",
+        MIERCOLES_FUTURO,
         30
       );
 
@@ -195,7 +208,7 @@ describe("AvailabilityQueryService", () => {
       ]);
       mockApptRepo.find.mockResolvedValue([]);
 
-      await service.franjasDelNegocio("business-123", "2026-08-19", 30);
+      await service.franjasDelNegocio("business-123", MIERCOLES_FUTURO, 30);
 
       // Una consulta de horarios, una de bloqueos y una de citas: el coste no
       // debe crecer con el tamaño del equipo.
@@ -217,7 +230,7 @@ describe("AvailabilityQueryService", () => {
 
       const slots = await service.franjasDelNegocio(
         "business-123",
-        "2026-08-19",
+        MIERCOLES_FUTURO,
         30
       );
 
@@ -233,7 +246,7 @@ describe("AvailabilityQueryService", () => {
 
       const slots = await service.franjasDelNegocio(
         "business-123",
-        "2026-08-19",
+        MIERCOLES_FUTURO,
         30
       );
 
@@ -247,7 +260,7 @@ describe("AvailabilityQueryService", () => {
 
       const slots = await service.franjasDelNegocio(
         "business-123",
-        "2026-08-19",
+        MIERCOLES_FUTURO,
         30
       );
 
@@ -275,7 +288,7 @@ describe("AvailabilityQueryService", () => {
 
       const slots = await service.franjasDeProfesionalPublico(
         "pro-1",
-        "2026-08-19",
+        MIERCOLES_FUTURO,
         30
       );
 
@@ -287,7 +300,7 @@ describe("AvailabilityQueryService", () => {
 
       const slots = await service.franjasDeProfesionalPublico(
         "pro-desconocido",
-        "2026-08-19",
+        MIERCOLES_FUTURO,
         30
       );
 

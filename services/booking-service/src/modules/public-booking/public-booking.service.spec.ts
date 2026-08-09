@@ -14,6 +14,15 @@ import {
 import { InternalHttpClient } from "@beautyspot/nest-common";
 import { AppointmentsService } from "../appointments/appointments.service";
 
+const CORTE = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const BARBA = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+/** Lo que el catálogo del core-service devuelve para los servicios del fixture. */
+const CATALOGO = [
+  { id: CORTE, name: "Corte de cabello", price: 30000, duration: 30 },
+  { id: BARBA, name: "Barba", price: 20000, duration: 20 },
+];
+
 describe("PublicBookingService", () => {
   let service: PublicBookingService;
   let mockApptRepo: jest.Mocked<Repository<Appointment>>;
@@ -36,7 +45,11 @@ describe("PublicBookingService", () => {
     notes: "Cita de prueba",
     createdAt: new Date(),
     updatedAt: new Date(),
-    services: [],
+    // La respuesta pública se arma con lo que quedó guardado, no con el cuerpo.
+    appointmentServices: [
+      { serviceName: "Corte de cabello" },
+      { serviceName: "Barba" },
+    ],
     generateId: () => {},
   } as any;
 
@@ -87,9 +100,16 @@ describe("PublicBookingService", () => {
       find: jest.fn(),
     } as any;
 
-    // El alta del cliente invitado va por el cliente interno.
+    // Por el cliente interno van dos cosas: el alta del cliente invitado y la
+    // resolución del catálogo, así que el mock responde según la ruta.
     mockHttp = {
-      enviar: jest.fn().mockResolvedValue({ id: "client-123" }),
+      enviar: jest
+        .fn()
+        .mockImplementation(async (_servicio, ruta) =>
+          ruta === "/internal/services/resolve"
+            ? CATALOGO
+            : { id: "client-123" }
+        ),
       pedir: jest.fn(),
     };
 
@@ -136,15 +156,7 @@ describe("PublicBookingService", () => {
     const bookingData = {
       businessId: "business-123",
       professionalId: "prof-123",
-      serviceIds: [
-        {
-          id: "service-123",
-          name: "Corte de cabello",
-          price: 30000,
-          duration: 30,
-        },
-        { id: "service-456", name: "Barba", price: 20000, duration: 20 },
-      ],
+      serviceIds: [CORTE, BARBA],
       date: "2024-01-15",
       startTime: "10:00",
       notes: "Primera visita",
@@ -295,12 +307,27 @@ describe("PublicBookingService", () => {
       expect(mockAppointments.create).toHaveBeenCalledWith("business-123", {
         professionalId: "prof-123",
         clientId: "client-123",
-        serviceIds: bookingData.serviceIds,
+        serviceIds: [CORTE, BARBA],
         date: "2024-01-15",
         startTime: "10:00",
         notes: "Primera visita",
       });
       expect(mockApptRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("no ata la ficha del invitado a ninguna cuenta", async () => {
+      // La ruta es pública y sin token: aceptar un userId dejaría reservar en
+      // nombre de otro y ligarle la ficha.
+      await service.createPublicAppointment({
+        ...bookingData,
+        userId: "usuario-ajeno",
+      } as never);
+
+      expect(mockHttp.enviar).toHaveBeenCalledWith(
+        "core",
+        "/internal/clients/find-or-create",
+        expect.not.objectContaining({ userId: expect.anything() })
+      );
     });
 
     it("descarta a un profesional con una cita confirmada a esa hora", async () => {

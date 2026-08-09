@@ -28,6 +28,24 @@ import { calculateEndTime } from "@beautyspot/shared-utils";
 import { esInstantePasado } from "../../common/hora-del-negocio";
 
 /**
+ * Estados desde los que tiene sentido mover una cita. Fuera de aquí la cita ya
+ * cerró su ciclo: reagendar una cancelada o una ya cobrada la resucitaba
+ * ocupando agenda.
+ */
+const ESTADOS_REAGENDABLES: AppointmentStatus[] = [
+  AppointmentStatus.PENDING,
+  AppointmentStatus.CONFIRMED,
+];
+
+/** Servicio tal y como lo devuelve el catálogo del core-service. */
+interface ServicioResuelto {
+  id: string;
+  name: string;
+  price: number;
+  duration: number;
+}
+
+/**
  * Orquesta el ciclo de vida de las citas (creación, confirmación, ejecución,
  * cancelación y reagendado) evitando el doble-booking con transacciones
  * SERIALIZABLE y publicando cada cambio vía el patrón Outbox.
@@ -43,18 +61,42 @@ export class AppointmentsService {
     private readonly disponibilidad: AvailabilityQueryService
   ) {}
 
+  /**
+   * Precio y duración que el catálogo del core-service aplica a estos servicios
+   * para este profesional.
+   *
+   * Es la única fuente: si viniera del cuerpo de la petición, cualquiera podría
+   * reservar por $0 desde la ruta pública. Se usa `enviar` y no `pedirONulo`
+   * a propósito — un catálogo que no responde tiene que hacer fallar la reserva,
+   * no degradarla a precio cero.
+   */
+  private async resolverServicios(
+    businessId: string,
+    ids: string[],
+    professionalId?: string
+  ): Promise<ServicioResuelto[]> {
+    const servicios = await this.http.enviar<ServicioResuelto[]>(
+      "core",
+      "/internal/services/resolve",
+      { businessId, ids, professionalId }
+    );
+
+    if (!Array.isArray(servicios) || servicios.length === 0) {
+      throw new BadRequestException(
+        "No se pudieron resolver los servicios de la cita"
+      );
+    }
+
+    return servicios;
+  }
+
   /** Crea una cita comprobando que la franja siga libre. */
   async create(
     businessId: string,
     data: {
       professionalId: string;
       clientId: string;
-      serviceIds: {
-        id: string;
-        name: string;
-        price: number;
-        duration: number;
-      }[];
+      serviceIds: string[];
       date: string;
       startTime: string;
       notes?: string;
@@ -62,11 +104,13 @@ export class AppointmentsService {
       createdBy?: string;
     }
   ): Promise<Appointment> {
-    const totalDuration = data.serviceIds.reduce(
-      (sum, s) => sum + s.duration,
-      0
+    const servicios = await this.resolverServicios(
+      businessId,
+      data.serviceIds,
+      data.professionalId
     );
-    const totalAmount = data.serviceIds.reduce((sum, s) => sum + s.price, 0);
+    const totalDuration = servicios.reduce((sum, s) => sum + s.duration, 0);
+    const totalAmount = servicios.reduce((sum, s) => sum + s.price, 0);
     const endTime = calculateEndTime(data.startTime, totalDuration);
 
     if (esInstantePasado(data.date, data.startTime)) {
@@ -137,7 +181,9 @@ export class AppointmentsService {
         });
         const saved = await manager.save(Appointment, created);
 
-        const apptServices = data.serviceIds.map((s) =>
+        // Se congela el precio y el nombre del momento de la reserva: si el
+        // negocio cambia la tarifa mañana, esta cita conserva la suya.
+        const apptServices = servicios.map((s) =>
           manager.create(AppointmentServiceEntity, {
             appointmentId: saved.id,
             serviceId: s.id,
@@ -366,15 +412,33 @@ export class AppointmentsService {
     return this.findById(id, businessId);
   }
 
-  /** Mueve la cita a otra fecha y hora. */
+  /** Mueve la cita a otra fecha y hora, conservando su duración y su estado. */
   async reschedule(
     id: string,
     businessId: string,
     newDate: string,
-    newStartTime: string,
-    serviceDuration: number
+    newStartTime: string
   ): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
+
+    if (!ESTADOS_REAGENDABLES.includes(appt.status)) {
+      throw new BadRequestException(
+        `No se puede reagendar una cita en estado ${appt.status}`
+      );
+    }
+
+    // La duración sale de los servicios de la cita. Darla por supuesta hacía
+    // que una cita de 90 minutos pasara a ocupar 30 y el sistema vendiera
+    // encima de la hora que en realidad seguía ocupada.
+    const serviceDuration = appt.appointmentServices.reduce(
+      (total, s) => total + s.duration,
+      0
+    );
+    if (serviceDuration <= 0) {
+      throw new BadRequestException(
+        "La cita no tiene servicios: no se puede calcular su duracion"
+      );
+    }
 
     const appointmentDate = new Date(`${appt.date}T${appt.startTime}:00`);
     const hoursDiff =
@@ -432,6 +496,7 @@ export class AppointmentsService {
       if (conflictInTx)
         throw new BadRequestException("Ya existe una cita en el nuevo horario");
 
+      // El estado no se toca: una cita confirmada sigue confirmada al moverla.
       await manager.update(
         Appointment,
         { id, businessId },
@@ -439,10 +504,26 @@ export class AppointmentsService {
           date: newDate,
           startTime: newStartTime,
           endTime: newEndTime,
-          status: AppointmentStatus.PENDING,
-          cancelReason: undefined,
         }
       );
+
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.BOOKING_APPOINTMENT_RESCHEDULED,
+        aggregateType: "appointment",
+        aggregateId: id,
+        payload: {
+          appointmentId: id,
+          businessId,
+          clientId: appt.clientId,
+          professionalId: appt.professionalId,
+          date: newDate,
+          startTime: newStartTime,
+          endTime: newEndTime,
+          totalAmount: appt.totalAmount,
+          fechaAnterior: appt.date,
+          horaAnterior: appt.startTime,
+        },
+      });
     });
     return this.findById(id, businessId);
   }
@@ -551,17 +632,10 @@ export class AppointmentsService {
     id: string,
     userId: string,
     newDate: string,
-    newStartTime: string,
-    serviceDuration: number
+    newStartTime: string
   ): Promise<Appointment> {
     const cita = await this.findByIdForClientUser(id, userId);
-    return this.reschedule(
-      id,
-      cita.businessId,
-      newDate,
-      newStartTime,
-      serviceDuration
-    );
+    return this.reschedule(id, cita.businessId, newDate, newStartTime);
   }
 
   /** Pregunta a core qué fichas de cliente pertenecen a este usuario. */

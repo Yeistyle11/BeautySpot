@@ -13,18 +13,13 @@ const metadata = {
   metatype: CreateAppointmentDto,
 };
 
+const SERVICIO = "cd0596c0-01b4-47c4-aabc-2d50cd73c345";
+
 /** Lo que envía el formulario de cita del panel. */
 const citaDelPanel = {
   professionalId: "904dbbed-a416-44f2-acfa-1e9278b3b09c",
   clientId: "afe1accd-8dae-49aa-979a-53c9074aa983",
-  serviceIds: [
-    {
-      id: "cd0596c0-01b4-47c4-aabc-2d50cd73c345",
-      name: "Corte básico",
-      price: 25000,
-      duration: 30,
-    },
-  ],
+  serviceIds: [SERVICIO],
   date: "2026-08-01",
   startTime: "10:00",
   notes: "Cliente habitual",
@@ -46,16 +41,24 @@ describe("CreateAppointmentDto", () => {
     ).rejects.toThrow();
   });
 
-  it("rechaza un servicio con duración por debajo del mínimo", async () => {
+  it("rechaza un servicio que no sea un id valido", async () => {
+    await expect(
+      pipe.transform({ ...citaDelPanel, serviceIds: ["corte"] }, metadata)
+    ).rejects.toThrow();
+  });
+
+  it("rechaza el precio y la duración enviados por el cliente", async () => {
+    // El importe lo resuelve el backend contra el catálogo. Si el DTO dejara
+    // pasar estos objetos, cualquiera reservaría por $0.
     await expect(
       pipe.transform(
         {
           ...citaDelPanel,
-          serviceIds: [{ ...citaDelPanel.serviceIds[0], duration: 1 }],
+          serviceIds: [{ id: SERVICIO, name: "Corte", price: 0, duration: 5 }],
         },
         metadata
       )
-    ).rejects.toThrow();
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("rechaza una fecha con hora en vez del día suelto", async () => {

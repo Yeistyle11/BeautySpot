@@ -129,8 +129,7 @@ export class AppointmentsController {
       id,
       userId,
       dto.date,
-      dto.startTime,
-      30
+      dto.startTime
     );
   }
 
@@ -213,7 +212,7 @@ export class AppointmentsController {
     @BusinessId() businessId: string,
     @Body() dto: RescheduleDto
   ) {
-    return this.service.reschedule(id, businessId, dto.date, dto.startTime, 30);
+    return this.service.reschedule(id, businessId, dto.date, dto.startTime);
   }
 }
 

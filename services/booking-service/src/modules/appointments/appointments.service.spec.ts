@@ -25,6 +25,7 @@ function dentroDeDias(dias: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+const SERVICIO_CORTE = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const FECHA_CITA = dentroDeDias(30);
 const FECHA_SIGUIENTE = dentroDeDias(31);
 const DIA_DE_LA_SEMANA = new Date(FECHA_CITA + "T12:00:00").getDay();
@@ -50,7 +51,15 @@ describe("AppointmentsService", () => {
   let mockBlockRepo: jest.Mocked<Repository<BlockedSlot>>;
   let mockDataSource: jest.Mocked<DataSource>;
   let mockOutbox: any;
-  let mockHttp: { pedir: jest.Mock };
+  let mockHttp: { pedir: jest.Mock; enviar: jest.Mock };
+
+  /** Lo que el catálogo del core-service devuelve para el servicio del fixture. */
+  const CORTE = {
+    id: SERVICIO_CORTE,
+    name: "Corte",
+    price: 30000,
+    duration: 30,
+  };
 
   const mockAppointment: Appointment = {
     id: "appt-123",
@@ -70,7 +79,9 @@ describe("AppointmentsService", () => {
     reminder1hSentAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    appointmentServices: [],
+    // Reagendar saca la duración de aquí, así que el fixture la trae: son los
+    // 60 minutos que van de las 10:00 a las 11:00.
+    appointmentServices: [{ duration: 60 } as never],
     generateId: () => {},
   };
 
@@ -140,7 +151,10 @@ describe("AppointmentsService", () => {
       enqueue: jest.fn().mockResolvedValue(undefined),
     };
 
-    mockHttp = { pedir: jest.fn().mockResolvedValue([]) };
+    mockHttp = {
+      pedir: jest.fn().mockResolvedValue([]),
+      enviar: jest.fn().mockResolvedValue([CORTE]),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -188,9 +202,7 @@ describe("AppointmentsService", () => {
       const data = {
         professionalId: "prof-123",
         clientId: "client-123",
-        serviceIds: [
-          { id: "service-1", name: "Corte", price: 30000, duration: 30 },
-        ],
+        serviceIds: [SERVICIO_CORTE],
         date: FECHA_CITA,
         startTime: "10:00",
         notes: "Cliente VIP",
@@ -218,9 +230,7 @@ describe("AppointmentsService", () => {
       const data = {
         professionalId: "prof-123",
         clientId: "client-123",
-        serviceIds: [
-          { id: "service-1", name: "Corte", price: 30000, duration: 30 },
-        ],
+        serviceIds: [SERVICIO_CORTE],
         date: FECHA_CITA,
         startTime: "10:00",
       };
@@ -236,9 +246,7 @@ describe("AppointmentsService", () => {
       const data = {
         professionalId: "prof-123",
         clientId: "client-123",
-        serviceIds: [
-          { id: "service-1", name: "Corte", price: 30000, duration: 30 },
-        ],
+        serviceIds: [SERVICIO_CORTE],
         date: dentroDeDias(-1),
         startTime: "10:00",
       };
@@ -253,13 +261,12 @@ describe("AppointmentsService", () => {
       const data = {
         professionalId: "prof-123",
         clientId: "client-123",
-        serviceIds: [
-          { id: "service-1", name: "Corte", price: 30000, duration: 120 },
-        ],
+        serviceIds: [SERVICIO_CORTE],
         date: FECHA_CITA,
         startTime: "17:30", // Terminaría a las 19:30, fuera del horario 09:00-18:00
       };
 
+      mockHttp.enviar.mockResolvedValue([{ ...CORTE, duration: 120 }]);
       mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
       mockApptRepo.find.mockResolvedValue([]);
 
@@ -272,9 +279,7 @@ describe("AppointmentsService", () => {
       const data = {
         professionalId: "prof-123",
         clientId: "client-123",
-        serviceIds: [
-          { id: "service-1", name: "Corte", price: 30000, duration: 30 },
-        ],
+        serviceIds: [SERVICIO_CORTE],
         date: FECHA_CITA,
         startTime: "10:00",
       };
@@ -288,34 +293,69 @@ describe("AppointmentsService", () => {
       );
     });
 
-    it("debería calcular el total de duración y monto correctamente", async () => {
+    it("calcula la duración y el importe con el catálogo, no con lo que llegue del cliente", async () => {
+      const BARBA = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
       const data = {
         professionalId: "prof-123",
         clientId: "client-123",
-        serviceIds: [
-          { id: "service-1", name: "Corte", price: 30000, duration: 30 },
-          { id: "service-2", name: "Barba", price: 20000, duration: 15 },
-        ],
+        serviceIds: [SERVICIO_CORTE, BARBA],
         date: FECHA_CITA,
         startTime: "10:00",
       };
 
+      mockHttp.enviar.mockResolvedValue([
+        CORTE,
+        { id: BARBA, name: "Barba", price: 20000, duration: 15 },
+      ]);
       mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
       mockBlockRepo.find.mockResolvedValue([]);
       mockApptRepo.find.mockResolvedValue([]);
 
       await service.create("business-123", data);
 
-      expect(mockDataSource.transaction).toHaveBeenCalled();
+      expect(mockHttp.enviar).toHaveBeenCalledWith(
+        "core",
+        "/internal/services/resolve",
+        {
+          businessId: "business-123",
+          ids: [SERVICIO_CORTE, BARBA],
+          professionalId: "prof-123",
+        }
+      );
+      // 30000 + 20000, y 45 minutos desde las 10:00.
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            totalAmount: 50000,
+            endTime: "10:45",
+          }),
+        })
+      );
+    });
+
+    it("no crea la cita si el catálogo no responde", async () => {
+      const data = {
+        professionalId: "prof-123",
+        clientId: "client-123",
+        serviceIds: [SERVICIO_CORTE],
+        date: FECHA_CITA,
+        startTime: "10:00",
+      };
+
+      mockHttp.enviar.mockResolvedValue(null);
+
+      await expect(service.create("business-123", data)).rejects.toThrow(
+        BadRequestException
+      );
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
     });
 
     it("debería usar transacción SERIALIZABLE para prevenir doble-booking", async () => {
       const data = {
         professionalId: "prof-123",
         clientId: "client-123",
-        serviceIds: [
-          { id: "service-1", name: "Corte", price: 30000, duration: 30 },
-        ],
+        serviceIds: [SERVICIO_CORTE],
         date: FECHA_CITA,
         startTime: "10:00",
       };
@@ -339,9 +379,7 @@ describe("AppointmentsService", () => {
       const data = {
         professionalId: "prof-123",
         clientId: "client-123",
-        serviceIds: [
-          { id: "service-1", name: "Corte", price: 30000, duration: 30 },
-        ],
+        serviceIds: [SERVICIO_CORTE],
         date: FECHA_CITA,
         startTime: "10:00",
       };
@@ -681,8 +719,7 @@ describe("AppointmentsService", () => {
         "appt-123",
         "business-123",
         FECHA_SIGUIENTE,
-        "15:00",
-        60
+        "15:00"
       );
 
       // Debe usar tx SERIALIZABLE (prevencion de doble-booking)
@@ -690,16 +727,120 @@ describe("AppointmentsService", () => {
         "SERIALIZABLE",
         expect.any(Function)
       );
-      // El update ocurre dentro de la tx via el manager
+      // El update ocurre dentro de la tx via el manager, con la duración real
+      // de los servicios de la cita (60 min) y sin tocar el estado.
       expect(capturedManager.update).toHaveBeenCalledWith(
         Appointment,
         { id: "appt-123", businessId: "business-123" },
-        expect.objectContaining({
+        {
           date: FECHA_SIGUIENTE,
           startTime: "15:00",
-          status: AppointmentStatus.PENDING,
+          endTime: "16:00",
+        }
+      );
+    });
+
+    it("conserva la duración de los servicios en vez de asumir 30 minutos", async () => {
+      const largo: any = {
+        ...mockAppointment,
+        date: FECHA_SIGUIENTE,
+        startTime: "14:00",
+        endTime: "15:30",
+        appointmentServices: [{ duration: 60 }, { duration: 30 }],
+      };
+
+      mockApptRepo.findOne.mockResolvedValue(largo);
+      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
+      mockBlockRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([]);
+
+      let capturedManager: any;
+      mockDataSource.transaction.mockImplementationOnce(
+        async (isolationOrCb: any, maybeCb?: any) => {
+          const cb =
+            typeof isolationOrCb === "function" ? isolationOrCb : maybeCb;
+          capturedManager = {
+            create: jest.fn(),
+            save: jest.fn(),
+            findOne: jest.fn(),
+            find: jest.fn().mockResolvedValue([]),
+            update: jest.fn().mockResolvedValue({ affected: 1 }),
+          };
+          return await cb(capturedManager);
+        }
+      );
+
+      await service.reschedule(
+        "appt-123",
+        "business-123",
+        FECHA_SIGUIENTE,
+        "10:00"
+      );
+
+      expect(capturedManager.update).toHaveBeenCalledWith(
+        Appointment,
+        expect.anything(),
+        expect.objectContaining({ endTime: "11:30" })
+      );
+    });
+
+    it.each([
+      AppointmentStatus.CANCELLED,
+      AppointmentStatus.COMPLETED,
+      AppointmentStatus.NO_SHOW,
+      AppointmentStatus.IN_PROGRESS,
+    ])("no deja reagendar una cita en estado %s", async (status) => {
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        date: FECHA_SIGUIENTE,
+        status,
+      } as any);
+
+      await expect(
+        service.reschedule("appt-123", "business-123", FECHA_SIGUIENTE, "15:00")
+      ).rejects.toThrow(BadRequestException);
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it("emite el evento de reagendado con la fecha anterior", async () => {
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        date: FECHA_SIGUIENTE,
+        startTime: "14:00",
+      } as any);
+      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
+      mockBlockRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([]);
+
+      await service.reschedule(
+        "appt-123",
+        "business-123",
+        FECHA_SIGUIENTE,
+        "10:00"
+      );
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.BOOKING_APPOINTMENT_RESCHEDULED,
+          payload: expect.objectContaining({
+            startTime: "10:00",
+            horaAnterior: "14:00",
+          }),
         })
       );
+    });
+
+    it("rechaza una cita sin servicios, en vez de darle una duración inventada", async () => {
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        date: FECHA_SIGUIENTE,
+        appointmentServices: [],
+      } as any);
+
+      await expect(
+        service.reschedule("appt-123", "business-123", FECHA_SIGUIENTE, "15:00")
+      ).rejects.toThrow(BadRequestException);
     });
 
     it("debería lanzar ForbiddenException con menos de 2 horas de anticipación", () => {
@@ -713,7 +854,7 @@ describe("AppointmentsService", () => {
       mockApptRepo.find.mockResolvedValue([]);
 
       return expect(
-        service.reschedule("appt-123", "business-123", FECHA_CITA, "15:00", 60)
+        service.reschedule("appt-123", "business-123", FECHA_CITA, "15:00")
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -725,13 +866,7 @@ describe("AppointmentsService", () => {
       mockAvailRepo.findOne.mockResolvedValue(null);
 
       await expect(
-        service.reschedule(
-          "appt-123",
-          "business-123",
-          FECHA_SIGUIENTE,
-          "15:00",
-          60
-        )
+        service.reschedule("appt-123", "business-123", FECHA_SIGUIENTE, "15:00")
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -754,13 +889,7 @@ describe("AppointmentsService", () => {
       ]);
 
       await expect(
-        service.reschedule(
-          "appt-123",
-          "business-123",
-          FECHA_SIGUIENTE,
-          "15:00",
-          60
-        )
+        service.reschedule("appt-123", "business-123", FECHA_SIGUIENTE, "15:00")
       ).rejects.toThrow(BadRequestException);
     });
   });
