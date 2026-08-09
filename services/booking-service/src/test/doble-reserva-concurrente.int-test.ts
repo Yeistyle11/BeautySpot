@@ -39,13 +39,12 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
   let citas: AppointmentsService;
   let reservaPublica: PublicBookingService;
 
-  const servicioDeUnaHora = [
-    {
-      id: "55555555-5555-4555-8555-555555555555",
-      name: "Corte",
-      price: 50000,
-      duration: 60,
-    },
+  const SERVICIO = "55555555-5555-4555-8555-555555555555";
+  const servicioDeUnaHora = [SERVICIO];
+
+  /** Lo que el catálogo del core-service responde para ese servicio. */
+  const catalogo = [
+    { id: SERVICIO, name: "Corte", price: 50000, duration: 60 },
   ];
 
   const reservar = (clientId: string) =>
@@ -85,11 +84,15 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
     // no la publicación de eventos, que ya tiene su propio test.
     const outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
 
-    // La resolución del cliente invitado contra core se simula: aquí interesa
-    // cómo persiste la reserva pública, no de dónde saca el cliente.
+    // Las dos llamadas a core se simulan —el cliente invitado y el catálogo—:
+    // aquí interesa cómo persiste la reserva, no de dónde salen esos datos.
     const http = {
       pedir: jest.fn(),
-      enviar: jest.fn().mockResolvedValue({ id: CLIENTE_A }),
+      enviar: jest
+        .fn()
+        .mockImplementation(async (_servicio: string, ruta: string) =>
+          ruta === "/internal/services/resolve" ? catalogo : { id: CLIENTE_A }
+        ),
     };
 
     const disponibilidad = new AvailabilityQueryService(

@@ -1,4 +1,5 @@
 import {
+  ArrayNotEmpty,
   IsString,
   IsArray,
   IsOptional,
@@ -7,23 +8,27 @@ import {
 } from "class-validator";
 import { EsFechaSola } from "../../../common/es-fecha-sola.decorator";
 
-/** Datos de una reserva pública: negocio, profesional, servicios, horario y datos del invitado. */
+/**
+ * Datos de una reserva pública: negocio, profesional, servicios, horario y datos
+ * del invitado.
+ *
+ * No lleva `userId`: la ruta es pública y sin token, así que aceptarlo dejaría
+ * atar la ficha de cliente a la cuenta de cualquiera. Quien tenga sesión reserva
+ * por la ruta autenticada.
+ */
 export class PublicBookingDto {
   @IsUUID() businessId!: string;
   /** Omitirlo pide "cualquiera disponible". */
   @IsOptional() @IsUUID() professionalId?: string;
-  @IsArray() serviceIds!: {
-    id: string;
-    name: string;
-    price: number;
-    duration: number;
-  }[];
+  /** Solo los ids: el precio y la duración los resuelve el backend contra el catálogo. */
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsUUID("4", { each: true })
+  serviceIds!: string[];
   @EsFechaSola() date!: string;
   @IsString() startTime!: string;
   @IsOptional() @IsString() notes?: string;
   @IsString() guestName!: string;
   @IsOptional() @IsEmail() guestEmail?: string;
   @IsOptional() @IsString() guestPhone?: string;
-  /** Usuario que reserva, si tenía sesión. */
-  @IsOptional() @IsUUID() userId?: string;
 }

@@ -153,10 +153,11 @@ function PublicBookingPageInner() {
     setError("");
     setSubmitting(true);
     try {
+      // La ruta es pública y sin token, así que no se manda el id del usuario:
+      // el backend no puede dar por buena una identidad que nadie firma.
       const identidad =
         isAuthenticated && user
           ? {
-              userId: user.id,
               guestName: user.name,
               guestEmail: user.email || undefined,
               guestPhone: user.phone || undefined,
@@ -170,12 +171,8 @@ function PublicBookingPageInner() {
       const body: Record<string, unknown> = {
         businessId: profile.businessId,
         professionalId: isAnyProfessional ? undefined : selectedProfessional,
-        serviceIds: selectedServiceData.map((s) => ({
-          id: s.id,
-          name: s.name,
-          price: s.price,
-          duration: s.duration,
-        })),
+        // Solo los ids: el precio y la duración los pone el catálogo.
+        serviceIds: selectedServices,
         date,
         startTime,
         ...identidad,

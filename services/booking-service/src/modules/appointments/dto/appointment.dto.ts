@@ -6,28 +6,19 @@ import {
   IsNumber,
   IsUUID,
   Min,
-  ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { EsFechaSola } from "../../../common/es-fecha-sola.decorator";
-
-/** Un servicio incluido en la cita, con su id, nombre, precio y duración. */
-export class AppointmentServiceItemDto {
-  @IsString() id!: string;
-  @IsString() name!: string;
-  @IsNumber() @Min(0) price!: number;
-  @IsNumber() @Min(5) duration!: number;
-}
 
 /** Datos para crear una cita: profesional, cliente, servicios, fecha y hora de inicio. */
 export class CreateAppointmentDto {
   @IsUUID() professionalId!: string;
   @IsUUID() clientId!: string;
+  /** Solo los ids: el precio y la duración los resuelve el backend contra el catálogo. */
   @IsArray()
   @ArrayNotEmpty()
-  @ValidateNested({ each: true })
-  @Type(() => AppointmentServiceItemDto)
-  serviceIds!: AppointmentServiceItemDto[];
+  @IsUUID("4", { each: true })
+  serviceIds!: string[];
   @EsFechaSola() date!: string;
   @IsString() startTime!: string;
   @IsOptional() @IsString() notes?: string;

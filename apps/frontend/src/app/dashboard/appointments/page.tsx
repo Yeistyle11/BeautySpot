@@ -224,24 +224,12 @@ export default function AppointmentsPage() {
     setError("");
     setSubmitting(true);
     try {
-      // El backend guarda nombre y precio junto a la cita, para que el
-      // historico no cambie si luego se edita el servicio en el catalogo.
-      const serviceData = selectedServices.flatMap((id) => {
-        const svc = (services ?? []).find((s) => s.id === id);
-        return svc
-          ? [
-              {
-                id: svc.id,
-                name: svc.name,
-                price: svc.price,
-                duration: svc.duration,
-              },
-            ]
-          : [];
-      });
+      // Solo los ids: el nombre, el precio y la duracion los resuelve el
+      // backend contra el catalogo y los congela junto a la cita, para que el
+      // historico no cambie si luego se edita el servicio.
       await api.post("/booking/appointments", {
         ...form,
-        serviceIds: serviceData,
+        serviceIds: selectedServices,
       });
       setShowForm(false);
       setForm(emptyForm);
