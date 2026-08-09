@@ -97,6 +97,50 @@ export function ServiceFormDialog({
             rows={3}
           />
         </Field>
+        <details className="rounded-lg border p-3">
+          <summary className="cursor-pointer text-sm font-medium">
+            Tiempo de procesado y limpieza
+          </summary>
+          <div className="mt-3 space-y-3">
+            <p className="text-muted-foreground text-xs">
+              Si durante parte del servicio el profesional queda libre —los
+              minutos en que actúa un tinte—, indícalo aquí y la agenda podrá
+              vender ese hueco.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="El hueco empieza en el minuto">
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="20"
+                  value={form.procesadoDesde}
+                  onChange={(e) => set({ procesadoDesde: e.target.value })}
+                />
+              </Field>
+              <Field label="y dura (min)">
+                <Input
+                  type="number"
+                  min={1}
+                  placeholder="40"
+                  value={form.procesadoMinutos}
+                  onChange={(e) => set({ procesadoMinutos: e.target.value })}
+                />
+              </Field>
+            </div>
+            <Field
+              label="Limpieza después (min)"
+              hint="El profesional sigue ocupado, pero la clienta ya se fue"
+            >
+              <Input
+                type="number"
+                min={0}
+                placeholder="0"
+                value={form.bufferDespues}
+                onChange={(e) => set({ bufferDespues: e.target.value })}
+              />
+            </Field>
+          </div>
+        </details>
         {modo === "editar" && (
           <div className="flex items-center gap-3">
             <Switch

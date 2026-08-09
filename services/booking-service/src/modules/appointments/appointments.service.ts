@@ -27,6 +27,9 @@ import {
   calculateEndTime,
   escapeLikePattern,
   esInstantePasadoEn,
+  duracionDeCliente,
+  finDeOcupacion,
+  intervalosDeAgenda,
   instanteDe,
 } from "@beautyspot/shared-utils";
 
@@ -42,6 +45,9 @@ interface ServicioResuelto {
   name: string;
   price: number;
   duration: number;
+  procesadoDesde: number | null;
+  procesadoMinutos: number | null;
+  bufferDespues: number;
 }
 
 /**
@@ -125,9 +131,12 @@ export class AppointmentsService {
       data.serviceIds,
       data.professionalId
     );
-    const totalDuration = servicios.reduce((sum, s) => sum + s.duration, 0);
     const totalAmount = servicios.reduce((sum, s) => sum + s.price, 0);
-    const endTime = calculateEndTime(data.startTime, totalDuration);
+    // El orden es el que se pidió, y de él sale el reparto de la agenda.
+    const lineas = servicios.map((s, orden) => ({ ...s, orden }));
+    const endTime = calculateEndTime(data.startTime, duracionDeCliente(lineas));
+    const ocupadoHasta = finDeOcupacion(data.startTime, lineas);
+    const intervalos = intervalosDeAgenda(data.startTime, endTime, lineas);
 
     const zona = await this.zonas.de(businessId);
     if (esInstantePasadoEn(zona, data.date, data.startTime)) {
@@ -145,6 +154,7 @@ export class AppointmentsService {
       data.date,
       data.startTime,
       endTime,
+      ocupadoHasta,
       dayOfWeek
     );
     if (!available) {
@@ -159,8 +169,7 @@ export class AppointmentsService {
         businessId,
         data.professionalId,
         data.date,
-        data.startTime,
-        endTime
+        intervalos
       )
     ) {
       throw new BadRequestException("Ya existe una cita en ese horario");
@@ -177,8 +186,7 @@ export class AppointmentsService {
           businessId,
           data.professionalId,
           data.date,
-          data.startTime,
-          endTime
+          intervalos
         );
         if (conflictInTx) {
           throw new BadRequestException("Ya existe una cita en ese horario");
@@ -192,6 +200,7 @@ export class AppointmentsService {
           date: data.date,
           startTime: data.startTime,
           endTime,
+          ocupadoHasta,
           totalAmount,
           notes: data.notes,
           createdBy: data.createdBy,
@@ -200,13 +209,17 @@ export class AppointmentsService {
 
         // Se congela el precio y el nombre del momento de la reserva: si el
         // negocio cambia la tarifa mañana, esta cita conserva la suya.
-        const apptServices = servicios.map((s) =>
+        const apptServices = lineas.map((s) =>
           manager.create(AppointmentServiceEntity, {
             appointmentId: saved.id,
             serviceId: s.id,
             serviceName: s.name,
             price: s.price,
             duration: s.duration,
+            orden: s.orden,
+            procesadoDesde: s.procesadoDesde,
+            procesadoMinutos: s.procesadoMinutos,
+            bufferDespues: s.bufferDespues,
           })
         );
         await manager.save(AppointmentServiceEntity, apptServices);
@@ -226,6 +239,7 @@ export class AppointmentsService {
             date: data.date,
             startTime: data.startTime,
             endTime,
+            ocupadoHasta,
             totalAmount,
           },
         });
@@ -459,11 +473,8 @@ export class AppointmentsService {
       );
     }
 
-    // La duración sale de los servicios de la cita.
-    const serviceDuration = appt.appointmentServices.reduce(
-      (total, s) => total + s.duration,
-      0
-    );
+    // Duración y reparto salen de los servicios congelados en la cita.
+    const serviceDuration = duracionDeCliente(appt.appointmentServices);
     if (serviceDuration <= 0) {
       throw new BadRequestException(
         "La cita no tiene servicios: no se puede calcular su duracion"
@@ -488,6 +499,15 @@ export class AppointmentsService {
     }
 
     const newEndTime = calculateEndTime(newStartTime, serviceDuration);
+    const nuevoOcupadoHasta = finDeOcupacion(
+      newStartTime,
+      appt.appointmentServices
+    );
+    const intervalos = intervalosDeAgenda(
+      newStartTime,
+      newEndTime,
+      appt.appointmentServices
+    );
     const dayOfWeek = new Date(newDate + "T12:00:00").getDay();
     const available = await this.disponibilidad.franjaDentroDelHorario(
       businessId,
@@ -495,6 +515,7 @@ export class AppointmentsService {
       newDate,
       newStartTime,
       newEndTime,
+      nuevoOcupadoHasta,
       dayOfWeek
     );
     if (!available)
@@ -506,8 +527,7 @@ export class AppointmentsService {
         businessId,
         appt.professionalId,
         newDate,
-        newStartTime,
-        newEndTime,
+        intervalos,
         id
       )
     )
@@ -521,8 +541,7 @@ export class AppointmentsService {
         businessId,
         appt.professionalId,
         newDate,
-        newStartTime,
-        newEndTime,
+        intervalos,
         id
       );
       if (conflictInTx)
@@ -536,6 +555,7 @@ export class AppointmentsService {
           date: newDate,
           startTime: newStartTime,
           endTime: newEndTime,
+          ocupadoHasta: nuevoOcupadoHasta,
         }
       );
 

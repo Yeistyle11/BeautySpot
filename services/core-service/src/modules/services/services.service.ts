@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { TenantCrudService } from "@beautyspot/nest-common";
 import { Repository } from "typeorm";
@@ -32,6 +32,7 @@ export class ServicesService extends TenantCrudService<Service> {
    */
   async create(businessId: string, data: Partial<Service>): Promise<Service> {
     await this.validarCategoria(data.categoryId, businessId);
+    this.validarProcesado(data);
     const service = this.repo.create({
       ...data,
       description: data.description ?? "",
@@ -58,7 +59,29 @@ export class ServicesService extends TenantCrudService<Service> {
     data: Partial<Service>
   ): Promise<Service> {
     await this.validarCategoria(data.categoryId, businessId);
+    // La invariante se comprueba sobre lo guardado fusionado con lo enviado.
+    const actual = await this.findById(id, businessId);
+    this.validarProcesado({ ...actual, ...data });
     return super.update(id, businessId, data);
+  }
+
+  /** La ventana de procesado tiene que ser una pareja y caber en la duración. */
+  private validarProcesado(data: Partial<Service>): void {
+    const desde = data.procesadoDesde ?? null;
+    const minutos = data.procesadoMinutos ?? null;
+
+    if ((desde === null) !== (minutos === null)) {
+      throw new BadRequestException(
+        "El tiempo de procesado necesita el minuto en que empieza y cuánto dura"
+      );
+    }
+    if (desde === null || minutos === null) return;
+
+    if (desde + minutos > (data.duration ?? 0)) {
+      throw new BadRequestException(
+        "El tiempo de procesado no cabe dentro de la duración del servicio"
+      );
+    }
   }
 
   /** Da de baja (baja lógica) un servicio del catálogo. */

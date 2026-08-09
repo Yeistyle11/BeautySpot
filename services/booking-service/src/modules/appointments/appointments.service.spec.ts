@@ -14,6 +14,7 @@ import { AvailabilityQueryService } from "./availability-query.service";
 import { Appointment } from "../../entities/appointment.entity";
 import { Availability } from "../../entities/availability.entity";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
+import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 import { AppointmentStatus } from "@beautyspot/shared-types";
 import {
   NotFoundException,
@@ -54,6 +55,7 @@ describe("AppointmentsService", () => {
   let mockApptRepo: jest.Mocked<Repository<Appointment>>;
   let mockAvailRepo: jest.Mocked<Repository<Availability>>;
   let mockBlockRepo: jest.Mocked<Repository<BlockedSlot>>;
+  let mockApptServiceRepo: jest.Mocked<Repository<AppointmentServiceEntity>>;
   let mockDataSource: jest.Mocked<DataSource>;
   /** Manager que recibió el último callback de `transaction`. */
   let mockManager: { update: jest.Mock; [clave: string]: unknown };
@@ -89,6 +91,7 @@ describe("AppointmentsService", () => {
     reminder1hSentAt: null,
     startedAt: null,
     completedAt: null,
+    ocupadoHasta: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     // Reagendar saca la duración de aquí, así que el fixture la trae: son los
@@ -117,6 +120,9 @@ describe("AppointmentsService", () => {
       findAndCount: jest.fn(),
       update: jest.fn(),
     } as any;
+
+    // Sin líneas cargadas, cada cita ocupa su bloque entero.
+    mockApptServiceRepo = { find: jest.fn().mockResolvedValue([]) } as any;
 
     mockAvailRepo = {
       findOne: jest.fn(),
@@ -156,6 +162,7 @@ describe("AppointmentsService", () => {
               }),
               find: jest.fn().mockResolvedValue([]),
               update: jest.fn().mockResolvedValue({ affected: 1 }),
+              getRepository: () => ({ find: jest.fn().mockResolvedValue([]) }),
             };
             return await callback(mockManager);
           }
@@ -200,6 +207,7 @@ describe("AppointmentsService", () => {
               mockApptRepo,
               mockAvailRepo,
               mockBlockRepo,
+              mockApptServiceRepo,
               mockZonas,
               mockHorarioDelNegocio
             ),
@@ -255,6 +263,101 @@ describe("AppointmentsService", () => {
       });
       expect(mockDataSource.transaction).toHaveBeenCalled();
       expect(mockOutbox.enqueue).toHaveBeenCalled();
+    });
+
+    it("deja anidar una cita en el hueco de procesado de otra", async () => {
+      // El pre-check de UX, fuera de la transacción, ya reparte por intervalos.
+      mockAvailRepo.find.mockResolvedValue([mockAvailability]);
+      mockBlockRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([
+        {
+          id: "appt-tinte",
+          professionalId: "prof-123",
+          startTime: "10:00",
+          endTime: "11:30",
+        },
+      ] as never);
+      mockApptServiceRepo.find.mockResolvedValue([
+        {
+          appointmentId: "appt-tinte",
+          duration: 90,
+          orden: 0,
+          procesadoDesde: 20,
+          procesadoMinutos: 40,
+          bufferDespues: 0,
+        },
+      ] as never);
+
+      await expect(
+        service.create("business-123", {
+          professionalId: "prof-123",
+          clientId: "client-123",
+          serviceIds: [SERVICIO_CORTE],
+          date: FECHA_CITA,
+          startTime: "10:20",
+        })
+      ).resolves.toBeDefined();
+    });
+
+    it("rechaza la cita que pisa la limpieza de otra", async () => {
+      mockAvailRepo.find.mockResolvedValue([mockAvailability]);
+      mockBlockRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([
+        {
+          id: "appt-previa",
+          professionalId: "prof-123",
+          startTime: "09:00",
+          endTime: "10:00",
+        },
+      ] as never);
+      mockApptServiceRepo.find.mockResolvedValue([
+        {
+          appointmentId: "appt-previa",
+          duration: 60,
+          orden: 0,
+          procesadoDesde: null,
+          procesadoMinutos: null,
+          bufferDespues: 15,
+        },
+      ] as never);
+
+      // La clienta anterior se fue a las 10:00, pero hasta las 10:15 se limpia.
+      await expect(
+        service.create("business-123", {
+          professionalId: "prof-123",
+          clientId: "client-123",
+          serviceIds: [SERVICIO_CORTE],
+          date: FECHA_CITA,
+          startTime: "10:00",
+        })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("guarda hasta cuándo sigue ocupado el profesional", async () => {
+      mockAvailRepo.find.mockResolvedValue([mockAvailability]);
+      mockBlockRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([]);
+      mockHttp.enviar.mockResolvedValue([
+        {
+          ...CORTE,
+          bufferDespues: 15,
+          procesadoDesde: null,
+          procesadoMinutos: null,
+        },
+      ]);
+
+      await service.create("business-123", {
+        professionalId: "prof-123",
+        clientId: "client-123",
+        serviceIds: [SERVICIO_CORTE],
+        date: FECHA_CITA,
+        startTime: "10:00",
+      });
+
+      expect(mockManager.create).toHaveBeenCalledWith(
+        Appointment,
+        expect.objectContaining({ endTime: "10:30", ocupadoHasta: "10:45" })
+      );
     });
 
     it("debería lanzar BadRequestException si el horario no está disponible", async () => {
@@ -438,6 +541,7 @@ describe("AppointmentsService", () => {
             findOne: jest.fn(),
             find: jest.fn().mockResolvedValue([conflictingAppt]),
             update: jest.fn(),
+            getRepository: () => ({ find: jest.fn().mockResolvedValue([]) }),
           };
           return await cb(manager);
         }
@@ -822,6 +926,8 @@ describe("AppointmentsService", () => {
           date: FECHA_SIGUIENTE,
           startTime: "15:00",
           endTime: "16:00",
+          // Sin limpieza configurada coincide con el fin.
+          ocupadoHasta: "16:00",
         }
       );
     });

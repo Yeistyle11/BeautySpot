@@ -14,6 +14,7 @@ import { AvailabilityQueryService } from "../modules/appointments/availability-q
 import { PublicBookingService } from "../modules/public-booking/public-booking.service";
 import { ahoraEnElNegocio } from "../common/hora-del-negocio";
 import { Appointment } from "../entities/appointment.entity";
+import { AppointmentServiceEntity } from "../entities/appointment-service.entity";
 import { Availability } from "../entities/availability.entity";
 import { BlockedSlot } from "../entities/blocked-slot.entity";
 
@@ -50,7 +51,15 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
 
   /** Lo que el catálogo del core-service responde para ese servicio. */
   const catalogo = [
-    { id: SERVICIO, name: "Corte", price: 50000, duration: 60 },
+    {
+      id: SERVICIO,
+      name: "Corte",
+      price: 50000,
+      duration: 60,
+      procesadoDesde: null,
+      procesadoMinutos: null,
+      bufferDespues: 0,
+    },
   ];
 
   const reservar = (clientId: string) =>
@@ -115,6 +124,7 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
       dataSource.getRepository(Appointment),
       dataSource.getRepository(Availability),
       dataSource.getRepository(BlockedSlot),
+      dataSource.getRepository(AppointmentServiceEntity),
       zonas,
       horarioDelNegocio
     );
@@ -135,6 +145,7 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
       dataSource.getRepository(Appointment),
       dataSource.getRepository(Availability),
       dataSource.getRepository(BlockedSlot),
+      dataSource.getRepository(AppointmentServiceEntity),
       http as unknown as InternalHttpClient,
       citas
     );

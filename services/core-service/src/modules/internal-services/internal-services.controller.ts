@@ -11,6 +11,11 @@ export interface ServicioResuelto {
   name: string;
   price: number;
   duration: number;
+  /** Ventana en que el profesional queda libre dentro del servicio. */
+  procesadoDesde: number | null;
+  procesadoMinutos: number | null;
+  /** Limpieza posterior, en la que sigue ocupado. */
+  bufferDespues: number;
 }
 
 /**
@@ -50,15 +55,35 @@ export class InternalServicesController {
       dto.professionalId
     );
 
-    return servicios.map((servicio) => {
-      const propio = personalizados.get(servicio.id);
-      return {
-        id: servicio.id,
-        name: servicio.name,
-        price: propio?.customPrice ?? servicio.price,
-        duration: propio?.customDuration ?? servicio.duration,
-      };
-    });
+    const porId = new Map(servicios.map((s) => [s.id, s]));
+
+    // En el orden en que los pidió booking, que es el del reparto de la agenda.
+    return ids.map((id) => this.resolverUno(porId.get(id)!, personalizados));
+  }
+
+  /** Aplica al servicio los valores propios del profesional, si los tiene. */
+  private resolverUno(
+    servicio: Service,
+    personalizados: Map<string, ProfessionalService>
+  ): ServicioResuelto {
+    const propio = personalizados.get(servicio.id);
+    const duration = propio?.customDuration ?? servicio.duration;
+
+    // La ventana solo se propaga si sigue cabiendo en la duración efectiva.
+    const cabe =
+      servicio.procesadoDesde !== null &&
+      servicio.procesadoMinutos !== null &&
+      servicio.procesadoDesde + servicio.procesadoMinutos <= duration;
+
+    return {
+      id: servicio.id,
+      name: servicio.name,
+      price: propio?.customPrice ?? servicio.price,
+      duration,
+      procesadoDesde: cabe ? servicio.procesadoDesde : null,
+      procesadoMinutos: cabe ? servicio.procesadoMinutos : null,
+      bufferDespues: servicio.bufferDespues,
+    };
   }
 
   /**

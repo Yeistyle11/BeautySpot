@@ -8,6 +8,11 @@ export const serviceSchema = z.object({
   duration: z.number(),
   category: z.string().nullable(),
   categoryId: z.string().nullable(),
+  /** Ventana dentro de la duracion en que el profesional queda libre. */
+  procesadoDesde: z.number().nullish(),
+  procesadoMinutos: z.number().nullish(),
+  /** Limpieza posterior, en la que sigue ocupado sin cliente delante. */
+  bufferDespues: z.number().nullish(),
   active: z.boolean(),
 });
 export type Service = z.infer<typeof serviceSchema>;
@@ -28,6 +33,9 @@ export interface ServiceForm {
   duration: string;
   category: string;
   categoryId: string;
+  procesadoDesde: string;
+  procesadoMinutos: string;
+  bufferDespues: string;
   active: boolean;
 }
 
@@ -38,6 +46,9 @@ export const emptyForm: ServiceForm = {
   duration: "30",
   category: "",
   categoryId: "",
+  procesadoDesde: "",
+  procesadoMinutos: "",
+  bufferDespues: "",
   active: true,
 };
 
@@ -67,6 +78,19 @@ export function toServicePayload(
     duration: Number(form.duration),
     category: nombreCategoria ?? "",
     categoryId: form.categoryId || undefined,
+    // El procesado es una pareja: o van los dos campos o no va ninguno.
+    procesadoDesde: aMinutos(form.procesadoMinutos)
+      ? aMinutos(form.procesadoDesde)
+      : undefined,
+    procesadoMinutos: aMinutos(form.procesadoMinutos),
+    bufferDespues: aMinutos(form.bufferDespues),
     ...(incluirActivo ? { active: form.active } : {}),
   };
+}
+
+/** Minutos escritos en un input, o `undefined` si está vacío. */
+function aMinutos(valor: string): number | undefined {
+  if (valor.trim() === "") return undefined;
+  const numero = Number(valor);
+  return Number.isFinite(numero) ? numero : undefined;
 }

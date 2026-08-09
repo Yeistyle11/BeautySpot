@@ -135,6 +135,8 @@ export interface AppointmentCreatedPayload {
   date: string;
   startTime: string;
   endTime: string;
+  /** Hasta cuándo sigue ocupado el profesional: `endTime` más la limpieza. */
+  ocupadoHasta?: string;
   totalAmount: number;
 }
 

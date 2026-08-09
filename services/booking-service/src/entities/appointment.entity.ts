@@ -41,6 +41,10 @@ export class Appointment extends AuditableEntity {
   })
   totalAmount!: number;
 
+  /** Hora hasta la que sigue ocupado: `endTime` más la limpieza del último servicio. */
+  @Column({ type: "varchar", nullable: true, name: "ocupado_hasta" })
+  ocupadoHasta!: string | null;
+
   /**
    * Horas a las que la cita empezó y terminó de verdad, frente a `startTime` /
    * `endTime`, que son las previstas. La diferencia es lo que dice si la

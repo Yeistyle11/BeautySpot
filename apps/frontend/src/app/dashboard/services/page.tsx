@@ -133,6 +133,10 @@ export default function ServicesPage() {
       duration: String(s.duration),
       category: s.category || "",
       categoryId: s.categoryId || "",
+      procesadoDesde: s.procesadoDesde == null ? "" : String(s.procesadoDesde),
+      procesadoMinutos:
+        s.procesadoMinutos == null ? "" : String(s.procesadoMinutos),
+      bufferDespues: s.bufferDespues ? String(s.bufferDespues) : "",
       active: s.active,
     });
     setEditDialog(true);
