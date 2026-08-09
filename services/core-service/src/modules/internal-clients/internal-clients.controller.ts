@@ -1,7 +1,11 @@
 import { Controller, Post, Get, Body, Param, Query } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ILike, Repository } from "typeorm";
-import { escapeLikePattern } from "@beautyspot/shared-utils";
+import {
+  escapeLikePattern,
+  normalizarEmail,
+  normalizarTelefono,
+} from "@beautyspot/shared-utils";
 import { Client } from "../../entities/client.entity";
 import { FindOrCreateClientDto } from "./dto/find-or-create-client.dto";
 
@@ -64,7 +68,11 @@ export class InternalClientsController {
     return this.clientRepo.save(client);
   }
 
-  /** Busca un cliente del negocio por usuario, luego por email y luego por teléfono. */
+  /**
+   * Busca un cliente del negocio por usuario, luego por email y luego por
+   * teléfono. El contacto se coteja normalizado: "+57 300 123 4567" y
+   * "+573001234567" son la misma persona.
+   */
   private async findExistingClient(
     dto: FindOrCreateClientDto
   ): Promise<Client | null> {
@@ -74,15 +82,19 @@ export class InternalClientsController {
       });
       if (byUser) return byUser;
     }
-    if (dto.email) {
+
+    const email = normalizarEmail(dto.email);
+    if (email) {
       const byEmail = await this.clientRepo.findOne({
-        where: { businessId: dto.businessId, email: dto.email },
+        where: { businessId: dto.businessId, email },
       });
       if (byEmail) return byEmail;
     }
-    if (dto.phone) {
+
+    const phone = normalizarTelefono(dto.phone);
+    if (phone) {
       const byPhone = await this.clientRepo.findOne({
-        where: { businessId: dto.businessId, phone: dto.phone },
+        where: { businessId: dto.businessId, phone },
       });
       if (byPhone) return byPhone;
     }
@@ -94,8 +106,8 @@ export class InternalClientsController {
     const client = new Client();
     client.businessId = dto.businessId;
     client.name = dto.name;
-    client.email = dto.email ?? "";
-    client.phone = dto.phone ?? "";
+    client.email = normalizarEmail(dto.email);
+    client.phone = normalizarTelefono(dto.phone);
     client.userId = dto.userId ?? (null as unknown as string);
     client.tags = [];
     return this.clientRepo.save(client);

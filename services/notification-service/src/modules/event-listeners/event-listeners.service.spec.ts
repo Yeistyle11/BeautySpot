@@ -10,6 +10,7 @@ import {
 import { NotificationsService } from "../notifications/notifications.service";
 import { NotificationEventListeners } from "./event-listeners.service";
 import { PaymentMethod } from "@beautyspot/shared-types";
+import { NotificationPreferencesService } from "../notification-preferences/notification-preferences.service";
 
 describe("NotificationEventListeners", () => {
   let service: NotificationEventListeners;
@@ -19,6 +20,7 @@ describe("NotificationEventListeners", () => {
   let mockDataEnricher: jest.Mocked<DataEnricherService>;
   let mockNotifications: { create: jest.Mock };
   let mockHttp: jest.Mocked<InternalHttpClient>;
+  let mockPreferencias: { isNotificationEnabled: jest.Mock };
 
   const mockUserRegisteredEvent = {
     eventType: "auth.user.registered",
@@ -193,6 +195,12 @@ describe("NotificationEventListeners", () => {
         .mockResolvedValue([{ userId: "user-dueno", role: "OWNER" }]),
     } as any;
 
+    // Sin preferencia guardada se recibe todo; los tests que prueban el
+    // opt-out lo dicen.
+    mockPreferencias = {
+      isNotificationEnabled: jest.fn().mockResolvedValue(true),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotificationEventListeners,
@@ -202,6 +210,10 @@ describe("NotificationEventListeners", () => {
         { provide: DataEnricherService, useValue: mockDataEnricher },
         { provide: NotificationsService, useValue: mockNotifications },
         { provide: InternalHttpClient, useValue: mockHttp },
+        {
+          provide: NotificationPreferencesService,
+          useValue: mockPreferencias,
+        },
         {
           // El store real se prueba aparte; aquí basta con que deje pasar el
           // trabajo, que es el comportamiento cuando el evento es nuevo.
@@ -454,6 +466,82 @@ describe("NotificationEventListeners", () => {
       expect(mockNotifications.create).toHaveBeenCalledWith(
         expect.objectContaining({ userId: "user-cliente" })
       );
+    });
+  });
+
+  describe("preferencias de notificación", () => {
+    const citaCreada = {
+      eventType: "booking.appointment.created",
+      eventId: "evt-150",
+      correlationId: "corr-150",
+      timestamp: new Date(),
+      payload: {
+        appointmentId: "appointment-150",
+        clientId: "client-123",
+        professionalId: "professional-123",
+        businessId: "business-123",
+        date: "2026-08-10",
+        startTime: "10:00",
+        endTime: "11:00",
+        totalAmount: 50000,
+      },
+    } as never;
+
+    it("no deja el aviso in-app si el usuario lo desactivó", async () => {
+      mockPreferencias.isNotificationEnabled.mockImplementation(
+        async (_u, _b, _t, canal) => canal !== "IN_APP"
+      );
+
+      await service.handleAppointmentCreated(citaCreada);
+
+      expect(mockNotifications.create).not.toHaveBeenCalled();
+      // El correo sigue saliendo: son canales independientes.
+      expect(mockEmailService.queueAppointmentCreated).toHaveBeenCalled();
+    });
+
+    it("no manda el correo si el usuario lo desactivó", async () => {
+      mockPreferencias.isNotificationEnabled.mockImplementation(
+        async (_u, _b, _t, canal) => canal !== "EMAIL"
+      );
+
+      await service.handleAppointmentCreated(citaCreada);
+
+      expect(mockEmailService.queueAppointmentCreated).not.toHaveBeenCalled();
+      expect(mockNotifications.create).toHaveBeenCalled();
+    });
+
+    it("consulta la preferencia por tipo y canal", async () => {
+      await service.handleAppointmentCreated(citaCreada);
+
+      expect(mockPreferencias.isNotificationEnabled).toHaveBeenCalledWith(
+        "user-cliente",
+        "business-123",
+        "APPOINTMENT_CREATED",
+        "IN_APP"
+      );
+    });
+
+    // Quien reserva sin cuenta no tiene dónde guardar preferencias, y el correo
+    // es su único canal.
+    it("manda el correo al invitado sin consultar preferencias", async () => {
+      mockDataEnricher.enrichAppointmentParticipants.mockResolvedValue({
+        ...enrichedData,
+        clientUserId: null,
+      });
+
+      await service.handleAppointmentCreated(citaCreada);
+
+      expect(mockEmailService.queueAppointmentCreated).toHaveBeenCalled();
+    });
+
+    it("si la preferencia no se puede leer, el aviso sale igual", async () => {
+      mockPreferencias.isNotificationEnabled.mockRejectedValue(
+        new Error("Postgres caído")
+      );
+
+      await service.handleAppointmentCreated(citaCreada);
+
+      expect(mockNotifications.create).toHaveBeenCalled();
     });
   });
 

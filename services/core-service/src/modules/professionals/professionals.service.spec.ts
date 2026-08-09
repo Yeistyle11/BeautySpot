@@ -6,6 +6,7 @@ import { ProfessionalsService } from "./professionals.service";
 import { CategoriesService } from "../categories/categories.service";
 import { Professional } from "../../entities/professional.entity";
 import { ProfessionalService } from "../../entities/professional-service.entity";
+import { Service } from "../../entities/service.entity";
 import {
   NotFoundException,
   BadRequestException,
@@ -17,6 +18,7 @@ describe("ProfessionalsService", () => {
   let service: ProfessionalsService;
   let mockRepo: jest.Mocked<Repository<Professional>>;
   let mockPsRepo: jest.Mocked<Repository<ProfessionalService>>;
+  let mockServiceRepo: jest.Mocked<Repository<Service>>;
   let mockHttp: { pedir: jest.Mock };
 
   const mockProfessional: Professional = {
@@ -82,6 +84,10 @@ describe("ProfessionalsService", () => {
       delete: jest.fn(),
     } as any;
 
+    // Por defecto el servicio es del negocio; los tests que prueban lo
+    // contrario lo dicen.
+    mockServiceRepo = { exists: jest.fn().mockResolvedValue(true) } as any;
+
     const mockOutboxSpec = { enqueue: jest.fn().mockResolvedValue(undefined) };
     const mockDataSourceSpec = {
       // La transacción entrega el mismo repositorio simulado del test.
@@ -102,6 +108,11 @@ describe("ProfessionalsService", () => {
         {
           provide: getRepositoryToken(ProfessionalService),
           useValue: mockPsRepo,
+        },
+        {
+          // Servicio del negocio: la asignación comprueba que existe ahí.
+          provide: getRepositoryToken(Service),
+          useValue: mockServiceRepo,
         },
         {
           // Categoría válida del negocio: findById devuelve sin lanzar.
@@ -291,6 +302,30 @@ describe("ProfessionalsService", () => {
       });
       expect(mockPsRepo.save).toHaveBeenCalledWith(mockProfessionalService);
       expect(result).toEqual(mockProfessionalService);
+    });
+
+    // Sin esta comprobación se le podía asignar a un profesional un servicio
+    // del catálogo de otro negocio.
+    it("rechaza un servicio que no es del negocio", async () => {
+      mockRepo.findOne.mockResolvedValue(mockProfessional);
+      mockServiceRepo.exists.mockResolvedValue(false);
+
+      await expect(
+        service.assignService("prof-123", "service-ajeno", "business-123")
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPsRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("comprueba el servicio dentro del negocio del llamante", async () => {
+      mockRepo.findOne.mockResolvedValue(mockProfessional);
+      mockPsRepo.create.mockReturnValue(mockProfessionalService);
+      mockPsRepo.save.mockResolvedValue(mockProfessionalService);
+
+      await service.assignService("prof-123", "service-123", "business-123");
+
+      expect(mockServiceRepo.exists).toHaveBeenCalledWith({
+        where: { id: "service-123", businessId: "business-123" },
+      });
     });
 
     it("debería asignar un servicio sin precio personalizado", async () => {

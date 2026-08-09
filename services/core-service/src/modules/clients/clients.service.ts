@@ -1,12 +1,27 @@
-import { Injectable } from "@nestjs/common";
+import { ConflictException, Injectable } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { TenantCrudService, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { Repository, Like, DataSource, EntityManager } from "typeorm";
-import { escapeLikePattern } from "@beautyspot/shared-utils";
+import {
+  escapeLikePattern,
+  normalizarEmail,
+  normalizarTelefono,
+} from "@beautyspot/shared-utils";
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
 import { Client } from "../../entities/client.entity";
+
+/** Deja correo y teléfono en su forma canónica, para poder cotejarlos. */
+function normalizarContacto(data: Partial<Client>): {
+  email?: string;
+  phone?: string;
+} {
+  const contacto: { email?: string; phone?: string } = {};
+  if (data.email !== undefined) contacto.email = normalizarEmail(data.email);
+  if (data.phone !== undefined) contacto.phone = normalizarTelefono(data.phone);
+  return contacto;
+}
 
 /** CRUD de la cartera de clientes de un negocio, incluida su fidelización por puntos. */
 @Injectable()
@@ -21,7 +36,10 @@ export class ClientsService extends TenantCrudService<Client> {
 
   /** Registra un cliente en el negocio indicado y publica el alta. */
   async create(businessId: string, data: Partial<Client>): Promise<Client> {
-    const client = this.repo.create({ ...data, businessId });
+    const contacto = normalizarContacto(data);
+    await this.rechazarSiYaExiste(businessId, contacto);
+
+    const client = this.repo.create({ ...data, ...contacto, businessId });
 
     return this.dataSource.transaction(async (manager) => {
       const creado = await manager.getRepository(Client).save(client);
@@ -41,6 +59,35 @@ export class ClientsService extends TenantCrudService<Client> {
 
       return creado;
     });
+  }
+
+  /**
+   * Rechaza el alta si el negocio ya tiene una ficha con ese correo o teléfono.
+   * Dos fichas de la misma persona parten su historial y sus puntos.
+   */
+  private async rechazarSiYaExiste(
+    businessId: string,
+    contacto: { email?: string; phone?: string }
+  ): Promise<void> {
+    const existente = await this.buscarPorContacto(businessId, contacto);
+    if (existente) {
+      throw new ConflictException(
+        `Ya existe un cliente con ese ${existente.email === contacto.email ? "correo" : "telefono"}: ${existente.name}`
+      );
+    }
+  }
+
+  /** Ficha del negocio que coincide por correo o por teléfono, si la hay. */
+  private async buscarPorContacto(
+    businessId: string,
+    contacto: { email?: string; phone?: string }
+  ): Promise<Client | null> {
+    const criterios: Record<string, unknown>[] = [];
+    if (contacto.email) criterios.push({ businessId, email: contacto.email });
+    if (contacto.phone) criterios.push({ businessId, phone: contacto.phone });
+    if (criterios.length === 0) return null;
+
+    return this.repo.findOne({ where: criterios });
   }
 
   /** Lista los clientes activos del negocio, con búsqueda por nombre/email/teléfono y paginación. */
