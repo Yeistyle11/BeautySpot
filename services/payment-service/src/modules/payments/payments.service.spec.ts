@@ -9,7 +9,7 @@ import {
   PaymentStatus,
   CashMovementType,
 } from "@beautyspot/shared-types";
-import { OutboxService } from "@beautyspot/nest-common";
+import { OutboxService, ZonaDelNegocioService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 
 describe("PaymentsService", () => {
@@ -80,6 +80,10 @@ describe("PaymentsService", () => {
         },
         { provide: DataSource, useValue: mockDataSource },
         { provide: OutboxService, useValue: mockOutbox },
+        {
+          provide: ZonaDelNegocioService,
+          useValue: { de: jest.fn().mockResolvedValue("America/Bogota") },
+        },
       ],
     }).compile();
 
@@ -379,6 +383,22 @@ describe("PaymentsService", () => {
       expect(result.total).toBe(0);
       expect(result.count).toBe(0);
       expect(result.byMethod).toEqual({});
+    });
+
+    it("acota el día a la medianoche del negocio, con fin exclusivo", async () => {
+      const qb = mockQueryBuilder([]);
+      mockRepo.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.getDailySummary("business-123", "2024-01-15");
+
+      const [, rango] = qb.andWhere.mock.calls.find(([sql]) =>
+        String(sql).includes("created_at")
+      )!;
+      const { start, end } = rango as { start: Date; end: Date };
+
+      // Bogotá va cinco horas por detrás de UTC.
+      expect(start.toISOString()).toBe("2024-01-15T05:00:00.000Z");
+      expect(end.toISOString()).toBe("2024-01-16T05:00:00.000Z");
     });
   });
 

@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, Between } from "typeorm";
 import { DailyMetricEntity } from "../../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
+import { ZonaDelNegocioService } from "@beautyspot/nest-common";
 import { fechaDeHoy, fechaHaceDias } from "../../common/fecha";
 
 /** Fila cruda del ranking, tal como la devuelve el agregado SQL. */
@@ -34,7 +35,8 @@ export class DashboardService {
     @InjectRepository(DailyMetricEntity)
     private readonly dailyRepo: Repository<DailyMetricEntity>,
     @InjectRepository(ProfessionalMetricEntity)
-    private readonly profRepo: Repository<ProfessionalMetricEntity>
+    private readonly profRepo: Repository<ProfessionalMetricEntity>,
+    private readonly zonas: ZonaDelNegocioService
   ) {}
 
   /** KPIs del negocio: cifras de hoy y agregados/tasas de los últimos 30 días. */
@@ -57,7 +59,7 @@ export class DashboardService {
       avgDailyRevenue: number;
     };
   }> {
-    const { today, thirtyDaysAgo, dias } = this.dateRange(30);
+    const { today, thirtyDaysAgo, dias } = await this.dateRange(businessId, 30);
 
     const [aggregates, todayMetrics] = await Promise.all([
       this.dailyRepo
@@ -154,7 +156,7 @@ export class DashboardService {
     businessId: string,
     limit = 10
   ): Promise<TopProfessionalResult[]> {
-    const { today, thirtyDaysAgo } = this.dateRange(30);
+    const { today, thirtyDaysAgo } = await this.dateRange(businessId, 30);
 
     const rows = await this.profRepo
       .createQueryBuilder("pm")
@@ -189,7 +191,7 @@ export class DashboardService {
     businessId: string,
     days = 30
   ): Promise<RevenuePoint[]> {
-    const { today, from } = this.dateRange(days);
+    const { today, from } = await this.dateRange(businessId, days);
 
     const filas = await this.dailyRepo.find({
       where: { businessId, date: Between(from, today) },
@@ -202,15 +204,22 @@ export class DashboardService {
     }));
   }
 
-  /** Devuelve la fecha de hoy y la de hace N días en formato YYYY-MM-DD. */
-  private dateRange(days: number): {
+  /**
+   * Devuelve la fecha de hoy y la de hace N días en formato YYYY-MM-DD, leídas
+   * en el huso del negocio.
+   */
+  private async dateRange(
+    businessId: string,
+    days: number
+  ): Promise<{
     today: string;
     from: string;
     thirtyDaysAgo: string;
     dias: number;
-  } {
-    const today = fechaDeHoy();
-    const from = fechaHaceDias(days);
+  }> {
+    const zona = await this.zonas.de(businessId);
+    const today = fechaDeHoy(zona);
+    const from = fechaHaceDias(zona, days);
     return { today, from, thirtyDaysAgo: from, dias: days };
   }
 

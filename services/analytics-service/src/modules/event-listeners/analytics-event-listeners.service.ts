@@ -18,6 +18,7 @@ import {
 } from "@beautyspot/event-types";
 import { ProcessedEventsStore } from "@beautyspot/nest-common";
 import { MetricsService } from "../metrics/metrics.service";
+import { ZonaDelNegocioService } from "@beautyspot/nest-common";
 import { fechaDeHoy } from "../../common/fecha";
 
 /**
@@ -40,8 +41,14 @@ export class AnalyticsEventListeners {
 
   constructor(
     private readonly metricsService: MetricsService,
-    private readonly processedEvents: ProcessedEventsStore
+    private readonly processedEvents: ProcessedEventsStore,
+    private readonly zonas: ZonaDelNegocioService
   ) {}
+
+  /** Día en curso en el huso de ese negocio. */
+  private async hoyPara(businessId: string): Promise<string> {
+    return fechaDeHoy(await this.zonas.de(businessId));
+  }
 
   /**
    * Cuenta la cita en su fecha, para el negocio y para el profesional.
@@ -184,10 +191,11 @@ export class AnalyticsEventListeners {
   async handleClientCreated(event: ClientCreatedEvent): Promise<void> {
     this.logger.log(`Cliente creado: ${event.payload.clientId}`);
     const { businessId } = event.payload;
+    const hoy = await this.hoyPara(businessId);
     await this.aplicar(event, "cliente nuevo", (manager) =>
       this.metricsService.incrementDailyMetric(
         businessId,
-        fechaDeHoy(),
+        hoy,
         { newClients: 1 },
         manager
       )
@@ -204,10 +212,11 @@ export class AnalyticsEventListeners {
   async handlePaymentRegistered(event: PaymentRegisteredEvent): Promise<void> {
     this.logger.log(`Pago registrado: ${event.payload.paymentId}`);
     const { businessId, amount } = event.payload;
+    const hoy = await this.hoyPara(businessId);
     await this.aplicar(event, "pago", (manager) =>
       this.metricsService.incrementDailyMetric(
         businessId,
-        fechaDeHoy(),
+        hoy,
         { totalRevenue: amount },
         manager
       )
@@ -230,11 +239,12 @@ export class AnalyticsEventListeners {
   async handleReviewCreated(event: ReviewCreatedEvent): Promise<void> {
     this.logger.log(`Reseña creada: ${event.payload.reviewId}`);
     const { businessId, professionalId, rating } = event.payload;
+    const hoy = await this.hoyPara(businessId);
     await this.aplicar(event, "reseña", (manager) =>
       this.metricsService.setProfessionalRating(
         businessId,
         professionalId,
-        fechaDeHoy(),
+        hoy,
         rating,
         manager
       )

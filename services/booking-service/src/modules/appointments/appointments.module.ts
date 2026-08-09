@@ -1,7 +1,9 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { ZonaDelNegocioModule } from "@beautyspot/nest-common";
 import { AppointmentsService } from "./appointments.service";
 import { AvailabilityQueryService } from "./availability-query.service";
+import { HorarioDelNegocioService } from "./horario-del-negocio.service";
 import {
   AppointmentsController,
   InternalAppointmentsController,
@@ -19,9 +21,14 @@ import { BlockedSlot } from "../../entities/blocked-slot.entity";
       Availability,
       BlockedSlot,
     ]),
+    ZonaDelNegocioModule,
   ],
   controllers: [AppointmentsController, InternalAppointmentsController],
-  providers: [AppointmentsService, AvailabilityQueryService],
+  providers: [
+    AppointmentsService,
+    AvailabilityQueryService,
+    HorarioDelNegocioService,
+  ],
   exports: [AppointmentsService, AvailabilityQueryService],
 })
 /** Cablea la gestión de citas (controlador público e interno y su servicio). */

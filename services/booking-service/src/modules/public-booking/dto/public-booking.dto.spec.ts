@@ -43,7 +43,7 @@ describe("PublicBookingDto", () => {
   });
 
   it("rechaza el precio y la duración enviados por el navegador", async () => {
-    // Es la ruta pública y sin token: fiarse de estos valores permitía crear
+    // La ruta es pública y sin token: fiarse de estos valores dejaría crear
     // citas de $0 o de 5 minutos.
     await expect(
       pipe.transform(

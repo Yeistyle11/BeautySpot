@@ -1,6 +1,11 @@
 import { DataSource } from "typeorm";
 import { join } from "path";
-import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
+import {
+  InternalHttpClient,
+  OutboxService,
+  ZonaDelNegocioService,
+} from "@beautyspot/nest-common";
+import { HorarioDelNegocioService } from "../modules/appointments/horario-del-negocio.service";
 import { createMigrationDataSourceOptions } from "@beautyspot/database";
 import { entities } from "../orm-entities";
 import { AppointmentsService } from "../modules/appointments/appointments.service";
@@ -95,10 +100,22 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
         ),
     };
 
+    // El negocio de la prueba vive en el huso por defecto y no tiene horario de
+    // apertura configurado, así que ninguno de los dos restringe nada: aquí se
+    // comprueba la exclusión mutua, no los límites de la jornada.
+    const zonas = {
+      de: jest.fn().mockResolvedValue("America/Bogota"),
+    } as unknown as ZonaDelNegocioService;
+    const horarioDelNegocio = {
+      tramosDelDia: jest.fn().mockResolvedValue(null),
+    } as unknown as HorarioDelNegocioService;
+
     const disponibilidad = new AvailabilityQueryService(
       dataSource.getRepository(Appointment),
       dataSource.getRepository(Availability),
-      dataSource.getRepository(BlockedSlot)
+      dataSource.getRepository(BlockedSlot),
+      zonas,
+      horarioDelNegocio
     );
 
     citas = new AppointmentsService(
@@ -106,7 +123,8 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
       dataSource,
       outbox as unknown as OutboxService,
       http as unknown as InternalHttpClient,
-      disponibilidad
+      disponibilidad,
+      zonas
     );
 
     reservaPublica = new PublicBookingService(

@@ -1,11 +1,17 @@
 "use client";
 
 // Dialogo para configurar el horario semanal de un profesional.
+import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { DAYS_MAP, type DayHours, type Professional } from "./schemas";
+import {
+  DAYS_MAP,
+  TRAMO_POR_DEFECTO,
+  type DayHours,
+  type Professional,
+} from "./schemas";
 
 interface ScheduleDialogProps {
   open: boolean;
@@ -15,9 +21,10 @@ interface ScheduleDialogProps {
   hours: Record<number, DayHours>;
   onChange: (hours: Record<number, DayHours>) => void;
   saving: boolean;
+  error?: string;
 }
 
-/** Franja semanal de disponibilidad de un profesional. */
+/** Horario semanal de un profesional, con varios tramos por dia. */
 export function ScheduleDialog({
   open,
   onClose,
@@ -26,9 +33,23 @@ export function ScheduleDialog({
   hours,
   onChange,
   saving,
+  error,
 }: ScheduleDialogProps) {
-  const setDay = (day: number, patch: Partial<DayHours>) =>
-    onChange({ ...hours, [day]: { ...hours[day], ...patch } });
+  const setTramos = (day: number, tramos: DayHours) =>
+    onChange({ ...hours, [day]: tramos });
+
+  const editarTramo = (
+    day: number,
+    indice: number,
+    campo: "startTime" | "endTime",
+    valor: string
+  ) =>
+    setTramos(
+      day,
+      hours[day].map((tramo, i) =>
+        i === indice ? { ...tramo, [campo]: valor } : tramo
+      )
+    );
 
   return (
     <Dialog
@@ -38,52 +59,97 @@ export function ScheduleDialog({
       wide
     >
       <div className="space-y-4">
+        {error && (
+          <p role="alert" className="text-destructive text-sm">
+            {error}
+          </p>
+        )}
         <div className="space-y-3">
           {DAYS_MAP.map((day) => {
-            const h = hours[day.value];
-            if (!h) return null;
+            const tramos = hours[day.value] ?? [];
+            const trabaja = tramos.length > 0;
+
             return (
               <div
                 key={day.value}
-                className="flex flex-wrap items-center gap-4 rounded-lg border p-3"
+                className="flex flex-wrap items-start gap-4 rounded-lg border p-3"
               >
                 <span
-                  className="w-20 text-sm font-medium"
+                  className="mt-1 w-20 text-sm font-medium"
                   id={`day-${day.value}`}
                 >
                   {day.label}
                 </span>
                 <Switch
-                  checked={h.active}
+                  className="mt-1"
+                  checked={trabaja}
                   onCheckedChange={(checked) =>
-                    setDay(day.value, { active: checked })
+                    setTramos(day.value, checked ? [TRAMO_POR_DEFECTO] : [])
                   }
                   aria-labelledby={`day-${day.value}`}
                 />
-                {h.active ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="time"
-                      value={h.startTime}
-                      onChange={(e) =>
-                        setDay(day.value, { startTime: e.target.value })
+                {trabaja ? (
+                  <div className="flex flex-col gap-2">
+                    {tramos.map((tramo, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <Input
+                          type="time"
+                          value={tramo.startTime}
+                          onChange={(e) =>
+                            editarTramo(
+                              day.value,
+                              i,
+                              "startTime",
+                              e.target.value
+                            )
+                          }
+                          className="h-8 w-28 text-sm"
+                          aria-label={`Hora de inicio del tramo ${i + 1}, ${day.label}`}
+                        />
+                        <span className="text-muted-foreground text-sm">a</span>
+                        <Input
+                          type="time"
+                          value={tramo.endTime}
+                          onChange={(e) =>
+                            editarTramo(day.value, i, "endTime", e.target.value)
+                          }
+                          className="h-8 w-28 text-sm"
+                          aria-label={`Hora de fin del tramo ${i + 1}, ${day.label}`}
+                        />
+                        {tramos.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2"
+                            onClick={() =>
+                              setTramos(
+                                day.value,
+                                tramos.filter((_, j) => j !== i)
+                              )
+                            }
+                            aria-label={`Quitar el tramo ${i + 1} del ${day.label}`}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 self-start px-2"
+                      onClick={() =>
+                        setTramos(day.value, [...tramos, TRAMO_POR_DEFECTO])
                       }
-                      className="h-8 w-28 text-sm"
-                      aria-label={`Hora de inicio, ${day.label}`}
-                    />
-                    <span className="text-muted-foreground text-sm">a</span>
-                    <Input
-                      type="time"
-                      value={h.endTime}
-                      onChange={(e) =>
-                        setDay(day.value, { endTime: e.target.value })
-                      }
-                      className="h-8 w-28 text-sm"
-                      aria-label={`Hora de fin, ${day.label}`}
-                    />
+                    >
+                      <Plus className="mr-1 h-4 w-4" />
+                      Anadir tramo
+                    </Button>
                   </div>
                 ) : (
-                  <span className="text-muted-foreground text-sm">
+                  <span className="text-muted-foreground mt-1 text-sm">
                     No disponible
                   </span>
                 )}

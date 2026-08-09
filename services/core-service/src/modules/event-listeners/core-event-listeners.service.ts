@@ -23,10 +23,6 @@ export class CoreEventListeners {
   /**
    * Acredita al cliente los puntos que la cita atendida generó.
    *
-   * booking ya los calculaba y los publicaba, pero nadie escuchaba: el contador
-   * del panel del cliente valía siempre 0 bajo una interfaz que prometía
-   * descuentos.
-   *
    * Va dentro de `once` porque acreditar dos veces regala dinero, y el
    * incremento comparte la transacción con la marca de procesado para que no
    * pueda quedar uno sin el otro.

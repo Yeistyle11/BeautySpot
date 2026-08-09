@@ -11,6 +11,8 @@ import {
   Between,
   IsNull,
 } from "typeorm";
+import { ZonaDelNegocioService } from "@beautyspot/nest-common";
+import { diaSiguiente, instanteDe } from "@beautyspot/shared-utils";
 import { PaymentEntity } from "./payment.entity";
 import { CashSessionEntity } from "../cash-register/cash-session.entity";
 import { CashMovementEntity } from "../cash-register/cash-movement.entity";
@@ -38,7 +40,8 @@ export class PaymentsService {
     private readonly repo: Repository<PaymentEntity>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
-    private readonly outbox: OutboxService
+    private readonly outbox: OutboxService,
+    private readonly zonas: ZonaDelNegocioService
   ) {}
 
   /** Registra un pago y emite el evento PAYMENT_REGISTERED en la misma transacción. */
@@ -184,8 +187,11 @@ export class PaymentsService {
    * y traer cada registro solo para sumarlo no escala.
    */
   async getDailySummary(businessId: string, date: string) {
-    const start = new Date(`${date}T00:00:00`);
-    const end = new Date(`${date}T23:59:59`);
+    // El día va de medianoche a medianoche en el huso del negocio, con el fin
+    // exclusivo.
+    const zona = await this.zonas.de(businessId);
+    const start = instanteDe(zona, date, "00:00");
+    const end = instanteDe(zona, diaSiguiente(date), "00:00");
 
     const rows = await this.repo
       .createQueryBuilder("p")
@@ -194,7 +200,10 @@ export class PaymentsService {
       .addSelect("COUNT(*)", "count")
       .where("p.business_id = :businessId", { businessId })
       .andWhere("p.status = :status", { status: PaymentStatus.COMPLETED })
-      .andWhere("p.created_at BETWEEN :start AND :end", { start, end })
+      .andWhere("p.created_at >= :start AND p.created_at < :end", {
+        start,
+        end,
+      })
       .groupBy("p.method")
       .getRawMany<{ method: string; total: string; count: string }>();
 

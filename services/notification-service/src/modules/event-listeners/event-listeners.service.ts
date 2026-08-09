@@ -195,8 +195,8 @@ export class NotificationEventListeners {
             { appointmentId }
           );
 
-          // Quien reserva desde el marketplace no entra al panel: sin este
-          // correo no recibía nada hasta que alguien confirmara a mano.
+          // Quien reserva desde el marketplace no entra al panel, así que el
+          // aviso in-app no le llega: el acuse va por correo.
           await this.intentarCorreo("cita nueva", async () => {
             const { jobId } = await this.emailService.queueAppointmentCreated(
               data.clientEmail,

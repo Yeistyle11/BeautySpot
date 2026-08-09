@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { BadRequestException } from "@nestjs/common";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { DataSource, Repository } from "typeorm";
 import { AvailabilityService } from "./availability.service";
 import { Availability } from "../../entities/availability.entity";
 
@@ -29,6 +30,13 @@ describe("AvailabilityService", () => {
       save: jest.fn(),
     } as any;
 
+    // La transacción entrega el mismo repositorio simulado del test.
+    const mockDataSource = {
+      transaction: jest.fn((cb: (m: unknown) => unknown) =>
+        cb({ getRepository: jest.fn().mockReturnValue(mockRepo) })
+      ),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AvailabilityService,
@@ -36,6 +44,7 @@ describe("AvailabilityService", () => {
           provide: getRepositoryToken(Availability),
           useValue: mockRepo,
         },
+        { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
 
@@ -58,7 +67,7 @@ describe("AvailabilityService", () => {
           professionalId: "prof-123",
           active: true,
         },
-        order: { dayOfWeek: "ASC" },
+        order: { dayOfWeek: "ASC", startTime: "ASC" },
       });
     });
 
@@ -77,7 +86,7 @@ describe("AvailabilityService", () => {
           professionalId: "prof-123",
           active: true,
         },
-        order: { dayOfWeek: "ASC" },
+        order: { dayOfWeek: "ASC", startTime: "ASC" },
       });
     });
   });
@@ -126,6 +135,66 @@ describe("AvailabilityService", () => {
       expect(mockRepo.create).not.toHaveBeenCalled();
       expect(mockRepo.save).toHaveBeenCalledWith([]);
       expect(result).toEqual([]);
+    });
+  });
+
+  describe("validación de los tramos", () => {
+    beforeEach(() => {
+      mockRepo.delete.mockResolvedValue({ affected: 0 } as never);
+      mockRepo.create.mockReturnValue(mockAvailability as never);
+      mockRepo.save.mockResolvedValue([] as never);
+    });
+
+    /** Intenta guardar esos tramos para el profesional de la prueba. */
+    const guardar = (
+      slots: { dayOfWeek: number; startTime: string; endTime: string }[]
+    ) => service.replaceWeekly("business-123", "prof-123", slots);
+
+    it("acepta dos tramos del mismo día que no se pisan", async () => {
+      await expect(
+        guardar([
+          { dayOfWeek: 3, startTime: "09:00", endTime: "13:00" },
+          { dayOfWeek: 3, startTime: "15:00", endTime: "19:00" },
+        ])
+      ).resolves.toBeDefined();
+    });
+
+    it("rechaza dos tramos del mismo día que se solapan", async () => {
+      await expect(
+        guardar([
+          { dayOfWeek: 3, startTime: "09:00", endTime: "14:00" },
+          { dayOfWeek: 3, startTime: "13:00", endTime: "19:00" },
+        ])
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("permite el mismo tramo en días distintos", async () => {
+      await expect(
+        guardar([
+          { dayOfWeek: 3, startTime: "09:00", endTime: "14:00" },
+          { dayOfWeek: 4, startTime: "09:00", endTime: "14:00" },
+        ])
+      ).resolves.toBeDefined();
+    });
+
+    it("rechaza un tramo que termina antes de empezar", async () => {
+      await expect(
+        guardar([{ dayOfWeek: 3, startTime: "18:00", endTime: "09:00" }])
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it.each(["9:0", "25:00", "abc"])("rechaza la hora %s", async (hora) => {
+      await expect(
+        guardar([{ dayOfWeek: 3, startTime: hora, endTime: "19:00" }])
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("no borra nada si la validación falla", async () => {
+      await expect(
+        guardar([{ dayOfWeek: 3, startTime: "18:00", endTime: "09:00" }])
+      ).rejects.toThrow();
+
+      expect(mockRepo.delete).not.toHaveBeenCalled();
     });
   });
 

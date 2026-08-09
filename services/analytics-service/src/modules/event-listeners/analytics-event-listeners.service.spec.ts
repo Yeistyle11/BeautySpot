@@ -1,6 +1,9 @@
 import { Test } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { ProcessedEventsStore } from "@beautyspot/nest-common";
+import {
+  ProcessedEventsStore,
+  ZonaDelNegocioService,
+} from "@beautyspot/nest-common";
 import { EntityManager } from "typeorm";
 import { AnalyticsEventListeners } from "./analytics-event-listeners.service";
 import { MetricsService } from "../metrics/metrics.service";
@@ -48,6 +51,12 @@ describe("AnalyticsEventListeners", () => {
         AnalyticsEventListeners,
         { provide: MetricsService, useValue: mockMetricsService },
         { provide: ProcessedEventsStore, useValue: mockProcessedEvents },
+        // El negocio de la prueba vive en Bogotá; aquí se comprueba qué métrica
+        // se mueve, no en qué huso se lee la fecha.
+        {
+          provide: ZonaDelNegocioService,
+          useValue: { de: jest.fn().mockResolvedValue("America/Bogota") },
+        },
       ],
     }).compile();
 

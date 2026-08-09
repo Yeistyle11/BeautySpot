@@ -21,6 +21,7 @@ import { ProCard } from "./pro-card";
 import {
   categorySchema,
   DAYS_MAP,
+  TRAMO_POR_DEFECTO,
   emptyForm,
   professionalSchema,
   toProfessionalPayload,
@@ -52,16 +53,17 @@ const ScheduleDialog = dynamic(
 const PROFESSIONALS_KEY = "/core/professionals";
 const CATEGORIES_KEY = "/core/categories";
 
+/** Semana sin ningun tramo. */
+function semanaVacia(): Record<number, DayHours> {
+  return Object.fromEntries(DAYS_MAP.map((d) => [d.value, []]));
+}
+
 /** Horario por defecto: laborables de 8 a 18, fin de semana cerrado. */
 function defaultWeek(): Record<number, DayHours> {
   return Object.fromEntries(
     DAYS_MAP.map((d) => [
       d.value,
-      {
-        active: d.value >= 1 && d.value <= 5,
-        startTime: "08:00",
-        endTime: "18:00",
-      },
+      d.value >= 1 && d.value <= 5 ? [TRAMO_POR_DEFECTO] : [],
     ])
   );
 }
@@ -127,6 +129,7 @@ export default function ProfessionalsPage() {
     {}
   );
   const [savingSchedule, setSavingSchedule] = useState(false);
+  const [scheduleError, setScheduleError] = useState("");
 
   // Se recuerda de quien es la ultima peticion de horario en vuelo: abrir dos
   // profesionales seguidos hacia que la respuesta lenta del primero sobrescribiera
@@ -146,20 +149,15 @@ export default function ProfessionalsPage() {
       .get<AvailabilitySlot[]>(`/booking/professionals/${p.id}/availability`)
       .then((slots) => {
         if (horarioPedidoPara.current !== p.id) return;
-        // El backend solo devuelve los dias configurados: el resto se rellena
-        // como inactivo para que la semana salga completa en el formulario.
-        const week = Object.fromEntries(
-          DAYS_MAP.map((d) => [
-            d.value,
-            { active: false, startTime: "08:00", endTime: "18:00" },
-          ])
-        ) as Record<number, DayHours>;
+        // El backend solo devuelve los dias configurados; el resto queda sin
+        // tramos para que la semana salga completa en el formulario.
+        const week = semanaVacia();
         slots.forEach((slot) => {
-          week[slot.dayOfWeek] = {
-            active: slot.active !== false,
-            startTime: slot.startTime,
-            endTime: slot.endTime,
-          };
+          if (slot.active === false) return;
+          week[slot.dayOfWeek] = [
+            ...(week[slot.dayOfWeek] ?? []),
+            { startTime: slot.startTime, endTime: slot.endTime },
+          ];
         });
         setScheduleHours(week);
       })
@@ -174,19 +172,25 @@ export default function ProfessionalsPage() {
   const saveSchedule = async () => {
     if (!schedulePro) return;
     setSavingSchedule(true);
+    setScheduleError("");
     try {
-      await api.put(`/booking/professionals/${schedulePro.id}/availability`, {
-        hours: Object.entries(scheduleHours).map(([day, h]) => ({
+      // Un dia sin tramos es un dia libre, asi que no se envia.
+      const slots = Object.entries(scheduleHours).flatMap(([day, tramos]) =>
+        tramos.map((tramo) => ({
           dayOfWeek: Number(day),
-          startTime: h.startTime,
-          endTime: h.endTime,
-          active: h.active,
-        })),
+          startTime: tramo.startTime,
+          endTime: tramo.endTime,
+        }))
+      );
+
+      await api.post(`/booking/professionals/${schedulePro.id}/availability`, {
+        slots,
       });
       setScheduleDialog(false);
     } catch (err) {
       logger.error(err);
-      toast.error(mensajeDeError(err));
+      // El motivo se muestra en el dialogo, junto a los campos a corregir.
+      setScheduleError(mensajeDeError(err));
     } finally {
       setSavingSchedule(false);
     }
@@ -387,6 +391,7 @@ export default function ProfessionalsPage() {
         hours={scheduleHours}
         onChange={setScheduleHours}
         saving={savingSchedule}
+        error={scheduleError}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import { Repository } from "typeorm";
 import { DashboardService } from "./dashboard.service";
 import { DailyMetricEntity } from "../../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
+import { ZonaDelNegocioService } from "@beautyspot/nest-common";
 
 describe("DashboardService", () => {
   let service: DashboardService;
@@ -61,6 +62,10 @@ describe("DashboardService", () => {
           provide: getRepositoryToken(ProfessionalMetricEntity),
           useValue: mockProfRepo,
         },
+        {
+          provide: ZonaDelNegocioService,
+          useValue: { de: jest.fn().mockResolvedValue("America/Bogota") },
+        },
       ],
     }).compile();
 
@@ -99,6 +104,26 @@ describe("DashboardService", () => {
       // El promedio se reparte entre los 30 días del periodo, no entre los que
       // tuvieron movimiento: 1.100.000 / 30.
       expect(result.last30Days.avgDailyRevenue).toBe(36667);
+    });
+
+    // Con la hora del proceso —UTC en producción— esa franja ya cae en la
+    // fecha siguiente y el panel del dueño mostraría ceros.
+    it("sigue siendo el mismo día pasadas las 19:00 en Colombia", async () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date("2026-08-10T02:00:00Z")); // 21:00 en Bogotá
+
+      (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
+        buildQueryBuilder({})
+      );
+      mockDailyRepo.findOne.mockResolvedValue(mockDailyMetric as any);
+
+      await service.getKPIs("business-123");
+
+      expect(mockDailyRepo.findOne).toHaveBeenCalledWith({
+        where: { businessId: "business-123", date: "2026-08-09" },
+      });
+
+      jest.useRealTimers();
     });
 
     it("debería retornar KPIs vacíos si no hay datos", async () => {

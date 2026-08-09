@@ -19,6 +19,7 @@ import { ClientsModule } from "./modules/clients/clients.module";
 import { PublicModule } from "./modules/public/public.module";
 import { InternalClientsModule } from "./modules/internal-clients/internal-clients.module";
 import { InternalServicesModule } from "./modules/internal-services/internal-services.module";
+import { InternalBusinessHoursModule } from "./modules/internal-business-hours/internal-business-hours.module";
 import { InternalProfilesModule } from "./modules/internal-profiles/internal-profiles.module";
 import { BusinessHoursModule } from "./modules/business-hours/business-hours.module";
 import { ImagesModule } from "./modules/images/images.module";
@@ -48,6 +49,7 @@ import { CoreEventListenersModule } from "./modules/event-listeners/core-event-l
     PublicModule,
     InternalClientsModule,
     InternalServicesModule,
+    InternalBusinessHoursModule,
     InternalProfilesModule,
     BusinessHoursModule,
     ImagesModule,

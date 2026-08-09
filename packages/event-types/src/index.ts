@@ -154,9 +154,8 @@ export interface PaymentRegisteredPayload {
   clientId: string;
   amount: number;
   /**
-   * Tipado con el enum y no con `string`: comparar contra un literal cualquiera
-   * compilaba, y así el recibo por correo llevaba desde el primer día colgado
-   * de una condición que nunca se cumplía.
+   * Tipado con el enum y no con `string`: quien lo compare contra un literal
+   * que el enum no produce no compila.
    */
   method: PaymentMethod;
 }

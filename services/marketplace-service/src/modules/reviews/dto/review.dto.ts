@@ -16,8 +16,7 @@ import { Type } from "class-transformer";
  * y las fotos.
  *
  * Ni el autor ni el profesional viajan aquí: el primero sale del token y el
- * segundo de la cita. Dejar que los pusiera quien escribe permitía colgarle un
- * 1 estrella al profesional que se quisiera, o reseñar sin haber ido nunca.
+ * segundo de la cita, para que quien escribe no elija a quién califica.
  */
 export class CreateReviewDto {
   @IsString() businessId!: string;

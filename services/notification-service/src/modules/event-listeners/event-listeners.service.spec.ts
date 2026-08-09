@@ -660,8 +660,8 @@ describe("NotificationEventListeners", () => {
       );
     });
 
-    // Un caso por cada valor del enum: la condición se comparaba antes contra
-    // literales que el enum no produce, así que el recibo no salía nunca.
+    // Un caso por cada valor del enum, para que la condición no pueda quedar
+    // colgada de un literal que el enum no produce.
     it.each([
       [PaymentMethod.CASH, true],
       [PaymentMethod.TRANSFER, true],

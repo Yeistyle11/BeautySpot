@@ -31,7 +31,17 @@ export interface AvailabilitySlot {
   endTime: string;
 }
 
-export type DayHours = { active: boolean; startTime: string; endTime: string };
+/** Un tramo de trabajo; un dia puede tener varios. */
+export type Tramo = { startTime: string; endTime: string };
+
+/** Tramos de un dia. Sin ninguno, es un dia libre. */
+export type DayHours = Tramo[];
+
+/** Tramo que se propone al activar un dia o al anadir uno nuevo. */
+export const TRAMO_POR_DEFECTO: Tramo = {
+  startTime: "08:00",
+  endTime: "18:00",
+};
 
 // La semana arranca en lunes (1) y cierra en domingo (0), que es como la
 // numera getDay() y como espera el backend.
