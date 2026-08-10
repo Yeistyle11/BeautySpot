@@ -13,7 +13,12 @@ import {
 import { Response } from "express";
 import { InvoicesService } from "./invoices.service";
 import { CreateInvoiceDto, UpdateInvoiceStatusDto } from "./dto/invoice.dto";
-import { Roles, BusinessId } from "@beautyspot/nest-common";
+import {
+  Roles,
+  BusinessId,
+  CurrentUser,
+  SkipBusinessScope,
+} from "@beautyspot/nest-common";
 import { Role, InvoiceStatus } from "@beautyspot/shared-types";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
 
@@ -49,6 +54,38 @@ export class InvoicesController {
       },
       pagination
     );
+  }
+
+  /** Facturas del cliente autenticado, de todos los negocios donde compró. */
+  @Get("mine")
+  @Roles(Role.CLIENT)
+  @SkipBusinessScope()
+  async findMine(
+    @CurrentUser("userId") userId: string,
+    @Query() query: Record<string, unknown>
+  ) {
+    const pagination = parsePaginationQuery(query, ["createdAt", "total"]);
+    return this.service.findByClientUser(userId, pagination);
+  }
+
+  /** Descarga el PDF de una factura propia del cliente. */
+  @Get("mine/:id/pdf")
+  @Roles(Role.CLIENT)
+  @SkipBusinessScope()
+  @HttpCode(HttpStatus.OK)
+  async generateMyPdf(
+    @Param("id") id: string,
+    @CurrentUser("userId") userId: string,
+    @Res() res: Response
+  ) {
+    const pdfBuffer = await this.service.generateMyInvoicePdf(id, userId);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=factura-${id}.pdf`
+    );
+    res.send(pdfBuffer);
   }
 
   /** Obtiene una factura por id. */

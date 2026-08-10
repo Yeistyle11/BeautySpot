@@ -11,7 +11,9 @@ import { BadRequestException, NotFoundException } from "@nestjs/common";
 function dentroDeDias(dias: number): string {
   const d = new Date();
   d.setDate(d.getDate() + dias);
-  return d.toISOString().slice(0, 10);
+  // Componentes locales: el servicio compara contra el día del negocio.
+  const dos = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
 }
 
 describe("BlockedSlotsService", () => {

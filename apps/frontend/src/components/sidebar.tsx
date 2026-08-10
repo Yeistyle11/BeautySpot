@@ -24,6 +24,7 @@ import {
   Tag,
   LayoutGrid,
   Store,
+  Receipt,
   Menu,
   X,
 } from "lucide-react";
@@ -45,6 +46,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Bell,
   Settings,
   Store,
+  Receipt,
 };
 
 /**

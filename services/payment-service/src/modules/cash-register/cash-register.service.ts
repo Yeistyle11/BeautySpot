@@ -7,7 +7,10 @@ import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource, IsNull } from "typeorm";
 import { CashSessionEntity } from "./cash-session.entity";
 import { CashMovementEntity } from "./cash-movement.entity";
-import { CashMovementType } from "@beautyspot/shared-types";
+import { CashMovementType, PaymentMethod } from "@beautyspot/shared-types";
+
+/** Clave del desglose para lo que se anota a mano, sin cobro detrás. */
+const MOVIMIENTO_MANUAL = "MANUAL";
 import {
   OpenSessionDto,
   CloseSessionDto,
@@ -96,14 +99,13 @@ export class CashRegisterService {
     if (session.closedAt)
       throw new BadRequestException("La sesión ya está cerrada");
 
-    let totalIn = 0;
-    let totalOut = 0;
-    for (const m of session.movements) {
-      if (m.type === CashMovementType.IN) totalIn += Number(m.amount);
-      else totalOut += Number(m.amount);
-    }
+    const { totalIn, totalOut, porMetodo, efectivo } = this.arquear(
+      session.movements
+    );
 
-    const expectedTotal = Number(session.openingAmount) + totalIn - totalOut;
+    // Solo el efectivo, que es lo que hay en el cajón.
+    const expectedTotal =
+      Number(session.openingAmount) + efectivo.entradas - efectivo.salidas;
 
     session.closedBy = closedBy;
     session.closingAmount = dto.closingAmount;
@@ -132,6 +134,7 @@ export class CashRegisterService {
           totalIn,
           totalOut,
           movementCount: session.movements.length,
+          porMetodo,
           expectedTotal,
           difference: session.difference,
           openedAt: session.openedAt,
@@ -179,12 +182,9 @@ export class CashRegisterService {
     });
     if (!session) throw new NotFoundException("Sesión de caja no encontrada");
 
-    let totalIn = 0;
-    let totalOut = 0;
-    for (const m of session.movements) {
-      if (m.type === CashMovementType.IN) totalIn += Number(m.amount);
-      else totalOut += Number(m.amount);
-    }
+    const { totalIn, totalOut, porMetodo, efectivo } = this.arquear(
+      session.movements
+    );
 
     return {
       session: {
@@ -203,7 +203,50 @@ export class CashRegisterService {
         totalIn,
         totalOut,
         movementCount: session.movements.length,
-        expectedTotal: Number(session.openingAmount) + totalIn - totalOut,
+        porMetodo,
+        expectedTotal:
+          Number(session.openingAmount) + efectivo.entradas - efectivo.salidas,
+      },
+    };
+  }
+
+  /** Suma los movimientos: totales, desglose por método y el efectivo aparte. */
+  private arquear(movements: CashMovementEntity[]): {
+    totalIn: number;
+    totalOut: number;
+    porMetodo: Record<string, { entradas: number; salidas: number }>;
+    efectivo: { entradas: number; salidas: number };
+  } {
+    const porMetodo: Record<string, { entradas: number; salidas: number }> = {};
+    let totalIn = 0;
+    let totalOut = 0;
+
+    for (const m of movements) {
+      const importe = Number(m.amount);
+      const clave = m.method ?? MOVIMIENTO_MANUAL;
+      const acumulado = (porMetodo[clave] ??= { entradas: 0, salidas: 0 });
+
+      if (m.type === CashMovementType.IN) {
+        totalIn += importe;
+        acumulado.entradas += importe;
+      } else {
+        totalOut += importe;
+        acumulado.salidas += importe;
+      }
+    }
+
+    return {
+      totalIn,
+      totalOut,
+      porMetodo,
+      // Lo anotado a mano también es dinero del cajón.
+      efectivo: {
+        entradas:
+          (porMetodo[PaymentMethod.CASH]?.entradas ?? 0) +
+          (porMetodo[MOVIMIENTO_MANUAL]?.entradas ?? 0),
+        salidas:
+          (porMetodo[PaymentMethod.CASH]?.salidas ?? 0) +
+          (porMetodo[MOVIMIENTO_MANUAL]?.salidas ?? 0),
       },
     };
   }

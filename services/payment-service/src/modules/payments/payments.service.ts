@@ -90,9 +90,7 @@ export class PaymentsService {
         .getRepository(PaymentEntity)
         .save(payment);
 
-      if (data.method === PaymentMethod.CASH) {
-        await this.registrarEntradaEnCaja(manager, businessId, savedPayment);
-      }
+      await this.registrarEntradaEnCaja(manager, businessId, savedPayment);
 
       await this.outbox.enqueue(manager, {
         eventType: EventNames.PAYMENT_PAYMENT_REGISTERED,
@@ -158,14 +156,13 @@ export class PaymentsService {
     businessId: string,
     payment: PaymentEntity
   ): Promise<void> {
-    const session = await manager.getRepository(CashSessionEntity).findOne({
-      where: { businessId, closedAt: IsNull() },
-    });
-    if (!session) {
-      throw new BadRequestException(
-        "No hay una caja abierta: abre la caja antes de registrar un pago en efectivo"
-      );
-    }
+    const session = await this.cajaAbierta(
+      manager,
+      businessId,
+      payment.method,
+      "registrar un pago en efectivo"
+    );
+    if (!session) return;
 
     await manager.getRepository(CashMovementEntity).save(
       manager.getRepository(CashMovementEntity).create({
@@ -173,9 +170,34 @@ export class PaymentsService {
         type: CashMovementType.IN,
         amount: Number(payment.amount),
         concept: `Pago ${payment.id}`,
+        method: payment.method,
+        paymentId: payment.id,
         registeredBy: payment.registeredBy,
       })
     );
+  }
+
+  /**
+   * Caja abierta del negocio. El efectivo la exige; los demás métodos devuelven
+   * nulo cuando no la hay.
+   */
+  private async cajaAbierta(
+    manager: EntityManager,
+    businessId: string,
+    method: PaymentMethod,
+    accion: string
+  ): Promise<CashSessionEntity | null> {
+    const session = await manager.getRepository(CashSessionEntity).findOne({
+      where: { businessId, closedAt: IsNull() },
+    });
+    if (session) return session;
+
+    if (method === PaymentMethod.CASH) {
+      throw new BadRequestException(
+        `No hay una caja abierta: abre la caja antes de ${accion}`
+      );
+    }
+    return null;
   }
 
   /** Devuelve el efectivo reembolsado a la caja abierta, si la hay. */
@@ -186,14 +208,13 @@ export class PaymentsService {
     amount: number,
     refundedBy: string
   ): Promise<void> {
-    const session = await manager.getRepository(CashSessionEntity).findOne({
-      where: { businessId, closedAt: IsNull() },
-    });
-    if (!session) {
-      throw new BadRequestException(
-        "No hay una caja abierta: abre la caja antes de reembolsar en efectivo"
-      );
-    }
+    const session = await this.cajaAbierta(
+      manager,
+      businessId,
+      payment.method,
+      "reembolsar en efectivo"
+    );
+    if (!session) return;
 
     await manager.getRepository(CashMovementEntity).save(
       manager.getRepository(CashMovementEntity).create({
@@ -201,6 +222,8 @@ export class PaymentsService {
         type: CashMovementType.OUT,
         amount,
         concept: `Reembolso ${payment.id}`,
+        method: payment.method,
+        paymentId: payment.id,
         registeredBy: refundedBy,
       })
     );
@@ -324,15 +347,13 @@ export class PaymentsService {
         reason: finalReason,
         refundedBy: options.refundedBy,
       });
-      if (payment.method === PaymentMethod.CASH) {
-        await this.registrarSalidaEnCaja(
-          manager,
-          businessId,
-          payment,
-          finalAmount,
-          options.refundedBy
-        );
-      }
+      await this.registrarSalidaEnCaja(
+        manager,
+        businessId,
+        payment,
+        finalAmount,
+        options.refundedBy
+      );
       await this.enqueueRefundEvent(
         manager,
         refunded,
