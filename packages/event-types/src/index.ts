@@ -152,8 +152,20 @@ export type AppointmentCancelledEvent = IBaseEvent<
     cancelledBy?: string;
   }
 >;
+/** Servicio de una cita, con lo que se congeló al reservarlo. */
+export interface ServicioDeLaCita {
+  serviceId: string;
+  name: string;
+  price: number;
+  duration: number;
+}
+
 export type AppointmentCompletedEvent = IBaseEvent<
-  AppointmentCreatedPayload & { pointsEarned: number }
+  AppointmentCreatedPayload & {
+    pointsEarned: number;
+    /** Servicios atendidos en la cita. */
+    services?: ServicioDeLaCita[];
+  }
 >;
 export type AppointmentNoShowedEvent = IBaseEvent<AppointmentCreatedPayload>;
 export type AppointmentRescheduledEvent = IBaseEvent<

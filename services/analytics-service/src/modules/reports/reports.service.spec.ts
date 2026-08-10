@@ -65,7 +65,11 @@ describe("ReportsService", () => {
 
   describe("getRevenueReport", () => {
     it("debería calcular el reporte de ingresos con SQL aggregation", async () => {
-      const aggResult = { totalRevenue: "90000", totalAppointments: "18" };
+      const aggResult = {
+        totalRevenue: "90000",
+        totalAppointments: "18",
+        completedAppointments: "15",
+      };
       (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
         buildQueryBuilder(aggResult)
       );
@@ -83,14 +87,20 @@ describe("ReportsService", () => {
 
       expect(result.summary.totalRevenue).toBe(90000);
       expect(result.summary.totalAppointments).toBe(18);
-      expect(result.summary.avgTicket).toBe(5000);
+      expect(result.summary.completedAppointments).toBe(15);
+      // 90000 entre las 15 atendidas, no entre las 18 creadas.
+      expect(result.summary.avgTicket).toBe(6000);
       expect(result.summary.days).toBe(2);
       expect(result.period).toEqual({ from: "2026-06-14", to: "2026-06-15" });
     });
 
     it("debería manejar avgTicket 0 si no hay citas", async () => {
       (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
-        buildQueryBuilder({ totalRevenue: "0", totalAppointments: "0" })
+        buildQueryBuilder({
+          totalRevenue: "0",
+          totalAppointments: "0",
+          completedAppointments: "0",
+        })
       );
       mockDailyRepo.find.mockResolvedValue([]);
 

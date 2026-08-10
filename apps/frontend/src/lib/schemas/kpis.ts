@@ -24,7 +24,33 @@ export const kpiDataSchema = z.object({
     noShowRate: z.number(),
     newClients: z.number(),
     returningClients: z.number(),
+    /** Ingresos entre citas atendidas. */
+    avgTicket: z.number().nullish(),
+    /** Minutos vendidos sobre disponibles, en porcentaje. */
+    ocupacion: z.number().nullish(),
   }),
 });
+
+export const RETENCION_KEY = "/analytics/dashboard/retencion";
+
+export const retencionSchema = z.object({
+  clientes: z.number(),
+  recurrentes: z.number(),
+  tasaDeRetorno: z.number(),
+  diasEntreVisitas: z.number(),
+});
+export type Retencion = z.infer<typeof retencionSchema>;
+
+export const SERVICIOS_KEY = "/analytics/dashboard/servicios";
+
+export const rentabilidadSchema = z.object({
+  serviceId: z.string(),
+  serviceName: z.string(),
+  veces: z.number(),
+  ingresos: z.number(),
+  minutos: z.number(),
+  ingresoPorHora: z.number(),
+});
+export type Rentabilidad = z.infer<typeof rentabilidadSchema>;
 
 export type KpiData = z.infer<typeof kpiDataSchema>;

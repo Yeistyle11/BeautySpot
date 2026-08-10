@@ -1,5 +1,5 @@
 import { Test } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
+import { getDataSourceToken, getRepositoryToken } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { DashboardService } from "./dashboard.service";
 import { DailyMetricEntity } from "../../entities/daily-metric.entity";
@@ -10,6 +10,7 @@ describe("DashboardService", () => {
   let service: DashboardService;
   let mockDailyRepo: jest.Mocked<Repository<DailyMetricEntity>>;
   let mockProfRepo: jest.Mocked<Repository<ProfessionalMetricEntity>>;
+  let mockDataSource: { query: jest.Mock };
 
   const mockDailyMetric: DailyMetricEntity = {
     id: "metrics-123",
@@ -51,6 +52,11 @@ describe("DashboardService", () => {
       createQueryBuilder: jest.fn(),
     } as any;
 
+    // Por defecto no hay capacidad materializada, y la ocupación sale 0.
+    mockDataSource = {
+      query: jest.fn().mockResolvedValue([{ vendidos: "0", disponibles: "0" }]),
+    };
+
     const module = await Test.createTestingModule({
       providers: [
         DashboardService,
@@ -62,6 +68,7 @@ describe("DashboardService", () => {
           provide: getRepositoryToken(ProfessionalMetricEntity),
           useValue: mockProfRepo,
         },
+        { provide: getDataSourceToken(), useValue: mockDataSource },
         {
           provide: ZonaDelNegocioService,
           useValue: { de: jest.fn().mockResolvedValue("America/Bogota") },
@@ -262,6 +269,140 @@ describe("DashboardService", () => {
       const result = await service.getRevenueChart("business-123", 30);
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe("ticket medio y ocupación", () => {
+    const aggResult = {
+      totalRevenue: "1000000",
+      totalAppointments: "50",
+      completedAppointments: "20",
+      cancelledAppointments: "0",
+      noShowAppointments: "0",
+      newClients: "0",
+      returningClients: "0",
+    };
+
+    it("divide los ingresos entre las citas atendidas, no entre las creadas", async () => {
+      (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
+        buildQueryBuilder(aggResult)
+      );
+      mockDailyRepo.findOne.mockResolvedValue(null);
+
+      const kpis = await service.getKPIs("business-123");
+
+      expect(kpis.last30Days.avgTicket).toBe(50000);
+    });
+
+    it("sin citas atendidas el ticket medio es cero", async () => {
+      (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
+        buildQueryBuilder({ ...aggResult, completedAppointments: "0" })
+      );
+      mockDailyRepo.findOne.mockResolvedValue(null);
+
+      const kpis = await service.getKPIs("business-123");
+
+      expect(kpis.last30Days.avgTicket).toBe(0);
+    });
+
+    it("calcula la ocupación sobre la capacidad materializada", async () => {
+      (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
+        buildQueryBuilder(aggResult)
+      );
+      mockDailyRepo.findOne.mockResolvedValue(null);
+      mockDataSource.query.mockResolvedValue([
+        { vendidos: "300", disponibles: "1200" },
+      ]);
+
+      const kpis = await service.getKPIs("business-123");
+
+      expect(kpis.last30Days.ocupacion).toBe(25);
+    });
+
+    it("sin capacidad materializada la ocupación es cero", async () => {
+      (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
+        buildQueryBuilder(aggResult)
+      );
+      mockDailyRepo.findOne.mockResolvedValue(null);
+
+      const kpis = await service.getKPIs("business-123");
+
+      expect(kpis.last30Days.ocupacion).toBe(0);
+    });
+  });
+
+  describe("getRetencion", () => {
+    it("calcula la tasa de retorno y la frecuencia de visita", async () => {
+      mockDataSource.query.mockResolvedValue([
+        { clientes: 40, recurrentes: 10, dias_entre_visitas: "28.4" },
+      ]);
+
+      await expect(service.getRetencion("business-123")).resolves.toEqual({
+        clientes: 40,
+        recurrentes: 10,
+        tasaDeRetorno: 25,
+        diasEntreVisitas: 28,
+      });
+    });
+
+    it("sin clientes devuelve ceros", async () => {
+      mockDataSource.query.mockResolvedValue([]);
+
+      await expect(service.getRetencion("business-123")).resolves.toEqual({
+        clientes: 0,
+        recurrentes: 0,
+        tasaDeRetorno: 0,
+        diasEntreVisitas: 0,
+      });
+    });
+  });
+
+  describe("getRentabilidadPorServicio", () => {
+    it("añade el ingreso por hora de agenda a cada servicio", async () => {
+      mockDataSource.query.mockResolvedValue([
+        {
+          service_id: "svc-1",
+          service_name: "Tinte",
+          veces: 4,
+          ingresos: "480000",
+          minutos: 360,
+        },
+        {
+          service_id: "svc-2",
+          service_name: "Corte",
+          veces: 10,
+          ingresos: "300000",
+          minutos: 300,
+        },
+      ]);
+
+      const filas = await service.getRentabilidadPorServicio("business-123");
+
+      expect(filas[0]).toEqual({
+        serviceId: "svc-1",
+        serviceName: "Tinte",
+        veces: 4,
+        ingresos: 480000,
+        minutos: 360,
+        ingresoPorHora: 80000,
+      });
+      expect(filas[1].ingresoPorHora).toBe(60000);
+    });
+
+    it("un servicio sin minutos no divide por cero", async () => {
+      mockDataSource.query.mockResolvedValue([
+        {
+          service_id: "svc-1",
+          service_name: "Consulta",
+          veces: 1,
+          ingresos: "10000",
+          minutos: 0,
+        },
+      ]);
+
+      const filas = await service.getRentabilidadPorServicio("business-123");
+
+      expect(filas[0].ingresoPorHora).toBe(0);
     });
   });
 });

@@ -30,12 +30,20 @@ export class ReportsService {
         .createQueryBuilder("m")
         .select("COALESCE(SUM(m.total_revenue), 0)", "totalRevenue")
         .addSelect(
+          "COALESCE(SUM(m.completed_appointments), 0)",
+          "completedAppointments"
+        )
+        .addSelect(
           "COALESCE(SUM(m.total_appointments), 0)",
           "totalAppointments"
         )
         .where("m.business_id = :businessId", { businessId })
         .andWhere("m.date BETWEEN :from AND :to", { from, to })
-        .getRawOne<{ totalRevenue: string; totalAppointments: string }>(),
+        .getRawOne<{
+          totalRevenue: string;
+          totalAppointments: string;
+          completedAppointments: string;
+        }>(),
       this.dailyRepo.find({
         where: { businessId, date: Between(from, to) },
         order: { date: "ASC" },
@@ -47,12 +55,24 @@ export class ReportsService {
 
     const totalRevenue = Number(aggregates?.totalRevenue ?? 0);
     const totalAppointments = Number(aggregates?.totalAppointments ?? 0);
+    const completedAppointments = Number(
+      aggregates?.completedAppointments ?? 0
+    );
+    // Ingresos del periodo entre las citas atendidas.
     const avgTicket =
-      totalAppointments > 0 ? Math.round(totalRevenue / totalAppointments) : 0;
+      completedAppointments > 0
+        ? Math.round(totalRevenue / completedAppointments)
+        : 0;
 
     return {
       period: { from, to },
-      summary: { totalRevenue, totalAppointments, avgTicket, days: dayCount },
+      summary: {
+        totalRevenue,
+        totalAppointments,
+        completedAppointments,
+        avgTicket,
+        days: dayCount,
+      },
       daily,
     };
   }

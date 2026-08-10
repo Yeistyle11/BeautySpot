@@ -317,6 +317,93 @@ export class AvailabilityQueryService {
     return this.seSolapan(appointments, intervalos, excludeId, manager);
   }
 
+  /**
+   * Minutos que cada profesional del negocio tiene disponibles ese día: su
+   * jornada, acotada a la apertura del negocio y descontados los bloqueos.
+   */
+  async capacidadDelDia(
+    businessId: string,
+    date: string
+  ): Promise<{ professionalId: string; minutosDisponibles: number }[]> {
+    const dayOfWeek = new Date(date + "T12:00:00").getDay();
+    const horarios = await this.availRepo.find({
+      where: { businessId, dayOfWeek, active: true },
+    });
+    const profesionales = [...new Set(horarios.map((h) => h.professionalId))];
+    if (profesionales.length === 0) return [];
+
+    const [bloqueos, apertura] = await Promise.all([
+      this.blockRepo.find({
+        where: { businessId, professionalId: In(profesionales), date },
+      }),
+      this.horarioDelNegocio.tramosDelDia(businessId, dayOfWeek),
+    ]);
+
+    const tramosPorProfesional = agruparPorProfesional(horarios);
+    const bloqueosPorProfesional = agruparPorProfesional(bloqueos);
+
+    return profesionales.map((professionalId) => ({
+      professionalId,
+      minutosDisponibles: this.minutosDisponibles(
+        tramosPorProfesional.get(professionalId) ?? [],
+        apertura,
+        bloqueosPorProfesional.get(professionalId) ?? []
+      ),
+    }));
+  }
+
+  /** Suma los minutos de los tramos, acotados por la apertura y sin bloqueos. */
+  private minutosDisponibles(
+    tramos: Tramo[],
+    apertura: Tramo[] | null,
+    bloqueos: BlockedSlot[]
+  ): number {
+    let total = 0;
+
+    for (const tramo of tramos) {
+      for (const trozo of this.recortar(tramo, apertura)) {
+        total += this.sinBloqueos(trozo, bloqueos);
+      }
+    }
+
+    return total;
+  }
+
+  /** Parte del tramo que cae dentro de la apertura; sin apertura, entero. */
+  private recortar(tramo: Tramo, apertura: Tramo[] | null): Tramo[] {
+    if (!apertura) return [tramo];
+
+    return apertura
+      .map((abierto) => ({
+        startTime: this.mayor(tramo.startTime, abierto.startTime),
+        endTime: this.menor(tramo.endTime, abierto.endTime),
+      }))
+      .filter((t) => timeToMinutes(t.startTime) < timeToMinutes(t.endTime));
+  }
+
+  /** Minutos del tramo que ningún bloqueo se lleva por delante. */
+  private sinBloqueos(tramo: Tramo, bloqueos: BlockedSlot[]): number {
+    const inicio = timeToMinutes(tramo.startTime);
+    const fin = timeToMinutes(tramo.endTime);
+    let ocupado = 0;
+
+    for (const bloqueo of bloqueos) {
+      const desde = Math.max(inicio, timeToMinutes(bloqueo.startTime));
+      const hasta = Math.min(fin, timeToMinutes(bloqueo.endTime));
+      if (desde < hasta) ocupado += hasta - desde;
+    }
+
+    return Math.max(fin - inicio - ocupado, 0);
+  }
+
+  private mayor(a: string, b: string): string {
+    return timeToMinutes(a) >= timeToMinutes(b) ? a : b;
+  }
+
+  private menor(a: string, b: string): string {
+    return timeToMinutes(a) <= timeToMinutes(b) ? a : b;
+  }
+
   /** Indica si el rango cabe completo dentro de alguno de los tramos. */
   private cabeEnAlgunTramo(
     tramos: Tramo[],

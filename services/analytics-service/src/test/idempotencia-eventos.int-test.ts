@@ -7,6 +7,7 @@ import {
 import { createMigrationDataSourceOptions } from "@beautyspot/database";
 import { entities } from "../orm-entities";
 import { MetricsService } from "../modules/metrics/metrics.service";
+import { NegocioMetricsService } from "../modules/metrics/negocio-metrics.service";
 import { DailyMetricEntity } from "../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../entities/professional-metric.entity";
 import { AnalyticsEventListeners } from "../modules/event-listeners/analytics-event-listeners.service";
@@ -62,6 +63,7 @@ describe("Integración: los eventos duplicados no inflan las métricas", () => {
     );
     listeners = new AnalyticsEventListeners(
       metrics,
+      new NegocioMetricsService(dataSource),
       new ProcessedEventsStore(dataSource),
       // Aquí se comprueba que un evento no se aplique dos veces, no en qué día
       // cae: basta con un huso fijo.

@@ -7,10 +7,12 @@ import {
 import { EntityManager } from "typeorm";
 import { AnalyticsEventListeners } from "./analytics-event-listeners.service";
 import { MetricsService } from "../metrics/metrics.service";
+import { NegocioMetricsService } from "../metrics/negocio-metrics.service";
 
 describe("AnalyticsEventListeners", () => {
   let service: AnalyticsEventListeners;
   let mockMetricsService: jest.Mocked<MetricsService>;
+  let mockNegocioMetrics: jest.Mocked<NegocioMetricsService>;
   let mockProcessedEvents: jest.Mocked<ProcessedEventsStore>;
   let logSpy: jest.SpyInstance;
   let errorSpy: jest.SpyInstance;
@@ -28,6 +30,13 @@ describe("AnalyticsEventListeners", () => {
       incrementDailyMetric: jest.fn().mockResolvedValue(undefined),
       incrementProfessionalMetric: jest.fn().mockResolvedValue(undefined),
       setProfessionalRating: jest.fn().mockResolvedValue(undefined),
+    } as any;
+
+    mockNegocioMetrics = {
+      registrarVisita: jest.fn().mockResolvedValue("nueva"),
+      registrarServicios: jest.fn().mockResolvedValue(undefined),
+      registrarMinutosVendidos: jest.fn().mockResolvedValue(undefined),
+      fijarCapacidad: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     // Por defecto el evento es nuevo: se ejecuta el trabajo y se da por aplicado.
@@ -50,6 +59,7 @@ describe("AnalyticsEventListeners", () => {
       providers: [
         AnalyticsEventListeners,
         { provide: MetricsService, useValue: mockMetricsService },
+        { provide: NegocioMetricsService, useValue: mockNegocioMetrics },
         { provide: ProcessedEventsStore, useValue: mockProcessedEvents },
         // El negocio de la prueba vive en Bogotá; aquí se comprueba qué métrica
         // se mueve, no en qué huso se lee la fecha.
@@ -181,6 +191,27 @@ describe("AnalyticsEventListeners", () => {
     });
   });
 
+  /** Evento de cita completada, con o sin el reparto por servicio. */
+  const citaCompletada = (services?: unknown[]) =>
+    ({
+      eventType: "booking.appointment.completed",
+      timestamp: new Date(),
+      eventId: "evt-3",
+      correlationId: "corr-3",
+      payload: {
+        appointmentId: "apt-999",
+        businessId: "biz-999",
+        professionalId: "prof-999",
+        clientId: "client-999",
+        date: "2024-12-25",
+        startTime: "10:00",
+        endTime: "11:00",
+        totalAmount: 40000,
+        pointsEarned: 4000,
+        ...(services ? { services } : {}),
+      },
+    }) as any;
+
   describe("handleAppointmentCompleted", () => {
     it("cuenta la cita completada y anota el ingreso al profesional", async () => {
       const event = {
@@ -218,6 +249,76 @@ describe("AnalyticsEventListeners", () => {
         { revenue: 40000 },
         managerFalso
       );
+    });
+
+    it("cuenta como nuevo al cliente en su primera visita", async () => {
+      mockNegocioMetrics.registrarVisita.mockResolvedValue("nueva");
+
+      await service.handleAppointmentCompleted(citaCompletada());
+
+      expect(mockNegocioMetrics.registrarVisita).toHaveBeenCalledWith(
+        "biz-999",
+        "client-999",
+        "2024-12-25",
+        40000,
+        managerFalso
+      );
+      expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
+        "biz-999",
+        "2024-12-25",
+        { newClients: 1 },
+        managerFalso
+      );
+    });
+
+    it("cuenta como recurrente al cliente que vuelve", async () => {
+      mockNegocioMetrics.registrarVisita.mockResolvedValue("recurrente");
+
+      await service.handleAppointmentCompleted(citaCompletada());
+
+      expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
+        "biz-999",
+        "2024-12-25",
+        { returningClients: 1 },
+        managerFalso
+      );
+    });
+
+    it("anota los servicios atendidos y sus minutos", async () => {
+      await service.handleAppointmentCompleted(
+        citaCompletada([
+          { serviceId: "svc-1", name: "Corte", price: 30000, duration: 30 },
+          { serviceId: "svc-2", name: "Barba", price: 10000, duration: 20 },
+        ])
+      );
+
+      expect(mockNegocioMetrics.registrarServicios).toHaveBeenCalledWith(
+        "biz-999",
+        "2024-12-25",
+        expect.arrayContaining([
+          expect.objectContaining({ serviceId: "svc-1" }),
+          expect.objectContaining({ serviceId: "svc-2" }),
+        ]),
+        managerFalso
+      );
+      expect(mockNegocioMetrics.registrarMinutosVendidos).toHaveBeenCalledWith(
+        "biz-999",
+        "prof-999",
+        "2024-12-25",
+        50,
+        managerFalso
+      );
+    });
+
+    it("un evento sin servicios no rompe el listener", async () => {
+      await expect(
+        service.handleAppointmentCompleted(citaCompletada())
+      ).resolves.toBeUndefined();
+
+      expect(mockNegocioMetrics.registrarServicios).not.toHaveBeenCalled();
+      expect(
+        mockNegocioMetrics.registrarMinutosVendidos
+      ).not.toHaveBeenCalled();
     });
   });
 
@@ -290,7 +391,7 @@ describe("AnalyticsEventListeners", () => {
   });
 
   describe("handleClientCreated", () => {
-    it("cuenta el alta como cliente nuevo del día", async () => {
+    it("el alta de ficha no mueve ninguna métrica", async () => {
       const event = {
         eventType: "core.client.created",
         eventId: "evt-7",
@@ -299,12 +400,7 @@ describe("AnalyticsEventListeners", () => {
 
       await service.handleClientCreated(event);
 
-      expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
-        "biz-333",
-        expect.any(String),
-        { newClients: 1 },
-        managerFalso
-      );
+      expect(mockMetricsService.incrementDailyMetric).not.toHaveBeenCalled();
     });
   });
 
