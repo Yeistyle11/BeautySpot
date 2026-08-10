@@ -1,13 +1,21 @@
-import { intervalosDeAgenda, type Intervalo } from "@beautyspot/shared-utils";
+import {
+  repartoPorProfesional,
+  type OcupacionDeProfesional,
+} from "@beautyspot/shared-utils";
 import { Appointment } from "../../entities/appointment.entity";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 
-/** Tramos de agenda que ocupa una cita; sin líneas, su bloque continuo. */
-export function intervalosDeCita(
-  cita: Pick<Appointment, "startTime" | "endTime">,
+/** Agenda que ocupa la cita, profesional a profesional. */
+export function ocupacionDeCita(
+  cita: Pick<Appointment, "startTime" | "endTime" | "professionalId">,
   lineas: AppointmentServiceEntity[] = []
-): Intervalo[] {
-  return intervalosDeAgenda(cita.startTime, cita.endTime, lineas);
+): OcupacionDeProfesional[] {
+  return repartoPorProfesional(
+    cita.startTime,
+    cita.endTime,
+    lineas,
+    cita.professionalId
+  );
 }
 
 /** Agrupa las líneas por la cita a la que pertenecen. */
@@ -21,4 +29,17 @@ export function lineasPorCita(
     porCita.set(linea.appointmentId, actuales);
   }
   return porCita;
+}
+
+/** Une en una sola lista lo que cada profesional tiene ocupado. */
+export function intervalosPorProfesional(
+  ocupaciones: OcupacionDeProfesional[][]
+): Map<string, { inicio: string; fin: string }[]> {
+  const porProfesional = new Map<string, { inicio: string; fin: string }[]>();
+  for (const ocupacion of ocupaciones.flat()) {
+    const acumulado = porProfesional.get(ocupacion.professionalId) ?? [];
+    acumulado.push(...ocupacion.intervalos);
+    porProfesional.set(ocupacion.professionalId, acumulado);
+  }
+  return porProfesional;
 }

@@ -18,13 +18,14 @@ import {
   algunSolape,
   duracionDeCliente,
   finDeOcupacion,
-  intervalosDeAgenda,
+  repartoPorProfesional,
   type Intervalo,
 } from "@beautyspot/shared-utils";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 import {
-  intervalosDeCita,
+  intervalosPorProfesional,
   lineasPorCita,
+  ocupacionDeCita,
 } from "../appointments/intervalos-de-cita";
 
 /** Servicio tal y como lo devuelve el catálogo, con su reparto de agenda. */
@@ -142,7 +143,8 @@ export class PublicBookingService {
       horario.date,
       horario.startTime,
       finDeOcupacion(horario.startTime, lineas),
-      intervalosDeAgenda(horario.startTime, endTime, lineas),
+      repartoPorProfesional(horario.startTime, endTime, lineas, "")[0]
+        .intervalos,
       dayOfWeek
     );
   }
@@ -198,8 +200,8 @@ export class PublicBookingService {
       );
     }
 
-    // Bloqueos y citas de todos los candidatos en dos consultas, sea cual sea
-    // su número.
+    // Bloqueos y citas del día en dos consultas, sea cual sea el tamaño del
+    // equipo.
     const [bloqueos, citas] = await Promise.all([
       this.blockRepo.find({
         where: { businessId, professionalId: In(candidatos), date },
@@ -207,7 +209,6 @@ export class PublicBookingService {
       this.apptRepo.find({
         where: {
           businessId,
-          professionalId: In(candidatos),
           date,
           status: In([
             AppointmentStatus.PENDING,
@@ -233,6 +234,9 @@ export class PublicBookingService {
             where: { appointmentId: In(citas.map((c) => c.id)) },
           })
     );
+    const ocupados = intervalosPorProfesional(
+      citas.map((c) => ocupacionDeCita(c, lineasPorCitaId.get(c.id) ?? []))
+    );
 
     for (const professionalId of candidatos) {
       const horario = horarioPorProfesional.get(professionalId);
@@ -251,13 +255,9 @@ export class PublicBookingService {
       );
       if (bloqueado) continue;
 
-      const ocupado = citas.some(
-        (a) =>
-          a.professionalId === professionalId &&
-          algunSolape(
-            intervalosDeCita(a, lineasPorCitaId.get(a.id) ?? []),
-            intervalos
-          )
+      const ocupado = algunSolape(
+        ocupados.get(professionalId) ?? [],
+        intervalos
       );
       if (!ocupado) return professionalId;
     }

@@ -26,6 +26,9 @@ export class AppointmentServiceEntity extends BaseEntity {
   procesadoMinutos!: number | null;
   @Column({ type: "int", default: 0, name: "buffer_despues" })
   bufferDespues!: number;
+  /** Quién atiende esta línea; nulo = el profesional titular de la cita. */
+  @Column({ type: "uuid", nullable: true, name: "professional_id" })
+  professionalId!: string | null;
 
   @ManyToOne(() => Appointment, (a) => a.appointmentServices, {
     onDelete: "CASCADE",

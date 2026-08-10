@@ -30,7 +30,7 @@ import {
   esInstantePasadoEn,
   duracionDeCliente,
   finDeOcupacion,
-  intervalosDeAgenda,
+  repartoPorProfesional,
   instanteDe,
 } from "@beautyspot/shared-utils";
 
@@ -49,6 +49,12 @@ interface ServicioResuelto {
   procesadoDesde: number | null;
   procesadoMinutos: number | null;
   bufferDespues: number;
+}
+
+/** Servicio ya colocado en la cita: con su posición y con quién lo atiende. */
+interface LineaDeCita extends ServicioResuelto {
+  orden: number;
+  professionalId: string | null;
 }
 
 /**
@@ -113,6 +119,60 @@ export class AppointmentsService {
     return servicios;
   }
 
+  /**
+   * Resuelve cada servicio con la tarifa del profesional que lo atiende y
+   * devuelve las líneas en el orden pedido.
+   */
+  private async lineasDeLaCita(
+    businessId: string,
+    serviceIds: string[],
+    titular: string,
+    asignaciones: Map<string, string>
+  ): Promise<LineaDeCita[]> {
+    const ajeno = [...asignaciones.keys()].find(
+      (id) => !serviceIds.includes(id)
+    );
+    if (ajeno) {
+      throw new BadRequestException(
+        "Se asigno un profesional a un servicio que no esta en la cita"
+      );
+    }
+
+    const porProfesional = new Map<string, string[]>();
+    for (const serviceId of serviceIds) {
+      const profesional = asignaciones.get(serviceId) ?? titular;
+      const suyos = porProfesional.get(profesional) ?? [];
+      suyos.push(serviceId);
+      porProfesional.set(profesional, suyos);
+    }
+
+    const resueltos = new Map<string, ServicioResuelto>();
+    for (const [profesional, ids] of porProfesional) {
+      for (const servicio of await this.resolverServicios(
+        businessId,
+        ids,
+        profesional
+      )) {
+        resueltos.set(servicio.id, servicio);
+      }
+    }
+
+    return serviceIds.map((serviceId, orden) => {
+      const servicio = resueltos.get(serviceId);
+      if (!servicio) {
+        throw new BadRequestException(
+          "No se pudieron resolver los servicios de la cita"
+        );
+      }
+      const asignado = asignaciones.get(serviceId);
+      return {
+        ...servicio,
+        orden,
+        professionalId: asignado && asignado !== titular ? asignado : null,
+      };
+    });
+  }
+
   /** Crea una cita comprobando que la franja siga libre. */
   async create(
     businessId: string,
@@ -125,19 +185,28 @@ export class AppointmentsService {
       notes?: string;
       branchId?: string;
       createdBy?: string;
+      /** Profesional propio de algunos servicios; el resto los hace el titular. */
+      asignaciones?: { serviceId: string; professionalId: string }[];
     }
   ): Promise<Appointment> {
-    const servicios = await this.resolverServicios(
+    // El orden es el que se pidió, y de él sale el reparto de la agenda.
+    const lineas = await this.lineasDeLaCita(
       businessId,
       data.serviceIds,
-      data.professionalId
+      data.professionalId,
+      new Map(
+        (data.asignaciones ?? []).map((a) => [a.serviceId, a.professionalId])
+      )
     );
-    const totalAmount = servicios.reduce((sum, s) => sum + s.price, 0);
-    // El orden es el que se pidió, y de él sale el reparto de la agenda.
-    const lineas = servicios.map((s, orden) => ({ ...s, orden }));
+    const totalAmount = lineas.reduce((sum, s) => sum + s.price, 0);
     const endTime = calculateEndTime(data.startTime, duracionDeCliente(lineas));
     const ocupadoHasta = finDeOcupacion(data.startTime, lineas);
-    const intervalos = intervalosDeAgenda(data.startTime, endTime, lineas);
+    const reparto = repartoPorProfesional(
+      data.startTime,
+      endTime,
+      lineas,
+      data.professionalId
+    );
 
     const zona = await this.zonas.de(businessId);
     if (esInstantePasadoEn(zona, data.date, data.startTime)) {
@@ -151,12 +220,9 @@ export class AppointmentsService {
     const dayOfWeek = new Date(data.date + "T12:00:00").getDay();
     const available = await this.disponibilidad.franjaDentroDelHorario(
       businessId,
-      data.professionalId,
       data.date,
-      data.startTime,
-      endTime,
-      ocupadoHasta,
-      dayOfWeek
+      dayOfWeek,
+      reparto
     );
     if (!available) {
       throw new BadRequestException(
@@ -166,12 +232,7 @@ export class AppointmentsService {
 
     // Pre-check de conflicto (UX) fuera de la tx
     if (
-      await this.disponibilidad.hayConflicto(
-        businessId,
-        data.professionalId,
-        data.date,
-        intervalos
-      )
+      await this.disponibilidad.hayConflicto(businessId, data.date, reparto)
     ) {
       throw new BadRequestException("Ya existe una cita en ese horario");
     }
@@ -185,9 +246,8 @@ export class AppointmentsService {
         const conflictInTx = await this.disponibilidad.hayConflictoEn(
           manager,
           businessId,
-          data.professionalId,
           data.date,
-          intervalos
+          reparto
         );
         if (conflictInTx) {
           throw new BadRequestException("Ya existe una cita en ese horario");
@@ -221,6 +281,7 @@ export class AppointmentsService {
             procesadoDesde: s.procesadoDesde,
             procesadoMinutos: s.procesadoMinutos,
             bufferDespues: s.bufferDespues,
+            professionalId: s.professionalId,
           })
         );
         await manager.save(AppointmentServiceEntity, apptServices);
@@ -523,33 +584,25 @@ export class AppointmentsService {
       newStartTime,
       appt.appointmentServices
     );
-    const intervalos = intervalosDeAgenda(
+    const reparto = repartoPorProfesional(
       newStartTime,
       newEndTime,
-      appt.appointmentServices
+      appt.appointmentServices,
+      appt.professionalId
     );
     const dayOfWeek = new Date(newDate + "T12:00:00").getDay();
     const available = await this.disponibilidad.franjaDentroDelHorario(
       businessId,
-      appt.professionalId,
       newDate,
-      newStartTime,
-      newEndTime,
-      nuevoOcupadoHasta,
-      dayOfWeek
+      dayOfWeek,
+      reparto
     );
     if (!available)
       throw new BadRequestException("El nuevo horario no esta disponible");
 
     // Pre-check de conflicto (UX) excluyendo la propia cita
     if (
-      await this.disponibilidad.hayConflicto(
-        businessId,
-        appt.professionalId,
-        newDate,
-        intervalos,
-        id
-      )
+      await this.disponibilidad.hayConflicto(businessId, newDate, reparto, id)
     )
       throw new BadRequestException("Ya existe una cita en el nuevo horario");
 
@@ -559,9 +612,8 @@ export class AppointmentsService {
       const conflictInTx = await this.disponibilidad.hayConflictoEn(
         manager,
         businessId,
-        appt.professionalId,
         newDate,
-        intervalos,
+        reparto,
         id
       );
       if (conflictInTx)

@@ -8,10 +8,17 @@ import {
   IsEnum,
   MaxLength,
   Min,
+  ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { CancelReason } from "@beautyspot/shared-types";
 import { EsFechaSola } from "../../../common/es-fecha-sola.decorator";
+
+/** Servicio de la cita que atiende alguien distinto del titular. */
+export class AsignacionDeServicioDto {
+  @IsUUID() serviceId!: string;
+  @IsUUID() professionalId!: string;
+}
 
 /** Datos para crear una cita: profesional, cliente, servicios, fecha y hora de inicio. */
 export class CreateAppointmentDto {
@@ -22,6 +29,12 @@ export class CreateAppointmentDto {
   @ArrayNotEmpty()
   @IsUUID("4", { each: true })
   serviceIds!: string[];
+  /** Quién atiende cada servicio; los que no se nombran los hace el titular. */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AsignacionDeServicioDto)
+  asignaciones?: AsignacionDeServicioDto[];
   @EsFechaSola() date!: string;
   @IsString() startTime!: string;
   @IsOptional() @IsString() notes?: string;

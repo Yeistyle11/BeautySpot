@@ -126,6 +126,8 @@ export default function AppointmentsPage() {
 
   const [form, setForm] = useState<FormValues>(emptyForm);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  // Servicio -> profesional que lo atiende; los que no estan los hace el titular.
+  const [asignaciones, setAsignaciones] = useState<Record<string, string>>({});
 
   const [completingAppt, setCompletingAppt] = useState<Appointment | null>(
     null
@@ -257,10 +259,16 @@ export default function AppointmentsPage() {
       await api.post("/booking/appointments", {
         ...form,
         serviceIds: selectedServices,
+        asignaciones: selectedServices
+          .filter(
+            (id) => asignaciones[id] && asignaciones[id] !== form.professionalId
+          )
+          .map((id) => ({ serviceId: id, professionalId: asignaciones[id] })),
       });
       setShowForm(false);
       setForm(emptyForm);
       setSelectedServices([]);
+      setAsignaciones({});
       await revalidatePrefix(APPOINTMENTS_KEY);
     } catch (err) {
       setError(getErrorMessage(err, "Error al crear la cita"));
@@ -273,6 +281,7 @@ export default function AppointmentsPage() {
     setSelectedServices((prev) =>
       prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
     );
+    setAsignaciones(({ [id]: _quitado, ...resto }) => resto);
   };
 
   return (
@@ -329,6 +338,16 @@ export default function AppointmentsPage() {
           services={services ?? []}
           selectedServices={selectedServices}
           onToggleService={toggleService}
+          asignaciones={asignaciones}
+          onAsignar={(serviceId, professionalId) =>
+            setAsignaciones((prev) =>
+              professionalId
+                ? { ...prev, [serviceId]: professionalId }
+                : Object.fromEntries(
+                    Object.entries(prev).filter(([id]) => id !== serviceId)
+                  )
+            )
+          }
           submitting={submitting}
           error={error}
         />

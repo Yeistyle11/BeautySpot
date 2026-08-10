@@ -33,7 +33,21 @@ describe("AvailabilityQueryService", () => {
   let mockLineaRepo: { find: jest.Mock };
 
   /** La reserva candidata, como bloque continuo. */
-  const franja = (inicio: string, fin: string) => [{ inicio, fin }];
+  /** Lo que una cita ocupa de la agenda de un profesional, en un solo tramo. */
+  const ocupacion = (
+    professionalId: string,
+    inicio: string,
+    finDeCliente: string,
+    fin = finDeCliente
+  ) => [
+    {
+      professionalId,
+      intervalos: [{ inicio, fin }],
+      inicio,
+      finDeCliente,
+      fin,
+    },
+  ];
 
   const mockAvailability: Availability = {
     id: "avail-123",
@@ -298,12 +312,9 @@ describe("AvailabilityQueryService", () => {
       await expect(
         service.franjaDentroDelHorario(
           "business-123",
-          "prof-123",
           MIERCOLES_FUTURO,
-          "13:30",
-          "14:00",
-          "14:15",
-          jornada.dayOfWeek
+          jornada.dayOfWeek,
+          ocupacion("prof-123", "13:30", "14:00", "14:15")
         )
       ).resolves.toBe(false);
     });
@@ -319,12 +330,9 @@ describe("AvailabilityQueryService", () => {
       await expect(
         service.franjaDentroDelHorario(
           "business-123",
-          "prof-123",
           MIERCOLES_FUTURO,
-          "13:30",
-          "14:00",
-          "14:15",
-          jornada.dayOfWeek
+          jornada.dayOfWeek,
+          ocupacion("prof-123", "13:30", "14:00", "14:15")
         )
       ).resolves.toBe(true);
     });
@@ -548,12 +556,9 @@ describe("AvailabilityQueryService", () => {
       await expect(
         service.franjaDentroDelHorario(
           "business-123",
-          "prof-123",
           MIERCOLES_FUTURO,
-          "12:30",
-          "13:30",
-          "13:30",
-          3
+          3,
+          ocupacion("prof-123", "12:30", "13:30", "13:30")
         )
       ).resolves.toBe(false);
     });
@@ -562,12 +567,9 @@ describe("AvailabilityQueryService", () => {
       await expect(
         service.franjaDentroDelHorario(
           "business-123",
-          "prof-123",
           MIERCOLES_FUTURO,
-          "15:00",
-          "16:00",
-          "16:00",
-          3
+          3,
+          ocupacion("prof-123", "15:00", "16:00", "16:00")
         )
       ).resolves.toBe(true);
     });
@@ -607,12 +609,9 @@ describe("AvailabilityQueryService", () => {
       await expect(
         service.franjaDentroDelHorario(
           "business-123",
-          "prof-123",
           MIERCOLES_FUTURO,
-          "15:00",
-          "16:00",
-          "16:00",
-          3
+          3,
+          ocupacion("prof-123", "15:00", "16:00", "16:00")
         )
       ).resolves.toBe(false);
     });
@@ -678,28 +677,23 @@ describe("AvailabilityQueryService", () => {
       await expect(
         service.franjaDentroDelHorario(
           "business-123",
-          "prof-123",
           "2024-01-15",
-          "10:00",
-          "11:00",
-          "11:00",
-          1
+          1,
+          ocupacion("prof-123", "10:00", "11:00", "11:00")
         )
       ).resolves.toBe(true);
     });
 
     it("rechaza si el profesional no trabaja ese día", async () => {
       mockAvailRepo.find.mockResolvedValue([]);
+      mockBlockRepo.find.mockResolvedValue([]);
 
       await expect(
         service.franjaDentroDelHorario(
           "business-123",
-          "prof-123",
           "2024-01-15",
-          "10:00",
-          "11:00",
-          "11:00",
-          1
+          1,
+          ocupacion("prof-123", "10:00", "11:00", "11:00")
         )
       ).resolves.toBe(false);
     });
@@ -711,12 +705,9 @@ describe("AvailabilityQueryService", () => {
       await expect(
         service.franjaDentroDelHorario(
           "business-123",
-          "prof-123",
           "2024-01-15",
-          "17:30",
-          "19:30",
-          "19:30",
-          1
+          1,
+          ocupacion("prof-123", "17:30", "19:30", "19:30")
         )
       ).resolves.toBe(false);
     });
@@ -728,12 +719,9 @@ describe("AvailabilityQueryService", () => {
       await expect(
         service.franjaDentroDelHorario(
           "business-123",
-          "prof-123",
           "2024-01-15",
-          "12:30",
-          "13:30",
-          "13:30",
-          1
+          1,
+          ocupacion("prof-123", "12:30", "13:30", "13:30")
         )
       ).resolves.toBe(false);
     });
@@ -746,9 +734,8 @@ describe("AvailabilityQueryService", () => {
       await expect(
         service.hayConflicto(
           "business-123",
-          "prof-123",
           "2024-01-15",
-          franja("10:30", "11:30")
+          ocupacion("prof-123", "10:30", "11:30")
         )
       ).resolves.toBe(true);
     });
@@ -759,9 +746,8 @@ describe("AvailabilityQueryService", () => {
       await expect(
         service.hayConflicto(
           "business-123",
-          "prof-123",
           "2024-01-15",
-          franja("16:00", "17:00")
+          ocupacion("prof-123", "16:00", "17:00")
         )
       ).resolves.toBe(false);
     });
@@ -772,12 +758,75 @@ describe("AvailabilityQueryService", () => {
       await expect(
         service.hayConflicto(
           "business-123",
-          "prof-123",
           "2024-01-15",
-          franja("10:30", "11:30"),
+          ocupacion("prof-123", "10:30", "11:30"),
           "appt-123"
         )
       ).resolves.toBe(false);
+    });
+  });
+
+  describe("servicios encadenados con distintos profesionales", () => {
+    /** Cita de prof-123 cuyo segundo servicio lo atiende prof-999. */
+    beforeEach(() => {
+      mockApptRepo.find.mockResolvedValue([
+        {
+          id: "appt-encadenada",
+          professionalId: "prof-123",
+          startTime: "10:00",
+          endTime: "11:00",
+        },
+      ] as never);
+      mockLineaRepo.find.mockResolvedValue([
+        { appointmentId: "appt-encadenada", duration: 30, orden: 0 },
+        {
+          appointmentId: "appt-encadenada",
+          duration: 30,
+          orden: 1,
+          professionalId: "prof-999",
+        },
+      ]);
+    });
+
+    it("ocupa la agenda de quien atiende la línea, no solo la del titular", async () => {
+      await expect(
+        service.hayConflicto(
+          "business-123",
+          "2024-01-15",
+          ocupacion("prof-999", "10:30", "11:00")
+        )
+      ).resolves.toBe(true);
+    });
+
+    it("deja libre al titular en la parte que atiende el otro", async () => {
+      await expect(
+        service.hayConflicto(
+          "business-123",
+          "2024-01-15",
+          ocupacion("prof-123", "10:30", "11:00")
+        )
+      ).resolves.toBe(false);
+    });
+
+    it("la agenda del día reparte cada línea en su columna", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        {
+          ...mockAvailability,
+          professionalId: "prof-999",
+          dayOfWeek: 3,
+        } as Availability,
+      ]);
+      mockBlockRepo.find.mockResolvedValue([]);
+
+      const slots = await service.franjasDeProfesional(
+        "business-123",
+        "prof-999",
+        MIERCOLES_FUTURO,
+        30
+      );
+
+      expect(slots.find((s) => s.startTime === "10:30")?.available).toBe(false);
+      expect(slots.find((s) => s.startTime === "10:00")?.available).toBe(true);
     });
   });
 
@@ -794,9 +843,8 @@ describe("AvailabilityQueryService", () => {
         service.hayConflictoEn(
           manager as never,
           "business-123",
-          "prof-123",
           "2024-01-15",
-          franja("10:30", "11:30")
+          ocupacion("prof-123", "10:30", "11:30")
         )
       ).resolves.toBe(true);
       expect(manager.find).toHaveBeenCalled();

@@ -13,11 +13,16 @@ import {
   esInstantePasadoEn,
   algunSolape,
   type Intervalo,
+  type OcupacionDeProfesional,
 } from "@beautyspot/shared-utils";
 import { ZonaDelNegocioService } from "@beautyspot/nest-common";
 import { HorarioDelNegocioService, Tramo } from "./horario-del-negocio.service";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
-import { intervalosDeCita, lineasPorCita } from "./intervalos-de-cita";
+import {
+  intervalosPorProfesional,
+  lineasPorCita,
+  ocupacionDeCita,
+} from "./intervalos-de-cita";
 
 /** Franja de la agenda con su hora de inicio, de fin y si está libre. */
 export interface Franja {
@@ -36,7 +41,7 @@ const ESTADOS_QUE_OCUPAN = [
   AppointmentStatus.IN_PROGRESS,
 ];
 
-/** Agrupa por profesional bloqueos o citas ya cargados. */
+/** Agrupa por profesional bloqueos u horarios ya cargados. */
 function agruparPorProfesional<T extends { professionalId: string }>(
   filas: T[]
 ): Map<string, T[]> {
@@ -119,37 +124,27 @@ export class AvailabilityQueryService {
 
     // Bloqueos y citas del día de todo el equipo en dos consultas, sea cual sea
     // su tamaño.
-    const [bloqueos, citas, apertura, zona] = await Promise.all([
+    const [bloqueos, ocupados, apertura, zona] = await Promise.all([
       this.blockRepo.find({
         where: { businessId, professionalId: In(profesionales), date },
       }),
-      this.apptRepo.find({
-        where: {
-          businessId,
-          professionalId: In(profesionales),
-          date,
-          status: In(ESTADOS_QUE_OCUPAN),
-        },
-      }),
+      this.ocupacionDelDia(businessId, date),
       this.horarioDelNegocio.tramosDelDia(businessId, dayOfWeek),
       this.zonas.de(businessId),
     ]);
 
     const bloqueosPorProfesional = agruparPorProfesional(bloqueos);
-    const citasPorProfesional = agruparPorProfesional(citas);
     const tramosPorProfesional = agruparPorProfesional(horarios);
-    const ocupacion = await this.ocupacionDe(citas);
 
     // Sobre el equipo entero: el hueco que abre uno lo evalúan todos.
-    const iniciosExtra = finalesDeOcupacion([...ocupacion.values()]);
+    const iniciosExtra = finalesDeOcupacion([...ocupados.values()]);
 
     const porProfesional = profesionales.map((professionalId) =>
       this.calcularFranjas(
         tramosPorProfesional.get(professionalId) ?? [],
         apertura,
         bloqueosPorProfesional.get(professionalId) ?? [],
-        citasPorProfesional.get(professionalId) ?? [],
-        ocupacion,
+        ocupados.get(professionalId) ?? [],
         iniciosExtra,
         duration,
         date,
@@ -186,41 +181,58 @@ export class AvailabilityQueryService {
     });
     if (tramos.length === 0) return [];
 
-    const [blocks, allAppointments, apertura, zona] = await Promise.all([
+    const [blocks, ocupados, apertura, zona] = await Promise.all([
       this.blockRepo.find({ where: { businessId, professionalId, date } }),
-      this.apptRepo.find({
-        where: {
-          businessId,
-          professionalId,
-          date,
-          status: In(ESTADOS_QUE_OCUPAN),
-        },
-      }),
+      this.ocupacionDelDia(businessId, date),
       this.horarioDelNegocio.tramosDelDia(businessId, dayOfWeek),
       this.zonas.de(businessId),
     ]);
 
-    const ocupacion = await this.ocupacionDe(allAppointments);
+    const suyos = ocupados.get(professionalId) ?? [];
 
     return this.calcularFranjas(
       tramos,
       apertura,
       blocks,
-      allAppointments,
-      ocupacion,
-      finalesDeOcupacion([...ocupacion.values()]),
+      suyos,
+      finalesDeOcupacion([suyos]),
       duration,
       date,
       zona
     );
   }
 
-  /** Tramos ocupados de cada cita, resueltos con sus líneas de servicio. */
-  private async ocupacionDe(
+  /** Lo que cada profesional del negocio tiene ocupado ese día. */
+  private async ocupacionDelDia(
+    businessId: string,
+    date: string,
+    manager?: EntityManager,
+    excludeId?: string
+  ): Promise<Map<string, Intervalo[]>> {
+    const citas = await this.citasVivas(businessId, date, manager);
+    const otras = excludeId ? citas.filter((c) => c.id !== excludeId) : citas;
+
+    return intervalosPorProfesional(await this.repartoDe(otras, manager));
+  }
+
+  /** Citas del día que ocupan agenda, con o sin transacción. */
+  private async citasVivas(
+    businessId: string,
+    date: string,
+    manager?: EntityManager
+  ): Promise<Appointment[]> {
+    const where = { businessId, date, status: In(ESTADOS_QUE_OCUPAN) };
+    return manager
+      ? manager.find(Appointment, { where })
+      : this.apptRepo.find({ where });
+  }
+
+  /** Reparto por profesional de cada cita, resuelto con sus líneas. */
+  private async repartoDe(
     citas: Appointment[],
     manager?: EntityManager
-  ): Promise<Map<string, Intervalo[]>> {
-    if (citas.length === 0) return new Map();
+  ): Promise<OcupacionDeProfesional[][]> {
+    if (citas.length === 0) return [];
 
     const ids = citas.map((c) => c.id);
     const repo = manager
@@ -229,67 +241,78 @@ export class AvailabilityQueryService {
     const lineas = await repo.find({ where: { appointmentId: In(ids) } });
     const porCita = lineasPorCita(lineas);
 
-    return new Map(
-      citas.map((cita) => [
-        cita.id,
-        intervalosDeCita(cita, porCita.get(cita.id) ?? []),
-      ])
+    return citas.map((cita) =>
+      ocupacionDeCita(cita, porCita.get(cita.id) ?? [])
     );
   }
 
   /**
-   * Comprueba que la franja cabe entera en un tramo del profesional y en el
-   * horario del negocio, y que no choca con un bloqueo.
+   * Comprueba que cada profesional de la cita trabaje a esa hora, quepa en el
+   * horario del negocio y no tenga un bloqueo encima.
    */
   async franjaDentroDelHorario(
     businessId: string,
-    professionalId: string,
     date: string,
-    start: string,
-    finDeCliente: string,
-    finDeOcupacion: string,
-    dayOfWeek: number
+    dayOfWeek: number,
+    reparto: OcupacionDeProfesional[]
   ): Promise<boolean> {
-    const [tramos, apertura] = await Promise.all([
+    const profesionales = reparto.map((o) => o.professionalId);
+    const [horarios, apertura] = await Promise.all([
       this.availRepo.find({
-        where: { businessId, professionalId, dayOfWeek, active: true },
+        where: {
+          businessId,
+          professionalId: In(profesionales),
+          dayOfWeek,
+          active: true,
+        },
       }),
       this.horarioDelNegocio.tramosDelDia(businessId, dayOfWeek),
     ]);
 
-    // Entera dentro de un mismo tramo del profesional, limpieza incluida.
-    if (!this.cabeEnAlgunTramo(tramos, start, finDeOcupacion)) return false;
-    // A la apertura del negocio solo se le exige la parte con cliente delante.
-    if (apertura && !this.cabeEnAlgunTramo(apertura, start, finDeCliente)) {
-      return false;
-    }
-
-    const blocks = await this.blockRepo.find({
-      where: { businessId, professionalId, date },
+    const tramosPorProfesional = agruparPorProfesional(horarios);
+    const trabajan = reparto.every((ocupacion) => {
+      const tramos = tramosPorProfesional.get(ocupacion.professionalId) ?? [];
+      // Entera dentro de un mismo tramo del profesional, limpieza incluida.
+      if (!this.cabeEnAlgunTramo(tramos, ocupacion.inicio, ocupacion.fin)) {
+        return false;
+      }
+      // A la apertura del negocio solo se le exige la parte con cliente delante.
+      return (
+        !apertura ||
+        this.cabeEnAlgunTramo(
+          apertura,
+          ocupacion.inicio,
+          ocupacion.finDeCliente
+        )
+      );
     });
-    return !blocks.some((b) =>
-      timesOverlap(start, finDeOcupacion, b.startTime, b.endTime)
+    if (!trabajan) return false;
+
+    const bloqueos = agruparPorProfesional(
+      await this.blockRepo.find({
+        where: { businessId, professionalId: In(profesionales), date },
+      })
+    );
+
+    return reparto.every((ocupacion) =>
+      (bloqueos.get(ocupacion.professionalId) ?? []).every(
+        (b) =>
+          !timesOverlap(ocupacion.inicio, ocupacion.fin, b.startTime, b.endTime)
+      )
     );
   }
 
-  /** Indica si ya hay una cita viva del profesional que se solape con la reserva. */
+  /** Indica si alguna cita viva se solapa con lo que ocuparía la reserva. */
   async hayConflicto(
     businessId: string,
-    professionalId: string,
     date: string,
-    intervalos: Intervalo[],
+    reparto: OcupacionDeProfesional[],
     excludeId?: string
   ): Promise<boolean> {
-    const appointments = await this.apptRepo.find({
-      where: {
-        businessId,
-        professionalId,
-        date,
-        status: In(ESTADOS_QUE_OCUPAN),
-      },
-    });
-
-    return this.seSolapan(appointments, intervalos, excludeId);
+    return this.seSolapan(
+      await this.ocupacionDelDia(businessId, date, undefined, excludeId),
+      reparto
+    );
   }
 
   /**
@@ -300,21 +323,14 @@ export class AvailabilityQueryService {
   async hayConflictoEn(
     manager: EntityManager,
     businessId: string,
-    professionalId: string,
     date: string,
-    intervalos: Intervalo[],
+    reparto: OcupacionDeProfesional[],
     excludeId?: string
   ): Promise<boolean> {
-    const appointments = await manager.find(Appointment, {
-      where: {
-        businessId,
-        professionalId,
-        date,
-        status: In(ESTADOS_QUE_OCUPAN),
-      },
-    });
-
-    return this.seSolapan(appointments, intervalos, excludeId, manager);
+    return this.seSolapan(
+      await this.ocupacionDelDia(businessId, date, manager, excludeId),
+      reparto
+    );
   }
 
   /**
@@ -429,8 +445,7 @@ export class AvailabilityQueryService {
     tramos: Tramo[],
     apertura: Tramo[] | null,
     blocks: BlockedSlot[],
-    appointments: Appointment[],
-    ocupacion: Map<string, Intervalo[]>,
+    ocupados: Intervalo[],
     iniciosExtra: string[],
     duration: number,
     date: string,
@@ -452,8 +467,7 @@ export class AvailabilityQueryService {
             finDelTramo,
             apertura,
             blocks,
-            appointments,
-            ocupacion,
+            ocupados,
             date,
             zona
           ),
@@ -499,8 +513,7 @@ export class AvailabilityQueryService {
     finDelTramo: number,
     apertura: Tramo[] | null,
     blocks: BlockedSlot[],
-    appointments: Appointment[],
-    ocupacion: Map<string, Intervalo[]>,
+    ocupados: Intervalo[],
     date: string,
     zona: string
   ): boolean {
@@ -522,25 +535,16 @@ export class AvailabilityQueryService {
     }
 
     // Bloque continuo: al listar horas no se sabe qué servicios la ocuparán.
-    const candidato: Intervalo[] = [{ inicio: slotStart, fin: slotEnd }];
-    return !appointments.some((a) =>
-      algunSolape(ocupacion.get(a.id) ?? [], candidato)
-    );
+    return !algunSolape(ocupados, [{ inicio: slotStart, fin: slotEnd }]);
   }
 
-  /** Solapamiento por intervalos, compartido por ambas comprobaciones. */
-  private async seSolapan(
-    appointments: Appointment[],
-    intervalos: Intervalo[],
-    excludeId?: string,
-    manager?: EntityManager
-  ): Promise<boolean> {
-    const otras = appointments.filter((a) => a.id !== excludeId);
-    if (otras.length === 0) return false;
-
-    const ocupacion = await this.ocupacionDe(otras, manager);
-    return otras.some((a) =>
-      algunSolape(ocupacion.get(a.id) ?? [], intervalos)
+  /** Compara lo ocupado del día contra lo que ocuparía la reserva. */
+  private seSolapan(
+    ocupados: Map<string, Intervalo[]>,
+    reparto: OcupacionDeProfesional[]
+  ): boolean {
+    return reparto.some((o) =>
+      algunSolape(ocupados.get(o.professionalId) ?? [], o.intervalos)
     );
   }
 }
