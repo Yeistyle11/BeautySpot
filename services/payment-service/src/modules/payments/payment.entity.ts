@@ -6,6 +6,9 @@ import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
 @Entity("payments")
 @Index(["businessId", "createdAt"])
 export class PaymentEntity extends TenantEntity {
+  /** Sede en la que se cobró; nulo en los negocios de un solo local. */
+  @Column({ type: "uuid", name: "branch_id", nullable: true })
+  branchId!: string | null;
   @Column({ type: "uuid", name: "appointment_id", nullable: true })
   appointmentId!: string;
   @Column({ type: "uuid", name: "client_id" }) clientId!: string;

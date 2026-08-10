@@ -87,6 +87,12 @@ export async function revalidatePath(path: string): Promise<void> {
   await mutate(path);
 }
 
+/** Recarga todo lo cacheado. */
+export async function revalidateAll(): Promise<void> {
+  const { mutate } = await import("swr");
+  await mutate(() => true, undefined, { revalidate: true });
+}
+
 export async function revalidatePrefix(prefix: string): Promise<void> {
   const { mutate } = await import("swr");
   await mutate(

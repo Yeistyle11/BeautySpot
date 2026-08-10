@@ -173,6 +173,22 @@ export class AppointmentsService {
     });
   }
 
+  /** Comprueba que la sede indicada sea una sede activa del negocio. */
+  private async validarSede(
+    businessId: string,
+    branchId?: string
+  ): Promise<void> {
+    if (!branchId) return;
+
+    const sedes = await this.http.pedir<{ id: string }[]>(
+      "core",
+      `/internal/branches?businessId=${businessId}`
+    );
+    if (!Array.isArray(sedes) || !sedes.some((s) => s.id === branchId)) {
+      throw new BadRequestException("La sede indicada no es de este negocio");
+    }
+  }
+
   /** Crea una cita comprobando que la franja siga libre. */
   async create(
     businessId: string,
@@ -189,6 +205,7 @@ export class AppointmentsService {
       asignaciones?: { serviceId: string; professionalId: string }[];
     }
   ): Promise<Appointment> {
+    await this.validarSede(businessId, data.branchId);
     // El orden es el que se pidió, y de él sale el reparto de la agenda.
     const lineas = await this.lineasDeLaCita(
       businessId,
@@ -673,6 +690,7 @@ export class AppointmentsService {
       professionalId?: string;
       clientId?: string;
       search?: string;
+      branchId?: string;
     },
     pagination: PaginateParams
   ): Promise<IPaginatedResponse<Appointment>> {
@@ -681,6 +699,7 @@ export class AppointmentsService {
     if (filters.date) base.date = filters.date;
     if (filters.professionalId) base.professionalId = filters.professionalId;
     if (filters.clientId) base.clientId = filters.clientId;
+    if (filters.branchId) base.branchId = filters.branchId;
 
     return paginate(this.apptRepo, pagination, {
       where: await this.condicionesDeBusqueda(businessId, base, filters.search),

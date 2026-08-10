@@ -19,12 +19,20 @@ export class BranchesController {
   constructor(private readonly service: BranchesService) {}
 
   /** Crea una sede en el negocio actual. */
+  @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post()
   async create(@BusinessId() businessId: string, @Body() dto: CreateBranchDto) {
     return this.service.create(businessId, dto);
   }
 
   /** Lista las sedes del negocio actual. */
+  @Roles(
+    Role.OWNER,
+    Role.ADMIN,
+    Role.SUPER_ADMIN,
+    Role.RECEPTIONIST,
+    Role.PROFESSIONAL
+  )
   @Get()
   async findAll(@BusinessId() businessId: string) {
     return this.service.findByBusiness(businessId);

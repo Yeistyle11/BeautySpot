@@ -6,7 +6,12 @@ import {
   CloseSessionDto,
   RegisterMovementDto,
 } from "./dto/cash-register.dto";
-import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
+import {
+  Roles,
+  BranchId,
+  BusinessId,
+  CurrentUser,
+} from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
 /** Endpoints del arqueo de caja (abrir/cerrar sesión, movimientos y resúmenes). */
@@ -19,10 +24,16 @@ export class CashRegisterController {
   @Post("open")
   async openSession(
     @BusinessId() businessId: string,
+    @BranchId() branchId: string | undefined,
     @CurrentUser("userId") userId: string,
     @Body() dto: OpenSessionDto
   ) {
-    return this.service.openSession(businessId, userId || "system", dto);
+    return this.service.openSession(
+      businessId,
+      userId || "system",
+      dto,
+      branchId
+    );
   }
 
   /** Cierra una sesión de caja indicando el saldo final. */
@@ -52,20 +63,24 @@ export class CashRegisterController {
     );
   }
 
-  /** Devuelve la sesión de caja abierta del negocio, si la hay. */
+  /** Devuelve la sesión de caja abierta de la sede activa, si la hay. */
   @Get("active")
-  async getActiveSession(@BusinessId() businessId: string) {
-    return this.service.getActiveSession(businessId);
+  async getActiveSession(
+    @BusinessId() businessId: string,
+    @BranchId() branchId: string | undefined
+  ) {
+    return this.service.getActiveSession(businessId, branchId);
   }
 
   /** Lista el historial de sesiones de caja del negocio, paginado. */
   @Get("history")
   async getSessionHistory(
     @BusinessId() businessId: string,
+    @BranchId() branchId: string | undefined,
     @Query() query: Record<string, unknown>
   ) {
     const pagination = parsePaginationQuery(query, ["openedAt", "closedAt"]);
-    return this.service.getSessionHistory(businessId, pagination);
+    return this.service.getSessionHistory(businessId, pagination, branchId);
   }
 
   /** Corte X: el arqueo de la sesión sin cerrarla, desglosado por método. */

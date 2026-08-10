@@ -4,17 +4,21 @@ import { CashMovementEntity } from "./cash-movement.entity";
 
 /** Sesión de caja (arqueo): apertura con saldo inicial, cierre con saldo final y sus movimientos. */
 @Entity("cash_sessions")
-// Un negocio no puede tener dos cajas abiertas a la vez. El índice lo crea la
-// migración CashSessionSingleOpen1700000000003 en las bases existentes; hay que
-// declararlo también aquí, con el MISMO nombre, para que el esquema generado por
-// `synchronize` (el que usan los tests) no divergiera del de producción.
+// Una caja abierta por sede. Los índices se declaran aquí con el mismo nombre
+// que en las migraciones, porque los tests derivan el esquema de las entidades.
+@Index("uq_cash_sessions_open_per_branch", ["businessId", "branchId"], {
+  unique: true,
+  where: '"closed_at" IS NULL AND "branch_id" IS NOT NULL',
+})
+// Cubre las cajas sin sede, que el índice anterior deja fuera.
 @Index("uq_cash_sessions_open_per_business", ["businessId"], {
   unique: true,
-  where: '"closed_at" IS NULL',
+  where: '"closed_at" IS NULL AND "branch_id" IS NULL',
 })
 export class CashSessionEntity extends TenantEntity {
+  /** Sede de la caja; nulo en los negocios de un solo local. */
   @Column({ type: "uuid", name: "branch_id", nullable: true })
-  branchId!: string;
+  branchId!: string | null;
   @Column({ type: "uuid", name: "opened_by" }) openedBy!: string;
   @Column({ type: "uuid", name: "closed_by", nullable: true })
   closedBy!: string;

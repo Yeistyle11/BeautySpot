@@ -7,6 +7,7 @@ import { useLogout } from "@/lib/use-logout";
 import { getPagesForRole } from "@/lib/permissions";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { BusinessSwitcher } from "@/components/business-switcher";
+import { BranchSwitcher } from "@/components/branch-switcher";
 import {
   Scissors,
   LayoutDashboard,
@@ -129,6 +130,7 @@ export function Sidebar() {
 
         <div className="border-b">
           <BusinessSwitcher />
+          <BranchSwitcher />
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">

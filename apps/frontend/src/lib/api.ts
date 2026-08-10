@@ -67,8 +67,11 @@ async function renovarSesion(): Promise<boolean> {
 function cabeceraDeNegocio(publicMode: boolean): Record<string, string> {
   if (publicMode || typeof window === "undefined") return {};
 
-  const businessId = useAuthStore.getState().businessId;
-  return businessId ? { "X-Business-Id": businessId } : {};
+  const { businessId, branchId } = useAuthStore.getState();
+  return {
+    ...(businessId ? { "X-Business-Id": businessId } : {}),
+    ...(branchId ? { "X-Branch-Id": branchId } : {}),
+  };
 }
 
 async function request<T>(

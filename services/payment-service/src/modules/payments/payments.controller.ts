@@ -18,7 +18,12 @@ import {
   MaxLength,
 } from "class-validator";
 import { PaymentMethod, PaymentStatus, Role } from "@beautyspot/shared-types";
-import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
+import {
+  Roles,
+  BranchId,
+  BusinessId,
+  CurrentUser,
+} from "@beautyspot/nest-common";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
 
 /** Datos para registrar un pago: cliente, monto, método y referencia/cita opcionales. */
@@ -61,11 +66,13 @@ export class PaymentsController {
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   async create(
     @BusinessId() businessId: string,
+    @BranchId() branchId: string | undefined,
     @CurrentUser("userId") userId: string,
     @Body() dto: CreatePaymentDto
   ) {
     return this.service.create(businessId, {
       ...dto,
+      branchId,
       registeredBy: userId,
     });
   }
@@ -75,6 +82,7 @@ export class PaymentsController {
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   async findAll(
     @BusinessId() businessId: string,
+    @BranchId() branchId: string | undefined,
     @Query() query: Record<string, unknown>
   ) {
     const pagination = parsePaginationQuery(query, ["createdAt", "amount"]);
@@ -85,6 +93,7 @@ export class PaymentsController {
         status: query.status as PaymentStatus,
         from: query.from as string,
         to: query.to as string,
+        branchId,
       },
       pagination
     );
@@ -95,9 +104,10 @@ export class PaymentsController {
   @Roles(Role.OWNER, Role.ADMIN)
   async dailySummary(
     @BusinessId() businessId: string,
+    @BranchId() branchId: string | undefined,
     @Query() query: DailySummaryQueryDto
   ) {
-    return this.service.getDailySummary(businessId, query.date);
+    return this.service.getDailySummary(businessId, query.date, branchId);
   }
 
   /** Obtiene un pago por id. */
