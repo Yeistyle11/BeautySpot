@@ -18,6 +18,7 @@ import {
 } from "@beautyspot/event-types";
 import { ProcessedEventsStore } from "@beautyspot/nest-common";
 import { MetricsService } from "../metrics/metrics.service";
+import { NegocioMetricsService } from "../metrics/negocio-metrics.service";
 import { ZonaDelNegocioService } from "@beautyspot/nest-common";
 import { fechaDeHoy } from "../../common/fecha";
 
@@ -41,6 +42,7 @@ export class AnalyticsEventListeners {
 
   constructor(
     private readonly metricsService: MetricsService,
+    private readonly negocioMetrics: NegocioMetricsService,
     private readonly processedEvents: ProcessedEventsStore,
     private readonly zonas: ZonaDelNegocioService
   ) {}
@@ -116,7 +118,14 @@ export class AnalyticsEventListeners {
     event: AppointmentCompletedEvent
   ): Promise<void> {
     this.logger.log(`Cita completada: ${event.payload.appointmentId}`);
-    const { businessId, professionalId, totalAmount, date } = event.payload;
+    const {
+      businessId,
+      professionalId,
+      clientId,
+      totalAmount,
+      date,
+      services,
+    } = event.payload;
 
     await this.aplicar(event, "cita completada", async (manager) => {
       await this.metricsService.incrementDailyMetric(
@@ -132,6 +141,38 @@ export class AnalyticsEventListeners {
         { revenue: totalAmount },
         manager
       );
+
+      // Devuelve si era la primera visita del cliente en el negocio.
+      const visita = await this.negocioMetrics.registrarVisita(
+        businessId,
+        clientId,
+        date,
+        totalAmount,
+        manager
+      );
+      await this.metricsService.incrementDailyMetric(
+        businessId,
+        date,
+        visita === "nueva" ? { newClients: 1 } : { returningClients: 1 },
+        manager
+      );
+
+      const atendidos = services ?? [];
+      if (atendidos.length > 0) {
+        await this.negocioMetrics.registrarServicios(
+          businessId,
+          date,
+          atendidos,
+          manager
+        );
+        await this.negocioMetrics.registrarMinutosVendidos(
+          businessId,
+          professionalId,
+          date,
+          atendidos.reduce((total, s) => total + s.duration, 0),
+          manager
+        );
+      }
     });
   }
 
@@ -189,17 +230,9 @@ export class AnalyticsEventListeners {
     queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
   })
   async handleClientCreated(event: ClientCreatedEvent): Promise<void> {
+    // Nuevos y recurrentes se cuentan por visita atendida, no por alta de
+    // ficha, así que aquí solo queda la traza.
     this.logger.log(`Cliente creado: ${event.payload.clientId}`);
-    const { businessId } = event.payload;
-    const hoy = await this.hoyPara(businessId);
-    await this.aplicar(event, "cliente nuevo", (manager) =>
-      this.metricsService.incrementDailyMetric(
-        businessId,
-        hoy,
-        { newClients: 1 },
-        manager
-      )
-    );
   }
 
   /** Suma el importe del pago a los ingresos del día en que se cobra. */

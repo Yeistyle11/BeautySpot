@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, Between } from "typeorm";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
+import { DataSource, Repository, Between } from "typeorm";
 import { DailyMetricEntity } from "../../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
 import { ZonaDelNegocioService } from "@beautyspot/nest-common";
@@ -36,6 +36,7 @@ export class DashboardService {
     private readonly dailyRepo: Repository<DailyMetricEntity>,
     @InjectRepository(ProfessionalMetricEntity)
     private readonly profRepo: Repository<ProfessionalMetricEntity>,
+    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly zonas: ZonaDelNegocioService
   ) {}
 
@@ -57,6 +58,10 @@ export class DashboardService {
       newClients: number;
       returningClients: number;
       avgDailyRevenue: number;
+      /** Ingresos entre citas atendidas. */
+      avgTicket: number;
+      /** Minutos vendidos sobre minutos disponibles, en porcentaje. */
+      ocupacion: number;
     };
   }> {
     const { today, thirtyDaysAgo, dias } = await this.dateRange(businessId, 30);
@@ -147,8 +152,114 @@ export class DashboardService {
         // Entre los días del periodo, no entre los que tuvieron movimiento:
         // es el promedio diario del negocio, no el de sus días activos.
         avgDailyRevenue: dias > 0 ? Math.round(totalRevenue / dias) : 0,
+        avgTicket:
+          completedAppointments > 0
+            ? Math.round(totalRevenue / completedAppointments)
+            : 0,
+        ocupacion: await this.ocupacion(businessId, thirtyDaysAgo, today),
       },
     };
+  }
+
+  /** Porcentaje de la agenda vendido en el periodo. */
+  private async ocupacion(
+    businessId: string,
+    from: string,
+    to: string
+  ): Promise<number> {
+    const [fila] = (await this.dataSource.query(
+      `SELECT COALESCE(SUM(minutos_vendidos), 0) AS vendidos,
+              COALESCE(SUM(minutos_disponibles), 0) AS disponibles
+       FROM capacity_daily
+       WHERE business_id = $1 AND date BETWEEN $2 AND $3`,
+      [businessId, from, to]
+    )) as { vendidos: string; disponibles: string }[];
+
+    return this.percentage(Number(fila?.vendidos), Number(fila?.disponibles));
+  }
+
+  /**
+   * Cuántos clientes del periodo habían venido antes, y cada cuánto vuelven los
+   * que repiten.
+   */
+  async getRetencion(businessId: string): Promise<{
+    clientes: number;
+    recurrentes: number;
+    tasaDeRetorno: number;
+    diasEntreVisitas: number;
+  }> {
+    const [fila] = (await this.dataSource.query(
+      `SELECT COUNT(*)::int AS clientes,
+              COUNT(*) FILTER (WHERE visitas > 1)::int AS recurrentes,
+              COALESCE(AVG(
+                CASE WHEN visitas > 1
+                  THEN (ultima_visita - primera_visita)::numeric / (visitas - 1)
+                END
+              ), 0) AS dias_entre_visitas
+       FROM client_metrics
+       WHERE business_id = $1`,
+      [businessId]
+    )) as {
+      clientes: number;
+      recurrentes: number;
+      dias_entre_visitas: string;
+    }[];
+
+    return {
+      clientes: fila?.clientes ?? 0,
+      recurrentes: fila?.recurrentes ?? 0,
+      tasaDeRetorno: this.percentage(
+        fila?.recurrentes ?? 0,
+        fila?.clientes ?? 0
+      ),
+      diasEntreVisitas: Math.round(Number(fila?.dias_entre_visitas ?? 0)),
+    };
+  }
+
+  /** Servicios del periodo ordenados por lo que ingresaron. */
+  async getRentabilidadPorServicio(
+    businessId: string,
+    days = 30
+  ): Promise<
+    {
+      serviceId: string;
+      serviceName: string;
+      veces: number;
+      ingresos: number;
+      minutos: number;
+      ingresoPorHora: number;
+    }[]
+  > {
+    const { from, today } = await this.dateRange(businessId, days);
+
+    const filas = (await this.dataSource.query(
+      `SELECT service_id, service_name,
+              SUM(veces)::int AS veces,
+              SUM(ingresos) AS ingresos,
+              SUM(minutos)::int AS minutos
+       FROM service_metrics
+       WHERE business_id = $1 AND date BETWEEN $2 AND $3
+       GROUP BY service_id, service_name
+       ORDER BY SUM(ingresos) DESC`,
+      [businessId, from, today]
+    )) as {
+      service_id: string;
+      service_name: string;
+      veces: number;
+      ingresos: string;
+      minutos: number;
+    }[];
+
+    return filas.map((f) => ({
+      serviceId: f.service_id,
+      serviceName: f.service_name,
+      veces: f.veces,
+      ingresos: Number(f.ingresos),
+      minutos: f.minutos,
+      // Ingreso por cada hora de agenda que ocupó el servicio.
+      ingresoPorHora:
+        f.minutos > 0 ? Math.round((Number(f.ingresos) / f.minutos) * 60) : 0,
+    }));
   }
 
   /** Ranking de profesionales por ingresos en los últimos 30 días. */

@@ -803,4 +803,106 @@ describe("AvailabilityQueryService", () => {
       expect(mockApptRepo.find).not.toHaveBeenCalled();
     });
   });
+
+  describe("capacidadDelDia", () => {
+    // 2024-01-17 es miércoles (dayOfWeek 3).
+    const MIERCOLES = "2024-01-17";
+
+    const jornada = (
+      professionalId: string,
+      startTime: string,
+      endTime: string
+    ) =>
+      ({
+        ...mockAvailability,
+        professionalId,
+        dayOfWeek: 3,
+        startTime,
+        endTime,
+      }) as unknown as Availability;
+
+    const bloqueo = (
+      professionalId: string,
+      startTime: string,
+      endTime: string
+    ) =>
+      ({
+        ...mockBlockedSlot,
+        professionalId,
+        date: MIERCOLES,
+        startTime,
+        endTime,
+      }) as unknown as BlockedSlot;
+
+    beforeEach(() => {
+      mockBlockRepo.find.mockResolvedValue([]);
+      mockHorario.tramosDelDia.mockResolvedValue(null);
+    });
+
+    it("suma los minutos de la jornada de cada profesional", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        jornada("pro-a", "09:00", "13:00"),
+        jornada("pro-b", "10:00", "12:00"),
+      ]);
+
+      const capacidad = await service.capacidadDelDia(
+        "business-123",
+        MIERCOLES
+      );
+
+      expect(capacidad).toEqual([
+        { professionalId: "pro-a", minutosDisponibles: 240 },
+        { professionalId: "pro-b", minutosDisponibles: 120 },
+      ]);
+    });
+
+    it("descuenta los bloqueos del profesional", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        jornada("pro-a", "09:00", "13:00"),
+      ]);
+      mockBlockRepo.find.mockResolvedValue([
+        bloqueo("pro-a", "11:00", "12:00"),
+      ]);
+
+      const capacidad = await service.capacidadDelDia(
+        "business-123",
+        MIERCOLES
+      );
+
+      expect(capacidad).toEqual([
+        { professionalId: "pro-a", minutosDisponibles: 180 },
+      ]);
+    });
+
+    it("recorta la jornada a las horas de apertura del negocio", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        jornada("pro-a", "08:00", "20:00"),
+      ]);
+      mockHorario.tramosDelDia.mockResolvedValue([
+        { startTime: "09:00", endTime: "13:00" },
+        { startTime: "15:00", endTime: "18:00" },
+      ]);
+
+      const capacidad = await service.capacidadDelDia(
+        "business-123",
+        MIERCOLES
+      );
+
+      expect(capacidad).toEqual([
+        { professionalId: "pro-a", minutosDisponibles: 420 },
+      ]);
+    });
+
+    it("sin horarios activos ese día no consulta bloqueos", async () => {
+      mockAvailRepo.find.mockResolvedValue([]);
+
+      const capacidad = await service.capacidadDelDia(
+        "business-123",
+        MIERCOLES
+      );
+
+      expect(capacidad).toEqual([]);
+      expect(mockBlockRepo.find).not.toHaveBeenCalled();
+    });
+  });
 });

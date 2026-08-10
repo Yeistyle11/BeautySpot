@@ -226,7 +226,10 @@ export class AppointmentsController {
 @Controller("internal/appointments")
 @Public()
 export class InternalAppointmentsController {
-  constructor(private readonly service: AppointmentsService) {}
+  constructor(
+    private readonly service: AppointmentsService,
+    private readonly disponibilidad: AvailabilityQueryService
+  ) {}
 
   /** Indica si un profesional tiene historial de citas (usado antes de eliminarlo). */
   @Get("professional/:professionalId/has-history")
@@ -235,6 +238,15 @@ export class InternalAppointmentsController {
     @Query("businessId") businessId: string
   ) {
     return this.service.professionalHasHistory(professionalId, businessId);
+  }
+
+  /** Minutos disponibles de cada profesional del negocio ese día. */
+  @Get("capacidad")
+  async capacidad(
+    @Query("businessId") businessId: string,
+    @Query("date") date: string
+  ) {
+    return this.disponibilidad.capacidadDelDia(businessId, date);
   }
 
   /** Datos de cobro de una cita del negocio: importe, estado y cliente. */

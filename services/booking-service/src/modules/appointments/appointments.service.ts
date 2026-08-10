@@ -355,6 +355,12 @@ export class AppointmentsService {
           endTime: appt.endTime,
           totalAmount: appt.totalAmount,
           pointsEarned,
+          services: appt.appointmentServices.map((s) => ({
+            serviceId: s.serviceId,
+            name: s.serviceName,
+            price: Number(s.price),
+            duration: s.duration,
+          })),
         },
       });
     });

@@ -36,4 +36,22 @@ export class DashboardController {
   ) {
     return this.service.getRevenueChart(businessId, query.days ?? 30);
   }
+
+  /** Retorno y frecuencia de visita de los clientes del negocio. */
+  @Get("retencion")
+  async getRetencion(@BusinessId() businessId: string) {
+    return this.service.getRetencion(businessId);
+  }
+
+  /** Servicios ordenados por lo que ingresaron, con su ingreso por hora. */
+  @Get("servicios")
+  async getRentabilidadPorServicio(
+    @BusinessId() businessId: string,
+    @Query("days") days?: string
+  ) {
+    return this.service.getRentabilidadPorServicio(
+      businessId,
+      days ? parseInt(days, 10) : undefined
+    );
+  }
 }
