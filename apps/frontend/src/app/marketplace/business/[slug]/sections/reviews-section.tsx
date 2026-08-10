@@ -2,10 +2,14 @@
 
 // Seccion de resenas del perfil publico, con la distribucion de calificaciones.
 import Image from "next/image";
-import { Heart, MessageSquare, Star } from "lucide-react";
+import { useState } from "react";
+import { Flag, Heart, MessageSquare, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { imageUnoptimized } from "@/lib/image";
+import { api } from "@/lib/api";
+import { useAuthStore } from "@/lib/store";
+import { logger } from "@/lib/logger";
 import type { RatingDistribution, Review } from "../schemas";
 
 export function ReviewsSection({
@@ -21,6 +25,20 @@ export function ReviewsSection({
   rating: number;
   totalReviews: number;
 }) {
+  const { user } = useAuthStore();
+  const [denunciadas, setDenunciadas] = useState<string[]>([]);
+
+  const denunciar = async (reviewId: string) => {
+    setDenunciadas((actuales) => [...actuales, reviewId]);
+    try {
+      await api.post(`/marketplace/reviews/${reviewId}/report`, {
+        reason: "OTRO",
+      });
+    } catch (err) {
+      logger.error(err);
+    }
+  };
+
   return (
     <section className="mb-12">
       <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold">
@@ -121,12 +139,27 @@ export function ReviewsSection({
                       </span>
                     </div>
                   </div>
-                  {r.helpfulCount > 0 && (
-                    <span className="text-muted-foreground flex items-center gap-1 text-xs">
-                      <Heart className="h-3 w-3" />
-                      {r.helpfulCount}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {r.helpfulCount > 0 && (
+                      <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                        <Heart className="h-3 w-3" />
+                        {r.helpfulCount}
+                      </span>
+                    )}
+                    {user && (
+                      <button
+                        type="button"
+                        onClick={() => denunciar(r.id)}
+                        disabled={denunciadas.includes(r.id)}
+                        className="text-muted-foreground hover:text-destructive flex items-center gap-1 text-xs disabled:opacity-50"
+                      >
+                        <Flag className="h-3 w-3" />
+                        {denunciadas.includes(r.id)
+                          ? "Denunciada"
+                          : "Denunciar"}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {r.comment && (

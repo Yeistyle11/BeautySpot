@@ -159,6 +159,7 @@ describe("NotificationEventListeners", () => {
       queueWelcomeEmail: jest.fn().mockResolvedValue({ jobId: "job-123" }),
       queuePasswordReset: jest.fn().mockResolvedValue({ jobId: "job-129" }),
       queueEmailVerification: jest.fn().mockResolvedValue({ jobId: "job-130" }),
+      queueReviewRequest: jest.fn().mockResolvedValue({ jobId: "job-131" }),
       queueAppointmentConfirmation: jest
         .fn()
         .mockResolvedValue({ jobId: "job-124" }),

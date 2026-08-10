@@ -15,6 +15,8 @@ import {
   ReviewQueryDto,
   RespondReviewDto,
   UpdateReviewDto,
+  ReportReviewDto,
+  ModerarReviewDto,
 } from "./dto/review.dto";
 import {
   Roles,
@@ -142,6 +144,28 @@ export class ReviewsController {
     @BusinessId() businessId: string
   ) {
     return this.service.borrarRespuesta(id, businessId);
+  }
+
+  /** Denuncia una reseña; una por usuario y reseña. */
+  @Post(":id/report")
+  @SkipBusinessScope()
+  async denunciar(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser("userId") userId: string,
+    @Body() dto: ReportReviewDto
+  ) {
+    return this.service.denunciar(id, userId, dto);
+  }
+
+  /** Oculta o vuelve a publicar una reseña del negocio. */
+  @Patch(":id/moderar")
+  @Roles(Role.OWNER, Role.ADMIN)
+  async moderar(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string,
+    @Body() dto: ModerarReviewDto
+  ) {
+    return this.service.moderar(id, businessId, dto.status);
   }
 
   /** Marca una reseña como útil; el voto es único por usuario y reseña. */

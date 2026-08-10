@@ -60,6 +60,9 @@ export const reviewSchema = z.object({
   createdAt: z.string(),
   professionalName: z.string().nullish(),
   serviceName: z.string().nullish(),
+  /** Visibilidad de la resena en el escaparate. */
+  status: z.enum(["PUBLICADA", "OCULTA"]).nullish(),
+  reportCount: z.number().nullish(),
 });
 export type Review = z.infer<typeof reviewSchema>;
 

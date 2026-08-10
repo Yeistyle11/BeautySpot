@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>¿Qué tal tu visita? - BeautySpot</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: white;
+      padding: 30px 40px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .content {
+      padding: 30px 40px;
+      text-align: center;
+    }
+    .cta-button {
+      display: block;
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: white;
+      text-decoration: none;
+      padding: 12px 30px;
+      border-radius: 6px;
+      font-weight: 600;
+      margin: 20px 0;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 20px 40px;
+      text-align: center;
+      font-size: 12px;
+      color: #6c757d;
+    }
+    .footer a {
+      color: #d97706;
+      text-decoration: none;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>⭐ ¿Qué tal tu visita?</h1>
+      <p>BeautySpot</p>
+    </div>
+
+    <div class="content">
+      <p style="font-size: 16px; color: #212529;">Hola <strong>{{clientName}}</strong>,</p>
+      <p style="font-size: 14px; color: #6c757d; line-height:1.6;">
+        Gracias por visitar <strong>{{businessName}}</strong>. Si {{professionalName}}
+        te atendió bien, cuéntalo: ayuda a quien está buscando dónde ir.
+      </p>
+
+      <a href="{{reviewLink}}" class="cta-button">
+        Dejar mi reseña
+      </a>
+
+      <p style="font-size: 13px; color: #999; margin-top: 30px;">
+        Solo te llevará un minuto.
+      </p>
+    </div>
+
+    <div class="footer">
+      <p>© {{year}} BeautySpot. Todos los derechos reservados.</p>
+      <p>
+        Powered by <a href="https://beautyspot.co" target="_blank">BeautySpot</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>

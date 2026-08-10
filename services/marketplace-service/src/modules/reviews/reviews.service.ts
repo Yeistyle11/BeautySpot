@@ -7,8 +7,12 @@ import {
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { Repository, DataSource, EntityManager } from "typeorm";
-import { ReviewEntity } from "../../entities/review.entity";
+import { ReviewEntity, ReviewStatus } from "../../entities/review.entity";
 import { ReviewHelpfulEntity } from "../../entities/review-helpful.entity";
+import {
+  ReviewReportEntity,
+  ReviewReportReason,
+} from "../../entities/review-report.entity";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
 import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
@@ -159,6 +163,57 @@ export class ReviewsService {
     await this.profilesService.invalidarCache(review.businessId);
   }
 
+  /** Registra la denuncia de un usuario sobre una reseña, una por usuario. */
+  async denunciar(
+    id: string,
+    userId: string,
+    datos: { reason: ReviewReportReason; detalle?: string }
+  ): Promise<{ denunciada: true }> {
+    const review = await this.repo.findOne({ where: { id } });
+    if (!review) throw new NotFoundException("Reseña no encontrada");
+
+    try {
+      await this.dataSource.transaction(async (manager) => {
+        await manager.getRepository(ReviewReportEntity).insert({
+          reviewId: id,
+          userId,
+          reason: datos.reason,
+          detalle: datos.detalle ?? null,
+        });
+        await manager
+          .getRepository(ReviewEntity)
+          .increment({ id }, "reportCount", 1);
+      });
+    } catch (error: unknown) {
+      if ((error as { code?: string })?.code !== VIOLACION_DE_UNICIDAD) {
+        throw error;
+      }
+    }
+
+    return { denunciada: true };
+  }
+
+  /** Oculta o vuelve a publicar una reseña del negocio y recalcula las medias. */
+  async moderar(
+    id: string,
+    businessId: string,
+    status: ReviewStatus
+  ): Promise<ReviewEntity> {
+    const review = await this.reseñaDelNegocio(id, businessId);
+    review.status = status;
+
+    const guardada = await this.dataSource.transaction(async (manager) => {
+      const actualizada = await manager
+        .getRepository(ReviewEntity)
+        .save(review);
+      await this.recalcularMedias(actualizada, manager);
+      return actualizada;
+    });
+
+    await this.profilesService.invalidarCache(businessId);
+    return guardada;
+  }
+
   /** Reseña existente que pertenece a quien la pide; si no, 403. */
   private async reseñaPropia(
     id: string,
@@ -269,7 +324,10 @@ export class ReviewsService {
 
     const qb = this.repo
       .createQueryBuilder("r")
-      .where("r.business_id = :businessId", { businessId });
+      .where("r.business_id = :businessId", { businessId })
+      .andWhere("r.status = :publicada", {
+        publicada: ReviewStatus.PUBLICADA,
+      });
 
     if (query.rating) {
       qb.andWhere("r.rating = :rating", { rating: query.rating });
@@ -303,6 +361,7 @@ export class ReviewsService {
       .select("r.rating", "rating")
       .addSelect("COUNT(*)", "count")
       .where("r.business_id = :businessId", { businessId })
+      .andWhere("r.status = :publicada", { publicada: ReviewStatus.PUBLICADA })
       .groupBy("r.rating")
       .getRawMany<{ rating: number; count: string }>();
 

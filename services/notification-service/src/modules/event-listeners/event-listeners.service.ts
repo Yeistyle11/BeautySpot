@@ -383,6 +383,37 @@ export class NotificationEventListeners {
             `Gracias por tu visita a ${data.businessName}. Ya puedes dejar tu reseña.`,
             { appointmentId }
           );
+
+          await this.intentarCorreo(
+            "solicitud de reseña",
+            async () => {
+              const appUrl = this.configService.get<string>(
+                "APP_URL",
+                "http://localhost:8080"
+              );
+              const { jobId } = await this.emailService.queueReviewRequest(
+                data.clientEmail,
+                {
+                  clientName: data.clientName,
+                  businessName: data.businessName,
+                  professionalName: data.professionalName,
+                  reviewLink: `${appUrl}/dashboard/client/appointments/${appointmentId}/review`,
+                }
+              );
+
+              await this.emitEmailQueuedEvent(
+                jobId,
+                data.clientEmail,
+                "review-request",
+                `¿Qué tal tu visita a ${data.businessName}?`
+              );
+            },
+            {
+              userId: data.clientUserId,
+              businessId,
+              type: NotificationType.APPOINTMENT_COMPLETED,
+            }
+          );
         }
       );
     } catch (error) {

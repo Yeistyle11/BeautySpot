@@ -212,6 +212,20 @@ export default function MarketplacePage() {
     }
   };
 
+  /** Oculta o vuelve a publicar una reseña. */
+  const moderarReview = async (
+    reviewId: string,
+    status: "PUBLICADA" | "OCULTA"
+  ) => {
+    try {
+      await api.patch(`/marketplace/reviews/${reviewId}/moderar`, { status });
+      await mutateReviews();
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    }
+  };
+
   const removeReviewResponse = async (reviewId: string) => {
     try {
       await api.delete(`/marketplace/reviews/${reviewId}/respond`);
@@ -359,6 +373,7 @@ export default function MarketplacePage() {
           onDraftChange={setReviewDrafts}
           onRespond={respondToReview}
           onRemoveResponse={removeReviewResponse}
+          onModerar={moderarReview}
         />
       )}
 

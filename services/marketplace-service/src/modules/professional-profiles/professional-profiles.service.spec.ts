@@ -48,6 +48,7 @@ describe("ProfessionalProfilesService", () => {
       addSelect: jest.fn().mockReturnThis(),
       from: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
       getRawOne: jest.fn(),
     } as any;
 
@@ -305,6 +306,7 @@ describe("ProfessionalProfilesService", () => {
         addSelect: jest.fn().mockReturnThis(),
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
         getRawOne: jest.fn().mockResolvedValue({ avg: "4.8", count: "50" }),
       } as any;
 
