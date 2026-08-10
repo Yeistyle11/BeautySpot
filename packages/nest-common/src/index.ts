@@ -11,6 +11,7 @@ export {
 export { Roles, ROLES_KEY } from "./decorators/roles.decorator";
 export { CurrentUser } from "./decorators/current-user.decorator";
 export { BusinessId } from "./decorators/business-id.decorator";
+export { BranchId, BRANCH_ID_HEADER } from "./decorators/branch-id.decorator";
 export { TransformInterceptor } from "./interceptors/transform.interceptor";
 export type { ApiResponse } from "./interceptors/transform.interceptor";
 export { HttpExceptionFilter } from "./filters/http-exception.filter";

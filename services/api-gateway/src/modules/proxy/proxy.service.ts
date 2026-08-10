@@ -5,7 +5,7 @@ import {
   Injectable,
 } from "@nestjs/common";
 import { Request } from "express";
-import { REQUEST_ID_HEADER } from "@beautyspot/nest-common";
+import { BRANCH_ID_HEADER, REQUEST_ID_HEADER } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { ServiceUrlsConfig } from "../../config/service-urls";
 import { ACCESS_COOKIE, leerCookie } from "../session/session-cookies";
@@ -75,6 +75,12 @@ export class ProxyService {
     const negocio = this.negocioDeLaPeticion(req);
     if (negocio) {
       headers["x-business-id"] = negocio;
+    }
+
+    // Sede activa, que acota dentro del negocio.
+    const sede = req.headers[BRANCH_ID_HEADER];
+    if (typeof sede === "string" && sede.length > 0) {
+      headers[BRANCH_ID_HEADER] = sede;
     }
 
     if (!["GET", "HEAD"].includes(req.method)) {

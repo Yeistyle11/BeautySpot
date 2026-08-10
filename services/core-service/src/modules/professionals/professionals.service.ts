@@ -79,10 +79,12 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
   /** Lista los profesionales del negocio (por defecto solo los activos). */
   async findByBusiness(
     businessId: string,
-    activeOnly = true
+    activeOnly = true,
+    branchId?: string
   ): Promise<Professional[]> {
     const where: Record<string, unknown> = { businessId };
     if (activeOnly) where.active = true;
+    if (branchId) where.branchId = branchId;
     return this.repo.find({ where, order: { createdAt: "ASC" as const } });
   }
 

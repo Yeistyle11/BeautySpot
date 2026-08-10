@@ -21,9 +21,12 @@ interface AuthState {
   user: User | null;
   businessId: string | null;
   role: Role | null;
+  /** Sede sobre la que se trabaja; null = el negocio entero. */
+  branchId: string | null;
   setAuth: (user: User) => void;
   setBusinessId: (id: string) => void;
   setRole: (role: Role) => void;
+  setSedeActiva: (id: string | null) => void;
   /** Cambia de negocio: el rol es el que el usuario tiene en ese negocio. */
   setNegocioActivo: (id: string, role: Role) => void;
   logout: () => void;
@@ -35,6 +38,7 @@ const KEYS = {
   user: "auth:v1:user",
   businessId: "auth:v1:businessId",
   role: "auth:v1:role",
+  branchId: "auth:v1:branchId",
 } as const;
 
 const LEGACY_KEYS = {
@@ -91,6 +95,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   businessId: null,
   role: null,
+  branchId: null,
   hydrated: false,
   hydrate: () => {
     if (typeof window === "undefined") return;
@@ -103,7 +108,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     const businessId =
       pista?.businessId ?? localStorage.getItem(KEYS.businessId);
     const role = pista?.role ?? readRole();
-    set({ user, businessId, role, hydrated: true });
+    const branchId = localStorage.getItem(KEYS.branchId);
+    set({ user, businessId, role, branchId, hydrated: true });
   },
   setAuth: (user) => {
     localStorage.setItem(KEYS.user, JSON.stringify(user));
@@ -117,16 +123,23 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.setItem(KEYS.role, role);
     set({ role });
   },
+  setSedeActiva: (id) => {
+    if (id) localStorage.setItem(KEYS.branchId, id);
+    else localStorage.removeItem(KEYS.branchId);
+    set({ branchId: id });
+  },
+  // Al cambiar de negocio se olvida la sede activa.
   setNegocioActivo: (id, role) => {
     localStorage.setItem(KEYS.businessId, id);
     localStorage.setItem(KEYS.role, role);
-    set({ businessId: id, role });
+    localStorage.removeItem(KEYS.branchId);
+    set({ businessId: id, role, branchId: null });
   },
   /** Limpia el estado local; las cookies las borra el gateway en /auth/logout. */
   logout: () => {
     (Object.keys(KEYS) as (keyof typeof KEYS)[]).forEach((k) =>
       localStorage.removeItem(KEYS[k])
     );
-    set({ user: null, businessId: null, role: null });
+    set({ user: null, businessId: null, role: null, branchId: null });
   },
 }));

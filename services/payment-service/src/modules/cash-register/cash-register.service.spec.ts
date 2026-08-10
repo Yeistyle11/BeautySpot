@@ -131,7 +131,11 @@ describe("CashRegisterService", () => {
       const result = await service.openSession("business-123", "user-123", dto);
 
       expect(mockSessionRepo.findOne).toHaveBeenCalledWith({
-        where: { businessId: "business-123", closedAt: IsNull() },
+        where: {
+          businessId: "business-123",
+          branchId: "branch-123",
+          closedAt: IsNull(),
+        },
       });
       expect(mockSessionRepo.create).toHaveBeenCalledWith({
         businessId: "business-123",
@@ -142,6 +146,66 @@ describe("CashRegisterService", () => {
       });
       expect(mockSessionRepo.save).toHaveBeenCalledWith(mockSession);
       expect(result).toEqual(mockSession);
+    });
+
+    it("cada sede busca su propia caja abierta", async () => {
+      mockSessionRepo.findOne.mockResolvedValue(null);
+      mockSessionRepo.create.mockReturnValue(mockSession);
+      mockSessionRepo.save.mockResolvedValue(mockSession);
+
+      await service.openSession(
+        "business-123",
+        "user-123",
+        { openingAmount: 0 },
+        "branch-999"
+      );
+
+      expect(mockSessionRepo.findOne).toHaveBeenCalledWith({
+        where: {
+          businessId: "business-123",
+          branchId: "branch-999",
+          closedAt: IsNull(),
+        },
+      });
+      expect(mockSessionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ branchId: "branch-999" })
+      );
+    });
+
+    it("la sede del cuerpo manda sobre la de la cabecera", async () => {
+      mockSessionRepo.findOne.mockResolvedValue(null);
+      mockSessionRepo.create.mockReturnValue(mockSession);
+      mockSessionRepo.save.mockResolvedValue(mockSession);
+
+      await service.openSession(
+        "business-123",
+        "user-123",
+        { branchId: "branch-cuerpo" },
+        "branch-cabecera"
+      );
+
+      expect(mockSessionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ branchId: "branch-cuerpo" })
+      );
+    });
+
+    it("un negocio sin sedes abre su caja con sede nula", async () => {
+      mockSessionRepo.findOne.mockResolvedValue(null);
+      mockSessionRepo.create.mockReturnValue(mockSession);
+      mockSessionRepo.save.mockResolvedValue(mockSession);
+
+      await service.openSession("business-123", "user-123", {});
+
+      expect(mockSessionRepo.findOne).toHaveBeenCalledWith({
+        where: {
+          businessId: "business-123",
+          branchId: IsNull(),
+          closedAt: IsNull(),
+        },
+      });
+      expect(mockSessionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ branchId: null })
+      );
     });
 
     it("debería lanzar BadRequestException si ya existe una sesión abierta", async () => {
@@ -177,6 +241,36 @@ describe("CashRegisterService", () => {
 
       const createCall = mockSessionRepo.create.mock.calls[0][0];
       expect(createCall.openingAmount).toBe(0);
+    });
+  });
+
+  describe("consultas por sede", () => {
+    it("la caja activa es la de la sede pedida", async () => {
+      mockSessionRepo.findOne.mockResolvedValue(mockSession);
+
+      await service.getActiveSession("business-123", "branch-999");
+
+      expect(mockSessionRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            businessId: "business-123",
+            branchId: "branch-999",
+            closedAt: IsNull(),
+          },
+        })
+      );
+    });
+
+    it("sin sede activa se mira el negocio entero", async () => {
+      mockSessionRepo.findOne.mockResolvedValue(mockSession);
+
+      await service.getActiveSession("business-123");
+
+      expect(mockSessionRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { businessId: "business-123", closedAt: IsNull() },
+        })
+      );
     });
   });
 

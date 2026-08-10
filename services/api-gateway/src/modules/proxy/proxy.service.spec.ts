@@ -86,6 +86,26 @@ describe("ProxyService", () => {
 
       expect(headers["x-business-id"]).toBeUndefined();
     });
+
+    it("reenvía la sede que pide el cliente", () => {
+      const req = peticion({
+        businessId: NEGOCIO_A,
+        businessIds: [NEGOCIO_A],
+      }) as unknown as { headers: Record<string, string> };
+      req.headers["x-branch-id"] = "sede-1";
+
+      const headers = service.buildForwardedHeaders(req as never);
+
+      expect(headers["x-branch-id"]).toBe("sede-1");
+    });
+
+    it("sin sede no manda la cabecera", () => {
+      const headers = service.buildForwardedHeaders(
+        peticion({ businessId: NEGOCIO_A, businessIds: [NEGOCIO_A] })
+      );
+
+      expect(headers["x-branch-id"]).toBeUndefined();
+    });
   });
 
   describe("getServiceUrl", () => {

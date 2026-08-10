@@ -12,6 +12,8 @@ const UNIQUE_VIOLATION = "23505";
 const NEGOCIO_A = "11111111-1111-4111-8111-111111111111";
 const NEGOCIO_B = "22222222-2222-4222-8222-222222222222";
 const USUARIO = "33333333-3333-4333-8333-333333333333";
+const SEDE_1 = "44444444-4444-4444-8444-444444444444";
+const SEDE_2 = "55555555-5555-4555-8555-555555555555";
 
 /**
  * Comprueba contra Postgres real que el índice único parcial
@@ -22,10 +24,11 @@ describe("Integración: una sola caja abierta por negocio", () => {
   let dataSource: DataSource;
   let sesiones: Repository<CashSessionEntity>;
 
-  /** Sesión de caja abierta (sin closedAt) para el negocio indicado. */
-  const sesionAbierta = (businessId: string) =>
+  /** Sesión de caja abierta (sin closedAt) para el negocio y la sede indicados. */
+  const sesionAbierta = (businessId: string, branchId: string | null = null) =>
     sesiones.create({
       businessId,
+      branchId,
       openedBy: USUARIO,
       openingAmount: 100000,
       openedAt: new Date(),
@@ -73,6 +76,20 @@ describe("Integración: una sola caja abierta por negocio", () => {
     expect(indices).toHaveLength(1);
     expect(indices[0].indexdef).toContain("UNIQUE");
     expect(indices[0].indexdef).toContain("closed_at IS NULL");
+    // Solo cubre las sesiones sin sede.
+    expect(indices[0].indexdef).toContain("branch_id IS NULL");
+  });
+
+  it("el índice por sede existe en el esquema generado", async () => {
+    const indices = await dataSource.query(
+      `SELECT indexdef FROM pg_indexes
+       WHERE tablename = 'cash_sessions'
+         AND indexname = 'uq_cash_sessions_open_per_branch'`
+    );
+
+    expect(indices).toHaveLength(1);
+    expect(indices[0].indexdef).toContain("UNIQUE");
+    expect(indices[0].indexdef).toContain("branch_id IS NOT NULL");
   });
 
   it("rechaza una segunda caja abierta en el mismo negocio", async () => {
@@ -119,6 +136,33 @@ describe("Integración: una sola caja abierta por negocio", () => {
     await expect(
       sesiones.save(sesionAbierta(NEGOCIO_B))
     ).resolves.toMatchObject({ businessId: NEGOCIO_B });
+  });
+
+  it("dos sedes del mismo negocio pueden tener su caja abierta a la vez", async () => {
+    await sesiones.save(sesionAbierta(NEGOCIO_A, SEDE_1));
+
+    await expect(
+      sesiones.save(sesionAbierta(NEGOCIO_A, SEDE_2))
+    ).resolves.toMatchObject({ branchId: SEDE_2 });
+    await expect(
+      sesiones.count({ where: { businessId: NEGOCIO_A } })
+    ).resolves.toBe(2);
+  });
+
+  it("rechaza una segunda caja abierta en la misma sede", async () => {
+    await sesiones.save(sesionAbierta(NEGOCIO_A, SEDE_1));
+
+    let error: unknown;
+    try {
+      await sesiones.save(sesionAbierta(NEGOCIO_A, SEDE_1));
+    } catch (e) {
+      error = e;
+    }
+
+    expect(error).toBeInstanceOf(QueryFailedError);
+    expect((error as QueryFailedError & { code: string }).code).toBe(
+      UNIQUE_VIOLATION
+    );
   });
 
   it("varias cajas cerradas conviven con una abierta", async () => {

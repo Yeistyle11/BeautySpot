@@ -15,6 +15,7 @@ import { AppointmentStatus, Role } from "@beautyspot/shared-types";
 import {
   Roles,
   Public,
+  BranchId,
   BusinessId,
   CurrentUser,
   SkipBusinessScope,
@@ -41,11 +42,13 @@ export class AppointmentsController {
   @Post()
   async create(
     @BusinessId() businessId: string,
+    @BranchId() branchId: string | undefined,
     @CurrentUser("userId") userId: string,
     @Body() dto: CreateAppointmentDto
   ) {
     return this.service.create(businessId, {
       ...dto,
+      branchId: dto.branchId ?? branchId,
       createdBy: userId,
     });
   }
@@ -139,6 +142,7 @@ export class AppointmentsController {
   @Get()
   async findAll(
     @BusinessId() businessId: string,
+    @BranchId() branchId: string | undefined,
     @Query() query: Record<string, unknown>,
     @Query("status") status?: AppointmentStatus,
     @Query("date") date?: string,
@@ -154,7 +158,7 @@ export class AppointmentsController {
     ]);
     return this.service.findByBusiness(
       businessId,
-      { status, date, professionalId, clientId, search },
+      { status, date, professionalId, clientId, search, branchId },
       pagination
     );
   }

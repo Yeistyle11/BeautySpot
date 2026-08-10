@@ -587,6 +587,56 @@ describe("AppointmentsService", () => {
       });
     });
 
+    describe("sede de la cita", () => {
+      const enSede = {
+        professionalId: "prof-123",
+        clientId: "client-123",
+        serviceIds: [SERVICIO_CORTE],
+        date: FECHA_CITA,
+        startTime: "10:00",
+        branchId: "branch-123",
+      };
+
+      beforeEach(() => {
+        mockAvailRepo.find.mockResolvedValue([mockAvailability]);
+        mockBlockRepo.find.mockResolvedValue([]);
+        mockApptRepo.find.mockResolvedValue([]);
+      });
+
+      it("acepta una sede del negocio", async () => {
+        mockHttp.pedir.mockResolvedValue([{ id: "branch-123" }]);
+
+        await service.create("business-123", enSede);
+
+        expect(mockHttp.pedir).toHaveBeenCalledWith(
+          "core",
+          "/internal/branches?businessId=business-123"
+        );
+        expect(mockDataSource.transaction).toHaveBeenCalled();
+      });
+
+      it("rechaza una sede que no es del negocio", async () => {
+        mockHttp.pedir.mockResolvedValue([{ id: "branch-de-otro" }]);
+
+        await expect(service.create("business-123", enSede)).rejects.toThrow(
+          BadRequestException
+        );
+        expect(mockDataSource.transaction).not.toHaveBeenCalled();
+      });
+
+      it("sin sede no consulta el catálogo de sedes", async () => {
+        await service.create("business-123", {
+          ...enSede,
+          branchId: undefined,
+        });
+
+        expect(mockHttp.pedir).not.toHaveBeenCalledWith(
+          "core",
+          expect.stringContaining("/internal/branches")
+        );
+      });
+    });
+
     it("no crea la cita si el catálogo no responde", async () => {
       const data = {
         professionalId: "prof-123",
@@ -1537,6 +1587,22 @@ describe("AppointmentsService", () => {
       expect(result.data).toEqual([mockAppointment]);
       expect(result.meta.total).toBe(1);
       expect(result.meta.page).toBe(1);
+    });
+
+    it("la agenda de una sede no trae las citas de otra", async () => {
+      mockApptRepo.findAndCount.mockResolvedValue([[mockAppointment], 1]);
+
+      await service.findByBusiness(
+        "business-123",
+        { branchId: "branch-123" },
+        pagination
+      );
+
+      expect(mockApptRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { businessId: "business-123", branchId: "branch-123" },
+        })
+      );
     });
 
     it("calcula los metadatos de paginación en page 2 limit 10", async () => {

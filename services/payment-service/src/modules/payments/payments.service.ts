@@ -74,6 +74,7 @@ export class PaymentsService {
       reference?: string;
       notes?: string;
       registeredBy: string;
+      branchId?: string;
     }
   ): Promise<PaymentEntity> {
     if (data.appointmentId) {
@@ -159,6 +160,7 @@ export class PaymentsService {
     const session = await this.cajaAbierta(
       manager,
       businessId,
+      payment.branchId,
       payment.method,
       "registrar un pago en efectivo"
     );
@@ -184,11 +186,12 @@ export class PaymentsService {
   private async cajaAbierta(
     manager: EntityManager,
     businessId: string,
+    branchId: string | null,
     method: PaymentMethod,
     accion: string
   ): Promise<CashSessionEntity | null> {
     const session = await manager.getRepository(CashSessionEntity).findOne({
-      where: { businessId, closedAt: IsNull() },
+      where: { businessId, branchId: branchId ?? IsNull(), closedAt: IsNull() },
     });
     if (session) return session;
 
@@ -211,6 +214,7 @@ export class PaymentsService {
     const session = await this.cajaAbierta(
       manager,
       businessId,
+      payment.branchId,
       payment.method,
       "reembolsar en efectivo"
     );
@@ -237,10 +241,12 @@ export class PaymentsService {
       status?: PaymentStatus;
       from?: string;
       to?: string;
+      branchId?: string;
     },
     pagination: PaginateParams
   ): Promise<IPaginatedResponse<PaymentEntity>> {
     const where: Record<string, unknown> = { businessId };
+    if (filters.branchId) where.branchId = filters.branchId;
     if (filters.method) where.method = filters.method;
     if (filters.status) where.status = filters.status;
     if (filters.from && filters.to) {
@@ -286,7 +292,7 @@ export class PaymentsService {
    * todas las filas del día en memoria: el volumen de pagos crece con el negocio
    * y traer cada registro solo para sumarlo no escala.
    */
-  async getDailySummary(businessId: string, date: string) {
+  async getDailySummary(businessId: string, date: string, branchId?: string) {
     // El día va de medianoche a medianoche en el huso del negocio, con el fin
     // exclusivo.
     const zona = await this.zonas.de(businessId);
@@ -304,6 +310,7 @@ export class PaymentsService {
         start,
         end,
       })
+      .andWhere(branchId ? "p.branch_id = :branchId" : "TRUE", { branchId })
       .groupBy("p.method")
       .getRawMany<{ method: string; total: string; count: string }>();
 

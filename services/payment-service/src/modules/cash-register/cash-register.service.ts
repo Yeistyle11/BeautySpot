@@ -23,7 +23,7 @@ import { EventNames } from "@beautyspot/event-types";
 
 /**
  * Gestiona el arqueo de caja: apertura y cierre de sesiones (una abierta por
- * negocio), registro de movimientos y cálculo del total esperado.
+ * sede), registro de movimientos y cálculo del total esperado.
  */
 @Injectable()
 export class CashRegisterService {
@@ -38,9 +38,9 @@ export class CashRegisterService {
   ) {}
 
   /**
-   * Abre una sesión de caja para el negocio.
+   * Abre una sesión de caja para la sede.
    *
-   * El índice único parcial uq_cash_sessions_open_per_business es la garantía
+   * Los índices únicos parciales sobre las sesiones sin cerrar son la garantía
    * real de "una sola sesión abierta": la consulta previa solo sirve para dar un
    * mensaje claro en el caso común, pero dos aperturas concurrentes que la
    * superen chocan en el insert, y esa violación se traduce al mismo error.
@@ -48,10 +48,12 @@ export class CashRegisterService {
   async openSession(
     businessId: string,
     openedBy: string,
-    dto: OpenSessionDto
+    dto: OpenSessionDto,
+    branchId?: string
   ): Promise<CashSessionEntity> {
+    const sede = dto.branchId ?? branchId ?? null;
     const openSession = await this.sessionRepo.findOne({
-      where: { businessId, closedAt: IsNull() },
+      where: { businessId, branchId: sede ?? IsNull(), closedAt: IsNull() },
     });
     if (openSession) {
       throw new BadRequestException("Ya existe una sesión de caja abierta");
@@ -61,7 +63,7 @@ export class CashRegisterService {
       return await this.sessionRepo.save(
         this.sessionRepo.create({
           businessId,
-          branchId: dto.branchId,
+          branchId: sede,
           openedBy,
           openingAmount: dto.openingAmount || 0,
           notes: dto.notes,
@@ -251,24 +253,30 @@ export class CashRegisterService {
     };
   }
 
-  /** Devuelve la sesión de caja abierta del negocio, o null si no hay ninguna. */
+  /** Devuelve la sesión de caja abierta de la sede, o null si no hay ninguna. */
   async getActiveSession(
-    businessId: string
+    businessId: string,
+    branchId?: string
   ): Promise<CashSessionEntity | null> {
     return this.sessionRepo.findOne({
-      where: { businessId, closedAt: IsNull() },
+      where: {
+        businessId,
+        ...(branchId ? { branchId } : {}),
+        closedAt: IsNull(),
+      },
       relations: ["movements"],
       order: { openedAt: "DESC" },
     });
   }
 
-  /** Lista las sesiones de caja del negocio, de la más reciente a la más antigua. */
+  /** Lista las sesiones de caja de la sede, de la más reciente a la más antigua. */
   async getSessionHistory(
     businessId: string,
-    pagination: PaginateParams
+    pagination: PaginateParams,
+    branchId?: string
   ): Promise<IPaginatedResponse<CashSessionEntity>> {
     return paginate(this.sessionRepo, pagination, {
-      where: { businessId },
+      where: { businessId, ...(branchId ? { branchId } : {}) },
       order: { openedAt: "DESC" },
     });
   }

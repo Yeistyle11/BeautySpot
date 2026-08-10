@@ -9,7 +9,7 @@ import {
   Body,
 } from "@nestjs/common";
 import { ProfessionalsService } from "./professionals.service";
-import { Roles, BusinessId } from "@beautyspot/nest-common";
+import { Roles, BranchId, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import {
   CreateProfessionalDto,
@@ -45,10 +45,13 @@ export class ProfessionalsController {
     Role.PROFESSIONAL,
     Role.RECEPTIONIST
   )
-  /** Lista los profesionales del negocio. */
+  /** Lista los profesionales del negocio, o los de la sede activa. */
   @Get()
-  async findAll(@BusinessId() businessId: string) {
-    return this.service.findByBusiness(businessId);
+  async findAll(
+    @BusinessId() businessId: string,
+    @BranchId() branchId: string | undefined
+  ) {
+    return this.service.findByBusiness(businessId, true, branchId);
   }
 
   /** Obtiene un profesional por id. */
