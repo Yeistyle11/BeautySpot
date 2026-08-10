@@ -14,6 +14,8 @@ export const appointmentServiceSchema = z.object({
   procesadoMinutos: z.number().nullish(),
   /** Limpieza posterior, en la que sigue ocupado. */
   bufferDespues: z.number().nullish(),
+  /** Quien atiende el servicio; nulo = el profesional titular de la cita. */
+  professionalId: z.string().nullish(),
 });
 
 export const appointmentSchema = z.object({

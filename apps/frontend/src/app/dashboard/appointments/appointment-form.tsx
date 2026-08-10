@@ -23,6 +23,9 @@ interface AppointmentFormProps {
   services: Service[];
   selectedServices: string[];
   onToggleService: (id: string) => void;
+  /** Servicio -> profesional propio; vacio = lo atiende el titular. */
+  asignaciones: Record<string, string>;
+  onAsignar: (serviceId: string, professionalId: string) => void;
   submitting: boolean;
   error: string;
 }
@@ -40,6 +43,8 @@ export function AppointmentForm({
   services,
   selectedServices,
   onToggleService,
+  asignaciones,
+  onAsignar,
   submitting,
   error,
 }: AppointmentFormProps) {
@@ -141,6 +146,44 @@ export function AppointmentForm({
                 </p>
               )}
             </div>
+
+            {selectedServices.length > 0 && (
+              <div className="space-y-2 rounded-lg border p-3">
+                <p className="text-muted-foreground text-xs">
+                  Los servicios se atienden en el orden en que se eligieron.
+                  Asigna otro profesional a los que no haga el titular.
+                </p>
+                {selectedServices.map((id, i) => {
+                  const servicio = services.find((s) => s.id === id);
+                  return (
+                    <div
+                      key={id}
+                      className="flex flex-wrap items-center gap-2 text-sm"
+                    >
+                      <span className="text-muted-foreground w-5">
+                        {i + 1}.
+                      </span>
+                      <span className="min-w-32 flex-1">
+                        {servicio?.name ?? "Servicio"}
+                      </span>
+                      <Select
+                        aria-label={`Profesional de ${servicio?.name ?? "el servicio"}`}
+                        className="w-48"
+                        value={asignaciones[id] ?? ""}
+                        onChange={(e) => onAsignar(id, e.target.value)}
+                      >
+                        <option value="">El titular de la cita</option>
+                        {professionals.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name || "Sin nombre"}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <Field

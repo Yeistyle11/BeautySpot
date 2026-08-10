@@ -16,6 +16,20 @@ export interface LineaDeAgenda {
   procesadoMinutos?: number | null;
   /** Limpieza posterior, en la que sigue ocupado sin cliente delante. */
   bufferDespues?: number | null;
+  /** Quién atiende la línea; nulo = el titular de la cita. */
+  professionalId?: string | null;
+}
+
+/** Lo que una cita ocupa en la agenda de uno de sus profesionales. */
+export interface OcupacionDeProfesional {
+  professionalId: string;
+  intervalos: Intervalo[];
+  /** Hora a la que empieza su primera línea. */
+  inicio: string;
+  /** Hora a la que termina su última línea. */
+  finDeCliente: string;
+  /** `finDeCliente` más la limpieza de esa última línea. */
+  fin: string;
 }
 
 /** Ordena las líneas por su posición dentro de la cita. */
@@ -36,62 +50,93 @@ export function duracionDeCliente(lineas: LineaDeAgenda[]): number {
   return lineas.reduce((total, linea) => total + linea.duration, 0);
 }
 
-/** Hora hasta la que sigue ocupado: el fin más la limpieza de la última línea. */
-export function finDeOcupacion(
+/**
+ * Reparte la cita entre los profesionales que la atienden: las líneas se
+ * encadenan una tras otra y cada una ocupa la agenda de quien la hace.
+ */
+export function repartoPorProfesional(
   startTime: string,
-  lineas: LineaDeAgenda[]
-): string {
-  const fin = calculateEndTime(startTime, duracionDeCliente(lineas));
-  if (lineas.length === 0) return fin;
+  endTime: string,
+  lineas: LineaDeAgenda[],
+  titular: string
+): OcupacionDeProfesional[] {
+  if (lineas.length === 0) {
+    return [
+      {
+        professionalId: titular,
+        intervalos: [{ inicio: startTime, fin: endTime }],
+        inicio: startTime,
+        finDeCliente: endTime,
+        fin: endTime,
+      },
+    ];
+  }
 
-  const ultima = [...lineas].sort(porOrden)[lineas.length - 1];
-  return calculateEndTime(fin, ultima.bufferDespues ?? 0);
+  const porProfesional = new Map<string, OcupacionDeProfesional>();
+  // Limpieza de la última línea de cada profesional.
+  const limpieza = new Map<string, number>();
+  let minuto = timeToMinutes(startTime);
+
+  for (const linea of [...lineas].sort(porOrden)) {
+    const professionalId = linea.professionalId ?? titular;
+    const inicio = minutosAHora(minuto);
+    const fin = calculateEndTime(inicio, linea.duration);
+
+    const acumulado = porProfesional.get(professionalId) ?? {
+      professionalId,
+      intervalos: [],
+      inicio,
+      finDeCliente: fin,
+      fin,
+    };
+    acumulado.intervalos.push(...intervalosDeLinea(linea, inicio, fin));
+    acumulado.finDeCliente = fin;
+    porProfesional.set(professionalId, acumulado);
+    limpieza.set(professionalId, linea.bufferDespues ?? 0);
+
+    minuto += linea.duration;
+  }
+
+  for (const ocupacion of porProfesional.values()) {
+    const minutos = limpieza.get(ocupacion.professionalId) ?? 0;
+    ocupacion.fin = calculateEndTime(ocupacion.finDeCliente, minutos);
+    if (minutos > 0) {
+      ocupacion.intervalos.push({
+        inicio: ocupacion.finDeCliente,
+        fin: ocupacion.fin,
+      });
+    }
+  }
+
+  return [...porProfesional.values()];
 }
 
 /**
- * Tramos en los que el profesional está ocupado: cada línea partida por su
- * ventana de procesado, más la limpieza final. Sin líneas, un bloque continuo.
+ * Tramos en los que la cita ocupa a alguien: cada línea partida por su ventana
+ * de procesado, más las limpiezas. Sin líneas, un bloque continuo.
  */
 export function intervalosDeAgenda(
   startTime: string,
   endTime: string,
   lineas: LineaDeAgenda[]
 ): Intervalo[] {
-  if (lineas.length === 0) return [{ inicio: startTime, fin: endTime }];
+  return repartoPorProfesional(startTime, endTime, lineas, TITULAR).flatMap(
+    (o) => o.intervalos
+  );
+}
 
-  const intervalos: Intervalo[] = [];
-  let minuto = timeToMinutes(startTime);
+/** Hora hasta la que la cita ocupa a alguno de sus profesionales. */
+export function finDeOcupacion(
+  startTime: string,
+  lineas: LineaDeAgenda[]
+): string {
+  const endTime = calculateEndTime(startTime, duracionDeCliente(lineas));
 
-  for (const linea of [...lineas].sort(porOrden)) {
-    const inicio = minutosAHora(minuto);
-    const fin = calculateEndTime(inicio, linea.duration);
-
-    if (tieneProcesado(linea)) {
-      const libreDesde = calculateEndTime(inicio, linea.procesadoDesde ?? 0);
-      const libreHasta = calculateEndTime(
-        libreDesde,
-        linea.procesadoMinutos ?? 0
-      );
-      if (inicio !== libreDesde) {
-        intervalos.push({ inicio, fin: libreDesde });
-      }
-      if (libreHasta !== fin) {
-        intervalos.push({ inicio: libreHasta, fin });
-      }
-    } else {
-      intervalos.push({ inicio, fin });
-    }
-
-    minuto += linea.duration;
-  }
-
-  const finConBuffer = finDeOcupacion(startTime, lineas);
-  const finDeCliente = minutosAHora(minuto);
-  if (finConBuffer !== finDeCliente) {
-    intervalos.push({ inicio: finDeCliente, fin: finConBuffer });
-  }
-
-  return intervalos;
+  return repartoPorProfesional(startTime, endTime, lineas, TITULAR).reduce(
+    (ultimo, o) =>
+      timeToMinutes(o.fin) > timeToMinutes(ultimo) ? o.fin : ultimo,
+    endTime
+  );
 }
 
 /** Indica si alguna pareja de intervalos de las dos listas se pisa. */
@@ -99,6 +144,27 @@ export function algunSolape(a: Intervalo[], b: Intervalo[]): boolean {
   return a.some((uno) =>
     b.some((otro) => timesOverlap(uno.inicio, uno.fin, otro.inicio, otro.fin))
   );
+}
+
+/** Titular ficticio: quien llama solo mira la cita entera. */
+const TITULAR = "";
+
+/** Tramos de una línea: uno solo, o dos si libera al profesional en medio. */
+function intervalosDeLinea(
+  linea: LineaDeAgenda,
+  inicio: string,
+  fin: string
+): Intervalo[] {
+  if (!tieneProcesado(linea)) return [{ inicio, fin }];
+
+  const libreDesde = calculateEndTime(inicio, linea.procesadoDesde ?? 0);
+  const libreHasta = calculateEndTime(libreDesde, linea.procesadoMinutos ?? 0);
+  const intervalos: Intervalo[] = [];
+
+  if (inicio !== libreDesde) intervalos.push({ inicio, fin: libreDesde });
+  if (libreHasta !== fin) intervalos.push({ inicio: libreHasta, fin });
+
+  return intervalos;
 }
 
 /** Devuelve los minutos desde medianoche como "HH:MM". */

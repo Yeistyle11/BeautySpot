@@ -3,6 +3,7 @@ import {
   duracionDeCliente,
   finDeOcupacion,
   intervalosDeAgenda,
+  repartoPorProfesional,
   type LineaDeAgenda,
 } from "./intervalos";
 
@@ -127,5 +128,96 @@ describe("algunSolape", () => {
         [{ inicio: "10:30", fin: "11:00" }]
       )
     ).toBe(false);
+  });
+});
+
+describe("repartoPorProfesional", () => {
+  it("sin líneas, la cita entera es del titular", () => {
+    expect(repartoPorProfesional("10:00", "11:00", [], "ana")).toEqual([
+      {
+        professionalId: "ana",
+        intervalos: [{ inicio: "10:00", fin: "11:00" }],
+        inicio: "10:00",
+        finDeCliente: "11:00",
+        fin: "11:00",
+      },
+    ]);
+  });
+
+  it("las líneas sin profesional propio son del titular", () => {
+    const reparto = repartoPorProfesional(
+      "10:00",
+      "12:00",
+      [TINTE, CORTE],
+      "ana"
+    );
+
+    expect(reparto).toHaveLength(1);
+    expect(reparto[0].professionalId).toBe("ana");
+  });
+
+  it("una línea de otro profesional ocupa su agenda, no la del titular", () => {
+    const reparto = repartoPorProfesional(
+      "10:00",
+      "12:00",
+      [TINTE, { ...CORTE, professionalId: "bea" }],
+      "ana"
+    );
+
+    expect(reparto.map((o) => o.professionalId)).toEqual(["ana", "bea"]);
+    // El tinte va de 10:00 a 11:30 y su limpieza hasta las 11:40.
+    expect(reparto[0].intervalos).toEqual([
+      { inicio: "10:00", fin: "10:20" },
+      { inicio: "11:00", fin: "11:30" },
+      { inicio: "11:30", fin: "11:40" },
+    ]);
+    // El corte empieza donde termina el tinte, ya en la agenda de Bea.
+    expect(reparto[1]).toEqual({
+      professionalId: "bea",
+      intervalos: [{ inicio: "11:30", fin: "12:00" }],
+      inicio: "11:30",
+      finDeCliente: "12:00",
+      fin: "12:00",
+    });
+  });
+
+  it("junta las líneas del mismo profesional aunque no vayan seguidas", () => {
+    const reparto = repartoPorProfesional(
+      "10:00",
+      "11:30",
+      [
+        { duration: 30, orden: 0 },
+        { duration: 30, orden: 1, professionalId: "bea" },
+        { duration: 30, orden: 2 },
+      ],
+      "ana"
+    );
+
+    expect(reparto).toHaveLength(2);
+    expect(reparto[0].intervalos).toEqual([
+      { inicio: "10:00", fin: "10:30" },
+      { inicio: "11:00", fin: "11:30" },
+    ]);
+    expect(reparto[0].inicio).toBe("10:00");
+    expect(reparto[0].finDeCliente).toBe("11:30");
+  });
+
+  it("solo cuenta la limpieza de la última línea de cada profesional", () => {
+    const reparto = repartoPorProfesional(
+      "10:00",
+      "11:00",
+      [
+        { duration: 30, orden: 0, bufferDespues: 15 },
+        { duration: 30, orden: 1, bufferDespues: 5 },
+      ],
+      "ana"
+    );
+
+    expect(reparto[0].fin).toBe("11:05");
+    expect(reparto[0].intervalos).toEqual([
+      { inicio: "10:00", fin: "10:30" },
+      { inicio: "10:30", fin: "11:00" },
+      { inicio: "11:00", fin: "11:05" },
+    ]);
   });
 });

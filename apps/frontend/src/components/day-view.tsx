@@ -4,11 +4,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import {
-  intervalosDeAgenda,
-  timeToMinutes,
-  type Intervalo,
-} from "@beautyspot/shared-utils";
+import { repartoPorProfesional, timeToMinutes } from "@beautyspot/shared-utils";
 import {
   formatCurrency,
   formatTime,
@@ -54,6 +50,14 @@ function aPixeles(hora: string): number {
   return ((timeToMinutes(hora) - HORA_INICIO * 60) / 60) * ALTO_HORA;
 }
 
+/** Nombre del profesional, o un texto neutro si ya no está en el equipo. */
+function nombreDeProfesional(
+  professionals: Professional[],
+  id: string
+): string {
+  return professionals.find((p) => p.id === id)?.name ?? "otro profesional";
+}
+
 /** Suma un dia a una fecha `YYYY-MM-DD`. */
 function desplazarDia(date: string, dias: number): string {
   const d = new Date(date + "T12:00:00");
@@ -64,6 +68,7 @@ function desplazarDia(date: string, dias: number): string {
 /** Bloque de una cita en la columna, con sus tramos ocupados ya calculados. */
 interface BloqueDeCita {
   appt: Appointment;
+  professionalId: string;
   /** Desde el inicio hasta el fin de la ocupacion, limpieza incluida. */
   arriba: number;
   alto: number;
@@ -71,36 +76,46 @@ interface BloqueDeCita {
   ocupados: { arriba: number; alto: number }[];
   /** Fin de la parte con cliente delante; por debajo va la limpieza. */
   finDeCliente: number;
+  /** La cita se reparte entre varios profesionales. */
+  compartida: boolean;
 }
 
-/** Reparte una cita en los tramos que de verdad ocupan al profesional. */
-function bloqueDe(appt: Appointment): BloqueDeCita {
-  const ocupadoHasta = appt.ocupadoHasta ?? appt.endTime;
-  const arriba = aPixeles(appt.startTime);
-  const alto = Math.max(aPixeles(ocupadoHasta) - arriba, 18);
+/** Lineas de la cita en la forma que entiende el reparto de agenda. */
+function lineasDe(appt: Appointment) {
+  return appt.appointmentServices.map((s, i) => ({
+    duration: s.duration,
+    orden: s.orden ?? i,
+    procesadoDesde: s.procesadoDesde,
+    procesadoMinutos: s.procesadoMinutos,
+    bufferDespues: s.bufferDespues,
+    professionalId: s.professionalId,
+  }));
+}
 
-  const intervalos: Intervalo[] = intervalosDeAgenda(
+/** Un bloque por profesional: cada uno ocupa solo los servicios que atiende. */
+function bloquesDe(appt: Appointment): BloqueDeCita[] {
+  const reparto = repartoPorProfesional(
     appt.startTime,
-    appt.endTime,
-    appt.appointmentServices.map((s, i) => ({
-      duration: s.duration,
-      orden: s.orden ?? i,
-      procesadoDesde: s.procesadoDesde,
-      procesadoMinutos: s.procesadoMinutos,
-      bufferDespues: s.bufferDespues,
-    }))
+    appt.ocupadoHasta ?? appt.endTime,
+    lineasDe(appt),
+    appt.professionalId
   );
 
-  return {
-    appt,
-    arriba,
-    alto,
-    ocupados: intervalos.map((i) => ({
-      arriba: aPixeles(i.inicio) - arriba,
-      alto: Math.max(aPixeles(i.fin) - aPixeles(i.inicio), 2),
-    })),
-    finDeCliente: aPixeles(appt.endTime) - arriba,
-  };
+  return reparto.map((ocupacion) => {
+    const arriba = aPixeles(ocupacion.inicio);
+    return {
+      appt,
+      professionalId: ocupacion.professionalId,
+      arriba,
+      alto: Math.max(aPixeles(ocupacion.fin) - arriba, 18),
+      ocupados: ocupacion.intervalos.map((i) => ({
+        arriba: aPixeles(i.inicio) - arriba,
+        alto: Math.max(aPixeles(i.fin) - aPixeles(i.inicio), 2),
+      })),
+      finDeCliente: aPixeles(ocupacion.finDeCliente) - arriba,
+      compartida: reparto.length > 1,
+    };
+  });
 }
 
 /**
@@ -129,31 +144,29 @@ export function DayView({
     [appointments, date]
   );
 
+  const bloquesPorProfesional = useMemo(() => {
+    const mapa = new Map<string, BloqueDeCita[]>();
+    for (const appt of delDia) {
+      for (const bloque of bloquesDe(appt)) {
+        const actuales = mapa.get(bloque.professionalId) ?? [];
+        actuales.push(bloque);
+        mapa.set(bloque.professionalId, actuales);
+      }
+    }
+    return mapa;
+  }, [delDia]);
+
   // Columnas: el equipo, más una para las citas de quien ya no está en la lista.
   const columnas = useMemo(() => {
     const delEquipo = professionals.filter((p) => p.id);
-    const huerfanos = Array.from(
-      new Set(
-        delDia
-          .map((a) => a.professionalId)
-          .filter((id) => !delEquipo.some((p) => p.id === id))
-      )
+    const huerfanos = Array.from(bloquesPorProfesional.keys()).filter(
+      (id) => !delEquipo.some((p) => p.id === id)
     );
     return [
       ...delEquipo,
       ...huerfanos.map((id) => ({ id, name: "Sin asignar" })),
     ];
-  }, [delDia, professionals]);
-
-  const bloquesPorProfesional = useMemo(() => {
-    const mapa = new Map<string, BloqueDeCita[]>();
-    for (const appt of delDia) {
-      const actuales = mapa.get(appt.professionalId) ?? [];
-      actuales.push(bloqueDe(appt));
-      mapa.set(appt.professionalId, actuales);
-    }
-    return mapa;
-  }, [delDia]);
+  }, [bloquesPorProfesional, professionals]);
 
   const esHoy = date === toLocalDateKey(new Date());
   const etiqueta = new Date(date + "T12:00:00").toLocaleDateString("es-CO", {
@@ -243,7 +256,7 @@ export function DayView({
 
                 {(bloquesPorProfesional.get(p.id) ?? []).map((bloque) => (
                   <BloqueCita
-                    key={bloque.appt.id}
+                    key={`${bloque.appt.id}-${bloque.professionalId}`}
                     bloque={bloque}
                     seleccionada={selectedId === bloque.appt.id}
                     cliente={clientNames[bloque.appt.clientId] || "Cliente"}
@@ -269,6 +282,10 @@ export function DayView({
           <span className="bg-muted-foreground/30 h-3 w-3 rounded-sm" />
           Limpieza
         </span>
+        <span>
+          Una cita con servicios encadenados aparece en la columna de cada
+          profesional que la atiende
+        </span>
       </p>
 
       {selectedAppt && (
@@ -280,7 +297,12 @@ export function DayView({
               </h4>
               <p className="text-muted-foreground text-sm">
                 {selectedAppt.appointmentServices
-                  .map((s) => s.serviceName)
+                  .map((s) =>
+                    s.professionalId &&
+                    s.professionalId !== selectedAppt.professionalId
+                      ? `${s.serviceName} (${nombreDeProfesional(professionals, s.professionalId)})`
+                      : s.serviceName
+                  )
                   .join(", ")}
               </p>
               <div className="text-muted-foreground mt-1 flex items-center gap-3 text-sm">
@@ -354,7 +376,7 @@ function BloqueCita({
   cliente: string;
   onSelect: () => void;
 }) {
-  const { appt, arriba, alto, ocupados, finDeCliente } = bloque;
+  const { appt, arriba, alto, ocupados, finDeCliente, compartida } = bloque;
   const color = getAppointmentStatus(appt.status).calendarColor;
   const hayHueco = ocupados.length > 1;
 
@@ -383,6 +405,11 @@ function BloqueCita({
         </span>
       </span>
       {hayHueco && <span className="sr-only">Con hueco de procesado</span>}
+      {compartida && (
+        <span className="sr-only">
+          Cita repartida entre varios profesionales
+        </span>
+      )}
     </button>
   );
 }

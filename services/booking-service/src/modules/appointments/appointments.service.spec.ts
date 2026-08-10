@@ -259,7 +259,7 @@ describe("AppointmentsService", () => {
       expect(mockAvailRepo.find).toHaveBeenCalledWith({
         where: {
           businessId: "business-123",
-          professionalId: "prof-123",
+          professionalId: In(["prof-123"]),
           dayOfWeek: DIA_DE_LA_SEMANA,
           active: true,
         },
@@ -469,6 +469,122 @@ describe("AppointmentsService", () => {
           }),
         })
       );
+    });
+
+    describe("servicios encadenados con distintos profesionales", () => {
+      const BARBA = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+      const LA_BARBA = { id: BARBA, name: "Barba", price: 20000, duration: 30 };
+
+      const conAsignacion = {
+        professionalId: "prof-123",
+        clientId: "client-123",
+        serviceIds: [SERVICIO_CORTE, BARBA],
+        date: FECHA_CITA,
+        startTime: "10:00",
+        asignaciones: [{ serviceId: BARBA, professionalId: "prof-999" }],
+      };
+
+      beforeEach(() => {
+        mockAvailRepo.find.mockResolvedValue([
+          mockAvailability,
+          { ...mockAvailability, professionalId: "prof-999" } as Availability,
+        ]);
+        mockBlockRepo.find.mockResolvedValue([]);
+        mockApptRepo.find.mockResolvedValue([]);
+        mockHttp.enviar.mockImplementation(
+          (_servicio: string, _ruta: string, cuerpo: { ids: string[] }) =>
+            Promise.resolve(
+              cuerpo.ids.map((id) => (id === BARBA ? LA_BARBA : CORTE))
+            )
+        );
+      });
+
+      it("resuelve cada servicio con la tarifa de quien lo atiende", async () => {
+        await service.create("business-123", conAsignacion);
+
+        expect(mockHttp.enviar).toHaveBeenCalledWith(
+          "core",
+          "/internal/services/resolve",
+          {
+            businessId: "business-123",
+            ids: [SERVICIO_CORTE],
+            professionalId: "prof-123",
+          }
+        );
+        expect(mockHttp.enviar).toHaveBeenCalledWith(
+          "core",
+          "/internal/services/resolve",
+          {
+            businessId: "business-123",
+            ids: [BARBA],
+            professionalId: "prof-999",
+          }
+        );
+      });
+
+      it("guarda en la línea el profesional que no es el titular", async () => {
+        await service.create("business-123", conAsignacion);
+
+        const crear = mockManager.create as jest.Mock;
+        const lineas = crear.mock.calls
+          .filter(([entidad]) => entidad === AppointmentServiceEntity)
+          .map(([, datos]) => datos);
+
+        expect(lineas).toEqual([
+          expect.objectContaining({
+            serviceId: SERVICIO_CORTE,
+            professionalId: null,
+          }),
+          expect.objectContaining({
+            serviceId: BARBA,
+            professionalId: "prof-999",
+          }),
+        ]);
+      });
+
+      it("comprueba el horario de los dos profesionales", async () => {
+        await service.create("business-123", conAsignacion);
+
+        expect(mockAvailRepo.find).toHaveBeenCalledWith({
+          where: {
+            businessId: "business-123",
+            professionalId: In(["prof-123", "prof-999"]),
+            dayOfWeek: DIA_DE_LA_SEMANA,
+            active: true,
+          },
+        });
+      });
+
+      it("rechaza la cita si el segundo profesional está ocupado", async () => {
+        // El titular tiene libre las 10:00; el otro atiende ya a las 10:30.
+        mockApptRepo.find.mockResolvedValue([
+          {
+            id: "appt-otra",
+            professionalId: "prof-999",
+            startTime: "10:30",
+            endTime: "11:00",
+          },
+        ] as never);
+
+        await expect(
+          service.create("business-123", conAsignacion)
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it("rechaza asignar un profesional a un servicio que no está en la cita", async () => {
+        await expect(
+          service.create("business-123", {
+            ...conAsignacion,
+            asignaciones: [
+              {
+                serviceId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+                professionalId: "prof-999",
+              },
+            ],
+          })
+        ).rejects.toThrow(BadRequestException);
+        expect(mockDataSource.transaction).not.toHaveBeenCalled();
+      });
     });
 
     it("no crea la cita si el catálogo no responde", async () => {
