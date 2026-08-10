@@ -420,6 +420,25 @@ export class EmailService {
     });
   }
 
+  /** Encola la solicitud de reseña tras la cita (prioridad baja). */
+  async queueReviewRequest(
+    to: string,
+    data: {
+      clientName: string;
+      businessName: string;
+      professionalName: string;
+      reviewLink: string;
+    }
+  ): Promise<{ jobId: string }> {
+    return this.queueEmail({
+      to,
+      template: "review-request",
+      data,
+      subject: `¿Qué tal tu visita a ${data.businessName}?`,
+      priority: "low",
+    });
+  }
+
   /** Encola el correo de bienvenida (prioridad baja). */
   async queueWelcomeEmail(
     to: string,

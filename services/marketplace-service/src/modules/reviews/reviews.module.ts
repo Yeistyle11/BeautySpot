@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ReviewEntity } from "../../entities/review.entity";
 import { ReviewHelpfulEntity } from "../../entities/review-helpful.entity";
+import { ReviewReportEntity } from "../../entities/review-report.entity";
 import { ReviewsService } from "./reviews.service";
 import { ReviewsController } from "./reviews.controller";
 import { BusinessProfilesModule } from "../business-profiles/business-profiles.module";
@@ -9,7 +10,11 @@ import { ProfessionalProfilesModule } from "../professional-profiles/professiona
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ReviewEntity, ReviewHelpfulEntity]),
+    TypeOrmModule.forFeature([
+      ReviewEntity,
+      ReviewHelpfulEntity,
+      ReviewReportEntity,
+    ]),
     BusinessProfilesModule,
     ProfessionalProfilesModule,
   ],

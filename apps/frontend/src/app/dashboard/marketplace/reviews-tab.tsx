@@ -1,7 +1,7 @@
 "use client";
 
 // Pestana de resenas: listado de valoraciones y respuesta a los clientes.
-import { MessageSquare, Pencil, Star, Trash2 } from "lucide-react";
+import { Eye, EyeOff, MessageSquare, Pencil, Star, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,7 @@ interface ReviewsTabProps {
   onDraftChange: (drafts: Record<string, string>) => void;
   onRespond: (reviewId: string, yaRespondida: boolean) => void;
   onRemoveResponse: (reviewId: string) => void;
+  onModerar: (reviewId: string, status: "PUBLICADA" | "OCULTA") => void;
 }
 
 /** Resenas recibidas y respuesta publica del negocio. */
@@ -42,6 +43,7 @@ export function ReviewsTab({
   onDraftChange,
   onRespond,
   onRemoveResponse,
+  onModerar,
 }: ReviewsTabProps) {
   return (
     <Card className="border-0 shadow-sm">
@@ -61,6 +63,7 @@ export function ReviewsTab({
               // respondida": no hace falta un estado aparte por reseña.
               const editando = drafts[review.id] !== undefined;
               const puedeResponder = canDo(role, "reviews_respond");
+              const oculta = review.status === "OCULTA";
               return (
                 <div
                   key={review.id}
@@ -79,6 +82,35 @@ export function ReviewsTab({
                   </div>
                   {review.comment && (
                     <p className="text-sm">{review.comment}</p>
+                  )}
+
+                  {puedeResponder && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {oculta && <Badge variant="secondary">Oculta</Badge>}
+                      {(review.reportCount ?? 0) > 0 && (
+                        <Badge variant="destructive">
+                          {review.reportCount} denuncia
+                          {review.reportCount === 1 ? "" : "s"}
+                        </Badge>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          onModerar(review.id, oculta ? "PUBLICADA" : "OCULTA")
+                        }
+                      >
+                        {oculta ? (
+                          <>
+                            <Eye className="mr-2 h-3 w-3" /> Publicar
+                          </>
+                        ) : (
+                          <>
+                            <EyeOff className="mr-2 h-3 w-3" /> Ocultar
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   )}
 
                   {review.response && !editando ? (

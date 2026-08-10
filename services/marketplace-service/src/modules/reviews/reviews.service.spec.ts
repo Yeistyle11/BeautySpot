@@ -2,7 +2,8 @@ import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository, DataSource } from "typeorm";
 import { ReviewsService } from "./reviews.service";
-import { ReviewEntity } from "../../entities/review.entity";
+import { ReviewEntity, ReviewStatus } from "../../entities/review.entity";
+import { ReviewReportReason } from "../../entities/review-report.entity";
 import { ReviewHelpfulEntity } from "../../entities/review-helpful.entity";
 import {
   NotFoundException,
@@ -75,6 +76,8 @@ describe("ReviewsService", () => {
     mockManagerRepo = {
       save: jest.fn(),
       delete: jest.fn().mockResolvedValue({ affected: 1 }),
+      insert: jest.fn().mockResolvedValue({}),
+      increment: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     mockManager = {
       getRepository: jest.fn().mockReturnValue(mockManagerRepo),
@@ -564,6 +567,7 @@ describe("ReviewsService", () => {
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
       groupBy: jest.fn().mockReturnThis(),
       getRawMany: jest.fn().mockResolvedValue(rows),
     });
@@ -884,6 +888,77 @@ describe("ReviewsService", () => {
 
       expect(mockHelpfulRepo.remove).not.toHaveBeenCalled();
       expect(mockRepo.decrement).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("moderación y denuncia", () => {
+    it("oculta la reseña y recalcula las medias", async () => {
+      const review = { ...mockReview, generateId: () => undefined } as any;
+      mockRepo.findOne.mockResolvedValue(review);
+      mockManagerRepo.save.mockImplementation(async (r: any) => r);
+
+      const resultado = await service.moderar(
+        "review-123",
+        "business-123",
+        ReviewStatus.OCULTA
+      );
+
+      expect(resultado.status).toBe(ReviewStatus.OCULTA);
+      expect(mockProfilesService.updateRating).toHaveBeenCalledWith(
+        "business-123",
+        mockManager
+      );
+      expect(mockProfilesService.invalidarCache).toHaveBeenCalledWith(
+        "business-123"
+      );
+    });
+
+    it("no modera la reseña de otro negocio", async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.moderar("review-123", "otro-negocio", ReviewStatus.OCULTA)
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("registra la denuncia y suma al contador", async () => {
+      mockRepo.findOne.mockResolvedValue(mockReview);
+
+      await service.denunciar("review-123", "user-9", {
+        reason: ReviewReportReason.OFENSIVA,
+      });
+
+      expect(mockManagerRepo.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ reviewId: "review-123", userId: "user-9" })
+      );
+      expect(mockManagerRepo.increment).toHaveBeenCalledWith(
+        { id: "review-123" },
+        "reportCount",
+        1
+      );
+    });
+
+    it("la segunda denuncia del mismo usuario no vuelve a contar", async () => {
+      mockRepo.findOne.mockResolvedValue(mockReview);
+      mockDataSource.transaction.mockRejectedValueOnce({ code: "23505" });
+
+      await expect(
+        service.denunciar("review-123", "user-9", {
+          reason: ReviewReportReason.SPAM,
+        })
+      ).resolves.toEqual({ denunciada: true });
+    });
+
+    it("solo lista las publicadas", async () => {
+      const qb = mockRepo.createQueryBuilder();
+      (qb.getManyAndCount as jest.Mock).mockResolvedValue([[], 0]);
+
+      await service.findByBusiness("business-123", {});
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        "r.status = :publicada",
+        expect.objectContaining({ publicada: ReviewStatus.PUBLICADA })
+      );
     });
   });
 });

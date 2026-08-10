@@ -1,6 +1,12 @@
 import { Entity, Column, Index } from "typeorm";
 import { TenantEntity } from "@beautyspot/database";
 
+/** Visibilidad de una reseña. */
+export enum ReviewStatus {
+  PUBLICADA = "PUBLICADA",
+  OCULTA = "OCULTA",
+}
+
 /** Reseña de un cliente sobre un negocio/profesional, con su calificación, respuesta y datos enriquecidos. */
 @Entity("reviews")
 // El listado de un negocio ordena siempre por fecha; sin este índice Postgres
@@ -49,6 +55,13 @@ export class ReviewEntity extends TenantEntity {
 
   @Column({ default: 0, name: "helpful_count" })
   helpfulCount!: number;
+
+  /** Visibilidad de la reseña. */
+  @Column({ type: "varchar", default: ReviewStatus.PUBLICADA })
+  status!: ReviewStatus;
+
+  @Column({ type: "int", default: 0, name: "report_count" })
+  reportCount!: number;
 
   // Relaciones: se consultan por businessId sin FK (agregacion en servicio)
 }
