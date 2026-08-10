@@ -68,6 +68,12 @@ export class CashRegisterController {
     return this.service.getSessionHistory(businessId, pagination);
   }
 
+  /** Corte X: el arqueo de la sesión sin cerrarla, desglosado por método. */
+  @Get(":id/corte")
+  async corteX(@Param("id") id: string, @BusinessId() businessId: string) {
+    return this.service.getSessionSummary(id, businessId);
+  }
+
   /** Devuelve el resumen de una sesión con sus movimientos y total esperado. */
   @Get(":id/summary")
   async getSessionSummary(

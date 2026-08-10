@@ -32,7 +32,7 @@ describe("InvoicesService", () => {
   let mockItemRepo: jest.Mocked<Repository<InvoiceItemEntity>>;
   let mockPdfService: jest.Mocked<PdfService>;
   let mockReservarNumero: jest.Mock;
-  let mockHttp: { pedir: jest.Mock };
+  let mockHttp: { pedir: jest.Mock; pedirONulo: jest.Mock };
 
   const mockInvoiceItem: InvoiceItemEntity = {
     id: "item-123",
@@ -83,7 +83,11 @@ describe("InvoicesService", () => {
       generateInvoicePdf: jest.fn().mockResolvedValue(Buffer.from("PDF data")),
     } as any;
 
-    mockHttp = { pedir: jest.fn().mockResolvedValue(PERFILES) };
+    mockHttp = {
+      pedir: jest.fn().mockResolvedValue(PERFILES),
+      // La serie de numeración sale de los datos fiscales del negocio.
+      pedirONulo: jest.fn().mockResolvedValue(PERFILES),
+    };
 
     const mockOutboxSpec = { enqueue: jest.fn().mockResolvedValue(undefined) };
     // La transacción entrega el repositorio simulado y resuelve la reserva del
@@ -514,6 +518,41 @@ describe("InvoicesService", () => {
 
       await expect(
         service.generateInvoicePdf("non-existent", "business-123")
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("facturas del cliente", () => {
+    const paginacion = { page: 1, limit: 20, offset: 0 } as never;
+
+    it("acota a las fichas del usuario", async () => {
+      mockHttp.pedirONulo.mockResolvedValue([{ id: "cli-1" }, { id: "cli-2" }]);
+      mockInvoiceRepo.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findByClientUser("user-1", paginacion);
+
+      expect(mockInvoiceRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { clientId: expect.anything() },
+        })
+      );
+    });
+
+    it("no consulta nada si el usuario no tiene fichas", async () => {
+      mockHttp.pedirONulo.mockResolvedValue([]);
+
+      const resultado = await service.findByClientUser("user-1", paginacion);
+
+      expect(resultado.data).toEqual([]);
+      expect(mockInvoiceRepo.findAndCount).not.toHaveBeenCalled();
+    });
+
+    it("no deja descargar la factura de otro", async () => {
+      mockHttp.pedirONulo.mockResolvedValue([{ id: "cli-1" }]);
+      mockInvoiceRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.generateMyInvoicePdf("invoice-de-otro", "user-1")
       ).rejects.toThrow(NotFoundException);
     });
   });

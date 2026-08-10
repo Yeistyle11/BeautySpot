@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
-import { Between, Repository, DataSource, EntityManager } from "typeorm";
+import { Between, In, Repository, DataSource, EntityManager } from "typeorm";
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { InvoiceEntity } from "./invoice.entity";
 import { InvoiceItemEntity } from "./invoice-item.entity";
@@ -14,6 +14,9 @@ import { InvoiceStatus, IPaginatedResponse } from "@beautyspot/shared-types";
 import { IVA } from "@beautyspot/shared-constants";
 import { CreateInvoiceDto } from "./dto/invoice.dto";
 import { PdfService } from "./pdf/pdf.service";
+
+/** Serie de numeración de quien no la haya configurado. */
+const SERIE_POR_DEFECTO = "INV";
 
 /** Estados a los que puede pasar una factura desde cada estado. */
 const TRANSICIONES_DE_FACTURA: Record<InvoiceStatus, InvoiceStatus[]> = {
@@ -38,6 +41,7 @@ interface ProfileResolution {
       nit?: string;
       razonSocial?: string;
       direccionFiscal?: string;
+      serie?: string;
     };
   } | null;
 }
@@ -140,6 +144,70 @@ export class InvoicesService {
     });
   }
 
+  /** Facturas de todas las fichas de cliente que tenga el usuario. */
+  async findByClientUser(
+    userId: string,
+    pagination: PaginateParams
+  ): Promise<IPaginatedResponse<InvoiceEntity>> {
+    const clientIds = await this.clientIdsDelUsuario(userId);
+    if (clientIds.length === 0) {
+      return {
+        data: [],
+        meta: {
+          page: pagination.page,
+          limit: pagination.limit,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false,
+        },
+      };
+    }
+
+    return paginate(this.invoiceRepo, pagination, {
+      where: { clientId: In(clientIds) },
+      relations: ["items"],
+      order: { createdAt: "DESC" },
+    });
+  }
+
+  /** PDF de una factura propia del cliente; 404 si no es suya. */
+  async generateMyInvoicePdf(
+    invoiceId: string,
+    userId: string
+  ): Promise<Buffer> {
+    const invoice = await this.facturaDelUsuario(invoiceId, userId);
+    return this.generateInvoicePdf(invoiceId, invoice.businessId);
+  }
+
+  /** Factura que pertenece a alguna ficha del usuario; si no, 404. */
+  private async facturaDelUsuario(
+    invoiceId: string,
+    userId: string
+  ): Promise<InvoiceEntity> {
+    const clientIds = await this.clientIdsDelUsuario(userId);
+    const invoice = clientIds.length
+      ? await this.invoiceRepo.findOne({
+          where: { id: invoiceId, clientId: In(clientIds) },
+        })
+      : null;
+    if (!invoice) throw new NotFoundException("Factura no encontrada");
+    return invoice;
+  }
+
+  /** Fichas de cliente del usuario. */
+  private async clientIdsDelUsuario(userId: string): Promise<string[]> {
+    const fichas = await this.http.pedirONulo<{ id?: unknown }[]>(
+      "core",
+      `/internal/clients/by-user/${userId}`
+    );
+    if (!Array.isArray(fichas)) return [];
+
+    return fichas
+      .map((c) => c.id)
+      .filter((id): id is string => typeof id === "string");
+  }
+
   /** Obtiene una factura con sus líneas; lanza 404 si no existe. */
   async findById(id: string, businessId: string): Promise<InvoiceEntity> {
     const invoice = await this.invoiceRepo.findOne({
@@ -236,17 +304,29 @@ export class InvoicesService {
     manager: EntityManager
   ): Promise<string> {
     const year = new Date().getFullYear();
+    const serie = await this.serieDelNegocio(businessId);
 
     const [{ last_number: siguiente }] = (await manager.query(
-      `INSERT INTO invoice_sequences (business_id, year, last_number)
-       VALUES ($1, $2, 1)
-       ON CONFLICT (business_id, year)
+      `INSERT INTO invoice_sequences (business_id, serie, year, last_number)
+       VALUES ($1, $2, $3, 1)
+       ON CONFLICT (business_id, serie, year)
        DO UPDATE SET last_number = invoice_sequences.last_number + 1
        RETURNING last_number`,
-      [businessId, year]
+      [businessId, serie, year]
     )) as { last_number: number }[];
 
-    return `INV-${year}-${String(siguiente).padStart(6, "0")}`;
+    return `${serie}-${year}-${String(siguiente).padStart(6, "0")}`;
+  }
+
+  /** Serie con la que numera el negocio, tomada de sus datos fiscales. */
+  private async serieDelNegocio(businessId: string): Promise<string> {
+    const perfil = await this.http.pedirONulo<ProfileResolution>(
+      "core",
+      `/internal/profiles/resolve?businessId=${businessId}`
+    );
+    const serie = perfil?.business?.facturacion?.serie?.trim();
+
+    return serie ? serie.toUpperCase() : SERIE_POR_DEFECTO;
   }
 
   /** Fecha de vencimiento por defecto: 30 días desde hoy. */

@@ -189,8 +189,12 @@ describe("PaymentsService", () => {
         registeredBy: "user-123",
       };
 
-      mockRepo.create.mockReturnValue(mockPayment);
-      mockManagerRepo.save.mockResolvedValue(mockPayment);
+      const conTarjeta = {
+        ...mockPayment,
+        method: PaymentMethod.CARD,
+      } as PaymentEntity;
+      mockRepo.create.mockReturnValue(conTarjeta);
+      mockManagerRepo.save.mockResolvedValue(conTarjeta);
       mockManagerRepo.findOne.mockResolvedValue(null);
 
       await expect(service.create("business-123", data)).resolves.toBeDefined();

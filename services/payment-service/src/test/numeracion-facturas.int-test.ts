@@ -44,7 +44,10 @@ describe("Integración: numeración de facturas por negocio", () => {
       outbox as unknown as OutboxService,
       // Aquí solo se emiten facturas; el PDF, que es quien consulta a core, no
       // se genera.
-      {} as InternalHttpClient
+      // Sin serie configurada: numera con la de por defecto.
+      {
+        pedirONulo: jest.fn().mockResolvedValue(null),
+      } as unknown as InternalHttpClient
     );
   }, 60000);
 

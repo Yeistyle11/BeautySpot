@@ -4,7 +4,7 @@ import { Repository, DataSource, IsNull } from "typeorm";
 import { CashRegisterService } from "./cash-register.service";
 import { CashSessionEntity } from "./cash-session.entity";
 import { CashMovementEntity } from "./cash-movement.entity";
-import { CashMovementType } from "@beautyspot/shared-types";
+import { CashMovementType, PaymentMethod } from "@beautyspot/shared-types";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
@@ -209,6 +209,69 @@ describe("CashRegisterService", () => {
 
       expect(mockManagerRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ expectedTotal: 55000, difference: -1000 })
+      );
+    });
+
+    it("desglosa el cierre por método de pago", async () => {
+      const sesion = sesionCon([
+        {
+          ...mockMovement,
+          type: CashMovementType.IN,
+          amount: 10000,
+          method: PaymentMethod.CASH,
+        },
+        {
+          ...mockMovement,
+          type: CashMovementType.IN,
+          amount: 40000,
+          method: PaymentMethod.CARD,
+        },
+        {
+          ...mockMovement,
+          type: CashMovementType.OUT,
+          amount: 5000,
+          method: PaymentMethod.CASH,
+        },
+      ]);
+      mockSessionRepo.findOne.mockResolvedValue(sesion);
+      mockManagerRepo.save.mockImplementation((s: unknown) => s);
+
+      await service.closeSession("session-123", "business-123", "user-123", {
+        closingAmount: 55000,
+      });
+
+      const [, evento] = mockOutbox.enqueue.mock.calls[0];
+      expect(evento.payload.porMetodo).toEqual({
+        CASH: { entradas: 10000, salidas: 5000 },
+        CARD: { entradas: 40000, salidas: 0 },
+      });
+    });
+
+    it("cuadra el cajón solo contra el efectivo", async () => {
+      const sesion = sesionCon([
+        {
+          ...mockMovement,
+          type: CashMovementType.IN,
+          amount: 10000,
+          method: PaymentMethod.CASH,
+        },
+        {
+          ...mockMovement,
+          type: CashMovementType.IN,
+          amount: 40000,
+          method: PaymentMethod.CARD,
+        },
+      ]);
+      mockSessionRepo.findOne.mockResolvedValue(sesion);
+      mockManagerRepo.save.mockImplementation((s: unknown) => s);
+
+      // 50.000 de fondo + 10.000 en efectivo = 60.000; se cuentan 60.000.
+      await service.closeSession("session-123", "business-123", "user-123", {
+        closingAmount: 60000,
+      });
+
+      expect(mockManagerRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ expectedTotal: 60000, difference: 0 })
       );
     });
 
@@ -484,6 +547,7 @@ describe("CashRegisterService", () => {
           totalIn: 10000,
           totalOut: 5000,
           movementCount: 2,
+          porMetodo: { MANUAL: { entradas: 10000, salidas: 5000 } },
           expectedTotal: 55000,
         },
       });

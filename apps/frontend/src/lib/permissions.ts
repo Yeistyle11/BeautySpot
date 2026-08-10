@@ -92,6 +92,12 @@ export const PAGES: PageAccess[] = [
     roles: ["CLIENT"],
   },
   {
+    path: "/dashboard/client/invoices",
+    label: "Mis Facturas",
+    icon: "Receipt",
+    roles: ["CLIENT"],
+  },
+  {
     path: "/dashboard/client/profile",
     label: "Mi Perfil",
     icon: "UserCircle",
