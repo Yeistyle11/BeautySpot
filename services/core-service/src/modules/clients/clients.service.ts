@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { TenantCrudService, OutboxService } from "@beautyspot/nest-common";
@@ -310,14 +311,24 @@ export class ClientsService extends TenantCrudService<Client> {
     await repo.increment({ id, businessId }, "noShowCount", 1);
   }
 
-  /** Resta puntos de fidelidad al cliente, sin bajar de cero. */
+  /**
+   * Resta puntos de fidelidad al cliente, sin bajar de cero.
+   *
+   * Acepta un `manager` por el mismo motivo que `addLoyaltyPoints`: el descuento
+   * y la marca de evento procesado tienen que confirmarse juntos, o los puntos
+   * se gastan dos veces o no se gastan nunca.
+   */
   async subtractLoyaltyPoints(
     id: string,
     businessId: string,
-    points: number
+    points: number,
+    manager?: EntityManager
   ): Promise<void> {
-    const client = await this.findById(id, businessId);
+    const repo = manager ? manager.getRepository(Client) : this.repo;
+    const client = await repo.findOne({ where: { id, businessId } });
+    if (!client) throw new NotFoundException("Cliente no encontrado");
+
     const newPoints = Math.max(0, client.loyaltyPoints - points);
-    await this.repo.update({ id, businessId }, { loyaltyPoints: newPoints });
+    await repo.update({ id, businessId }, { loyaltyPoints: newPoints });
   }
 }

@@ -26,6 +26,22 @@ export class PaymentEntity extends TenantEntity {
     default: PaymentStatus.COMPLETED,
   })
   status!: PaymentStatus;
+  /**
+   * Puntos de fidelidad que el cliente gastó en este cobro, y lo que rebajaron.
+   *
+   * Se guardan los dos: el valor del punto puede cambiar, y una vez cobrado hay
+   * que poder explicar el importe con los números que se aplicaron entonces.
+   */
+  @Column({ type: "int", name: "puntos_usados", default: 0 })
+  puntosUsados!: number;
+  @Column({
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
+  descuento!: number;
   @Column({ nullable: true }) reference!: string;
   @Column({ type: "text", nullable: true }) notes!: string;
   @Column({ type: "uuid", name: "registered_by", nullable: true })

@@ -28,7 +28,8 @@ import {
 } from "@beautyspot/shared-types";
 import { OutboxService } from "@beautyspot/nest-common";
 import { paginate, PaginateParams } from "@beautyspot/database";
-import { EventNames } from "@beautyspot/event-types";
+import { EventNames, ServicioDeLaCita } from "@beautyspot/event-types";
+import { VALOR_DEL_PUNTO } from "@beautyspot/shared-constants";
 
 /** Días desde el pago dentro de los que se admite un reembolso. */
 const REFUND_WINDOW_DAYS = 30;
@@ -37,6 +38,7 @@ const REFUND_WINDOW_DAYS = 30;
 interface CobroDeCita {
   clientId: string;
   totalAmount: number;
+  services?: ServicioDeLaCita[];
 }
 
 /** Estados a los que puede pasar un pago desde cada estado. */
@@ -75,18 +77,34 @@ export class PaymentsService {
       notes?: string;
       registeredBy: string;
       branchId?: string;
+      puntosUsados?: number;
     }
   ): Promise<PaymentEntity> {
+    const puntosUsados = data.puntosUsados ?? 0;
+    const descuento = puntosUsados * VALOR_DEL_PUNTO;
+
+    if (puntosUsados > 0) {
+      await this.validarLosPuntos(businessId, data.clientId, puntosUsados);
+    }
+
+    // Lo que se cobró solo lo sabe booking: payment guarda el importe, no el
+    // detalle. Se toma de la misma consulta que ya valida la cita.
+    let services: ServicioDeLaCita[] | undefined;
     if (data.appointmentId) {
-      await this.validarContraLaCita(
+      services = await this.validarContraLaCita(
         businessId,
         data.appointmentId,
-        data.amount
+        data.amount + descuento
       );
     }
 
     return this.dataSource.transaction(async (manager) => {
-      const payment = this.repo.create({ ...data, businessId });
+      const payment = this.repo.create({
+        ...data,
+        businessId,
+        puntosUsados,
+        descuento,
+      });
       const savedPayment = await manager
         .getRepository(PaymentEntity)
         .save(payment);
@@ -104,11 +122,65 @@ export class PaymentsService {
           clientId: savedPayment.clientId,
           amount: Number(savedPayment.amount),
           method: savedPayment.method,
+          services,
         },
       });
 
+      // El descuento de los puntos va por Outbox, en la misma transacción que
+      // el cobro: core es quien guarda el saldo, y un cobro con descuento cuyos
+      // puntos no se descuentan los regala.
+      if (puntosUsados > 0) {
+        await this.outbox.enqueue(manager, {
+          eventType: EventNames.PAYMENT_POINTS_REDEEMED,
+          aggregateType: "payment",
+          aggregateId: savedPayment.id,
+          payload: {
+            paymentId: savedPayment.id,
+            businessId,
+            clientId: savedPayment.clientId,
+            points: puntosUsados,
+            discount: descuento,
+          },
+        });
+      }
+
       return savedPayment;
     });
+  }
+
+  /**
+   * Comprueba que el cliente tiene los puntos que quiere gastar.
+   *
+   * El saldo vive en core, así que entre esta lectura y el descuento efectivo
+   * cabe una carrera: dos cobros simultáneos del mismo cliente podrían gastar
+   * los mismos puntos. `subtractLoyaltyPoints` no baja de cero, con lo que el
+   * saldo nunca queda negativo; el riesgo real es regalar un descuento en un
+   * cobro presencial, y se ha preferido eso a bloquear la ficha del cliente
+   * desde otro servicio.
+   */
+  private async validarLosPuntos(
+    businessId: string,
+    clientId: string,
+    puntos: number
+  ): Promise<void> {
+    if (!Number.isInteger(puntos) || puntos <= 0) {
+      throw new BadRequestException("Los puntos a canjear no son válidos");
+    }
+
+    const ficha = await this.http.pedir<{ loyaltyPoints: number } | null>(
+      "core",
+      `/internal/clients/${clientId}/puntos?businessId=${businessId}`
+    );
+    if (!ficha) {
+      throw new BadRequestException(
+        "El cliente no existe o no pertenece a este negocio"
+      );
+    }
+    if (ficha.loyaltyPoints < puntos) {
+      throw new BadRequestException(
+        `El cliente solo tiene ${ficha.loyaltyPoints} puntos`
+      );
+    }
   }
 
   /**
@@ -119,7 +191,7 @@ export class PaymentsService {
     businessId: string,
     appointmentId: string,
     amount: number
-  ): Promise<void> {
+  ): Promise<ServicioDeLaCita[] | undefined> {
     const cita = await this.http.pedir<CobroDeCita | null>(
       "booking",
       `/internal/appointments/${appointmentId}/cobro?businessId=${businessId}`
@@ -146,6 +218,8 @@ export class PaymentsService {
         `El importe no coincide con el de la cita ($${cita.totalAmount})`
       );
     }
+
+    return cita.services;
   }
 
   /**

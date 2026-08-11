@@ -27,6 +27,19 @@ export class InternalClientsController {
     return this.createNewClient(dto);
   }
 
+  /** Puntos de fidelidad disponibles del cliente, para quien vaya a canjearlos. */
+  @Get(":id/puntos")
+  async puntos(
+    @Param("id") id: string,
+    @Query("businessId") businessId: string
+  ): Promise<{ loyaltyPoints: number } | null> {
+    const cliente = await this.clientRepo.findOne({
+      where: { id, businessId },
+      select: ["id", "loyaltyPoints"],
+    });
+    return cliente ? { loyaltyPoints: cliente.loyaltyPoints } : null;
+  }
+
   /** Lista los clientes vinculados a un usuario, uno por cada negocio donde reservó. */
   @Get("by-user/:userId")
   async findByUser(@Param("userId") userId: string): Promise<Client[]> {

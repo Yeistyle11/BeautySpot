@@ -120,6 +120,8 @@ describe("PaymentsService", () => {
       expect(mockRepo.create).toHaveBeenCalledWith({
         ...data,
         businessId: "business-123",
+        puntosUsados: 0,
+        descuento: 0,
       });
       // el save ocurre a traves del repositorio del manager (dentro de la tx)
       expect(mockManagerRepo.save).toHaveBeenCalledWith(mockPayment);
@@ -261,6 +263,108 @@ describe("PaymentsService", () => {
         });
 
         expect(mockHttp.pedir).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("canje de puntos", () => {
+      /** Cobro de una cita de 100 pagando 40 con puntos y 60 en efectivo. */
+      const conPuntos = {
+        appointmentId: "appointment-123",
+        clientId: "client-123",
+        amount: 60,
+        method: PaymentMethod.CASH,
+        registeredBy: "user-123",
+        puntosUsados: 40,
+      };
+
+      beforeEach(() => {
+        mockRepo.create.mockReturnValue(mockPayment);
+        mockManagerRepo.save.mockResolvedValue(mockPayment);
+        mockRepo.findOne.mockResolvedValue(null);
+        mockHttp.pedir.mockImplementation((servicio: string) =>
+          Promise.resolve(
+            servicio === "core"
+              ? { loyaltyPoints: 500 }
+              : { clientId: "client-123", totalAmount: 100 }
+          )
+        );
+      });
+
+      // Lo que tiene que cuadrar con la cita es lo pagado más lo descontado.
+      it("acepta el cobro cuando importe y descuento suman el de la cita", async () => {
+        await expect(
+          service.create("business-123", conPuntos)
+        ).resolves.toBeDefined();
+
+        expect(mockRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({ puntosUsados: 40, descuento: 40 })
+        );
+      });
+
+      it("descuenta los puntos por Outbox, en la misma transacción", async () => {
+        await service.create("business-123", conPuntos);
+
+        expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+          mockManager,
+          expect.objectContaining({
+            eventType: EventNames.PAYMENT_POINTS_REDEEMED,
+            payload: expect.objectContaining({
+              clientId: "client-123",
+              points: 40,
+              discount: 40,
+            }),
+          })
+        );
+      });
+
+      it("rechaza gastar más puntos de los que tiene el cliente", async () => {
+        mockHttp.pedir.mockImplementation((servicio: string) =>
+          Promise.resolve(
+            servicio === "core"
+              ? { loyaltyPoints: 10 }
+              : { clientId: "client-123", totalAmount: 100 }
+          )
+        );
+
+        await expect(service.create("business-123", conPuntos)).rejects.toThrow(
+          BadRequestException
+        );
+        expect(mockDataSource.transaction).not.toHaveBeenCalled();
+      });
+
+      it("rechaza el canje si la ficha no es del negocio", async () => {
+        mockHttp.pedir.mockImplementation((servicio: string) =>
+          Promise.resolve(
+            servicio === "core"
+              ? null
+              : { clientId: "client-123", totalAmount: 100 }
+          )
+        );
+
+        await expect(service.create("business-123", conPuntos)).rejects.toThrow(
+          BadRequestException
+        );
+      });
+
+      it("rechaza el cobro si el importe no cuadra ni con el descuento", async () => {
+        await expect(
+          service.create("business-123", { ...conPuntos, amount: 20 })
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it("no emite el evento de canje cuando no se usan puntos", async () => {
+        await service.create("business-123", {
+          ...conPuntos,
+          amount: 100,
+          puntosUsados: undefined,
+        });
+
+        expect(mockOutbox.enqueue).not.toHaveBeenCalledWith(
+          mockManager,
+          expect.objectContaining({
+            eventType: EventNames.PAYMENT_POINTS_REDEEMED,
+          })
+        );
       });
     });
 

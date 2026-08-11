@@ -13,7 +13,7 @@ import {
   CancelReason,
   IPaginatedResponse,
 } from "@beautyspot/shared-types";
-import { EventNames } from "@beautyspot/event-types";
+import { EventNames, ServicioDeLaCita } from "@beautyspot/event-types";
 import {
   InternalHttpClient,
   OutboxService,
@@ -875,9 +875,13 @@ export class AppointmentsService {
     clientId: string;
     totalAmount: number;
     status: AppointmentStatus;
+    services: ServicioDeLaCita[];
   } | null> {
     const cita = await this.apptRepo.findOne({
       where: { id: appointmentId, businessId },
+      // Los servicios viajan con el cobro para que el recibo diga qué se pagó:
+      // payment no guarda el detalle, solo el importe.
+      relations: { appointmentServices: true },
     });
     if (!cita) return null;
 
@@ -885,6 +889,7 @@ export class AppointmentsService {
       clientId: cita.clientId,
       totalAmount: Number(cita.totalAmount),
       status: cita.status,
+      services: serviciosDelEvento(cita.appointmentServices),
     };
   }
 

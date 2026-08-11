@@ -1491,7 +1491,10 @@ describe("AppointmentsService", () => {
 
   describe("datosDeCobro", () => {
     it("devuelve el importe, el estado y el cliente de la cita", async () => {
-      mockApptRepo.findOne.mockResolvedValue(mockAppointment);
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        appointmentServices: [],
+      } as never);
 
       await expect(
         service.datosDeCobro("appt-123", "business-123")
@@ -1499,6 +1502,30 @@ describe("AppointmentsService", () => {
         clientId: "client-123",
         totalAmount: 50000,
         status: AppointmentStatus.PENDING,
+        services: [],
+      });
+    });
+
+    // El recibo del cobro dice qué se pagó, y payment solo guarda el importe.
+    it("devuelve los servicios de la cita", async () => {
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        appointmentServices: [
+          {
+            serviceId: "serv-1",
+            serviceName: "Corte",
+            price: "30000",
+            duration: 30,
+          },
+        ],
+      } as never);
+
+      await expect(
+        service.datosDeCobro("appt-123", "business-123")
+      ).resolves.toMatchObject({
+        services: [
+          { serviceId: "serv-1", name: "Corte", price: 30000, duration: 30 },
+        ],
       });
     });
 
@@ -1510,6 +1537,7 @@ describe("AppointmentsService", () => {
       ).resolves.toBeNull();
       expect(mockApptRepo.findOne).toHaveBeenCalledWith({
         where: { id: "appt-123", businessId: "business-123" },
+        relations: { appointmentServices: true },
       });
     });
   });

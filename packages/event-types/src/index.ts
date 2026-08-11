@@ -204,9 +204,26 @@ export interface PaymentRegisteredPayload {
    * que el enum no produce no compila.
    */
   method: PaymentMethod;
+  /**
+   * Lo que se cobró, resuelto contra la cita. Falta en los cobros sueltos, que
+   * no llevan cita detrás: entonces el recibo solo puede dar el importe.
+   */
+  services?: ServicioDeLaCita[];
 }
 
 export type PaymentRegisteredEvent = IBaseEvent<PaymentRegisteredPayload>;
+
+/** Puntos que un cobro gastó de la ficha del cliente. */
+export interface PointsRedeemedPayload {
+  paymentId: string;
+  businessId: string;
+  clientId: string;
+  points: number;
+  /** Lo que esos puntos rebajaron del importe. */
+  discount: number;
+}
+
+export type PointsRedeemedEvent = IBaseEvent<PointsRedeemedPayload>;
 
 export interface CashSessionClosedPayload {
   sessionId: string;
@@ -227,12 +244,25 @@ export interface CashSessionClosedPayload {
 
 export type CashSessionClosedEvent = IBaseEvent<CashSessionClosedPayload>;
 
+/** Línea de una factura, tal y como se imprime en el correo. */
+export interface LineaDeFactura {
+  description: string;
+  quantity: number;
+  total: number;
+}
+
 export interface InvoiceGeneratedPayload {
   invoiceId: string;
   businessId: string;
   clientId: string;
   number: number;
+  subtotal: number;
+  tax: number;
   total: number;
+  /** Vencimiento de la factura, `YYYY-MM-DD`. */
+  dueDate?: string;
+  /** Conceptos facturados; sin ellos el correo solo puede dar el total. */
+  items?: LineaDeFactura[];
 }
 
 export type InvoiceGeneratedEvent = IBaseEvent<InvoiceGeneratedPayload>;
@@ -331,6 +361,7 @@ export const EventNames = {
 
   PAYMENT_PAYMENT_REGISTERED: "payment.payment.registered",
   PAYMENT_INVOICE_GENERATED: "payment.invoice.generated",
+  PAYMENT_POINTS_REDEEMED: "payment.points.redeemed",
   PAYMENT_REFUND_PROCESSED: "payment.refund.processed",
   PAYMENT_CASH_SESSION_CLOSED: "payment.cash.session.closed",
 

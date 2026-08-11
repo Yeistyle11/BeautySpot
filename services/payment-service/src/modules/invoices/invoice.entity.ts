@@ -53,6 +53,13 @@ export class InvoiceEntity extends TenantEntity {
   status!: InvoiceStatus;
   @Column({ type: "text", nullable: true }) notes!: string;
 
-  @OneToMany(() => InvoiceItemEntity, (item) => item.invoice)
+  /**
+   * Las líneas se insertan con la factura: se crean en el mismo `save`, dentro
+   * de la transacción que reserva el número, y una factura sin su detalle no es
+   * una factura.
+   */
+  @OneToMany(() => InvoiceItemEntity, (item) => item.invoice, {
+    cascade: ["insert"],
+  })
   items!: InvoiceItemEntity[];
 }
