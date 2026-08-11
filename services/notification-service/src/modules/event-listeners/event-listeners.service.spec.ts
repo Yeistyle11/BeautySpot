@@ -394,8 +394,8 @@ describe("NotificationEventListeners", () => {
     });
 
     it("mantiene el genérico si el evento viene sin servicios", async () => {
-      // Los eventos emitidos antes de que el campo existiera siguen en la cola:
-      // deben poder consumirse, aunque el correo nombre menos.
+      // El campo es opcional: un evento sin él se consume igual, aunque el
+      // correo nombre menos.
       await service.handleAppointmentConfirmed(mockAppointmentConfirmedEvent);
 
       expect(

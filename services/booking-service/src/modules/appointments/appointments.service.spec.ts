@@ -744,8 +744,8 @@ describe("AppointmentsService", () => {
       );
     });
 
-    // Sin esto el correo de confirmación nombra un genérico "Servicio":
-    // notification no tiene acceso a la base de booking.
+    // El nombre del servicio solo le llega a notification por el evento: no
+    // tiene acceso a la base de booking.
     it("lleva en el evento los servicios de la cita", async () => {
       mockApptRepo.findOne.mockResolvedValue({
         ...mockAppointment,

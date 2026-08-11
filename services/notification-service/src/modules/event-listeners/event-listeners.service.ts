@@ -43,8 +43,7 @@ const ROLES_DE_GESTION: string[] = [Role.OWNER, Role.ADMIN, Role.RECEPTIONIST];
 /**
  * Cómo se nombra lo reservado en el correo: "Corte" o "Corte y Color".
  *
- * El campo es opcional en el evento —los que se emitieron antes de que
- * existiera siguen en la cola—, así que se conserva el genérico como último
+ * El campo es opcional en el evento, así que queda el genérico como último
  * recurso: un correo con un nombre impreciso vale más que uno sin enviar.
  */
 function nombreDelServicio(servicios?: ServicioDeLaCita[]): string {
@@ -819,10 +818,8 @@ export class NotificationEventListeners {
   /**
    * Avisa al negocio de que le han dejado una reseña.
    *
-   * El evento se publicaba desde marketplace desde el principio y nadie lo
-   * escuchaba: `REVIEW_RECEIVED` existía en el enum sin que ninguna reseña
-   * llegara a avisar a nadie. Solo aviso en la aplicación, no correo: quien
-   * gestiona el negocio ya está dentro cuando le interesa responder.
+   * Solo aviso dentro de la aplicación, sin correo: quien gestiona el negocio ya
+   * está dentro cuando le interesa responder.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,

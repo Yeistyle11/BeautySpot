@@ -149,10 +149,9 @@ export interface AppointmentCreatedPayload {
   /**
    * Servicios de la cita, con el nombre congelado al reservarla. Viaja en el
    * evento porque quien avisa al cliente —notification— no tiene acceso a la
-   * base de booking, y sin esto los correos nombran un genérico "Servicio".
+   * base de booking.
    *
-   * Opcional: los eventos emitidos antes de que existiera el campo siguen en
-   * la cola y deben poder consumirse.
+   * Opcional: un evento que llegue sin él debe poder consumirse igual.
    */
   services?: ServicioDeLaCita[];
 }
