@@ -551,6 +551,24 @@ Configuración:
 - [ ] Secretos generados de nuevo (`JWT_SECRET`, `JWT_REFRESH_SECRET`, `INTERNAL_API_SECRET`)
 - [ ] `JWT_SECRET` idéntico en gateway y auth-service
 - [ ] `INTERNAL_API_SECRET` idéntico en los 8 servicios
+
+Buena parte de esta lista la comprueba el propio arranque: **cada servicio
+valida su configuración antes de construir la aplicación** y aborta con código de
+salida 1 si algo falta. Con `NODE_ENV=production` además rechaza los secretos de
+ejemplo —los que acaban en `change-in-production`, los de los `.env.test` y los
+de menos de 32 caracteres—, de modo que un despliegue con los valores de
+desarrollo no llega a levantar. Lo que **no** puede comprobar es que dos
+servicios compartan el mismo valor: eso sigue siendo cosa de esta lista.
+
+Los errores salen juntos, no de uno en uno:
+
+```
+El servicio no puede arrancar: la configuración tiene 2 problema(s).
+  - JWT_SECRET conserva el valor de ejemplo ("...change-in-production")
+  - DATABASE_URL no es una URL válida: "localhost:5433"
+Revisa el .env del servicio contra su .env.example.
+```
+
 - [ ] `CORS_ORIGINS` con el dominio real
 - [ ] `NEXT_PUBLIC_API_URL` apuntando al gateway público
 

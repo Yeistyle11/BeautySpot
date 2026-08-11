@@ -75,6 +75,8 @@ export {
 } from "./factories/create-app.factory";
 export { buildCorsOptions } from "./factories/cors.options";
 export { assertJwtSecret } from "./security/assert-jwt-secret";
+export { validarEntorno, problemasDelEntorno } from "./config/validar-entorno";
+export type { RequisitosDeEntorno, Entorno } from "./config/validar-entorno";
 export { withSerializableRetry } from "./database/serializable-retry";
 export { ZonaDelNegocioService } from "./zona/zona-del-negocio.service";
 export { ZonaDelNegocioModule } from "./zona/zona-del-negocio.module";

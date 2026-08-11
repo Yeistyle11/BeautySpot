@@ -21,10 +21,32 @@ jest.mock("ioredis", () => {
   return { __esModule: true, default: fn, Redis: fn };
 });
 
+/**
+ * Configuración mínima con la que la fábrica deja arrancar. Se declara aquí
+ * porque desde este cambio un servicio sin entorno no llega ni a construirse:
+ * el bootstrap valida antes de crear la aplicación.
+ */
+const ENTORNO_VALIDO = {
+  JWT_SECRET: "9f3a7c1e5b2d8a4f6c0e9b3d7a1f5c8e",
+  INTERNAL_API_SECRET: "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d",
+  DATABASE_URL: "postgresql://u:p@localhost:5433/db",
+  RABBITMQ_URL: "amqp://u:p@localhost:5672",
+};
+
 describe("createAppFactory", () => {
   let NestFactoryMock: any;
   let mockApp: any;
   let mockConfigService: any;
+  let entornoOriginal: NodeJS.ProcessEnv;
+
+  beforeEach(() => {
+    entornoOriginal = process.env;
+    process.env = { ...process.env, ...ENTORNO_VALIDO };
+  });
+
+  afterEach(() => {
+    process.env = entornoOriginal;
+  });
 
   beforeEach(() => {
     mockConfigService = {
@@ -64,6 +86,33 @@ describe("createAppFactory", () => {
         {} as any,
         expect.objectContaining({ logger: expect.any(StructuredLogger) })
       );
+    });
+  });
+
+  describe("validación del entorno", () => {
+    // Un contenedor que levanta verde y falla con la primera petición se
+    // descubre cuando ya hay tráfico encima.
+    it("no construye la aplicación si falta configuración", async () => {
+      delete process.env.JWT_SECRET;
+
+      await expect(createMicroserviceApp({} as any)).rejects.toThrow(
+        /JWT_SECRET/
+      );
+      expect(NestFactoryMock.create).not.toHaveBeenCalled();
+    });
+
+    it("exige también las URLs de infraestructura", async () => {
+      process.env.DATABASE_URL = "localhost:5433";
+
+      await expect(createMicroserviceApp({} as any)).rejects.toThrow(
+        /DATABASE_URL no es una URL válida/
+      );
+    });
+
+    it("admite exigencias propias del servicio que arranca", async () => {
+      await expect(
+        createMicroserviceApp({} as any, { obligatorias: ["SMTP_HOST"] })
+      ).rejects.toThrow(/SMTP_HOST no está definida/);
     });
   });
 
