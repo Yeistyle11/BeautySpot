@@ -18,6 +18,7 @@ import { TokenVersionStore } from "../security/token-version.store";
 import { buildCorsOptions } from "./cors.options";
 import { requestContextMiddleware } from "../observability/request-context";
 import { StructuredLogger } from "../observability/structured.logger";
+import { LatenciaInterceptor } from "../observability/latencia.interceptor";
 import {
   validarEntorno,
   type RequisitosDeEntorno,
@@ -109,6 +110,7 @@ export async function createMicroserviceApp(
   // El serializador va después del que envuelve: así recibe la entidad cruda y
   // aplica sus @Exclude() antes de que se meta dentro del sobre ApiResponse.
   app.useGlobalInterceptors(
+    new LatenciaInterceptor(),
     new TransformInterceptor(),
     new ClassSerializerInterceptor(reflector)
   );

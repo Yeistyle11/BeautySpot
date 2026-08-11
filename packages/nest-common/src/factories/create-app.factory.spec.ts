@@ -248,10 +248,12 @@ describe("createAppFactory", () => {
     it("debería serializar la respuesta antes de envolverla", async () => {
       await createMicroserviceApp({} as any);
 
-      // El orden importa: el serializador va después del que envuelve para
-      // recibir la entidad cruda y poder aplicar sus @Exclude().
+      // El orden importa por dos motivos: el de latencia va el primero para
+      // medir todo lo que viene después, y el serializador después del que
+      // envuelve, para recibir la entidad cruda y aplicar sus @Exclude().
       const registrados = mockApp.useGlobalInterceptors.mock.calls[0];
       expect(registrados.map((i: object) => i.constructor.name)).toEqual([
+        "LatenciaInterceptor",
         "TransformInterceptor",
         "ClassSerializerInterceptor",
       ]);

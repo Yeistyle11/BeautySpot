@@ -46,6 +46,10 @@ export {
 export type { ContextoPeticion } from "./observability/request-context";
 export { StructuredLogger } from "./observability/structured.logger";
 export {
+  LatenciaInterceptor,
+  UMBRAL_LENTO_MS,
+} from "./observability/latencia.interceptor";
+export {
   SesionVerificable,
   SESION_VERIFICABLE_KEY,
 } from "./decorators/sesion-verificable.decorator";
