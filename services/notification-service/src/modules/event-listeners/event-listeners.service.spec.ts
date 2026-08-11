@@ -353,6 +353,59 @@ describe("NotificationEventListeners", () => {
       );
     });
 
+    it("nombra en el correo el servicio que se reservó", async () => {
+      await service.handleAppointmentConfirmed({
+        ...mockAppointmentConfirmedEvent,
+        payload: {
+          ...mockAppointmentConfirmedEvent.payload,
+          services: [
+            { serviceId: "s-1", name: "Corte", price: 30000, duration: 30 },
+          ],
+        },
+      });
+
+      expect(
+        mockEmailService.queueAppointmentConfirmation
+      ).toHaveBeenCalledWith(
+        "juan@example.com",
+        expect.objectContaining({ serviceName: "Corte" })
+      );
+    });
+
+    it("enumera los servicios cuando la cita lleva varios", async () => {
+      await service.handleAppointmentConfirmed({
+        ...mockAppointmentConfirmedEvent,
+        payload: {
+          ...mockAppointmentConfirmedEvent.payload,
+          services: [
+            { serviceId: "s-1", name: "Lavado", price: 10000, duration: 15 },
+            { serviceId: "s-2", name: "Corte", price: 30000, duration: 30 },
+            { serviceId: "s-3", name: "Color", price: 60000, duration: 60 },
+          ],
+        },
+      });
+
+      expect(
+        mockEmailService.queueAppointmentConfirmation
+      ).toHaveBeenCalledWith(
+        "juan@example.com",
+        expect.objectContaining({ serviceName: "Lavado, Corte y Color" })
+      );
+    });
+
+    it("mantiene el genérico si el evento viene sin servicios", async () => {
+      // El campo es opcional: un evento sin él se consume igual, aunque el
+      // correo nombre menos.
+      await service.handleAppointmentConfirmed(mockAppointmentConfirmedEvent);
+
+      expect(
+        mockEmailService.queueAppointmentConfirmation
+      ).toHaveBeenCalledWith(
+        "juan@example.com",
+        expect.objectContaining({ serviceName: "Servicio" })
+      );
+    });
+
     it("no deja notificación si el cliente reservó sin cuenta", async () => {
       mockDataEnricher.enrichAppointmentParticipants.mockResolvedValue({
         clientName: "Invitado",
@@ -849,6 +902,58 @@ describe("NotificationEventListeners", () => {
       });
 
       await service.handleAppointmentCompleted(mockAppointmentCompletedEvent);
+
+      expect(mockNotifications.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("handleReviewCreated", () => {
+    const mockReviewCreatedEvent = {
+      eventType: "marketplace.review.created",
+      eventId: "evt-130",
+      correlationId: "corr-130",
+      timestamp: new Date(),
+      payload: {
+        reviewId: "review-123",
+        businessId: "business-123",
+        clientId: "client-123",
+        professionalId: "professional-123",
+        rating: 5,
+        comment: "Excelente servicio",
+      },
+    };
+
+    it("avisa al negocio de la reseña recibida", async () => {
+      await service.handleReviewCreated(mockReviewCreatedEvent);
+
+      expect(mockNotifications.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-dueno",
+          businessId: "business-123",
+          type: "REVIEW_RECEIVED",
+        })
+      );
+    });
+
+    it("concuerda el singular cuando la reseña es de una estrella", async () => {
+      await service.handleReviewCreated({
+        ...mockReviewCreatedEvent,
+        payload: { ...mockReviewCreatedEvent.payload, rating: 1 },
+      });
+
+      expect(mockNotifications.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining("1 estrella."),
+        })
+      );
+    });
+
+    it("no avisa a quien no gestiona el negocio", async () => {
+      mockHttp.pedirONulo.mockResolvedValue([
+        { userId: "user-pro", role: "PROFESSIONAL" },
+      ] as never);
+
+      await service.handleReviewCreated(mockReviewCreatedEvent);
 
       expect(mockNotifications.create).not.toHaveBeenCalled();
     });

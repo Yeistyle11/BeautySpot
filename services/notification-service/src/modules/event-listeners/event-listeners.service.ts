@@ -29,6 +29,8 @@ import {
   AppointmentReminderDueEvent,
   InvoiceGeneratedEvent,
   PaymentRegisteredEvent,
+  ReviewCreatedEvent,
+  ServicioDeLaCita,
   EventNames,
   EVENTS_EXCHANGE,
   DEAD_LETTER_EXCHANGE,
@@ -37,6 +39,19 @@ import {
 
 /** Quién, dentro del negocio, recibe los avisos de la agenda. */
 const ROLES_DE_GESTION: string[] = [Role.OWNER, Role.ADMIN, Role.RECEPTIONIST];
+
+/**
+ * Cómo se nombra lo reservado en el correo: "Corte" o "Corte y Color".
+ *
+ * El campo es opcional en el evento, así que queda el genérico como último
+ * recurso: un correo con un nombre impreciso vale más que uno sin enviar.
+ */
+function nombreDelServicio(servicios?: ServicioDeLaCita[]): string {
+  if (!servicios?.length) return "Servicio";
+  const nombres = servicios.map((s) => s.name);
+  if (nombres.length === 1) return nombres[0];
+  return `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
+}
 
 /**
  * Métodos de pago que no dejan comprobante al cliente y por eso llevan recibo
@@ -439,6 +454,7 @@ export class NotificationEventListeners {
       businessId,
       date,
       startTime,
+      services,
     } = event.payload;
 
     this.logger.log(`Cita confirmada: ${appointmentId}`);
@@ -474,7 +490,7 @@ export class NotificationEventListeners {
                   {
                     clientName: data.clientName,
                     professionalName: data.professionalName,
-                    serviceName: "Servicio",
+                    serviceName: nombreDelServicio(services),
                     appointmentDate: date,
                     appointmentTime: startTime,
                     businessName: data.businessName,
@@ -522,6 +538,7 @@ export class NotificationEventListeners {
       clientId,
       professionalId,
       businessId,
+      services,
     } = event.payload;
 
     this.logger.log(
@@ -565,7 +582,7 @@ export class NotificationEventListeners {
                   {
                     clientName: data.clientName,
                     professionalName: data.professionalName,
-                    serviceName: "Servicio",
+                    serviceName: nombreDelServicio(services),
                     cancelledDate: date,
                     reason: cancelReason || "Sin motivo",
                     businessName: data.businessName,
@@ -611,6 +628,7 @@ export class NotificationEventListeners {
       professionalId,
       businessId,
       reminderType,
+      services,
     } = event.payload;
 
     this.logger.log(`Recordatorio de cita pendiente: ${appointmentId}`);
@@ -633,7 +651,7 @@ export class NotificationEventListeners {
                 {
                   clientName: data.clientName,
                   professionalName: data.professionalName,
-                  serviceName: "Servicio",
+                  serviceName: nombreDelServicio(services),
                   appointmentDate: date,
                   appointmentTime: startTime,
                   businessName: data.businessName,
@@ -654,7 +672,7 @@ export class NotificationEventListeners {
                 {
                   clientName: data.clientName,
                   professionalName: data.professionalName,
-                  serviceName: "Servicio",
+                  serviceName: nombreDelServicio(services),
                   appointmentTime: startTime,
                   businessName: data.businessName,
                 }
@@ -794,6 +812,44 @@ export class NotificationEventListeners {
       });
     } catch (error) {
       this.logError("pago", error);
+    }
+  }
+
+  /**
+   * Avisa al negocio de que le han dejado una reseña.
+   *
+   * Solo aviso dentro de la aplicación, sin correo: quien gestiona el negocio ya
+   * está dentro cuando le interesa responder.
+   */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.MARKETPLACE_REVIEW_CREATED,
+    queue: nombreDeCola("notification", EventNames.MARKETPLACE_REVIEW_CREATED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleReviewCreated(event: ReviewCreatedEvent) {
+    const { reviewId, businessId, rating, comment } = event.payload;
+
+    this.logger.log(`Reseña recibida: ${reviewId}`);
+
+    try {
+      await this.processedEvents.once(
+        event,
+        "notification:reseña",
+        async () => {
+          await this.avisarAlNegocio(
+            businessId,
+            NotificationType.REVIEW_RECEIVED,
+            "Nueva reseña",
+            `Tu negocio recibió una reseña de ${rating} ${
+              rating === 1 ? "estrella" : "estrellas"
+            }.`,
+            { reviewId, rating, comment }
+          );
+        }
+      );
+    } catch (error) {
+      this.logError("reseña", error);
     }
   }
 

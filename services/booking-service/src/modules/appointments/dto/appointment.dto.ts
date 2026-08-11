@@ -13,6 +13,7 @@ import {
 import { Type } from "class-transformer";
 import { CancelReason } from "@beautyspot/shared-types";
 import { EsFechaSola } from "../../../common/es-fecha-sola.decorator";
+import { EsHoraDelDia } from "../../../common/es-hora-del-dia.decorator";
 
 /** Servicio de la cita que atiende alguien distinto del titular. */
 export class AsignacionDeServicioDto {
@@ -36,7 +37,7 @@ export class CreateAppointmentDto {
   @Type(() => AsignacionDeServicioDto)
   asignaciones?: AsignacionDeServicioDto[];
   @EsFechaSola() date!: string;
-  @IsString() startTime!: string;
+  @EsHoraDelDia() startTime!: string;
   @IsOptional() @IsString() notes?: string;
   @IsOptional() @IsString() branchId?: string;
 }
@@ -62,7 +63,7 @@ export class CancelDto {
 /** Nueva fecha y hora de inicio para reagendar una cita. */
 export class RescheduleDto {
   @EsFechaSola() date!: string;
-  @IsString() startTime!: string;
+  @EsHoraDelDia() startTime!: string;
 }
 
 /** Profesional, día y duración de los que se piden los huecos libres. */

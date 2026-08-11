@@ -12,6 +12,7 @@ import { instanteDe } from "@beautyspot/shared-utils";
 import { EventNames } from "@beautyspot/event-types";
 import { AppointmentStatus } from "@beautyspot/shared-types";
 import { Appointment } from "../../entities/appointment.entity";
+import { serviciosDelEvento } from "../../common/servicios-del-evento";
 
 const DEFAULT_POLL_INTERVAL_MS = 60000;
 
@@ -125,6 +126,9 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
           .getRepository(Appointment)
           .find({
             where,
+            // Los servicios viajan en el evento para que el correo nombre lo
+            // que se reservó y no un genérico "Servicio".
+            relations: { appointmentServices: true },
             order: { date: "ASC", startTime: "ASC" },
             take: MAXIMO_POR_SONDEO,
             skip: pagina * MAXIMO_POR_SONDEO,
@@ -211,6 +215,7 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
           startTime: cita.startTime,
           endTime: cita.endTime,
           totalAmount: cita.totalAmount,
+          services: serviciosDelEvento(cita.appointmentServices),
           reminderType: ventana,
         },
       });

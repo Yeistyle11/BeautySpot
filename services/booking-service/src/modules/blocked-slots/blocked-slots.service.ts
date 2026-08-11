@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import {
   BadRequestException,
   Injectable,
@@ -12,7 +13,10 @@ import {
   timeToMinutes,
   timesOverlap,
 } from "@beautyspot/shared-utils";
-import { AppointmentStatus } from "@beautyspot/shared-types";
+import {
+  AppointmentStatus,
+  RepeticionDeBloqueo,
+} from "@beautyspot/shared-types";
 import { ZonaDelNegocioService } from "@beautyspot/nest-common";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
 import { Appointment } from "../../entities/appointment.entity";
@@ -23,6 +27,14 @@ const ESTADOS_VIVOS = [
   AppointmentStatus.CONFIRMED,
   AppointmentStatus.IN_PROGRESS,
 ];
+
+/** Tope de ocurrencias de una serie: un año de bloqueos diarios. */
+const MAXIMO_DE_LA_SERIE = 366;
+
+/** El día en `YYYY-MM-DD`, que es como se guarda la fecha del bloqueo. */
+function diaComoFecha(dia: Date): string {
+  return dia.toISOString().slice(0, 10);
+}
 
 /** Gestiona los bloqueos puntuales de agenda de un profesional (vacaciones, descansos). */
 @Injectable()
@@ -49,16 +61,57 @@ export class BlockedSlotsService {
     return this.repo.find({ where, order: { date: "ASC", startTime: "ASC" } });
   }
 
-  /** Crea un bloqueo de agenda para el profesional. */
+  /**
+   * Crea el bloqueo de agenda; con `repeticion`, uno por cada día que cubra.
+   *
+   * Las ocurrencias se validan todas antes de guardar ninguna: media serie
+   * puesta y media rechazada deja al profesional con huecos que él cree
+   * bloqueados. Si alguna choca con una cita viva, no se guarda nada y el error
+   * nombra los días en conflicto para poder acortar el rango o liberar la cita.
+   */
   async create(
     businessId: string,
     professionalId: string,
-    data: { date: string; startTime: string; endTime: string; reason?: string }
-  ): Promise<BlockedSlot> {
-    await this.validar(businessId, professionalId, data);
+    data: {
+      date: string;
+      startTime: string;
+      endTime: string;
+      reason?: string;
+      repeticion?: RepeticionDeBloqueo;
+      repetirHasta?: string;
+    }
+  ): Promise<BlockedSlot[]> {
+    const { repeticion, repetirHasta, ...bloqueo } = data;
+    await this.validar(businessId, bloqueo);
+    const fechas = this.fechasDeLaSerie(bloqueo.date, repeticion, repetirHasta);
 
-    const slot = this.repo.create({ ...data, businessId, professionalId });
-    return this.repo.save(slot);
+    const conflictos: string[] = [];
+    for (const date of fechas) {
+      const choca = await this.citasQueChocan(businessId, professionalId, {
+        ...bloqueo,
+        date,
+      });
+      if (choca) conflictos.push(date);
+    }
+    if (conflictos.length > 0) {
+      throw new BadRequestException(
+        `Hay citas en ${conflictos.join(", ")}. Cancelalas o reasignalas antes de bloquear esos dias.`
+      );
+    }
+
+    // Solo las series llevan identificador: un bloqueo suelto no forma parte de
+    // nada y marcarlo invitaría a borrar de más.
+    const serieId = fechas.length > 1 ? randomUUID() : null;
+    const slots = fechas.map((date) =>
+      this.repo.create({
+        ...bloqueo,
+        date,
+        businessId,
+        professionalId,
+        serieId,
+      })
+    );
+    return this.repo.save(slots);
   }
 
   /** Elimina un bloqueo del negocio; lanza 404 si no existe. */
@@ -68,12 +121,69 @@ export class BlockedSlotsService {
   }
 
   /**
-   * Comprueba el formato y el orden de las horas, que la fecha no haya pasado y
-   * que la franja no tenga citas vivas encima.
+   * Elimina la serie entera a la que pertenece el bloqueo, incluidos los días
+   * ya pasados: la serie es una sola decisión y se deshace de una vez.
+   */
+  async removeSerie(id: string, businessId: string): Promise<number> {
+    const slot = await this.repo.findOne({ where: { id, businessId } });
+    if (!slot) throw new NotFoundException("Bloqueo no encontrado");
+
+    if (!slot.serieId) {
+      await this.repo.delete({ id, businessId });
+      return 1;
+    }
+
+    const result = await this.repo.delete({
+      businessId,
+      serieId: slot.serieId,
+    });
+    return result.affected ?? 0;
+  }
+
+  /**
+   * Los días que cubre la serie, del primero a `repetirHasta` incluido.
+   *
+   * El tope de ocurrencias existe porque el rango lo elige quien llama: sin él,
+   * un "hasta 2099" materializa decenas de miles de filas de una sola petición.
+   */
+  private fechasDeLaSerie(
+    desde: string,
+    repeticion?: RepeticionDeBloqueo,
+    hasta?: string
+  ): string[] {
+    if (!repeticion) return [desde];
+    if (!hasta) {
+      throw new BadRequestException(
+        "Un bloqueo que se repite necesita hasta cuando"
+      );
+    }
+    if (hasta < desde) {
+      throw new BadRequestException("La repeticion termina antes de empezar");
+    }
+
+    const salto = repeticion === RepeticionDeBloqueo.SEMANAL ? 7 : 1;
+    const fechas: string[] = [];
+    for (
+      let dia = new Date(`${desde}T00:00:00Z`);
+      diaComoFecha(dia) <= hasta;
+      dia = new Date(dia.getTime() + salto * 86400000)
+    ) {
+      fechas.push(diaComoFecha(dia));
+      if (fechas.length > MAXIMO_DE_LA_SERIE) {
+        throw new BadRequestException(
+          `Una serie no puede pasar de ${MAXIMO_DE_LA_SERIE} bloqueos`
+        );
+      }
+    }
+    return fechas;
+  }
+
+  /**
+   * Comprueba el formato y el orden de las horas y que el primer día no haya
+   * pasado. Basta con el primero: las repeticiones siempre van hacia delante.
    */
   private async validar(
     businessId: string,
-    professionalId: string,
     data: { date: string; startTime: string; endTime: string }
   ): Promise<void> {
     if (!esHoraValida(data.startTime) || !esHoraValida(data.endTime)) {
@@ -89,7 +199,14 @@ export class BlockedSlotsService {
     if (esFechaPasadaEn(zona, data.date)) {
       throw new BadRequestException("No se puede bloquear un dia que ya paso");
     }
+  }
 
+  /** Si ese día hay alguna cita viva bajo la franja que se quiere bloquear. */
+  private async citasQueChocan(
+    businessId: string,
+    professionalId: string,
+    data: { date: string; startTime: string; endTime: string }
+  ): Promise<boolean> {
     const citas = await this.apptRepo.find({
       where: {
         businessId,
@@ -99,7 +216,7 @@ export class BlockedSlotsService {
       },
     });
     // Contra la envolvente de la cita, limpieza incluida.
-    const choca = citas.filter((c) =>
+    return citas.some((c) =>
       timesOverlap(
         data.startTime,
         data.endTime,
@@ -107,10 +224,5 @@ export class BlockedSlotsService {
         c.ocupadoHasta ?? c.endTime
       )
     );
-    if (choca.length > 0) {
-      throw new BadRequestException(
-        `Hay ${choca.length} cita(s) en esa franja. Cancelalas o reasignalas antes de bloquearla.`
-      );
-    }
   }
 }

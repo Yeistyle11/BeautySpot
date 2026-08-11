@@ -89,8 +89,11 @@ Authorization: Bearer <access_token>
   `POST /api/v1/auth/refresh`.
 - Las rutas marcadas **PÚBLICA** en las tablas llevan el decorador `@Public()` y no
   requieren token.
-- El frontend guarda el token en `localStorage` bajo la clave `auth:v1:token` y
-  centraliza el manejo del `401` en `apps/frontend/src/lib/api.ts`.
+- El frontend **no** guarda el token: el gateway lo emite en una cookie httpOnly
+  `bs_access`, acompañada de una cookie legible `bs_session` con solo lo no
+  sensible (rol, negocio, vencimiento) para hidratar la sesión en el cliente. El
+  manejo del `401` se centraliza en `apps/frontend/src/lib/api.ts`, que ante un
+  token vencido dispara una única renovación compartida y reintenta.
 
 Las sesiones se pueden invalidar de forma inmediata en todos los servicios: el
 `tokenVersion` del usuario vive en Redis como fuente de verdad (ver
@@ -415,11 +418,18 @@ domingo, 09:00–18:00.
 
 Roles a nivel de clase: **OWNER, ADMIN**.
 
-| Método | Ruta   | Descripción     |
-| ------ | ------ | --------------- |
-| GET    | `/`    | Lista bloqueos  |
-| POST   | `/`    | Crea bloqueo    |
-| DELETE | `/:id` | Elimina bloqueo |
+| Método | Ruta         | Descripción                                |
+| ------ | ------------ | ------------------------------------------ |
+| GET    | `/`          | Lista bloqueos                             |
+| POST   | `/`          | Crea bloqueo; con repetición, uno por día  |
+| DELETE | `/:id`       | Elimina un bloqueo (solo ese día)          |
+| DELETE | `/:id/serie` | Elimina la serie entera a la que pertenece |
+
+`POST` responde siempre con **una lista** de bloqueos, también cuando se crea uno
+solo. Con `repeticion` (`DIARIA` o `SEMANAL`) hace falta `repetirHasta`, y se
+crea un bloqueo por cada día que cubra el rango, hasta un tope de 366. Si alguno
+de esos días tiene una cita viva bajo la franja no se guarda ninguno, y el error
+nombra los días en conflicto.
 
 ### Reserva pública — `/api/v1/booking/public`
 

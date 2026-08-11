@@ -744,6 +744,41 @@ describe("AppointmentsService", () => {
       );
     });
 
+    // El nombre del servicio solo le llega a notification por el evento: no
+    // tiene acceso a la base de booking.
+    it("lleva en el evento los servicios de la cita", async () => {
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        appointmentServices: [
+          {
+            serviceId: "serv-1",
+            serviceName: "Corte",
+            price: "30000",
+            duration: 60,
+          },
+        ],
+      } as never);
+      mockApptRepo.update.mockResolvedValue({ affected: 1 } as any);
+
+      await service.confirm("appt-123", "business-123");
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            services: [
+              {
+                serviceId: "serv-1",
+                name: "Corte",
+                price: 30000,
+                duration: 60,
+              },
+            ],
+          }),
+        })
+      );
+    });
+
     it("debería lanzar BadRequestException si la cita no está pendiente", async () => {
       const confirmedAppt = {
         ...mockAppointment,

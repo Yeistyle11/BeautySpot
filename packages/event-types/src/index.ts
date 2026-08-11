@@ -127,6 +127,14 @@ export type ClientCreatedEvent = IBaseEvent<ClientCreatedPayload>;
 
 // ─── Booking Events ───────────────────────────────────────────
 
+/** Servicio de una cita, con lo que se congeló al reservarlo. */
+export interface ServicioDeLaCita {
+  serviceId: string;
+  name: string;
+  price: number;
+  duration: number;
+}
+
 export interface AppointmentCreatedPayload {
   appointmentId: string;
   businessId: string;
@@ -138,6 +146,14 @@ export interface AppointmentCreatedPayload {
   /** Hasta cuándo sigue ocupado el profesional: `endTime` más la limpieza. */
   ocupadoHasta?: string;
   totalAmount: number;
+  /**
+   * Servicios de la cita, con el nombre congelado al reservarla. Viaja en el
+   * evento porque quien avisa al cliente —notification— no tiene acceso a la
+   * base de booking.
+   *
+   * Opcional: un evento que llegue sin él debe poder consumirse igual.
+   */
+  services?: ServicioDeLaCita[];
 }
 
 export type AppointmentCreatedEvent = IBaseEvent<AppointmentCreatedPayload>;
@@ -152,19 +168,9 @@ export type AppointmentCancelledEvent = IBaseEvent<
     cancelledBy?: string;
   }
 >;
-/** Servicio de una cita, con lo que se congeló al reservarlo. */
-export interface ServicioDeLaCita {
-  serviceId: string;
-  name: string;
-  price: number;
-  duration: number;
-}
-
 export type AppointmentCompletedEvent = IBaseEvent<
   AppointmentCreatedPayload & {
     pointsEarned: number;
-    /** Servicios atendidos en la cita. */
-    services?: ServicioDeLaCita[];
   }
 >;
 export type AppointmentNoShowedEvent = IBaseEvent<AppointmentCreatedPayload>;

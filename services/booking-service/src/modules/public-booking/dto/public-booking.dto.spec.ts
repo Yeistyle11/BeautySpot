@@ -85,6 +85,12 @@ describe("PublicBookingDto", () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it.each(["9:0", "abc", "24:30"])("rechaza la hora %p", async (startTime) => {
+    await expect(
+      pipe.transform({ ...reservaDeInvitado, startTime }, metadata)
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it("rechaza un correo mal formado", async () => {
     await expect(
       pipe.transform({ ...reservaDeInvitado, guestEmail: "ana" }, metadata)

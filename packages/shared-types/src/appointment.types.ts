@@ -8,6 +8,17 @@ export enum AppointmentStatus {
   NO_SHOW = "NO_SHOW",
 }
 
+/**
+ * Cada cuánto se repite un bloqueo de agenda.
+ *
+ * `SEMANAL` cae siempre en el mismo día de la semana ("los martes por la
+ * tarde"); `DIARIA` cubre días seguidos, que es como se modelan las vacaciones.
+ */
+export enum RepeticionDeBloqueo {
+  DIARIA = "DIARIA",
+  SEMANAL = "SEMANAL",
+}
+
 /** Motivos por los que se cancela una cita. */
 export enum CancelReason {
   CLIENTE_CANCELA = "CLIENTE_CANCELA",
