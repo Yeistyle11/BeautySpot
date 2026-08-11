@@ -79,6 +79,7 @@ describe("AvailabilityQueryService", () => {
     startTime: "12:00",
     endTime: "13:00",
     reason: "Almuerzo",
+    serieId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     generateId: () => {},

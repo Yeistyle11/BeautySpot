@@ -7,6 +7,7 @@ import {
   IsUUID,
 } from "class-validator";
 import { EsFechaSola } from "../../../common/es-fecha-sola.decorator";
+import { EsHoraDelDia } from "../../../common/es-hora-del-dia.decorator";
 
 /**
  * Datos de una reserva pública: negocio, profesional, servicios, horario y datos
@@ -26,7 +27,7 @@ export class PublicBookingDto {
   @IsUUID("4", { each: true })
   serviceIds!: string[];
   @EsFechaSola() date!: string;
-  @IsString() startTime!: string;
+  @EsHoraDelDia() startTime!: string;
   @IsOptional() @IsString() notes?: string;
   @IsString() guestName!: string;
   @IsOptional() @IsEmail() guestEmail?: string;

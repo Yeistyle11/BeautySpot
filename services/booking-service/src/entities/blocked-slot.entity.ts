@@ -10,4 +10,15 @@ export class BlockedSlot extends TenantEntity {
   @Column({ name: "start_time" }) startTime!: string;
   @Column({ name: "end_time" }) endTime!: string;
   @Column({ nullable: true }) reason!: string;
+  /**
+   * Serie a la que pertenece el bloqueo cuando se creó repetido.
+   *
+   * Las repeticiones se materializan como filas sueltas —una por día— en vez de
+   * guardar la regla: el cálculo de disponibilidad ya lee fechas concretas y no
+   * tiene que aprender a expandir nada. Este identificador es lo único que las
+   * mantiene unidas, para poder levantar la serie entera de una vez.
+   */
+  @Index()
+  @Column({ type: "uuid", name: "serie_id", nullable: true })
+  serieId!: string | null;
 }

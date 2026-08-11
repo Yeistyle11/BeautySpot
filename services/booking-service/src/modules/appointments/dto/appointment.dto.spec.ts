@@ -78,6 +78,25 @@ describe("CreateAppointmentDto", () => {
     });
   });
 
+  it.each(["9:0", "abc", "24:30", "10:60", ""])(
+    "rechaza la hora %p",
+    async (startTime) => {
+      // Sin validar el formato, timeToMinutes devuelve NaN y las comparaciones
+      // de horario se evalúan a false: la cita entra sin que nadie avise.
+      const error = await pipe
+        .transform({ ...citaDelPanel, startTime }, metadata)
+        .then(
+          () => null,
+          (e: BadRequestException) => e
+        );
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect(error!.getResponse()).toMatchObject({
+        message: expect.arrayContaining([expect.stringContaining("HH:MM")]),
+      });
+    }
+  );
+
   it("rechaza un profesional que no sea un id valido", async () => {
     await expect(
       pipe.transform({ ...citaDelPanel, professionalId: "any" }, metadata)

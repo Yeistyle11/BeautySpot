@@ -21,6 +21,7 @@ import {
   ZonaDelNegocioService,
 } from "@beautyspot/nest-common";
 import { paginate, PaginateParams } from "@beautyspot/database";
+import { serviciosDelEvento } from "../../common/servicios-del-evento";
 import { AvailabilityQueryService } from "./availability-query.service";
 import { PoliticaDeReservaService } from "./politica-de-reserva.service";
 import { PROPORCION_PUNTOS_FIDELIDAD } from "@beautyspot/shared-constants";
@@ -320,6 +321,7 @@ export class AppointmentsService {
             endTime,
             ocupadoHasta,
             totalAmount,
+            services: serviciosDelEvento(apptServices),
           },
         });
 
@@ -361,6 +363,7 @@ export class AppointmentsService {
           startTime: appt.startTime,
           endTime: appt.endTime,
           totalAmount: appt.totalAmount,
+          services: serviciosDelEvento(appt.appointmentServices),
         },
       });
     });
@@ -433,12 +436,7 @@ export class AppointmentsService {
           endTime: appt.endTime,
           totalAmount: appt.totalAmount,
           pointsEarned,
-          services: appt.appointmentServices.map((s) => ({
-            serviceId: s.serviceId,
-            name: s.serviceName,
-            price: Number(s.price),
-            duration: s.duration,
-          })),
+          services: serviciosDelEvento(appt.appointmentServices),
         },
       });
     });
@@ -509,6 +507,7 @@ export class AppointmentsService {
           startTime: appt.startTime,
           endTime: appt.endTime,
           totalAmount: appt.totalAmount,
+          services: serviciosDelEvento(appt.appointmentServices),
           cancelReason: motivo.nota,
           cancelReasonType: motivo.tipo,
           cancelledBy: motivo.canceladaPor,
@@ -549,6 +548,7 @@ export class AppointmentsService {
           startTime: appt.startTime,
           endTime: appt.endTime,
           totalAmount: appt.totalAmount,
+          services: serviciosDelEvento(appt.appointmentServices),
         },
       });
     });
@@ -661,6 +661,7 @@ export class AppointmentsService {
           startTime: newStartTime,
           endTime: newEndTime,
           totalAmount: appt.totalAmount,
+          services: serviciosDelEvento(appt.appointmentServices),
           previousDate: appt.date,
           previousStartTime: appt.startTime,
         },

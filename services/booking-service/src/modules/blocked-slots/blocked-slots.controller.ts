@@ -29,10 +29,17 @@ export class BlockedSlotsController {
     return this.service.create(businessId, professionalId, dto);
   }
 
-  /** Elimina un bloqueo de agenda. */
+  /** Elimina un bloqueo de agenda; si se repetía, solo ese día. */
   @Delete(":id")
   async remove(@Param("id") id: string, @BusinessId() businessId: string) {
     await this.service.remove(id, businessId);
     return { message: "Bloqueo eliminado" };
+  }
+
+  /** Elimina la serie entera a la que pertenece el bloqueo. */
+  @Delete(":id/serie")
+  async removeSerie(@Param("id") id: string, @BusinessId() businessId: string) {
+    const eliminados = await this.service.removeSerie(id, businessId);
+    return { message: `Se eliminaron ${eliminados} bloqueos` };
   }
 }
