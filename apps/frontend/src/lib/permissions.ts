@@ -38,6 +38,12 @@ export const PAGES: PageAccess[] = [
     roles: ["OWNER", "ADMIN", "PROFESSIONAL"],
   },
   {
+    path: "/dashboard/blocked-slots",
+    label: "Bloqueos",
+    icon: "CalendarOff",
+    roles: ["OWNER", "ADMIN"],
+  },
+  {
     path: "/dashboard/categories",
     label: "Cat. Profesionales",
     icon: "Tag",
@@ -137,6 +143,9 @@ export const ACTIONS = {
   professionals_create: ["OWNER", "ADMIN"],
   professionals_edit: ["OWNER", "ADMIN"],
   professionals_delete: ["OWNER", "ADMIN"],
+  // El backend restringe los bloqueos a OWNER y ADMIN (@Roles del controlador).
+  blocked_slots_create: ["OWNER", "ADMIN"],
+  blocked_slots_delete: ["OWNER", "ADMIN"],
   categories_create: ["OWNER", "ADMIN"],
   categories_edit: ["OWNER", "ADMIN"],
   categories_delete: ["OWNER", "ADMIN"],
