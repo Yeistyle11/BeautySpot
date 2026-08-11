@@ -18,7 +18,7 @@ export class BlockedSlot extends TenantEntity {
    * tiene que aprender a expandir nada. Este identificador es lo único que las
    * mantiene unidas, para poder levantar la serie entera de una vez.
    */
-  @Index()
+  @Index("idx_blocked_slots_serie")
   @Column({ type: "uuid", name: "serie_id", nullable: true })
   serieId!: string | null;
 }
