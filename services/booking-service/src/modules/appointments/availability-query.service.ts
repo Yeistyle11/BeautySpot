@@ -12,6 +12,8 @@ import {
   timesOverlap,
   esInstantePasadoEn,
   algunSolape,
+  arrastreDelDiaAnterior,
+  diaAnterior,
   type Intervalo,
   type OcupacionDeProfesional,
 } from "@beautyspot/shared-utils";
@@ -212,7 +214,33 @@ export class AvailabilityQueryService {
     const citas = await this.citasVivas(businessId, date, manager);
     const otras = excludeId ? citas.filter((c) => c.id !== excludeId) : citas;
 
-    return intervalosPorProfesional(await this.repartoDe(otras, manager));
+    const ocupacion = intervalosPorProfesional(
+      await this.repartoDe(otras, manager)
+    );
+
+    // Una cita que empieza a las 23:30 y dura una hora termina a las "24:30",
+    // que es madrugada del día siguiente. Sin traer ese sobrante, la agenda de
+    // mañana da la franja por libre y se vende dos veces.
+    const deAyer = await this.citasVivas(
+      businessId,
+      diaAnterior(date),
+      manager
+    );
+    const arrastradas = excludeId
+      ? deAyer.filter((c) => c.id !== excludeId)
+      : deAyer;
+    for (const [profesional, intervalos] of intervalosPorProfesional(
+      await this.repartoDe(arrastradas, manager)
+    )) {
+      const arrastre = arrastreDelDiaAnterior(intervalos);
+      if (arrastre.length === 0) continue;
+      ocupacion.set(profesional, [
+        ...(ocupacion.get(profesional) ?? []),
+        ...arrastre,
+      ]);
+    }
+
+    return ocupacion;
   }
 
   /** Citas del día que ocupan agenda, con o sin transacción. */

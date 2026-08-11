@@ -167,6 +167,31 @@ function intervalosDeLinea(
   return intervalos;
 }
 
+/** Minutos que tiene un día; una hora mayor pertenece ya al día siguiente. */
+export const MINUTOS_DEL_DIA = 24 * 60;
+
+/**
+ * La parte de una ocupación del día anterior que cae en este día.
+ *
+ * Una cita que empieza a las 23:30 y dura una hora termina a las "24:30": la
+ * hora se cuenta desde la medianoche de **su** día y puede pasar de 24:00. Ese
+ * sobrante ocupa la madrugada siguiente, y sin traerlo la agenda del día
+ * siguiente lo da por libre y vende encima.
+ *
+ * Los intervalos que no cruzan se descartan, y el que cruza se recorta al
+ * arranque del día: de 23:30–24:30 solo entra 00:00–00:30.
+ */
+export function arrastreDelDiaAnterior(intervalos: Intervalo[]): Intervalo[] {
+  return intervalos
+    .filter((i) => timeToMinutes(i.fin) > MINUTOS_DEL_DIA)
+    .map((i) => ({
+      inicio: minutosAHora(
+        Math.max(0, timeToMinutes(i.inicio) - MINUTOS_DEL_DIA)
+      ),
+      fin: minutosAHora(timeToMinutes(i.fin) - MINUTOS_DEL_DIA),
+    }));
+}
+
 /** Devuelve los minutos desde medianoche como "HH:MM". */
 function minutosAHora(minutos: number): string {
   const h = Math.floor(minutos / 60);

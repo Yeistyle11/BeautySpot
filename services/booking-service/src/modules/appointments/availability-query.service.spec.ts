@@ -395,11 +395,12 @@ describe("AvailabilityQueryService", () => {
 
       await service.franjasDelNegocio("business-123", MIERCOLES_FUTURO, 30);
 
-      // Una consulta de horarios, una de bloqueos y una de citas: el coste no
-      // debe crecer con el tamaño del equipo.
+      // Una consulta de horarios, una de bloqueos y dos de citas —el día y el
+      // anterior, por lo que arrastra pasada la medianoche—: el coste es fijo y
+      // no crece con el tamaño del equipo, que es lo que se vigila aquí.
       expect(mockAvailRepo.find).toHaveBeenCalledTimes(1);
       expect(mockBlockRepo.find).toHaveBeenCalledTimes(1);
-      expect(mockApptRepo.find).toHaveBeenCalledTimes(1);
+      expect(mockApptRepo.find).toHaveBeenCalledTimes(2);
       expect(mockAvailRepo.findOne).not.toHaveBeenCalled();
     });
 
@@ -762,6 +763,66 @@ describe("AvailabilityQueryService", () => {
           "2024-01-15",
           ocupacion("prof-123", "10:30", "11:30"),
           "appt-123"
+        )
+      ).resolves.toBe(false);
+    });
+
+    // Una cita de 23:30 a "24:30" ocupa media hora del dia siguiente: se
+    // consulta por fecha, asi que sin traer ese sobrante se vende dos veces.
+    it("ve el conflicto con la cita de anoche que invade la madrugada", async () => {
+      mockApptRepo.find.mockImplementation(
+        (opciones) =>
+          Promise.resolve(
+            (opciones as { where: { date: string } }).where.date ===
+              "2024-01-14"
+              ? [
+                  {
+                    ...mockAppointment,
+                    id: "appt-anoche",
+                    date: "2024-01-14",
+                    startTime: "23:30",
+                    endTime: "24:30",
+                    ocupadoHasta: null,
+                  },
+                ]
+              : []
+          ) as never
+      );
+
+      await expect(
+        service.hayConflicto(
+          "business-123",
+          "2024-01-15",
+          ocupacion("prof-123", "00:00", "01:00")
+        )
+      ).resolves.toBe(true);
+    });
+
+    it("no ve conflicto si la cita de anoche acaba antes de medianoche", async () => {
+      mockApptRepo.find.mockImplementation(
+        (opciones) =>
+          Promise.resolve(
+            (opciones as { where: { date: string } }).where.date ===
+              "2024-01-14"
+              ? [
+                  {
+                    ...mockAppointment,
+                    id: "appt-anoche",
+                    date: "2024-01-14",
+                    startTime: "22:00",
+                    endTime: "23:00",
+                    ocupadoHasta: null,
+                  },
+                ]
+              : []
+          ) as never
+      );
+
+      await expect(
+        service.hayConflicto(
+          "business-123",
+          "2024-01-15",
+          ocupacion("prof-123", "00:00", "01:00")
         )
       ).resolves.toBe(false);
     });
