@@ -1,5 +1,11 @@
 # 09 - Diferenciadores Competitivos - BeautySpot SaaS
 
+> **Este documento es especificacion, no el estado del producto.** Describe los diferenciadores frente a la competencia y su alcance previsto.
+> Puede mencionar cosas que no existen, y no menciona cosas que si. Para lo que
+> hay hoy: [API.md](API.md) (rutas), [05-BASE-DATOS.md](05-BASE-DATOS.md) (datos),
+> [04-ARQUITECTURA.md](04-ARQUITECTURA.md) (como funciona) y
+> [06-ROADMAP.md](06-ROADMAP.md#donde-esta-el-proyecto) (que falta).
+
 ## Resumen
 
 Este documento describe los diferenciadores competitivos de BeautySpot frente a las

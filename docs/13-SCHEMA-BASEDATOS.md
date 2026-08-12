@@ -57,17 +57,17 @@ que escribirlo con ese nombre:
 INSERT INTO appointments (..., status) VALUES (..., 'CONFIRMED'::appointments_status_enum);
 ```
 
-| Base         | Tipo                          | Valores                                                                                                                                              |
-| ------------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| auth         | `memberships_role_enum`       | `SUPER_ADMIN`, `OWNER`, `ADMIN`, `PROFESSIONAL`, `RECEPTIONIST`, `CLIENT`                                                                             |
-| booking      | `appointments_status_enum`    | `PENDING`, `CONFIRMED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`, `NO_SHOW`                                                                           |
-| payment      | `payments_method_enum`        | `CASH`, `CARD`, `TRANSFER`, `OTHER`                                                                                                                  |
-| payment      | `payments_status_enum`        | `PENDING`, `COMPLETED`, `REFUNDED`, `CANCELLED`                                                                                                      |
-| payment      | `invoices_status_enum`        | `DRAFT`, `SENT`, `PAID`, `CANCELLED`                                                                                                                 |
-| payment      | `cash_movements_type_enum`    | `IN`, `OUT`                                                                                                                                          |
-| notification | `notifications_type_enum`     | `APPOINTMENT_CREATED`, `APPOINTMENT_CONFIRMED`, `APPOINTMENT_REMINDER`, `APPOINTMENT_CANCELLED`, `APPOINTMENT_RESCHEDULED`, `APPOINTMENT_COMPLETED`, `PAYMENT_REGISTERED`, `REVIEW_RECEIVED`, `MEMBERSHIP_INVITATION`, `PROMOTION`, `BIRTHDAY` |
-| notification | `notifications_channel_enum`  | `IN_APP`, `EMAIL`, `PUSH`, `WHATSAPP`, `SMS`                                                                                                         |
-| las 5 con outbox | `outbox_messages_status_enum` | `PENDING`, `PROCESSED`, `DEAD`                                                                                                                  |
+| Base             | Tipo                          | Valores                                                                                                                                                                                                                                        |
+| ---------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| auth             | `memberships_role_enum`       | `SUPER_ADMIN`, `OWNER`, `ADMIN`, `PROFESSIONAL`, `RECEPTIONIST`, `CLIENT`                                                                                                                                                                      |
+| booking          | `appointments_status_enum`    | `PENDING`, `CONFIRMED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`, `NO_SHOW`                                                                                                                                                                     |
+| payment          | `payments_method_enum`        | `CASH`, `CARD`, `TRANSFER`, `OTHER`                                                                                                                                                                                                            |
+| payment          | `payments_status_enum`        | `PENDING`, `COMPLETED`, `REFUNDED`, `CANCELLED`                                                                                                                                                                                                |
+| payment          | `invoices_status_enum`        | `DRAFT`, `SENT`, `PAID`, `CANCELLED`                                                                                                                                                                                                           |
+| payment          | `cash_movements_type_enum`    | `IN`, `OUT`                                                                                                                                                                                                                                    |
+| notification     | `notifications_type_enum`     | `APPOINTMENT_CREATED`, `APPOINTMENT_CONFIRMED`, `APPOINTMENT_REMINDER`, `APPOINTMENT_CANCELLED`, `APPOINTMENT_RESCHEDULED`, `APPOINTMENT_COMPLETED`, `PAYMENT_REGISTERED`, `REVIEW_RECEIVED`, `MEMBERSHIP_INVITATION`, `PROMOTION`, `BIRTHDAY` |
+| notification     | `notifications_channel_enum`  | `IN_APP`, `EMAIL`, `PUSH`, `WHATSAPP`, `SMS`                                                                                                                                                                                                   |
+| las 5 con outbox | `outbox_messages_status_enum` | `PENDING`, `PROCESSED`, `DEAD`                                                                                                                                                                                                                 |
 
 `notifications_type_enum` arrancó con ocho valores y ha crecido con
 `ALTER TYPE … ADD VALUE IF NOT EXISTS` en migraciones posteriores
@@ -83,13 +83,13 @@ están en el tipo sin implementación detrás.
 Varias columnas que parecen enumerados son `varchar` a propósito, porque su lista
 cambia más de lo que compensa una migración de tipo:
 
-| Tabla             | Columna              | Valores                                                    |
-| ----------------- | -------------------- | ---------------------------------------------------------- |
-| `reviews`         | `status`             | `PUBLICADA`, `OCULTA`                                      |
-| `review_reports`  | `reason`             | `OFENSIVA`, `FALSA`, `SPAM`, `DATOS_PERSONALES`, `OTRO`    |
-| `campos_de_ficha` | `tipo`               | `texto`, `numero`, `fecha`, `si_no`, `opciones`            |
-| `appointments`    | `cancel_reason_type` | Enum `CancelReason` de TypeScript                          |
-| `cash_movements`  | `method`             | Los mismos que `payments_method_enum`, nullable            |
+| Tabla             | Columna              | Valores                                                 |
+| ----------------- | -------------------- | ------------------------------------------------------- |
+| `reviews`         | `status`             | `PUBLICADA`, `OCULTA`                                   |
+| `review_reports`  | `reason`             | `OFENSIVA`, `FALSA`, `SPAM`, `DATOS_PERSONALES`, `OTRO` |
+| `campos_de_ficha` | `tipo`               | `texto`, `numero`, `fecha`, `si_no`, `opciones`         |
+| `appointments`    | `cancel_reason_type` | Enum `CancelReason` de TypeScript                       |
+| `cash_movements`  | `method`             | Los mismos que `payments_method_enum`, nullable         |
 
 La validación de estas la hace el DTO en la frontera, no la base.
 

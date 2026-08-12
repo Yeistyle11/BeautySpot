@@ -1,5 +1,11 @@
 # 12. Modelo de Negocio - BeautySpot SaaS
 
+> **Este documento es especificacion, no el estado del producto.** Describe el modelo de negocio, los planes y los precios.
+> Puede mencionar cosas que no existen, y no menciona cosas que si. Para lo que
+> hay hoy: [API.md](API.md) (rutas), [05-BASE-DATOS.md](05-BASE-DATOS.md) (datos),
+> [04-ARQUITECTURA.md](04-ARQUITECTURA.md) (como funciona) y
+> [06-ROADMAP.md](06-ROADMAP.md#donde-esta-el-proyecto) (que falta).
+
 ## Tabla de Contenidos
 
 - [Propuesta de Valor](#propuesta-de-valor)

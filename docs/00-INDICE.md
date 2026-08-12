@@ -32,16 +32,16 @@ cambia cómo hay que interpretar cada documento:
 
 ## Producto y negocio
 
-| Documento                                                    | Tipo | Contenido                               |
-| ------------------------------------------------------------ | ---- | --------------------------------------- |
-| [01-REQUISITOS.md](01-REQUISITOS.md)                         | 🔵   | Requisitos funcionales y no funcionales |
-| [02-MODULOS.md](02-MODULOS.md)                               | 🔵   | Desglose funcional por módulo           |
-| [06-ROADMAP.md](06-ROADMAP.md)                               | 🔵   | Plan de evolución por fases             |
-| [07-UX.md](07-UX.md)                                         | 🔵   | Diseño de experiencia y sistema visual  |
-| [09-DIFERENCIADORES.md](09-DIFERENCIADORES.md)               | 🔵   | Diferenciadores frente a la competencia |
-| [11-MVP.md](11-MVP.md)                                       | 🔵   | Alcance del producto mínimo             |
-| [12-MODELO-NEGOCIO.md](12-MODELO-NEGOCIO.md)                 | 🔵   | Modelo de negocio, planes y precios     |
-| [14-MARKETPLACE-EXPERIENCE.md](14-MARKETPLACE-EXPERIENCE.md) | 🔵   | Experiencia del marketplace público     |
+| Documento                                                    | Tipo | Contenido                                                                  |
+| ------------------------------------------------------------ | ---- | -------------------------------------------------------------------------- |
+| [01-REQUISITOS.md](01-REQUISITOS.md)                         | 🔵   | Requisitos funcionales y no funcionales                                    |
+| [02-MODULOS.md](02-MODULOS.md)                               | 🔵   | Desglose funcional por módulo                                              |
+| [06-ROADMAP.md](06-ROADMAP.md)                               | 🔵   | Plan de evolución por fases. Su apartado «Dónde está el proyecto» sí es 🟢 |
+| [07-UX.md](07-UX.md)                                         | 🔵   | Diseño de experiencia y sistema visual                                     |
+| [09-DIFERENCIADORES.md](09-DIFERENCIADORES.md)               | 🔵   | Diferenciadores frente a la competencia                                    |
+| [11-MVP.md](11-MVP.md)                                       | 🔵   | Alcance del producto mínimo                                                |
+| [12-MODELO-NEGOCIO.md](12-MODELO-NEGOCIO.md)                 | 🔵   | Modelo de negocio, planes y precios                                        |
+| [14-MARKETPLACE-EXPERIENCE.md](14-MARKETPLACE-EXPERIENCE.md) | 🔵   | Experiencia del marketplace público                                        |
 
 ## Preguntas frecuentes
 
@@ -86,9 +86,15 @@ que hoy circulan y los que están declarados sin usar.
 ## Notas sobre el estado de la documentación
 
 - Los documentos 🔵 de producto se escribieron antes de la implementación y
-  **describen el objetivo, no necesariamente lo construido**. Se han corregido sus
-  afirmaciones técnicas obsoletas (el proyecto usa TypeORM y npm, no Prisma ni
-  pnpm), pero su alcance funcional no se ha reajustado a lo implementado.
+  **describen el objetivo, no necesariamente lo construido**. Todos llevan un aviso
+  en la cabecera que lo dice. Se han corregido sus afirmaciones técnicas obsoletas
+  (el proyecto usa TypeORM y npm, no Prisma ni pnpm), pero su alcance funcional no
+  se ha reajustado a lo implementado: para eso está
+  [06-ROADMAP.md](06-ROADMAP.md#donde-esta-el-proyecto), que compara el plan con lo
+  que hay.
+- Los 🟢 se revisaron contra el código en agosto de 2026, contando rutas,
+  entidades, eventos y tests en vez de darlos por buenos. Si uno vuelve a
+  contradecir al código, es el documento el que está mal.
 - El monolito Next.js que vivía en la raíz del repositorio (`src/`, `prisma/`) fue
   **eliminado**. La fuente de verdad de la UI es `apps/frontend/`. Cualquier
   referencia a `src/app/admin/` o `src/lib/auth.ts` es de esa época.
