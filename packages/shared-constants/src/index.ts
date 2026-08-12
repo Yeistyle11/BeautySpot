@@ -20,6 +20,15 @@ export const HORAS_MINIMAS_CANCELACION = 2;
 /** Proporción del importe de la cita que se convierte en puntos de fidelidad. */
 export const PROPORCION_PUNTOS_FIDELIDAD = 0.1;
 
+/**
+ * Lo que descuenta un punto al canjearlo, en la moneda del negocio.
+ *
+ * Es el inverso de `PROPORCION_PUNTOS_FIDELIDAD`: si una cita acredita el 10 %
+ * de su importe en puntos y cada punto vale una unidad, el programa devuelve
+ * exactamente ese 10 % cuando se gasta.
+ */
+export const VALOR_DEL_PUNTO = 1;
+
 /** IVA colombiano que se aplica al facturar. */
 export const IVA = 0.19;
 

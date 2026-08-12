@@ -9,6 +9,8 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog } from "@/components/ui/dialog";
 import { RadioGroup } from "@/components/ui/radio-group";
+import { VALOR_DEL_PUNTO } from "@beautyspot/shared-constants";
+import { formatCurrency } from "@/lib/utils";
 import type { Client, CreateForm, EditForm } from "./schemas";
 
 export const PAYMENT_METHOD_OPTIONS = [
@@ -46,6 +48,12 @@ export function CreatePaymentDialog({
   saving,
 }: CreatePaymentDialogProps) {
   const set = (patch: Partial<CreateForm>) => onChange({ ...form, ...patch });
+
+  // El canje solo se ofrece si el cliente elegido tiene saldo: un campo a cero
+  // en todos los cobros solo estorba.
+  const puntosDisponibles =
+    clients.find((c) => c.id === form.clientId)?.loyaltyPoints ?? 0;
+  const puntosUsados = Number(form.puntosUsados) || 0;
 
   return (
     <Dialog open={open} onClose={onClose} title="Registrar pago">
@@ -93,6 +101,25 @@ export function CreatePaymentDialog({
               placeholder="#123456789"
               value={form.reference}
               onChange={(e) => set({ reference: e.target.value })}
+            />
+          </Field>
+        )}
+        {puntosDisponibles > 0 && (
+          <Field
+            label={`Canjear puntos (tiene ${puntosDisponibles})`}
+            hint={
+              puntosUsados > 0
+                ? `Descuenta ${formatCurrency(puntosUsados * VALOR_DEL_PUNTO)}. El monto de arriba es lo que paga aparte.`
+                : "Cada punto descuenta un peso del total."
+            }
+          >
+            <Input
+              type="number"
+              min={0}
+              max={puntosDisponibles}
+              placeholder="0"
+              value={form.puntosUsados}
+              onChange={(e) => set({ puntosUsados: e.target.value })}
             />
           </Field>
         )}

@@ -8,15 +8,40 @@ import {
   buildCorsOptions,
   requestContextMiddleware,
   StructuredLogger,
+  validarEntorno,
+  type RequisitosDeEntorno,
 } from "@beautyspot/nest-common";
 import { AuthGatewayGuard } from "./modules/auth-gateway/auth-gateway.guard";
 import { RateLimitGuard } from "./modules/rate-limit/rate-limit.guard";
 import { CsrfOriginGuard } from "./modules/session/csrf-origin.guard";
 import helmet from "helmet";
 
+/**
+ * Lo que el gateway necesita para arrancar. No tiene base de datos propia, pero
+ * sin las URLs de los servicios no puede enrutar nada, y los dos secretos han de
+ * coincidir con los del resto: con otros distintos rechazaría sesiones legítimas
+ * y no podría hablar con nadie.
+ */
+const REQUISITOS: RequisitosDeEntorno = {
+  secretos: ["JWT_SECRET", "INTERNAL_API_SECRET"],
+  urls: [
+    "AUTH_SERVICE_URL",
+    "CORE_SERVICE_URL",
+    "BOOKING_SERVICE_URL",
+    "PAYMENT_SERVICE_URL",
+    "NOTIFICATION_SERVICE_URL",
+    "MARKETPLACE_SERVICE_URL",
+    "ANALYTICS_SERVICE_URL",
+  ],
+};
+
 /** Arranca el API Gateway: seguridad, CORS, validación, guards globales y escucha. */
 async function bootstrap() {
   const logger = new Logger("Bootstrap");
+
+  // Antes de levantar nada: la puerta de entrada mal configurada es la que
+  // rompe el sistema entero, no solo un servicio.
+  validarEntorno(process.env, REQUISITOS, "El API Gateway");
   const app = await NestFactory.create(AppModule, {
     logger: new StructuredLogger(),
   });

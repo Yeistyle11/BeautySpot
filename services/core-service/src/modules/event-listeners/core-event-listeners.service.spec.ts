@@ -8,7 +8,11 @@ const NEGOCIO = "22222222-2222-4222-8222-222222222222";
 
 describe("CoreEventListeners", () => {
   let service: CoreEventListeners;
-  let mockClients: { addLoyaltyPoints: jest.Mock; addNoShow: jest.Mock };
+  let mockClients: {
+    addLoyaltyPoints: jest.Mock;
+    subtractLoyaltyPoints: jest.Mock;
+    addNoShow: jest.Mock;
+  };
   let mockProcessedEvents: { once: jest.Mock };
   /** El manager que `once` entrega dentro de su transacción. */
   const manager = { getRepository: jest.fn() };
@@ -39,6 +43,7 @@ describe("CoreEventListeners", () => {
     vistos = new Set();
     mockClients = {
       addLoyaltyPoints: jest.fn().mockResolvedValue(undefined),
+      subtractLoyaltyPoints: jest.fn().mockResolvedValue(undefined),
       addNoShow: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -144,6 +149,42 @@ describe("CoreEventListeners", () => {
       await service.handleAppointmentNoShowed(citaNoAtendida());
 
       expect(mockClients.addNoShow).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("handlePointsRedeemed", () => {
+    const canje = () =>
+      ({
+        eventType: "payment.points.redeemed",
+        eventId: "evt-300",
+        correlationId: "corr-300",
+        timestamp: new Date(),
+        payload: {
+          paymentId: "payment-300",
+          clientId: CLIENTE,
+          businessId: NEGOCIO,
+          points: 40,
+          discount: 40,
+        },
+      }) as never;
+
+    it("descuenta los puntos dentro de la transacción del evento", async () => {
+      await service.handlePointsRedeemed(canje());
+
+      expect(mockClients.subtractLoyaltyPoints).toHaveBeenCalledWith(
+        CLIENTE,
+        NEGOCIO,
+        40,
+        manager
+      );
+    });
+
+    // Descontar dos veces le cobra al cliente puntos que no gastó.
+    it("no los descuenta dos veces con el mismo evento", async () => {
+      await service.handlePointsRedeemed(canje());
+      await service.handlePointsRedeemed(canje());
+
+      expect(mockClients.subtractLoyaltyPoints).toHaveBeenCalledTimes(1);
     });
   });
 });

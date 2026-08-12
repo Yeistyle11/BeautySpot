@@ -11,6 +11,7 @@ import { PaymentsService } from "./payments.service";
 import {
   IsString,
   IsNumber,
+  IsInt,
   IsEnum,
   IsOptional,
   IsDateString,
@@ -38,6 +39,15 @@ class CreatePaymentDto {
   method!: PaymentMethod;
   @IsOptional() @IsString() reference?: string;
   @IsOptional() @IsString() notes?: string;
+  /**
+   * Puntos de fidelidad que el cliente gasta en este cobro. `amount` es lo que
+   * paga de su bolsillo, ya rebajado: lo que tiene que cuadrar con la cita es
+   * la suma de los dos.
+   */
+  @IsOptional()
+  @IsInt({ message: "Los puntos deben ser un número entero" })
+  @Min(1, { message: "Para canjear hay que usar al menos un punto" })
+  puntosUsados?: number;
 }
 
 /** Día del que se pide el resumen, en formato ISO. */

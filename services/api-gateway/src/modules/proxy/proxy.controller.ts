@@ -6,11 +6,13 @@ import {
   Param,
   HttpException,
   HttpStatus,
+  Logger,
 } from "@nestjs/common";
 import { Request, Response } from "express";
 import { ProxyService } from "./proxy.service";
 import { CircuitBreakerService } from "../circuit-breaker/circuit-breaker.service";
 import { PROXY_TIMEOUT_MS } from "@beautyspot/shared-constants";
+import { UMBRAL_LENTO_MS } from "@beautyspot/nest-common";
 import { SessionService } from "../session/session.service";
 
 const SERVER_ERROR_THRESHOLD = 500;
@@ -59,6 +61,8 @@ function tieneSaltoDeDirectorio(url: string): boolean {
  */
 @Controller("api/v1")
 export class ProxyController {
+  private readonly logger = new Logger("Latencia");
+
   constructor(
     private proxyService: ProxyService,
     private circuitBreaker: CircuitBreakerService,
@@ -113,6 +117,10 @@ export class ProxyController {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
+    // Se mide solo el salto al backend, no lo que el gateway tarda en resolver
+    // ruta y cabeceras: es lo que distingue "el sistema va lento" de "booking
+    // va lento".
+    const comienzo = Date.now();
 
     try {
       // En la renovación, el refresh token viaja en una cookie httpOnly que el
@@ -128,6 +136,7 @@ export class ProxyController {
         signal: controller.signal,
       });
       clearTimeout(timeout);
+      this.medirSalto(service, req, response.status, comienzo);
 
       let data = await this.proxyService.parseResponseBody(response);
 
@@ -149,7 +158,32 @@ export class ProxyController {
       return respuesta;
     } catch (error) {
       clearTimeout(timeout);
+      // Un servicio que agota el timeout es el caso de latencia por excelencia:
+      // dejarlo sin medir esconde justo al que peor se está portando.
+      if (!(error instanceof ErrorDeServicio)) {
+        this.medirSalto(service, req, "error", comienzo);
+      }
       throw this.proxyService.mapProxyError(service, error);
     }
+  }
+
+  /**
+   * Deja en el log lo que tardó el servicio de destino.
+   *
+   * Sale con el `requestId` que estampa `StructuredLogger`, así que la línea
+   * del gateway y la del servicio se pueden cruzar: la diferencia entre las dos
+   * es lo que se fue en red y en el propio reenvío.
+   */
+  private medirSalto(
+    service: string,
+    req: Request,
+    estado: number | "error",
+    comienzo: number
+  ): void {
+    const ms = Date.now() - comienzo;
+    const linea = `${service} ${req.method} ${req.path} ${estado} ${ms}ms`;
+
+    if (ms >= UMBRAL_LENTO_MS) this.logger.warn(linea);
+    else this.logger.log(linea);
   }
 }

@@ -12,6 +12,7 @@ import {
   Scissors,
   LayoutDashboard,
   Calendar,
+  CalendarOff,
   Users,
   UserCog,
   UserCircle,
@@ -34,6 +35,7 @@ import type { LucideIcon } from "lucide-react";
 const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard,
   Calendar,
+  CalendarOff,
   Scissors,
   Users,
   Tag,

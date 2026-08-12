@@ -146,6 +146,8 @@ export default function PaymentsPage() {
         method: createForm.method,
         reference: createForm.reference || undefined,
         notes: createForm.notes || undefined,
+        // Sin canje no se manda el campo: el backend exige al menos un punto.
+        puntosUsados: Number(createForm.puntosUsados) || undefined,
       });
       setCreateDialog(false);
       setCreateForm(emptyCreateForm);

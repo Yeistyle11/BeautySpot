@@ -711,7 +711,8 @@ export class NotificationEventListeners {
     queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
   })
   async handleInvoiceGenerated(event: InvoiceGeneratedEvent) {
-    const { invoiceId, number, total, clientId, businessId } = event.payload;
+    const { invoiceId, number, total, clientId, businessId, dueDate, items } =
+      event.payload;
 
     this.logger.log(`Factura generada: ${invoiceId}`);
 
@@ -730,9 +731,14 @@ export class NotificationEventListeners {
             clientName,
             invoiceNumber: number.toString(),
             amount: total,
-            dueDate: new Date().toISOString().split("T")[0],
+            // El vencimiento lo fija payment al emitir; si el evento no lo
+            // trae, es más honesto no adelantar una fecha inventada.
+            dueDate: dueDate ?? "",
             businessName: businessData.businessName,
-            services: [],
+            services: (items ?? []).map((i) => ({
+              name: i.description,
+              price: i.total,
+            })),
           });
 
           await this.emitEmailQueuedEvent(
@@ -760,7 +766,8 @@ export class NotificationEventListeners {
 
     try {
       await this.processedEvents.once(event, "notification:pago", async () => {
-        const { clientId, businessId, paymentId, amount } = event.payload;
+        const { clientId, businessId, paymentId, amount, services } =
+          event.payload;
         const [clientEmail, businessData, clientUserId] = await Promise.all([
           this.dataEnricher.enrichClientEmail(clientId),
           this.dataEnricher.enrichBusinessData(businessId),
@@ -791,7 +798,11 @@ export class NotificationEventListeners {
                   amount,
                   dueDate: new Date().toISOString().split("T")[0],
                   businessName: businessData.businessName,
-                  services: [{ name: "Servicio", price: amount }],
+                  // Un cobro suelto no tiene cita detrás, y entonces lo
+                  // único cierto que se puede imprimir es el importe.
+                  services: services?.length
+                    ? services.map((s) => ({ name: s.name, price: s.price }))
+                    : [{ name: "Servicio", price: amount }],
                 }
               );
 

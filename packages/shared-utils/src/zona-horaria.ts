@@ -138,3 +138,10 @@ export function diaSiguiente(fecha: string): string {
   dia.setUTCDate(dia.getUTCDate() + 1);
   return dia.toISOString().slice(0, 10);
 }
+
+/** Día anterior a la fecha dada, en formato `YYYY-MM-DD`. */
+export function diaAnterior(fecha: string): string {
+  const dia = new Date(`${fecha}T00:00:00Z`);
+  dia.setUTCDate(dia.getUTCDate() - 1);
+  return dia.toISOString().slice(0, 10);
+}

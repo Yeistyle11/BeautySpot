@@ -16,7 +16,12 @@ export const paymentSchema = z.object({
 });
 export type Payment = z.infer<typeof paymentSchema>;
 
-export const clientSchema = z.object({ id: z.string(), name: z.string() });
+export const clientSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** Saldo de fidelización, para poder canjearlo al cobrar. */
+  loyaltyPoints: z.number().default(0),
+});
 export type Client = z.infer<typeof clientSchema>;
 
 export const dailySummarySchema = z.object({
@@ -50,6 +55,8 @@ export const emptyCreateForm = {
   method: "CASH",
   reference: "",
   notes: "",
+  /** Puntos de fidelidad que el cliente gasta en este cobro. */
+  puntosUsados: "",
 };
 export type CreateForm = typeof emptyCreateForm;
 

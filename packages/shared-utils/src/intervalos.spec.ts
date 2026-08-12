@@ -1,5 +1,6 @@
 import {
   algunSolape,
+  arrastreDelDiaAnterior,
   duracionDeCliente,
   finDeOcupacion,
   intervalosDeAgenda,
@@ -219,5 +220,29 @@ describe("repartoPorProfesional", () => {
       { inicio: "10:30", fin: "11:00" },
       { inicio: "11:00", fin: "11:05" },
     ]);
+  });
+
+  describe("arrastreDelDiaAnterior", () => {
+    it("trae a la madrugada lo que la cita de anoche invade", () => {
+      // 23:30 + 60' termina a las "24:30": media hora que ya es de hoy.
+      expect(
+        arrastreDelDiaAnterior([{ inicio: "23:30", fin: "24:30" }])
+      ).toEqual([{ inicio: "00:00", fin: "00:30" }]);
+    });
+
+    it("descarta lo que termina antes de medianoche", () => {
+      expect(
+        arrastreDelDiaAnterior([
+          { inicio: "10:00", fin: "11:00" },
+          { inicio: "22:00", fin: "24:00" },
+        ])
+      ).toEqual([]);
+    });
+
+    it("recorta al arranque del día en vez de irse a negativo", () => {
+      expect(
+        arrastreDelDiaAnterior([{ inicio: "23:00", fin: "25:15" }])
+      ).toEqual([{ inicio: "00:00", fin: "01:15" }]);
+    });
   });
 });

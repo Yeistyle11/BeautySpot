@@ -96,6 +96,28 @@ describe("Integración: numeración de facturas por negocio", () => {
     expect(new Set(numeros).size).toBe(numeros.length);
   });
 
+  // Una factura sin detalle no es una factura: el PDF y el portal del cliente
+  // leen las líneas de la tabla, no del objeto que devolvió el alta.
+  it("guarda las líneas de la factura en su tabla", async () => {
+    const emitida = await facturas.create(NEGOCIO_A, {
+      clientId: CLIENTE,
+      items: [
+        { description: "Corte", quantity: 1, unitPrice: 30000 },
+        { description: "Barba", quantity: 2, unitPrice: 10000 },
+      ],
+    });
+
+    const guardadas = await dataSource
+      .getRepository("invoice_items")
+      .find({ where: { invoiceId: emitida.id } });
+
+    expect(guardadas).toHaveLength(2);
+    expect(guardadas.map((l) => l.description).sort()).toEqual([
+      "Barba",
+      "Corte",
+    ]);
+  });
+
   it("no consume número si la factura no llega a guardarse", async () => {
     await emitir(NEGOCIO_A);
 

@@ -119,6 +119,12 @@ export class InvoicesService {
           subtotal: Number(guardada.subtotal),
           tax: Number(guardada.tax),
           total: Number(guardada.total),
+          dueDate: guardada.dueDate,
+          items: guardada.items.map((i) => ({
+            description: i.description,
+            quantity: Number(i.quantity),
+            total: Number(i.total),
+          })),
         },
       });
 

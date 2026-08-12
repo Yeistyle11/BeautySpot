@@ -4,6 +4,7 @@ import { ProcessedEventsStore } from "@beautyspot/nest-common";
 import {
   AppointmentCompletedEvent,
   AppointmentNoShowedEvent,
+  PointsRedeemedEvent,
   EventNames,
   EVENTS_EXCHANGE,
   DEAD_LETTER_EXCHANGE,
@@ -61,6 +62,40 @@ export class CoreEventListeners {
 
     this.logger.log(
       `Acreditados ${pointsEarned} puntos al cliente ${clientId} por la cita ${appointmentId}`
+    );
+  }
+
+  /**
+   * Descuenta de la ficha los puntos que un cobro canjeó.
+   *
+   * Igual que la acreditación: dentro de `once` y compartiendo transacción con
+   * la marca de procesado, porque descontar dos veces le cobra al cliente
+   * puntos que no gastó.
+   */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.PAYMENT_POINTS_REDEEMED,
+    queue: nombreDeCola("core", EventNames.PAYMENT_POINTS_REDEEMED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handlePointsRedeemed(event: PointsRedeemedEvent): Promise<void> {
+    const { paymentId, clientId, businessId, points } = event.payload;
+
+    await this.processedEvents.once(
+      event,
+      "core:canje de puntos",
+      async (manager) => {
+        await this.clients.subtractLoyaltyPoints(
+          clientId,
+          businessId,
+          points,
+          manager
+        );
+      }
+    );
+
+    this.logger.log(
+      `Descontados ${points} puntos al cliente ${clientId} por el cobro ${paymentId}`
     );
   }
 
