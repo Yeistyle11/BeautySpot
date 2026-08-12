@@ -48,6 +48,8 @@ import {
 import {
   appointmentSchema,
   APPOINTMENTS_KEY,
+  clientNameSchema,
+  CLIENT_NAMES_KEY,
   clientSchema,
   CLIENTS_KEY,
   emptyForm,
@@ -59,6 +61,7 @@ import {
   type Appointment,
   type AppointmentForm as FormValues,
   type Client,
+  type ClientName,
   type Professional,
   type Service,
 } from "./schemas";
@@ -173,15 +176,32 @@ export default function AppointmentsPage() {
   );
   const [notaCancelacion, setNotaCancelacion] = useState("");
 
-  // Las citas solo traen el id del cliente —vive en otro servicio—, asi que el
-  // nombre se cruza contra la lista que la pagina carga para el formulario.
+  // Las citas solo traen el id del cliente, que vive en otro servicio. Se piden
+  // los nombres de los que hay en pantalla y no la cartera entera: esta ultima
+  // llega paginada, asi que dejaba sin nombre a todo el que no cayera en la
+  // primera pagina.
+  const idsEnPantalla = useMemo(
+    () => [...new Set(appointments.map((a) => a.clientId))].sort().join(","),
+    [appointments]
+  );
+  const { data: nombres } = useApi<ClientName[]>(
+    idsEnPantalla ? `${CLIENT_NAMES_KEY}?ids=${idsEnPantalla}` : null,
+    undefined,
+    z.array(clientNameSchema)
+  );
+
   const clientMap = useMemo(() => {
     const map: Record<string, string> = {};
+    (nombres ?? []).forEach((c) => {
+      map[c.id] = c.name;
+    });
+    // Lo que el formulario ya tenga cargado sirve igual y evita un parpadeo al
+    // crear una cita cuyo cliente aun no esta en el mapa.
     clients.forEach((c) => {
       map[c.id] = c.name;
     });
     return map;
-  }, [clients]);
+  }, [nombres, clients]);
 
   const professionalMap = useMemo(() => {
     const map: Record<string, string> = {};

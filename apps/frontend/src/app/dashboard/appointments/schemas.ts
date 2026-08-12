@@ -25,6 +25,13 @@ export const clientSchema = z.object({
 });
 export type Client = z.infer<typeof clientSchema>;
 
+/** Solo lo que hace falta para poner nombre a una cita de la lista. */
+export const clientNameSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+export type ClientName = z.infer<typeof clientNameSchema>;
+
 export const emptyForm = {
   professionalId: "",
   clientId: "",
@@ -48,3 +55,5 @@ export const APPOINTMENTS_KEY = "/booking/appointments";
 export const PROFESSIONALS_KEY = "/core/professionals";
 export const SERVICES_KEY = "/core/services";
 export const CLIENTS_KEY = "/core/clients?limit=100";
+/** Nombres de los clientes que hay en pantalla, por lista de ids. */
+export const CLIENT_NAMES_KEY = "/core/clients/names";

@@ -189,11 +189,12 @@ faltar:
 
 ### Puntos flojos
 
-1. **`analytics/capacidad.worker.ts:70-88`**: una llamada HTTP **por (negocio,
-   día) en serie**, y una escritura por profesional dentro. Con cien negocios
-   activos son cien llamadas secuenciales por ciclo. Es un worker de fondo, así
-   que no afecta a la latencia percibida, pero es el primer sitio que se hará
-   lento al crecer.
+1. ~~**`analytics/capacidad.worker.ts`**: una llamada HTTP **por (negocio, día) en
+   serie**, y una escritura por profesional dentro.~~ ✅ corregido el 12 de agosto
+   de 2026: los negocios se resuelven en tandas de cinco —pequeñas a propósito,
+   porque es trabajo de fondo y no debe competir con las peticiones de usuario— y
+   la capacidad del equipo entra en un `INSERT` de varias filas. Un negocio que
+   falle ya no se lleva por delante la tanda.
 2. **51 `findAndCount` frente a 9 `paginate`**: la mayoría están acotados, pero
    conviene barrer que ninguno liste sin límite.
 
@@ -254,9 +255,14 @@ La lista de clientes **solo se pide al abrir el formulario de crear cita**, pero
 calendario y en la vista día. Con el formulario cerrado —el estado normal— **la
 agenda muestra «Cliente» en lugar del nombre**.
 
-Y aunque se abra: la petición va **sin `limit`**, así que trae la primera página
-de 20. En un negocio con más de 20 clientes, la mayoría de las citas se queda sin
-nombre igualmente.
+Y aunque se abra: la petición va acotada a 100, así que en un negocio con más
+clientes la mayoría de las citas se queda sin nombre igualmente.
+
+**Corregido el 12 de agosto de 2026.** Core gana `GET /clients/names?ids=`, que
+devuelve solo `id` y `name` de los clientes pedidos —como mucho 200 por
+consulta—, y la agenda pide los de las citas que tiene en pantalla. La lista del
+formulario se sigue usando como complemento para que crear una cita no provoque
+un parpadeo.
 
 ### Ausencias de producto
 
@@ -269,7 +275,10 @@ nombre igualmente.
 
 1. ~~**Subir Next** y acotar los comodines de `remotePatterns`.~~ ✅ hecho el 12 de
    agosto de 2026: Next 16.3.0 + React 19.
-2. **Los nombres de cliente en la agenda** y el worker de capacidad.
+2. ~~**Los nombres de cliente en la agenda** y el worker de capacidad.~~ ✅ hecho
+   el 12 de agosto de 2026: `GET /core/clients/names?ids=` resuelve los que hay en
+   pantalla, y el worker resuelve los negocios en tandas de cinco y escribe la
+   capacidad del equipo en una sola sentencia.
 3. **Partir `event-listeners.service.ts`**, barrer los `findAndCount` sin límite y
    decidir qué hacer con el filtro de tenant explícito: aceptarlo con un test que
    lo vigile, o automatizarlo en el repositorio base.

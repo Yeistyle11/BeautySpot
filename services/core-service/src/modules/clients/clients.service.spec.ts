@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { DataSource, Repository } from "typeorm";
+import { DataSource, In, Repository } from "typeorm";
 import { OutboxService } from "@beautyspot/nest-common";
 import { ClientsService } from "./clients.service";
 import { BusinessConfigService } from "../business-config/business-config.service";
@@ -268,6 +268,30 @@ describe("ClientsService", () => {
         order: { createdAt: "DESC" },
       });
       expect(result).toEqual(mockClient);
+    });
+  });
+
+  describe("findNamesByIds", () => {
+    it("acota al negocio y devuelve solo id y nombre", async () => {
+      mockRepo.find.mockResolvedValue([{ id: "c-1", name: "Ana" }] as never);
+
+      const result = await service.findNamesByIds("business-123", [
+        "c-1",
+        "c-2",
+      ]);
+
+      expect(mockRepo.find).toHaveBeenCalledWith({
+        where: { businessId: "business-123", id: In(["c-1", "c-2"]) },
+        select: { id: true, name: true },
+      });
+      expect(result).toEqual([{ id: "c-1", name: "Ana" }]);
+    });
+
+    it("no consulta si no le piden ninguno", async () => {
+      await expect(service.findNamesByIds("business-123", [])).resolves.toEqual(
+        []
+      );
+      expect(mockRepo.find).not.toHaveBeenCalled();
     });
   });
 

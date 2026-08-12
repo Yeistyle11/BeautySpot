@@ -20,7 +20,7 @@ cambia cómo hay que interpretar cada documento:
 
 | Documento                                          | Tipo  | Contenido                                                                                    |
 | -------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------- |
-| [API.md](API.md)                                   | 🟢    | Las 215 rutas de los 48 controladores, con roles, paginación, errores y enrutado del gateway |
+| [API.md](API.md)                                   | 🟢    | Las 216 rutas de los 48 controladores, con roles, paginación, errores y enrutado del gateway |
 | [04-ARQUITECTURA.md](04-ARQUITECTURA.md)           | 🟢/🔵 | Arquitectura, ADRs, comunicación entre servicios, multi-tenancy, eventos, circuit breaker    |
 | [05-BASE-DATOS.md](05-BASE-DATOS.md)               | 🟢    | Las 47 tablas de las 7 bases, con sus columnas, índices y por qué                            |
 | [13-SCHEMA-BASEDATOS.md](13-SCHEMA-BASEDATOS.md)   | 🟢    | Escribir SQL a mano: volcar el DDL real, los tipos enum y qué hay en una base recién creada  |

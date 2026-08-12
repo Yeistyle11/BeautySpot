@@ -17,7 +17,11 @@ import {
 } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
-import { CreateClientDto, UpdateClientDto } from "./dto/client.dto";
+import {
+  ClientNamesDto,
+  CreateClientDto,
+  UpdateClientDto,
+} from "./dto/client.dto";
 
 /** Endpoints de gestión de clientes del negocio, con permisos por rol en cada operación. */
 @Controller("clients")
@@ -41,6 +45,22 @@ export class ClientsController {
   ) {
     const pagination = parsePaginationQuery(query, ["name", "createdAt"]);
     return this.service.findByBusiness(businessId, search, pagination);
+  }
+
+  /**
+   * Nombre de los clientes pedidos, para poner cara a una lista de citas.
+   *
+   * La agenda necesita el nombre de los clientes **que hay en pantalla**, no la
+   * cartera entera: pedirla paginada dejaba sin nombre a todo el que no cayera
+   * en la primera página.
+   */
+  @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
+  @Get("names")
+  async names(
+    @BusinessId() businessId: string,
+    @Query() query: ClientNamesDto
+  ): Promise<{ id: string; name: string }[]> {
+    return this.service.findNamesByIds(businessId, query.ids);
   }
 
   /** Ficha del cliente autenticado; `null` si aún no tiene ninguna. */

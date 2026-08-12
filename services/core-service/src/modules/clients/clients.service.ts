@@ -7,7 +7,7 @@ import {
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { TenantCrudService, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
-import { Repository, Like, DataSource, EntityManager } from "typeorm";
+import { Repository, Like, In, DataSource, EntityManager } from "typeorm";
 import {
   escapeLikePattern,
   normalizarEmail,
@@ -257,6 +257,25 @@ export class ClientsService extends TenantCrudService<Client> {
         ]
       : base;
     return paginate(this.repo, pagination, { where, order: { name: "ASC" } });
+  }
+
+  /**
+   * Nombre de los clientes pedidos, acotado al negocio.
+   *
+   * Devuelve solo id y nombre: quien llama está poniendo cara a una lista, no
+   * consultando fichas, y el resto de columnas son datos personales que no hay
+   * por qué mover.
+   */
+  async findNamesByIds(
+    businessId: string,
+    ids: string[]
+  ): Promise<{ id: string; name: string }[]> {
+    if (ids.length === 0) return [];
+
+    return this.repo.find({
+      where: { businessId, id: In(ids) },
+      select: { id: true, name: true },
+    });
   }
 
   /** Busca el cliente asociado a una cuenta de usuario dentro del negocio. */

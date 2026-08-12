@@ -82,6 +82,40 @@ export class NegocioMetricsService {
     );
   }
 
+  /**
+   * Fija de una vez la capacidad de todo el equipo de un negocio ese día.
+   *
+   * Una sentencia por profesional convierte un negocio de veinte personas en
+   * veinte viajes a la base; aquí van todos en un `INSERT` con varias filas.
+   */
+  async fijarCapacidadDelDia(
+    businessId: string,
+    date: string,
+    equipo: { professionalId: string; minutosDisponibles: number }[]
+  ): Promise<void> {
+    if (equipo.length === 0) return;
+
+    // $1 y $2 son el negocio y el día; cada profesional añade su pareja.
+    const valores = equipo
+      .map(
+        (_, i) => `(gen_random_uuid(), $1, $${i * 2 + 3}, $2, $${i * 2 + 4}, 0)`
+      )
+      .join(", ");
+
+    await this.dataSource.query(
+      `INSERT INTO capacity_daily
+         (id, business_id, professional_id, date, minutos_disponibles, minutos_vendidos)
+       VALUES ${valores}
+       ON CONFLICT (business_id, professional_id, date) DO UPDATE SET
+         minutos_disponibles = EXCLUDED.minutos_disponibles`,
+      [
+        businessId,
+        date,
+        ...equipo.flatMap((p) => [p.professionalId, p.minutosDisponibles]),
+      ]
+    );
+  }
+
   /** Fija los minutos que el profesional tenía disponibles ese día. */
   async fijarCapacidad(
     businessId: string,

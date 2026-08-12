@@ -1,3 +1,4 @@
+import { Transform } from "class-transformer";
 import {
   IsString,
   IsOptional,
@@ -5,6 +6,7 @@ import {
   IsBoolean,
   IsEmail,
   IsObject,
+  IsUUID,
   Matches,
   ValidateIf,
   MaxLength,
@@ -62,6 +64,30 @@ export class CreateClientDto {
    * DTO; el contenido lo contrasta `ClientsService` con los campos del negocio.
    */
   @IsOptional() @IsObject() ficha?: Record<string, unknown>;
+}
+
+/** Tope de identificadores por consulta; la agenda pinta como mucho una página de citas. */
+const MAXIMO_IDS = 200;
+
+/**
+ * Identificadores de los clientes cuyo nombre se pide.
+ *
+ * Llegan como lista separada por comas y se acotan: sin tope, un `?ids=` largo
+ * arma un `IN (...)` de miles de elementos con una sola petición.
+ */
+export class ClientNamesDto {
+  @Transform(({ value }) =>
+    typeof value === "string"
+      ? value
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean)
+          .slice(0, MAXIMO_IDS)
+      : []
+  )
+  @IsArray()
+  @IsUUID("4", { each: true, message: "Cada id debe ser un UUID" })
+  ids!: string[];
 }
 
 /** Campos editables de un cliente (todos opcionales). */

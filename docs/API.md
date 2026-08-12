@@ -1,6 +1,6 @@
 # Referencia de la API — BeautySpot
 
-Referencia completa de la API HTTP de BeautySpot: **48 controladores y 215 rutas**
+Referencia completa de la API HTTP de BeautySpot: **48 controladores y 216 rutas**
 repartidos en 8 microservicios NestJS, todos accesibles a través del API Gateway.
 
 Este documento se genera a partir de los controladores reales (`services/*/src/**/*.controller.ts`).
@@ -359,6 +359,7 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 | ------ | ---------------- | ---------------------------------------- | ------------------------------------------------ |
 | POST   | `/`              | OWNER, ADMIN, RECEPTIONIST               | Registra un cliente                              |
 | GET    | `/`              | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Lista con búsqueda y paginación                  |
+| GET    | `/names?ids=`    | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Nombre de los clientes pedidos, por lista de ids |
 | GET    | `/me`            | CLIENT                                   | Su ficha, con el nivel de fidelidad resuelto     |
 | PATCH  | `/me`            | CLIENT                                   | Sus datos personales; 404 si reservó de invitado |
 | GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Detalle                                          |
@@ -367,6 +368,11 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 
 `GET /me` devuelve además `nivel` y `siguienteNivel`, resueltos en el servidor
 contra la escala de `business-config/fidelizacion`, que el cliente no puede leer.
+
+`GET /names` existe porque la agenda necesita el nombre de **los clientes que hay
+en pantalla**, no la cartera entera: esta última llega paginada y dejaba sin
+nombre a todo el que no cayera en la primera página. Devuelve solo `id` y `name`,
+y corta en 200 identificadores por consulta.
 
 ### Campos de ficha — `/api/v1/core/client-fields`
 

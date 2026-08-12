@@ -31,7 +31,7 @@ Next.js, PostgreSQL, Redis, RabbitMQ y Docker.
 | marketplace-service  | 3006   | `beautyspot_marketplace`  | Perfiles públicos, búsqueda, feed, reseñas                          |
 | analytics-service    | 3007   | `beautyspot_analytics`    | KPIs, métricas, reportes                                            |
 
-En total **48 controladores y 215 rutas**, todas accesibles a través del gateway.
+En total **48 controladores y 216 rutas**, todas accesibles a través del gateway.
 Referencia completa en [docs/API.md](docs/API.md).
 
 **Decisiones de arquitectura destacadas**
@@ -268,7 +268,7 @@ Los más usados:
 | Documento                                          | Contenido                         |
 | -------------------------------------------------- | --------------------------------- |
 | [docs/SETUP.md](docs/SETUP.md)                     | Entorno de desarrollo paso a paso |
-| [docs/API.md](docs/API.md)                         | Referencia de las 215 rutas       |
+| [docs/API.md](docs/API.md)                         | Referencia de las 216 rutas       |
 | [docs/04-ARQUITECTURA.md](docs/04-ARQUITECTURA.md) | Arquitectura y ADRs               |
 | [docs/05-BASE-DATOS.md](docs/05-BASE-DATOS.md)     | Las 47 tablas, columna a columna  |
 | [docs/TESTING.md](docs/TESTING.md)                 | Estrategia de tests               |
