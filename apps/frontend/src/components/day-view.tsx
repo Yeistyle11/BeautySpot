@@ -30,10 +30,29 @@ interface DayViewProps {
   canConfirm: boolean;
   canCancel: boolean;
   clientNames: Record<string, string>;
+  /** Bloqueos del día de todo el equipo, para pintarlos sobre la rejilla. */
+  bloqueos?: BloqueoDeAgenda[];
+  /**
+   * Bloquear desde un hueco. Sin este prop la rejilla no es pulsable, que es lo
+   * que corresponde a quien no puede crear bloqueos.
+   */
+  onBloquearHueco?: (professionalId: string, hora: string) => void;
+}
+
+/** Franja bloqueada de la agenda de un profesional. */
+export interface BloqueoDeAgenda {
+  id: string;
+  professionalId: string;
+  startTime: string;
+  endTime: string;
+  reason: string | null;
 }
 
 /** Estados desde los que la cita todavia puede anularse. */
 const ANULABLES = ["PENDING", "CONFIRMED"];
+
+/** Minutos en que se parte cada hora al pulsar un hueco. */
+const MEDIAS_HORAS = ["00", "30"];
 
 /** Franja de jornada que se pinta cuando las citas no piden más. */
 const HORA_INICIO_MINIMA = 7;
@@ -41,18 +60,26 @@ const HORA_FIN_MINIMA = 21;
 const ALTO_HORA = 64;
 
 /**
- * Franja de horas que hay que pintar para que quepan todas las citas del día.
+ * Franja de horas que hay que pintar para que quepan todas las citas y bloqueos
+ * del día.
  *
  * Un negocio que cierra de madrugada tiene citas a las 00:30, y una jornada fija
  * de 7 a 21 las dejaría fuera de la rejilla, invisibles.
  */
-function franjaDelDia(bloques: BloqueDeCita[]): number[] {
+function franjaDelDia(
+  bloques: BloqueDeCita[],
+  bloqueos: { inicio: string; fin: string }[] = []
+): number[] {
   let desde = HORA_INICIO_MINIMA;
   let hasta = HORA_FIN_MINIMA;
 
-  for (const bloque of bloques) {
-    desde = Math.min(desde, Math.floor(timeToMinutes(bloque.inicio) / 60));
-    hasta = Math.max(hasta, Math.ceil(timeToMinutes(bloque.fin) / 60));
+  const tramos = [
+    ...bloques.map((b) => ({ inicio: b.inicio, fin: b.fin })),
+    ...bloqueos,
+  ];
+  for (const tramo of tramos) {
+    desde = Math.min(desde, Math.floor(timeToMinutes(tramo.inicio) / 60));
+    hasta = Math.max(hasta, Math.ceil(timeToMinutes(tramo.fin) / 60));
   }
 
   return Array.from({ length: hasta - desde }, (_, i) => i + desde);
@@ -142,6 +169,8 @@ export function DayView({
   canConfirm,
   canCancel,
   clientNames,
+  bloqueos = [],
+  onBloquearHueco,
 }: DayViewProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedAppt = appointments.find((a) => a.id === selectedId) ?? null;
@@ -163,9 +192,23 @@ export function DayView({
     return mapa;
   }, [delDia]);
 
+  const bloqueosPorProfesional = useMemo(() => {
+    const mapa = new Map<string, BloqueoDeAgenda[]>();
+    for (const bloqueo of bloqueos) {
+      const actuales = mapa.get(bloqueo.professionalId) ?? [];
+      actuales.push(bloqueo);
+      mapa.set(bloqueo.professionalId, actuales);
+    }
+    return mapa;
+  }, [bloqueos]);
+
   const horas = useMemo(
-    () => franjaDelDia(Array.from(bloquesPorProfesional.values()).flat()),
-    [bloquesPorProfesional]
+    () =>
+      franjaDelDia(
+        Array.from(bloquesPorProfesional.values()).flat(),
+        bloqueos.map((b) => ({ inicio: b.startTime, fin: b.endTime }))
+      ),
+    [bloquesPorProfesional, bloqueos]
   );
   const horaInicio = horas[0];
 
@@ -262,8 +305,32 @@ export function DayView({
                 {horas.map((hora) => (
                   <div
                     key={hora}
-                    className="border-border/50 border-b"
+                    className="border-border/50 flex flex-col border-b"
                     style={{ height: ALTO_HORA }}
+                  >
+                    {MEDIAS_HORAS.map((minuto) => {
+                      const inicio = `${String(hora).padStart(2, "0")}:${minuto}`;
+                      if (!onBloquearHueco) {
+                        return <div key={minuto} className="flex-1" />;
+                      }
+                      return (
+                        <button
+                          key={minuto}
+                          type="button"
+                          onClick={() => onBloquearHueco(p.id, inicio)}
+                          className="hover:bg-muted/60 flex-1 transition-colors"
+                          aria-label={`Bloquear ${formatTime(inicio)} de ${p.name ?? "el profesional"}`}
+                        />
+                      );
+                    })}
+                  </div>
+                ))}
+
+                {(bloqueosPorProfesional.get(p.id) ?? []).map((bloqueo) => (
+                  <BloqueoPintado
+                    key={bloqueo.id}
+                    bloqueo={bloqueo}
+                    horaInicio={horaInicio}
                   />
                 ))}
 
@@ -374,6 +441,35 @@ export function DayView({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Franja bloqueada, rayada para no confundirla con una cita.
+ *
+ * Va por debajo de las citas en el orden de pintado: si algo se solapara, lo que
+ * interesa ver es la cita.
+ */
+function BloqueoPintado({
+  bloqueo,
+  horaInicio,
+}: {
+  bloqueo: BloqueoDeAgenda;
+  horaInicio: number;
+}) {
+  const arriba = aPixeles(bloqueo.startTime, horaInicio);
+  const alto = Math.max(aPixeles(bloqueo.endTime, horaInicio) - arriba, 12);
+
+  return (
+    <div
+      className="bg-muted-foreground/20 border-muted-foreground/40 absolute inset-x-0.5 overflow-hidden rounded border border-dashed px-1.5 py-0.5"
+      style={{ top: arriba, height: alto }}
+      title={bloqueo.reason ?? "Agenda bloqueada"}
+    >
+      <span className="text-muted-foreground block truncate text-[10px] leading-tight">
+        {bloqueo.reason || "Bloqueado"}
+      </span>
     </div>
   );
 }

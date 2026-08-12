@@ -34,6 +34,8 @@ describe("ClientsService", () => {
     tags: [],
     loyaltyPoints: 100,
     noShowCount: 0,
+    birthDate: null,
+    birthdayGreetedYear: null,
     active: true,
     ficha: null,
     anonymizedAt: null,

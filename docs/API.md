@@ -439,6 +439,15 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 | DELETE | `/:id`       | Elimina un bloqueo (solo ese día)          |
 | DELETE | `/:id/serie` | Elimina la serie entera a la que pertenece |
 
+### Bloqueos del día — `/api/v1/booking/blocked-slots`
+
+Roles a nivel de clase: **OWNER, ADMIN, RECEPTIONIST**. Los bloqueos de todo el
+equipo un día concreto, que es lo que pinta la vista día de la agenda.
+
+| Método | Ruta      | Descripción                 |
+| ------ | --------- | --------------------------- |
+| GET    | `/?date=` | Bloqueos del equipo ese día |
+
 `POST` responde siempre con **una lista** de bloqueos, también cuando se crea uno
 solo. Con `repeticion` (`DIARIA` o `SEMANAL`) hace falta `repetirHasta`, y se
 crea un bloqueo por cada día que cubra el rango, hasta un tope de 366. Si alguno

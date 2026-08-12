@@ -61,6 +61,14 @@ export class BlockedSlotsService {
     return this.repo.find({ where, order: { date: "ASC", startTime: "ASC" } });
   }
 
+  /** Bloqueos de todo el equipo un día concreto, para pintarlos en la agenda. */
+  async findByDate(businessId: string, date: string): Promise<BlockedSlot[]> {
+    return this.repo.find({
+      where: { businessId, date },
+      order: { startTime: "ASC" },
+    });
+  }
+
   /**
    * Crea el bloqueo de agenda; con `repeticion`, uno por cada día que cubra.
    *

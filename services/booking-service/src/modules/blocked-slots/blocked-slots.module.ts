@@ -1,7 +1,10 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { BlockedSlotsService } from "./blocked-slots.service";
-import { BlockedSlotsController } from "./blocked-slots.controller";
+import {
+  BlockedSlotsController,
+  BlockedSlotsDelDiaController,
+} from "./blocked-slots.controller";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
 import { Appointment } from "../../entities/appointment.entity";
 import { ZonaDelNegocioModule } from "@beautyspot/nest-common";
@@ -11,7 +14,7 @@ import { ZonaDelNegocioModule } from "@beautyspot/nest-common";
     TypeOrmModule.forFeature([BlockedSlot, Appointment]),
     ZonaDelNegocioModule,
   ],
-  controllers: [BlockedSlotsController],
+  controllers: [BlockedSlotsController, BlockedSlotsDelDiaController],
   providers: [BlockedSlotsService],
   exports: [BlockedSlotsService],
 })
