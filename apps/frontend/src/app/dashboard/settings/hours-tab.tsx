@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { HoraDeCierre } from "@/components/ui/hora-de-cierre";
 import { canDo } from "@/lib/permissions";
 import type { Role } from "@/lib/store";
 import { DAYS, type BusinessHour } from "./schemas";
@@ -71,13 +72,12 @@ export function HoursTab({
                       aria-label={`Hora de apertura, ${day.label}`}
                     />
                     <span className="text-muted-foreground">a</span>
-                    <Input
-                      type="time"
+                    <HoraDeCierre
                       value={hour.closeTime}
-                      onChange={(e) =>
-                        onUpdate(day.value, "closeTime", e.target.value)
+                      onValueChange={(hora) =>
+                        onUpdate(day.value, "closeTime", hora)
                       }
-                      className="h-8 w-28 text-sm"
+                      className="h-8 w-40 text-sm"
                       aria-label={`Hora de cierre, ${day.label}`}
                     />
                   </div>

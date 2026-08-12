@@ -181,12 +181,15 @@ describe("Shared Utils", () => {
     it("debería calcular tiempo final correctamente", () => {
       expect(calculateEndTime("09:00", 60)).toBe("10:00");
       expect(calculateEndTime("09:30", 30)).toBe("10:00");
-      expect(calculateEndTime("23:30", 30)).toBe("24:00"); // No maneja wraparound de 24h
+      expect(calculateEndTime("23:30", 30)).toBe("24:00");
     });
 
-    it("debería manejar cálculos que cruzan el día", () => {
-      expect(calculateEndTime("23:00", 120)).toBe("25:00"); // No maneja wraparound
-      expect(calculateEndTime("22:30", 90)).toBe("24:00"); // No maneja wraparound
+    // La hora se cuenta desde la medianoche de su propio día, así que pasar de
+    // las 24:00 es la forma de decir "de madrugada": es lo que espera el resto
+    // de la agenda (arrastreDelDiaAnterior, arrastreDeJornada).
+    it("debería seguir contando pasada la medianoche", () => {
+      expect(calculateEndTime("23:00", 120)).toBe("25:00");
+      expect(calculateEndTime("22:30", 90)).toBe("24:00");
     });
 
     it("debería manejar duración cero", () => {

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from "typeorm";
 import {
+  esHoraDeCierreValida,
   esHoraValida,
   timeToMinutes,
   timesOverlap,
@@ -72,13 +73,24 @@ export class BusinessHoursService {
     return hour;
   }
 
-  /** Valida formato `HH:MM`, orden de las horas y solapes por día y sede. */
+  /**
+   * Valida formato `HH:MM`, orden de las horas y solapes por día y sede.
+   *
+   * La apertura es una hora del día, pero el cierre admite la madrugada del día
+   * siguiente contada desde la medianoche del que abrió: un salón que cierra a
+   * las 2 lo expresa como `26:00`.
+   */
   private validar(items: Partial<BusinessHours>[]): void {
     for (const item of items) {
       const { openTime, closeTime } = item;
-      if (!esHoraValida(openTime ?? "") || !esHoraValida(closeTime ?? "")) {
+      if (!esHoraValida(openTime ?? "")) {
         throw new BadRequestException(
-          `Horario invalido: ${openTime}-${closeTime}. Se espera HH:MM`
+          `Hora de apertura invalida: ${openTime}. Se espera HH:MM, de 00:00 a 23:59`
+        );
+      }
+      if (!esHoraDeCierreValida(closeTime ?? "")) {
+        throw new BadRequestException(
+          `Hora de cierre invalida: ${closeTime}. Se espera HH:MM, de 00:00 a 31:59`
         );
       }
       if (timeToMinutes(openTime!) >= timeToMinutes(closeTime!)) {

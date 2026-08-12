@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from "typeorm";
 import {
+  esHoraDeCierreValida,
   esHoraValida,
   timeToMinutes,
   timesOverlap,
@@ -58,12 +59,23 @@ export class AvailabilityService {
     });
   }
 
-  /** Valida formato `HH:MM`, orden de las horas y solapes dentro de cada día. */
+  /**
+   * Valida formato `HH:MM`, orden de las horas y solapes dentro de cada día.
+   *
+   * La jornada empieza dentro del día pero puede terminar de madrugada, contada
+   * desde la medianoche del día en que empezó: quien sale a las 2 lo expresa
+   * como `26:00`.
+   */
   private validar(slots: TramoSemanal[]): void {
     for (const slot of slots) {
-      if (!esHoraValida(slot.startTime) || !esHoraValida(slot.endTime)) {
+      if (!esHoraValida(slot.startTime)) {
         throw new BadRequestException(
-          `Horario invalido: ${slot.startTime}-${slot.endTime}. Se espera HH:MM`
+          `Hora de entrada invalida: ${slot.startTime}. Se espera HH:MM, de 00:00 a 23:59`
+        );
+      }
+      if (!esHoraDeCierreValida(slot.endTime)) {
+        throw new BadRequestException(
+          `Hora de salida invalida: ${slot.endTime}. Se espera HH:MM, de 00:00 a 31:59`
         );
       }
       if (timeToMinutes(slot.startTime) >= timeToMinutes(slot.endTime)) {

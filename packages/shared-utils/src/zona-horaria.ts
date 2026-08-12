@@ -11,6 +11,23 @@ export function esHoraValida(hora: string): boolean {
   return PATRON_HORA.test(hora);
 }
 
+/**
+ * Formato de una hora de cierre `HH:mm`, de 00:00 a 31:59.
+ *
+ * Un negocio que cierra de madrugada lo hace en la jornada del día que abrió,
+ * así que su hora de cierre se cuenta desde la medianoche de *ese* día y pasa de
+ * las 24:00: un bar de barbería que cierra a las 2 de la mañana cierra a las
+ * 26:00. El tope de las 31:59 son ocho horas de madrugada, suficientes para
+ * cualquier jornada real y lo bastante bajo como para que un dedazo no abra un
+ * tramo de varios días.
+ */
+export const PATRON_HORA_DE_CIERRE = /^([0-2]\d|3[01]):[0-5]\d$/;
+
+/** Indica si el texto es una hora de cierre válida, madrugada incluida. */
+export function esHoraDeCierreValida(hora: string): boolean {
+  return PATRON_HORA_DE_CIERRE.test(hora);
+}
+
 /** Formateadores ya construidos, indexados por zona. */
 const formateadores = new Map<string, Intl.DateTimeFormat>();
 

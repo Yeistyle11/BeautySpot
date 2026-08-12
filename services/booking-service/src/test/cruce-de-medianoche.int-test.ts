@@ -43,12 +43,10 @@ const MADRUGADA = (() => {
  * La ocupación se consulta por fecha, así que sin traer ese sobrante la agenda
  * del día siguiente daría la franja por libre y la vendería otra vez.
  *
- * **La cita se escribe directamente, no se reserva.** Hoy no se puede llegar a
- * este estado por la puerta: tanto `create` como `reschedule` comprueban que la
- * cita quepa en la jornada del profesional, y una jornada no pasa de las 23:59
- * porque `PATRON_HORA` no admite más. El día que el horario admita cerrar de
- * madrugada —lo que queda de A2-24— esta situación pasa a ser normal, y estos
- * tests son los que dicen que la agenda ya está preparada.
+ * La cita de anoche se escribe directamente en la tabla en los casos que solo
+ * miran la ocupación: así el escenario queda montado sin depender de la jornada
+ * del profesional, que es lo que prueban aparte los casos del cierre de
+ * madrugada.
  */
 describe("Integración: la cita de anoche ocupa la madrugada", () => {
   let dataSource: DataSource;
@@ -163,13 +161,10 @@ describe("Integración: la cita de anoche ocupa la madrugada", () => {
     if (dataSource?.isInitialized) await dataSource.destroy();
   });
 
-  beforeEach(async () => {
-    await dataSource.query(
-      'TRUNCATE TABLE "appointment_services", "appointments" CASCADE'
-    );
-    // Jornada de 24 horas los siete días: la restricción que se prueba es la
-    // ocupación, no el horario.
+  /** Deja al profesional trabajando los siete días de 00:00 a la hora indicada. */
+  const jornadaHasta = async (endTime: string) => {
     const disponibilidades = dataSource.getRepository(Availability);
+    await disponibilidades.delete({ businessId: NEGOCIO });
     await disponibilidades.save(
       [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) =>
         disponibilidades.create({
@@ -177,17 +172,43 @@ describe("Integración: la cita de anoche ocupa la madrugada", () => {
           professionalId: PROFESIONAL,
           dayOfWeek,
           startTime: "00:00",
-          endTime: "23:59",
+          endTime,
           active: true,
         })
       )
     );
+  };
+
+  beforeEach(async () => {
+    await dataSource.query(
+      'TRUNCATE TABLE "appointment_services", "appointments" CASCADE'
+    );
+    // Jornada que acaba dentro del día: la restricción que se prueba en la
+    // mayoría de los casos es la ocupación, no el horario.
+    await jornadaHasta("23:59");
   });
 
-  // La puerta de entrada no deja llegar aquí: la cita no cabría en la jornada.
-  it("la reserva normal no admite una cita que cruce la medianoche", async () => {
+  it("no admite una cita que se salga de la jornada por la medianoche", async () => {
     await expect(reservar(NOCHE, "23:30")).rejects.toThrow(
       /no esta disponible/i
+    );
+  });
+
+  it("admite esa misma cita si la jornada llega hasta la madrugada", async () => {
+    // Sale a la 1: la cita de 23:30 a las "24:30" cabe entera.
+    await jornadaHasta("25:00");
+
+    await expect(reservar(NOCHE, "23:30")).resolves.toBeDefined();
+  });
+
+  it("la cita reservada de noche ocupa la madrugada siguiente", async () => {
+    await jornadaHasta("25:00");
+    await reservar(NOCHE, "23:30");
+
+    // La madrugada del día siguiente la cubre el arrastre de la jornada, así
+    // que la franja existe; lo que la ocupa es la cita de anoche.
+    await expect(reservar(MADRUGADA, "00:00")).rejects.toThrow(
+      /ya existe una cita/i
     );
   });
 

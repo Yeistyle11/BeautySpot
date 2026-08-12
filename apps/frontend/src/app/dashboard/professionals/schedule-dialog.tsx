@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { HoraDeCierre } from "@/components/ui/hora-de-cierre";
 import {
   DAYS_MAP,
   TRAMO_POR_DEFECTO,
@@ -107,13 +108,12 @@ export function ScheduleDialog({
                           aria-label={`Hora de inicio del tramo ${i + 1}, ${day.label}`}
                         />
                         <span className="text-muted-foreground text-sm">a</span>
-                        <Input
-                          type="time"
+                        <HoraDeCierre
                           value={tramo.endTime}
-                          onChange={(e) =>
-                            editarTramo(day.value, i, "endTime", e.target.value)
+                          onValueChange={(hora) =>
+                            editarTramo(day.value, i, "endTime", hora)
                           }
-                          className="h-8 w-28 text-sm"
+                          className="h-8 w-40 text-sm"
                           aria-label={`Hora de fin del tramo ${i + 1}, ${day.label}`}
                         />
                         {tramos.length > 1 && (

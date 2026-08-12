@@ -192,6 +192,33 @@ export function arrastreDelDiaAnterior(intervalos: Intervalo[]): Intervalo[] {
     }));
 }
 
+/**
+ * La parte de una jornada del día anterior que cae en este día.
+ *
+ * Es lo mismo que `arrastreDelDiaAnterior` pero para los tramos de horario: un
+ * negocio que abre a las 20:00 y cierra a las "26:00" sigue abierto de 00:00 a
+ * 02:00 del día siguiente, y sin traer ese tramo la madrugada no ofrece ninguna
+ * franja aunque el local esté abierto.
+ */
+export function arrastreDeJornada<
+  T extends { startTime: string; endTime: string },
+>(tramos: T[]): T[] {
+  return tramos
+    .filter((t) => timeToMinutes(t.endTime) > MINUTOS_DEL_DIA)
+    .map((t) => ({
+      ...t,
+      startTime: minutosAHora(
+        Math.max(0, timeToMinutes(t.startTime) - MINUTOS_DEL_DIA)
+      ),
+      endTime: minutosAHora(timeToMinutes(t.endTime) - MINUTOS_DEL_DIA),
+    }));
+}
+
+/** Día de la semana anterior, con la vuelta del domingo (0) al sábado (6). */
+export function diaAnteriorDeLaSemana(dayOfWeek: number): number {
+  return (dayOfWeek + 6) % 7;
+}
+
 /** Devuelve los minutos desde medianoche como "HH:MM". */
 function minutosAHora(minutos: number): string {
   const h = Math.floor(minutos / 60);
