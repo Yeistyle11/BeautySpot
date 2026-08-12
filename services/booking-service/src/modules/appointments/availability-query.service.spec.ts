@@ -23,6 +23,13 @@ const MIERCOLES_FUTURO = (() => {
   return dia.toISOString().slice(0, 10);
 })();
 
+/** El martes anterior a ese miércoles: el día en que entra el turno de noche. */
+const MARTES_FUTURO = (() => {
+  const dia = new Date(`${MIERCOLES_FUTURO}T00:00:00Z`);
+  dia.setUTCDate(dia.getUTCDate() - 1);
+  return dia.toISOString().slice(0, 10);
+})();
+
 describe("AvailabilityQueryService", () => {
   let service: AvailabilityQueryService;
   let mockApptRepo: jest.Mocked<Repository<Appointment>>;
@@ -352,12 +359,12 @@ describe("AvailabilityQueryService", () => {
     const MIERCOLES = new Date(MIERCOLES_FUTURO + "T12:00:00").getDay();
     const MARTES = (MIERCOLES + 6) % 7;
 
-    /** Jornada del martes de 20:00 a las "26:00": cierra a las 2 del miércoles. */
+    /** Jornada del martes de 20:00 a 02:00: la salida es ya del miércoles. */
     const turnoDeNoche = {
       ...mockAvailability,
       dayOfWeek: MARTES,
       startTime: "20:00",
-      endTime: "26:00",
+      endTime: "02:00",
     } as Availability;
 
     beforeEach(() => {
@@ -378,6 +385,21 @@ describe("AvailabilityQueryService", () => {
       expect(slots.find((s) => s.startTime === "01:30")?.available).toBe(true);
       // El turno se acaba a las 02:00: a las 02:00 ya no cabe media hora.
       expect(slots.find((s) => s.startTime === "02:00")).toBeUndefined();
+    });
+
+    // Esa madrugada se ofrece bajo el miércoles, que es el día al que
+    // pertenece. Ofrecerla también bajo el martes sería la misma hora dos
+    // veces, con dos fechas distintas.
+    it("no ofrece esa madrugada tambien bajo el martes", async () => {
+      const slots = await service.franjasDeProfesional(
+        "business-123",
+        "prof-123",
+        MARTES_FUTURO,
+        30
+      );
+
+      expect(slots.every((s) => s.startTime < "24:00")).toBe(true);
+      expect(slots.find((s) => s.startTime === "23:30")?.available).toBe(true);
     });
 
     it("acepta reservar dentro de esa madrugada", async () => {
@@ -402,6 +424,8 @@ describe("AvailabilityQueryService", () => {
       ).resolves.toBe(false);
     });
 
+    // El servicio de horario ya devuelve el cierre en la escala del cálculo,
+    // que es donde la madrugada del martes son las 26:00.
     it("la apertura del negocio tambien arrastra su madrugada", async () => {
       mockHorario.tramosDelDia.mockImplementation(
         async (_negocio: string, dia: number) =>
@@ -847,8 +871,9 @@ describe("AvailabilityQueryService", () => {
       ).resolves.toBe(false);
     });
 
-    // Una cita de 23:30 a "24:30" ocupa media hora del dia siguiente: se
-    // consulta por fecha, asi que sin traer ese sobrante se vende dos veces.
+    // Una cita de 23:30 a 00:30 ocupa media hora del dia siguiente: se consulta
+    // por fecha, asi que sin traer ese sobrante se vende dos veces. La
+    // ocupacion se recalcula desde las lineas, no desde la hora guardada.
     it("ve el conflicto con la cita de anoche que invade la madrugada", async () => {
       mockApptRepo.find.mockImplementation(
         (opciones) =>
@@ -861,7 +886,7 @@ describe("AvailabilityQueryService", () => {
                     id: "appt-anoche",
                     date: "2024-01-14",
                     startTime: "23:30",
-                    endTime: "24:30",
+                    endTime: "00:30",
                     ocupadoHasta: null,
                   },
                 ]

@@ -831,5 +831,7 @@ instante.
 **Rationale**: Guardar un `timestamptz` obligaria a reinterpretar la agenda entera
 si el negocio cambia de zona, y haria depender del huso del proceso lo que es una
 propiedad del local. El coste es que la aritmetica de horas es propia
-(`packages/shared-utils/src/intervalos.ts`) y que una hora puede pasar de `24:00`
-para expresar la madrugada del mismo dia de trabajo.
+(`packages/shared-utils/src/intervalos.ts`). Lo guardado es hora de reloj, nunca
+por encima de `24:00`; el calculo interno usa una escala que si la pasa, y la
+conversion ocurre en la frontera con `finExtendido` y `horaDeReloj`. Que un tramo
+cruce la medianoche se deduce de que su fin venga antes que su inicio.

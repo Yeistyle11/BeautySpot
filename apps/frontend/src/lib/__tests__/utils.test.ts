@@ -63,6 +63,15 @@ describe("formatTime", () => {
   it("maneja medianoche como 12am", () => {
     expect(formatTime("00:00")).toBe("12:00 am");
   });
+
+  // La agenda calcula en horas que se pasan del dia: la cita de las 23:30 que
+  // dura una hora termina a las "24:30". Leerlas tal cual anunciaria las 24:30
+  // como "12:30 pm", que es media jornada de diferencia.
+  it("baja al reloj las horas que se pasan del dia", () => {
+    expect(formatTime("24:30")).toBe("12:30 am");
+    expect(formatTime("25:00")).toBe("1:00 am");
+    expect(formatTime("26:00")).toBe("2:00 am");
+  });
 });
 
 describe("formatDateTime", () => {

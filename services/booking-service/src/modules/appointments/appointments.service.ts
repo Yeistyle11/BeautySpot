@@ -31,6 +31,7 @@ import {
   esInstantePasadoEn,
   duracionDeCliente,
   finDeOcupacion,
+  horaDeReloj,
   repartoPorProfesional,
   instanteDe,
 } from "@beautyspot/shared-utils";
@@ -226,6 +227,12 @@ export class AppointmentsService {
       data.professionalId
     );
 
+    // El cálculo de arriba va en la escala extendida, donde la cita de las 23:30
+    // termina a las "24:30". Lo que se guarda y se publica es la hora que marca
+    // el reloj: las 00:30.
+    const finGuardado = horaDeReloj(endTime);
+    const ocupadoHastaGuardado = horaDeReloj(ocupadoHasta);
+
     const zona = await this.zonas.de(businessId);
     if (esInstantePasadoEn(zona, data.date, data.startTime)) {
       throw new BadRequestException(
@@ -278,8 +285,8 @@ export class AppointmentsService {
           professionalId: data.professionalId,
           date: data.date,
           startTime: data.startTime,
-          endTime,
-          ocupadoHasta,
+          endTime: finGuardado,
+          ocupadoHasta: ocupadoHastaGuardado,
           totalAmount,
           notes: data.notes,
           createdBy: data.createdBy,
@@ -318,8 +325,8 @@ export class AppointmentsService {
             professionalId: data.professionalId,
             date: data.date,
             startTime: data.startTime,
-            endTime,
-            ocupadoHasta,
+            endTime: finGuardado,
+            ocupadoHasta: ocupadoHastaGuardado,
             totalAmount,
             services: serviciosDelEvento(apptServices),
           },
@@ -607,6 +614,8 @@ export class AppointmentsService {
       appt.appointmentServices,
       appt.professionalId
     );
+    const finGuardado = horaDeReloj(newEndTime);
+    const ocupadoHastaGuardado = horaDeReloj(nuevoOcupadoHasta);
     const dayOfWeek = new Date(newDate + "T12:00:00").getDay();
     const available = await this.disponibilidad.franjaDentroDelHorario(
       businessId,
@@ -643,8 +652,8 @@ export class AppointmentsService {
         {
           date: newDate,
           startTime: newStartTime,
-          endTime: newEndTime,
-          ocupadoHasta: nuevoOcupadoHasta,
+          endTime: finGuardado,
+          ocupadoHasta: ocupadoHastaGuardado,
         }
       );
 
@@ -659,7 +668,7 @@ export class AppointmentsService {
           professionalId: appt.professionalId,
           date: newDate,
           startTime: newStartTime,
-          endTime: newEndTime,
+          endTime: finGuardado,
           totalAmount: appt.totalAmount,
           services: serviciosDelEvento(appt.appointmentServices),
           previousDate: appt.date,

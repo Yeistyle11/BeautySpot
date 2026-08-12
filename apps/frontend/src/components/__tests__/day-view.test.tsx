@@ -134,4 +134,24 @@ describe("DayView", () => {
     // tendría fila.
     expect(screen.getByText("1:00 am")).toBeInTheDocument();
   });
+
+  // El fin llega en hora de reloj: la cita de las 23:30 termina a las "00:30".
+  // Sin devolverla a la escala del reparto, el bloque se pintaría hacia arriba
+  // y la rejilla no llegaría hasta él.
+  it("pinta la cita que termina pasada la medianoche", () => {
+    pintar({
+      appointments: [
+        {
+          ...cita,
+          id: "appt-noche",
+          startTime: "23:30",
+          endTime: "00:30",
+        } as unknown as Appointment,
+      ],
+    });
+
+    // La rejilla llega hasta la fila de la medianoche, que es donde acaba.
+    expect(screen.getByText("11:00 pm")).toBeInTheDocument();
+    expect(screen.getByText("12:00 am")).toBeInTheDocument();
+  });
 });

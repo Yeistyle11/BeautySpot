@@ -177,15 +177,54 @@ describe("AvailabilityService", () => {
       ).resolves.toBeDefined();
     });
 
-    it("rechaza un tramo que termina antes de empezar", async () => {
+    // La salida se escribe como la marca el reloj, así que venir antes que la
+    // entrada es lo que dice que ya es del día siguiente.
+    it("acepta salir de madrugada", async () => {
+      await expect(
+        guardar([{ dayOfWeek: 3, startTime: "20:00", endTime: "02:00" }])
+      ).resolves.toBeDefined();
+    });
+
+    it("acepta la jornada completa de 00:00 a 24:00", async () => {
+      await expect(
+        guardar([{ dayOfWeek: 3, startTime: "00:00", endTime: "24:00" }])
+      ).resolves.toBeDefined();
+    });
+
+    // Sin tope, un 18:00-09:00 tecleado por error pasaría como jornada de
+    // quince horas en vez de como lo que es.
+    it("rechaza una salida de madrugada pasado el tope", async () => {
       await expect(
         guardar([{ dayOfWeek: 3, startTime: "18:00", endTime: "09:00" }])
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rechaza un tramo que no dura nada", async () => {
+      await expect(
+        guardar([{ dayOfWeek: 3, startTime: "09:00", endTime: "09:00" }])
       ).rejects.toThrow(BadRequestException);
     });
 
     it.each(["9:0", "25:00", "abc"])("rechaza la hora %s", async (hora) => {
       await expect(
         guardar([{ dayOfWeek: 3, startTime: hora, endTime: "19:00" }])
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rechaza una salida por encima de las 24:00", async () => {
+      await expect(
+        guardar([{ dayOfWeek: 3, startTime: "20:00", endTime: "26:00" }])
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    // Con la hora de reloj a secas, 20:00-02:00 se compararía al revés y el
+    // solape con el turno de la tarde pasaría desapercibido.
+    it("ve el solape de un turno de noche con otro de la tarde", async () => {
+      await expect(
+        guardar([
+          { dayOfWeek: 3, startTime: "20:00", endTime: "02:00" },
+          { dayOfWeek: 3, startTime: "21:00", endTime: "23:00" },
+        ])
       ).rejects.toThrow(BadRequestException);
     });
 

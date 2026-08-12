@@ -18,6 +18,7 @@ import {
   algunSolape,
   duracionDeCliente,
   finDeOcupacion,
+  finExtendido,
   repartoPorProfesional,
   type Intervalo,
 } from "@beautyspot/shared-utils";
@@ -241,9 +242,12 @@ export class PublicBookingService {
     for (const professionalId of candidatos) {
       const horario = horarioPorProfesional.get(professionalId);
       if (!horario) continue;
+      // La salida se guarda en hora de reloj: la jornada que cruza la
+      // medianoche se compara extendida, o su madrugada quedaría fuera.
+      const salida = finExtendido(horario.startTime, horario.endTime);
       if (
         timeToMinutes(startTime) < timeToMinutes(horario.startTime) ||
-        timeToMinutes(ocupadoHasta) > timeToMinutes(horario.endTime)
+        timeToMinutes(ocupadoHasta) > timeToMinutes(salida)
       ) {
         continue;
       }

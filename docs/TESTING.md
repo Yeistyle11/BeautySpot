@@ -11,7 +11,7 @@ PostgreSQL, Redis y RabbitMQ reales.
 | Patrón de fichero | `*.spec.ts`                       | `*.int-test.ts`                       |
 | Config            | `jest.config.js` de cada proyecto | `jest.integration.config.js`          |
 | Dependencias      | Mockeadas (BD, Redis, RabbitMQ)   | Reales, vía `docker-compose.test.yml` |
-| Cuántos           | **1876 tests / 140 suites**       | 75 tests / 25 suites                  |
+| Cuántos           | **1903 tests / 141 suites**       | 75 tests / 25 suites                  |
 | En CI             | Job `test`                        | Job `integration`                     |
 | Comando           | `npm test`                        | `npm run test:int` (por servicio)     |
 
@@ -19,10 +19,10 @@ Cobertura actual, medida sobre los unitarios:
 
 | Métrica    | Actual  | Gate mínimo |
 | ---------- | ------- | ----------- |
-| Statements | 92,38 % | 92          |
-| Branches   | 81,32 % | 80          |
-| Functions  | 83,76 % | 80          |
-| Lines      | 93,72 % | 93          |
+| Statements | 92,45 % | 92          |
+| Branches   | 81,58 % | 80          |
+| Functions  | 83,83 % | 80          |
+| Lines      | 93,79 % | 93          |
 
 El gate está en `coverageThreshold` de `jest.config.js` (raíz) y **falla el CI si
 la cobertura baja**. Los valores están fijados un poco por debajo de la medición

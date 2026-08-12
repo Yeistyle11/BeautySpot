@@ -110,6 +110,7 @@ export function ScheduleDialog({
                         <span className="text-muted-foreground text-sm">a</span>
                         <HoraDeCierre
                           value={tramo.endTime}
+                          apertura={tramo.startTime}
                           onValueChange={(hora) =>
                             editarTramo(day.value, i, "endTime", hora)
                           }

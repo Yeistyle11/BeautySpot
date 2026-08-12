@@ -12,21 +12,30 @@ export function esHoraValida(hora: string): boolean {
 }
 
 /**
- * Formato de una hora de cierre `HH:mm`, de 00:00 a 31:59.
+ * Formato de una hora de cierre `HH:mm`, de 00:00 a 24:00.
  *
- * Un negocio que cierra de madrugada lo hace en la jornada del día que abrió,
- * así que su hora de cierre se cuenta desde la medianoche de *ese* día y pasa de
- * las 24:00: un bar de barbería que cierra a las 2 de la mañana cierra a las
- * 26:00. El tope de las 31:59 son ocho horas de madrugada, suficientes para
- * cualquier jornada real y lo bastante bajo como para que un dedazo no abra un
- * tramo de varios días.
+ * Es la misma hora que marca el reloj de la pared cuando se echa el cierre: un
+ * negocio que cierra a las dos de la mañana cierra a las 02:00. Que eso caiga ya
+ * en el día siguiente se deduce de la hora de apertura, no se escribe en la hora.
+ *
+ * Las 24:00 se admiten aparte para poder decir "hasta el final del día" sin que
+ * se confunda con el 00:00 del principio.
  */
-export const PATRON_HORA_DE_CIERRE = /^([0-2]\d|3[01]):[0-5]\d$/;
+export const PATRON_HORA_DE_CIERRE = /^([01]\d|2[0-3]):[0-5]\d$|^24:00$/;
 
-/** Indica si el texto es una hora de cierre válida, madrugada incluida. */
+/** Indica si el texto es una hora de cierre válida, las 24:00 incluidas. */
 export function esHoraDeCierreValida(hora: string): boolean {
   return PATRON_HORA_DE_CIERRE.test(hora);
 }
+
+/**
+ * Hasta dónde puede meterse en la madrugada un tramo que cruza la medianoche.
+ *
+ * Ocho horas dan para cualquier jornada real y dejan fuera el dedazo: sin tope,
+ * un negocio que abre a las 09:00 y teclea 08:00 como cierre abriría un tramo de
+ * veintitrés horas sin que nada chirríe.
+ */
+export const MAXIMO_CIERRE_DE_MADRUGADA = "08:00";
 
 /** Formateadores ya construidos, indexados por zona. */
 const formateadores = new Map<string, Intl.DateTimeFormat>();

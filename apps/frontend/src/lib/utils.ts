@@ -68,10 +68,16 @@ export function haComenzado(date: string, startTime: string): boolean {
   return `${date} ${startTime}` <= `${toLocalDateKey(ahora)} ${hora}`;
 }
 
-/** Convierte una hora "HH:MM" (24h) a formato de 12h con am/pm. */
+/**
+ * Convierte una hora "HH:MM" (24h) a formato de 12h con am/pm.
+ *
+ * La agenda calcula en horas que pueden pasar de 24 —la cita de las 23:30 que
+ * dura una hora termina a las "24:30"—, así que la hora se baja al reloj antes
+ * de leerla: si no, las 24:30 se anunciarían como "12:30 pm".
+ */
 export function formatTime(time: string): string {
   const [h, m] = time.split(":");
-  const hour = parseInt(h);
+  const hour = parseInt(h) % 24;
   const ampm = hour >= 12 ? "pm" : "am";
   const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
   return `${displayHour}:${m} ${ampm}`;

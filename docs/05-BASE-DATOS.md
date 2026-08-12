@@ -101,9 +101,16 @@ del local: una cita de las 10:00 son las 10:00 allí, viva donde viva el servido
 El huso del negocio (`businesses.timezone`) es lo que convierte eso en un instante
 cuando hace falta.
 
-La hora se cuenta desde la medianoche de **su** día y puede pasar de `24:00`: un
-salón que cierra a las 2 de la mañana lo expresa como `26:00`, y una cita de
-23:30 a las `24:30` invade la madrugada del día siguiente.
+Lo guardado es siempre la hora que marca el reloj, nunca por encima de `24:00`:
+un salón que cierra a las 2 de la mañana guarda `02:00`, y una cita de 23:30 que
+dura una hora guarda `00:30`. Que eso caiga ya en el día siguiente **se deduce**
+de que la hora de fin venga antes que la de inicio; `24:00` es la excepción que
+permite decir "hasta el final del día" sin confundirlo con su principio.
+
+El cálculo interno sí usa una escala que pasa de `24:00` —esa jornada es
+`20:00`–`26:00` y esa cita termina a las `24:30`—, porque así los solapes y los
+arrastres se comparan sin casos especiales. La conversión ocurre en la frontera:
+`finExtendido` al leer, `horaDeReloj` al escribir (`packages/shared-utils`).
 
 ---
 

@@ -4,7 +4,11 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { repartoPorProfesional, timeToMinutes } from "@beautyspot/shared-utils";
+import {
+  finExtendido,
+  repartoPorProfesional,
+  timeToMinutes,
+} from "@beautyspot/shared-utils";
 import {
   formatCurrency,
   formatTime,
@@ -134,9 +138,11 @@ function lineasDe(appt: Appointment) {
 
 /** Un bloque por profesional: cada uno ocupa solo los servicios que atiende. */
 function bloquesDe(appt: Appointment): BloqueDeCita[] {
+  // El fin llega en hora de reloj: la cita de las 23:30 termina a las "00:30" y
+  // hay que devolverla a la escala del reparto, o se pintaría hacia arriba.
   const reparto = repartoPorProfesional(
     appt.startTime,
-    appt.ocupadoHasta ?? appt.endTime,
+    finExtendido(appt.startTime, appt.ocupadoHasta ?? appt.endTime),
     lineasDe(appt),
     appt.professionalId
   );

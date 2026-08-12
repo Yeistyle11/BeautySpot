@@ -1,18 +1,25 @@
 import {
+  finExtendido,
   repartoPorProfesional,
   type OcupacionDeProfesional,
 } from "@beautyspot/shared-utils";
 import { Appointment } from "../../entities/appointment.entity";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 
-/** Agenda que ocupa la cita, profesional a profesional. */
+/**
+ * Agenda que ocupa la cita, profesional a profesional.
+ *
+ * La hora de fin llega en hora de reloj y aquí vuelve a la escala del reparto:
+ * la cita de 23:30 a 00:30 ocupa hasta las "24:30", y sin devolverla no ocuparía
+ * nada porque su fin caería antes que su inicio.
+ */
 export function ocupacionDeCita(
   cita: Pick<Appointment, "startTime" | "endTime" | "professionalId">,
   lineas: AppointmentServiceEntity[] = []
 ): OcupacionDeProfesional[] {
   return repartoPorProfesional(
     cita.startTime,
-    cita.endTime,
+    finExtendido(cita.startTime, cita.endTime),
     lineas,
     cita.professionalId
   );

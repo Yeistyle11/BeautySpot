@@ -74,6 +74,7 @@ export function HoursTab({
                     <span className="text-muted-foreground">a</span>
                     <HoraDeCierre
                       value={hour.closeTime}
+                      apertura={hour.openTime}
                       onValueChange={(hora) =>
                         onUpdate(day.value, "closeTime", hora)
                       }

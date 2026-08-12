@@ -16,6 +16,8 @@ import {
   arrastreDeJornada,
   diaAnterior,
   diaAnteriorDeLaSemana,
+  finExtendido,
+  MINUTOS_DEL_DIA,
   type Intervalo,
   type OcupacionDeProfesional,
 } from "@beautyspot/shared-utils";
@@ -213,9 +215,12 @@ export class AvailabilityQueryService {
    * Jornadas que se trabajan ese día: las del propio día más la madrugada que
    * arrastra la jornada del día anterior.
    *
-   * Quien entra el sábado a las 20:00 y sale a las "26:00" sigue trabajando de
+   * Quien entra el sábado a las 20:00 y sale a las 02:00 sigue trabajando de
    * 00:00 a 02:00 del domingo. Sin traer ese arrastre, la madrugada no ofrece
    * ninguna franja aunque el local esté abierto y el profesional dentro.
+   *
+   * La salida llega en hora de reloj y aquí pasa a la escala del cálculo, donde
+   * esa jornada es 20:00–26:00 y el arrastre sale de restarle el día.
    */
   private async jornadasDelDia(
     businessId: string,
@@ -241,7 +246,7 @@ export class AvailabilityQueryService {
       const jornada = {
         professionalId: fila.professionalId,
         startTime: fila.startTime,
-        endTime: fila.endTime,
+        endTime: finExtendido(fila.startTime, fila.endTime),
       };
       if (fila.dayOfWeek === dayOfWeek) deHoy.push(jornada);
       else if (fila.dayOfWeek === anterior) deAyer.push(jornada);
@@ -542,6 +547,11 @@ export class AvailabilityQueryService {
       const finDelTramo = timeToMinutes(tramo.endTime);
 
       for (const slotStart of this.iniciosCandidatos(tramo, iniciosExtra)) {
+        // Lo que empieza pasada la medianoche pertenece al día siguiente y allí
+        // se ofrece, traído por el arrastre de la jornada. Ofrecerlo también
+        // aquí sería la misma hora dos veces, bajo dos fechas.
+        if (timeToMinutes(slotStart) >= MINUTOS_DEL_DIA) continue;
+
         const slotEnd = calculateEndTime(slotStart, duration);
         const franja: Franja = {
           startTime: slotStart,

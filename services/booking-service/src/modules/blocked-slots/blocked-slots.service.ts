@@ -10,6 +10,7 @@ import {
   esFechaPasadaEn,
   esHoraValida,
   fechaDeHoyEn,
+  finExtendido,
   timeToMinutes,
   timesOverlap,
 } from "@beautyspot/shared-utils";
@@ -223,13 +224,15 @@ export class BlockedSlotsService {
         status: In(ESTADOS_VIVOS),
       },
     });
-    // Contra la envolvente de la cita, limpieza incluida.
+    // Contra la envolvente de la cita, limpieza incluida. El fin se guarda en
+    // hora de reloj, así que la cita de anoche se compara extendida: si no,
+    // 23:30–00:30 se leería al revés y no chocaría con nada.
     return citas.some((c) =>
       timesOverlap(
         data.startTime,
         data.endTime,
         c.startTime,
-        c.ocupadoHasta ?? c.endTime
+        finExtendido(c.startTime, c.ocupadoHasta ?? c.endTime)
       )
     );
   }

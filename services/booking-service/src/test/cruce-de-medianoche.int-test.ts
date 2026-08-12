@@ -161,8 +161,13 @@ describe("Integración: la cita de anoche ocupa la madrugada", () => {
     if (dataSource?.isInitialized) await dataSource.destroy();
   });
 
-  /** Deja al profesional trabajando los siete días de 00:00 a la hora indicada. */
-  const jornadaHasta = async (endTime: string) => {
+  /**
+   * Deja al profesional trabajando los siete días entre esas dos horas.
+   *
+   * La salida se guarda como la marca el reloj, así que una anterior a la
+   * entrada es la del día siguiente: `20:00`–`01:00` es el turno de noche.
+   */
+  const jornada = async (startTime: string, endTime: string) => {
     const disponibilidades = dataSource.getRepository(Availability);
     await disponibilidades.delete({ businessId: NEGOCIO });
     await disponibilidades.save(
@@ -171,7 +176,7 @@ describe("Integración: la cita de anoche ocupa la madrugada", () => {
           businessId: NEGOCIO,
           professionalId: PROFESIONAL,
           dayOfWeek,
-          startTime: "00:00",
+          startTime,
           endTime,
           active: true,
         })
@@ -185,7 +190,7 @@ describe("Integración: la cita de anoche ocupa la madrugada", () => {
     );
     // Jornada que acaba dentro del día: la restricción que se prueba en la
     // mayoría de los casos es la ocupación, no el horario.
-    await jornadaHasta("23:59");
+    await jornada("00:00", "23:59");
   });
 
   it("no admite una cita que se salga de la jornada por la medianoche", async () => {
@@ -195,14 +200,14 @@ describe("Integración: la cita de anoche ocupa la madrugada", () => {
   });
 
   it("admite esa misma cita si la jornada llega hasta la madrugada", async () => {
-    // Sale a la 1: la cita de 23:30 a las "24:30" cabe entera.
-    await jornadaHasta("25:00");
+    // Turno de noche que sale a la 1: la cita de 23:30 a 00:30 cabe entera.
+    await jornada("20:00", "01:00");
 
     await expect(reservar(NOCHE, "23:30")).resolves.toBeDefined();
   });
 
   it("la cita reservada de noche ocupa la madrugada siguiente", async () => {
-    await jornadaHasta("25:00");
+    await jornada("20:00", "01:00");
     await reservar(NOCHE, "23:30");
 
     // La madrugada del día siguiente la cubre el arrastre de la jornada, así
@@ -213,7 +218,7 @@ describe("Integración: la cita de anoche ocupa la madrugada", () => {
   });
 
   it("rechaza la cita de la madrugada que pisa a la de anoche", async () => {
-    await citaDeAnoche("23:30", "24:30");
+    await citaDeAnoche("23:30", "00:30");
 
     await expect(reservar(MADRUGADA, "00:00")).rejects.toThrow(
       /ya existe una cita/i
@@ -221,7 +226,7 @@ describe("Integración: la cita de anoche ocupa la madrugada", () => {
   });
 
   it("deja reservar la madrugada en cuanto la de anoche ha terminado", async () => {
-    await citaDeAnoche("23:30", "24:30");
+    await citaDeAnoche("23:30", "00:30");
 
     await expect(reservar(MADRUGADA, "00:30")).resolves.toBeDefined();
   });
@@ -233,7 +238,7 @@ describe("Integración: la cita de anoche ocupa la madrugada", () => {
   });
 
   it("las franjas de la madrugada aparecen ocupadas", async () => {
-    await citaDeAnoche("23:30", "24:30");
+    await citaDeAnoche("23:30", "00:30");
 
     const franjas = await disponibilidad.franjasDeProfesional(
       NEGOCIO,

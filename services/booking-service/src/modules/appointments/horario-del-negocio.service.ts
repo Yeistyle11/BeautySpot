@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InternalHttpClient, RedisCacheService } from "@beautyspot/nest-common";
+import { finExtendido } from "@beautyspot/shared-utils";
 
 /** Rango de horas de pared, con el mismo contrato que un tramo de agenda. */
 export interface Tramo {
@@ -29,6 +30,10 @@ export class HorarioDelNegocioService {
   /**
    * Tramos de apertura de ese día. Lista vacía es "cerrado ese día"; `null`,
    * "sin horario configurado", que no restringe nada.
+   *
+   * El cierre llega en hora de reloj y aquí pasa a la escala del cálculo: un
+   * `20:00`–`02:00` sale como `20:00`–`26:00`, que es lo que entienden el
+   * arrastre de jornada y el reparto de franjas.
    */
   async tramosDelDia(
     businessId: string,
@@ -39,7 +44,10 @@ export class HorarioDelNegocioService {
 
     return semana
       .filter((t) => t.dayOfWeek === dayOfWeek)
-      .map((t) => ({ startTime: t.openTime, endTime: t.closeTime }));
+      .map((t) => ({
+        startTime: t.openTime,
+        endTime: finExtendido(t.openTime, t.closeTime),
+      }));
   }
 
   /** Horario completo del negocio, o `null` si no se pudo resolver. */

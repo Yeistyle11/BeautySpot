@@ -148,19 +148,28 @@ describe("esHoraValida", () => {
 });
 
 describe("esHoraDeCierreValida", () => {
-  // La madrugada se cuenta desde la medianoche del día que abrió: cerrar a las
-  // 2 de la mañana es cerrar a las 26:00.
-  it.each(["00:00", "18:00", "23:59", "24:00", "26:00", "31:59"])(
+  // Es la hora que marca el reloj al echar el cierre: quien cierra a las 2 de
+  // la mañana pone 02:00. Las 24:00 se admiten aparte para poder decir "hasta
+  // el final del día" sin confundirlo con el 00:00 del principio.
+  it.each(["00:00", "02:00", "18:00", "23:59", "24:00"])(
     "acepta %s",
     (hora) => {
       expect(esHoraDeCierreValida(hora)).toBe(true);
     }
   );
 
-  it.each(["32:00", "40:00", "9:0", "23:60", "abc", "", "26:00:00"])(
-    "rechaza %s",
-    (hora) => {
-      expect(esHoraDeCierreValida(hora)).toBe(false);
-    }
-  );
+  it.each([
+    "24:30",
+    "26:00",
+    "31:59",
+    "32:00",
+    "40:00",
+    "9:0",
+    "23:60",
+    "abc",
+    "",
+    "26:00:00",
+  ])("rechaza %s", (hora) => {
+    expect(esHoraDeCierreValida(hora)).toBe(false);
+  });
 });
