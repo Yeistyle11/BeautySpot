@@ -123,7 +123,15 @@ No tocar sin motivo:
 - **Bloqueo de cuenta** con espera que se dobla en cada bloqueo encadenado, hasta
   24 h.
 - **Aislamiento de tenant** (`BusinessScopeGuard`): comprueba que el negocio
-  pedido esté entre los del token, no solo que la cabecera exista.
+  pedido esté entre los del token, no solo que la cabecera exista. El filtro por
+  `businessId` en cada consulta lo escribe quien programa —TypeORM 0.3 no tiene
+  filtros globales—, así que lo vigila
+  `packages/database/src/entities/aislamiento-de-tenant.spec.ts`: recorre el
+  código de los servicios y exige que toda consulta sobre una tabla con negocio
+  lo filtre, o esté en su lista de excepciones con el motivo escrito. Hoy hay 20
+  excepciones, todas búsquedas por clave primaria con comprobación posterior de
+  pertenencia, por columna única en toda la plataforma (`slug`, `userId`), o
+  rutas internas entre servicios.
 - **Arranque** (`validarEntorno`): un servicio mal configurado muere antes de
   aceptar tráfico, en vez de fallar petición a petición.
 - `helmet`, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`,
@@ -163,9 +171,9 @@ faltar:
 
 | Qué                                             | Tamaño | Por qué importa                                                                                                    |
 | ----------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
-| `notification/event-listeners.service.ts`       | 35 KB  | Un handler por evento en un solo fichero: una razón para existir, cinco para cambiar. Pide partirse por dominio    |
+| ~~`notification/event-listeners.service.ts`~~   | 35 KB  | ✅ 12 de agosto de 2026: partido en `cuenta`, `agenda`, `cobros` y `cliente`, sobre el envío común `AvisosService` |
 | `booking/appointments.service.ts`               | 30 KB  | Ya se partió una vez (disponibilidad y política salieron); vigilarlo                                               |
-| Filtro de tenant **explícito** en cada consulta | —      | No hay interceptor que lo inyecte: olvidarlo en una consulta nueva es un fallo de aislamiento que hoy nada detecta |
+| Filtro de tenant **explícito** en cada consulta | —      | No hay interceptor que lo inyecte, pero desde el 12 de agosto de 2026 hay un test que lo vigila (ver abajo)        |
 
 ---
 
@@ -195,8 +203,12 @@ faltar:
    porque es trabajo de fondo y no debe competir con las peticiones de usuario— y
    la capacidad del equipo entra en un `INSERT` de varias filas. Un negocio que
    falle ya no se lleva por delante la tanda.
-2. **51 `findAndCount` frente a 9 `paginate`**: la mayoría están acotados, pero
-   conviene barrer que ninguno liste sin límite.
+2. ~~**51 `findAndCount` frente a 9 `paginate`**: conviene barrer que ninguno
+   liste sin límite.~~ ✅ barrido el 12 de agosto de 2026: todos salen del helper
+   `paginate` o de un `getManyAndCount` con `skip`/`take`, y los `find` sueltos
+   están acotados por negocio, por día o por una lista de ids. El único que crecía
+   sin fin era `GET /reviews/mine`, que devolvía el historial entero del cliente;
+   ahora responde paginado y acepta `appointmentIds`.
 
 ---
 
@@ -280,9 +292,12 @@ un parpadeo.
    el 12 de agosto de 2026: `GET /core/clients/names?ids=` resuelve los que hay en
    pantalla, y el worker resuelve los negocios en tandas de cinco y escribe la
    capacidad del equipo en una sola sentencia.
-3. **Partir `event-listeners.service.ts`**, barrer los `findAndCount` sin límite y
-   decidir qué hacer con el filtro de tenant explícito: aceptarlo con un test que
-   lo vigile, o automatizarlo en el repositorio base.
+3. ~~**Partir `event-listeners.service.ts`**, barrer los `findAndCount` sin límite
+   y decidir qué hacer con el filtro de tenant explícito.~~ ✅ hecho el 12 de
+   agosto de 2026. Sobre el filtro de tenant se decidió **aceptarlo con un test
+   que lo vigile**: automatizarlo obligaría a envolver el repositorio de las 24
+   entidades con negocio, y el filtro explícito se lee en el sitio donde importa.
+   Lo que faltaba no era el filtro, sino que olvidarlo no se notara.
 
 Fuera de esta lista, y conscientemente: la CSP en `Report-Only` (conviene
 decidirla **después** de subir Next, que cambia cómo se inyectan los scripts), el

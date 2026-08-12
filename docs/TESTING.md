@@ -11,7 +11,7 @@ PostgreSQL, Redis y RabbitMQ reales.
 | Patrón de fichero | `*.spec.ts`                       | `*.int-test.ts`                       |
 | Config            | `jest.config.js` de cada proyecto | `jest.integration.config.js`          |
 | Dependencias      | Mockeadas (BD, Redis, RabbitMQ)   | Reales, vía `docker-compose.test.yml` |
-| Cuántos           | **1873 tests / 139 suites**       | 75 tests / 25 suites                  |
+| Cuántos           | **1876 tests / 140 suites**       | 75 tests / 25 suites                  |
 | En CI             | Job `test`                        | Job `integration`                     |
 | Comando           | `npm test`                        | `npm run test:int` (por servicio)     |
 
@@ -71,6 +71,20 @@ npx jest --coverage --collectCoverageFrom="src/modules/proxy/*.ts"
 
 Lógica de negocio, ramas de decisión, validaciones, transformaciones y manejo de
 errores. Todo lo que se pueda comprobar sin infraestructura.
+
+### Un test que vigila una regla, no un comportamiento
+
+`packages/database/src/entities/aislamiento-de-tenant.spec.ts` no prueba código:
+lee el de los servicios. Recorre cada consulta sobre una tabla con `businessId` y
+exige que el método la filtre por negocio, o que esté en su lista de excepciones
+con el motivo escrito. El aislamiento entre negocios es lógico (ADR-002) y
+TypeORM 0.3 no tiene filtros globales, así que sin esto una consulta nueva que se
+olvide del filtro devuelve datos de otro negocio sin que nada falle.
+
+Si al añadir una consulta el test se queja, hay dos salidas: filtrar por negocio
+—casi siempre lo correcto— o, si de verdad es una consulta entre negocios (por
+clave primaria con comprobación posterior, por columna única de la plataforma, o
+una ruta interna), añadirla a `SIN_NEGOCIO_A_PROPOSITO` explicando por qué puede.
 
 ### Aviso: ramas inalcanzables
 
