@@ -11,7 +11,7 @@ import {
   ArrayMaxSize,
   IsEnum,
 } from "class-validator";
-import { Type } from "class-transformer";
+import { Type, Transform } from "class-transformer";
 import { ReviewStatus } from "../../../entities/review.entity";
 import { ReviewReportReason } from "../../../entities/review-report.entity";
 
@@ -80,6 +80,42 @@ export class ReviewQueryDto {
   @IsOptional() withPhotos?: string;
 
   @IsOptional() @IsString() professionalId?: string;
+}
+
+/** Tope de citas por consulta; el listado del cliente pinta como mucho una página. */
+const MAXIMO_CITAS = 200;
+
+/**
+ * Filtros del listado propio del cliente.
+ *
+ * `appointmentIds` sirve para marcar en pantalla qué citas ya tienen reseña sin
+ * traerse el historial entero; llega como lista separada por comas y se acota,
+ * porque sin tope un `?appointmentIds=` largo arma un `IN (...)` de miles de
+ * elementos con una sola petición.
+ */
+export class MisResenasQueryDto {
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(1) page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === "string"
+      ? value
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean)
+          .slice(0, MAXIMO_CITAS)
+      : undefined
+  )
+  @IsArray()
+  @IsUUID("4", { each: true, message: "Cada id de cita debe ser un UUID" })
+  appointmentIds?: string[];
 }
 
 /** Denuncia de una reseña. */

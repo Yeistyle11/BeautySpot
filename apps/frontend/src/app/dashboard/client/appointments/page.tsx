@@ -22,7 +22,6 @@ import {
   MY_APPOINTMENTS_KEY,
   type Appointment,
   type NegocioPublico,
-  type Review,
 } from "@/lib/schemas/appointment";
 
 type TabKey = "all" | "upcoming" | "completed" | "cancelled";
@@ -66,10 +65,18 @@ export default function AppointmentsPage() {
     () => pagina?.data ?? [],
     [pagina?.data]
   );
-  const { data: reviews } = useApi<Review[]>(
-    "/marketplace/reviews/mine",
+  // Se pregunta solo por las citas en pantalla: el historial de reseñas crece
+  // con cada visita y aquí solo hace falta saber cuáles de estas ya se valoraron.
+  const idsEnPantalla = useMemo(
+    () => appointments.map((a) => a.id).join(","),
+    [appointments]
+  );
+  const { data: reviews } = useApi(
+    idsEnPantalla
+      ? `/marketplace/reviews/mine?appointmentIds=${idsEnPantalla}&limit=100`
+      : null,
     undefined,
-    z.array(reviewSchema)
+    paginatedSchema(reviewSchema)
   );
   const [activeTab, setActiveTab] = useState<TabKey>("all");
 
@@ -90,7 +97,7 @@ export default function AppointmentsPage() {
   }, [negocios]);
 
   const reviewedIds = useMemo(
-    () => new Set((reviews ?? []).map((r) => r.appointmentId)),
+    () => new Set((reviews?.data ?? []).map((r) => r.appointmentId)),
     [reviews]
   );
   // El filtro devuelve el array original en la pestana "todas", asi que hay que

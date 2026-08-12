@@ -13,6 +13,7 @@ import { ReviewsService } from "./reviews.service";
 import {
   CreateReviewDto,
   ReviewQueryDto,
+  MisResenasQueryDto,
   RespondReviewDto,
   UpdateReviewDto,
   ReportReviewDto,
@@ -26,6 +27,7 @@ import {
   SkipBusinessScope,
 } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
+import { parsePaginationQuery } from "@beautyspot/shared-utils";
 
 /** Endpoints de reseñas del marketplace; la lectura es pública, el alta la firma un cliente y la respuesta la da el negocio. */
 @Controller("reviews")
@@ -65,12 +67,28 @@ export class ReviewsController {
     return this.service.findByBusiness(businessId, query);
   }
 
-  /** Reseñas escritas por el usuario autenticado. */
+  /**
+   * Reseñas escritas por el usuario autenticado, paginadas.
+   *
+   * Con `appointmentIds` responde solo por esas citas, que es lo que necesita el
+   * listado del cliente para marcar cuáles ya valoró sin arrastrar un historial
+   * que crece con cada visita.
+   */
   @Get("mine")
   @Roles(Role.CLIENT)
   @SkipBusinessScope()
-  async findMine(@CurrentUser("userId") userId: string) {
-    return this.service.findByClientUser(userId);
+  async findMine(
+    @CurrentUser("userId") userId: string,
+    @Query() query: MisResenasQueryDto
+  ) {
+    const pagination = parsePaginationQuery(query as Record<string, unknown>, [
+      "createdAt",
+    ]);
+    return this.service.findByClientUser(
+      userId,
+      pagination,
+      query.appointmentIds
+    );
   }
 
   /** Reseñas de una cita concreta. */

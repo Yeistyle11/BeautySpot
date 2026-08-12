@@ -667,7 +667,7 @@ Perfiles públicos, búsqueda, feed y reseñas. Base de datos `beautyspot_market
 | POST   | `/`                             | CLIENT       | Crea reseña; el negocio lo aporta la cita     |
 | GET    | `/business/:businessId`         | PÚBLICA      | Reseñas del negocio                           |
 | GET    | `/business/:businessId/summary` | PÚBLICA      | Resumen y media de valoración                 |
-| GET    | `/mine`                         | CLIENT       | Las que ha escrito                            |
+| GET    | `/mine`                         | CLIENT       | Las que ha escrito, paginadas                 |
 | GET    | `/appointment/:appointmentId`   | CLIENT       | Reseñas de una cita concreta                  |
 | GET    | `/:id`                          | PÚBLICA      | Detalle                                       |
 | PATCH  | `/:id`                          | CLIENT       | Corrige la suya; no cambia cita ni negocio    |
@@ -681,6 +681,10 @@ Perfiles públicos, búsqueda, feed y reseñas. Base de datos `beautyspot_market
 | DELETE | `/:id/helpful`                  | Autenticado  | Quita la marca                                |
 
 Una reseña oculta por moderación deja de contar en la media del negocio.
+
+`GET /mine` acepta `appointmentIds` (lista separada por comas, máximo 200) para
+responder solo por esas citas: es lo que necesita el listado del cliente para
+marcar cuáles ya valoró, sin arrastrar un historial que crece con cada visita.
 
 ### Internos
 
