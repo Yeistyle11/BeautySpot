@@ -48,7 +48,7 @@ export class ClientsController {
   @SkipBusinessScope()
   @Get("me")
   async findMine(@CurrentUser("userId") userId: string) {
-    return this.service.findMineByUser(userId);
+    return this.service.findMineConNivel(userId);
   }
 
   /**

@@ -1,13 +1,18 @@
 import { Controller, Get, Patch, Body } from "@nestjs/common";
-import { BusinessConfigService } from "./business-config.service";
-import { FacturacionDto, ReservasDto } from "./dto/business-config.dto";
+import {
+  BusinessConfigService,
+  CLAVE_FACTURACION,
+  CLAVE_FIDELIZACION,
+  CLAVE_RESERVAS,
+} from "./business-config.service";
+import {
+  FacturacionDto,
+  FidelizacionDto,
+  ReservasDto,
+} from "./dto/business-config.dto";
 import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
-
-/** Clave de los datos fiscales dentro de `business_config`. */
-const CLAVE_FACTURACION = "facturacion";
-/** Clave de las reglas de reserva dentro de `business_config`. */
-const CLAVE_RESERVAS = "reservas";
+import { NIVELES_FIDELIDAD_POR_DEFECTO } from "@beautyspot/shared-constants";
 
 /** Ajustes del negocio que no tienen columnas propias. */
 @Controller("business-config")
@@ -41,5 +46,20 @@ export class BusinessConfigController {
     @Body() dto: ReservasDto
   ) {
     return this.service.guardar(businessId, CLAVE_RESERVAS, { ...dto });
+  }
+
+  /** Niveles del programa de fidelidad; los de por defecto si no los ha tocado. */
+  @Get("fidelizacion")
+  async leerFidelizacion(@BusinessId() businessId: string) {
+    const guardado = await this.service.leer(businessId, CLAVE_FIDELIZACION);
+    return { niveles: guardado.niveles ?? NIVELES_FIDELIDAD_POR_DEFECTO };
+  }
+
+  @Patch("fidelizacion")
+  async guardarFidelizacion(
+    @BusinessId() businessId: string,
+    @Body() dto: FidelizacionDto
+  ) {
+    return this.service.guardar(businessId, CLAVE_FIDELIZACION, { ...dto });
   }
 }

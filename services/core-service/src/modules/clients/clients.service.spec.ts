@@ -3,6 +3,7 @@ import { getRepositoryToken } from "@nestjs/typeorm";
 import { DataSource, Repository } from "typeorm";
 import { OutboxService } from "@beautyspot/nest-common";
 import { ClientsService } from "./clients.service";
+import { BusinessConfigService } from "../business-config/business-config.service";
 import { Client } from "../../entities/client.entity";
 import {
   CampoDeFicha,
@@ -19,6 +20,7 @@ describe("ClientsService", () => {
   let mockRepo: jest.Mocked<Repository<Client>>;
   let mockOutbox: { enqueue: jest.Mock };
   let mockCamposRepo: jest.Mocked<Repository<CampoDeFicha>>;
+  let mockConfig: { leer: jest.Mock };
 
   const mockClient: Client = {
     id: "client-123",
@@ -56,6 +58,8 @@ describe("ClientsService", () => {
     mockCamposRepo = { find: jest.fn().mockResolvedValue([]) } as any;
 
     mockOutbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    // Sin escala guardada, el nivel sale de los niveles por defecto.
+    mockConfig = { leer: jest.fn().mockResolvedValue({}) };
     // La transacción entrega el mismo repositorio simulado del test.
     const mockDataSource = {
       transaction: jest.fn((cb: (m: unknown) => unknown) =>
@@ -76,6 +80,7 @@ describe("ClientsService", () => {
         },
         { provide: DataSource, useValue: mockDataSource },
         { provide: OutboxService, useValue: mockOutbox },
+        { provide: BusinessConfigService, useValue: mockConfig },
       ],
     }).compile();
 
@@ -261,6 +266,44 @@ describe("ClientsService", () => {
         order: { createdAt: "DESC" },
       });
       expect(result).toEqual(mockClient);
+    });
+  });
+
+  describe("findMineConNivel", () => {
+    it("resuelve el nivel con los niveles por defecto si el negocio no configuró los suyos", async () => {
+      mockRepo.findOne.mockResolvedValue(mockClient);
+
+      const result = await service.findMineConNivel("user-123");
+
+      // 100 puntos: alcanzado Plata, siguiente Oro.
+      expect(result?.nivel?.label).toBe("Plata");
+      expect(result?.siguienteNivel?.label).toBe("Oro");
+      expect(mockConfig.leer).toHaveBeenCalledWith(
+        "business-123",
+        "fidelizacion"
+      );
+    });
+
+    it("resuelve el nivel con la escala que el negocio guardó", async () => {
+      mockRepo.findOne.mockResolvedValue(mockClient);
+      mockConfig.leer.mockResolvedValue({
+        niveles: [
+          { min: 0, label: "Inicio", color: "verde" },
+          { min: 50, label: "Habitual", color: "azul" },
+        ],
+      });
+
+      const result = await service.findMineConNivel("user-123");
+
+      expect(result?.nivel?.label).toBe("Habitual");
+      expect(result?.siguienteNivel).toBeNull();
+    });
+
+    it("devuelve null si el usuario no tiene ficha", async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.findMineConNivel("user-456")).resolves.toBeNull();
+      expect(mockConfig.leer).not.toHaveBeenCalled();
     });
   });
 

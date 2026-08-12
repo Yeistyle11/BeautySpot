@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Building2, Clock, ClipboardList } from "lucide-react";
+import { User, Building2, Clock, ClipboardList, Award } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
@@ -17,6 +17,8 @@ import { AccountTab } from "./account-tab";
 import { BusinessTab } from "./business-tab";
 import { HoursTab } from "./hours-tab";
 import { FieldsTab, type NuevoCampo } from "./fields-tab";
+import { LoyaltyTab } from "./loyalty-tab";
+import { FIDELIZACION_KEY, nivelSchema, type Nivel } from "@/lib/niveles";
 import {
   businessDataSchema,
   businessHourSchema,
@@ -79,8 +81,17 @@ export default function SettingsPage() {
     z.array(servicioBreveSchema).nullable()
   );
 
+  const { data: fidelizacion, mutate: mutateFidelizacion } = useApi<{
+    niveles: Nivel[];
+  } | null>(
+    puedeEditarNegocio ? FIDELIZACION_KEY : null,
+    undefined,
+    z.object({ niveles: z.array(nivelSchema) }).nullable()
+  );
+
   const [businessForm, setBusinessForm] = useState<Partial<BusinessData>>({});
   const [hours, setHours] = useState<BusinessHour[]>(defaultHours);
+  const [niveles, setNiveles] = useState<Nivel[]>([]);
 
   const loadingBiz = canSeeBusiness && !business;
 
@@ -89,6 +100,7 @@ export default function SettingsPage() {
   // esta escribiendo en ese momento.
   const businessSeeded = useRef(false);
   const hoursSeeded = useRef(false);
+  const nivelesSeeded = useRef(false);
 
   useEffect(() => {
     if (!business || businessSeeded.current) return;
@@ -123,6 +135,12 @@ export default function SettingsPage() {
       )
     );
   }, [hoursData]);
+
+  useEffect(() => {
+    if (!fidelizacion || nivelesSeeded.current) return;
+    nivelesSeeded.current = true;
+    setNiveles(fidelizacion.niveles);
+  }, [fidelizacion]);
 
   const saveAccount = async () => {
     setSaving("account");
@@ -191,6 +209,20 @@ export default function SettingsPage() {
     try {
       await api.put("/core/business-hours", { hours });
       await mutateHours();
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const saveNiveles = async () => {
+    setSaving("loyalty");
+    try {
+      await api.patch(FIDELIZACION_KEY, { niveles });
+      await mutateFidelizacion();
+      toast.exito("Niveles actualizados");
     } catch (err) {
       logger.error(err);
       toast.error(mensajeDeError(err));
@@ -275,6 +307,11 @@ export default function SettingsPage() {
               <ClipboardList className="h-4 w-4" /> Ficha
             </TabsTrigger>
           )}
+          {canDo(role, "business_edit") && (
+            <TabsTrigger value="loyalty" className="gap-2">
+              <Award className="h-4 w-4" /> Fidelidad
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="account">
@@ -326,6 +363,18 @@ export default function SettingsPage() {
               onCreate={crearCampo}
               onRemove={quitarCampo}
               saving={saving === "fields"}
+              role={role}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="loyalty">
+          {canDo(role, "business_edit") && (
+            <LoyaltyTab
+              niveles={niveles}
+              onChange={setNiveles}
+              onSave={saveNiveles}
+              saving={saving === "loyalty"}
               role={role}
             />
           )}

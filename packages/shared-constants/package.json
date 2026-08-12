@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsc",
     "type-check": "tsc --noEmit",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "test": "jest"
   },
   "devDependencies": {
     "typescript": "^5.6.3"

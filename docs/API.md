@@ -282,6 +282,20 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 | PUT    | `/`    | Reemplaza el horario completo (upsert) |
 | PATCH  | `/:id` | Actualiza un tramo                     |
 
+### Ajustes del negocio — `/api/v1/core/business-config`
+
+Roles a nivel de clase: **OWNER, ADMIN**. Ajustes sin columnas propias, guardados
+por clave en `business_config`.
+
+| Método | Ruta            | Descripción                                            |
+| ------ | --------------- | ------------------------------------------------------ |
+| GET    | `/facturacion`  | Datos fiscales con los que se emiten las facturas      |
+| PATCH  | `/facturacion`  | Actualiza los datos fiscales                           |
+| GET    | `/reservas`     | Reglas de reserva y cancelación                        |
+| PATCH  | `/reservas`     | Actualiza las reglas de reserva                        |
+| GET    | `/fidelizacion` | Niveles del programa; los de por defecto si no los hay |
+| PATCH  | `/fidelizacion` | Reemplaza la escala de niveles                         |
+
 ### Profesionales — `/api/v1/core/professionals`
 
 Roles a nivel de clase: **OWNER, ADMIN, SUPER_ADMIN**.

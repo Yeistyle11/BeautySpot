@@ -29,6 +29,71 @@ export const PROPORCION_PUNTOS_FIDELIDAD = 0.1;
  */
 export const VALOR_DEL_PUNTO = 1;
 
+/**
+ * Colores con los que se puede pintar un nivel de fidelidad.
+ *
+ * La lista es cerrada porque el color viaja en la configuración del negocio y
+ * acaba en una clase de Tailwind: si se admitiera texto libre, la clase no
+ * estaría en el CSS compilado y el nivel saldría sin color.
+ */
+export const COLORES_DE_NIVEL = [
+  "bronce",
+  "plata",
+  "oro",
+  "cian",
+  "morado",
+  "verde",
+  "rosa",
+  "azul",
+] as const;
+
+export type ColorDeNivel = (typeof COLORES_DE_NIVEL)[number];
+
+/** Escalón del programa de fidelidad: a partir de `min` puntos, el cliente es `label`. */
+export interface NivelDeFidelidad {
+  min: number;
+  label: string;
+  color: ColorDeNivel;
+}
+
+/** Niveles que ve un negocio que no ha configurado los suyos. */
+export const NIVELES_FIDELIDAD_POR_DEFECTO: NivelDeFidelidad[] = [
+  { min: 0, label: "Bronce", color: "bronce" },
+  { min: 100, label: "Plata", color: "plata" },
+  { min: 300, label: "Oro", color: "oro" },
+  { min: 600, label: "Platino", color: "cian" },
+  { min: 1000, label: "Diamante", color: "morado" },
+];
+
+/** Escalones que puede tener el programa, para que la pantalla no crezca sin fin. */
+export const MAXIMO_NIVELES_FIDELIDAD = 8;
+
+/**
+ * Nivel alcanzado con esos puntos, o el más bajo si no llega a ninguno.
+ *
+ * Tanto esta función como `siguienteNivel` dan por hecho que los niveles vienen
+ * ordenados de menos a más puntos; es la invariante que valida el DTO al
+ * guardarlos.
+ */
+export function nivelDePuntos(
+  puntos: number,
+  niveles: NivelDeFidelidad[] = NIVELES_FIDELIDAD_POR_DEFECTO
+): NivelDeFidelidad | null {
+  let alcanzado: NivelDeFidelidad | null = null;
+  for (const nivel of niveles) {
+    if (puntos >= nivel.min) alcanzado = nivel;
+  }
+  return alcanzado ?? niveles[0] ?? null;
+}
+
+/** Siguiente nivel por alcanzar, o `null` si ya está en el más alto. */
+export function siguienteNivel(
+  puntos: number,
+  niveles: NivelDeFidelidad[] = NIVELES_FIDELIDAD_POR_DEFECTO
+): NivelDeFidelidad | null {
+  return niveles.find((nivel) => puntos < nivel.min) ?? null;
+}
+
 /** IVA colombiano que se aplica al facturar. */
 export const IVA = 0.19;
 
