@@ -1,7 +1,7 @@
 # Despliegue de BeautySpot en producción
 
 Guía de despliegue de la arquitectura actual: monorepo Turborepo con 8
-microservicios NestJS, frontend Next.js 14, PostgreSQL 16, Redis 7 y RabbitMQ 3.
+microservicios NestJS, frontend Next.js 16, PostgreSQL 16, Redis 7 y RabbitMQ 3.
 
 > Para el entorno de desarrollo local, ver [docs/SETUP.md](docs/SETUP.md).
 

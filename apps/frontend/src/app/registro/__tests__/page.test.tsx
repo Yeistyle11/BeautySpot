@@ -56,7 +56,12 @@ describe("RegistroPage", () => {
 
     rellenarAlta("ClaveSegura9");
 
-    await screen.findByText(/Enviamos un enlace de confirmación/);
+    // La espera va por encima del segundo que trae `findByText` por defecto: el
+    // alta pasa por un envío asíncrono y, en la pasada completa con cobertura
+    // —trece proyectos instrumentados a la vez—, un segundo se queda corto.
+    await screen.findByText(/Enviamos un enlace de confirmación/, undefined, {
+      timeout: 5000,
+    });
     expect(push).not.toHaveBeenCalled();
   });
 

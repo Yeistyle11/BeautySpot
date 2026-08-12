@@ -9,9 +9,15 @@ las producen están junto a cada una.
 
 **Resumen**: el proyecto está sano. La arquitectura es coherente y tiene tomadas
 las decisiones difíciles; la calidad de código es alta y está sostenida por tests
-que prueban lo que importa. El único riesgo de severidad alta **no está en el
-código propio sino en una dependencia**: Next.js 14.2.35, y de sus 21 avisos hay
+que prueban lo que importa. El único riesgo de severidad alta **no estaba en el
+código propio sino en una dependencia**: Next.js 14.2.35, y de sus 21 avisos había
 uno alcanzable por diseño en esta aplicación.
+
+> **Corregido el 12 de agosto de 2026.** Se subió a **Next 16.3.0 con React 19** y
+> se acotaron los comodines de `remotePatterns`. Los avisos de producción bajan de
+> **6 a 3**, y los tres que quedan (`brace-expansion`, `picomatch`, `typeorm`) solo
+> intervienen en build o en un comando de desarrollo. Detalle del cambio en el
+> apartado 1.2.
 
 ---
 
@@ -70,6 +76,28 @@ configuration» y «Unbounded next/image disk cache growth can exhaust storage»
 
 Mitigación de fondo, además de subir de versión: acotar los comodines a los hosts
 que se usen de verdad.
+
+#### Qué se hizo (12 de agosto de 2026)
+
+`npm audit` daba como arreglo **`next@16.3.0`, no 15**: el rango vulnerable llega
+hasta `16.3.0-preview.10`, así que subir a 15 no habría cerrado nada.
+
+- `next` 14.2.35 → **16.3.0**, `react`/`react-dom` 18.3 → **19**.
+- **Los comodines salen de `remotePatterns`**. Quedan dos hosts fijos y el resto se
+  declara por despliegue en `NEXT_PUBLIC_IMAGE_HOSTS`. Un `*.amazonaws.com` deja
+  que cualquiera sirva lo que quiera desde su bucket, y el optimizador lo
+  descarga, procesa y cachea en disco.
+- `eslint-config-next` se queda en **15**: la 16 exige ESLint 9 y el monorepo va
+  con ESLint 8. El aviso estaba en `next`, no en la config.
+- `next lint` desapareció en 16, así que el frontend pasa a invocar `eslint`
+  directamente, como el resto de los workspaces.
+- `agentRules: false` en `next.config.js`: Next 16 escribe un `AGENTS.md` y un
+  `CLAUDE.md` en la carpeta al arrancar, y este repositorio ya tiene el suyo.
+
+Efecto medido: **6 vulnerabilidades → 3**, ninguna alcanzable en tiempo de
+ejecución. Salió además una fragilidad propia: un test de registro usaba el
+timeout de 1 s que trae `findByText` por defecto y fallaba en la pasada completa
+con cobertura, donde hay trece proyectos instrumentados a la vez.
 
 ### 1.3 Lo que está bien resuelto
 
@@ -239,8 +267,8 @@ nombre igualmente.
 
 ## 6. Qué hacer, por orden
 
-1. **Subir a Next 15** y acotar los comodines de `remotePatterns`. Es el único
-   hallazgo con exposición real a internet.
+1. ~~**Subir Next** y acotar los comodines de `remotePatterns`.~~ ✅ hecho el 12 de
+   agosto de 2026: Next 16.3.0 + React 19.
 2. **Los nombres de cliente en la agenda** y el worker de capacidad.
 3. **Partir `event-listeners.service.ts`**, barrer los `findAndCount` sin límite y
    decidir qué hacer con el filtro de tenant explícito: aceptarlo con un test que

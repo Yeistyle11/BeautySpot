@@ -11,7 +11,7 @@ Next.js, PostgreSQL, Redis, RabbitMQ y Docker.
 | Capa           | Tecnología                                            |
 | -------------- | ----------------------------------------------------- |
 | Backend        | NestJS 11 + TypeORM + TypeScript (8 servicios)        |
-| Frontend       | Next.js 14 (App Router) + TailwindCSS + Zustand + SWR |
+| Frontend       | Next.js 16 (App Router) + TailwindCSS + Zustand + SWR |
 | Base de datos  | PostgreSQL 16 — 7 bases, una por servicio             |
 | Caché/sesiones | Redis 7                                               |
 | Bus de eventos | RabbitMQ 3                                            |
@@ -153,7 +153,7 @@ BeautySpot/
 │   ├── marketplace-service/    # 3006
 │   └── analytics-service/      # 3007
 ├── apps/
-│   └── frontend/              # Next.js 14 (8080) — fuente de verdad de la UI
+│   └── frontend/              # Next.js 16 (8080) — fuente de verdad de la UI
 ├── packages/
 │   ├── database/              # Configuración TypeORM, entidades base, paginación
 │   ├── event-types/           # Contratos de los 30 eventos de RabbitMQ

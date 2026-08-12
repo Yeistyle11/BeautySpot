@@ -30,7 +30,7 @@ en desarrollo la infraestructura la levanta Docker Compose.
 ```
                         Navegador
                             |
-                   apps/frontend (Next.js 14)
+                   apps/frontend (Next.js 16)
                    dev :8080 — panel, marketplace
                    y perfil publico son rutas de
                    la MISMA aplicacion
@@ -667,7 +667,7 @@ respuesta HTTP.
 ```
 BeautySpot/
 +-- apps/
-|   +-- frontend/             Next.js 14 (App Router). El unico frontend.
+|   +-- frontend/             Next.js 16 (App Router). El unico frontend.
 |       +-- src/app/          Rutas: dashboard, login, marketplace
 |       +-- src/components/   UI compartida
 |       +-- src/lib/          api, swr, store, permissions: lo que componen las paginas
@@ -790,7 +790,8 @@ agregador de logs. Es el siguiente paso natural y esta descrito como objetivo en
 ### ADR-005: Next.js para el frontend
 
 **Contexto**: El frontend necesita SSR para perfiles publicos (SEO) y SPA para el dashboard.
-**Decision**: Next.js 14 con App Router.
+**Decision**: Next.js con App Router (16 desde agosto de 2026; se subio desde 14
+para cerrar los avisos de seguridad del optimizador de imagenes).
 **Rationale**: Next.js permite SSR para el marketplace y perfiles publicos, y SPA para el dashboard. El App Router con React Server Components optimiza la carga inicial y el SEO.
 
 ### ADR-006: Transactional Outbox para los eventos que importan
