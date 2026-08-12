@@ -48,7 +48,7 @@ import {
   type ServicioBreve,
 } from "./schemas";
 
-const emptyForm = { name: "", email: "", phone: "" };
+const emptyForm = { name: "", email: "", phone: "", birthDate: "" };
 
 export default function ClientsPage() {
   const toast = useToast();
@@ -82,6 +82,7 @@ export default function ClientsPage() {
     email: "",
     phone: "",
     notes: "",
+    birthDate: "",
   });
   const [editId, setEditId] = useState<string | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -124,6 +125,7 @@ export default function ClientsPage() {
         name: createForm.name,
         email: createForm.email || undefined,
         phone: createForm.phone || undefined,
+        birthDate: createForm.birthDate || undefined,
       });
       setCreateForm(emptyForm);
       setCreateDialog(false);
@@ -167,6 +169,7 @@ export default function ClientsPage() {
       email: client.email || "",
       phone: client.phone || "",
       notes: client.notes || "",
+      birthDate: client.birthDate || "",
     });
     setEditDialog(true);
   };
@@ -181,6 +184,8 @@ export default function ClientsPage() {
         email: editForm.email || undefined,
         phone: editForm.phone || undefined,
         notes: editForm.notes || undefined,
+        // Vaciar el campo borra la fecha, así que va null y no undefined.
+        birthDate: editForm.birthDate || null,
       });
       setEditDialog(false);
       setEditId(null);
@@ -358,6 +363,18 @@ export default function ClientsPage() {
               />
             </Field>
           </div>
+          <Field
+            label="Fecha de nacimiento"
+            hint="Con ella el cliente recibe una felicitación el día de su cumpleaños."
+          >
+            <Input
+              type="date"
+              value={createForm.birthDate}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, birthDate: e.target.value })
+              }
+            />
+          </Field>
           <div className="flex gap-3 pt-2">
             <Button type="submit" disabled={savingCreate}>
               {savingCreate ? "Guardando..." : "Crear cliente"}
@@ -533,6 +550,18 @@ export default function ClientsPage() {
               />
             </Field>
           </div>
+          <Field
+            label="Fecha de nacimiento"
+            hint="Con ella el cliente recibe una felicitación el día de su cumpleaños."
+          >
+            <Input
+              type="date"
+              value={editForm.birthDate}
+              onChange={(e) =>
+                setEditForm({ ...editForm, birthDate: e.target.value })
+              }
+            />
+          </Field>
           <Field label="Notas">
             <Textarea
               value={editForm.notes}

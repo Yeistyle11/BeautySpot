@@ -439,6 +439,20 @@ export class EmailService {
     });
   }
 
+  /** Encola la felicitación de cumpleaños (prioridad baja). */
+  async queueBirthdayGreeting(
+    to: string,
+    data: { clientName: string; businessName: string; year: number }
+  ): Promise<{ jobId: string }> {
+    return this.queueEmail({
+      to,
+      template: "birthday-greeting",
+      data,
+      subject: `¡Feliz cumpleaños de parte de ${data.businessName}!`,
+      priority: "low",
+    });
+  }
+
   /** Encola el correo de bienvenida (prioridad baja). */
   async queueWelcomeEmail(
     to: string,

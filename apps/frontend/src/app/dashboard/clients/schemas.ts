@@ -8,6 +8,8 @@ export const clientSchema = z.object({
   phone: z.string().nullable(),
   loyaltyPoints: z.number(),
   notes: z.string().nullable(),
+  /** Fecha de nacimiento en `YYYY-MM-DD`, de la que sale la felicitación. */
+  birthDate: z.string().nullish(),
   active: z.boolean(),
   /** Valores de la ficha configurable, indexados por id de campo. */
   ficha: z.record(z.string(), z.unknown()).nullish(),

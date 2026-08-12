@@ -30,6 +30,7 @@ import {
   InvoiceGeneratedEvent,
   PaymentRegisteredEvent,
   ReviewCreatedEvent,
+  ClientBirthdayEvent,
   ServicioDeLaCita,
   EventNames,
   EVENTS_EXCHANGE,
@@ -861,6 +862,67 @@ export class NotificationEventListeners {
       );
     } catch (error) {
       this.logError("reseña", error);
+    }
+  }
+
+  /**
+   * Felicita al cliente el día de su cumpleaños, por correo y dentro de la
+   * aplicación.
+   *
+   * El correo sale aunque el cliente no tenga cuenta: el aviso in-app necesita
+   * un usuario, pero la dirección la trae la ficha.
+   */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.CORE_CLIENT_BIRTHDAY,
+    queue: nombreDeCola("notification", EventNames.CORE_CLIENT_BIRTHDAY),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleClientBirthday(event: ClientBirthdayEvent) {
+    const { clientId, businessId, name, email, year } = event.payload;
+
+    this.logger.log(`Cumpleaños del cliente: ${clientId}`);
+
+    try {
+      await this.processedEvents.once(
+        event,
+        "notification:cumpleaños",
+        async () => {
+          const [businessData, clientUserId] = await Promise.all([
+            this.dataEnricher.enrichBusinessData(businessId),
+            this.dataEnricher.enrichClientUserId(clientId),
+          ]);
+
+          if (email) {
+            const { jobId } = await this.emailService.queueBirthdayGreeting(
+              email,
+              {
+                clientName: name,
+                businessName: businessData.businessName,
+                year,
+              }
+            );
+
+            await this.emitEmailQueuedEvent(
+              jobId,
+              email,
+              "birthday-greeting",
+              `¡Feliz cumpleaños de parte de ${businessData.businessName}!`
+            );
+          }
+
+          await this.avisarEnLaApp(
+            clientUserId,
+            businessId,
+            NotificationType.BIRTHDAY,
+            "¡Feliz cumpleaños!",
+            `En ${businessData.businessName} te deseamos un feliz día.`,
+            { clientId, year }
+          );
+        }
+      );
+    } catch (error) {
+      this.logError("cumpleaños", error);
     }
   }
 

@@ -14,6 +14,9 @@ import {
   MENSAJE_TELEFONO,
 } from "@beautyspot/shared-constants";
 
+/** Fecha de calendario, que es como viaja la fecha de nacimiento. */
+const PATRON_FECHA = /^\d{4}-\d{2}-\d{2}$/;
+
 /**
  * Datos para registrar un cliente: nombre, contacto, notas y etiquetas.
  *
@@ -45,6 +48,12 @@ export class CreateClientDto {
   @IsString()
   @MaxLength(1000, { message: "Las notas no pueden pasar de 1000 caracteres" })
   notes?: string;
+  /** Fecha de nacimiento, de la que sale la felicitación de cumpleaños. */
+  @IsOptional()
+  @Matches(PATRON_FECHA, {
+    message: "La fecha de nacimiento debe tener el formato AAAA-MM-DD",
+  })
+  birthDate?: string | null;
   @IsOptional() @IsString() userId?: string;
   @IsOptional() @IsArray() tags?: string[];
   /**
@@ -82,6 +91,12 @@ export class UpdateClientDto {
   @IsString()
   @MaxLength(1000, { message: "Las notas no pueden pasar de 1000 caracteres" })
   notes?: string;
+  /** Fecha de nacimiento, de la que sale la felicitación de cumpleaños. */
+  @IsOptional()
+  @Matches(PATRON_FECHA, {
+    message: "La fecha de nacimiento debe tener el formato AAAA-MM-DD",
+  })
+  birthDate?: string | null;
   @IsOptional() @IsArray() tags?: string[];
   /**
    * Valores de la ficha que el negocio se haya definido, por id de campo. Se

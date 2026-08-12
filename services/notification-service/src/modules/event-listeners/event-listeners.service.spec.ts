@@ -180,6 +180,7 @@ describe("NotificationEventListeners", () => {
       queueAppointmentCreated: jest
         .fn()
         .mockResolvedValue({ jobId: "job-130" }),
+      queueBirthdayGreeting: jest.fn().mockResolvedValue({ jobId: "job-132" }),
     } as any;
 
     mockAmqpConnection = {
@@ -1020,6 +1021,69 @@ describe("NotificationEventListeners", () => {
       ] as never);
 
       await service.handleReviewCreated(mockReviewCreatedEvent);
+
+      expect(mockNotifications.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("handleClientBirthday", () => {
+    const mockClientBirthdayEvent = {
+      eventType: "core.client.birthday",
+      eventId: "evt-131",
+      correlationId: "corr-131",
+      timestamp: new Date(),
+      payload: {
+        clientId: "client-123",
+        businessId: "business-123",
+        name: "Ana Gómez",
+        email: "ana@example.com",
+        year: 2026,
+      },
+    };
+
+    it("felicita por correo y dentro de la aplicación", async () => {
+      await service.handleClientBirthday(mockClientBirthdayEvent);
+
+      expect(mockEmailService.queueBirthdayGreeting).toHaveBeenCalledWith(
+        "ana@example.com",
+        expect.objectContaining({
+          clientName: "Ana Gómez",
+          businessName: "EliteBarbers",
+          year: 2026,
+        })
+      );
+      expect(mockNotifications.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-cliente",
+          businessId: "business-123",
+          type: "BIRTHDAY",
+        })
+      );
+    });
+
+    it("sin correo en la ficha, solo deja el aviso en la aplicación", async () => {
+      await service.handleClientBirthday({
+        ...mockClientBirthdayEvent,
+        payload: { ...mockClientBirthdayEvent.payload, email: undefined },
+      });
+
+      expect(mockEmailService.queueBirthdayGreeting).not.toHaveBeenCalled();
+      expect(mockNotifications.create).toHaveBeenCalled();
+    });
+
+    it("no deja aviso en la aplicación a quien no tiene cuenta", async () => {
+      mockDataEnricher.enrichClientUserId.mockResolvedValue(null);
+
+      await service.handleClientBirthday(mockClientBirthdayEvent);
+
+      expect(mockEmailService.queueBirthdayGreeting).toHaveBeenCalled();
+      expect(mockNotifications.create).not.toHaveBeenCalled();
+    });
+
+    it("respeta que el cliente haya silenciado los cumpleaños", async () => {
+      mockPreferencias.isNotificationEnabled.mockResolvedValue(false);
+
+      await service.handleClientBirthday(mockClientBirthdayEvent);
 
       expect(mockNotifications.create).not.toHaveBeenCalled();
     });
