@@ -2,7 +2,11 @@ import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { EVENTS_EXCHANGE, DEAD_LETTER_EXCHANGE } from "@beautyspot/event-types";
-import { NotificationEventListeners } from "./event-listeners.service";
+import { AvisosService } from "./avisos.service";
+import { CuentaListeners } from "./cuenta.listeners";
+import { AgendaListeners } from "./agenda.listeners";
+import { CobrosListeners } from "./cobros.listeners";
+import { ClienteListeners } from "./cliente.listeners";
 import { EmailsModule } from "../emails/emails.module";
 import { DataEnricherModule } from "../data-enricher/data-enricher.module";
 import { NotificationsModule } from "../notifications/notifications.module";
@@ -26,8 +30,22 @@ import { NotificationPreferencesModule } from "../notification-preferences/notif
       }),
     }),
   ],
-  providers: [NotificationEventListeners],
-  exports: [NotificationEventListeners],
+  providers: [
+    AvisosService,
+    CuentaListeners,
+    AgendaListeners,
+    CobrosListeners,
+    ClienteListeners,
+  ],
+  exports: [
+    CuentaListeners,
+    AgendaListeners,
+    CobrosListeners,
+    ClienteListeners,
+  ],
 })
-/** Registra los listeners que avisan al cliente por correo y en la aplicación. */
+/**
+ * Registra los listeners que avisan al cliente por correo y en la aplicación,
+ * uno por dominio, sobre el envío común de `AvisosService`.
+ */
 export class EventListenersModule {}
