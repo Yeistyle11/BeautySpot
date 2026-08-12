@@ -1,6 +1,6 @@
 # Referencia de la API — BeautySpot
 
-Referencia completa de la API HTTP de BeautySpot: **41 controladores y 170 rutas**
+Referencia completa de la API HTTP de BeautySpot: **48 controladores y 215 rutas**
 repartidos en 8 microservicios NestJS, todos accesibles a través del API Gateway.
 
 Este documento se genera a partir de los controladores reales (`services/*/src/**/*.controller.ts`).
@@ -200,16 +200,18 @@ Autenticación, usuarios, personal y membresías. Base de datos `beautyspot_auth
 
 ### Autenticación — `/api/v1/auth`
 
-| Método | Ruta               | Roles       | Descripción                                |
-| ------ | ------------------ | ----------- | ------------------------------------------ |
-| POST   | `/register`        | PÚBLICA     | Registra usuario y negocio                 |
-| POST   | `/login`           | PÚBLICA     | Devuelve access y refresh token            |
-| POST   | `/refresh`         | PÚBLICA     | Canjea el refresh token por uno nuevo      |
-| POST   | `/forgot-password` | PÚBLICA     | Dispara el correo de recuperación          |
-| POST   | `/reset-password`  | PÚBLICA     | Fija la contraseña con el token del correo |
-| POST   | `/change-password` | Autenticado | Cambia la contraseña conociendo la actual  |
-| POST   | `/logout`          | Autenticado | Invalida la sesión (sube `tokenVersion`)   |
-| GET    | `/me`              | Autenticado | Usuario del token                          |
+| Método | Ruta                   | Roles       | Descripción                                |
+| ------ | ---------------------- | ----------- | ------------------------------------------ |
+| POST   | `/register`            | PÚBLICA     | Registra usuario y negocio                 |
+| POST   | `/login`               | PÚBLICA     | Devuelve access y refresh token            |
+| POST   | `/refresh`             | PÚBLICA     | Canjea el refresh token por uno nuevo      |
+| POST   | `/forgot-password`     | PÚBLICA     | Dispara el correo de recuperación          |
+| POST   | `/reset-password`      | PÚBLICA     | Fija la contraseña con el token del correo |
+| POST   | `/change-password`     | Autenticado | Cambia la contraseña conociendo la actual  |
+| POST   | `/logout`              | Autenticado | Invalida la sesión (sube `tokenVersion`)   |
+| POST   | `/verify-email`        | PÚBLICA     | Confirma el correo con el token del enlace |
+| POST   | `/resend-verification` | PÚBLICA     | Reenvía el enlace de confirmación          |
+| GET    | `/me`                  | Autenticado | Usuario del token                          |
 
 ### Usuarios y personal — `/api/v1/auth/users`
 
@@ -236,16 +238,17 @@ Autenticación, usuarios, personal y membresías. Base de datos `beautyspot_auth
 
 ### Internos
 
-| Método | Ruta                    | Descripción                                      |
-| ------ | ----------------------- | ------------------------------------------------ |
-| POST   | `/internal/memberships` | Crea membresía sin comprobar el rol del llamante |
+| Método | Ruta                                         | Descripción                                      |
+| ------ | -------------------------------------------- | ------------------------------------------------ |
+| POST   | `/internal/memberships`                      | Crea membresía sin comprobar el rol del llamante |
+| GET    | `/internal/memberships/business/:businessId` | Quién trabaja en el negocio y con qué rol        |
 
 ---
 
 ## core-service (3002)
 
 Negocios, sucursales, profesionales, servicios, clientes e imágenes. Base de datos
-`beautyspot_core`. Es el servicio más grande: 10 entidades y 12 controladores.
+`beautyspot_core`. Es el servicio más grande: 11 entidades y 18 controladores.
 
 ### Negocios — `/api/v1/core/businesses`
 
@@ -352,12 +355,30 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 
 ### Clientes — `/api/v1/core/clients`
 
-| Método | Ruta   | Roles                                    |
-| ------ | ------ | ---------------------------------------- |
-| POST   | `/`    | OWNER, ADMIN, RECEPTIONIST               |
-| GET    | `/`    | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL |
-| GET    | `/:id` | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL |
-| PATCH  | `/:id` | OWNER, ADMIN, RECEPTIONIST               |
+| Método | Ruta             | Roles                                    | Descripción                                      |
+| ------ | ---------------- | ---------------------------------------- | ------------------------------------------------ |
+| POST   | `/`              | OWNER, ADMIN, RECEPTIONIST               | Registra un cliente                              |
+| GET    | `/`              | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Lista con búsqueda y paginación                  |
+| GET    | `/me`            | CLIENT                                   | Su ficha, con el nivel de fidelidad resuelto     |
+| PATCH  | `/me`            | CLIENT                                   | Sus datos personales; 404 si reservó de invitado |
+| GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Detalle                                          |
+| PATCH  | `/:id`           | OWNER, ADMIN, RECEPTIONIST               | Actualiza                                        |
+| POST   | `/:id/anonymize` | OWNER, ADMIN                             | Derecho de supresión; conserva citas y facturas  |
+
+`GET /me` devuelve además `nivel` y `siguienteNivel`, resueltos en el servidor
+contra la escala de `business-config/fidelizacion`, que el cliente no puede leer.
+
+### Campos de ficha — `/api/v1/core/client-fields`
+
+Campos que cada negocio añade a la ficha de sus clientes. Definirlos es de quien
+manda; leerlos, de todo el que atiende, que es quien los rellena.
+
+| Método | Ruta   | Roles                                    | Descripción                           |
+| ------ | ------ | ---------------------------------------- | ------------------------------------- |
+| POST   | `/`    | OWNER, ADMIN                             | Define un campo                       |
+| GET    | `/`    | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Lista; `?activos=false` incluye bajas |
+| PATCH  | `/:id` | OWNER, ADMIN                             | Actualiza                             |
+| DELETE | `/:id` | OWNER, ADMIN                             | Da de baja; los valores se conservan  |
 
 ### Imágenes — `/api/v1/core/images`
 
@@ -386,12 +407,19 @@ Controlador `@Public()`: sin token. Alimenta el marketplace y la reserva públic
 
 ### Internos
 
-| Método | Ruta                               | Descripción                                   |
-| ------ | ---------------------------------- | --------------------------------------------- |
-| GET    | `/internal/businesses/resolve`     | Resuelve negocio por slug (lo usa el gateway) |
-| POST   | `/internal/businesses`             | Crea negocio a petición de otro servicio      |
-| POST   | `/internal/clients/find-or-create` | Busca o crea cliente (reserva pública)        |
-| GET    | `/internal/profiles/resolve`       | Resuelve perfiles                             |
+| Método | Ruta                                | Descripción                                           |
+| ------ | ----------------------------------- | ----------------------------------------------------- |
+| GET    | `/internal/businesses/resolve`      | Resuelve negocio por slug (lo usa el gateway)         |
+| POST   | `/internal/businesses`              | Crea negocio a petición de otro servicio              |
+| POST   | `/internal/businesses/names`        | Nombres de varios negocios, para etiquetar listas     |
+| POST   | `/internal/clients/find-or-create`  | Busca o crea cliente (reserva pública)                |
+| GET    | `/internal/clients/:id/puntos`      | Puntos disponibles, para quien vaya a canjearlos      |
+| GET    | `/internal/clients/by-user/:userId` | Fichas del usuario, una por negocio donde reservó     |
+| GET    | `/internal/clients/search`          | Ids que casan con un texto (búsqueda de citas)        |
+| GET    | `/internal/profiles/resolve`        | Resuelve perfiles                                     |
+| GET    | `/internal/branches`                | Sedes activas del negocio                             |
+| GET    | `/internal/business-hours`          | Horario de apertura; lo consume la agenda             |
+| POST   | `/internal/services/resolve`        | Precio y duración reales de los servicios de una cita |
 
 ---
 
@@ -414,6 +442,17 @@ patrón **Outbox** para publicar eventos de forma fiable.
 | POST   | `/:id/cancel`     | OWNER, ADMIN, RECEPTIONIST               | Cancela con motivo        |
 | POST   | `/:id/no-show`    | OWNER, ADMIN, PROFESSIONAL               | Marca no presentado       |
 | PATCH  | `/:id/reschedule` | OWNER, ADMIN, RECEPTIONIST               | Reprograma                |
+
+Las rutas `/mine/*` son las del portal del cliente: el destinatario sale del
+token y no del negocio, así que llevan `@SkipBusinessScope()`. A diferencia de
+las del panel, respetan la antelación mínima de cancelación del negocio.
+
+| Método | Ruta                   | Roles  | Descripción              |
+| ------ | ---------------------- | ------ | ------------------------ |
+| GET    | `/mine`                | CLIENT | Sus citas                |
+| GET    | `/mine/:id`            | CLIENT | Detalle de una cita suya |
+| POST   | `/mine/:id/cancel`     | CLIENT | Cancela una cita suya    |
+| PATCH  | `/mine/:id/reschedule` | CLIENT | Reagenda una cita suya   |
 
 ### Disponibilidad — `/api/v1/booking/professionals/:professionalId/availability`
 
@@ -462,9 +501,12 @@ nombra los días en conflicto.
 
 ### Internos
 
-| Método | Ruta                                                              | Descripción                       |
-| ------ | ----------------------------------------------------------------- | --------------------------------- |
-| GET    | `/internal/appointments/professional/:professionalId/has-history` | Si el profesional tiene historial |
+| Método | Ruta                                                              | Descripción                            |
+| ------ | ----------------------------------------------------------------- | -------------------------------------- |
+| GET    | `/internal/appointments/professional/:professionalId/has-history` | Si el profesional tiene historial      |
+| GET    | `/internal/appointments/capacidad`                                | Minutos disponibles del equipo ese día |
+| GET    | `/internal/appointments/:appointmentId/cobro`                     | Importe, estado y cliente de la cita   |
+| GET    | `/internal/appointments/:appointmentId/resenable`                 | Si el usuario puede reseñar esa cita   |
 
 ---
 
@@ -488,26 +530,29 @@ Pagos manuales, facturas y caja. Base de datos `beautyspot_payment`. Usa el patr
 
 Roles a nivel de clase: **OWNER, ADMIN**.
 
-| Método | Ruta          | Roles                      | Descripción      |
-| ------ | ------------- | -------------------------- | ---------------- |
-| POST   | `/`           | OWNER, ADMIN               | Crea factura     |
-| GET    | `/`           | OWNER, ADMIN, RECEPTIONIST | Lista facturas   |
-| GET    | `/:id`        | OWNER, ADMIN               | Detalle          |
-| PATCH  | `/:id/status` | OWNER, ADMIN               | Cambia el estado |
-| GET    | `/:id/pdf`    | OWNER, ADMIN               | Descarga el PDF  |
+| Método | Ruta            | Roles                      | Descripción                   |
+| ------ | --------------- | -------------------------- | ----------------------------- |
+| POST   | `/`             | OWNER, ADMIN               | Crea factura                  |
+| GET    | `/`             | OWNER, ADMIN, RECEPTIONIST | Lista facturas                |
+| GET    | `/mine`         | CLIENT                     | Sus facturas, desde el portal |
+| GET    | `/mine/:id/pdf` | CLIENT                     | Descarga el PDF de una suya   |
+| GET    | `/:id`          | OWNER, ADMIN               | Detalle                       |
+| PATCH  | `/:id/status`   | OWNER, ADMIN               | Cambia el estado              |
+| GET    | `/:id/pdf`      | OWNER, ADMIN               | Descarga el PDF               |
 
 ### Caja — `/api/v1/payment/cash-register`
 
 Roles a nivel de clase: **OWNER, ADMIN, RECEPTIONIST**.
 
-| Método | Ruta             | Descripción           |
-| ------ | ---------------- | --------------------- |
-| POST   | `/open`          | Abre sesión de caja   |
-| POST   | `/:id/close`     | Cierra con arqueo     |
-| POST   | `/:id/movements` | Registra movimiento   |
-| GET    | `/active`        | Sesión abierta actual |
-| GET    | `/history`       | Histórico de sesiones |
-| GET    | `/:id/summary`   | Resumen de una sesión |
+| Método | Ruta             | Descripción                        |
+| ------ | ---------------- | ---------------------------------- |
+| POST   | `/open`          | Abre sesión de caja                |
+| POST   | `/:id/close`     | Cierra con arqueo                  |
+| POST   | `/:id/movements` | Registra movimiento                |
+| GET    | `/active`        | Sesión abierta actual              |
+| GET    | `/history`       | Histórico de sesiones              |
+| GET    | `/:id/summary`   | Resumen de una sesión              |
+| GET    | `/:id/corte`     | Corte X: arqueo parcial sin cerrar |
 
 > **Un negocio no puede tener dos cajas abiertas a la vez.** La garantía es del
 > índice único parcial `uq_cash_sessions_open_per_business`
@@ -526,13 +571,18 @@ Notificaciones in-app, preferencias y correo. Base de datos `beautyspot_notifica
 
 Roles a nivel de clase: **OWNER, ADMIN, PROFESSIONAL, CLIENT**.
 
+El destinatario sale siempre del token; el negocio sólo acota el listado, así que
+el cliente final —que no pertenece a ninguno— las ve todas.
+
 | Método | Ruta             | Descripción                |
 | ------ | ---------------- | -------------------------- |
-| POST   | `/`              | Crea notificación          |
 | GET    | `/`              | Notificaciones del usuario |
 | GET    | `/unread-count`  | Número de no leídas        |
 | POST   | `/:id/read`      | Marca una como leída       |
 | POST   | `/mark-all-read` | Marca todas como leídas    |
+
+Crear una notificación no es una operación de usuario: la hacen los servicios por
+`POST /internal/notifications`, tras el secreto interno.
 
 ### Preferencias — `/api/v1/notification/notification-preferences`
 
@@ -558,6 +608,12 @@ las `SMTP_*` del `.env`.
 | POST   | `/password-reset`           | Recuperación de contraseña |
 | POST   | `/welcome`                  | Bienvenida                 |
 | POST   | `/monthly-report`           | Informe mensual            |
+
+### Notificaciones (internos) — `/internal/notifications`
+
+| Método | Ruta | Descripción                                       |
+| ------ | ---- | ------------------------------------------------- |
+| POST   | `/`  | Crea una notificación a petición de otro servicio |
 
 ---
 
@@ -600,15 +656,25 @@ Perfiles públicos, búsqueda, feed y reseñas. Base de datos `beautyspot_market
 
 ### Reseñas — `/api/v1/marketplace/reviews`
 
-| Método | Ruta                            | Roles        | Descripción                   |
-| ------ | ------------------------------- | ------------ | ----------------------------- |
-| POST   | `/`                             | PÚBLICA      | Crea reseña                   |
-| GET    | `/business/:businessId`         | PÚBLICA      | Reseñas del negocio           |
-| GET    | `/business/:businessId/summary` | PÚBLICA      | Resumen y media de valoración |
-| GET    | `/:id`                          | PÚBLICA      | Detalle                       |
-| POST   | `/:id/respond`                  | OWNER, ADMIN | Responde a una reseña         |
-| POST   | `/:id/helpful`                  | PÚBLICA      | Marca como útil               |
-| DELETE | `/:id/helpful`                  | PÚBLICA      | Quita la marca                |
+| Método | Ruta                            | Roles        | Descripción                                   |
+| ------ | ------------------------------- | ------------ | --------------------------------------------- |
+| POST   | `/`                             | CLIENT       | Crea reseña; el negocio lo aporta la cita     |
+| GET    | `/business/:businessId`         | PÚBLICA      | Reseñas del negocio                           |
+| GET    | `/business/:businessId/summary` | PÚBLICA      | Resumen y media de valoración                 |
+| GET    | `/mine`                         | CLIENT       | Las que ha escrito                            |
+| GET    | `/appointment/:appointmentId`   | CLIENT       | Reseñas de una cita concreta                  |
+| GET    | `/:id`                          | PÚBLICA      | Detalle                                       |
+| PATCH  | `/:id`                          | CLIENT       | Corrige la suya; no cambia cita ni negocio    |
+| DELETE | `/:id`                          | CLIENT       | Borra la suya; la cita vuelve a ser reseñable |
+| POST   | `/:id/respond`                  | OWNER, ADMIN | Responde a una reseña                         |
+| PATCH  | `/:id/respond`                  | OWNER, ADMIN | Reescribe la respuesta                        |
+| DELETE | `/:id/respond`                  | OWNER, ADMIN | Retira la respuesta                           |
+| POST   | `/:id/report`                   | Autenticado  | Denuncia; una por usuario y reseña            |
+| PATCH  | `/:id/moderar`                  | OWNER, ADMIN | Oculta o vuelve a publicar                    |
+| POST   | `/:id/helpful`                  | Autenticado  | Marca como útil; un voto por usuario          |
+| DELETE | `/:id/helpful`                  | Autenticado  | Quita la marca                                |
+
+Una reseña oculta por moderación deja de contar en la media del negocio.
 
 ### Internos
 
@@ -630,11 +696,13 @@ controladores exigen **SUPER_ADMIN, OWNER o ADMIN**.
 
 ### Dashboard — `/api/v1/analytics/dashboard`
 
-| Método | Ruta                 | Descripción                       |
-| ------ | -------------------- | --------------------------------- |
-| GET    | `/kpis`              | KPIs principales                  |
-| GET    | `/top-professionals` | Ranking de profesionales          |
-| GET    | `/revenue-chart`     | Serie de ingresos para la gráfica |
+| Método | Ruta                 | Descripción                                      |
+| ------ | -------------------- | ------------------------------------------------ |
+| GET    | `/kpis`              | KPIs principales                                 |
+| GET    | `/top-professionals` | Ranking de profesionales                         |
+| GET    | `/revenue-chart`     | Serie de ingresos para la gráfica                |
+| GET    | `/retencion`         | Tasa de retorno y frecuencia de visita           |
+| GET    | `/servicios`         | Rentabilidad e ingreso por hora de cada servicio |
 
 ### Métricas — `/api/v1/analytics/metrics`
 
@@ -675,23 +743,31 @@ El gateway también aplica **rate limiting** con Redis, configurable con
 
 ## Eventos de RabbitMQ
 
-La API no es el único contrato entre servicios: hay 27 eventos de dominio
-publicados en RabbitMQ, definidos como constantes en
-`packages/event-types/src/`. Sus nombres siguen el patrón
-`{servicio}.{agregado}.{acción}`:
+La API no es el único contrato entre servicios: hay 30 nombres de evento
+declarados como constantes en `packages/event-types/src/` —de los que hoy
+circulan 25; el detalle de quién publica y quién consume cada uno está en
+[04-ARQUITECTURA.md](04-ARQUITECTURA.md#71-catalogo-de-eventos)—. Siguen el
+patrón `{servicio}.{agregado}.{acción}`:
 
-| Familia          | Eventos                                                                                                                |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `auth.*`         | `user.registered`, `user.logged-in`, `password-reset.requested`, `membership.created`, `membership.role-changed`       |
-| `core.*`         | `business.created`, `business.updated`, `professional.created`, `service.created`, `service.updated`, `client.created` |
-| `booking.*`      | `appointment.created`, `.confirmed`, `.cancelled`, `.completed`, `.no-showed`, `.rescheduled`, `.reminder-due`         |
-| `payment.*`      | `payment.registered`, `invoice.generated`, `refund.processed`, `cash.session.closed`                                   |
-| `marketplace.*`  | `review.created`, `review.updated`                                                                                     |
-| `notification.*` | `email.queued`, `email.sent`, `email.failed`                                                                           |
+| Familia          | Eventos                                                                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `auth.*`         | `user.registered`, `user.logged-in`, `password-reset.requested`, `email-verification.requested`, `membership.created`, `membership.role-changed` |
+| `core.*`         | `business.created`, `business.updated`, `professional.created`, `service.created`, `service.updated`, `client.created`, `client.birthday`        |
+| `booking.*`      | `appointment.created`, `.confirmed`, `.cancelled`, `.completed`, `.no-showed`, `.rescheduled`, `.reminder-due`                                   |
+| `payment.*`      | `payment.registered`, `invoice.generated`, `points.redeemed`, `refund.processed`, `cash.session.closed`                                          |
+| `marketplace.*`  | `review.created`, `review.updated`                                                                                                               |
+| `notification.*` | `email.queued`, `email.sent`, `email.failed`                                                                                                     |
 
-Los servicios que publican eventos de forma crítica (booking, payment) usan el
-patrón **Transactional Outbox**: el evento se escribe en la tabla `outbox_messages`
-dentro de la misma transacción que el cambio de negocio, y un worker lo publica
-después. Así nunca hay un cambio sin evento ni un evento sin cambio.
+Los servicios que publican eventos de forma crítica (auth, booking, core,
+marketplace y payment) usan el patrón **Transactional Outbox**: el evento se
+escribe en la tabla `outbox_messages` dentro de la misma transacción que el
+cambio de negocio, y un worker lo publica después. Así nunca hay un cambio sin
+evento ni un evento sin cambio.
+
+Dos de esos eventos no nacen de una petición sino de un sondeo periódico:
+`booking.appointment.reminder-due` (`RemindersWorker`) y `core.client.birthday`
+(`CumpleanosWorker`). Ambos marcan en la propia fila lo que ya emitieron —dentro
+de la transacción del outbox— para no repetirse aunque haya varias instancias
+sondeando a la vez.
 
 Ver [04-ARQUITECTURA.md](04-ARQUITECTURA.md) para la topología de exchanges y colas.

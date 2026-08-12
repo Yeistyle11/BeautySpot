@@ -1,5 +1,23 @@
 # BeautySpot SaaS - Documento de Base de Datos
 
+> **🔵 Este documento es especificacion, no el esquema que existe.** Se escribio
+> antes de implementar y su modelo se separo del real en cosas que importan: aqui
+> hay `first_name`/`last_name` y borrado logico con `deletedAt` en todas las
+> tablas, y en el codigo hay un solo `name` y una columna `active` (mas
+> `anonymizedAt` en `clients`, que es supresion de datos, no borrado); aqui la
+> cita guarda `start_time`/`end_time` como TIMESTAMP, y en el codigo guarda
+> `date` mas `startTime` como hora de pared del negocio, sin huso.
+>
+> **El esquema real son las entidades y las migraciones de cada servicio**
+> (`services/*/src/entities/` y `services/*/src/migrations/`). Que ambos digan lo
+> mismo lo vigila `schema-migrations.int-test.ts`, que levanta la base solo con
+> las migraciones y exige que TypeORM no encuentre nada pendiente frente a las
+> entidades.
+>
+> Se conserva porque el reparto por servicio, las relaciones y la estrategia de
+> indexacion siguen siendo la referencia de diseño. No lo uses para saber que
+> columna tiene una tabla.
+
 ## 1. Vision General
 
 BeautySpot sigue el patron **database-per-service**: cada microservicio posee y gestiona su propia base de datos PostgreSQL. Ningun servicio puede acceder directamente a la base de datos de otro servicio. La comunicacion de datos entre servicios se realiza unicamente via API REST interna o eventos asincronos (RabbitMQ).

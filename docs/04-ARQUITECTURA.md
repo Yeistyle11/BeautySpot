@@ -16,6 +16,14 @@ BeautySpot es una plataforma SaaS multi-tenant construida sobre una arquitectura
 
 ## 2. Diagrama de Arquitectura
 
+> 🔵 El diagrama es el objetivo, no el despliegue actual. Difiere en dos cosas
+> que se notan enseguida: **el frontend es una sola aplicación Next.js**
+> (`apps/frontend`, puerto 8080 en desarrollo) con el panel, el marketplace y el
+> perfil público como rutas, no cuatro aplicaciones; y **los puertos reales son
+> gateway 3000, auth 3001, core 3002, booking 3003, payment 3004, notification
+> 3005, marketplace 3006 y analytics 3007**. La topología de RabbitMQ real —un
+> único exchange, no uno por servicio— está en el apartado 7.2.
+
 ```
                            +-----------------+
                            |   CDN / DNS     |
@@ -416,103 +424,98 @@ export class TenantGuard implements CanActivate {
 
 ### 7.1 Catalogo de Eventos
 
-#### Auth Events (Exchange: `auth.events`)
+Los nombres canonicos viven en `packages/event-types/src/index.ts` (`EventNames`),
+compartidos por productores y consumidores para que nadie escriba la cadena a
+mano. Son **30 nombres declarados** con el patron `{servicio}.{agregado}.{accion}`,
+de los que hoy circulan 25.
 
-| Evento             | Routing Key               | Publicado por | Consumido por           | Descripcion              |
-| ------------------ | ------------------------- | ------------- | ----------------------- | ------------------------ |
-| user.registered    | `auth.user.registered`    | Auth          | Notification, Analytics | Nuevo usuario registrado |
-| user.loggedIn      | `auth.user.loggedIn`      | Auth          | Analytics               | Inicio de sesion         |
-| user.passwordReset | `auth.user.passwordReset` | Auth          | Notification            | Contrasena restablecida  |
-| user.emailVerified | `auth.user.emailVerified` | Auth          | Analytics               | Email verificado         |
+| Routing key                         | Publica          | Consume                       |
+| ----------------------------------- | ---------------- | ----------------------------- |
+| `auth.user.registered`              | Auth             | Notification                  |
+| `auth.user.logged-in`               | Auth             | —                             |
+| `auth.password-reset.requested`     | Auth             | Notification                  |
+| `auth.email-verification.requested` | Auth             | Notification                  |
+| `auth.membership.created`           | Auth             | —                             |
+| `auth.membership.role-changed`      | Auth             | —                             |
+| `core.business.created`             | Core             | —                             |
+| `core.business.updated`             | Core             | Marketplace                   |
+| `core.professional.created`         | Core             | Booking                       |
+| `core.service.created`              | nadie            | —                             |
+| `core.service.updated`              | nadie            | —                             |
+| `core.client.created`               | Core             | Analytics                     |
+| `core.client.birthday`              | Core (sondeo)    | Notification                  |
+| `booking.appointment.created`       | Booking          | Notification, Analytics       |
+| `booking.appointment.confirmed`     | Booking          | Notification, Analytics       |
+| `booking.appointment.cancelled`     | Booking          | Notification, Analytics       |
+| `booking.appointment.completed`     | Booking          | Notification, Analytics, Core |
+| `booking.appointment.no-showed`     | Booking          | Analytics, Core               |
+| `booking.appointment.rescheduled`   | Booking          | Notification                  |
+| `booking.appointment.reminder-due`  | Booking (sondeo) | Notification                  |
+| `payment.payment.registered`        | Payment          | Notification, Analytics       |
+| `payment.invoice.generated`         | Payment          | Notification                  |
+| `payment.points.redeemed`           | Payment          | Core                          |
+| `payment.refund.processed`          | Payment          | —                             |
+| `payment.cash.session.closed`       | Payment          | —                             |
+| `marketplace.review.created`        | Marketplace      | Notification, Analytics       |
+| `marketplace.review.updated`        | nadie            | —                             |
+| `notification.email.queued`         | Notification     | —                             |
+| `notification.email.sent`           | nadie            | —                             |
+| `notification.email.failed`         | nadie            | —                             |
 
-#### Core Events (Exchange: `core.events`)
+Dos columnas que conviene leer con cuidado:
 
-| Evento                   | Routing Key                     | Publicado por | Consumido por                        | Descripcion                        |
-| ------------------------ | ------------------------------- | ------------- | ------------------------------------ | ---------------------------------- |
-| business.created         | `core.business.created`         | Core          | Notification, Marketplace, Analytics | Nuevo negocio registrado           |
-| business.updated         | `core.business.updated`         | Core          | Marketplace, Notification            | Datos del negocio actualizados     |
-| business.deactivated     | `core.business.deactivated`     | Core          | Notification, Marketplace            | Negocio desactivado                |
-| professional.created     | `core.professional.created`     | Core          | Notification, Analytics              | Nuevo profesional registrado       |
-| professional.updated     | `core.professional.updated`     | Core          | Marketplace                          | Datos del profesional actualizados |
-| professional.deactivated | `core.professional.deactivated` | Core          | Booking, Marketplace                 | Profesional desactivado            |
-| service.created          | `core.service.created`          | Core          | Marketplace                          | Nuevo servicio creado              |
-| service.updated          | `core.service.updated`          | Core          | Marketplace                          | Servicio actualizado               |
-| service.deactivated      | `core.service.deactivated`      | Core          | Marketplace                          | Servicio desactivado               |
-| client.created           | `core.client.created`           | Core          | Analytics                            | Nuevo cliente registrado           |
+- **«Consume» a guion** significa que hoy nadie se suscribe. El evento se publica
+  igualmente: el contrato ya esta y añadir el consumidor no obliga a tocar al
+  productor.
+- **«Publica: nadie»** significa que el nombre esta declarado en `EventNames`
+  pero **ningun servicio lo emite**. Son huecos reservados, no flujos: no hay que
+  contar con ellos al diseñar nada.
 
-#### Booking Events (Exchange: `booking.events`)
+`notification.email.queued` se publica directamente con `AmqpConnection`, sin
+pasar por el Outbox ni por `EventBusService`: es traza, no un cambio de negocio
+que deba confirmarse con una transaccion.
 
-| Evento                  | Routing Key                       | Publicado por  | Consumido por                    | Descripcion                |
-| ----------------------- | --------------------------------- | -------------- | -------------------------------- | -------------------------- |
-| appointment.created     | `booking.appointment.created`     | Booking        | Notification, Analytics          | Nueva cita creada          |
-| appointment.confirmed   | `booking.appointment.confirmed`   | Booking        | Notification, Analytics          | Cita confirmada            |
-| appointment.cancelled   | `booking.appointment.cancelled`   | Booking        | Notification, Analytics          | Cita cancelada             |
-| appointment.completed   | `booking.appointment.completed`   | Booking        | Notification, Analytics, Payment | Cita completada            |
-| appointment.noShow      | `booking.appointment.noShow`      | Booking        | Notification, Analytics          | Cliente no asistio         |
-| appointment.rescheduled | `booking.appointment.rescheduled` | Booking        | Notification, Analytics          | Cita reagendada            |
-| availability.updated    | `booking.availability.updated`    | Booking        | Analytics                        | Disponibilidad actualizada |
-| reminder.24h            | `booking.reminder.24h`            | Booking (cron) | Notification                     | Recordatorio 24h antes     |
-| reminder.1h             | `booking.reminder.1h`             | Booking (cron) | Notification                     | Recordatorio 1h antes      |
-
-#### Payment Events (Exchange: `payment.events`)
-
-| Evento             | Routing Key                  | Publicado por | Consumido por           | Descripcion             |
-| ------------------ | ---------------------------- | ------------- | ----------------------- | ----------------------- |
-| payment.registered | `payment.payment.registered` | Payment       | Notification, Analytics | Pago registrado         |
-| invoice.generated  | `payment.invoice.generated`  | Payment       | Notification            | Factura/recibo generado |
-| cashSession.opened | `payment.cashSession.opened` | Payment       | Analytics               | Caja abierta            |
-| cashSession.closed | `payment.cashSession.closed` | Payment       | Analytics               | Caja cerrada            |
-
-#### Notification Commands (Exchange: `notif.commands`)
-
-| Comando    | Routing Key        | Publicado por      | Consumido por | Descripcion               |
-| ---------- | ------------------ | ------------------ | ------------- | ------------------------- |
-| send.email | `notif.send.email` | Cualquier servicio | Notification  | Enviar email              |
-| send.push  | `notif.send.push`  | Cualquier servicio | Notification  | Enviar push (post-MVP)    |
-| send.inApp | `notif.send.inApp` | Cualquier servicio | Notification  | Crear notificacion in-app |
-
-#### Marketplace Events (Exchange: `marketplace.events`)
-
-| Evento           | Routing Key                    | Publicado por | Consumido por                 | Descripcion         |
-| ---------------- | ------------------------------ | ------------- | ----------------------------- | ------------------- |
-| review.created   | `marketplace.review.created`   | Marketplace   | Notification, Core, Analytics | Nueva resena creada |
-| review.moderated | `marketplace.review.moderated` | Marketplace   | Notification                  | Resena moderada     |
+Los dos marcados **sondeo** no nacen de una peticion: `RemindersWorker` y
+`CumpleanosWorker` los emiten desde un `setInterval`, marcando en la propia fila
+lo que ya publicaron para no repetirse aunque haya varias instancias.
 
 ### 7.2 Topologia de RabbitMQ
 
+**Un solo exchange, no uno por servicio**: todos los eventos viajan por el topic
+`beautyspot.events` (`EVENTS_EXCHANGE`), y cada consumidor se queda con los suyos
+por routing key. Los que fallan van a `beautyspot.dlx` y se acumulan en
+`beautyspot.dlx.dead`, que es terminal: no se reencolan solas, se revisan y se
+reprocesan a mano.
+
+Cada servicio tiene **su propia cola por evento**, nombrada
+`nombreDeCola(servicio, evento)` — `notification.booking.appointment.created`—,
+de modo que todos reciben el mismo evento y el fallo de uno no deja sin él a los
+demas.
+
 ```
-                        +-----------------------+
-                        |   auth.events (Topic)  |
-                        +-----------+-----------+
-                                    |
-                  +-----------------+-----------------+
-                  |                 |                   |
-          +-------v------+  +------v-------+  +-------v------+
-          | notification |  |  analytics   |  |  marketplace |
-          |   .queue     |  |   .queue     |  |   .queue     |
-          +--------------+  +--------------+  +--------------+
-
-                        +-----------------------+
-                        |  core.events (Topic)   |
-                        +-----------+-----------+
-                                    |
-                  +-----------------+-----------------+
-                  |                 |                   |
-          +-------v------+  +------v-------+  +-------v------+
-          | notification |  |  analytics   |  |   booking    |
-          |   .queue     |  |   .queue     |  |   .queue     |
-          +--------------+  +--------------+  +--------------+
-
-                        +-----------------------+
-                        | booking.events (Topic) |
-                        +-----------+-----------+
-                                    |
-            +-----------+-----------+-----------+-----------+
-            |           |           |           |           |
-    +-------v--+ +-----v----+ +---v------+ +--v--------+ +-v-------+
-    | notif.   | | analytic.| | payment  | | notif.    | | notif.  |
-    | queue    | | queue    | | queue    | | queue     | | queue   |
-    +----------+ +----------+ +----------+ +-----------+ +---------+
+                    productores
+      auth  core  booking  payment  marketplace
+        |     |      |        |         |
+        +-----+------+--------+---------+
+                     |
+        +------------v--------------+
+        |  beautyspot.events (topic)|
+        +------------+--------------+
+                     |  una cola por (servicio, evento)
+   +-----------------+------------------+
+   |                 |                  |
++--v------------+ +--v-------------+ +--v------------+
+| notification. | | analytics.     | | core.         |
+| booking.appo… | | booking.appo…  | | payment.poin… |
++--------+------+ +--------+-------+ +-------+-------+
+         |                 |                 |
+         +--------- fallo ------------------+
+                     |
+        +------------v--------------+
+        |   beautyspot.dlx (DLX)    |
+        +------------+--------------+
+                     |
+            beautyspot.dlx.dead
 ```
 
 ---
