@@ -50,9 +50,9 @@ export class ClientsController {
   /**
    * Nombre de los clientes pedidos, para poner cara a una lista de citas.
    *
-   * La agenda necesita el nombre de los clientes **que hay en pantalla**, no la
-   * cartera entera: pedirla paginada dejaba sin nombre a todo el que no cayera
-   * en la primera página.
+   * Existe porque quien pinta una agenda necesita el nombre de **los clientes
+   * que tiene en pantalla**, y la cartera entera solo se sirve paginada: fuera
+   * de su primera página no habría nombre que cruzar.
    */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
   @Get("names")

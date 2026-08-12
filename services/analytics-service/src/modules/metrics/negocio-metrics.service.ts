@@ -115,21 +115,4 @@ export class NegocioMetricsService {
       ]
     );
   }
-
-  /** Fija los minutos que el profesional tenía disponibles ese día. */
-  async fijarCapacidad(
-    businessId: string,
-    professionalId: string,
-    date: string,
-    minutos: number
-  ): Promise<void> {
-    await this.dataSource.query(
-      `INSERT INTO capacity_daily
-         (id, business_id, professional_id, date, minutos_disponibles, minutos_vendidos)
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, 0)
-       ON CONFLICT (business_id, professional_id, date) DO UPDATE SET
-         minutos_disponibles = EXCLUDED.minutos_disponibles`,
-      [businessId, professionalId, date, minutos]
-    );
-  }
 }

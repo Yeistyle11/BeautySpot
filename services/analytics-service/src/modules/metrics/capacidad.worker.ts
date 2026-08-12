@@ -69,10 +69,10 @@ export class CapacidadWorker implements OnModuleInit, OnModuleDestroy {
    * Pide a booking la capacidad de hoy de cada negocio con actividad y la
    * guarda.
    *
-   * Los negocios se resuelven en tandas y no de uno en uno: en serie, cien
-   * negocios activos son cien viajes encadenados a booking por ciclo. La tanda
-   * es pequeña a propósito —esto es trabajo de fondo y no debe competir por el
-   * servicio con las peticiones de usuario—.
+   * Los negocios se resuelven en tandas: en serie, cien negocios activos serían
+   * cien viajes encadenados a booking por ciclo. La tanda es pequeña a propósito
+   * —esto es trabajo de fondo y no debe competir por el servicio con las
+   * peticiones de usuario—.
    */
   async materializar(): Promise<void> {
     if (this.running) return;

@@ -177,9 +177,8 @@ export default function AppointmentsPage() {
   const [notaCancelacion, setNotaCancelacion] = useState("");
 
   // Las citas solo traen el id del cliente, que vive en otro servicio. Se piden
-  // los nombres de los que hay en pantalla y no la cartera entera: esta ultima
-  // llega paginada, asi que dejaba sin nombre a todo el que no cayera en la
-  // primera pagina.
+  // los nombres de los que hay en pantalla y no la cartera entera, que llega
+  // paginada: fuera de su primera pagina no habria nombre que cruzar.
   const idsEnPantalla = useMemo(
     () => [...new Set(appointments.map((a) => a.clientId))].sort().join(","),
     [appointments]

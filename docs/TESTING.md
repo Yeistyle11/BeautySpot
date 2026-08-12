@@ -11,7 +11,7 @@ PostgreSQL, Redis y RabbitMQ reales.
 | Patrón de fichero | `*.spec.ts`                       | `*.int-test.ts`                       |
 | Config            | `jest.config.js` de cada proyecto | `jest.integration.config.js`          |
 | Dependencias      | Mockeadas (BD, Redis, RabbitMQ)   | Reales, vía `docker-compose.test.yml` |
-| Cuántos           | **1856 tests / 134 suites**       | 75 tests / 25 suites                  |
+| Cuántos           | **1870 tests / 136 suites**       | 75 tests / 25 suites                  |
 | En CI             | Job `test`                        | Job `integration`                     |
 | Comando           | `npm test`                        | `npm run test:int` (por servicio)     |
 
@@ -19,10 +19,10 @@ Cobertura actual, medida sobre los unitarios:
 
 | Métrica    | Actual  | Gate mínimo |
 | ---------- | ------- | ----------- |
-| Statements | 92,41 % | 92          |
-| Branches   | 81,51 % | 80          |
-| Functions  | 84,15 % | 80          |
-| Lines      | 93,76 % | 93          |
+| Statements | 92,34 % | 92          |
+| Branches   | 81,41 % | 80          |
+| Functions  | 83,90 % | 80          |
+| Lines      | 93,69 % | 93          |
 
 El gate está en `coverageThreshold` de `jest.config.js` (raíz) y **falla el CI si
 la cobertura baja**. Los valores están fijados un poco por debajo de la medición
@@ -80,6 +80,21 @@ Al subir la cobertura de branches se encontraron **44 ramas imposibles de cubrir
 
 La solución correcta fue eliminar ese código muerto, no escribir tests imposibles.
 Antes de invertir esfuerzo en una rama sin cubrir, comprobar si es alcanzable.
+
+### Aviso: el segundo de `findBy*` se queda corto bajo cobertura
+
+`findByText` y compañía esperan **1 segundo** por defecto. Basta para un test
+suelto, pero `npm run test:coverage` corre los 13 proyectos instrumentados a la
+vez, y ahí una aserción que dependa de un envío asíncrono puede no llegar. El
+síntoma engaña: el test pasa en aislamiento, pasa con `--selectProjects` y solo
+falla en la pasada completa.
+
+Si una espera depende de una petición o de un ciclo de estado, dale margen
+explícito en vez de confiar en el valor por defecto:
+
+```ts
+await screen.findByText(/…/, undefined, { timeout: 5000 });
+```
 
 ---
 

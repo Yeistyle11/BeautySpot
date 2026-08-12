@@ -114,7 +114,7 @@ cd apps/frontend && npm run dev   # sólo frontend (8080)
 npm run build                     # turbo build de servicios y paquetes
 
 # Tests
-npm test                          # 1856 tests unitarios (13 proyectos Jest)
+npm test                          # 1870 tests unitarios (13 proyectos Jest)
 npm run test:watch
 npm run test:coverage             # con cobertura y gate
 
@@ -245,11 +245,11 @@ CORS_ORIGINS=http://localhost:3000
 
 |             | Cantidad                                                        |
 | ----------- | --------------------------------------------------------------- |
-| Unitarios   | **1856 tests / 134 suites**                                     |
+| Unitarios   | **1870 tests / 136 suites**                                     |
 | Integración | 75 tests / 25 suites (contra Postgres, Redis y RabbitMQ reales) |
 
-Cobertura: **92,41 %** statements, **81,51 %** branches, **84,15 %** functions,
-**93,76 %** lines. El gate de `jest.config.js` falla el CI si baja de 92/80/80/93.
+Cobertura: **92,34 %** statements, **81,41 %** branches, **83,90 %** functions,
+**93,69 %** lines. El gate de `jest.config.js` falla el CI si baja de 92/80/80/93.
 
 Detalle en [docs/TESTING.md](docs/TESTING.md).
 

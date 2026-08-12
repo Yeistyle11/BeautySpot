@@ -202,7 +202,8 @@ faltar:
 
 ## 4. Calidad de código
 
-Medido sobre **575 ficheros de producción** (excluidos tests):
+Medido sobre **575 ficheros de producción** (excluidos tests). Los tests y la
+cobertura están tomados el 12 de agosto, ya con las dos correcciones dentro:
 
 | Métrica                      | Valor                                     |
 | ---------------------------- | ----------------------------------------- |
@@ -210,9 +211,9 @@ Medido sobre **575 ficheros de producción** (excluidos tests):
 | `FIXME`                      | 0                                         |
 | `as any`                     | 3 (2 en el bus de eventos, 1 en un setup) |
 | `eslint-disable`             | 3                                         |
-| Tests unitarios              | 1856 en 134 suites                        |
+| Tests unitarios              | 1870 en 136 suites                        |
 | Tests de integración         | 75 en 25 suites                           |
-| Cobertura (gate 92/80/80/93) | 92,41 / 81,51 / 84,15 / 93,76             |
+| Cobertura (gate 92/80/80/93) | 92,34 / 81,41 / 83,90 / 93,69             |
 
 `no-explicit-any` es **error** en código de producción y está desactivado solo en
 tests, donde los mocks lo usan legítimamente. El gate de cobertura rompe la build,

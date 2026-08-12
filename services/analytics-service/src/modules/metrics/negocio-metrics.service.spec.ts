@@ -91,14 +91,33 @@ describe("NegocioMetricsService", () => {
       expect(sql).not.toContain("minutos_disponibles = EXCLUDED");
     });
 
-    it("fija los disponibles sin tocar los vendidos", async () => {
-      await service.fijarCapacidad(NEGOCIO, "prof-1", "2026-08-10", 480);
+    it("fija los disponibles del equipo sin tocar los vendidos", async () => {
+      await service.fijarCapacidadDelDia(NEGOCIO, "2026-08-10", [
+        { professionalId: "prof-1", minutosDisponibles: 480 },
+        { professionalId: "prof-2", minutosDisponibles: 240 },
+      ]);
 
-      const [sql] = mockDataSource.query.mock.calls[0];
+      const [sql, parametros] = mockDataSource.query.mock.calls[0];
       expect(sql).toContain(
         "minutos_disponibles = EXCLUDED.minutos_disponibles"
       );
       expect(sql).not.toContain("minutos_vendidos = capacity_daily");
+      // Una sola sentencia con una fila por profesional.
+      expect(sql.match(/gen_random_uuid\(\)/g)).toHaveLength(2);
+      expect(parametros).toEqual([
+        NEGOCIO,
+        "2026-08-10",
+        "prof-1",
+        480,
+        "prof-2",
+        240,
+      ]);
+    });
+
+    it("no consulta si el negocio no tiene equipo ese día", async () => {
+      await service.fijarCapacidadDelDia(NEGOCIO, "2026-08-10", []);
+
+      expect(mockDataSource.query).not.toHaveBeenCalled();
     });
   });
 });
