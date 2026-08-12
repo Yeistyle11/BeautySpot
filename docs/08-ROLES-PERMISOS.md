@@ -2,10 +2,17 @@
 
 ## Resumen
 
-Este documento define el modelo de roles y permisos de BeautySpot, incluyendo la
-descripción detallada de cada rol, la matriz de permisos sobre recursos, la jerarquía
-de roles, el modelo de membresía multi-tenant y los mecanismos de ejecución de permisos
-en los microservicios.
+Este documento define el modelo de roles y permisos de BeautySpot: los seis roles,
+la matriz de permisos, el modelo de membresía multi-tenant y cómo se ejecutan los
+permisos en los microservicios.
+
+> **Qué es realidad y qué es intención.** El permiso que se aplica de verdad es el
+> `@Roles(...)` de cada controlador, y está enumerado ruta por ruta en
+> [API.md](API.md). Este documento explica el **porqué** de ese reparto y describe
+> el modelo completo, que en algunos puntos va por delante de lo construido —lo
+> más visible: `SUPER_ADMIN` se comprueba en los guards pero **hoy no se puede
+> asignar a nadie** (ver [13-SCHEMA-BASEDATOS.md](13-SCHEMA-BASEDATOS.md#datos-iniciales))—.
+> Ante una discrepancia entre una tabla de aquí y API.md, manda API.md.
 
 ---
 
@@ -276,24 +283,32 @@ interactuar con múltiples negocios.
 
 #### Payments
 
-| Operación       | SUPER_ADMIN | OWNER   | ADMIN    | PROFESSIONAL | RECEPTIONIST | CLIENT       |
-| --------------- | ----------- | ------- | -------- | ------------ | ------------ | ------------ |
-| Registrar pago  | No          | No      | Si       | No           | Si           | No           |
-| Ver pagos       | Todos       | Negocio | Negocio  | No           | Negocio      | Solo propios |
-| Editar pago     | No          | No      | Limitado | No           | No           | No           |
-| Anular pago     | No          | Si      | Si       | No           | No           | No           |
-| Generar factura | No          | Si      | Si       | No           | Si           | Ver propias  |
+| Operación         | SUPER_ADMIN | OWNER | ADMIN | PROFESSIONAL | RECEPTIONIST | CLIENT       |
+| ----------------- | ----------- | ----- | ----- | ------------ | ------------ | ------------ |
+| Registrar pago    | No          | Si    | Si    | No           | Si           | No           |
+| Ver pagos         | No          | Si    | Si    | No           | Si           | No           |
+| Resumen del día   | No          | Si    | Si    | No           | No           | No           |
+| Cambiar el estado | No          | Si    | Si    | No           | No           | No           |
+| Devolver un pago  | No          | Si    | Si    | No           | No           | No           |
+| Crear factura     | No          | Si    | Si    | No           | No           | No           |
+| Ver facturas      | No          | Si    | Si    | No           | Si           | Solo propias |
 
 #### Reviews
 
-| Operación        | SUPER_ADMIN     | OWNER   | ADMIN   | PROFESSIONAL | RECEPTIONIST | CLIENT                            |
-| ---------------- | --------------- | ------- | ------- | ------------ | ------------ | --------------------------------- |
-| Crear reseña     | No              | No      | No      | No           | No           | Solo en citas completadas propias |
-| Ver reseñas      | Todas           | Negocio | Negocio | Negocio      | Negocio      | Públicas + propias                |
-| Responder reseña | No              | Si      | Si      | No           | No           | No                                |
-| Reportar reseña  | No              | Si      | Si      | No           | No           | No                                |
-| Eliminar reseña  | Si (moderación) | No      | No      | No           | No           | Solo propias                      |
-| Moderar reseña   | Si              | No      | No      | No           | No           | No                                |
+| Operación                                     | SUPER_ADMIN                                       | OWNER | ADMIN | PROFESSIONAL | RECEPTIONIST | CLIENT                          |
+| --------------------------------------------- | ------------------------------------------------- | ----- | ----- | ------------ | ------------ | ------------------------------- |
+| Crear reseña                                  | No                                                | No    | No    | No           | No           | Solo en citas atendidas propias |
+| Ver reseñas                                   | Público: cualquiera, con o sin cuenta             |       |       |              |              |                                 |
+| Editar / borrar la suya                       | No                                                | No    | No    | No           | No           | Si                              |
+| Responder / reescribir / retirar la respuesta | No                                                | Si    | Si    | No           | No           | No                              |
+| Ocultar o republicar                          | No                                                | Si    | Si    | No           | No           | No                              |
+| Denunciar                                     | Cualquier usuario autenticado, una vez por reseña |       |       |              |              |                                 |
+| Marcar como útil                              | Cualquier usuario autenticado, un voto por reseña |       |       |              |              |                                 |
+
+**No hay moderación de plataforma.** `SUPER_ADMIN` no tiene ninguna ruta de
+reseñas: quien oculta una reseña es el propio negocio (`PATCH /:id/moderar`), y al
+ocultarla deja de contar en su media. Denunciar no oculta nada, solo incrementa
+`report_count`.
 
 #### Analytics
 
@@ -421,9 +436,7 @@ Peticion HTTP
 Handler del Controller
 ```
 
-### JWT Claims
-
-El token JWT contiene los siguientes claims:
+### Lo que lleva el JWT
 
 ```json
 {
@@ -431,123 +444,63 @@ El token JWT contiene los siguientes claims:
   "email": "usuario@email.com",
   "role": "ADMIN",
   "businessId": "uuid-del-negocio",
-  "branchId": "uuid-de-sucursal-o-null",
-  "membershipId": "uuid-de-la-membresia",
-  "permissions": [
-    "appointments:read",
-    "appointments:write",
-    "services:read",
-    "services:write",
-    "clients:read",
-    "payments:read",
-    "payments:write"
-  ],
+  "businessIds": ["uuid-1", "uuid-2"],
+  "memberships": [{ "businessId": "uuid-1", "role": "ADMIN" }],
+  "tokenVersion": 3,
   "iat": 1715299200,
   "exp": 1715385600
 }
 ```
 
-### Implementación de Guards en NestJS
+Tres cosas que suelen darse por hechas y no son así:
 
-#### AuthGuard
+- **No hay un arreglo `permissions`.** El permiso se deriva del rol; no existen
+  permisos sueltos por usuario ni un decorador `@RequirePermissions`.
+- **No hay `branchId` en el token.** La sede activa la elige el panel y viaja en
+  la cabecera `x-branch-id`, porque es una preferencia de la sesión y no una
+  propiedad de la identidad.
+- **`memberships` va entero**, no un `membershipId`: es lo que permite a quien
+  trabaja en dos negocios cambiar de contexto sin volver a identificarse.
+
+`tokenVersion` es lo que hace revocable un JWT: se compara con la versión vigente
+en Redis y, si no coinciden, el token está muerto aunque no haya expirado.
+
+### Los guards, en orden
+
+Los tres viven en `packages/nest-common` y se registran globalmente en cada
+servicio (`createMicroserviceApp`):
+
+| Guard                | Qué comprueba                                                         | Cómo se salta                                                 |
+| -------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `JwtAuthGuard`       | Firma, expiración y `tokenVersion`. Deja el payload en `request.user` | `@Public()`                                                   |
+| `BusinessScopeGuard` | `x-business-id` presente, UUID válido y **entre los del token**       | `@Public()`, `@SkipBusinessScope()`, `/health`, `/internal/*` |
+| `RolesGuard`         | Que `user.role` esté entre los de `@Roles(...)`                       | Sin `@Roles`, pasa                                            |
 
 ```typescript
-// Verifica la validez del JWT y extrae los claims
-@Injectable()
-export class AuthGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest();
-    const token = this.extractToken(request);
-    const payload = this.jwtService.verify(token);
-
-    request.user = {
-      id: payload.sub,
-      email: payload.email,
-      role: payload.role,
-      businessId: payload.businessId,
-      branchId: payload.branchId,
-      membershipId: payload.membershipId,
-      permissions: payload.permissions,
-    };
-
-    return true;
-  }
+// Lo que se escribe en un controlador real
+@Roles(Role.OWNER, Role.ADMIN)
+@Delete(":id")
+async remove(@Param("id") id: string, @BusinessId() businessId: string) {
+  // Solo OWNER y ADMIN llegan aquí, y solo con su propio negocio
 }
 ```
 
-#### BusinessScopeGuard
+`@Roles` se puede poner en la clase —vale para todas sus rutas— o en un método,
+que entonces manda sobre el de la clase. `@BusinessId()` lee lo que dejó
+`BusinessScopeGuard`, y `@CurrentUser()` lo que dejó `JwtAuthGuard`.
 
-```typescript
-// Verifica membresía y aplica scope de negocio
-@Injectable()
-export class BusinessScopeGuard implements CanActivate {
-  async canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest();
-    const user = request.user;
+### El frontend no autoriza, solo pinta
 
-    // SUPER_ADMIN no requiere membresía
-    if (user.role === "SUPER_ADMIN") return true;
+`apps/frontend/src/lib/permissions.ts` tiene su propio catálogo `PAGES` y
+`ACTIONS` con los roles que ven cada página y cada botón, más `canAccess` y
+`getDefaultPath`. Y `src/middleware.ts` redirige en el Edge cuando el rol no
+puede ver una ruta.
 
-    // CLIENT no requiere membresía (acceso vía marketplace)
-    if (user.role === "CLIENT") return true;
-
-    // Verificar membresía activa
-    const membership = await this.membershipRepo.findOne({
-      where: {
-        userId: user.id,
-        businessId: user.businessId,
-        isActive: true,
-      },
-    });
-
-    if (!membership) return false;
-
-    request.membership = membership;
-    return true;
-  }
-}
-```
-
-#### RolesGuard
-
-```typescript
-// Verifica permisos específicos del rol
-@Injectable()
-export class RolesGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.get<Role[]>(
-      "roles",
-      context.getHandler()
-    );
-    if (!requiredRoles) return true;
-
-    const request = context.switchToHttp().getRequest();
-    const user = request.user;
-
-    return requiredRoles.some((role) => user.role === role);
-  }
-}
-```
-
-#### Decoradores Personalizados
-
-```typescript
-// Decorador para requerir roles específicos
-@Roles('OWNER', 'ADMIN')
-@UseGuards(AuthGuard, BusinessScopeGuard, RolesGuard)
-@Delete('/:id')
-async deleteResource(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-  // Solo OWNER y ADMIN pueden llegar aquí
-}
-
-// Decorador para requerir permisos específicos
-@RequirePermissions('appointments:write')
-@UseGuards(AuthGuard, BusinessScopeGuard, RolesGuard)
-@Post('/')
-async createAppointment(@Body() dto: CreateAppointmentDto, @CurrentUser() user: RequestUser) {
-  // Solo usuarios con appointments:write pueden llegar aquí
-}
-```
+**Las dos cosas son experiencia de usuario, no seguridad.** Duplican
+intencionadamente lo que decide el backend para no enseñar botones que van a dar
+403; quien decide sigue siendo `@Roles` en el controlador. La consecuencia
+práctica es que **al cambiar los roles de una ruta hay que tocar los dos sitios**,
+y que si se olvida uno el fallo es cosmético, no un agujero.
 
 ### Filtro de Tenant
 
