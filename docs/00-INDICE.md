@@ -18,17 +18,17 @@ cambia cómo hay que interpretar cada documento:
 
 ## Referencia técnica
 
-| Documento                                        | Tipo  | Contenido                                                                                                                      |
-| ------------------------------------------------ | ----- | ------------------------------------------------------------------------------------------------------------------------------ |
-| [API.md](API.md)                                 | 🟢    | Las 215 rutas de los 48 controladores, con roles, paginación, errores y enrutado del gateway                                   |
-| [04-ARQUITECTURA.md](04-ARQUITECTURA.md)         | 🟢/🔵 | Arquitectura, ADRs, comunicación entre servicios, multi-tenancy, eventos, circuit breaker                                      |
-| [05-BASE-DATOS.md](05-BASE-DATOS.md)             | 🔵    | Modelo de datos y estrategia por servicio. **Las columnas no son las reales**: el esquema vivo son las entidades y migraciones |
-| [13-SCHEMA-BASEDATOS.md](13-SCHEMA-BASEDATOS.md) | 🔵    | Esquema SQL de referencia y datos de ejemplo                                                                                   |
-| [08-ROLES-PERMISOS.md](08-ROLES-PERMISOS.md)     | 🟢/🔵 | Los 6 roles y la matriz de permisos                                                                                            |
-| [TESTING.md](TESTING.md)                         | 🟢    | Tests unitarios y de integración, cobertura, cómo escribir uno                                                                 |
-| [CI-CD.md](CI-CD.md)                             | 🟢    | El workflow de GitHub Actions, sus 6 jobs y su coste                                                                           |
-| [../DEPLOY.md](../DEPLOY.md)                     | 🟢    | Despliegue en producción: migraciones, compose de producción y checklist                                                       |
-| [10-DEVOPS.md](10-DEVOPS.md)                     | 🔵    | Estrategia DevOps objetivo (entornos, observabilidad, escalado)                                                                |
+| Documento                                        | Tipo  | Contenido                                                                                    |
+| ------------------------------------------------ | ----- | -------------------------------------------------------------------------------------------- |
+| [API.md](API.md)                                 | 🟢    | Las 215 rutas de los 48 controladores, con roles, paginación, errores y enrutado del gateway |
+| [04-ARQUITECTURA.md](04-ARQUITECTURA.md)         | 🟢/🔵 | Arquitectura, ADRs, comunicación entre servicios, multi-tenancy, eventos, circuit breaker    |
+| [05-BASE-DATOS.md](05-BASE-DATOS.md)             | 🟢    | Las 47 tablas de las 7 bases, con sus columnas, índices y por qué                            |
+| [13-SCHEMA-BASEDATOS.md](13-SCHEMA-BASEDATOS.md) | 🔵    | Esquema SQL de referencia y datos de ejemplo                                                 |
+| [08-ROLES-PERMISOS.md](08-ROLES-PERMISOS.md)     | 🟢/🔵 | Los 6 roles y la matriz de permisos                                                          |
+| [TESTING.md](TESTING.md)                         | 🟢    | Tests unitarios y de integración, cobertura, cómo escribir uno                               |
+| [CI-CD.md](CI-CD.md)                             | 🟢    | El workflow de GitHub Actions, sus 6 jobs y su coste                                         |
+| [../DEPLOY.md](../DEPLOY.md)                     | 🟢    | Despliegue en producción: migraciones, compose de producción y checklist                     |
+| [10-DEVOPS.md](10-DEVOPS.md)                     | 🔵    | Estrategia DevOps objetivo (entornos, observabilidad, escalado)                              |
 
 ## Producto y negocio
 
@@ -74,10 +74,9 @@ reverse proxy con certificado wildcard—, en el checklist de
 Los ADRs viven en [04-ARQUITECTURA.md](04-ARQUITECTURA.md).
 
 **¿Qué columnas tiene una tabla?**
-En las entidades (`services/*/src/entities/`) y sus migraciones, no en
-[05-BASE-DATOS.md](05-BASE-DATOS.md), que es especificación previa. Que entidades
-y migraciones digan lo mismo lo comprueba `schema-migrations.int-test.ts` en cada
-servicio.
+[05-BASE-DATOS.md](05-BASE-DATOS.md). La fuente sigue siendo la entidad
+(`services/*/src/entities/`) y su migración; que las dos digan lo mismo lo
+comprueba `schema-migrations.int-test.ts` en cada servicio.
 
 **¿Qué eventos publica cada servicio y quién los consume?**
 El catálogo real está en
