@@ -18,17 +18,18 @@ cambia cómo hay que interpretar cada documento:
 
 ## Referencia técnica
 
-| Documento                                        | Tipo  | Contenido                                                                                    |
-| ------------------------------------------------ | ----- | -------------------------------------------------------------------------------------------- |
-| [API.md](API.md)                                 | 🟢    | Las 215 rutas de los 48 controladores, con roles, paginación, errores y enrutado del gateway |
-| [04-ARQUITECTURA.md](04-ARQUITECTURA.md)         | 🟢/🔵 | Arquitectura, ADRs, comunicación entre servicios, multi-tenancy, eventos, circuit breaker    |
-| [05-BASE-DATOS.md](05-BASE-DATOS.md)             | 🟢    | Las 47 tablas de las 7 bases, con sus columnas, índices y por qué                            |
-| [13-SCHEMA-BASEDATOS.md](13-SCHEMA-BASEDATOS.md) | 🟢    | Escribir SQL a mano: volcar el DDL real, los tipos enum y qué hay en una base recién creada  |
-| [08-ROLES-PERMISOS.md](08-ROLES-PERMISOS.md)     | 🟢/🔵 | Los 6 roles y la matriz de permisos                                                          |
-| [TESTING.md](TESTING.md)                         | 🟢    | Tests unitarios y de integración, cobertura, cómo escribir uno                               |
-| [CI-CD.md](CI-CD.md)                             | 🟢    | El workflow de GitHub Actions, sus 6 jobs y su coste                                         |
-| [../DEPLOY.md](../DEPLOY.md)                     | 🟢    | Despliegue en producción: migraciones, compose de producción y checklist                     |
-| [10-DEVOPS.md](10-DEVOPS.md)                     | 🔵    | Estrategia DevOps objetivo (entornos, observabilidad, escalado)                              |
+| Documento                                          | Tipo  | Contenido                                                                                    |
+| -------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------- |
+| [API.md](API.md)                                   | 🟢    | Las 215 rutas de los 48 controladores, con roles, paginación, errores y enrutado del gateway |
+| [04-ARQUITECTURA.md](04-ARQUITECTURA.md)           | 🟢/🔵 | Arquitectura, ADRs, comunicación entre servicios, multi-tenancy, eventos, circuit breaker    |
+| [05-BASE-DATOS.md](05-BASE-DATOS.md)               | 🟢    | Las 47 tablas de las 7 bases, con sus columnas, índices y por qué                            |
+| [13-SCHEMA-BASEDATOS.md](13-SCHEMA-BASEDATOS.md)   | 🟢    | Escribir SQL a mano: volcar el DDL real, los tipos enum y qué hay en una base recién creada  |
+| [08-ROLES-PERMISOS.md](08-ROLES-PERMISOS.md)       | 🟢/🔵 | Los 6 roles y la matriz de permisos                                                          |
+| [16-AUDITORIA-TECNICA.md](16-AUDITORIA-TECNICA.md) | 🟢    | Estado medido en seguridad, arquitectura, rendimiento, calidad e interfaz, con fecha         |
+| [TESTING.md](TESTING.md)                           | 🟢    | Tests unitarios y de integración, cobertura, cómo escribir uno                               |
+| [CI-CD.md](CI-CD.md)                               | 🟢    | El workflow de GitHub Actions, sus 6 jobs y su coste                                         |
+| [../DEPLOY.md](../DEPLOY.md)                       | 🟢    | Despliegue en producción: migraciones, compose de producción y checklist                     |
+| [10-DEVOPS.md](10-DEVOPS.md)                       | 🔵    | Estrategia DevOps objetivo (entornos, observabilidad, escalado)                              |
 
 ## Producto y negocio
 
@@ -77,6 +78,10 @@ Los ADRs viven en [04-ARQUITECTURA.md](04-ARQUITECTURA.md).
 [05-BASE-DATOS.md](05-BASE-DATOS.md). La fuente sigue siendo la entidad
 (`services/*/src/entities/`) y su migración; que las dos digan lo mismo lo
 comprueba `schema-migrations.int-test.ts` en cada servicio.
+
+**¿Cómo está el proyecto técnicamente? ¿Qué deuda hay?**
+[16-AUDITORIA-TECNICA.md](16-AUDITORIA-TECNICA.md), medido contra el código y con
+la fecha de la medición.
 
 **¿Qué eventos publica cada servicio y quién los consume?**
 El catálogo real está en
