@@ -41,9 +41,15 @@ describe("Integración: el arqueo de caja cuadra", () => {
   const abrir = () =>
     caja.openSession(NEGOCIO, USUARIO, { openingAmount: FONDO } as never);
 
-  const cerrar = (sessionId: string, closingAmount: number) =>
+  /** Cierra la caja; con descuadre hay que dar motivo, así que va uno por defecto. */
+  const cerrar = (
+    sessionId: string,
+    closingAmount: number,
+    notes = "Arqueo de la prueba"
+  ) =>
     caja.closeSession(sessionId, NEGOCIO, USUARIO, {
       closingAmount,
+      notes,
     } as never);
 
   beforeAll(async () => {
@@ -150,6 +156,23 @@ describe("Integración: el arqueo de caja cuadra", () => {
     const cerrada = await cerrar(sesion.id, FONDO + 32000);
 
     expect(Number(cerrada.difference)).toBe(2000);
+  });
+
+  // El arqueo solo controla algo si el descuadre obliga a explicarse en el
+  // momento; después, nadie recuerda por qué faltaban cinco mil pesos.
+  it("no deja cerrar con descuadre y sin motivo", async () => {
+    const sesion = await abrir();
+    await cobrar(30000, PaymentMethod.CASH);
+
+    await expect(
+      caja.closeSession(sesion.id, NEGOCIO, USUARIO, {
+        closingAmount: FONDO + 25000,
+      } as never)
+    ).rejects.toThrow(/anota el motivo/i);
+
+    // Y la caja sigue abierta, no a medio cerrar.
+    const viva = await sesiones.findOne({ where: { id: sesion.id } });
+    expect(viva?.closedAt).toBeNull();
   });
 
   it("el cierre publica el arqueo por el outbox", async () => {

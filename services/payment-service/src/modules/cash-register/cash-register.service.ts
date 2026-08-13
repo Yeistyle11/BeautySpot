@@ -109,10 +109,21 @@ export class CashRegisterService {
     const expectedTotal =
       Number(session.openingAmount) + efectivo.entradas - efectivo.salidas;
 
+    const diferencia = Number(dto.closingAmount) - expectedTotal;
+
+    // Un arqueo que no cuadra y nadie explica no sirve de control: el descuadre
+    // es justo el momento en que hay que dar cuenta, y es ahora o nunca, porque
+    // mañana ya no habrá quien recuerde por qué faltaban veinte mil pesos.
+    if (diferencia !== 0 && !dto.notes?.trim()) {
+      throw new BadRequestException(
+        `La caja descuadra en ${Math.abs(diferencia)}: anota el motivo para poder cerrarla`
+      );
+    }
+
     session.closedBy = closedBy;
     session.closingAmount = dto.closingAmount;
     session.expectedTotal = expectedTotal;
-    session.difference = Number(dto.closingAmount) - expectedTotal;
+    session.difference = diferencia;
     session.closedAt = new Date();
     if (dto.notes) session.notes = dto.notes;
 

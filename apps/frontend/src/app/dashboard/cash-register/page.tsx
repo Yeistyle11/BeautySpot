@@ -185,6 +185,8 @@ export default function CashRegisterPage() {
     closeAmount === "" || Number.isNaN(Number(closeAmount))
       ? null
       : Number(closeAmount) - expectedTotal;
+  /** Con descuadre, el motivo deja de ser opcional: lo exige también el backend. */
+  const hayDescuadre = diferenciaCierre !== null && diferenciaCierre !== 0;
 
   if (loading) {
     return (
@@ -369,6 +371,24 @@ export default function CashRegisterPage() {
                       {s.closingAmount != null &&
                         ` · Cierre: ${formatCurrency(s.closingAmount)}`}
                     </p>
+                    {/*
+                      El descuadre se ve en la lista, no restando sesión a
+                      sesión: un sobrante sin explicar tiene que saltar a la
+                      vista de quien repase la semana.
+                    */}
+                    {!!s.difference && (
+                      <p
+                        className={
+                          s.difference < 0
+                            ? "text-destructive mt-1 text-xs font-medium"
+                            : "text-warning mt-1 text-xs font-medium"
+                        }
+                      >
+                        {s.difference < 0 ? "Faltaron " : "Sobraron "}
+                        {formatCurrency(Math.abs(s.difference))}
+                        {s.notes ? ` · ${s.notes}` : ""}
+                      </p>
+                    )}
                   </div>
                   <Badge variant={s.closedAt ? "secondary" : "success"}>
                     {s.closedAt ? "Cerrada" : "Abierta"}
@@ -397,6 +417,7 @@ export default function CashRegisterPage() {
           >
             <Input
               type="number"
+              min={0}
               placeholder="50000"
               value={openAmount}
               onChange={(e) => setOpenAmount(e.target.value)}
@@ -443,6 +464,7 @@ export default function CashRegisterPage() {
           <Field label="Monto (COP)">
             <Input
               type="number"
+              min={0}
               placeholder="10000"
               value={moveAmount}
               onChange={(e) => setMoveAmount(e.target.value)}
@@ -477,21 +499,34 @@ export default function CashRegisterPage() {
         title="Cerrar caja"
       >
         <div className="space-y-4">
-          <div className="bg-muted/50 space-y-1 rounded-lg p-4">
-            <p className="text-muted-foreground text-sm">
-              Total esperado en caja
-            </p>
-            <p className="text-xl font-bold">{formatCurrency(expectedTotal)}</p>
-          </div>
-          <Field label="Monto final en caja (COP)">
+          {/*
+            Conteo a ciegas: el total esperado no se enseña hasta que el cajero
+            ha escrito lo que contó. Verlo antes convierte el arqueo en copiar
+            una cifra, y un cierre que siempre cuadra no prueba nada.
+          */}
+          <Field
+            label="Monto final en caja (COP)"
+            hint="Cuenta el dinero del cajón y escribe lo que haya"
+          >
             <Input
               type="number"
-              placeholder={String(expectedTotal)}
+              min={0}
+              placeholder="0"
               value={closeAmount}
               onChange={(e) => setCloseAmount(e.target.value)}
               required
             />
           </Field>
+          {diferenciaCierre !== null && (
+            <div className="bg-muted/50 space-y-1 rounded-lg p-4">
+              <p className="text-muted-foreground text-sm">
+                Total esperado en caja
+              </p>
+              <p className="text-xl font-bold">
+                {formatCurrency(expectedTotal)}
+              </p>
+            </div>
+          )}
           {diferenciaCierre !== null && diferenciaCierre !== 0 && (
             <div
               className={
@@ -502,21 +537,30 @@ export default function CashRegisterPage() {
             >
               {diferenciaCierre < 0 ? "Faltan " : "Sobran "}
               <strong>{formatCurrency(Math.abs(diferenciaCierre))}</strong>{" "}
-              respecto al total esperado. Anota el motivo antes de cerrar.
+              respecto al total esperado. Anota el motivo para poder cerrar.
             </div>
           )}
-          <Field label="Notas (opcional)">
+          <Field
+            label={hayDescuadre ? "Motivo del descuadre" : "Notas (opcional)"}
+          >
             <Textarea
               value={closeNotes}
               onChange={(e) => setCloseNotes(e.target.value)}
               rows={2}
-              placeholder="Diferencias, observaciones..."
+              placeholder={
+                hayDescuadre
+                  ? "Por qué no cuadra..."
+                  : "Diferencias, observaciones..."
+              }
+              required={hayDescuadre}
             />
           </Field>
           <Button
             variant="destructive"
             onClick={handleClose}
-            disabled={closing || !closeAmount}
+            disabled={
+              closing || !closeAmount || (hayDescuadre && !closeNotes.trim())
+            }
           >
             {closing ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

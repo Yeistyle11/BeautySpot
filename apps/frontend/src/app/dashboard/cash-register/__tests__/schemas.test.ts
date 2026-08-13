@@ -62,6 +62,27 @@ describe("cashSessionSchema", () => {
 
     expect(sesion.openingAmount).toBe(100000);
   });
+
+  // El histórico enseña el descuadre de cada cierre, así que tiene que llegar
+  // hasta la pantalla: sin él habría que restar sesión a sesión para verlo.
+  it("conserva el descuadre del cierre", () => {
+    const sesion = cashSessionSchema.parse({
+      ...cajaCerradaDeLaApi,
+      expectedTotal: 110000,
+      difference: 25000,
+    });
+
+    expect(sesion.difference).toBe(25000);
+    expect(sesion.expectedTotal).toBe(110000);
+  });
+
+  // Las sesiones cerradas antes de que se guardara el descuadre no lo traen, y
+  // la pantalla tiene que seguir pintándolas.
+  it("acepta un cierre sin descuadre informado", () => {
+    const sesion = cashSessionSchema.parse(cajaCerradaDeLaApi);
+
+    expect(sesion.difference).toBeUndefined();
+  });
 });
 
 describe("cashMovementSchema", () => {
