@@ -6,6 +6,42 @@ Este documento define el roadmap de desarrollo del MVP de BeautySpot, plataforma
 multi-tenant para barberías, salones de belleza y spas en América Latina. El plan se
 divide en 5 fases distribuidas en 22 semanas de desarrollo iterativo e incremental.
 
+> **🔵 Es el plan original, no el estado actual.** Las fases y las semanas se
+> escribieron antes de empezar y no se han reajustado. Lo construido hasta hoy —y
+> lo que sigue pendiente— está más abajo, en «Dónde está el proyecto». Para la
+> lista de rutas y funcionalidades que existen de verdad, [API.md](API.md) y el
+> README.
+
+---
+
+## Dónde está el proyecto
+
+Casi todo el MVP funcional está construido, y en varios puntos por encima de lo
+planeado (servicios encadenados con distintos profesionales, tiempo de procesado,
+multi-sede, corte X y cierre Z de caja, moderación de reseñas). Frente a la
+definición de MVP de este documento, las diferencias que importan:
+
+**Del MVP, no está construido:**
+
+| Punto del MVP               | Estado                                                                      |
+| --------------------------- | --------------------------------------------------------------------------- |
+| Integración de WhatsApp     | **No**. `WHATSAPP` está en el enum de canales, sin nada detrás              |
+| Notificaciones push         | **No**. Igual que el anterior                                               |
+| Analíticas con predicciones | **No**. Hay KPIs, retención, rentabilidad y ocupación, pero nada predictivo |
+| Recordatorios multi-canal   | **Parcial**. Salen por correo y aviso in-app, a 24 h y 1 h                  |
+| Niveles de fidelización     | **Sí**, configurables por negocio; los puntos se acreditan y se canjean     |
+
+**De lo que el documento excluía del MVP, sí se construyó:**
+
+- **Reserva directa desde el marketplace**: existe, pública y sin cuenta
+  (`POST /api/v1/booking/public/appointments`). El perfil no es solo informativo.
+- **Búsqueda por geolocalización**: la búsqueda acepta `lat`, `lng` y `radius`.
+
+**Lo que sigue fuera, como estaba previsto**: pagos en línea, app nativa,
+integración con POS, contabilidad avanzada, multi-moneda, API pública y modo
+offline. A eso se suman, ya identificados: comisiones del personal, paquetes y
+bonos, inventario, ficha técnica del cliente y facturación electrónica DIAN.
+
 ---
 
 ## Definición del MVP

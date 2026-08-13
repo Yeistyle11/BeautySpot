@@ -13,7 +13,11 @@ import {
   esInstantePasadoEn,
   algunSolape,
   arrastreDelDiaAnterior,
+  arrastreDeJornada,
   diaAnterior,
+  diaAnteriorDeLaSemana,
+  finExtendido,
+  MINUTOS_DEL_DIA,
   type Intervalo,
   type OcupacionDeProfesional,
 } from "@beautyspot/shared-utils";
@@ -31,6 +35,11 @@ export interface Franja {
   startTime: string;
   endTime: string;
   available: boolean;
+}
+
+/** Jornada de un profesional, en la forma mínima que consume la agenda. */
+interface Jornada extends Tramo {
+  professionalId: string;
 }
 
 /** Tamaño de las franjas en que se divide la jornada al ofrecer disponibilidad. */
@@ -118,9 +127,7 @@ export class AvailabilityQueryService {
     duration: number
   ): Promise<Franja[]> {
     const dayOfWeek = new Date(date + "T12:00:00").getDay();
-    const horarios = await this.availRepo.find({
-      where: { businessId, dayOfWeek, active: true },
-    });
+    const horarios = await this.jornadasDelDia(businessId, dayOfWeek);
     const profesionales = [...new Set(horarios.map((h) => h.professionalId))];
     if (profesionales.length === 0) return [];
 
@@ -131,7 +138,7 @@ export class AvailabilityQueryService {
         where: { businessId, professionalId: In(profesionales), date },
       }),
       this.ocupacionDelDia(businessId, date),
-      this.horarioDelNegocio.tramosDelDia(businessId, dayOfWeek),
+      this.aperturaDelDia(businessId, dayOfWeek),
       this.zonas.de(businessId),
     ]);
 
@@ -178,15 +185,15 @@ export class AvailabilityQueryService {
   ): Promise<Franja[]> {
     const dayOfWeek = new Date(date + "T12:00:00").getDay();
 
-    const tramos = await this.availRepo.find({
-      where: { businessId, professionalId, dayOfWeek, active: true },
-    });
+    const tramos = await this.jornadasDelDia(businessId, dayOfWeek, [
+      professionalId,
+    ]);
     if (tramos.length === 0) return [];
 
     const [blocks, ocupados, apertura, zona] = await Promise.all([
       this.blockRepo.find({ where: { businessId, professionalId, date } }),
       this.ocupacionDelDia(businessId, date),
-      this.horarioDelNegocio.tramosDelDia(businessId, dayOfWeek),
+      this.aperturaDelDia(businessId, dayOfWeek),
       this.zonas.de(businessId),
     ]);
 
@@ -202,6 +209,70 @@ export class AvailabilityQueryService {
       date,
       zona
     );
+  }
+
+  /**
+   * Jornadas que se trabajan ese día: las del propio día más la madrugada que
+   * arrastra la jornada del día anterior.
+   *
+   * Quien entra el sábado a las 20:00 y sale a las 02:00 sigue trabajando de
+   * 00:00 a 02:00 del domingo. Sin traer ese arrastre, la madrugada no ofrece
+   * ninguna franja aunque el local esté abierto y el profesional dentro.
+   *
+   * La salida llega en hora de reloj y aquí pasa a la escala del cálculo, donde
+   * esa jornada es 20:00–26:00 y el arrastre sale de restarle el día.
+   */
+  private async jornadasDelDia(
+    businessId: string,
+    dayOfWeek: number,
+    profesionales?: string[]
+  ): Promise<Jornada[]> {
+    const base = { businessId, active: true };
+    const filtro = profesionales
+      ? { ...base, professionalId: In(profesionales) }
+      : base;
+
+    const filas = await this.availRepo.find({
+      where: [
+        { ...filtro, dayOfWeek },
+        { ...filtro, dayOfWeek: diaAnteriorDeLaSemana(dayOfWeek) },
+      ],
+    });
+
+    const anterior = diaAnteriorDeLaSemana(dayOfWeek);
+    const deHoy: Jornada[] = [];
+    const deAyer: Jornada[] = [];
+    for (const fila of filas) {
+      const jornada = {
+        professionalId: fila.professionalId,
+        startTime: fila.startTime,
+        endTime: finExtendido(fila.startTime, fila.endTime),
+      };
+      if (fila.dayOfWeek === dayOfWeek) deHoy.push(jornada);
+      else if (fila.dayOfWeek === anterior) deAyer.push(jornada);
+    }
+
+    return [...deHoy, ...arrastreDeJornada(deAyer)];
+  }
+
+  /**
+   * Apertura del negocio ese día, con la madrugada que arrastra la del día
+   * anterior. `null` sigue significando "sin horario configurado".
+   */
+  private async aperturaDelDia(
+    businessId: string,
+    dayOfWeek: number
+  ): Promise<Tramo[] | null> {
+    const [hoy, ayer] = await Promise.all([
+      this.horarioDelNegocio.tramosDelDia(businessId, dayOfWeek),
+      this.horarioDelNegocio.tramosDelDia(
+        businessId,
+        diaAnteriorDeLaSemana(dayOfWeek)
+      ),
+    ]);
+
+    if (hoy === null) return null;
+    return [...hoy, ...arrastreDeJornada(ayer ?? [])];
   }
 
   /** Lo que cada profesional del negocio tiene ocupado ese día. */
@@ -286,15 +357,8 @@ export class AvailabilityQueryService {
   ): Promise<boolean> {
     const profesionales = reparto.map((o) => o.professionalId);
     const [horarios, apertura] = await Promise.all([
-      this.availRepo.find({
-        where: {
-          businessId,
-          professionalId: In(profesionales),
-          dayOfWeek,
-          active: true,
-        },
-      }),
-      this.horarioDelNegocio.tramosDelDia(businessId, dayOfWeek),
+      this.jornadasDelDia(businessId, dayOfWeek, profesionales),
+      this.aperturaDelDia(businessId, dayOfWeek),
     ]);
 
     const tramosPorProfesional = agruparPorProfesional(horarios);
@@ -370,9 +434,7 @@ export class AvailabilityQueryService {
     date: string
   ): Promise<{ professionalId: string; minutosDisponibles: number }[]> {
     const dayOfWeek = new Date(date + "T12:00:00").getDay();
-    const horarios = await this.availRepo.find({
-      where: { businessId, dayOfWeek, active: true },
-    });
+    const horarios = await this.jornadasDelDia(businessId, dayOfWeek);
     const profesionales = [...new Set(horarios.map((h) => h.professionalId))];
     if (profesionales.length === 0) return [];
 
@@ -380,7 +442,7 @@ export class AvailabilityQueryService {
       this.blockRepo.find({
         where: { businessId, professionalId: In(profesionales), date },
       }),
-      this.horarioDelNegocio.tramosDelDia(businessId, dayOfWeek),
+      this.aperturaDelDia(businessId, dayOfWeek),
     ]);
 
     const tramosPorProfesional = agruparPorProfesional(horarios);
@@ -485,6 +547,11 @@ export class AvailabilityQueryService {
       const finDelTramo = timeToMinutes(tramo.endTime);
 
       for (const slotStart of this.iniciosCandidatos(tramo, iniciosExtra)) {
+        // Lo que empieza pasada la medianoche pertenece al día siguiente y allí
+        // se ofrece, traído por el arrastre de la jornada. Ofrecerlo también
+        // aquí sería la misma hora dos veces, bajo dos fechas.
+        if (timeToMinutes(slotStart) >= MINUTOS_DEL_DIA) continue;
+
         const slotEnd = calculateEndTime(slotStart, duration);
         const franja: Franja = {
           startTime: slotStart,

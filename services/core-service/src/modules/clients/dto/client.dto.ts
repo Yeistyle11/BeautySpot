@@ -1,3 +1,4 @@
+import { Transform } from "class-transformer";
 import {
   IsString,
   IsOptional,
@@ -5,6 +6,7 @@ import {
   IsBoolean,
   IsEmail,
   IsObject,
+  IsUUID,
   Matches,
   ValidateIf,
   MaxLength,
@@ -13,6 +15,9 @@ import {
   PATRON_TELEFONO,
   MENSAJE_TELEFONO,
 } from "@beautyspot/shared-constants";
+
+/** Fecha de calendario, que es como viaja la fecha de nacimiento. */
+const PATRON_FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Datos para registrar un cliente: nombre, contacto, notas y etiquetas.
@@ -45,6 +50,12 @@ export class CreateClientDto {
   @IsString()
   @MaxLength(1000, { message: "Las notas no pueden pasar de 1000 caracteres" })
   notes?: string;
+  /** Fecha de nacimiento, de la que sale la felicitación de cumpleaños. */
+  @IsOptional()
+  @Matches(PATRON_FECHA, {
+    message: "La fecha de nacimiento debe tener el formato AAAA-MM-DD",
+  })
+  birthDate?: string | null;
   @IsOptional() @IsString() userId?: string;
   @IsOptional() @IsArray() tags?: string[];
   /**
@@ -53,6 +64,30 @@ export class CreateClientDto {
    * DTO; el contenido lo contrasta `ClientsService` con los campos del negocio.
    */
   @IsOptional() @IsObject() ficha?: Record<string, unknown>;
+}
+
+/** Tope de identificadores por consulta; la agenda pinta como mucho una página de citas. */
+const MAXIMO_IDS = 200;
+
+/**
+ * Identificadores de los clientes cuyo nombre se pide.
+ *
+ * Llegan como lista separada por comas y se acotan: sin tope, un `?ids=` largo
+ * arma un `IN (...)` de miles de elementos con una sola petición.
+ */
+export class ClientNamesDto {
+  @Transform(({ value }) =>
+    typeof value === "string"
+      ? value
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean)
+          .slice(0, MAXIMO_IDS)
+      : []
+  )
+  @IsArray()
+  @IsUUID("4", { each: true, message: "Cada id debe ser un UUID" })
+  ids!: string[];
 }
 
 /** Campos editables de un cliente (todos opcionales). */
@@ -82,6 +117,12 @@ export class UpdateClientDto {
   @IsString()
   @MaxLength(1000, { message: "Las notas no pueden pasar de 1000 caracteres" })
   notes?: string;
+  /** Fecha de nacimiento, de la que sale la felicitación de cumpleaños. */
+  @IsOptional()
+  @Matches(PATRON_FECHA, {
+    message: "La fecha de nacimiento debe tener el formato AAAA-MM-DD",
+  })
+  birthDate?: string | null;
   @IsOptional() @IsArray() tags?: string[];
   /**
    * Valores de la ficha que el negocio se haya definido, por id de campo. Se

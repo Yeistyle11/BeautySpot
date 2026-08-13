@@ -34,8 +34,8 @@ npm run docker:up
 ```
 
 Levanta tres contenedores y, en el **primer arranque del volumen**, ejecuta
-`infra/docker/postgres/init.sql`, que crea las 7 bases de datos y el rol
-`beautyspot`:
+`infra/docker/postgres/init.sh`, que crea las 7 bases de datos y **un usuario por
+servicio**, dueño solo de la suya y sin `CONNECT` sobre las demás:
 
 | Servicio   | Puerto en el host | Credenciales                   |
 | ---------- | ----------------- | ------------------------------ |
@@ -118,6 +118,18 @@ Sólo el frontend:
 cd apps/frontend && npm run dev
 ```
 
+> **En Windows conviene no usar `npm run dev` en la raíz.** El watcher de Nest
+> reinicia cada servicio matando su proceso hijo con `taskkill /pid <n> /T /F`, y
+> esa llamada falla a veces (`ERROR: el proceso ... no se pudo terminar`): el
+> servicio muere sin volver a levantarse y se lleva por delante el `turbo dev`
+> entero, así que al tocar un fichero pueden caerse varios servicios a la vez.
+> Reproducido con Node 22.12 en Windows 11.
+>
+> Mientras dure, lo práctico es levantar el frontend por su lado y cada servicio
+> que se esté tocando en su propia terminal (`cd services/<servicio> && npm run dev`).
+> Así un reinicio fallido solo afecta a lo que se estaba editando. No pasa en
+> producción, donde cada servicio corre en su contenedor sin watcher.
+
 Comprobar que el gateway ve a todos los servicios:
 
 ```bash
@@ -134,7 +146,7 @@ npm run format
 npm run format:check
 
 # Tests
-npm test                 # los 960 tests unitarios
+npm test                 # los 1870 tests unitarios
 npm run test:coverage    # con cobertura y gate
 
 # Infraestructura
@@ -144,13 +156,14 @@ npm run docker:logs
 npm run docker:restart
 ```
 
-Para los tests de un solo servicio hay que entrar en su carpeta, porque los
-proyectos de Jest no tienen `displayName` y `--selectProjects` no funciona desde la
-raíz:
+Para los tests de un solo servicio hay que entrar en su carpeta: sólo el frontend
+declara `displayName`, así que `--selectProjects` desde la raíz únicamente sirve
+para él.
 
 ```bash
 cd services/booking-service && npx jest appointments.service
 cd services/booking-service && npx jest -t "nombre del test"
+npx jest --selectProjects frontend    # esto sí, desde la raíz
 ```
 
 Detalle completo en [TESTING.md](TESTING.md).
@@ -171,7 +184,7 @@ Otro proceso usa 5433, 6379 o 5672. Localizarlo con `netstat -ano | findstr :637
 (Windows) o `lsof -i :6379` (Linux/macOS).
 
 **Las bases de datos no existen**
-`init.sql` sólo se ejecuta en el primer arranque del volumen. Si el volumen ya
+`init.sh` sólo se ejecuta en el primer arranque del volumen. Si el volumen ya
 existía, hay que recrearlo:
 
 ```bash

@@ -2,6 +2,7 @@ import {
   ahoraEnLaZona,
   diaSiguiente,
   esFechaPasadaEn,
+  esHoraDeCierreValida,
   esHoraValida,
   esInstantePasadoEn,
   fechaDeHoyEn,
@@ -144,4 +145,31 @@ describe("esHoraValida", () => {
       expect(esHoraValida(hora)).toBe(false);
     }
   );
+});
+
+describe("esHoraDeCierreValida", () => {
+  // Es la hora que marca el reloj al echar el cierre: quien cierra a las 2 de
+  // la mañana pone 02:00. Las 24:00 se admiten aparte para poder decir "hasta
+  // el final del día" sin confundirlo con el 00:00 del principio.
+  it.each(["00:00", "02:00", "18:00", "23:59", "24:00"])(
+    "acepta %s",
+    (hora) => {
+      expect(esHoraDeCierreValida(hora)).toBe(true);
+    }
+  );
+
+  it.each([
+    "24:30",
+    "26:00",
+    "31:59",
+    "32:00",
+    "40:00",
+    "9:0",
+    "23:60",
+    "abc",
+    "",
+    "26:00:00",
+  ])("rechaza %s", (hora) => {
+    expect(esHoraDeCierreValida(hora)).toBe(false);
+  });
 });

@@ -6,7 +6,9 @@ import BusinessProfile from "./business-profile";
 import { profileResponseSchema, type Profile } from "./schemas";
 
 interface PageProps {
-  params: { slug: string };
+  // Desde Next 15 los parámetros de ruta llegan como promesa: la página puede
+  // empezar a renderizarse antes de que estén resueltos.
+  params: Promise<{ slug: string }>;
 }
 
 // El perfil se pide una sola vez por render y se reutiliza en generateMetadata
@@ -22,7 +24,8 @@ async function getProfile(slug: string): Promise<Profile | null> {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const profile = await getProfile(params.slug);
+  const { slug } = await params;
+  const profile = await getProfile(slug);
 
   if (!profile) {
     return { title: "Negocio no encontrado | BeautySpot" };
@@ -51,8 +54,9 @@ export async function generateMetadata({
 }
 
 export default async function BusinessProfilePage({ params }: PageProps) {
-  const profile = await getProfile(params.slug);
+  const { slug } = await params;
+  const profile = await getProfile(slug);
   if (!profile) notFound();
 
-  return <BusinessProfile slug={params.slug} initialProfile={profile} />;
+  return <BusinessProfile slug={slug} initialProfile={profile} />;
 }

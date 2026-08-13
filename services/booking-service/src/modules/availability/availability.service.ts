@@ -2,7 +2,11 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from "typeorm";
 import {
+  cruzaMedianoche,
+  esHoraDeCierreValida,
   esHoraValida,
+  finExtendido,
+  MAXIMO_CIERRE_DE_MADRUGADA,
   timeToMinutes,
   timesOverlap,
 } from "@beautyspot/shared-utils";
@@ -58,17 +62,38 @@ export class AvailabilityService {
     });
   }
 
-  /** Valida formato `HH:MM`, orden de las horas y solapes dentro de cada día. */
+  /**
+   * Valida formato `HH:MM`, las horas de salida de madrugada y los solapes
+   * dentro de cada día.
+   *
+   * La jornada empieza dentro del día y puede terminar de madrugada; la hora de
+   * salida se escribe como la marca el reloj, así que quien sale a las dos pone
+   * `02:00` y es la comparación con la entrada la que revela que ya es del día
+   * siguiente.
+   */
   private validar(slots: TramoSemanal[]): void {
     for (const slot of slots) {
-      if (!esHoraValida(slot.startTime) || !esHoraValida(slot.endTime)) {
+      if (!esHoraValida(slot.startTime)) {
         throw new BadRequestException(
-          `Horario invalido: ${slot.startTime}-${slot.endTime}. Se espera HH:MM`
+          `Hora de entrada invalida: ${slot.startTime}. Se espera HH:MM, de 00:00 a 23:59`
         );
       }
-      if (timeToMinutes(slot.startTime) >= timeToMinutes(slot.endTime)) {
+      if (!esHoraDeCierreValida(slot.endTime)) {
         throw new BadRequestException(
-          `El tramo ${slot.startTime}-${slot.endTime} termina antes de empezar`
+          `Hora de salida invalida: ${slot.endTime}. Se espera HH:MM, de 00:00 a 24:00`
+        );
+      }
+      if (slot.startTime === slot.endTime) {
+        throw new BadRequestException(
+          `El tramo ${slot.startTime}-${slot.endTime} no dura nada. La jornada completa se pone de 00:00 a 24:00`
+        );
+      }
+      if (
+        cruzaMedianoche(slot.startTime, slot.endTime) &&
+        timeToMinutes(slot.endTime) > timeToMinutes(MAXIMO_CIERRE_DE_MADRUGADA)
+      ) {
+        throw new BadRequestException(
+          `La salida de madrugada ${slot.endTime} no puede pasar de las ${MAXIMO_CIERRE_DE_MADRUGADA}`
         );
       }
     }
@@ -76,13 +101,15 @@ export class AvailabilityService {
     const porDia = new Map<number, TramoSemanal[]>();
     for (const slot of slots) {
       const delDia = porDia.get(slot.dayOfWeek) ?? [];
+      // Los solapes se miran en la escala del cálculo: un tramo de 20:00 a
+      // 02:00 comparado con la hora de reloj se leería al revés.
       if (
         delDia.some((otro) =>
           timesOverlap(
             slot.startTime,
-            slot.endTime,
+            finExtendido(slot.startTime, slot.endTime),
             otro.startTime,
-            otro.endTime
+            finExtendido(otro.startTime, otro.endTime)
           )
         )
       ) {

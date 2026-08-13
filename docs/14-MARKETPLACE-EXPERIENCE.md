@@ -1,5 +1,11 @@
 # 14 - Marketplace Experience: Perfiles Inmersivos y Descubrimiento
 
+> **Este documento es especificacion, no el estado del producto.** Describe la experiencia objetivo del marketplace.
+> Puede mencionar cosas que no existen, y no menciona cosas que si. Para lo que
+> hay hoy: [API.md](API.md) (rutas), [05-BASE-DATOS.md](05-BASE-DATOS.md) (datos),
+> [04-ARQUITECTURA.md](04-ARQUITECTURA.md) (como funciona) y
+> [06-ROADMAP.md](06-ROADMAP.md#donde-esta-el-proyecto) (que falta).
+
 ## Resumen
 
 Este documento redefine el marketplace de BeautySpot como una experiencia envolvente donde cada negocio

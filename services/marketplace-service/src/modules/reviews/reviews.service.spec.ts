@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository, DataSource } from "typeorm";
+import { Repository, DataSource, In } from "typeorm";
 import { ReviewsService } from "./reviews.service";
 import { ReviewEntity, ReviewStatus } from "../../entities/review.entity";
 import { ReviewReportReason } from "../../entities/review-report.entity";
@@ -61,6 +61,7 @@ describe("ReviewsService", () => {
       save: jest.fn(),
       findOne: jest.fn(),
       find: jest.fn(),
+      findAndCount: jest.fn(),
       createQueryBuilder: jest.fn(),
       increment: jest.fn(),
       decrement: jest.fn(),
@@ -621,24 +622,75 @@ describe("ReviewsService", () => {
   });
 
   describe("findByClientUser", () => {
+    const PAGINACION = {
+      page: 1,
+      limit: 20,
+      offset: 0,
+      sort: "createdAt",
+      order: "DESC" as const,
+    };
+
     it("debería filtrar por el usuario del token y ordenar por fecha", async () => {
-      mockRepo.find.mockResolvedValue([mockReview]);
+      mockRepo.findAndCount.mockResolvedValue([[mockReview], 1]);
 
-      const result = await service.findByClientUser("user-123");
+      const result = await service.findByClientUser("user-123", PAGINACION);
 
-      expect(mockRepo.find).toHaveBeenCalledWith({
-        where: { clientId: "user-123" },
-        order: { createdAt: "DESC" },
-      });
-      expect(result).toEqual([mockReview]);
+      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { clientId: "user-123" },
+          order: { createdAt: "DESC" },
+        })
+      );
+      expect(result.data).toEqual([mockReview]);
+    });
+
+    // El historial crece con cada visita: la respuesta va paginada aunque no se
+    // pida página.
+    it("acota la página al límite recibido", async () => {
+      mockRepo.findAndCount.mockResolvedValue([[mockReview], 1]);
+
+      await service.findByClientUser("user-123", PAGINACION);
+
+      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 20, skip: 0 })
+      );
+    });
+
+    it("responde solo por las citas pedidas cuando se indican", async () => {
+      mockRepo.findAndCount.mockResolvedValue([[mockReview], 1]);
+
+      await service.findByClientUser("user-123", PAGINACION, ["cita-1"]);
+
+      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { clientId: "user-123", appointmentId: In(["cita-1"]) },
+        })
+      );
+    });
+
+    // Una lista vacía es "ninguna cita por la que preguntar", no "sin filtro":
+    // sin esto, una pantalla sin citas se traería el historial entero.
+    it("con una lista de citas vacía no consulta por todo el historial", async () => {
+      mockRepo.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findByClientUser("user-123", PAGINACION, []);
+
+      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { clientId: "user-123", appointmentId: In([]) },
+        })
+      );
     });
 
     it("debería devolver lista vacía si el usuario no ha reseñado", async () => {
-      mockRepo.find.mockResolvedValue([]);
+      mockRepo.findAndCount.mockResolvedValue([[], 0]);
 
-      await expect(
-        service.findByClientUser("user-sin-resenas")
-      ).resolves.toEqual([]);
+      const result = await service.findByClientUser(
+        "user-sin-resenas",
+        PAGINACION
+      );
+
+      expect(result.data).toEqual([]);
     });
   });
 

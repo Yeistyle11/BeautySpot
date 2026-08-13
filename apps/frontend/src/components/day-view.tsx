@@ -4,7 +4,11 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { repartoPorProfesional, timeToMinutes } from "@beautyspot/shared-utils";
+import {
+  finExtendido,
+  repartoPorProfesional,
+  timeToMinutes,
+} from "@beautyspot/shared-utils";
 import {
   formatCurrency,
   formatTime,
@@ -30,24 +34,64 @@ interface DayViewProps {
   canConfirm: boolean;
   canCancel: boolean;
   clientNames: Record<string, string>;
+  /** Bloqueos del día de todo el equipo, para pintarlos sobre la rejilla. */
+  bloqueos?: BloqueoDeAgenda[];
+  /**
+   * Bloquear desde un hueco. Sin este prop la rejilla no es pulsable, que es lo
+   * que corresponde a quien no puede crear bloqueos.
+   */
+  onBloquearHueco?: (professionalId: string, hora: string) => void;
+}
+
+/** Franja bloqueada de la agenda de un profesional. */
+export interface BloqueoDeAgenda {
+  id: string;
+  professionalId: string;
+  startTime: string;
+  endTime: string;
+  reason: string | null;
 }
 
 /** Estados desde los que la cita todavia puede anularse. */
 const ANULABLES = ["PENDING", "CONFIRMED"];
 
-/** Franja de jornada que se pinta, y altura de cada hora en pixeles. */
-const HORA_INICIO = 7;
-const HORA_FIN = 21;
+/** Minutos en que se parte cada hora al pulsar un hueco. */
+const MEDIAS_HORAS = ["00", "30"];
+
+/** Franja de jornada que se pinta cuando las citas no piden más. */
+const HORA_INICIO_MINIMA = 7;
+const HORA_FIN_MINIMA = 21;
 const ALTO_HORA = 64;
 
-const HORAS = Array.from(
-  { length: HORA_FIN - HORA_INICIO },
-  (_, i) => i + HORA_INICIO
-);
+/**
+ * Franja de horas que hay que pintar para que quepan todas las citas y bloqueos
+ * del día.
+ *
+ * Un negocio que cierra de madrugada tiene citas a las 00:30, y una jornada fija
+ * de 7 a 21 las dejaría fuera de la rejilla, invisibles.
+ */
+function franjaDelDia(
+  bloques: BloqueDeCita[],
+  bloqueos: { inicio: string; fin: string }[] = []
+): number[] {
+  let desde = HORA_INICIO_MINIMA;
+  let hasta = HORA_FIN_MINIMA;
+
+  const tramos = [
+    ...bloques.map((b) => ({ inicio: b.inicio, fin: b.fin })),
+    ...bloqueos,
+  ];
+  for (const tramo of tramos) {
+    desde = Math.min(desde, Math.floor(timeToMinutes(tramo.inicio) / 60));
+    hasta = Math.max(hasta, Math.ceil(timeToMinutes(tramo.fin) / 60));
+  }
+
+  return Array.from({ length: hasta - desde }, (_, i) => i + desde);
+}
 
 /** Pixeles desde el borde superior de la rejilla que corresponden a una hora. */
-function aPixeles(hora: string): number {
-  return ((timeToMinutes(hora) - HORA_INICIO * 60) / 60) * ALTO_HORA;
+function aPixeles(hora: string, horaInicio: number): number {
+  return ((timeToMinutes(hora) - horaInicio * 60) / 60) * ALTO_HORA;
 }
 
 /** Nombre del profesional, o un texto neutro si ya no está en el equipo. */
@@ -65,17 +109,17 @@ function desplazarDia(date: string, dias: number): string {
   return toLocalDateKey(d);
 }
 
-/** Bloque de una cita en la columna, con sus tramos ocupados ya calculados. */
+/** Bloque de una cita en la columna de un profesional, en horas de pared. */
 interface BloqueDeCita {
   appt: Appointment;
   professionalId: string;
   /** Desde el inicio hasta el fin de la ocupacion, limpieza incluida. */
-  arriba: number;
-  alto: number;
-  /** Tramos ocupados, relativos al bloque. */
-  ocupados: { arriba: number; alto: number }[];
+  inicio: string;
+  fin: string;
+  /** Tramos en que el profesional queda ocupado dentro del bloque. */
+  ocupados: { inicio: string; fin: string }[];
   /** Fin de la parte con cliente delante; por debajo va la limpieza. */
-  finDeCliente: number;
+  finDeCliente: string;
   /** La cita se reparte entre varios profesionales. */
   compartida: boolean;
 }
@@ -94,28 +138,24 @@ function lineasDe(appt: Appointment) {
 
 /** Un bloque por profesional: cada uno ocupa solo los servicios que atiende. */
 function bloquesDe(appt: Appointment): BloqueDeCita[] {
+  // El fin llega en hora de reloj: la cita de las 23:30 termina a las "00:30" y
+  // hay que devolverla a la escala del reparto, o se pintaría hacia arriba.
   const reparto = repartoPorProfesional(
     appt.startTime,
-    appt.ocupadoHasta ?? appt.endTime,
+    finExtendido(appt.startTime, appt.ocupadoHasta ?? appt.endTime),
     lineasDe(appt),
     appt.professionalId
   );
 
-  return reparto.map((ocupacion) => {
-    const arriba = aPixeles(ocupacion.inicio);
-    return {
-      appt,
-      professionalId: ocupacion.professionalId,
-      arriba,
-      alto: Math.max(aPixeles(ocupacion.fin) - arriba, 18),
-      ocupados: ocupacion.intervalos.map((i) => ({
-        arriba: aPixeles(i.inicio) - arriba,
-        alto: Math.max(aPixeles(i.fin) - aPixeles(i.inicio), 2),
-      })),
-      finDeCliente: aPixeles(ocupacion.finDeCliente) - arriba,
-      compartida: reparto.length > 1,
-    };
-  });
+  return reparto.map((ocupacion) => ({
+    appt,
+    professionalId: ocupacion.professionalId,
+    inicio: ocupacion.inicio,
+    fin: ocupacion.fin,
+    ocupados: ocupacion.intervalos,
+    finDeCliente: ocupacion.finDeCliente,
+    compartida: reparto.length > 1,
+  }));
 }
 
 /**
@@ -135,6 +175,8 @@ export function DayView({
   canConfirm,
   canCancel,
   clientNames,
+  bloqueos = [],
+  onBloquearHueco,
 }: DayViewProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedAppt = appointments.find((a) => a.id === selectedId) ?? null;
@@ -155,6 +197,26 @@ export function DayView({
     }
     return mapa;
   }, [delDia]);
+
+  const bloqueosPorProfesional = useMemo(() => {
+    const mapa = new Map<string, BloqueoDeAgenda[]>();
+    for (const bloqueo of bloqueos) {
+      const actuales = mapa.get(bloqueo.professionalId) ?? [];
+      actuales.push(bloqueo);
+      mapa.set(bloqueo.professionalId, actuales);
+    }
+    return mapa;
+  }, [bloqueos]);
+
+  const horas = useMemo(
+    () =>
+      franjaDelDia(
+        Array.from(bloquesPorProfesional.values()).flat(),
+        bloqueos.map((b) => ({ inicio: b.startTime, fin: b.endTime }))
+      ),
+    [bloquesPorProfesional, bloqueos]
+  );
+  const horaInicio = horas[0];
 
   // Columnas: el equipo, más una para las citas de quien ya no está en la lista.
   const columnas = useMemo(() => {
@@ -229,7 +291,7 @@ export function DayView({
             ))}
 
             <div>
-              {HORAS.map((hora) => (
+              {horas.map((hora) => (
                 <div
                   key={hora}
                   className="text-muted-foreground border-border/50 border-b pr-2 text-right text-xs"
@@ -244,13 +306,37 @@ export function DayView({
               <div
                 key={p.id}
                 className="relative border-l"
-                style={{ height: HORAS.length * ALTO_HORA }}
+                style={{ height: horas.length * ALTO_HORA }}
               >
-                {HORAS.map((hora) => (
+                {horas.map((hora) => (
                   <div
                     key={hora}
-                    className="border-border/50 border-b"
+                    className="border-border/50 flex flex-col border-b"
                     style={{ height: ALTO_HORA }}
+                  >
+                    {MEDIAS_HORAS.map((minuto) => {
+                      const inicio = `${String(hora).padStart(2, "0")}:${minuto}`;
+                      if (!onBloquearHueco) {
+                        return <div key={minuto} className="flex-1" />;
+                      }
+                      return (
+                        <button
+                          key={minuto}
+                          type="button"
+                          onClick={() => onBloquearHueco(p.id, inicio)}
+                          className="hover:bg-muted/60 flex-1 transition-colors"
+                          aria-label={`Bloquear ${formatTime(inicio)} de ${p.name ?? "el profesional"}`}
+                        />
+                      );
+                    })}
+                  </div>
+                ))}
+
+                {(bloqueosPorProfesional.get(p.id) ?? []).map((bloqueo) => (
+                  <BloqueoPintado
+                    key={bloqueo.id}
+                    bloqueo={bloqueo}
+                    horaInicio={horaInicio}
                   />
                 ))}
 
@@ -258,6 +344,7 @@ export function DayView({
                   <BloqueCita
                     key={`${bloque.appt.id}-${bloque.professionalId}`}
                     bloque={bloque}
+                    horaInicio={horaInicio}
                     seleccionada={selectedId === bloque.appt.id}
                     cliente={clientNames[bloque.appt.clientId] || "Cliente"}
                     onSelect={() =>
@@ -364,21 +451,63 @@ export function DayView({
   );
 }
 
+/**
+ * Franja bloqueada, rayada para no confundirla con una cita.
+ *
+ * Va por debajo de las citas en el orden de pintado: si algo se solapara, lo que
+ * interesa ver es la cita.
+ */
+function BloqueoPintado({
+  bloqueo,
+  horaInicio,
+}: {
+  bloqueo: BloqueoDeAgenda;
+  horaInicio: number;
+}) {
+  const arriba = aPixeles(bloqueo.startTime, horaInicio);
+  const alto = Math.max(aPixeles(bloqueo.endTime, horaInicio) - arriba, 12);
+
+  return (
+    <div
+      className="bg-muted-foreground/20 border-muted-foreground/40 absolute inset-x-0.5 overflow-hidden rounded border border-dashed px-1.5 py-0.5"
+      style={{ top: arriba, height: alto }}
+      title={bloqueo.reason ?? "Agenda bloqueada"}
+    >
+      <span className="text-muted-foreground block truncate text-[10px] leading-tight">
+        {bloqueo.reason || "Bloqueado"}
+      </span>
+    </div>
+  );
+}
+
 /** Cita en la columna: el contorno abarca su duración y dentro van los tramos ocupados. */
 function BloqueCita({
   bloque,
+  horaInicio,
   seleccionada,
   cliente,
   onSelect,
 }: {
   bloque: BloqueDeCita;
+  horaInicio: number;
   seleccionada: boolean;
   cliente: string;
   onSelect: () => void;
 }) {
-  const { appt, arriba, alto, ocupados, finDeCliente, compartida } = bloque;
+  const { appt, compartida } = bloque;
   const color = getAppointmentStatus(appt.status).calendarColor;
-  const hayHueco = ocupados.length > 1;
+  const hayHueco = bloque.ocupados.length > 1;
+
+  const arriba = aPixeles(bloque.inicio, horaInicio);
+  const alto = Math.max(aPixeles(bloque.fin, horaInicio) - arriba, 18);
+  const finDeCliente = aPixeles(bloque.finDeCliente, horaInicio) - arriba;
+  const ocupados = bloque.ocupados.map((tramo) => ({
+    arriba: aPixeles(tramo.inicio, horaInicio) - arriba,
+    alto: Math.max(
+      aPixeles(tramo.fin, horaInicio) - aPixeles(tramo.inicio, horaInicio),
+      2
+    ),
+  }));
 
   return (
     <button

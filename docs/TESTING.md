@@ -11,7 +11,7 @@ PostgreSQL, Redis y RabbitMQ reales.
 | Patrón de fichero | `*.spec.ts`                       | `*.int-test.ts`                       |
 | Config            | `jest.config.js` de cada proyecto | `jest.integration.config.js`          |
 | Dependencias      | Mockeadas (BD, Redis, RabbitMQ)   | Reales, vía `docker-compose.test.yml` |
-| Cuántos           | **960 tests / 72 suites**         | 11 tests / 10 suites                  |
+| Cuántos           | **1903 tests / 141 suites**       | 75 tests / 25 suites                  |
 | En CI             | Job `test`                        | Job `integration`                     |
 | Comando           | `npm test`                        | `npm run test:int` (por servicio)     |
 
@@ -19,10 +19,10 @@ Cobertura actual, medida sobre los unitarios:
 
 | Métrica    | Actual  | Gate mínimo |
 | ---------- | ------- | ----------- |
-| Statements | 92,99 % | 92          |
-| Branches   | 82,52 % | 80          |
-| Functions  | 80,84 % | 80          |
-| Lines      | 93,82 % | 93          |
+| Statements | 92,45 % | 92          |
+| Branches   | 81,58 % | 80          |
+| Functions  | 83,83 % | 80          |
+| Lines      | 93,79 % | 93          |
 
 El gate está en `coverageThreshold` de `jest.config.js` (raíz) y **falla el CI si
 la cobertura baja**. Los valores están fijados un poco por debajo de la medición
@@ -35,18 +35,20 @@ real para que una variación de décimas no rompa el pipeline.
 ### Ejecutar
 
 ```bash
-npm test                 # los 12 proyectos de Jest
+npm test                 # los 13 proyectos de Jest
 npm run test:watch
 npm run test:coverage    # con cobertura y gate
 ```
 
-La configuración de la raíz (`jest.config.js`) agrupa 12 proyectos: el frontend,
-3 paquetes compartidos (`shared-utils`, `database`, `nest-common`) y los 8 servicios.
+La configuración de la raíz (`jest.config.js`) agrupa 13 proyectos: el frontend,
+4 paquetes compartidos (`shared-utils`, `shared-constants`, `database`,
+`nest-common`) y los 8 servicios.
 
 ### Ejecutar los de un solo servicio
 
-Los proyectos **no tienen `displayName`**, así que `--selectProjects` desde la raíz
-no sirve. Hay que entrar en la carpeta:
+Sólo `apps/frontend` declara `displayName` (`"frontend"`), así que desde la raíz
+funciona `npx jest --selectProjects frontend` pero no hay equivalente para los
+servicios ni para los paquetes. Para esos hay que entrar en la carpeta:
 
 ```bash
 cd services/booking-service
@@ -70,6 +72,20 @@ npx jest --coverage --collectCoverageFrom="src/modules/proxy/*.ts"
 Lógica de negocio, ramas de decisión, validaciones, transformaciones y manejo de
 errores. Todo lo que se pueda comprobar sin infraestructura.
 
+### Un test que vigila una regla, no un comportamiento
+
+`packages/database/src/entities/aislamiento-de-tenant.spec.ts` no prueba código:
+lee el de los servicios. Recorre cada consulta sobre una tabla con `businessId` y
+exige que el método la filtre por negocio, o que esté en su lista de excepciones
+con el motivo escrito. El aislamiento entre negocios es lógico (ADR-002) y
+TypeORM 0.3 no tiene filtros globales, así que sin esto una consulta nueva que se
+olvide del filtro devuelve datos de otro negocio sin que nada falle.
+
+Si al añadir una consulta el test se queja, hay dos salidas: filtrar por negocio
+—casi siempre lo correcto— o, si de verdad es una consulta entre negocios (por
+clave primaria con comprobación posterior, por columna única de la plataforma, o
+una ruta interna), añadirla a `SIN_NEGOCIO_A_PROPOSITO` explicando por qué puede.
+
 ### Aviso: ramas inalcanzables
 
 Al subir la cobertura de branches se encontraron **44 ramas imposibles de cubrir**:
@@ -78,6 +94,21 @@ Al subir la cobertura de branches se encontraron **44 ramas imposibles de cubrir
 
 La solución correcta fue eliminar ese código muerto, no escribir tests imposibles.
 Antes de invertir esfuerzo en una rama sin cubrir, comprobar si es alcanzable.
+
+### Aviso: el segundo de `findBy*` se queda corto bajo cobertura
+
+`findByText` y compañía esperan **1 segundo** por defecto. Basta para un test
+suelto, pero `npm run test:coverage` corre los 13 proyectos instrumentados a la
+vez, y ahí una aserción que dependa de un envío asíncrono puede no llegar. El
+síntoma engaña: el test pasa en aislamiento, pasa con `--selectProjects` y solo
+falla en la pasada completa.
+
+Si una espera depende de una petición o de un ciclo de estado, dale margen
+explícito en vez de confiar en el valor por defecto:
+
+```ts
+await screen.findByText(/…/, undefined, { timeout: 5000 });
+```
 
 ---
 
@@ -116,18 +147,31 @@ Los 8 servicios tienen el harness y un _smoke test_ de conexión:
   (`redis-connection.int-test.ts`), del que depende para rate limiting, caché de
   tenants y sesiones revocadas.
 
-Y `payment-service` tiene dos suites de verdad:
+Los 7 con base de datos tienen además `schema-migrations.int-test.ts`, que
+levanta el esquema **sólo con las migraciones** sobre una base en blanco y exige
+que `createSchemaBuilder().log()` no devuelva ninguna sentencia pendiente. Es lo
+que impide que una entidad cambie sin su migración: en desarrollo `synchronize`
+lo taparía y el fallo aparecería en producción. También es lo que obliga a
+nombrar los índices igual en la entidad y en la migración.
 
-**`cash-session-single-open.int-test.ts`** — el índice único parcial
-`uq_cash_sessions_open_per_business`, que impide dos cajas abiertas por negocio.
-La comprobación del servicio (buscar una sesión abierta antes de insertar) es un
-_check-then-act_: dos aperturas simultáneas podrían pasarla las dos. La garantía
-real la da el índice, y sólo se puede observar ejecutando el `INSERT`.
+Encima de eso hay suites que prueban una garantía concreta:
 
-**`outbox-atomicidad.int-test.ts`** — que el cambio de negocio y el evento que lo
-anuncia se escriben en la misma transacción. Los mocks no tienen transacciones, así
-que un `save` fuera del runner transaccional pasaría los unitarios igual; en
-producción dejaría servicios desincronizados de forma permanente.
+| Servicio  | Fichero                                 | Qué demuestra                                                             |
+| --------- | --------------------------------------- | ------------------------------------------------------------------------- |
+| payment   | `cash-session-single-open.int-test.ts`  | El índice único parcial impide dos cajas abiertas por negocio             |
+| payment   | `outbox-atomicidad.int-test.ts`         | El cambio y su evento se confirman en la misma transacción                |
+| payment   | `numeracion-facturas.int-test.ts`       | La serie por negocio no choca con la unicidad global del número           |
+| payment   | `cobro-de-la-cita.int-test.ts`          | No se puede cobrar dos veces la misma cita, y las líneas llegan a disco   |
+| payment   | `arqueo-de-caja.int-test.ts`            | El cierre Z desglosa por método pero sólo descuadra contra el efectivo    |
+| payment   | `canje-de-puntos.int-test.ts`           | El descuento de puntos se confirma con el cobro o no ocurre               |
+| booking   | `doble-reserva-concurrente.int-test.ts` | Dos reservas simultáneas de la misma franja no crean dos citas            |
+| booking   | `cruce-de-medianoche.int-test.ts`       | La cita de anoche ocupa la madrugada, y el cierre de madrugada se reserva |
+| core      | `cumpleanos.int-test.ts`                | La felicitación se emite una sola vez por año                             |
+| analytics | `idempotencia-eventos.int-test.ts`      | Un evento repetido no vuelve a incrementar las métricas                   |
+
+Todas comparten el mismo motivo: **los repositorios simulados devuelven lo que se
+les pasó**, así que nada de lo de arriba —transacciones, índices, concurrencia,
+que un dato llegue a disco— se puede observar con un unitario.
 
 ### Cómo escribir uno
 

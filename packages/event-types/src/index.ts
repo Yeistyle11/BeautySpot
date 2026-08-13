@@ -125,6 +125,18 @@ export interface ClientCreatedPayload {
 
 export type ClientCreatedEvent = IBaseEvent<ClientCreatedPayload>;
 
+/** Cliente que cumple años hoy en la zona horaria de su negocio. */
+export interface ClientBirthdayPayload {
+  clientId: string;
+  businessId: string;
+  name: string;
+  email?: string;
+  /** Año que se está felicitando, el mismo que queda marcado en la ficha. */
+  year: number;
+}
+
+export type ClientBirthdayEvent = IBaseEvent<ClientBirthdayPayload>;
+
 // ─── Booking Events ───────────────────────────────────────────
 
 /** Servicio de una cita, con lo que se congeló al reservarlo. */
@@ -350,6 +362,7 @@ export const EventNames = {
   CORE_SERVICE_CREATED: "core.service.created",
   CORE_SERVICE_UPDATED: "core.service.updated",
   CORE_CLIENT_CREATED: "core.client.created",
+  CORE_CLIENT_BIRTHDAY: "core.client.birthday",
 
   BOOKING_APPOINTMENT_CREATED: "booking.appointment.created",
   BOOKING_APPOINTMENT_CONFIRMED: "booking.appointment.confirmed",

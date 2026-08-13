@@ -1,8 +1,40 @@
-import { Controller, Get, Post, Delete, Param, Body } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  Body,
+  Query,
+} from "@nestjs/common";
 import { BlockedSlotsService } from "./blocked-slots.service";
 import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
-import { CreateBlockedSlotDto } from "./dto/blocked-slot.dto";
+import {
+  CreateBlockedSlotDto,
+  BlockedSlotsDelDiaDto,
+} from "./dto/blocked-slot.dto";
+
+/**
+ * Bloqueos de todo el equipo un día concreto.
+ *
+ * Va en su propio controlador porque no cuelga de un profesional: la vista día
+ * de la agenda los pinta todos a la vez y pedirlos uno a uno serían tantas
+ * peticiones como gente tenga el negocio.
+ */
+@Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
+@Controller("blocked-slots")
+export class BlockedSlotsDelDiaController {
+  constructor(private readonly service: BlockedSlotsService) {}
+
+  @Get()
+  async findByDate(
+    @BusinessId() businessId: string,
+    @Query() query: BlockedSlotsDelDiaDto
+  ) {
+    return this.service.findByDate(businessId, query.date);
+  }
+}
 
 /** Endpoints de los bloqueos de agenda de un profesional, para dueños y administradores. */
 @Roles(Role.OWNER, Role.ADMIN)

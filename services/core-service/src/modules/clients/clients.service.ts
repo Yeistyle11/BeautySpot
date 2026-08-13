@@ -7,14 +7,24 @@ import {
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { TenantCrudService, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
-import { Repository, Like, DataSource, EntityManager } from "typeorm";
+import { Repository, Like, In, DataSource, EntityManager } from "typeorm";
 import {
   escapeLikePattern,
   normalizarEmail,
   normalizarTelefono,
 } from "@beautyspot/shared-utils";
+import {
+  nivelDePuntos,
+  siguienteNivel,
+  NIVELES_FIDELIDAD_POR_DEFECTO,
+  type NivelDeFidelidad,
+} from "@beautyspot/shared-constants";
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
+import {
+  BusinessConfigService,
+  CLAVE_FIDELIZACION,
+} from "../business-config/business-config.service";
 import { Client } from "../../entities/client.entity";
 import {
   CampoDeFicha,
@@ -46,7 +56,8 @@ export class ClientsService extends TenantCrudService<Client> {
     @InjectRepository(CampoDeFicha)
     private readonly camposRepo: Repository<CampoDeFicha>,
     @InjectDataSource() private readonly dataSource: DataSource,
-    private readonly outbox: OutboxService
+    private readonly outbox: OutboxService,
+    private readonly configuracion: BusinessConfigService
   ) {
     super(repo, "Cliente no encontrado");
   }
@@ -248,6 +259,25 @@ export class ClientsService extends TenantCrudService<Client> {
     return paginate(this.repo, pagination, { where, order: { name: "ASC" } });
   }
 
+  /**
+   * Nombre de los clientes pedidos, acotado al negocio.
+   *
+   * Devuelve solo id y nombre: quien llama está poniendo cara a una lista, no
+   * consultando fichas, y el resto de columnas son datos personales que no hay
+   * por qué mover.
+   */
+  async findNamesByIds(
+    businessId: string,
+    ids: string[]
+  ): Promise<{ id: string; name: string }[]> {
+    if (ids.length === 0) return [];
+
+    return this.repo.find({
+      where: { businessId, id: In(ids) },
+      select: { id: true, name: true },
+    });
+  }
+
   /** Busca el cliente asociado a una cuenta de usuario dentro del negocio. */
   async findByUserId(
     userId: string,
@@ -265,6 +295,40 @@ export class ClientsService extends TenantCrudService<Client> {
       where: { userId, active: true },
       order: { createdAt: "DESC" },
     });
+  }
+
+  /**
+   * Ficha del usuario con su nivel de fidelidad ya resuelto.
+   *
+   * El nivel lo calcula el servidor porque la escala vive en `business_config`,
+   * que solo pueden leer el dueño y el administrador: al cliente le llega el
+   * resultado, no las reglas.
+   */
+  async findMineConNivel(userId: string): Promise<
+    | (Client & {
+        nivel: NivelDeFidelidad | null;
+        siguienteNivel: NivelDeFidelidad | null;
+      })
+    | null
+  > {
+    const ficha = await this.findMineByUser(userId);
+    if (!ficha) return null;
+
+    const niveles = await this.nivelesDe(ficha.businessId);
+    return Object.assign(ficha, {
+      nivel: nivelDePuntos(ficha.loyaltyPoints, niveles),
+      siguienteNivel: siguienteNivel(ficha.loyaltyPoints, niveles),
+    });
+  }
+
+  /** Escala de fidelidad del negocio, o la de por defecto si no la ha configurado. */
+  private async nivelesDe(businessId: string): Promise<NivelDeFidelidad[]> {
+    const guardado = await this.configuracion.leer(
+      businessId,
+      CLAVE_FIDELIZACION
+    );
+    const niveles = guardado.niveles as NivelDeFidelidad[] | undefined;
+    return niveles?.length ? niveles : NIVELES_FIDELIDAD_POR_DEFECTO;
   }
 
   /** Actualiza los datos personales en todas las fichas del usuario. */

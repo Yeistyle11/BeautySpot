@@ -26,7 +26,7 @@ cada commit de la rama principal conserve su propio run concluido.
 | Job            | Depende de           | Qué hace                                                 |
 | -------------- | -------------------- | -------------------------------------------------------- |
 | `quality`      | —                    | `format:check`, `build`, `lint`, `type-check`            |
-| `test`         | —                    | 960 tests unitarios con cobertura y gate                 |
+| `test`         | —                    | 1870 tests unitarios con cobertura y gate                |
 | `integration`  | —                    | Los `*.int-test.ts` de los 8 servicios contra infra real |
 | `changes`      | —                    | Calcula qué imágenes Docker hay que construir            |
 | `docker-build` | `quality`, `changes` | Construye las imágenes de la matriz                      |

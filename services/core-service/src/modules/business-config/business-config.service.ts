@@ -4,6 +4,13 @@ import { Repository } from "typeorm";
 import { QueryDeepPartialEntity } from "typeorm/query-builder/QueryPartialEntity";
 import { BusinessConfig } from "../../entities/business-config.entity";
 
+/** Clave de los datos fiscales dentro de `business_config`. */
+export const CLAVE_FACTURACION = "facturacion";
+/** Clave de las reglas de reserva dentro de `business_config`. */
+export const CLAVE_RESERVAS = "reservas";
+/** Clave del programa de fidelidad dentro de `business_config`. */
+export const CLAVE_FIDELIZACION = "fidelizacion";
+
 /** Ajustes del negocio guardados por clave, sin columnas propias. */
 @Injectable()
 export class BusinessConfigService {

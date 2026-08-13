@@ -16,3 +16,8 @@ export class CreateBlockedSlotDto {
   /** Último día que cubre la repetición, incluido. Obligatorio si hay `repeticion`. */
   @IsOptional() @EsFechaSola() repetirHasta?: string;
 }
+
+/** Día del que se piden los bloqueos de todo el equipo. */
+export class BlockedSlotsDelDiaDto {
+  @EsFechaSola() date!: string;
+}

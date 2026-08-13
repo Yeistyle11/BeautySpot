@@ -11,7 +11,7 @@ Next.js, PostgreSQL, Redis, RabbitMQ y Docker.
 | Capa           | Tecnología                                            |
 | -------------- | ----------------------------------------------------- |
 | Backend        | NestJS 11 + TypeORM + TypeScript (8 servicios)        |
-| Frontend       | Next.js 14 (App Router) + TailwindCSS + Zustand + SWR |
+| Frontend       | Next.js 16 (App Router) + TailwindCSS + Zustand + SWR |
 | Base de datos  | PostgreSQL 16 — 7 bases, una por servicio             |
 | Caché/sesiones | Redis 7                                               |
 | Bus de eventos | RabbitMQ 3                                            |
@@ -31,7 +31,7 @@ Next.js, PostgreSQL, Redis, RabbitMQ y Docker.
 | marketplace-service  | 3006   | `beautyspot_marketplace`  | Perfiles públicos, búsqueda, feed, reseñas                          |
 | analytics-service    | 3007   | `beautyspot_analytics`    | KPIs, métricas, reportes                                            |
 
-En total **41 controladores y 170 rutas**, todas accesibles a través del gateway.
+En total **48 controladores y 216 rutas**, todas accesibles a través del gateway.
 Referencia completa en [docs/API.md](docs/API.md).
 
 **Decisiones de arquitectura destacadas**
@@ -40,12 +40,16 @@ Referencia completa en [docs/API.md](docs/API.md).
   El gateway inyecta el tenant en la cabecera `x-business-id` a partir del JWT, así
   que el cliente no puede falsificarlo.
 - **Base de datos por servicio**: ningún servicio lee las tablas de otro.
-- **Transactional Outbox** en booking y payment: el evento se escribe en la misma
-  transacción que el cambio, y un worker lo publica después. Nunca hay un cambio sin
-  evento ni un evento sin cambio.
-- **Circuit breaker** por servicio en el gateway, que sólo abre ante errores 5xx.
+- **Transactional Outbox** en auth, core, booking, marketplace y payment: el evento
+  se escribe en la misma transacción que el cambio, y un worker lo publica después.
+  Nunca hay un cambio sin evento ni un evento sin cambio.
+- **Circuit breaker** por servicio en el gateway, que abre ante 5xx, timeout o
+  error de red.
 - **Invalidación de sesión cross-service**: el `tokenVersion` vive en Redis como
   fuente de verdad, así que un logout invalida los tokens ya emitidos.
+- **Las invariantes viven en la base**: caja única por sede, cobro único por cita,
+  reseña única por cita y número de factura por negocio son índices únicos
+  parciales, no solo comprobaciones en código.
 
 Detalle en [docs/04-ARQUITECTURA.md](docs/04-ARQUITECTURA.md).
 
@@ -85,7 +89,7 @@ npm run dev
 ```
 
 Las 7 bases de datos se crean solas en el primer arranque del volumen de Postgres
-(`infra/docker/postgres/init.sql`). No hay que ejecutar migraciones en desarrollo:
+(`infra/docker/postgres/init.sh`). No hay que ejecutar migraciones en desarrollo:
 TypeORM arranca con `synchronize` activado y crea el esquema desde las entidades.
 
 La aplicación queda en:
@@ -110,7 +114,7 @@ cd apps/frontend && npm run dev   # sólo frontend (8080)
 npm run build                     # turbo build de servicios y paquetes
 
 # Tests
-npm test                          # 960 tests unitarios (12 proyectos Jest)
+npm test                          # 1870 tests unitarios (13 proyectos Jest)
 npm run test:watch
 npm run test:coverage             # con cobertura y gate
 
@@ -127,11 +131,12 @@ npm run docker:logs
 npm run docker:restart
 ```
 
-Tests de un solo servicio: hay que entrar en su carpeta, porque los proyectos de
-Jest no tienen `displayName` y `--selectProjects` no funciona desde la raíz.
+Tests de un solo servicio: hay que entrar en su carpeta. Sólo el frontend declara
+`displayName`, así que `--selectProjects` desde la raíz únicamente sirve para él.
 
 ```bash
 cd services/booking-service && npx jest appointments.service
+npx jest --selectProjects frontend   # esto sí, desde la raíz
 ```
 
 ## Estructura
@@ -148,15 +153,15 @@ BeautySpot/
 │   ├── marketplace-service/    # 3006
 │   └── analytics-service/      # 3007
 ├── apps/
-│   └── frontend/              # Next.js 14 (8080) — fuente de verdad de la UI
+│   └── frontend/              # Next.js 16 (8080) — fuente de verdad de la UI
 ├── packages/
 │   ├── database/              # Configuración TypeORM, entidades base, paginación
-│   ├── event-types/           # Contratos de los 27 eventos de RabbitMQ
+│   ├── event-types/           # Contratos de los 30 eventos de RabbitMQ
 │   ├── nest-common/           # Módulo compartido: caché, event bus, outbox, filtros
-│   ├── shared-constants/      # Constantes y enums
-│   ├── shared-types/          # Interfaces compartidas
-│   └── shared-utils/          # Utilidades
-├── infra/docker/postgres/     # init.sql e init-test.sql
+│   ├── shared-constants/      # Reglas de negocio con nombre
+│   ├── shared-types/          # Enums e interfaces del dominio
+│   └── shared-utils/          # Horas, intervalos de agenda, paginación
+├── infra/docker/postgres/     # init.sh: crea las 7 bases y su usuario
 ├── docs/                      # Documentación (ver docs/00-INDICE.md)
 ├── docker-compose.yml         # Infraestructura de desarrollo
 └── docker-compose.test.yml    # Infraestructura para tests de integración
@@ -165,21 +170,30 @@ BeautySpot/
 ## Funcionalidades
 
 **Gestión del negocio** — multi-tenancy por subdominio (`{slug}.beautyspot.co`),
-negocios y sucursales, profesionales y asignación de servicios, categorías y
-catálogo, base de clientes, horarios de atención.
+negocios y sedes con selector de sede activa, equipo y asignación de servicios con
+precio propio, categorías y catálogo, fichas de cliente con campos configurables
+por negocio, horarios de atención (incluido cerrar de madrugada).
 
-**Reservas y agenda** — citas con disponibilidad por horario, bloqueos, reserva
+**Reservas y agenda** — vista día en columnas por profesional, con el hueco del
+procesado pintado y bloqueo rápido desde el hueco. Servicios encadenados con
+distintos profesionales, buffer de limpieza, bloqueos con repetición, reserva
 pública sin cuenta desde el marketplace, ciclo completo (pendiente → confirmada →
-en curso → completada, con cancelación, no-show y reprogramación), recordatorios.
+en curso → atendida, con cancelación tipificada, no-show y reprogramación) y
+recordatorios de 24 h y 1 h.
 
-**Pagos y facturación** — pagos manuales (efectivo, transferencia), sesiones de caja
-con arqueo, facturación con PDF, devoluciones, resumen diario.
+**Pagos y facturación** — pagos manuales por varios métodos, caja con corte X y
+cierre Z desglosado, facturación con IVA y serie por negocio, PDF descargable
+desde el portal del cliente, devoluciones y resumen diario.
 
-**Análisis** — KPIs, ranking de profesionales, gráfica de ingresos, informes de
-ingresos, profesionales y citas.
+**Fidelización** — puntos que se acreditan al atender la cita y se canjean al
+cobrar, niveles configurables por negocio y felicitación de cumpleaños.
+
+**Análisis** — KPIs, ticket medio, tasa de retorno y frecuencia de visita,
+rentabilidad por servicio, ocupación de agenda y ranking de profesionales.
 
 **Marketplace** — perfiles públicos de negocios y profesionales, búsqueda con
-filtros, feed de actividad, reseñas con respuesta del negocio y marca de útil.
+filtros, feed, y reseñas verificadas contra la cita, con respuesta del negocio,
+moderación, denuncia y marca de útil.
 
 ## Roles
 
@@ -231,11 +245,11 @@ CORS_ORIGINS=http://localhost:3000
 
 |             | Cantidad                                                        |
 | ----------- | --------------------------------------------------------------- |
-| Unitarios   | **960 tests / 72 suites**                                       |
-| Integración | 11 tests / 10 suites (contra Postgres, Redis y RabbitMQ reales) |
+| Unitarios   | **1870 tests / 136 suites**                                     |
+| Integración | 75 tests / 25 suites (contra Postgres, Redis y RabbitMQ reales) |
 
-Cobertura: **92,99 %** statements, **82,52 %** branches, **80,84 %** functions,
-**93,82 %** lines. El gate de `jest.config.js` falla el CI si baja de 92/80/80/93.
+Cobertura: **92,34 %** statements, **81,41 %** branches, **83,90 %** functions,
+**93,69 %** lines. El gate de `jest.config.js` falla el CI si baja de 92/80/80/93.
 
 Detalle en [docs/TESTING.md](docs/TESTING.md).
 
@@ -254,9 +268,9 @@ Los más usados:
 | Documento                                          | Contenido                         |
 | -------------------------------------------------- | --------------------------------- |
 | [docs/SETUP.md](docs/SETUP.md)                     | Entorno de desarrollo paso a paso |
-| [docs/API.md](docs/API.md)                         | Referencia de las 170 rutas       |
+| [docs/API.md](docs/API.md)                         | Referencia de las 216 rutas       |
 | [docs/04-ARQUITECTURA.md](docs/04-ARQUITECTURA.md) | Arquitectura y ADRs               |
-| [docs/05-BASE-DATOS.md](docs/05-BASE-DATOS.md)     | Modelo de datos                   |
+| [docs/05-BASE-DATOS.md](docs/05-BASE-DATOS.md)     | Las 47 tablas, columna a columna  |
 | [docs/TESTING.md](docs/TESTING.md)                 | Estrategia de tests               |
 | [docs/CI-CD.md](docs/CI-CD.md)                     | Pipeline de CI                    |
 | [DEPLOY.md](DEPLOY.md)                             | Despliegue en producción          |

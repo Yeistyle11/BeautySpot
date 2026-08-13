@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>¡Feliz cumpleaños! - BeautySpot</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #ec4899 0%, #a855f7 100%);
+      color: white;
+      padding: 30px 40px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .content {
+      padding: 30px 40px;
+      text-align: center;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 20px 40px;
+      text-align: center;
+      font-size: 12px;
+      color: #6c757d;
+    }
+    .footer a {
+      color: #a855f7;
+      text-decoration: none;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎉 ¡Feliz cumpleaños!</h1>
+      <p>BeautySpot</p>
+    </div>
+
+    <div class="content">
+      <p style="font-size: 16px; color: #212529;">Hola <strong>{{clientName}}</strong>,</p>
+      <p style="font-size: 14px; color: #6c757d; line-height:1.6;">
+        En <strong>{{businessName}}</strong> queremos desearte un feliz día.
+        Gracias por confiar en nosotros.
+      </p>
+      <p style="font-size: 14px; color: #6c757d; line-height:1.6;">
+        Si te apetece celebrarlo, aquí te esperamos.
+      </p>
+    </div>
+
+    <div class="footer">
+      <p>© {{year}} BeautySpot. Todos los derechos reservados.</p>
+      <p>
+        Powered by <a href="https://beautyspot.co" target="_blank">BeautySpot</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>

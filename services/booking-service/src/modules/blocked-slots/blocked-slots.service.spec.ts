@@ -133,6 +133,31 @@ describe("BlockedSlotsService", () => {
     });
   });
 
+  describe("findByDate", () => {
+    it("trae los del equipo entero ese dia, ordenados por hora", async () => {
+      mockRepo.find.mockResolvedValue([mockBlockedSlot]);
+
+      const result = await service.findByDate("business-123", "2026-08-20");
+
+      expect(mockRepo.find).toHaveBeenCalledWith({
+        where: { businessId: "business-123", date: "2026-08-20" },
+        order: { startTime: "ASC" },
+      });
+      expect(result).toEqual([mockBlockedSlot]);
+    });
+
+    it("no acota por profesional: la vista dia los pinta todos", async () => {
+      mockRepo.find.mockResolvedValue([]);
+
+      await service.findByDate("business-123", "2026-08-20");
+
+      const [{ where }] = mockRepo.find.mock.calls[0] as [
+        { where: Record<string, unknown> },
+      ];
+      expect(where.professionalId).toBeUndefined();
+    });
+  });
+
   describe("create", () => {
     const MANANA = dentroDeDias(1);
 

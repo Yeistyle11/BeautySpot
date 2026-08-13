@@ -1,7 +1,7 @@
 # Despliegue de BeautySpot en producción
 
 Guía de despliegue de la arquitectura actual: monorepo Turborepo con 8
-microservicios NestJS, frontend Next.js 14, PostgreSQL 16, Redis 7 y RabbitMQ 3.
+microservicios NestJS, frontend Next.js 16, PostgreSQL 16, Redis 7 y RabbitMQ 3.
 
 > Para el entorno de desarrollo local, ver [docs/SETUP.md](docs/SETUP.md).
 
@@ -14,21 +14,25 @@ microservicios NestJS, frontend Next.js 14, PostgreSQL 16, Redis 7 y RabbitMQ 3.
 en producción el esquema lo crea **exclusivamente** una migración. Los siete
 servicios con base de datos tienen el suyo completo:
 
-| Servicio               | Migraciones | Contenido                               |
-| ---------------------- | ----------- | --------------------------------------- |
-| `auth-service`         | 1           | Esquema completo, outbox incluido       |
-| `core-service`         | 1           | Esquema completo (10 tablas)            |
-| `marketplace-service`  | 1           | Esquema completo, outbox incluido       |
-| `notification-service` | 1           | Esquema completo                        |
-| `analytics-service`    | 1           | Esquema completo                        |
-| `booking-service`      | 2           | Outbox + esquema                        |
-| `payment-service`      | 3           | Esquema + outbox + índice único de caja |
+| Servicio               | Migraciones | Tablas |
+| ---------------------- | ----------- | ------ |
+| `auth-service`         | 3           | 6      |
+| `core-service`         | 12          | 13     |
+| `booking-service`      | 11          | 6      |
+| `payment-service`      | 12          | 7      |
+| `notification-service` | 6           | 3      |
+| `marketplace-service`  | 6           | 6      |
+| `analytics-service`    | 5           | 6      |
+
+La primera de cada servicio (`InitialSchema`) levanta el esquema entero; las
+demás son los cambios posteriores, en orden.
 
 Las migraciones reproducen literalmente lo que genera `synchronize`, incluidos
 los nombres autogenerados de índices y constraints (`IDX_…`, `FK_…`, `UQ_…`,
 `PK_…`). Esos nombres no se pueden inventar: si no coinciden, el ORM los toma
 por objetos distintos y el esquema queda desincronizado aunque a la vista sea
-idéntico.
+idéntico. Por eso los índices con nombre propio hay que declararlos **también en
+la entidad**, con ese mismo nombre.
 
 Cada servicio tiene un `schema-migrations.int-test.ts` que levanta el esquema
 desde cero **sólo con las migraciones** y comprueba que a `synchronize` no le

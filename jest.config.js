@@ -3,6 +3,7 @@ module.exports = {
   projects: [
     "<rootDir>/apps/frontend",
     "<rootDir>/packages/shared-utils",
+    "<rootDir>/packages/shared-constants",
     "<rootDir>/packages/database",
     "<rootDir>/packages/nest-common",
     "<rootDir>/services/core-service",

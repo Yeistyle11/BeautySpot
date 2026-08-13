@@ -10,6 +10,10 @@ import { Business } from "./business.entity";
 // El endpoint interno que resuelve los clientes de un usuario consulta por
 // user_id sin negocio, así que necesita su propio índice.
 @Index("idx_clients_usuario", ["userId"])
+// El sondeo de cumpleaños solo mira las fichas que traen fecha, que son minoría.
+@Index("idx_clients_cumpleanos", ["birthDate"], {
+  where: '"birth_date" IS NOT NULL',
+})
 export class Client extends TenantEntity {
   @Column({ type: "uuid", name: "user_id", nullable: true })
   userId!: string | null;
@@ -20,6 +24,17 @@ export class Client extends TenantEntity {
   /** Documento de identidad, necesario para identificar al receptor en la factura. */
   @Column({ type: "varchar", nullable: true }) documento!: string | null;
   @Column({ type: "text", nullable: true }) notes!: string | null;
+  /** Fecha de nacimiento, de la que sale la felicitación de cumpleaños. */
+  @Column({ type: "date", name: "birth_date", nullable: true })
+  birthDate!: string | null;
+  /**
+   * Año en el que ya se felicitó al cliente.
+   *
+   * Marcarlo dentro de la misma transacción que el evento es lo que impide que
+   * dos instancias del worker feliciten dos veces el mismo cumpleaños.
+   */
+  @Column({ type: "smallint", name: "birthday_greeted_year", nullable: true })
+  birthdayGreetedYear!: number | null;
   @Column({ name: "loyalty_points", default: 0 }) loyaltyPoints!: number;
   /** Citas a las que el cliente no se presentó. */
   @Column({ name: "no_show_count", default: 0 }) noShowCount!: number;

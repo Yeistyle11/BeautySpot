@@ -3,18 +3,21 @@
 // Hosts desde los que se permite optimizar imagenes.
 //
 // Las fotos (logo, portada, galeria, foto de profesional) se guardan como URL
-// que teclea el propio negocio, asi que pueden apuntar a cualquier sitio. Next
-// solo optimiza hosts declarados y falla en el resto, asi que esta lista es la
-// unica fuente de verdad: se usa para `remotePatterns` y se expone al cliente
-// para decidir, imagen a imagen, si se puede optimizar o hay que servirla tal
-// cual (ver lib/image.ts). Se amplia con NEXT_PUBLIC_IMAGE_HOSTS.
+// que teclea el propio negocio, asi que la lista es entrada de usuario llegando
+// al optimizador. Next solo optimiza hosts declarados y falla en el resto, asi
+// que esta lista es la unica fuente de verdad: se usa para `remotePatterns` y se
+// expone al cliente para decidir, imagen a imagen, si se puede optimizar o hay
+// que servirla tal cual (ver lib/image.ts).
+//
+// Va sin comodines a proposito. Un `*.amazonaws.com` deja que cualquiera sirva
+// cualquier cosa desde su propio bucket, y el optimizador la descarga, la
+// procesa y la cachea en disco: es la superficie que describen los avisos de DoS
+// y de crecimiento ilimitado de la cache de next/image. Cada despliegue declara
+// los suyos en NEXT_PUBLIC_IMAGE_HOSTS, donde el comodin sigue siendo posible si
+// alguien lo necesita y asume el riesgo.
 const IMAGE_HOSTS = [
   "images.unsplash.com",
   "res.cloudinary.com",
-  "*.googleusercontent.com",
-  "*.amazonaws.com",
-  "*.supabase.co",
-  "*.cloudfront.net",
   ...(process.env.NEXT_PUBLIC_IMAGE_HOSTS || "")
     .split(",")
     .map((host) => host.trim())
@@ -25,9 +28,8 @@ const IMAGE_HOSTS = [
 // Se declara aqui para que connect-src no tenga que abrirse a cualquier host.
 const apiOrigin = (() => {
   try {
-    return new URL(
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
-    ).origin;
+    return new URL(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000")
+      .origin;
   } catch {
     return "http://localhost:3000";
   }
@@ -69,6 +71,11 @@ const SECURITY_HEADERS = [
 
 const nextConfig = {
   reactStrictMode: true,
+  // Next 16 escribe un AGENTS.md y un CLAUDE.md en la carpeta al arrancar. Este
+  // repositorio ya tiene su propio CLAUDE.md en la raiz, que es el mapa del
+  // proyecto: dos ficheros con el mismo nombre y distinto contenido solo pueden
+  // confundir.
+  agentRules: false,
   compiler: {
     removeConsole:
       process.env.NODE_ENV === "production" ? { exclude: ["error"] } : false,

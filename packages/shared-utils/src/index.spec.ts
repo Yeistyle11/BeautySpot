@@ -7,6 +7,9 @@ import {
   calculateEndTime,
   timesOverlap,
   escapeLikePattern,
+  cruzaMedianoche,
+  finExtendido,
+  horaDeReloj,
 } from "./index";
 
 describe("Shared Utils", () => {
@@ -181,12 +184,15 @@ describe("Shared Utils", () => {
     it("debería calcular tiempo final correctamente", () => {
       expect(calculateEndTime("09:00", 60)).toBe("10:00");
       expect(calculateEndTime("09:30", 30)).toBe("10:00");
-      expect(calculateEndTime("23:30", 30)).toBe("24:00"); // No maneja wraparound de 24h
+      expect(calculateEndTime("23:30", 30)).toBe("24:00");
     });
 
-    it("debería manejar cálculos que cruzan el día", () => {
-      expect(calculateEndTime("23:00", 120)).toBe("25:00"); // No maneja wraparound
-      expect(calculateEndTime("22:30", 90)).toBe("24:00"); // No maneja wraparound
+    // La hora se cuenta desde la medianoche de su propio día, así que pasar de
+    // las 24:00 es la forma de decir "de madrugada": es lo que espera el resto
+    // de la agenda (arrastreDelDiaAnterior, arrastreDeJornada).
+    it("debería seguir contando pasada la medianoche", () => {
+      expect(calculateEndTime("23:00", 120)).toBe("25:00");
+      expect(calculateEndTime("22:30", 90)).toBe("24:00");
     });
 
     it("debería manejar duración cero", () => {
@@ -196,6 +202,50 @@ describe("Shared Utils", () => {
     it("debería mantener formato de dos dígitos", () => {
       expect(calculateEndTime("09:05", 55)).toBe("10:00");
       expect(calculateEndTime("09:05", 60)).toBe("10:05");
+    });
+  });
+
+  describe("cruzaMedianoche", () => {
+    it("un cierre anterior a la apertura es del día siguiente", () => {
+      expect(cruzaMedianoche("20:00", "02:00")).toBe(true);
+      expect(cruzaMedianoche("09:00", "18:00")).toBe(false);
+    });
+
+    // Es la forma de decir "hasta el final del día", y por eso no cruza.
+    it("las 24:00 cierran el propio día", () => {
+      expect(cruzaMedianoche("20:00", "24:00")).toBe(false);
+      expect(cruzaMedianoche("00:00", "24:00")).toBe(false);
+    });
+
+    // Un tramo así no dura nada; se marca como cruce para que la validación
+    // pueda rechazarlo en vez de dejarlo pasar como jornada de cero minutos.
+    it("empezar y terminar a la misma hora cuenta como cruce", () => {
+      expect(cruzaMedianoche("20:00", "20:00")).toBe(true);
+    });
+  });
+
+  describe("finExtendido", () => {
+    it("lleva el cierre de madrugada a la escala del cálculo", () => {
+      expect(finExtendido("20:00", "02:00")).toBe("26:00");
+      expect(finExtendido("23:30", "00:30")).toBe("24:30");
+    });
+
+    it("deja igual lo que termina dentro del día", () => {
+      expect(finExtendido("09:00", "18:00")).toBe("18:00");
+      expect(finExtendido("09:00", "24:00")).toBe("24:00");
+    });
+  });
+
+  describe("horaDeReloj", () => {
+    it("baja al reloj lo que se pasó del día", () => {
+      expect(horaDeReloj("24:30")).toBe("00:30");
+      expect(horaDeReloj("26:00")).toBe("02:00");
+      expect(horaDeReloj("24:00")).toBe("00:00");
+    });
+
+    it("deja igual lo que ya es hora de reloj", () => {
+      expect(horaDeReloj("09:05")).toBe("09:05");
+      expect(horaDeReloj("23:59")).toBe("23:59");
     });
   });
 

@@ -32,6 +32,14 @@ import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
 import { AppointmentForm } from "./appointment-form";
 import { AppointmentCard } from "./appointment-card";
+import { BlockedSlotFormDialog } from "../blocked-slots/blocked-slot-form-dialog";
+import {
+  blockedSlotSchema,
+  blockedSlotsPath,
+  emptyForm as emptyBlockedSlotForm,
+  toBlockedSlotPayload,
+  type BlockedSlot,
+} from "../blocked-slots/schemas";
 import {
   CompleteAppointmentDialog,
   emptyPaymentDraft,
@@ -40,6 +48,8 @@ import {
 import {
   appointmentSchema,
   APPOINTMENTS_KEY,
+  clientNameSchema,
+  CLIENT_NAMES_KEY,
   clientSchema,
   CLIENTS_KEY,
   emptyForm,
@@ -51,6 +61,7 @@ import {
   type Appointment,
   type AppointmentForm as FormValues,
   type Client,
+  type ClientName,
   type Professional,
   type Service,
 } from "./schemas";
@@ -72,6 +83,15 @@ const DayView = dynamic(
     loading: () => <p className="text-muted-foreground">Cargando...</p>,
   }
 );
+
+/** Media hora despues, que es lo que dura por defecto un bloqueo rapido. */
+function sumarMediaHora(hora: string): string {
+  const [h, m] = hora.split(":").map(Number);
+  const total = h * 60 + m + 30;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(
+    total % 60
+  ).padStart(2, "0")}`;
+}
 
 export default function AppointmentsPage() {
   const toast = useToast();
@@ -103,6 +123,21 @@ export default function AppointmentsPage() {
     // huecos, asi que la busqueda solo aplica a la lista.
     search: viewMode === "list" ? search : "",
   });
+
+  // Los bloqueos solo hacen falta en la vista dia, que es la unica que los
+  // pinta y la unica desde la que se crean.
+  const puedeBloquear = canDo(role, "blocked_slots_create");
+  const { data: bloqueos, mutate: recargarBloqueos } = useApi<BlockedSlot[]>(
+    viewMode === "day" ? `/booking/blocked-slots?date=${dia}` : null,
+    undefined,
+    z.array(blockedSlotSchema)
+  );
+
+  const [bloqueoForm, setBloqueoForm] = useState(emptyBlockedSlotForm);
+  const [bloqueoProfesional, setBloqueoProfesional] = useState<string | null>(
+    null
+  );
+  const [guardandoBloqueo, setGuardandoBloqueo] = useState(false);
 
   // Los profesionales se cargan siempre: ademas del formulario, la lista de citas
   // los necesita para mostrar el nombre en vez del identificador.
@@ -141,15 +176,31 @@ export default function AppointmentsPage() {
   );
   const [notaCancelacion, setNotaCancelacion] = useState("");
 
-  // Las citas solo traen el id del cliente —vive en otro servicio—, asi que el
-  // nombre se cruza contra la lista que la pagina carga para el formulario.
+  // Las citas solo traen el id del cliente, que vive en otro servicio. Se piden
+  // los nombres de los que hay en pantalla y no la cartera entera, que llega
+  // paginada: fuera de su primera pagina no habria nombre que cruzar.
+  const idsEnPantalla = useMemo(
+    () => [...new Set(appointments.map((a) => a.clientId))].sort().join(","),
+    [appointments]
+  );
+  const { data: nombres } = useApi<ClientName[]>(
+    idsEnPantalla ? `${CLIENT_NAMES_KEY}?ids=${idsEnPantalla}` : null,
+    undefined,
+    z.array(clientNameSchema)
+  );
+
   const clientMap = useMemo(() => {
     const map: Record<string, string> = {};
+    (nombres ?? []).forEach((c) => {
+      map[c.id] = c.name;
+    });
+    // Lo que el formulario ya tenga cargado sirve igual y evita un parpadeo al
+    // crear una cita cuyo cliente aun no esta en el mapa.
     clients.forEach((c) => {
       map[c.id] = c.name;
     });
     return map;
-  }, [clients]);
+  }, [nombres, clients]);
 
   const professionalMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -205,6 +256,44 @@ export default function AppointmentsPage() {
     setCompletingAppt(appt);
     setPayment(emptyPaymentDraft);
   }, []);
+
+  /** Abre el formulario de bloqueo sembrado con el hueco que se pulsó. */
+  const abrirBloqueo = useCallback(
+    (professionalId: string, hora: string) => {
+      setBloqueoProfesional(professionalId);
+      setBloqueoForm({
+        ...emptyBlockedSlotForm,
+        date: dia,
+        startTime: hora,
+        endTime: sumarMediaHora(hora),
+      });
+    },
+    [dia]
+  );
+
+  const crearBloqueo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bloqueoProfesional) return;
+    setGuardandoBloqueo(true);
+    try {
+      const creados = await api.post<BlockedSlot[]>(
+        blockedSlotsPath(bloqueoProfesional),
+        toBlockedSlotPayload(bloqueoForm)
+      );
+      setBloqueoProfesional(null);
+      await recargarBloqueos();
+      toast.exito(
+        creados.length > 1
+          ? `Se bloquearon ${creados.length} días`
+          : "Agenda bloqueada"
+      );
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    } finally {
+      setGuardandoBloqueo(false);
+    }
+  };
 
   const handleCompleteWithPayment = async (registerPayment: boolean) => {
     if (!completingAppt) return;
@@ -396,6 +485,8 @@ export default function AppointmentsPage() {
                 canConfirm={canDo(role, "appointments_confirm")}
                 canCancel={canDo(role, "appointments_cancel")}
                 clientNames={clientMap}
+                bloqueos={bloqueos ?? []}
+                onBloquearHueco={puedeBloquear ? abrirBloqueo : undefined}
               />
             )}
           </CardContent>
@@ -473,6 +564,15 @@ export default function AppointmentsPage() {
         onPaymentChange={setPayment}
         onComplete={handleCompleteWithPayment}
         pending={completingAction}
+      />
+
+      <BlockedSlotFormDialog
+        open={bloqueoProfesional !== null}
+        onClose={() => setBloqueoProfesional(null)}
+        form={bloqueoForm}
+        onFormChange={setBloqueoForm}
+        onSubmit={crearBloqueo}
+        guardando={guardandoBloqueo}
       />
 
       <Dialog

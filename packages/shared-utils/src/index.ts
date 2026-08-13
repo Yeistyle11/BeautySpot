@@ -109,6 +109,51 @@ export function calculateEndTime(
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
+/** Minutos de un día completo; el reloj de pared nunca pasa de aquí. */
+const MINUTOS_DE_UN_DIA = 24 * 60;
+
+/**
+ * Indica si el tramo termina ya en el día siguiente.
+ *
+ * La hora de fin se guarda como la marca el reloj de la pared, así que un cierre
+ * a las 02:00 con apertura a las 20:00 solo se distingue de un dedazo por venir
+ * antes que la apertura. Un tramo que empieza y termina a la misma hora no dice
+ * nada, y se trata como cruce para que la validación pueda rechazarlo.
+ */
+export function cruzaMedianoche(inicio: string, fin: string): boolean {
+  return timeToMinutes(fin) <= timeToMinutes(inicio);
+}
+
+/**
+ * La hora de fin en la escala con la que se calcula: minutos desde la medianoche
+ * del día que abrió, que pasan de 24:00 cuando el tramo cruza.
+ *
+ * Es la conversión de entrada. Todo lo que compara, solapa o reparte horas
+ * trabaja en esta escala, donde un tramo de 20:00 a 02:00 es 20:00–26:00 y se
+ * compara con cualquier otro sin casos especiales.
+ */
+export function finExtendido(inicio: string, fin: string): string {
+  if (!cruzaMedianoche(inicio, fin)) return fin;
+  return minutosAHoraExtendida(timeToMinutes(fin) + MINUTOS_DE_UN_DIA);
+}
+
+/**
+ * La hora tal y como la marca el reloj de la pared: "24:30" es "00:30".
+ *
+ * Es la conversión de salida, la que se aplica a todo lo que se guarda, se
+ * responde por la API o se pinta.
+ */
+export function horaDeReloj(hora: string): string {
+  return minutosAHoraExtendida(timeToMinutes(hora) % MINUTOS_DE_UN_DIA);
+}
+
+/** "HH:MM" a partir de unos minutos, admitiendo horas por encima de 24. */
+function minutosAHoraExtendida(minutos: number): string {
+  const h = Math.floor(minutos / 60);
+  const m = minutos % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+}
+
 /** Indica si dos rangos horarios se solapan. Todas las horas en formato "HH:MM". */
 export function timesOverlap(
   start1: string,

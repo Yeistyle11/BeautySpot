@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { FindOperator, Repository } from "typeorm";
+import { FindOperator, In, Repository } from "typeorm";
 import { AppointmentStatus } from "@beautyspot/shared-types";
 import { AvailabilityQueryService } from "./availability-query.service";
 import { Appointment } from "../../entities/appointment.entity";
@@ -20,6 +20,13 @@ import { HorarioDelNegocioService } from "./horario-del-negocio.service";
 const MIERCOLES_FUTURO = (() => {
   const dia = new Date();
   dia.setUTCDate(dia.getUTCDate() + 7 + ((3 - dia.getUTCDay() + 7) % 7));
+  return dia.toISOString().slice(0, 10);
+})();
+
+/** El martes anterior a ese miércoles: el día en que entra el turno de noche. */
+const MARTES_FUTURO = (() => {
+  const dia = new Date(`${MIERCOLES_FUTURO}T00:00:00Z`);
+  dia.setUTCDate(dia.getUTCDate() - 1);
   return dia.toISOString().slice(0, 10);
 })();
 
@@ -129,15 +136,24 @@ describe("AvailabilityQueryService", () => {
         60
       );
 
-      // Se piden todos los tramos del día, no solo el primero: la jornada
-      // partida son varias filas.
+      // Se piden todos los tramos del día, no solo el primero (la jornada
+      // partida son varias filas), y también los del día anterior, cuya
+      // madrugada puede invadir este.
       expect(mockAvailRepo.find).toHaveBeenCalledWith({
-        where: {
-          businessId: "business-123",
-          professionalId: "prof-123",
-          dayOfWeek: 1,
-          active: true,
-        },
+        where: [
+          {
+            businessId: "business-123",
+            professionalId: In(["prof-123"]),
+            dayOfWeek: 1,
+            active: true,
+          },
+          {
+            businessId: "business-123",
+            professionalId: In(["prof-123"]),
+            dayOfWeek: 0,
+            active: true,
+          },
+        ],
       });
       expect(mockBlockRepo.find).toHaveBeenCalledWith({
         where: {
@@ -334,6 +350,94 @@ describe("AvailabilityQueryService", () => {
           MIERCOLES_FUTURO,
           jornada.dayOfWeek,
           ocupacion("prof-123", "13:30", "14:00", "14:15")
+        )
+      ).resolves.toBe(true);
+    });
+  });
+
+  describe("cierre despues de medianoche", () => {
+    const MIERCOLES = new Date(MIERCOLES_FUTURO + "T12:00:00").getDay();
+    const MARTES = (MIERCOLES + 6) % 7;
+
+    /** Jornada del martes de 20:00 a 02:00: la salida es ya del miércoles. */
+    const turnoDeNoche = {
+      ...mockAvailability,
+      dayOfWeek: MARTES,
+      startTime: "20:00",
+      endTime: "02:00",
+    } as Availability;
+
+    beforeEach(() => {
+      mockAvailRepo.find.mockResolvedValue([turnoDeNoche]);
+      mockBlockRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([]);
+    });
+
+    it("ofrece la madrugada del miercoles que arrastra el turno del martes", async () => {
+      const slots = await service.franjasDeProfesional(
+        "business-123",
+        "prof-123",
+        MIERCOLES_FUTURO,
+        30
+      );
+
+      expect(slots.find((s) => s.startTime === "00:00")?.available).toBe(true);
+      expect(slots.find((s) => s.startTime === "01:30")?.available).toBe(true);
+      // El turno se acaba a las 02:00: a las 02:00 ya no cabe media hora.
+      expect(slots.find((s) => s.startTime === "02:00")).toBeUndefined();
+    });
+
+    // Esa madrugada se ofrece bajo el miércoles, que es el día al que
+    // pertenece. Ofrecerla también bajo el martes sería la misma hora dos
+    // veces, con dos fechas distintas.
+    it("no ofrece esa madrugada tambien bajo el martes", async () => {
+      const slots = await service.franjasDeProfesional(
+        "business-123",
+        "prof-123",
+        MARTES_FUTURO,
+        30
+      );
+
+      expect(slots.every((s) => s.startTime < "24:00")).toBe(true);
+      expect(slots.find((s) => s.startTime === "23:30")?.available).toBe(true);
+    });
+
+    it("acepta reservar dentro de esa madrugada", async () => {
+      await expect(
+        service.franjaDentroDelHorario(
+          "business-123",
+          MIERCOLES_FUTURO,
+          MIERCOLES,
+          ocupacion("prof-123", "00:30", "01:00")
+        )
+      ).resolves.toBe(true);
+    });
+
+    it("rechaza reservar pasada la hora de cierre", async () => {
+      await expect(
+        service.franjaDentroDelHorario(
+          "business-123",
+          MIERCOLES_FUTURO,
+          MIERCOLES,
+          ocupacion("prof-123", "01:45", "02:15")
+        )
+      ).resolves.toBe(false);
+    });
+
+    // El servicio de horario ya devuelve el cierre en la escala del cálculo,
+    // que es donde la madrugada del martes son las 26:00.
+    it("la apertura del negocio tambien arrastra su madrugada", async () => {
+      mockHorario.tramosDelDia.mockImplementation(
+        async (_negocio: string, dia: number) =>
+          dia === MARTES ? [{ startTime: "20:00", endTime: "26:00" }] : []
+      );
+
+      await expect(
+        service.franjaDentroDelHorario(
+          "business-123",
+          MIERCOLES_FUTURO,
+          MIERCOLES,
+          ocupacion("prof-123", "00:30", "01:00")
         )
       ).resolves.toBe(true);
     });
@@ -767,8 +871,9 @@ describe("AvailabilityQueryService", () => {
       ).resolves.toBe(false);
     });
 
-    // Una cita de 23:30 a "24:30" ocupa media hora del dia siguiente: se
-    // consulta por fecha, asi que sin traer ese sobrante se vende dos veces.
+    // Una cita de 23:30 a 00:30 ocupa media hora del dia siguiente: se consulta
+    // por fecha, asi que sin traer ese sobrante se vende dos veces. La
+    // ocupacion se recalcula desde las lineas, no desde la hora guardada.
     it("ve el conflicto con la cita de anoche que invade la madrugada", async () => {
       mockApptRepo.find.mockImplementation(
         (opciones) =>
@@ -781,7 +886,7 @@ describe("AvailabilityQueryService", () => {
                     id: "appt-anoche",
                     date: "2024-01-14",
                     startTime: "23:30",
-                    endTime: "24:30",
+                    endTime: "00:30",
                     ocupadoHasta: null,
                   },
                 ]

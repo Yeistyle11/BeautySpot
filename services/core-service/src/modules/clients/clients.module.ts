@@ -5,9 +5,14 @@ import { ClientsService } from "./clients.service";
 import { ClientsController } from "./clients.controller";
 import { Client } from "../../entities/client.entity";
 import { CampoDeFicha } from "../../entities/campo-de-ficha.entity";
+import { BusinessConfigModule } from "../business-config/business-config.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Client, CampoDeFicha]), OutboxModule],
+  imports: [
+    TypeOrmModule.forFeature([Client, CampoDeFicha]),
+    OutboxModule,
+    BusinessConfigModule,
+  ],
   controllers: [ClientsController],
   providers: [ClientsService],
   exports: [ClientsService],

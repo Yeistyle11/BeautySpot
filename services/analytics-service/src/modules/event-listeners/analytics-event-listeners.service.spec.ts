@@ -36,7 +36,7 @@ describe("AnalyticsEventListeners", () => {
       registrarVisita: jest.fn().mockResolvedValue("nueva"),
       registrarServicios: jest.fn().mockResolvedValue(undefined),
       registrarMinutosVendidos: jest.fn().mockResolvedValue(undefined),
-      fijarCapacidad: jest.fn().mockResolvedValue(undefined),
+      fijarCapacidadDelDia: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     // Por defecto el evento es nuevo: se ejecuta el trabajo y se da por aplicado.

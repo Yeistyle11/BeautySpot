@@ -2,7 +2,11 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from "typeorm";
 import {
+  cruzaMedianoche,
+  esHoraDeCierreValida,
   esHoraValida,
+  finExtendido,
+  MAXIMO_CIERRE_DE_MADRUGADA,
   timeToMinutes,
   timesOverlap,
 } from "@beautyspot/shared-utils";
@@ -72,18 +76,38 @@ export class BusinessHoursService {
     return hour;
   }
 
-  /** Valida formato `HH:MM`, orden de las horas y solapes por día y sede. */
+  /**
+   * Valida formato `HH:MM`, los cierres de madrugada y los solapes por día y
+   * sede.
+   *
+   * La apertura es una hora del día y el cierre también: un salón que cierra a
+   * las dos de la mañana pone `02:00`, y que eso caiga ya en el día siguiente se
+   * deduce de que venga antes que la apertura.
+   */
   private validar(items: Partial<BusinessHours>[]): void {
     for (const item of items) {
       const { openTime, closeTime } = item;
-      if (!esHoraValida(openTime ?? "") || !esHoraValida(closeTime ?? "")) {
+      if (!esHoraValida(openTime ?? "")) {
         throw new BadRequestException(
-          `Horario invalido: ${openTime}-${closeTime}. Se espera HH:MM`
+          `Hora de apertura invalida: ${openTime}. Se espera HH:MM, de 00:00 a 23:59`
         );
       }
-      if (timeToMinutes(openTime!) >= timeToMinutes(closeTime!)) {
+      if (!esHoraDeCierreValida(closeTime ?? "")) {
         throw new BadRequestException(
-          `El tramo ${openTime}-${closeTime} cierra antes de abrir`
+          `Hora de cierre invalida: ${closeTime}. Se espera HH:MM, de 00:00 a 24:00`
+        );
+      }
+      if (openTime === closeTime) {
+        throw new BadRequestException(
+          `El tramo ${openTime}-${closeTime} no dura nada. El dia completo se pone de 00:00 a 24:00`
+        );
+      }
+      if (
+        cruzaMedianoche(openTime!, closeTime!) &&
+        timeToMinutes(closeTime!) > timeToMinutes(MAXIMO_CIERRE_DE_MADRUGADA)
+      ) {
+        throw new BadRequestException(
+          `El cierre de madrugada ${closeTime} no puede pasar de las ${MAXIMO_CIERRE_DE_MADRUGADA}`
         );
       }
     }
@@ -93,13 +117,15 @@ export class BusinessHoursService {
     for (const item of items) {
       const clave = `${item.branchId ?? ""}:${item.dayOfWeek}`;
       const delDia = porDia.get(clave) ?? [];
+      // Los solapes se miran en la escala del cálculo: un tramo de 20:00 a
+      // 02:00 comparado con la hora de reloj se leería al revés.
       if (
         delDia.some((otro) =>
           timesOverlap(
             item.openTime!,
-            item.closeTime!,
+            finExtendido(item.openTime!, item.closeTime!),
             otro.openTime!,
-            otro.closeTime!
+            finExtendido(otro.openTime!, otro.closeTime!)
           )
         )
       ) {

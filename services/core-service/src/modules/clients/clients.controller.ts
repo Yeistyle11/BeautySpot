@@ -17,7 +17,11 @@ import {
 } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
-import { CreateClientDto, UpdateClientDto } from "./dto/client.dto";
+import {
+  ClientNamesDto,
+  CreateClientDto,
+  UpdateClientDto,
+} from "./dto/client.dto";
 
 /** Endpoints de gestión de clientes del negocio, con permisos por rol en cada operación. */
 @Controller("clients")
@@ -43,12 +47,28 @@ export class ClientsController {
     return this.service.findByBusiness(businessId, search, pagination);
   }
 
+  /**
+   * Nombre de los clientes pedidos, para poner cara a una lista de citas.
+   *
+   * Existe porque quien pinta una agenda necesita el nombre de **los clientes
+   * que tiene en pantalla**, y la cartera entera solo se sirve paginada: fuera
+   * de su primera página no habría nombre que cruzar.
+   */
+  @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
+  @Get("names")
+  async names(
+    @BusinessId() businessId: string,
+    @Query() query: ClientNamesDto
+  ): Promise<{ id: string; name: string }[]> {
+    return this.service.findNamesByIds(businessId, query.ids);
+  }
+
   /** Ficha del cliente autenticado; `null` si aún no tiene ninguna. */
   @Roles(Role.CLIENT)
   @SkipBusinessScope()
   @Get("me")
   async findMine(@CurrentUser("userId") userId: string) {
-    return this.service.findMineByUser(userId);
+    return this.service.findMineConNivel(userId);
   }
 
   /**

@@ -1,5 +1,11 @@
 # BeautySpot SaaS - Catalogo de Modulos
 
+> **Este documento es especificacion, no el estado del producto.** Describe el desglose funcional por modulo, con las prioridades del plan original.
+> Puede mencionar cosas que no existen, y no menciona cosas que si. Para lo que
+> hay hoy: [API.md](API.md) (rutas), [05-BASE-DATOS.md](05-BASE-DATOS.md) (datos),
+> [04-ARQUITECTURA.md](04-ARQUITECTURA.md) (como funciona) y
+> [06-ROADMAP.md](06-ROADMAP.md#donde-esta-el-proyecto) (que falta).
+
 ## Vision General
 
 Este documento describe en detalle cada modulo funcional del sistema BeautySpot, incluyendo sus objetivos, funcionalidades clave, dependencias con otros modulos, riesgos identificados y su prioridad de implementacion.

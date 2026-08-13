@@ -1,5 +1,11 @@
 # BeautySpot SaaS - Documento de Requisitos
 
+> **Este documento es especificacion, no el estado del producto.** Describe los requisitos que se fijaron antes de construir.
+> Puede mencionar cosas que no existen, y no menciona cosas que si. Para lo que
+> hay hoy: [API.md](API.md) (rutas), [05-BASE-DATOS.md](05-BASE-DATOS.md) (datos),
+> [04-ARQUITECTURA.md](04-ARQUITECTURA.md) (como funciona) y
+> [06-ROADMAP.md](06-ROADMAP.md#donde-esta-el-proyecto) (que falta).
+
 ## 1. Vision General
 
 BeautySpot es una plataforma SaaS multi-tenant disenada para digitalizar la gestion de barberias, salones de belleza, spas y centros esteticos en America Latina. La plataforma permite a cada negocio gestionar citas, profesionales, servicios, clientes y analitica desde una unica interfaz, con aislamiento completo de datos entre tenants.

@@ -10,6 +10,7 @@ export enum NotificationType {
   REVIEW_RECEIVED = "REVIEW_RECEIVED",
   MEMBERSHIP_INVITATION = "MEMBERSHIP_INVITATION",
   PROMOTION = "PROMOTION",
+  BIRTHDAY = "BIRTHDAY",
 }
 
 /** Canales por los que se puede entregar una notificación. */

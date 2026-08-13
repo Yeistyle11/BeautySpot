@@ -1,6 +1,8 @@
 import {
   algunSolape,
   arrastreDelDiaAnterior,
+  arrastreDeJornada,
+  diaAnteriorDeLaSemana,
   duracionDeCliente,
   finDeOcupacion,
   intervalosDeAgenda,
@@ -243,6 +245,43 @@ describe("repartoPorProfesional", () => {
       expect(
         arrastreDelDiaAnterior([{ inicio: "23:00", fin: "25:15" }])
       ).toEqual([{ inicio: "00:00", fin: "01:15" }]);
+    });
+  });
+
+  describe("arrastreDeJornada", () => {
+    it("trae a la madrugada la parte de la jornada que pasa de medianoche", () => {
+      expect(
+        arrastreDeJornada([{ startTime: "20:00", endTime: "26:00" }])
+      ).toEqual([{ startTime: "00:00", endTime: "02:00" }]);
+    });
+
+    it("descarta la jornada que cierra antes de medianoche", () => {
+      expect(
+        arrastreDeJornada([
+          { startTime: "09:00", endTime: "18:00" },
+          { startTime: "20:00", endTime: "24:00" },
+        ])
+      ).toEqual([]);
+    });
+
+    it("conserva el resto de campos del tramo", () => {
+      expect(
+        arrastreDeJornada([
+          { professionalId: "prof-1", startTime: "22:00", endTime: "27:30" },
+        ])
+      ).toEqual([
+        { professionalId: "prof-1", startTime: "00:00", endTime: "03:30" },
+      ]);
+    });
+  });
+
+  describe("diaAnteriorDeLaSemana", () => {
+    it("retrocede un día", () => {
+      expect(diaAnteriorDeLaSemana(3)).toBe(2);
+    });
+
+    it("del domingo vuelve al sábado", () => {
+      expect(diaAnteriorDeLaSemana(0)).toBe(6);
     });
   });
 });

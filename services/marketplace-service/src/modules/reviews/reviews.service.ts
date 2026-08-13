@@ -6,7 +6,9 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
-import { Repository, DataSource, EntityManager } from "typeorm";
+import { Repository, DataSource, EntityManager, In } from "typeorm";
+import { paginate, PaginateParams } from "@beautyspot/database";
+import { IPaginatedResponse } from "@beautyspot/shared-types";
 import { ReviewEntity, ReviewStatus } from "../../entities/review.entity";
 import { ReviewHelpfulEntity } from "../../entities/review-helpful.entity";
 import {
@@ -396,9 +398,19 @@ export class ReviewsService {
    * Reseñas escritas por el usuario autenticado. `clientId` guarda el id de
    * usuario del token, el mismo que recibe `create`.
    */
-  async findByClientUser(userId: string): Promise<ReviewEntity[]> {
-    return this.repo.find({
-      where: { clientId: userId },
+  async findByClientUser(
+    userId: string,
+    pagination: PaginateParams,
+    appointmentIds?: string[]
+  ): Promise<IPaginatedResponse<ReviewEntity>> {
+    // Una lista de citas vacía no es "sin filtro": es que no hay ninguna por la
+    // que preguntar, y devolver el historial entero sería justo lo contrario.
+    const where = appointmentIds
+      ? { clientId: userId, appointmentId: In(appointmentIds) }
+      : { clientId: userId };
+
+    return paginate(this.repo, pagination, {
+      where,
       order: { createdAt: "DESC" },
     });
   }

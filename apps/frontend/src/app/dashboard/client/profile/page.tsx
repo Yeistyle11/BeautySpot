@@ -15,6 +15,9 @@ import { useToast } from "@/components/ui/toast";
 import { useAuthStore } from "@/lib/store";
 import { useApi } from "@/lib/swr";
 import { Spinner } from "@/components/ui/spinner";
+import { CLASE_DE_COLOR, nivelSchema } from "@/lib/niveles";
+import { PROPORCION_PUNTOS_FIDELIDAD } from "@beautyspot/shared-constants";
+import { formatCurrency } from "@/lib/utils";
 
 const clientProfileSchema = z.object({
   id: z.string(),
@@ -22,35 +25,15 @@ const clientProfileSchema = z.object({
   email: z.string(),
   phone: z.string().nullable(),
   loyaltyPoints: z.number(),
+  // El nivel lo resuelve core contra la escala del negocio, que el cliente no
+  // puede leer.
+  nivel: nivelSchema.nullable(),
+  siguienteNivel: nivelSchema.nullable(),
 });
 type ClientProfile = z.infer<typeof clientProfileSchema>;
 
-// Ordenados de menos a mas puntos: getTier y getNextTier recorren la lista una
-// vez y dependen de esa invariante.
-const LOYALTY_TIERS = [
-  { min: 0, label: "Bronce", color: "bg-amber-700" },
-  { min: 100, label: "Plata", color: "bg-gray-400" },
-  { min: 300, label: "Oro", color: "bg-yellow-500" },
-  { min: 600, label: "Platino", color: "bg-cyan-500" },
-  { min: 1000, label: "Diamante", color: "bg-purple-500" },
-];
-
-/** Nivel alcanzado con esos puntos; el mas bajo si no llega a ninguno. */
-function getTier(points: number) {
-  let tier = LOYALTY_TIERS[0];
-  for (const t of LOYALTY_TIERS) {
-    if (points >= t.min) tier = t;
-  }
-  return tier;
-}
-
-/** Siguiente nivel por alcanzar, o null si ya esta en el mas alto. */
-function getNextTier(points: number) {
-  for (const t of LOYALTY_TIERS) {
-    if (points < t.min) return t;
-  }
-  return null;
-}
+/** Lo que hay que gastar para ganar un punto, en la moneda del negocio. */
+const GASTO_POR_PUNTO = Math.round(1 / PROPORCION_PUNTOS_FIDELIDAD);
 
 export default function ClientProfilePage() {
   const { user } = useAuthStore();
@@ -117,8 +100,19 @@ export default function ClientProfilePage() {
   }
 
   const loyaltyPoints = client?.loyaltyPoints || 0;
-  const tier = getTier(loyaltyPoints);
-  const nextTier = getNextTier(loyaltyPoints);
+  const nivel = client?.nivel ?? null;
+  const proximo = client?.siguienteNivel ?? null;
+
+  // Lo recorrido dentro del nivel actual, no sobre el total: con Plata en 100 y
+  // Oro en 300, 150 puntos son un 25 % del tramo, no la mitad.
+  const avance = proximo
+    ? Math.min(
+        ((loyaltyPoints - (nivel?.min ?? 0)) /
+          (proximo.min - (nivel?.min ?? 0))) *
+          100,
+        100
+      )
+    : 100;
 
   return (
     <div>
@@ -137,41 +131,43 @@ export default function ClientProfilePage() {
               <h2 className="font-semibold">Fidelidad</h2>
             </div>
 
-            <div className={`rounded-xl ${tier.color} mb-4 p-5 text-white`}>
-              <p className="text-sm font-medium opacity-90">{tier.label}</p>
+            <div
+              className={`rounded-xl ${CLASE_DE_COLOR[nivel?.color ?? ""] ?? "bg-muted-foreground"} mb-4 p-5 text-white`}
+            >
+              {nivel && (
+                <p className="text-sm font-medium opacity-90">{nivel.label}</p>
+              )}
               <p className="mt-1 text-3xl font-bold">{loyaltyPoints}</p>
               <p className="mt-1 text-sm opacity-80">puntos acumulados</p>
             </div>
 
-            {nextTier && (
+            {proximo ? (
               <div>
                 <div className="mb-2 flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Próximo: {nextTier.label}
+                    Próximo: {proximo.label}
                   </span>
                   <span className="font-medium">
-                    {nextTier.min - loyaltyPoints} pts
+                    {proximo.min - loyaltyPoints} pts
                   </span>
                 </div>
                 <div className="bg-muted h-2 overflow-hidden rounded-full">
                   <div
                     className="bg-primary h-full rounded-full transition-all"
-                    style={{
-                      width: `${Math.min((loyaltyPoints / nextTier.min) * 100, 100)}%`,
-                    }}
+                    style={{ width: `${avance}%` }}
                   />
                 </div>
               </div>
-            )}
-
-            {!nextTier && (
-              <p className="text-muted-foreground text-center text-sm">
-                Has alcanzado el nivel maximo
-              </p>
+            ) : (
+              nivel && (
+                <p className="text-muted-foreground text-center text-sm">
+                  Has alcanzado el nivel máximo
+                </p>
+              )
             )}
 
             <div className="text-muted-foreground mt-4 space-y-2 text-sm">
-              <p>Gana 1 punto por cada $1.000 COP</p>
+              <p>Gana 1 punto por cada {formatCurrency(GASTO_POR_PUNTO)}</p>
               <p>Usa tus puntos para descuentos en futuras citas</p>
             </div>
           </CardContent>
