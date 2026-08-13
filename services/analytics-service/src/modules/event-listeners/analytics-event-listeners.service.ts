@@ -235,7 +235,7 @@ export class AnalyticsEventListeners {
     this.logger.log(`Cliente creado: ${event.payload.clientId}`);
   }
 
-  /** Suma el importe del pago a los ingresos del día en que se cobra. */
+  /** Suma el importe del pago a los ingresos del día, y cuenta la venta. */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
     routingKey: EventNames.PAYMENT_PAYMENT_REGISTERED,
@@ -250,7 +250,7 @@ export class AnalyticsEventListeners {
       this.metricsService.incrementDailyMetric(
         businessId,
         hoy,
-        { totalRevenue: amount },
+        { totalRevenue: amount, ventas: 1 },
         manager
       )
     );

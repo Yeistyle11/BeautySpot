@@ -11,6 +11,8 @@ export interface DailyMetricIncrements {
   cancelledAppointments?: number;
   noShowAppointments?: number;
   totalRevenue?: number;
+  /** Cobros del día: es el divisor del ticket medio. */
+  ventas?: number;
   newClients?: number;
   returningClients?: number;
 }
@@ -155,6 +157,7 @@ export class MetricsService {
     if (inc.noShowAppointments)
       cols.push(["no_show_appointments", inc.noShowAppointments]);
     if (inc.totalRevenue) cols.push(["total_revenue", inc.totalRevenue]);
+    if (inc.ventas) cols.push(["ventas", inc.ventas]);
     if (inc.newClients) cols.push(["new_clients", inc.newClients]);
     if (inc.returningClients)
       cols.push(["returning_clients", inc.returningClients]);

@@ -69,6 +69,8 @@ describe("ReportsService", () => {
         totalRevenue: "90000",
         totalAppointments: "18",
         completedAppointments: "15",
+        ventas: "15",
+        revenueDeVentas: "90000",
       };
       (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
         buildQueryBuilder(aggResult)
@@ -88,18 +90,20 @@ describe("ReportsService", () => {
       expect(result.summary.totalRevenue).toBe(90000);
       expect(result.summary.totalAppointments).toBe(18);
       expect(result.summary.completedAppointments).toBe(15);
-      // 90000 entre las 15 atendidas, no entre las 18 creadas.
+      // 90000 entre los 15 cobros que los produjeron.
       expect(result.summary.avgTicket).toBe(6000);
       expect(result.summary.days).toBe(2);
       expect(result.period).toEqual({ from: "2026-06-14", to: "2026-06-15" });
     });
 
-    it("debería manejar avgTicket 0 si no hay citas", async () => {
+    it("sin cobros no hay ticket medio que dar", async () => {
       (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
         buildQueryBuilder({
           totalRevenue: "0",
           totalAppointments: "0",
           completedAppointments: "0",
+          ventas: "0",
+          revenueDeVentas: "0",
         })
       );
       mockDailyRepo.find.mockResolvedValue([]);
@@ -110,7 +114,7 @@ describe("ReportsService", () => {
         "2026-06-15"
       );
 
-      expect(result.summary.avgTicket).toBe(0);
+      expect(result.summary.avgTicket).toBeNull();
     });
   });
 

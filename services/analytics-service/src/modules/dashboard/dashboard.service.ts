@@ -59,7 +59,7 @@ export class DashboardService {
       returningClients: number;
       avgDailyRevenue: number;
       /** Ingresos entre citas atendidas. */
-      avgTicket: number;
+      avgTicket: number | null;
       /** Minutos vendidos sobre minutos disponibles, en porcentaje. */
       ocupacion: number;
     };
@@ -88,6 +88,14 @@ export class DashboardService {
         )
         .addSelect("COALESCE(SUM(m.new_clients), 0)", "newClients")
         .addSelect("COALESCE(SUM(m.returning_clients), 0)", "returningClients")
+        .addSelect("COALESCE(SUM(m.ventas), 0)", "ventas")
+        // Solo los ingresos de los días cuyas ventas están contadas: promediar
+        // sobre los otros daría un ticket inflado, con el importe de días que
+        // no aportan divisor.
+        .addSelect(
+          "COALESCE(SUM(m.total_revenue) FILTER (WHERE m.ventas > 0), 0)",
+          "revenueDeVentas"
+        )
         .where("m.business_id = :businessId", { businessId })
         .andWhere("m.date BETWEEN :from AND :to", {
           from: thirtyDaysAgo,
@@ -101,6 +109,8 @@ export class DashboardService {
           noShowAppointments: string;
           newClients: string;
           returningClients: string;
+          ventas: string;
+          revenueDeVentas: string;
         }>(),
       this.dailyRepo.findOne({
         where: { businessId, date: today },
@@ -115,6 +125,8 @@ export class DashboardService {
       noShowAppointments: "0",
       newClients: "0",
       returningClients: "0",
+      ventas: "0",
+      revenueDeVentas: "0",
     };
     const totalRevenue = Number(agg.totalRevenue);
     const totalAppointments = Number(agg.totalAppointments);
@@ -123,6 +135,8 @@ export class DashboardService {
     const noShowAppointments = Number(agg.noShowAppointments);
     const newClients = Number(agg.newClients);
     const returningClients = Number(agg.returningClients);
+    const ventas = Number(agg.ventas);
+    const revenueDeVentas = Number(agg.revenueDeVentas);
 
     return {
       today: todayMetrics
@@ -152,10 +166,11 @@ export class DashboardService {
         // Entre los días del periodo, no entre los que tuvieron movimiento:
         // es el promedio diario del negocio, no el de sus días activos.
         avgDailyRevenue: dias > 0 ? Math.round(totalRevenue / dias) : 0,
-        avgTicket:
-          completedAppointments > 0
-            ? Math.round(totalRevenue / completedAppointments)
-            : 0,
+        // Entre los cobros, no entre las citas atendidas: hay ventas sin cita, y
+        // una cita atendida puede cobrarse otro día o no cobrarse aún. Sin
+        // cobros no es que el ticket valga cero, es que no hay ticket: un cero
+        // ahí se lee como "este negocio no vende".
+        avgTicket: ventas > 0 ? Math.round(revenueDeVentas / ventas) : null,
         ocupacion: await this.ocupacion(businessId, thirtyDaysAgo, today),
       },
     };

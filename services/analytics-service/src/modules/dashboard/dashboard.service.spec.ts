@@ -281,28 +281,78 @@ describe("DashboardService", () => {
       noShowAppointments: "0",
       newClients: "0",
       returningClients: "0",
+      ventas: "20",
+      revenueDeVentas: "1000000",
     };
 
-    it("divide los ingresos entre las citas atendidas, no entre las creadas", async () => {
+    it("divide los ingresos entre los cobros que los produjeron", async () => {
       (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
         buildQueryBuilder(aggResult)
       );
       mockDailyRepo.findOne.mockResolvedValue(null);
 
-      const kpis = await service.getKPIs("business-123");
-
-      expect(kpis.last30Days.avgTicket).toBe(50000);
+      expect((await service.getKPIs("business-123")).last30Days.avgTicket).toBe(
+        50000
+      );
     });
 
-    it("sin citas atendidas el ticket medio es cero", async () => {
+    // Los ingresos vienen de los cobros y las citas atendidas de la agenda: hay
+    // ventas sin cita, y una cita atendida puede cobrarse otro día. Dividir uno
+    // entre otro daba un ticket medio de cero teniendo la caja llena.
+    it("no lo divide entre las citas atendidas", async () => {
       (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
-        buildQueryBuilder({ ...aggResult, completedAppointments: "0" })
+        buildQueryBuilder({
+          ...aggResult,
+          completedAppointments: "0",
+          ventas: "2",
+          revenueDeVentas: "1000000",
+        })
+      );
+      mockDailyRepo.findOne.mockResolvedValue(null);
+
+      expect((await service.getKPIs("business-123")).last30Days.avgTicket).toBe(
+        500000
+      );
+    });
+
+    // Un cero se lee como "este negocio no vende"; que no haya cobros es otra
+    // cosa, y la pantalla lo dice con palabras.
+    // Los días anteriores al contador tienen ingresos y ninguna venta contada.
+    // Promediar todo el ingreso entre las pocas ventas conocidas da un ticket
+    // inflado: solo entran los días que aportan las dos cifras.
+    it("promedia solo los días cuyas ventas están contadas", async () => {
+      (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
+        buildQueryBuilder({
+          ...aggResult,
+          totalRevenue: "576000",
+          ventas: "2",
+          revenueDeVentas: "75000",
+        })
       );
       mockDailyRepo.findOne.mockResolvedValue(null);
 
       const kpis = await service.getKPIs("business-123");
 
-      expect(kpis.last30Days.avgTicket).toBe(0);
+      expect(kpis.last30Days.totalRevenue).toBe(576000);
+      expect(kpis.last30Days.avgTicket).toBe(37500);
+    });
+
+    // Un cero se lee como "este negocio no vende"; que no haya cobros es otra
+    // cosa, y la pantalla lo dice con palabras.
+    it("sin cobros no hay ticket medio", async () => {
+      (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
+        buildQueryBuilder({
+          ...aggResult,
+          totalRevenue: "0",
+          ventas: "0",
+          revenueDeVentas: "0",
+        })
+      );
+      mockDailyRepo.findOne.mockResolvedValue(null);
+
+      expect(
+        (await service.getKPIs("business-123")).last30Days.avgTicket
+      ).toBeNull();
     });
 
     it("calcula la ocupación sobre la capacidad materializada", async () => {

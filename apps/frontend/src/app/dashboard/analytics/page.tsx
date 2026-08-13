@@ -96,8 +96,16 @@ export default function AnalyticsPage() {
                   {formatCurrency(data.last30Days.totalRevenue)}
                 </span>
               </div>
+              {/*
+                Reparte el total entre los 30 días del periodo, no entre los
+                que tuvieron movimiento: un negocio que abrió ayer leería su
+                única jornada como si fuera su media, y el nombre lo dice para
+                que nadie lo confunda con "lo que gano al día".
+              */}
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Promedio diario</span>
+                <span className="text-muted-foreground">
+                  Promedio por día del periodo
+                </span>
                 <span className="font-semibold">
                   {formatCurrency(data.last30Days.avgDailyRevenue)}
                 </span>
@@ -118,8 +126,16 @@ export default function AnalyticsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {/*
+                Un cliente cuenta como nuevo al venir por primera vez, no al
+                darlo de alta: una ficha creada y sin visita todavía no es un
+                cliente captado, y el nombre lo dice para que un cero no se lea
+                como que la métrica está rota.
+              */}
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Nuevos</span>
+                <span className="text-muted-foreground">
+                  Nuevos (primera visita)
+                </span>
                 <span className="font-semibold">
                   {data.last30Days.newClients}
                 </span>
@@ -161,8 +177,14 @@ export default function AnalyticsPage() {
             <CardContent className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Ticket medio</span>
+                {/*
+                  Sin cobros en el periodo no hay ticket que promediar, y un
+                  cero ahí se lee como que el negocio no vende.
+                */}
                 <span className="font-semibold">
-                  {formatCurrency(data.last30Days.avgTicket ?? 0)}
+                  {data.last30Days.avgTicket == null
+                    ? "Sin cobros aún"
+                    : formatCurrency(data.last30Days.avgTicket)}
                 </span>
               </div>
               <div className="flex justify-between">
