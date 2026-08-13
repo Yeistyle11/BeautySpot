@@ -118,8 +118,8 @@ export class PaymentsService {
       );
     } catch (error) {
       // El segundo envío del mismo intento choca contra el índice: no es un
-      // fallo, es el doble clic que se quería evitar. Se devuelve el cobro que
-      // ya se hizo, que es lo que el cajero cree estar viendo.
+      // fallo, es el doble clic que el índice está para absorber. Se devuelve el
+      // cobro que ya se hizo, que es lo que el cajero cree estar viendo.
       const yaCobrado = esViolacionDeUnicidad(error) && data.solicitudId;
       if (!yaCobrado) throw error;
 

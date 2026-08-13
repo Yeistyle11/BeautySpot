@@ -27,9 +27,10 @@ interface FieldProps {
  * de modo que el lector lo anuncie al llegar al campo y no solo cuando aparece.
  *
  * El control es el **primer elemento** que se le pasa; lo que venga detras se
- * pinta tal cual, para que un campo pueda acompañarse de un aviso propio. Exigir
- * un unico hijo era una restriccion invisible en la firma —`ReactNode` admite
- * varios y TypeScript no avisa— que tumbaba en ejecucion la pantalla entera.
+ * pinta tal cual, para que un campo pueda acompañarse de un aviso propio.
+ * Aceptar varios hijos no es comodidad: la firma (`ReactNode`) ya los admite y
+ * TypeScript no avisa, asi que exigir uno solo se cobraria en ejecucion,
+ * tumbando la pantalla entera al abrirse.
  */
 export function Field({ label, children, hint, error, className }: FieldProps) {
   const id = useId();

@@ -15,8 +15,8 @@ describe("Field", () => {
   });
 
   // El campo de cliente de la agenda acompaña el desplegable con un aviso de
-  // faltas. Exigir un unico hijo tumbaba la seccion entera al abrir el
-  // formulario, y el tipo de `children` no daba ninguna pista.
+  // faltas. El tipo de `children` admite varios, asi que un Field que exija uno
+  // solo se rompe en ejecucion y se lleva por delante la pantalla.
   it("admite un aviso junto al control", () => {
     render(
       <Field label="Cliente">
@@ -32,7 +32,8 @@ describe("Field", () => {
   });
 
   // Un `&&` sin cumplir deja un `false` en la lista de hijos: cuenta como hijo
-  // aunque no pinte nada, asi que el caso "sin aviso" tambien rompia.
+  // aunque no pinte nada, asi que el caso "sin aviso" tiene tan poco de un solo
+  // hijo como el otro.
   it("admite un aviso condicional que no se cumple", () => {
     const faltas = 0;
 
