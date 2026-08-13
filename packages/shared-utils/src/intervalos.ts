@@ -173,10 +173,11 @@ export const MINUTOS_DEL_DIA = 24 * 60;
 /**
  * La parte de una ocupación del día anterior que cae en este día.
  *
- * Una cita que empieza a las 23:30 y dura una hora termina a las "24:30": la
- * hora se cuenta desde la medianoche de **su** día y puede pasar de 24:00. Ese
- * sobrante ocupa la madrugada siguiente, y sin traerlo la agenda del día
- * siguiente lo da por libre y vende encima.
+ * Recibe intervalos en la escala del cálculo, donde la hora se cuenta desde la
+ * medianoche de **su** día y pasa de 24:00: la cita que empieza a las 23:30 y
+ * dura una hora termina a las "24:30". Ese sobrante ocupa la madrugada
+ * siguiente, y sin traerlo la agenda del día siguiente lo da por libre y vende
+ * encima.
  *
  * Los intervalos que no cruzan se descartan, y el que cruza se recorta al
  * arranque del día: de 23:30–24:30 solo entra 00:00–00:30.
@@ -195,9 +196,10 @@ export function arrastreDelDiaAnterior(intervalos: Intervalo[]): Intervalo[] {
 /**
  * La parte de una jornada del día anterior que cae en este día.
  *
- * Es lo mismo que `arrastreDelDiaAnterior` pero para los tramos de horario: un
- * negocio que abre a las 20:00 y cierra a las "26:00" sigue abierto de 00:00 a
- * 02:00 del día siguiente, y sin traer ese tramo la madrugada no ofrece ninguna
+ * Es lo mismo que `arrastreDelDiaAnterior` pero para los tramos de horario, y
+ * como aquel espera la escala del cálculo: el negocio que abre a las 20:00 y
+ * cierra a las 02:00 llega aquí como 20:00–"26:00" y sigue abierto de 00:00 a
+ * 02:00 del día siguiente. Sin traer ese tramo, la madrugada no ofrece ninguna
  * franja aunque el local esté abierto.
  */
 export function arrastreDeJornada<
