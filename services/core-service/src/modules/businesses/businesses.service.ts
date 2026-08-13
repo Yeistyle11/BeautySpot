@@ -18,7 +18,7 @@ import {
   parsePaginationQuery,
   escapeLikePattern,
 } from "@beautyspot/shared-utils";
-import { Role } from "@beautyspot/shared-types";
+import { IPaginatedResponse, Role } from "@beautyspot/shared-types";
 
 /**
  * CRUD de negocios con control de acceso por tenant: cada llamante solo ve y
@@ -108,12 +108,17 @@ export class BusinessesService {
 
   /**
    * Lista negocios. SUPER_ADMIN ve todos; resto scoped a su businessId.
+   *
+   * Responde con el mismo sobre `{ data, meta }` que el helper `paginate`, que
+   * es el que devuelve el resto de listados y el que el frontend sabe abrir. La
+   * consulta se arma a mano porque lleva filtros y búsqueda, pero eso no es
+   * motivo para que el contrato de la respuesta cambie según el endpoint.
    */
   async findAll(
     query: Record<string, unknown>,
     callerBusinessId?: string,
     callerRole?: Role
-  ) {
+  ): Promise<IPaginatedResponse<Business>> {
     const params = parsePaginationQuery(query, [
       "createdAt",
       "updatedAt",
@@ -147,9 +152,21 @@ export class BusinessesService {
       .skip(params.offset)
       .take(params.limit);
 
-    const [items, total] = await qb.getManyAndCount();
-    await this.adjuntarColecciones(items);
-    return { items, total, page: params.page, limit: params.limit };
+    const [data, total] = await qb.getManyAndCount();
+    await this.adjuntarColecciones(data);
+
+    const totalPages = Math.ceil(total / params.limit);
+    return {
+      data,
+      meta: {
+        page: params.page,
+        limit: params.limit,
+        total,
+        totalPages,
+        hasNext: params.page < totalPages,
+        hasPrev: params.page > 1,
+      },
+    };
   }
 
   /**

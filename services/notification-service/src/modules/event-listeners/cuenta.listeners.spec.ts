@@ -97,7 +97,7 @@ describe("CuentaListeners", () => {
         "reset@example.com",
         expect.objectContaining({
           clientName: "Reset User",
-          resetLink: "http://localhost:3000/reset-password?token=raw-token-abc",
+          resetLink: "http://localhost:8080/reset-password?token=raw-token-abc",
           expiryHours: expect.any(Number),
         })
       );
@@ -124,7 +124,7 @@ describe("CuentaListeners", () => {
         expect.objectContaining({
           clientName: "Nuevo Usuario",
           verificationLink:
-            "http://localhost:3000/verify-email?token=raw-token-xyz",
+            "http://localhost:8080/verify-email?token=raw-token-xyz",
           expiryHours: expect.any(Number),
         })
       );

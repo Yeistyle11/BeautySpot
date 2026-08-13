@@ -15,6 +15,7 @@ import {
   IsEnum,
   IsOptional,
   IsDateString,
+  IsUUID,
   Min,
   MaxLength,
 } from "class-validator";
@@ -48,6 +49,14 @@ class CreatePaymentDto {
   @IsInt({ message: "Los puntos deben ser un número entero" })
   @Min(1, { message: "Para canjear hay que usar al menos un punto" })
   puntosUsados?: number;
+  /**
+   * Identifica el intento de cobro, no el cobro: quien cobra lo genera una vez
+   * y lo repite si reenvía. Dos envíos con el mismo identificador dejan un solo
+   * cargo, que es lo que salva al cliente del doble clic.
+   */
+  @IsOptional()
+  @IsUUID("4", { message: "El identificador de la solicitud debe ser un UUID" })
+  solicitudId?: string;
 }
 
 /** Día del que se pide el resumen, en formato ISO. */

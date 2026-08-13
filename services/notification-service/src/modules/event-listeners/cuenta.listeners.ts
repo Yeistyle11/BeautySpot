@@ -156,9 +156,15 @@ export class CuentaListeners {
     }
   }
 
-  /** Origen público de la aplicación, del que cuelgan los enlaces del correo. */
+  /**
+   * Origen público de la aplicación, del que cuelgan los enlaces del correo.
+   *
+   * Es el del navegador, no el del API: las pantallas que canjean estos enlaces
+   * —`/verify-email`, `/reset-password`— las sirve el frontend, y apuntarlos al
+   * gateway devuelve un 404 en JSON a quien abra el correo.
+   */
   private appUrl(): string {
-    return this.configService.get<string>("APP_URL", "http://localhost:3000");
+    return this.configService.get<string>("APP_URL", "http://localhost:8080");
   }
 
   /** Horas que le quedan al enlace, redondeadas hacia arriba para el correo. */

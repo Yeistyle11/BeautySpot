@@ -49,6 +49,15 @@ const TRANSICIONES_DE_PAGO: Record<PaymentStatus, PaymentStatus[]> = {
   [PaymentStatus.CANCELLED]: [],
 };
 
+/** Detecta la violación de índice único de Postgres (SQLSTATE 23505). */
+function esViolacionDeUnicidad(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: string }).code === "23505"
+  );
+}
+
 /**
  * Registra pagos manuales y sus reembolsos, publicando cada operación vía Outbox
  * y protegiendo los reembolsos contra dobles aplicaciones concurrentes.
@@ -78,6 +87,7 @@ export class PaymentsService {
       registeredBy: string;
       branchId?: string;
       puntosUsados?: number;
+      solicitudId?: string;
     }
   ): Promise<PaymentEntity> {
     const puntosUsados = data.puntosUsados ?? 0;
@@ -98,6 +108,37 @@ export class PaymentsService {
       );
     }
 
+    try {
+      return await this.registrar(
+        businessId,
+        data,
+        puntosUsados,
+        descuento,
+        services
+      );
+    } catch (error) {
+      // El segundo envío del mismo intento choca contra el índice: no es un
+      // fallo, es el doble clic que se quería evitar. Se devuelve el cobro que
+      // ya se hizo, que es lo que el cajero cree estar viendo.
+      const yaCobrado = esViolacionDeUnicidad(error) && data.solicitudId;
+      if (!yaCobrado) throw error;
+
+      const previo = await this.repo.findOne({
+        where: { businessId, solicitudId: data.solicitudId },
+      });
+      if (!previo) throw error;
+      return previo;
+    }
+  }
+
+  /** Escribe el cobro, su entrada en caja y sus eventos, todo en una transacción. */
+  private async registrar(
+    businessId: string,
+    data: Parameters<PaymentsService["create"]>[1],
+    puntosUsados: number,
+    descuento: number,
+    services: ServicioDeLaCita[] | undefined
+  ): Promise<PaymentEntity> {
     return this.dataSource.transaction(async (manager) => {
       const payment = this.repo.create({
         ...data,

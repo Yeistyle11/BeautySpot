@@ -73,7 +73,7 @@ export async function crearEntornoDeListeners(): Promise<EntornoDeListeners> {
 
   const config = {
     get: jest.fn((clave: string) =>
-      clave === "APP_URL" ? "http://localhost:3000" : undefined
+      clave === "APP_URL" ? "http://localhost:8080" : undefined
     ),
   } as unknown as ConfigService;
 

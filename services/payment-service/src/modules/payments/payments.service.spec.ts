@@ -144,6 +144,49 @@ describe("PaymentsService", () => {
       expect(result).toEqual(mockPayment);
     });
 
+    // Tres clics en "Registrar pago" son tres peticiones legítimas a ojos de la
+    // base: sin identificador de intento, tres cargos. Con él, el segundo choca
+    // contra el índice y se le devuelve al cajero el cobro que ya se hizo.
+    it("el reenvío del mismo intento devuelve el cobro que ya existe", async () => {
+      const data = {
+        clientId: "client-123",
+        amount: 99000,
+        method: PaymentMethod.CARD,
+        registeredBy: "user-123",
+        solicitudId: "66666666-6666-4666-8666-666666666666",
+      };
+
+      mockRepo.create.mockReturnValue(mockPayment);
+      mockManagerRepo.save.mockRejectedValue({ code: "23505" });
+      mockRepo.findOne.mockResolvedValue(mockPayment);
+
+      const result = await service.create("business-123", data);
+
+      expect(result).toEqual(mockPayment);
+      expect(mockRepo.findOne).toHaveBeenCalledWith({
+        where: {
+          businessId: "business-123",
+          solicitudId: data.solicitudId,
+        },
+      });
+    });
+
+    // Sin identificador no hay forma de saber si el choque es un reenvío o un
+    // cobro distinto que topa con otra restriccion: el error tiene que salir.
+    it("propaga el choque cuando el cobro no trae identificador", async () => {
+      mockRepo.create.mockReturnValue(mockPayment);
+      mockManagerRepo.save.mockRejectedValue({ code: "23505" });
+
+      await expect(
+        service.create("business-123", {
+          clientId: "client-123",
+          amount: 99000,
+          method: PaymentMethod.CARD,
+          registeredBy: "user-123",
+        })
+      ).rejects.toMatchObject({ code: "23505" });
+    });
+
     it("anota el efectivo como entrada en la caja abierta", async () => {
       const data = {
         clientId: "client-123",

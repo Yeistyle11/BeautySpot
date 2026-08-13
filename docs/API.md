@@ -160,6 +160,16 @@ Las rutas de listado aceptan `?page=` y `?limit=` y responden con la forma
 }
 ```
 
+**Es el único sobre paginado que existe.** Un listado o responde así, o responde
+con el arreglo a secas; no hay una tercera forma. Los catálogos que el tamaño del
+negocio ya acota —servicios, profesionales, sedes, horarios, campos de ficha—
+devuelven el arreglo directamente y no aceptan `?page=`.
+
+Del lado del navegador eso se traduce en dos herramientas de `lib/swr.ts`:
+`paginatedSchema(item)` para lo paginado y `z.array(item)` para lo demás. Elegir
+la que no toca no rompe la pantalla: Zod rechaza, el hook devuelve `undefined` y
+el listado se pinta **vacío**, indistinguible de "no hay nada".
+
 ### Formato de error
 
 Todos los servicios normalizan los errores con `HttpExceptionFilter`

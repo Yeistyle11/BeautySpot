@@ -264,6 +264,14 @@ Redis se configura **siempre** con `REDIS_HOST`, `REDIS_PORT` y
 > basta con eso, se conecta al `localhost:6379` por defecto y sin contraseña, no
 > al Redis configurado.
 
+**Redis no se publica al exterior y lleva contraseña propia por despliegue.** El
+`redis123` del compose de desarrollo no debe salir de ahí. Por Redis pasa la cola
+de correo, y el cuerpo de un correo de confirmación o de restablecimiento lleva
+su enlace con el token en claro: tiene que llevarlo, es lo que el usuario pulsa.
+Quien pueda leer esa cola puede tomar cualquier cuenta sin necesidad de acceder
+al correo de nadie. Los trabajos se borran al terminar y los fallidos duran diez
+minutos, pero eso acota la ventana, no la cierra.
+
 ### Específicas por servicio
 
 **api-gateway (3000)** — no tiene base de datos.
@@ -306,6 +314,11 @@ Redis se configura **siempre** con `REDIS_HOST`, `REDIS_PORT` y
 | `SMTP_PASS`   | Contraseña o clave de aplicación                 |
 | `EMAIL_FROM`  | Remitente, p. ej. `BeautySpot <noreply@…>`       |
 | `APP_URL`     | URL pública, usada en los enlaces de los correos |
+
+> `APP_URL` es la del **frontend**, no la del gateway. Las pantallas que canjean
+> esos enlaces —`/verify-email`, `/reset-password`— las sirve la aplicación; si
+> apunta al API, quien abra el correo recibe un 404 en JSON y se queda sin poder
+> confirmar su cuenta ni recuperar su contraseña.
 
 **frontend (8080)**
 

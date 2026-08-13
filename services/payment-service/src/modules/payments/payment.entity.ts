@@ -18,7 +18,23 @@ import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
   unique: true,
   where: `"appointment_id" IS NOT NULL AND status IN ('PENDING', 'COMPLETED')`,
 })
+/**
+ * Un cobro enviado dos veces se guarda una.
+ *
+ * Un cobro suelto no tiene cita que lo identifique, así que el índice de arriba
+ * no lo cubre: tres clics en "Registrar pago" son tres cobros perfectamente
+ * válidos y distintos a ojos de la base. El identificador lo pone quien cobra,
+ * uno por formulario abierto, y este índice hace que el segundo envío choque en
+ * vez de duplicar el cargo.
+ */
+@Index("uq_payments_solicitud", ["businessId", "solicitudId"], {
+  unique: true,
+  where: `"solicitud_id" IS NOT NULL`,
+})
 export class PaymentEntity extends TenantEntity {
+  /** Identificador del intento de cobro; nulo en los cobros que no lo traen. */
+  @Column({ type: "uuid", name: "solicitud_id", nullable: true })
+  solicitudId!: string | null;
   /** Sede en la que se cobró; nulo en los negocios de un solo local. */
   @Column({ type: "uuid", name: "branch_id", nullable: true })
   branchId!: string | null;

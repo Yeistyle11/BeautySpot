@@ -1,7 +1,7 @@
 "use client";
 
 // Pagina de pagos: lista de pagos registrados con resumen, busqueda por fecha y paginacion.
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,6 +75,24 @@ export default function PaymentsPage() {
   const [createDialog, setCreateDialog] = useState(false);
   const [createForm, setCreateForm] = useState<CreateForm>(emptyCreateForm);
   const [savingCreate, setSavingCreate] = useState(false);
+  /**
+   * Identifica el intento de cobro, y se renueva al abrir el formulario. Dos
+   * envios con el mismo valor dejan un solo cargo, que es lo que sostiene el
+   * guardarrail del servidor.
+   */
+  const solicitudId = useRef<string>("");
+  /**
+   * Cierra el envio en el mismo tick. `savingCreate` deshabilita el boton, pero
+   * eso no ocurre hasta el siguiente render: una rafaga de clics llega entera
+   * antes de que React lo aplique.
+   */
+  const cobrando = useRef(false);
+
+  /** Abre el formulario de cobro con un intento nuevo. */
+  const abrirCobro = () => {
+    solicitudId.current = crypto.randomUUID();
+    setCreateDialog(true);
+  };
 
   const [editDialog, setEditDialog] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -138,6 +156,8 @@ export default function PaymentsPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (cobrando.current) return;
+    cobrando.current = true;
     setSavingCreate(true);
     try {
       await api.post("/payment/payments", {
@@ -148,6 +168,7 @@ export default function PaymentsPage() {
         notes: createForm.notes || undefined,
         // Sin canje no se manda el campo: el backend exige al menos un punto.
         puntosUsados: Number(createForm.puntosUsados) || undefined,
+        solicitudId: solicitudId.current || undefined,
       });
       setCreateDialog(false);
       setCreateForm(emptyCreateForm);
@@ -156,6 +177,7 @@ export default function PaymentsPage() {
       logger.error(err);
       toast.error(mensajeDeError(err));
     } finally {
+      cobrando.current = false;
       setSavingCreate(false);
     }
   };
@@ -201,7 +223,7 @@ export default function PaymentsPage() {
           <p className="text-muted-foreground">Historial y registro de pagos</p>
         </div>
         {canDo(role, "payments_create") && (
-          <Button onClick={() => setCreateDialog(true)}>
+          <Button onClick={abrirCobro}>
             <Plus className="mr-2 h-4 w-4" />
             Nuevo pago
           </Button>

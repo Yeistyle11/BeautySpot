@@ -537,6 +537,25 @@ describe("UsersService", () => {
       });
     });
 
+    // El dueño fija la contraseña y se la da a su empleado, que no espera
+    // ningún correo. Sin esto la cuenta se crea sin confirmar y el login, que
+    // sí lo exige, la deja fuera para siempre.
+    it("la cuenta nace con el correo confirmado", async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockUserRepository.create.mockReturnValue(mockUser);
+      mockUserRepository.save.mockResolvedValue(mockUser);
+      mockMembershipRepository.create.mockReturnValue(mockMembership);
+      mockMembershipRepository.save.mockResolvedValue(mockMembership);
+      mockAuditLogRepository.create.mockReturnValue({});
+      mockAuditLogRepository.save.mockResolvedValue({});
+
+      await service.createStaff("business-123", dto);
+
+      expect(mockUserRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ emailVerified: true })
+      );
+    });
+
     it("lanza Conflict si el email ya está registrado", async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser);
 

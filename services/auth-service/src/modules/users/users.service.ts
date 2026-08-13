@@ -174,6 +174,12 @@ export class UsersService {
   /**
    * Crea un usuario, hashea la contrasena, y le asigna una membresia
    * en el negocio con el rol especificado.
+   *
+   * La cuenta nace con el correo dado por confirmado. Aqui no hay ida y vuelta
+   * por correo: es el dueno quien fija la contrasena y se la entrega a su
+   * empleado, que no espera ningun mensaje ni tiene motivo para ir a buscarlo.
+   * Exigirle confirmacion, como en el registro publico, lo dejaria sin poder
+   * entrar nunca. Quien responde por esa direccion es el dueno del negocio.
    */
   async createStaff(
     businessId: string,
@@ -200,6 +206,7 @@ export class UsersService {
         password: hashedPassword,
         name: dto.name,
         phone: dto.phone,
+        emailVerified: true,
       });
       await userRepo.save(user);
 
