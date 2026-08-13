@@ -190,6 +190,30 @@ export class PaymentsService {
   }
 
   /**
+   * De las citas indicadas, las que ya tienen un cobro vivo.
+   *
+   * Un cobro anulado no cuenta: esa cita vuelve a poder cobrarse, igual que
+   * decide el índice que impide el cobro doble.
+   */
+  async citasYaCobradas(
+    businessId: string,
+    appointmentIds: string[]
+  ): Promise<string[]> {
+    if (appointmentIds.length === 0) return [];
+
+    const cobros = await this.repo.find({
+      where: {
+        businessId,
+        appointmentId: In(appointmentIds),
+        status: In([PaymentStatus.PENDING, PaymentStatus.COMPLETED]),
+      },
+      select: { appointmentId: true },
+    });
+
+    return cobros.map((c) => c.appointmentId);
+  }
+
+  /**
    * Comprueba que el cliente tiene los puntos que quiere gastar.
    *
    * El saldo vive en core, así que entre esta lectura y el descuento efectivo

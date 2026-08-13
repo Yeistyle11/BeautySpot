@@ -171,6 +171,36 @@ describe("PaymentsService", () => {
       });
     });
 
+    // El formulario ofrece las citas atendidas del cliente, y las ya cobradas
+    // hay que tacharlas: booking no sabe de pagos.
+    it("dice cuáles de unas citas ya tienen cobro vivo", async () => {
+      // `select` deja fuera el resto de columnas: solo interesa el id de cita.
+      mockRepo.find.mockResolvedValue([
+        { appointmentId: "cita-1" },
+        { appointmentId: "cita-3" },
+      ] as never);
+
+      const cobradas = await service.citasYaCobradas("business-123", [
+        "cita-1",
+        "cita-2",
+        "cita-3",
+      ]);
+
+      expect(cobradas).toEqual(["cita-1", "cita-3"]);
+      expect(mockRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ businessId: "business-123" }),
+        })
+      );
+    });
+
+    it("sin citas por las que preguntar no consulta nada", async () => {
+      await expect(
+        service.citasYaCobradas("business-123", [])
+      ).resolves.toEqual([]);
+      expect(mockRepo.find).not.toHaveBeenCalled();
+    });
+
     // Sin identificador no hay forma de saber si el choque es un reenvío o un
     // cobro distinto que topa con otra restriccion: el error tiene que salir.
     it("propaga el choque cuando el cobro no trae identificador", async () => {

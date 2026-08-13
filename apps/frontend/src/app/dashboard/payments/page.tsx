@@ -2,6 +2,7 @@
 
 // Pagina de pagos: lista de pagos registrados con resumen, busqueda por fecha y paginacion.
 import { useState, useMemo, useRef } from "react";
+import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,8 +23,10 @@ import { PaymentSummaryCards } from "./payment-summary";
 import { PaymentCard } from "./payment-card";
 import { CreatePaymentDialog, EditPaymentDialog } from "./payment-dialogs";
 import {
+  citaCobrableSchema,
   clientSchema,
   CLIENTS_KEY,
+  COBRADAS_KEY,
   dailySummarySchema,
   emptyCreateForm,
   emptyEditForm,
@@ -109,6 +112,38 @@ export default function PaymentsPage() {
   );
   const clients: Client[] = clientsPage?.data ?? [];
 
+  /**
+   * Citas atendidas del cliente elegido, para poder cobrar una de ellas. Solo
+   * se piden con el diálogo abierto y un cliente ya seleccionado: fuera de ahí
+   * no hay nada que ofrecer.
+   */
+  const citasKey =
+    createDialog && createForm.clientId
+      ? `/booking/appointments?clientId=${createForm.clientId}&status=COMPLETED&limit=20&sort=date&order=DESC`
+      : null;
+  const { data: paginaDeCitas } = useApi(
+    citasKey,
+    undefined,
+    paginatedSchema(citaCobrableSchema)
+  );
+  const citasAtendidas = useMemo(
+    () => paginaDeCitas?.data ?? [],
+    [paginaDeCitas]
+  );
+
+  // Booking no sabe de pagos: cuáles están cobradas hay que preguntárselo a
+  // payment, o se ofrecerían citas que el servidor va a rechazar.
+  const idsDeCitas = citasAtendidas.map((c) => c.id).join(",");
+  const { data: yaCobradas } = useApi(
+    idsDeCitas ? `${COBRADAS_KEY}?appointmentIds=${idsDeCitas}` : null,
+    undefined,
+    z.array(z.string())
+  );
+  const citasPorCobrar = useMemo(() => {
+    const cobradas = new Set(yaCobradas ?? []);
+    return citasAtendidas.filter((c) => !cobradas.has(c.id));
+  }, [citasAtendidas, yaCobradas]);
+
   const clientMap = useMemo(() => {
     const map: Record<string, string> = {};
     clients.forEach((c) => {
@@ -162,6 +197,7 @@ export default function PaymentsPage() {
     try {
       await api.post("/payment/payments", {
         clientId: createForm.clientId,
+        appointmentId: createForm.appointmentId || undefined,
         amount: parseFloat(createForm.amount),
         method: createForm.method,
         reference: createForm.reference || undefined,
@@ -305,6 +341,7 @@ export default function PaymentsPage() {
         form={createForm}
         onChange={setCreateForm}
         onSubmit={handleCreate}
+        citasPorCobrar={citasPorCobrar}
         clients={clients ?? []}
         saving={savingCreate}
       />

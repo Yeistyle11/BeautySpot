@@ -533,14 +533,24 @@ Pagos manuales, facturas y caja. Base de datos `beautyspot_payment`. Usa el patr
 
 ### Pagos — `/api/v1/payment/payments`
 
-| Método | Ruta             | Roles                      | Descripción            |
-| ------ | ---------------- | -------------------------- | ---------------------- |
-| POST   | `/`              | ADMIN, RECEPTIONIST        | Registra pago          |
-| GET    | `/`              | OWNER, ADMIN, RECEPTIONIST | Lista pagos (paginado) |
-| GET    | `/daily-summary` | OWNER, ADMIN               | Resumen del día        |
-| GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST | Detalle                |
-| PATCH  | `/:id/status`    | OWNER, ADMIN               | Cambia el estado       |
-| POST   | `/:id/refund`    | OWNER, ADMIN               | Procesa devolución     |
+| Método | Ruta             | Roles                      | Descripción                       |
+| ------ | ---------------- | -------------------------- | --------------------------------- |
+| POST   | `/`              | ADMIN, RECEPTIONIST        | Registra pago                     |
+| GET    | `/`              | OWNER, ADMIN, RECEPTIONIST | Lista pagos (paginado)            |
+| GET    | `/cobradas`      | OWNER, ADMIN, RECEPTIONIST | De unas citas, cuáles ya se cobró |
+| GET    | `/daily-summary` | OWNER, ADMIN               | Resumen del día                   |
+| GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST | Detalle                           |
+| PATCH  | `/:id/status`    | OWNER, ADMIN               | Cambia el estado                  |
+| POST   | `/:id/refund`    | OWNER, ADMIN               | Procesa devolución                |
+
+Un cobro puede llevar `appointmentId`: entonces el importe tiene que coincidir
+con el de la cita, esa cita no se puede cobrar dos veces mientras el cobro siga
+vivo, y el evento `payment.registered` sale con los servicios que se vendieron.
+Sin él es una venta suelta, con el importe tecleado a mano.
+
+`GET /cobradas` acepta `appointmentIds` (lista separada por comas, máximo 100) y
+responde con los identificadores que ya tienen cobro. Booking no sabe de pagos,
+así que es la vía para no ofrecer una cita que el servidor va a rechazar.
 
 ### Facturas — `/api/v1/payment/invoices`
 

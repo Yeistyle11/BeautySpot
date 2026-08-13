@@ -49,8 +49,27 @@ export const STATUS_LABELS: Record<string, string> = {
   CANCELLED: "Cancelado",
 };
 
+/**
+ * Cita atendida del cliente, tal y como la ofrece el cobro.
+ *
+ * Trae sus servicios porque son los que se nombran al elegirla: cobrar "Corte y
+ * barba del martes" es lo que distingue una cita de otra del mismo importe.
+ */
+export const citaCobrableSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  startTime: z.string(),
+  totalAmount: z.union([z.string(), z.number()]),
+  appointmentServices: z
+    .array(z.object({ serviceName: z.string().nullish() }))
+    .nullish(),
+});
+export type CitaCobrable = z.infer<typeof citaCobrableSchema>;
+
 export const emptyCreateForm = {
   clientId: "",
+  /** Cita que se cobra; vacío es una venta suelta, sin cita detrás. */
+  appointmentId: "",
   amount: "",
   method: "CASH",
   reference: "",
@@ -78,3 +97,5 @@ export interface PaymentSummary {
 
 export const PAYMENTS_KEY = "/payment/payments";
 export const CLIENTS_KEY = "/core/clients?limit=100";
+/** Cuáles de unas citas dadas ya tienen cobro; lo sabe payment, no booking. */
+export const COBRADAS_KEY = "/payment/payments/cobradas";
