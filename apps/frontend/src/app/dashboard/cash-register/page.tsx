@@ -185,7 +185,7 @@ export default function CashRegisterPage() {
     closeAmount === "" || Number.isNaN(Number(closeAmount))
       ? null
       : Number(closeAmount) - expectedTotal;
-  /** Con descuadre, el motivo deja de ser opcional: lo exige también el backend. */
+  /** Con descuadre el motivo es obligatorio, aquí y en el servicio. */
   const hayDescuadre = diferenciaCierre !== null && diferenciaCierre !== 0;
 
   if (loading) {

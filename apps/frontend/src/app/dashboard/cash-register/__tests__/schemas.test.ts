@@ -76,10 +76,10 @@ describe("cashSessionSchema", () => {
     expect(sesion.expectedTotal).toBe(110000);
   });
 
-  // Las sesiones cerradas antes de que se guardara el descuadre no lo traen, y
-  // la pantalla tiene que seguir pintándolas.
-  it("acepta un cierre sin descuadre informado", () => {
-    const sesion = cashSessionSchema.parse(cajaCerradaDeLaApi);
+  // El descuadre nace al cerrar: la caja del día en curso no lo tiene, y el
+  // histórico la lista igual que a las cerradas.
+  it("acepta una sesión sin descuadre", () => {
+    const sesion = cashSessionSchema.parse(cajaAbiertaDeLaApi);
 
     expect(sesion.difference).toBeUndefined();
   });
