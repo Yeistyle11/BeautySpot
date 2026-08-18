@@ -1,5 +1,7 @@
 // Esquemas Zod y tipos del perfil publico (galeria, secciones, resenas).
 import { z } from "zod";
+import { generateSlug } from "@beautyspot/shared-utils";
+import { TIPOS_DE_NEGOCIO } from "@beautyspot/shared-constants";
 
 // Los campos opcionales admiten null o ausencia.
 
@@ -133,4 +135,28 @@ export function reorderSections(
   sorted[index] = { ...sorted[index], order: sorted[swapWith].order };
   sorted[swapWith] = { ...sorted[swapWith], order: currentOrder };
   return sorted;
+}
+
+/** Datos con los que se da de alta el escaparate del negocio. */
+export const emptyCreateForm = {
+  name: "",
+  slug: "",
+  businessType: TIPOS_DE_NEGOCIO[0].valor as string,
+  description: "",
+  phone: "",
+  email: "",
+  address: "",
+  city: "",
+};
+
+export type CreateForm = typeof emptyCreateForm;
+
+/**
+ * Enlace que se le propone al dueño a partir del nombre.
+ *
+ * Es el mismo `generateSlug` que usa el backend al derivarlo: la propuesta que
+ * ve en pantalla tiene que ser la que acabaría guardándose.
+ */
+export function sugerirEnlace(nombre: string): string {
+  return generateSlug(nombre);
 }

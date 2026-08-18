@@ -1,4 +1,9 @@
-import { defaultSections, profileSchema, reorderSections } from "../schemas";
+import {
+  defaultSections,
+  profileSchema,
+  reorderSections,
+  sugerirEnlace,
+} from "../schemas";
 
 /** Perfil tal y como lo devuelve GET /marketplace/business-profiles. */
 const perfilDeLaApi = {
@@ -68,5 +73,25 @@ describe("secciones del perfil", () => {
 
     expect(movidas.find((s) => s.id === "services")?.order).toBe(1);
     expect(movidas.find((s) => s.id === "story")?.order).toBe(2);
+  });
+});
+
+describe("sugerirEnlace", () => {
+  it("convierte el nombre del negocio en un enlace legible", () => {
+    expect(sugerirEnlace("Barbería La Noche")).toBe("barberia-la-noche");
+  });
+
+  it("quita tildes, símbolos y espacios de más", () => {
+    expect(sugerirEnlace("  Salón  &  Spa Ñandú!! ")).toBe("salon-spa-nandu");
+  });
+
+  // El nombre puede no dar ninguna letra utilizable; quien llama tiene que
+  // poder detectarlo para pedir el enlace a mano.
+  it("devuelve vacío si el nombre no deja nada aprovechable", () => {
+    expect(sugerirEnlace("%%%")).toBe("");
+  });
+
+  it("no pasa del largo que admite la columna", () => {
+    expect(sugerirEnlace("a".repeat(200))).toHaveLength(100);
   });
 });

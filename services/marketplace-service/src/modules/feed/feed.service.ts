@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { RedisCacheService } from "@beautyspot/nest-common";
+import { TIPOS_DE_NEGOCIO } from "@beautyspot/shared-constants";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
 import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
@@ -146,11 +147,14 @@ export class FeedService {
 
   /** Devuelve las categorías de negocio con su número de perfiles publicados. */
   private async getCategories(): Promise<FeedCategory[]> {
-    const categoryConfigs = [
-      { id: "BARBERIA", name: "Barberías", icon: "scissors" },
-      { id: "SALON", name: "Salones de Belleza", icon: "mirror" },
-      { id: "SPA", name: "Spas y Centros Estéticos", icon: "spa" },
-    ];
+    // Las categorías salen del catálogo compartido de tipos, y no de una lista
+    // propia, porque un tipo que se pueda elegir al crear el negocio y que no
+    // aparezca aquí deja al local fuera de todos los filtros de la portada.
+    const categoryConfigs = TIPOS_DE_NEGOCIO.map((tipo) => ({
+      id: tipo.valor,
+      name: tipo.categoria,
+      icon: tipo.icono,
+    }));
 
     // Un GROUP BY en vez de una consulta por categoría: cada una traía además
     // una fila de perfil que se descartaba, porque el listado devuelve datos y

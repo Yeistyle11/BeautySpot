@@ -7,8 +7,12 @@ import {
   IsArray,
   ValidateNested,
   IsBoolean,
+  IsIn,
+  Length,
+  Matches,
 } from "class-validator";
 import { Type } from "class-transformer";
+import { VALORES_TIPO_DE_NEGOCIO } from "@beautyspot/shared-constants";
 import { SocialLinks } from "../../../entities/business-profile.entity";
 
 // --- Perfil basico (sincronizacion desde core-service) ---
@@ -31,6 +35,42 @@ export class UpsertProfileDto {
   @IsOptional() @IsNumber() lat?: number;
   @IsOptional() @IsNumber() lng?: number;
   @IsOptional() @IsString() businessType?: string;
+}
+
+/**
+ * Datos con los que el dueño da de alta su escaparate desde el panel.
+ *
+ * No lleva `businessId`: el de `UpsertProfileDto` viene en el cuerpo porque
+ * quien llama es otro servicio, pero en una ruta con usuario detrás el negocio
+ * lo dice el token, o un dueño podría escribir el perfil de otro.
+ */
+export class CrearPerfilDto {
+  @IsString() @Length(2, 120) name!: string;
+
+  /**
+   * Enlace público del negocio. Es opcional porque, si no lo elige, se deriva
+   * del nombre; lo que no se hace es corregirle en silencio el que sí escribió.
+   */
+  @IsOptional()
+  @IsString()
+  @Length(3, 100)
+  @Matches(/^[a-z0-9]+(-[a-z0-9]+)*$/, {
+    message: "El enlace solo admite minúsculas, números y guiones",
+  })
+  slug?: string;
+
+  @IsIn(VALORES_TIPO_DE_NEGOCIO, { message: "Tipo de negocio no reconocido" })
+  businessType!: string;
+
+  @IsOptional() @IsString() description?: string;
+  @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsEmail() email?: string;
+  @IsOptional() @IsString() address?: string;
+  @IsOptional() @IsString() city?: string;
+  @IsOptional() @IsString() state?: string;
+  @IsOptional() @IsString() country?: string;
+  @IsOptional() @IsNumber() lat?: number;
+  @IsOptional() @IsNumber() lng?: number;
 }
 
 // --- Configuracion del perfil inmersivo ---

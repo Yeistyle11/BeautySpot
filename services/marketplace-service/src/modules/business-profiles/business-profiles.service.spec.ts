@@ -6,7 +6,11 @@ import { BusinessProfilesService } from "./business-profiles.service";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
 import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
-import { NotFoundException, BadRequestException } from "@nestjs/common";
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from "@nestjs/common";
 
 describe("BusinessProfilesService", () => {
   let service: BusinessProfilesService;
@@ -58,6 +62,7 @@ describe("BusinessProfilesService", () => {
     mockRepo = {
       findOne: jest.fn(),
       find: jest.fn(),
+      countBy: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
       update: jest.fn(),
@@ -589,6 +594,125 @@ describe("BusinessProfilesService", () => {
       const result = await service.createOrUpdate(rich);
 
       expect(result.profileCompleteness).toBeGreaterThan(80);
+    });
+  });
+
+  describe("crearParaNegocio", () => {
+    const alta = { name: "Barbería La Noche", businessType: "BARBERIA" };
+
+    /** Deja el repositorio como una base vacía: ni perfil ni enlace ocupados. */
+    function sinNadaCreado() {
+      (mockRepo.findOne as jest.Mock).mockResolvedValue(null);
+      (mockRepo.countBy as jest.Mock).mockResolvedValue(0);
+      (mockRepo.create as jest.Mock).mockImplementation((d) => d);
+      (mockRepo.save as jest.Mock).mockImplementation(async (d) => d);
+      mockProfessionalService.findVisibleByBusiness.mockResolvedValue([]);
+    }
+
+    it("deriva el enlace del nombre cuando el dueño no elige ninguno", async () => {
+      sinNadaCreado();
+
+      const perfil = await service.crearParaNegocio("business-123", alta);
+
+      expect(perfil.slug).toBe("barberia-la-noche");
+      expect(perfil.businessId).toBe("business-123");
+    });
+
+    it("respeta el enlace que escribe el dueño", async () => {
+      sinNadaCreado();
+
+      const perfil = await service.crearParaNegocio("business-123", {
+        ...alta,
+        slug: "la-noche",
+      });
+
+      expect(perfil.slug).toBe("la-noche");
+    });
+
+    it("numera el enlace derivado si el primero está tomado", async () => {
+      sinNadaCreado();
+      (mockRepo.countBy as jest.Mock)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValue(0);
+
+      const perfil = await service.crearParaNegocio("business-123", alta);
+
+      expect(perfil.slug).toBe("barberia-la-noche-2");
+    });
+
+    // El enlace escrito a mano puede estar ya repartido: cambiarlo en silencio
+    // rompería lo que el dueño repartió, así que se le devuelve la decisión.
+    it("rechaza el enlace escrito si ya está en uso", async () => {
+      sinNadaCreado();
+      (mockRepo.countBy as jest.Mock).mockResolvedValue(1);
+
+      await expect(
+        service.crearParaNegocio("business-123", { ...alta, slug: "la-noche" })
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it("rechaza el alta si el negocio ya tiene perfil", async () => {
+      (mockRepo.findOne as jest.Mock).mockResolvedValue(mockBusinessProfile);
+
+      await expect(
+        service.crearParaNegocio("business-123", alta)
+      ).rejects.toThrow(ConflictException);
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("pide un enlace a mano si el nombre no da ninguno", async () => {
+      sinNadaCreado();
+
+      await expect(
+        service.crearParaNegocio("business-123", { ...alta, name: "%%%" })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    // Las comprobaciones previas no son atómicas: la segunda alta simultánea
+    // llega hasta el índice único, y debe salir como conflicto y no como un 500.
+    it("traduce el choque de índice único del negocio", async () => {
+      sinNadaCreado();
+      (mockRepo.save as jest.Mock).mockRejectedValue({
+        code: "23505",
+        constraint: "uq_business_profiles_negocio",
+      });
+
+      await expect(
+        service.crearParaNegocio("business-123", alta)
+      ).rejects.toThrow("Este negocio ya tiene perfil en el marketplace");
+    });
+
+    it("traduce el choque de índice único del enlace", async () => {
+      sinNadaCreado();
+      // El nombre es el de la restricción de slug que crea InitialSchema.
+      (mockRepo.save as jest.Mock).mockRejectedValue({
+        code: "23505",
+        constraint: "UQ_5f66561947eba2379b1cff44370",
+      });
+
+      await expect(
+        service.crearParaNegocio("business-123", alta)
+      ).rejects.toThrow("Ese enlace ya está en uso, elige otro");
+    });
+
+    it("no propaga como conflicto un error que no sea de unicidad", async () => {
+      sinNadaCreado();
+      (mockRepo.save as jest.Mock).mockRejectedValue(new Error("conexión"));
+
+      await expect(
+        service.crearParaNegocio("business-123", alta)
+      ).rejects.toThrow("conexión");
+    });
+
+    // Publicar es una decisión aparte, con su propio botón: el alta solo deja
+    // el escaparate montado.
+    it("nace sin publicar y con las secciones por defecto", async () => {
+      sinNadaCreado();
+
+      const perfil = await service.crearParaNegocio("business-123", alta);
+
+      expect(perfil.isPublished).toBeFalsy();
+      expect(perfil.sectionConfig?.sections).toHaveLength(6);
     });
   });
 });

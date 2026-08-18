@@ -14,17 +14,22 @@ import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
+import { EmptyState } from "@/components/ui/empty-state";
+import { isNotFoundError } from "@/lib/api-error";
+import { canDo } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { OverviewTab } from "./overview-tab";
 import { emptyGalleryForm, type GalleryForm } from "./add-image-dialog";
 import {
   defaultSections,
   emptyConfigForm,
+  emptyCreateForm,
   profileSchema,
   PROFILE_KEY,
   reorderSections,
   reviewSchema,
   type ConfigForm,
+  type CreateForm,
   type GalleryImage,
   type Profile,
   type Review,
@@ -48,6 +53,9 @@ const ReviewsTab = dynamic(() =>
 const AddImageDialog = dynamic(
   () => import("./add-image-dialog").then((m) => m.AddImageDialog),
   { ssr: false }
+);
+const CreateProfileCard = dynamic(() =>
+  import("./create-profile-card").then((m) => m.CreateProfileCard)
 );
 
 const TAB_LABELS: Record<string, string> = {
@@ -123,6 +131,43 @@ export default function MarketplacePage() {
   const [galleryForm, setGalleryForm] = useState<GalleryForm>(emptyGalleryForm);
   const [reviewDrafts, setReviewDrafts] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState("overview");
+  const [creando, setCreando] = useState(false);
+
+  // Un 404 aqui no es un fallo: es un negocio que todavia no se ha publicado.
+  const sinPerfil = isNotFoundError(profileError);
+
+  // Los datos del negocio rellenan el alta, y solo se piden cuando hace falta
+  // rellenarla.
+  const { data: negocio } = useApi<{
+    name?: string;
+    description?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    city?: string;
+    businessType?: string;
+  }>(sinPerfil && businessId ? `/core/businesses/${businessId}` : null);
+
+  const crearPerfil = async (form: CreateForm) => {
+    try {
+      await api.post("/marketplace/business-profiles", {
+        name: form.name,
+        slug: form.slug,
+        businessType: form.businessType,
+        description: form.description || undefined,
+        phone: form.phone || undefined,
+        email: form.email || undefined,
+        address: form.address || undefined,
+        city: form.city || undefined,
+      });
+      await mutateProfile();
+      setCreando(false);
+      toast.exito("Ya tienes perfil público; publícalo cuando quieras");
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    }
+  };
 
   const saveConfig = async () => {
     setSaving("config");
@@ -249,14 +294,16 @@ export default function MarketplacePage() {
     );
   }
 
-  if (profileError) {
+  // Que el perfil no exista y que no se haya podido cargar son dos cosas
+  // distintas: de la primera se sale creandolo, y reintentar no la arregla.
+  if (profileError && !sinPerfil) {
     return (
       <div>
         <h1 className="text-2xl font-bold">Marketplace</h1>
         <div className="mt-4">
           <ErrorDeCarga
             error={profileError}
-            recurso="los datos del perfil publico"
+            recurso="los datos del perfil público"
             onReintentar={() => mutateProfile()}
           />
         </div>
@@ -264,20 +311,47 @@ export default function MarketplacePage() {
     );
   }
 
-  if (!profile) {
+  if (sinPerfil || !profile) {
+    const puedeCrear = canDo(role, "marketplace_edit");
     return (
       <div>
         <h1 className="text-2xl font-bold">Marketplace</h1>
-        <Card className="mt-4 border-0 shadow-sm">
-          <CardContent className="p-8 text-center">
-            <Megaphone className="mx-auto h-12 w-12 opacity-20" />
-            <p className="mt-2 font-medium">Perfil no disponible</p>
-            <p className="text-muted-foreground text-sm">
-              Primero configura tu negocio en la seccion de Configuración para
-              activar tu perfil en el marketplace.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="mt-4">
+          {creando ? (
+            <CreateProfileCard
+              inicial={{
+                ...emptyCreateForm,
+                name: negocio?.name ?? "",
+                description: negocio?.description ?? "",
+                phone: negocio?.phone ?? "",
+                email: negocio?.email ?? "",
+                address: negocio?.address ?? "",
+                city: negocio?.city ?? "",
+                businessType:
+                  negocio?.businessType ?? emptyCreateForm.businessType,
+              }}
+              onCrear={crearPerfil}
+              onCancelar={() => setCreando(false)}
+            />
+          ) : (
+            <EmptyState
+              icon={Megaphone}
+              titulo="Todavía no tienes perfil público"
+              descripcion={
+                puedeCrear
+                  ? "Crea tu ficha para aparecer en el marketplace y recibir reservas."
+                  : "Cuando el dueño del negocio cree la ficha, aparecerá aquí."
+              }
+              accion={
+                puedeCrear ? (
+                  <Button onClick={() => setCreando(true)}>
+                    <Megaphone className="mr-2 h-4 w-4" /> Crear perfil público
+                  </Button>
+                ) : undefined
+              }
+            />
+          )}
+        </div>
       </div>
     );
   }

@@ -2,11 +2,12 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ReviewStatus } from "../../entities/review.entity";
 import { Repository, EntityManager } from "typeorm";
-import { escapeLikePattern } from "@beautyspot/shared-utils";
+import { escapeLikePattern, generateSlug } from "@beautyspot/shared-utils";
 import {
   BusinessProfileEntity,
   SectionConfig,
@@ -14,6 +15,7 @@ import {
 import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
 import {
   UpsertProfileDto,
+  CrearPerfilDto,
   UpdateProfileConfigDto,
   AddGalleryImagesDto,
   UpdateGalleryImageDto,
@@ -41,6 +43,25 @@ const DEFAULT_SECTIONS: SectionConfig[] = [
   { id: "reviews", enabled: true, order: 5 },
   { id: "location", enabled: true, order: 6 },
 ];
+
+/**
+ * Sufijos que se prueban cuando el enlace derivado del nombre ya está tomado.
+ *
+ * Acotado porque el bucle consulta la base en cada intento: si veinte no bastan,
+ * el nombre es tan común que conviene que el dueño elija el enlace a mano.
+ */
+const INTENTOS_DE_ENLACE = 20;
+
+/** Detecta la violación de índice único de Postgres (SQLSTATE 23505). */
+function esViolacionDeUnicidad(
+  error: unknown
+): error is { code: string; constraint?: string } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: string }).code === "23505"
+  );
+}
 
 /**
  * Gestiona el perfil público de un negocio en el marketplace: sincronización
@@ -79,6 +100,84 @@ export class BusinessProfilesService {
     });
     profile.profileCompleteness = await this.calculateCompleteness(profile);
     return this.guardar(profile);
+  }
+
+  // --- Alta desde el panel ---
+
+  /**
+   * Da de alta el escaparate del negocio, en borrador.
+   *
+   * No lo publica: el dueño repasa su ficha y pulsa «Publicar» cuando quiera
+   * salir en la portada, que es donde vive esa decisión.
+   */
+  async crearParaNegocio(
+    businessId: string,
+    dto: CrearPerfilDto
+  ): Promise<BusinessProfileEntity> {
+    const existente = await this.repo.findOne({ where: { businessId } });
+    if (existente) {
+      throw new ConflictException(
+        "Este negocio ya tiene perfil en el marketplace"
+      );
+    }
+
+    const slug = await this.resolverEnlace(dto.name, dto.slug);
+
+    try {
+      return await this.createOrUpdate({ ...dto, businessId, slug });
+    } catch (error) {
+      // Las comprobaciones de arriba no son atómicas: dos altas a la vez pasan
+      // las dos y la que pierde llega aquí. El mensaje distingue cuál de las dos
+      // unicidades saltó, porque el dueño solo puede hacer algo con una.
+      if (esViolacionDeUnicidad(error)) {
+        throw new ConflictException(
+          error.constraint === "uq_business_profiles_negocio"
+            ? "Este negocio ya tiene perfil en el marketplace"
+            : "Ese enlace ya está en uso, elige otro"
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Enlace público con el que nace el perfil.
+   *
+   * El que escribe el dueño se respeta o se rechaza, nunca se retoca: puede que
+   * ya lo haya repartido. El que derivamos del nombre sí se numera al chocar,
+   * porque no lo eligió él.
+   */
+  private async resolverEnlace(
+    nombre: string,
+    pedido?: string
+  ): Promise<string> {
+    if (pedido) {
+      if (await this.enlaceTomado(pedido)) {
+        throw new ConflictException("Ese enlace ya está en uso, elige otro");
+      }
+      return pedido;
+    }
+
+    const base = generateSlug(nombre);
+    if (!base) {
+      throw new BadRequestException(
+        "El nombre no sirve para formar un enlace, escribe uno"
+      );
+    }
+
+    for (let intento = 1; intento <= INTENTOS_DE_ENLACE; intento++) {
+      const candidato = intento === 1 ? base : `${base}-${intento}`;
+      if (!(await this.enlaceTomado(candidato))) return candidato;
+    }
+
+    throw new ConflictException(
+      "No encontramos un enlace libre para ese nombre, elige uno"
+    );
+  }
+
+  /** Indica si ya hay un perfil con ese enlace. */
+  private async enlaceTomado(slug: string): Promise<boolean> {
+    return (await this.repo.countBy({ slug })) > 0;
   }
 
   // --- Lectura publica ---

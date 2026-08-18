@@ -16,13 +16,7 @@ import { useAuthStore } from "@/lib/store";
 import { logger } from "@/lib/logger";
 import { mensajeDeError } from "@/lib/error-message";
 import { useToast } from "@/components/ui/toast";
-
-const TIPOS_DE_NEGOCIO = [
-  { value: "BARBERIA", label: "Barberia" },
-  { value: "SALON", label: "Salon de belleza" },
-  { value: "SPA", label: "Spa" },
-  { value: "BELLEZA", label: "Centro estetico" },
-];
+import { TIPOS_DE_NEGOCIO } from "@beautyspot/shared-constants";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -105,8 +99,8 @@ export default function OnboardingPage() {
                   onChange={(e) => set({ businessType: e.target.value })}
                 >
                   {TIPOS_DE_NEGOCIO.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
+                    <option key={t.valor} value={t.valor}>
+                      {t.etiqueta}
                     </option>
                   ))}
                 </Select>

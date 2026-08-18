@@ -151,3 +151,42 @@ export const CONTRASENAS_PROHIBIDAS = [
   "beautyspot",
   "administrador",
 ];
+
+/**
+ * Tipos de negocio que admite la plataforma.
+ *
+ * Vive aquí, y no en cada pantalla, porque el alta, el filtro del marketplace y
+ * la etiqueta de la tarjeta tienen que hablar del mismo catálogo: un tipo que se
+ * pueda elegir al crear el negocio pero que no sea categoría del feed deja al
+ * local fuera de todos los filtros, sin que nadie lo note.
+ *
+ * `etiqueta` nombra un negocio (formularios, tarjeta) y `categoria` nombra al
+ * conjunto (los filtros de la portada); `icono` es la clave con la que el
+ * frontend elige el dibujo.
+ */
+export const TIPOS_DE_NEGOCIO = [
+  {
+    valor: "BARBERIA",
+    etiqueta: "Barbería",
+    categoria: "Barberías",
+    icono: "scissors",
+  },
+  {
+    valor: "SALON",
+    etiqueta: "Salón de belleza",
+    categoria: "Salones de belleza",
+    icono: "mirror",
+  },
+  { valor: "SPA", etiqueta: "Spa", categoria: "Spas", icono: "spa" },
+  {
+    valor: "BELLEZA",
+    etiqueta: "Centro estético",
+    categoria: "Centros estéticos",
+    icono: "sparkles",
+  },
+] as const;
+
+/** Valores válidos de tipo de negocio, para validar lo que llega por la API. */
+export const VALORES_TIPO_DE_NEGOCIO: string[] = TIPOS_DE_NEGOCIO.map(
+  (t) => t.valor
+);

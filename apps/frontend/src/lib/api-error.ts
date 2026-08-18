@@ -30,3 +30,11 @@ export function isApiError(err: unknown): err is ApiError {
 export function isAuthError(err: unknown): boolean {
   return isApiError(err) && (err.status === 401 || err.status === 403);
 }
+
+/**
+ * 404: lo que se pide no existe. Reintentar no lo crea, así que quien llama
+ * suele querer ofrecer crearlo en vez de un botón de "Reintentar".
+ */
+export function isNotFoundError(err: unknown): boolean {
+  return isApiError(err) && err.status === 404;
+}

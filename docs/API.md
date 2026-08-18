@@ -651,6 +651,7 @@ Perfiles públicos, búsqueda, feed y reseñas. Base de datos `beautyspot_market
 
 | Método | Ruta              | Roles        | Descripción                 |
 | ------ | ----------------- | ------------ | --------------------------- |
+| POST   | `/`               | OWNER, ADMIN | Da de alta el perfil        |
 | GET    | `/`               | OWNER, ADMIN | Perfil del negocio propio   |
 | PUT    | `/config`         | OWNER, ADMIN | Actualiza la configuración  |
 | POST   | `/gallery`        | OWNER, ADMIN | Añade imágenes a la galería |
@@ -658,6 +659,14 @@ Perfiles públicos, búsqueda, feed y reseñas. Base de datos `beautyspot_market
 | DELETE | `/gallery/:index` | OWNER, ADMIN | Quita una imagen            |
 | POST   | `/publish`        | OWNER, ADMIN | Publica el perfil           |
 | POST   | `/unpublish`      | OWNER, ADMIN | Lo retira del marketplace   |
+
+`POST /` es por donde el negocio entra en el marketplace, y es el que usa el
+panel; `/internal/business-profiles/sync` queda para la sincronización entre
+servicios, que por eso recibe el negocio en el cuerpo y no del token. El alta no
+publica: el perfil nace en borrador y sale a la portada cuando el dueño pulsa
+`POST /publish`. El enlace público se deriva del nombre si no se manda, numerando
+al chocar; el que llega escrito se respeta o se rechaza con 409, porque puede
+estar ya repartido. También responde 409 si el negocio ya tiene perfil.
 
 ### Perfiles públicos — `/api/v1/marketplace/profiles`
 
