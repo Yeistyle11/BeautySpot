@@ -248,7 +248,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {kpiData?.last30Days && (
+      {kpiData?.periodo && (
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4">
@@ -256,7 +256,7 @@ export default function DashboardPage() {
                 <TrendingUp className="h-4 w-4" /> Ingresos 30 días
               </div>
               <p className="mt-1 text-xl font-bold">
-                {formatCurrency(kpiData.last30Days.totalRevenue)}
+                {formatCurrency(kpiData.periodo.totalRevenue)}
               </p>
             </CardContent>
           </Card>
@@ -266,7 +266,7 @@ export default function DashboardPage() {
                 <Calendar className="h-4 w-4" /> Citas 30 días
               </div>
               <p className="mt-1 text-xl font-bold">
-                {kpiData.last30Days.totalAppointments}
+                {kpiData.periodo.totalAppointments}
               </p>
             </CardContent>
           </Card>
@@ -276,7 +276,7 @@ export default function DashboardPage() {
                 <CheckCircle className="h-4 w-4" /> Tasa completado
               </div>
               <p className="mt-1 text-xl font-bold">
-                {kpiData.last30Days.completionRate.toFixed(1)}%
+                {kpiData.periodo.completionRate.toFixed(1)}%
               </p>
             </CardContent>
           </Card>
@@ -286,7 +286,7 @@ export default function DashboardPage() {
                 <Users className="h-4 w-4" /> Clientes nuevos
               </div>
               <p className="mt-1 text-xl font-bold">
-                {kpiData.last30Days.newClients}
+                {kpiData.periodo.newClients}
               </p>
             </CardContent>
           </Card>

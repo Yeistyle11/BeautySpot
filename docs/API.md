@@ -747,11 +747,27 @@ controladores exigen **SUPER_ADMIN, OWNER o ADMIN**.
 
 | Método | Ruta                 | Descripción                                      |
 | ------ | -------------------- | ------------------------------------------------ |
-| GET    | `/kpis`              | KPIs principales                                 |
-| GET    | `/top-professionals` | Ranking de profesionales                         |
-| GET    | `/revenue-chart`     | Serie de ingresos para la gráfica                |
+| GET    | `/kpis`              | KPIs del periodo, con el anterior si se compara  |
+| GET    | `/top-professionals` | Ranking de profesionales del periodo             |
+| GET    | `/revenue-chart`     | Serie de ingresos para la gráfica (`days`)       |
 | GET    | `/retencion`         | Tasa de retorno y frecuencia de visita           |
 | GET    | `/servicios`         | Rentabilidad e ingreso por hora de cada servicio |
+
+`/kpis`, `/top-professionals` y `/servicios` aceptan el periodo en `from` y `to`
+(días de calendario `AAAA-MM-DD`, ambos extremos incluidos). Van juntos: mandar
+solo uno es un 400, y un periodo invertido también —darle la vuelta devolvería
+cifras de un periodo que nadie pidió—. Sin periodo son los últimos treinta días,
+hoy incluido, que es lo que consume el panel de inicio.
+
+`/kpis?comparar=true` añade `comparado` con las mismas cifras del periodo
+inmediatamente anterior y de la misma duración. Se cuenta en días y no en meses:
+comparar febrero contra enero mediría el calendario y no el negocio.
+
+La respuesta de `/kpis` trae `today` con los contadores del día y `periodo` con
+los agregados del rango, incluido el `dias` que abarca —es el divisor del
+promedio diario, y por eso viaja—. `/retencion` **no** se acota al periodo: el
+retorno se mide sobre toda la vida del cliente, porque quien vuelve cada cuatro
+meses no cabe en una semana.
 
 ### Métricas — `/api/v1/analytics/metrics`
 
@@ -771,6 +787,12 @@ controladores exigen **SUPER_ADMIN, OWNER o ADMIN**.
 | GET    | `/revenue`       | Informe de ingresos     |
 | GET    | `/professionals` | Informe por profesional |
 | GET    | `/appointments`  | Informe de citas        |
+
+Los tres exigen `from` y `to`. `/professionals` devuelve un identificador por
+fila y ninguna cifra de nombre: analytics no guarda los nombres del equipo, que
+son del core y pueden cambiar, así que quien pinte la tabla los resuelve contra
+`GET /core/professionals`. Un profesional dado de baja sigue apareciendo, porque
+su trabajo cuenta en el periodo.
 
 ---
 

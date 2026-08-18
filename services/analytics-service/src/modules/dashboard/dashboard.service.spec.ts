@@ -103,14 +103,14 @@ describe("DashboardService", () => {
         totalRevenue: 500000,
         completedAppointments: 8,
       });
-      expect(result.last30Days.totalRevenue).toBe(1100000);
-      expect(result.last30Days.totalAppointments).toBe(22);
-      expect(result.last30Days.completionRate).toBe(82);
-      expect(result.last30Days.cancellationRate).toBe(9);
-      expect(result.last30Days.noShowRate).toBe(9);
+      expect(result.periodo.totalRevenue).toBe(1100000);
+      expect(result.periodo.totalAppointments).toBe(22);
+      expect(result.periodo.completionRate).toBe(82);
+      expect(result.periodo.cancellationRate).toBe(9);
+      expect(result.periodo.noShowRate).toBe(9);
       // El promedio se reparte entre los 30 días del periodo, no entre los que
       // tuvieron movimiento: 1.100.000 / 30.
-      expect(result.last30Days.avgDailyRevenue).toBe(36667);
+      expect(result.periodo.avgDailyRevenue).toBe(36667);
     });
 
     // Con la hora del proceso —UTC en producción— esa franja ya cae en la
@@ -154,8 +154,8 @@ describe("DashboardService", () => {
         totalRevenue: 0,
         completedAppointments: 0,
       });
-      expect(result.last30Days.totalRevenue).toBe(0);
-      expect(result.last30Days.completionRate).toBe(0);
+      expect(result.periodo.totalRevenue).toBe(0);
+      expect(result.periodo.completionRate).toBe(0);
     });
 
     it("debería calcular tasas correctamente cuando no hay citas", async () => {
@@ -174,9 +174,9 @@ describe("DashboardService", () => {
 
       const result = await service.getKPIs("business-123");
 
-      expect(result.last30Days.completionRate).toBe(0);
-      expect(result.last30Days.cancellationRate).toBe(0);
-      expect(result.last30Days.noShowRate).toBe(0);
+      expect(result.periodo.completionRate).toBe(0);
+      expect(result.periodo.cancellationRate).toBe(0);
+      expect(result.periodo.noShowRate).toBe(0);
     });
   });
 
@@ -291,7 +291,7 @@ describe("DashboardService", () => {
       );
       mockDailyRepo.findOne.mockResolvedValue(null);
 
-      expect((await service.getKPIs("business-123")).last30Days.avgTicket).toBe(
+      expect((await service.getKPIs("business-123")).periodo.avgTicket).toBe(
         50000
       );
     });
@@ -310,7 +310,7 @@ describe("DashboardService", () => {
       );
       mockDailyRepo.findOne.mockResolvedValue(null);
 
-      expect((await service.getKPIs("business-123")).last30Days.avgTicket).toBe(
+      expect((await service.getKPIs("business-123")).periodo.avgTicket).toBe(
         500000
       );
     });
@@ -333,8 +333,8 @@ describe("DashboardService", () => {
 
       const kpis = await service.getKPIs("business-123");
 
-      expect(kpis.last30Days.totalRevenue).toBe(576000);
-      expect(kpis.last30Days.avgTicket).toBe(37500);
+      expect(kpis.periodo.totalRevenue).toBe(576000);
+      expect(kpis.periodo.avgTicket).toBe(37500);
     });
 
     // Un cero se lee como "este negocio no vende"; que no haya cobros es otra
@@ -351,7 +351,7 @@ describe("DashboardService", () => {
       mockDailyRepo.findOne.mockResolvedValue(null);
 
       expect(
-        (await service.getKPIs("business-123")).last30Days.avgTicket
+        (await service.getKPIs("business-123")).periodo.avgTicket
       ).toBeNull();
     });
 
@@ -366,7 +366,7 @@ describe("DashboardService", () => {
 
       const kpis = await service.getKPIs("business-123");
 
-      expect(kpis.last30Days.ocupacion).toBe(25);
+      expect(kpis.periodo.ocupacion).toBe(25);
     });
 
     it("sin capacidad materializada la ocupación es cero", async () => {
@@ -377,7 +377,7 @@ describe("DashboardService", () => {
 
       const kpis = await service.getKPIs("business-123");
 
-      expect(kpis.last30Days.ocupacion).toBe(0);
+      expect(kpis.periodo.ocupacion).toBe(0);
     });
   });
 
@@ -453,6 +453,103 @@ describe("DashboardService", () => {
       const filas = await service.getRentabilidadPorServicio("business-123");
 
       expect(filas[0].ingresoPorHora).toBe(0);
+    });
+  });
+
+  describe("getKPIs sobre un periodo pedido", () => {
+    /** Deja el agregado devolviendo esos ingresos y captura el constructor. */
+    function conIngresos(totalRevenue: string) {
+      const qb = buildQueryBuilder({ totalRevenue, ventas: "0" });
+      (mockDailyRepo.createQueryBuilder as any).mockReturnValue(qb);
+      mockDailyRepo.findOne.mockResolvedValue(null as any);
+      return qb;
+    }
+
+    it("agrega sobre el periodo que se le pide", async () => {
+      const qb = conIngresos("900000");
+
+      const result = await service.getKPIs("business-123", {
+        from: "2026-08-01",
+        to: "2026-08-31",
+      });
+
+      expect(qb.andWhere).toHaveBeenCalledWith("m.date BETWEEN :from AND :to", {
+        from: "2026-08-01",
+        to: "2026-08-31",
+      });
+      expect(result.periodo.from).toBe("2026-08-01");
+      expect(result.periodo.to).toBe("2026-08-31");
+    });
+
+    // El promedio diario se reparte entre los días del periodo pedido, sean los
+    // que sean: agosto tiene 31 y febrero 28, y la cifra tiene que decirlo.
+    it("reparte el promedio entre los días que abarca el periodo", async () => {
+      conIngresos("900000");
+
+      const agosto = await service.getKPIs("business-123", {
+        from: "2026-08-01",
+        to: "2026-08-31",
+      });
+
+      expect(agosto.periodo.dias).toBe(31);
+      expect(agosto.periodo.avgDailyRevenue).toBe(Math.round(900000 / 31));
+    });
+
+    it("cuenta un solo día cuando el periodo es un día", async () => {
+      conIngresos("50000");
+
+      const result = await service.getKPIs("business-123", {
+        from: "2026-08-17",
+        to: "2026-08-17",
+      });
+
+      expect(result.periodo.dias).toBe(1);
+      expect(result.periodo.avgDailyRevenue).toBe(50000);
+    });
+
+    it("no compara si no se lo piden", async () => {
+      conIngresos("900000");
+
+      const result = await service.getKPIs("business-123", {
+        from: "2026-08-01",
+        to: "2026-08-31",
+      });
+
+      expect(result.comparado).toBeNull();
+    });
+
+    // El periodo anterior tiene la misma duración y acaba justo antes: comparar
+    // febrero contra enero mediría el calendario, no el negocio.
+    it("compara contra el periodo anterior de la misma duración", async () => {
+      conIngresos("900000");
+
+      const result = await service.getKPIs(
+        "business-123",
+        { from: "2026-08-01", to: "2026-08-31" },
+        true
+      );
+
+      expect(result.comparado).toMatchObject({
+        from: "2026-07-01",
+        to: "2026-07-31",
+        dias: 31,
+      });
+    });
+
+    it("compara la semana contra la semana anterior", async () => {
+      conIngresos("100000");
+
+      const result = await service.getKPIs(
+        "business-123",
+        { from: "2026-08-10", to: "2026-08-16" },
+        true
+      );
+
+      expect(result.comparado).toMatchObject({
+        from: "2026-08-03",
+        to: "2026-08-09",
+        dias: 7,
+      });
     });
   });
 });

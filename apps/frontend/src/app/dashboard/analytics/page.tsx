@@ -1,49 +1,147 @@
 "use client";
 
-// Pagina de reportes: KPIs del negocio (ingresos, clientes, citas) leidos del analytics-service.
+// Pagina de reportes: cifras del negocio sobre el periodo elegido, comparadas
+// con el periodo anterior y exportables.
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { z } from "zod";
-import { TrendingUp, Users, Calendar, Gauge, Scissors } from "lucide-react";
+import {
+  Calendar,
+  Download,
+  Gauge,
+  Scissors,
+  TrendingUp,
+  Users,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import {
+  periodoValido,
+  resolverPeriodo,
+  PERIODO_POR_DEFECTO,
+  type Periodo,
+  type PeriodoId,
+} from "@/lib/periodo";
+import {
   kpiDataSchema,
-  KPIS_KEY,
+  kpisKey,
+  profesionalesKey,
   rentabilidadSchema,
+  reporteProfesionalesSchema,
   retencionSchema,
+  serviciosKey,
   RETENCION_KEY,
-  SERVICIOS_KEY,
   type KpiData,
   type Rentabilidad,
+  type ReporteProfesionales,
   type Retencion,
 } from "@/lib/schemas/kpis";
+import { PeriodPicker } from "./period-picker";
+import { MetricRow } from "./metric-row";
+import {
+  filasDeProfesionales,
+  ProfessionalsTable,
+} from "./professionals-table";
+import {
+  exportarProfesionales,
+  exportarResumen,
+  exportarServicios,
+} from "./export";
+
+/** Lo que hace falta del equipo para poner nombre a cada fila del reporte. */
+const profesionalRefSchema = z.object({ id: z.string(), name: z.string() });
 
 export default function AnalyticsPage() {
+  const [seleccionado, setSeleccionado] =
+    useState<PeriodoId>(PERIODO_POR_DEFECTO);
+  const [personalizado, setPersonalizado] = useState<Periodo>(() =>
+    resolverPeriodo("personalizado")
+  );
+
+  const periodo =
+    seleccionado === "personalizado"
+      ? personalizado
+      : resolverPeriodo(seleccionado);
+
+  // Un periodo al reves no se consulta: se avisa y se espera a que lo corrija.
+  const consultable = periodoValido(periodo);
+
   const {
     data,
     isLoading: loading,
     error: loadError,
     mutate: recargar,
-  } = useApi<KpiData>(KPIS_KEY, undefined, kpiDataSchema);
+  } = useApi<KpiData>(
+    consultable ? kpisKey(periodo) : null,
+    undefined,
+    kpiDataSchema
+  );
   const { data: retencion } = useApi<Retencion>(
     RETENCION_KEY,
     undefined,
     retencionSchema
   );
   const { data: servicios } = useApi<Rentabilidad[]>(
-    SERVICIOS_KEY,
+    consultable ? serviciosKey(periodo) : null,
     undefined,
     z.array(rentabilidadSchema)
+  );
+  const { data: reporte } = useApi<ReporteProfesionales>(
+    consultable ? profesionalesKey(periodo) : null,
+    undefined,
+    reporteProfesionalesSchema
+  );
+  const { data: equipo } = useApi(
+    "/core/professionals",
+    undefined,
+    z.array(profesionalRefSchema)
+  );
+
+  const filasDeEquipo = useMemo(
+    () => filasDeProfesionales(reporte, equipo),
+    [reporte, equipo]
   );
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Reportes</h1>
-        <p className="text-muted-foreground">Análisis de tu negocio</p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Reportes</h1>
+          <p className="text-muted-foreground">
+            {consultable
+              ? `Del ${periodo.from} al ${periodo.to}`
+              : "Elige un periodo"}
+          </p>
+        </div>
+        {data && (
+          <Button
+            variant="outline"
+            onClick={() =>
+              exportarResumen(periodo, data.periodo, data.comparado)
+            }
+          >
+            <Download className="mr-2 h-4 w-4" /> Exportar resumen
+          </Button>
+        )}
       </div>
+
+      <div className="mb-6">
+        <PeriodPicker
+          seleccionado={seleccionado}
+          periodo={periodo}
+          onSeleccionar={(id) => {
+            // Al pasar a personalizado se parte del periodo que ya se veia, en
+            // vez de vaciar los campos y dejar la pantalla sin cifras.
+            if (id === "personalizado") setPersonalizado(periodo);
+            setSeleccionado(id);
+          }}
+          onPersonalizar={setPersonalizado}
+        />
+      </div>
+
       {loading ? (
         <p className="text-muted-foreground">Cargando...</p>
       ) : data ? (
@@ -52,36 +150,46 @@ export default function AnalyticsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Calendar className="h-5 w-5" />
-                Últimos 30 días
+                Citas
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total citas</span>
-                <span className="font-semibold">
-                  {data.last30Days.totalAppointments}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Completadas</span>
-                <span className="text-success font-semibold">
-                  {data.last30Days.completedAppointments}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Canceladas</span>
-                <span className="font-semibold text-red-600">
-                  {data.last30Days.cancelledAppointments}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">No asistieron</span>
-                <span className="font-semibold text-amber-600">
-                  {data.last30Days.noShowAppointments}
-                </span>
-              </div>
+              <MetricRow
+                etiqueta="Total citas"
+                valor={data.periodo.totalAppointments}
+                actual={data.periodo.totalAppointments}
+                anterior={data.comparado?.totalAppointments}
+              />
+              <MetricRow
+                etiqueta="Completadas"
+                valor={data.periodo.completedAppointments}
+                actual={data.periodo.completedAppointments}
+                anterior={data.comparado?.completedAppointments}
+                className="text-success"
+              />
+              {/*
+                En cancelaciones y ausencias, bajar es la buena noticia: pintar
+                de rojo toda caida diria lo contrario de lo que paso.
+              */}
+              <MetricRow
+                etiqueta="Canceladas"
+                valor={data.periodo.cancelledAppointments}
+                actual={data.periodo.cancelledAppointments}
+                anterior={data.comparado?.cancelledAppointments}
+                bajarEsBueno
+                className="text-red-600"
+              />
+              <MetricRow
+                etiqueta="No asistieron"
+                valor={data.periodo.noShowAppointments}
+                actual={data.periodo.noShowAppointments}
+                anterior={data.comparado?.noShowAppointments}
+                bajarEsBueno
+                className="text-amber-600"
+              />
             </CardContent>
           </Card>
+
           <Card className="border-0 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -90,34 +198,33 @@ export default function AnalyticsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total 30 días</span>
-                <span className="font-semibold">
-                  {formatCurrency(data.last30Days.totalRevenue)}
-                </span>
-              </div>
+              <MetricRow
+                etiqueta="Total del periodo"
+                valor={formatCurrency(data.periodo.totalRevenue)}
+                actual={data.periodo.totalRevenue}
+                anterior={data.comparado?.totalRevenue}
+              />
               {/*
-                Reparte el total entre los 30 días del periodo, no entre los
-                que tuvieron movimiento: un negocio que abrió ayer leería su
-                única jornada como si fuera su media, y el nombre lo dice para
-                que nadie lo confunda con "lo que gano al día".
+                Reparte el total entre los dias del periodo, no entre los que
+                tuvieron movimiento: un negocio que abrio ayer leeria su unica
+                jornada como si fuera su media, y el nombre lo dice para que
+                nadie lo confunda con "lo que gano al dia".
               */}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Promedio por día del periodo
-                </span>
-                <span className="font-semibold">
-                  {formatCurrency(data.last30Days.avgDailyRevenue)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Tasa completado</span>
-                <span className="font-semibold">
-                  {data.last30Days.completionRate.toFixed(1)}%
-                </span>
-              </div>
+              <MetricRow
+                etiqueta={`Promedio por día (${data.periodo.dias})`}
+                valor={formatCurrency(data.periodo.avgDailyRevenue)}
+                actual={data.periodo.avgDailyRevenue}
+                anterior={data.comparado?.avgDailyRevenue}
+              />
+              <MetricRow
+                etiqueta="Tasa completado"
+                valor={`${data.periodo.completionRate}%`}
+                actual={data.periodo.completionRate}
+                anterior={data.comparado?.completionRate}
+              />
             </CardContent>
           </Card>
+
           <Card className="border-0 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -128,40 +235,37 @@ export default function AnalyticsPage() {
             <CardContent className="space-y-3">
               {/*
                 Un cliente cuenta como nuevo al venir por primera vez, no al
-                darlo de alta: una ficha creada y sin visita todavía no es un
+                darlo de alta: una ficha creada y sin visita todavia no es un
                 cliente captado, y el nombre lo dice para que un cero no se lea
-                como que la métrica está rota.
+                como que la metrica esta rota.
               */}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Nuevos (primera visita)
-                </span>
-                <span className="font-semibold">
-                  {data.last30Days.newClients}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Recurrentes</span>
-                <span className="font-semibold">
-                  {data.last30Days.returningClients}
-                </span>
-              </div>
+              <MetricRow
+                etiqueta="Nuevos (primera visita)"
+                valor={data.periodo.newClients}
+                actual={data.periodo.newClients}
+                anterior={data.comparado?.newClients}
+              />
+              <MetricRow
+                etiqueta="Recurrentes"
+                valor={data.periodo.returningClients}
+                actual={data.periodo.returningClients}
+                anterior={data.comparado?.returningClients}
+              />
+              {/*
+                Retorno y frecuencia salen de toda la vida del cliente, no del
+                periodo: quien vuelve cada cuatro meses no cabe en una semana, y
+                acotarlo diria que nadie repite.
+              */}
               {retencion && (
                 <>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Tasa de retorno
-                    </span>
-                    <span className="font-semibold">
-                      {retencion.tasaDeRetorno}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Vuelven cada</span>
-                    <span className="font-semibold">
-                      {retencion.diasEntreVisitas} días
-                    </span>
-                  </div>
+                  <MetricRow
+                    etiqueta="Tasa de retorno (histórico)"
+                    valor={`${retencion.tasaDeRetorno}%`}
+                  />
+                  <MetricRow
+                    etiqueta="Vuelven cada (histórico)"
+                    valor={`${retencion.diasEntreVisitas} días`}
+                  />
                 </>
               )}
             </CardContent>
@@ -175,35 +279,57 @@ export default function AnalyticsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Ticket medio</span>
-                {/*
-                  Sin cobros en el periodo no hay ticket que promediar, y un
-                  cero ahí se lee como que el negocio no vende.
-                */}
-                <span className="font-semibold">
-                  {data.last30Days.avgTicket == null
+              {/*
+                Sin cobros en el periodo no hay ticket que promediar, y un cero
+                ahi se lee como que el negocio no vende.
+              */}
+              <MetricRow
+                etiqueta="Ticket medio"
+                valor={
+                  data.periodo.avgTicket == null
                     ? "Sin cobros aún"
-                    : formatCurrency(data.last30Days.avgTicket)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Ocupación de agenda
-                </span>
-                <span className="font-semibold">
-                  {data.last30Days.ocupacion ?? 0}%
-                </span>
-              </div>
+                    : formatCurrency(data.periodo.avgTicket)
+                }
+                actual={data.periodo.avgTicket}
+                anterior={data.comparado?.avgTicket}
+              />
+              <MetricRow
+                etiqueta="Ocupación de agenda"
+                valor={`${data.periodo.ocupacion ?? 0}%`}
+                actual={data.periodo.ocupacion}
+                anterior={data.comparado?.ocupacion}
+              />
             </CardContent>
           </Card>
 
+          <ProfessionalsTable filas={filasDeEquipo} />
+          {filasDeEquipo.length > 0 && (
+            <div className="-mt-4 lg:col-span-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportarProfesionales(periodo, filasDeEquipo)}
+              >
+                <Download className="mr-2 h-4 w-4" /> Exportar profesionales
+              </Button>
+            </div>
+          )}
+
           <Card className="border-0 shadow-sm lg:col-span-2">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Scissors className="h-5 w-5" />
                 Rentabilidad por servicio
               </CardTitle>
+              {(servicios ?? []).length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportarServicios(periodo, servicios ?? [])}
+                >
+                  <Download className="mr-2 h-4 w-4" /> Exportar
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               {(servicios ?? []).length === 0 ? (
