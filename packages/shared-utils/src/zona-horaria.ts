@@ -11,6 +11,29 @@ export function esHoraValida(hora: string): boolean {
   return PATRON_HORA.test(hora);
 }
 
+/** Formato de un día de calendario `YYYY-MM-DD`. */
+export const PATRON_FECHA = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Indica si el texto es un día que existe en el calendario.
+ *
+ * La forma no basta: `2027-02-29` y `2026-04-31` tienen los ocho dígitos y los
+ * dos guiones, pero no son fechas. Colarlas produce una `Date` inválida que no
+ * lanza, y a partir de ahí toda comparación con ella responde `false` en
+ * silencio, así que quien la reciba dirá cualquier cosa menos la verdad.
+ *
+ * Se comprueba reconstruyendo el texto desde el `Date` en UTC: si el día se
+ * desbordó al mes siguiente, lo reconstruido no coincide con lo que entró.
+ */
+export function esFechaValida(fecha: string): boolean {
+  if (!PATRON_FECHA.test(fecha)) return false;
+
+  const instante = new Date(`${fecha}T00:00:00Z`);
+  if (Number.isNaN(instante.getTime())) return false;
+
+  return instante.toISOString().slice(0, 10) === fecha;
+}
+
 /**
  * Formato de una hora de cierre `HH:mm`, de 00:00 a 24:00.
  *

@@ -10,14 +10,34 @@ import {
   Matches,
   ValidateIf,
   MaxLength,
+  Validate,
+  ValidatorConstraint,
 } from "class-validator";
+import type { ValidatorConstraintInterface } from "class-validator";
 import {
   PATRON_TELEFONO,
   MENSAJE_TELEFONO,
 } from "@beautyspot/shared-constants";
+import { PATRON_FECHA, esFechaValida } from "@beautyspot/shared-utils";
 
-/** Fecha de calendario, que es como viaja la fecha de nacimiento. */
-const PATRON_FECHA = /^\d{4}-\d{2}-\d{2}$/;
+/**
+ * Un nacimiento en un día que no existe.
+ *
+ * Se comprueba aparte del formato porque `2026-02-30` tiene los ocho dígitos y
+ * los dos guiones: el patrón lo deja pasar y lo rechaza Postgres al guardarlo,
+ * que es un 500 en vez de un "corrige la fecha".
+ */
+@ValidatorConstraint({ name: "esDiaDeNacimiento" })
+class EsDiaDeNacimiento implements ValidatorConstraintInterface {
+  validate(valor: unknown): boolean {
+    if (typeof valor !== "string" || !PATRON_FECHA.test(valor)) return true;
+    return esFechaValida(valor);
+  }
+
+  defaultMessage(): string {
+    return "Esa fecha de nacimiento no existe en el calendario";
+  }
+}
 
 /**
  * Datos para registrar un cliente: nombre, contacto, notas y etiquetas.
@@ -55,6 +75,7 @@ export class CreateClientDto {
   @Matches(PATRON_FECHA, {
     message: "La fecha de nacimiento debe tener el formato AAAA-MM-DD",
   })
+  @Validate(EsDiaDeNacimiento)
   birthDate?: string | null;
   @IsOptional() @IsString() userId?: string;
   @IsOptional() @IsArray() tags?: string[];
@@ -122,6 +143,7 @@ export class UpdateClientDto {
   @Matches(PATRON_FECHA, {
     message: "La fecha de nacimiento debe tener el formato AAAA-MM-DD",
   })
+  @Validate(EsDiaDeNacimiento)
   birthDate?: string | null;
   @IsOptional() @IsArray() tags?: string[];
   /**

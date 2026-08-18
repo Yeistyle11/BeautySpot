@@ -3,6 +3,7 @@ import {
   diaSiguiente,
   esFechaPasadaEn,
   esHoraDeCierreValida,
+  esFechaValida,
   esHoraValida,
   esInstantePasadoEn,
   fechaDeHoyEn,
@@ -172,4 +173,33 @@ describe("esHoraDeCierreValida", () => {
   ])("rechaza %s", (hora) => {
     expect(esHoraDeCierreValida(hora)).toBe(false);
   });
+});
+
+describe("esFechaValida", () => {
+  it.each(["2026-08-17", "2026-01-01", "2026-12-31", "2024-02-29"])(
+    "acepta %s",
+    (fecha) => {
+      expect(esFechaValida(fecha)).toBe(true);
+    }
+  );
+
+  // Todas tienen los ocho digitos y los dos guiones, y ninguna existe: es el
+  // dato que se colaba hasta reventar el servicio o mentir sobre el motivo.
+  it.each([
+    "2027-02-29",
+    "2026-02-30",
+    "2026-04-31",
+    "2026-13-01",
+    "2026-00-10",
+    "2026-01-00",
+  ])("rechaza %s, que no existe en el calendario", (fecha) => {
+    expect(esFechaValida(fecha)).toBe(false);
+  });
+
+  it.each(["2026-8-13", "13-08-2026", "2026/08/13", "", "hoy"])(
+    "rechaza %s, que ni siquiera tiene la forma",
+    (fecha) => {
+      expect(esFechaValida(fecha)).toBe(false);
+    }
+  );
 });
