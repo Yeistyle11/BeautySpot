@@ -72,7 +72,15 @@ describe("Integración: el arqueo de caja cuadra", () => {
     movimientos = dataSource.getRepository(CashMovementEntity);
     const outbox = new OutboxService();
 
-    caja = new CashRegisterService(sesiones, movimientos, dataSource, outbox);
+    caja = new CashRegisterService(
+      sesiones,
+      movimientos,
+      dataSource,
+      outbox,
+      // El nombre del cliente es un dato de apoyo del listado: sin core, los
+      // movimientos salen igual, solo que sin nombre.
+      { pedirONulo: jest.fn().mockResolvedValue(null) } as never
+    );
     pagos = new PaymentsService(
       dataSource.getRepository(PaymentEntity),
       dataSource,

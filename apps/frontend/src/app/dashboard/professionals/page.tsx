@@ -18,6 +18,7 @@ import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { ProCard } from "./pro-card";
+import Link from "next/link";
 import {
   categorySchema,
   DAYS_MAP,
@@ -298,6 +299,26 @@ export default function ProfessionalsPage() {
         )}
       </div>
 
+      {/*
+        Sin categorias dadas de alta, lo que sale en las fichas es texto suelto:
+        se ve igual que una categoria y no clasifica nada. La pantalla no decia
+        donde se crean.
+      */}
+      {!loading && categories.length === 0 && professionals.length > 0 && (
+        <div className="bg-muted/40 text-muted-foreground mb-4 flex flex-wrap items-center gap-2 rounded-lg p-3 text-sm">
+          <span>
+            Todavía no has creado categorías de profesional, así que las
+            etiquetas del equipo no clasifican nada.
+          </span>
+          <Link
+            href="/dashboard/categories"
+            className="text-primary font-medium underline-offset-4 hover:underline"
+          >
+            Crear categorías
+          </Link>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-muted-foreground">Cargando...</p>
       ) : loadError ? (
@@ -368,19 +389,19 @@ export default function ProfessionalsPage() {
         }}
         onConfirm={handleDelete}
         title="Inactivar profesional"
-        confirmLabel="Si, inactivar"
+        confirmLabel="Sí, inactivar"
         variant="destructive"
         error={
           deleteError &&
           `${deleteError} Si tiene citas pendientes o confirmadas, debes cancelarlas o reasignarlas antes de inactivarlo.`
         }
       >
-        Estas seguro de inactivar a{" "}
+        ¿Estás seguro de inactivar a{" "}
         <strong>
           {professionals.find((p) => p.id === deleteConfirm)?.name}
         </strong>
-        ? Quedara marcado como inactivo; si tiene citas pendientes, la accion
-        sera rechazada.
+        ? Quedará marcado como inactivo; si tiene citas pendientes, la acción
+        será rechazada.
       </ConfirmDialog>
 
       <ScheduleDialog

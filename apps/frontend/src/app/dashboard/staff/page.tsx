@@ -312,14 +312,14 @@ export default function StaffPage() {
         {confirmMember && (
           <>
             <p className="mb-2">
-              Estas seguro de {confirmMember.active ? "desactivar" : "activar"}{" "}
+              ¿Estás seguro de {confirmMember.active ? "desactivar" : "activar"}{" "}
               la cuenta de <strong>{confirmMember.name}</strong>?
             </p>
             <ul className="list-disc space-y-1 pl-4 text-xs">
               <li>
                 La cuenta de usuario{" "}
                 {confirmMember.active
-                  ? "no podra iniciar sesión"
+                  ? "no podrá iniciar sesión"
                   : "podra iniciar sesión nuevamente"}
                 .
               </li>

@@ -5,7 +5,9 @@ import { useState, useMemo } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { CategoryBadge } from "@/components/ui/category-badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Scissors, Plus, Clock, Edit, Trash2, Tag } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
@@ -194,6 +196,27 @@ export default function ServicesPage() {
         )}
       </div>
 
+      {/*
+        Sin taxonomia no hay nada por lo que filtrar, y la pantalla no daba
+        ninguna pista de que las categorias se crean en otro sitio: el dueno ve
+        etiquetas puestas, no puede filtrar por ellas y no sabe que hacer.
+      */}
+      {!loading && categoryNames.length === 0 && services.length > 0 && (
+        <div className="bg-muted/40 text-muted-foreground mb-4 flex flex-wrap items-center gap-2 rounded-lg p-3 text-sm">
+          <Tag className="h-4 w-4 shrink-0" />
+          <span>
+            Todavía no has creado categorías, así que no se puede filtrar el
+            catálogo.
+          </span>
+          <Link
+            href="/dashboard/service-categories"
+            className="text-primary font-medium underline-offset-4 hover:underline"
+          >
+            Crear categorías
+          </Link>
+        </div>
+      )}
+
       {chips.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <Tag className="text-muted-foreground h-4 w-4" />
@@ -265,11 +288,11 @@ export default function ServicesPage() {
                     </div>
                     <div>
                       <p className="font-semibold">{s.name}</p>
-                      {s.category && (
-                        <Badge variant="secondary" className="mt-1">
-                          {s.category}
-                        </Badge>
-                      )}
+                      <CategoryBadge
+                        nombre={s.category ?? ""}
+                        delCatalogo={categoryNames.includes(s.category ?? "")}
+                        className="mt-1"
+                      />
                     </div>
                   </div>
                   <div className="flex items-center gap-1">

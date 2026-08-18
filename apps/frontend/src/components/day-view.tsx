@@ -265,7 +265,9 @@ export function DayView({
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
-        <span className="ml-2 text-sm font-medium capitalize">{etiqueta}</span>
+        <span className="ml-2 text-sm font-medium first-letter:uppercase">
+          {etiqueta}
+        </span>
       </div>
 
       {columnas.length === 0 ? (
@@ -430,7 +432,7 @@ export function DayView({
                       variant="outline"
                       onClick={() => onNoShow(selectedAppt.id)}
                     >
-                      No asistio
+                      No asistió
                     </Button>
                   </>
                 )}

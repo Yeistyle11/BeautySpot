@@ -441,6 +441,7 @@ Controlador `@Public()`: sin token. Alimenta el marketplace y la reserva públic
 | GET    | `/internal/clients/:id/puntos`      | Puntos disponibles, para quien vaya a canjearlos      |
 | GET    | `/internal/clients/by-user/:userId` | Fichas del usuario, una por negocio donde reservó     |
 | GET    | `/internal/clients/search`          | Ids que casan con un texto (búsqueda de citas)        |
+| GET    | `/internal/clients/names`           | Nombre de los clientes pedidos, acotado al negocio    |
 | GET    | `/internal/profiles/resolve`        | Resuelve perfiles                                     |
 | GET    | `/internal/branches`                | Sedes activas del negocio                             |
 | GET    | `/internal/business-hours`          | Horario de apertura; lo consume la agenda             |
@@ -808,7 +809,12 @@ su trabajo cuenta en el periodo.
 > cubre en `proxy.controller.spec.ts`.
 
 El gateway también aplica **rate limiting** con Redis, configurable con
-`RATE_LIMIT_AUTH_MAX` y `RATE_LIMIT_GENERAL_MAX`.
+`RATE_LIMIT_AUTH_MAX` y `RATE_LIMIT_GENERAL_MAX`. Toda respuesta lleva
+`RateLimit-Limit`, `RateLimit-Remaining` y `RateLimit-Reset` —los segundos que le
+quedan a la ventana—, de modo que una integración sepa cuánto le falta antes de
+chocar en vez de descubrirlo reintentando. El 429 añade `Retry-After` con esos
+mismos segundos, y su mensaje los nombra: "Demasiados intentos. Espera 42
+segundos y vuelve a intentarlo."
 
 ---
 

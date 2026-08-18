@@ -247,7 +247,7 @@ export function CalendarView({
                       variant="outline"
                       onClick={() => onNoShow(selectedAppt.id)}
                     >
-                      No asistio
+                      No asistió
                     </Button>
                   </>
                 )}

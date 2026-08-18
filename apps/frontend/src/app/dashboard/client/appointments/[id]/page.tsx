@@ -284,7 +284,7 @@ export default function AppointmentDetailPage() {
       >
         <div className="space-y-4">
           <p className="text-muted-foreground text-sm">
-            Estas seguro de que deseas cancelar esta cita? Esta accion no se
+            ¿Estás seguro de que deseas cancelar esta cita? Esta acción no se
             puede deshacer.
           </p>
           <div className="flex justify-end gap-3">

@@ -69,7 +69,7 @@ const APPOINTMENT_STATUS: Record<AppointmentStatus, StatusInfo> = {
       "bg-red-200 border-red-400 text-red-900 dark:bg-red-900 dark:border-red-700 dark:text-red-100",
   },
   NO_SHOW: {
-    label: "No asistio",
+    label: "No asistió",
     variant: "muted",
     calendarColor:
       "bg-gray-200 border-gray-400 text-gray-700 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200",

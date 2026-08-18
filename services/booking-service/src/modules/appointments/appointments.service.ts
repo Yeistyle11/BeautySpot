@@ -261,7 +261,7 @@ export class AppointmentsService {
     );
     if (!available) {
       throw new BadRequestException(
-        "El horario seleccionado no esta disponible"
+        "El horario seleccionado no está disponible"
       );
     }
 
@@ -634,7 +634,7 @@ export class AppointmentsService {
       reparto
     );
     if (!available)
-      throw new BadRequestException("El nuevo horario no esta disponible");
+      throw new BadRequestException("El nuevo horario no está disponible");
 
     // Pre-check de conflicto (UX) excluyendo la propia cita
     if (

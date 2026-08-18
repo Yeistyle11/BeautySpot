@@ -49,6 +49,19 @@ const TRANSICIONES_DE_PAGO: Record<PaymentStatus, PaymentStatus[]> = {
   [PaymentStatus.CANCELLED]: [],
 };
 
+/**
+ * Qué se vendió, para el listado de movimientos de caja.
+ *
+ * Antes se anotaba el identificador del pago, que es un dato interno y no dice
+ * nada a quien repasa la caja al cerrar. Se nombra lo vendido y no a quien lo
+ * compró: el cliente se resuelve al leer, de modo que una ficha suprimida deje
+ * de aparecer también aquí.
+ */
+export function conceptoDelCobro(servicios?: ServicioDeLaCita[]): string {
+  const nombres = (servicios ?? []).map((s) => s.name).filter(Boolean);
+  return nombres.length > 0 ? nombres.join(", ") : "Venta en mostrador";
+}
+
 /** Detecta la violación de índice único de Postgres (SQLSTATE 23505). */
 function esViolacionDeUnicidad(error: unknown): boolean {
   return (
@@ -150,7 +163,12 @@ export class PaymentsService {
         .getRepository(PaymentEntity)
         .save(payment);
 
-      await this.registrarEntradaEnCaja(manager, businessId, savedPayment);
+      await this.registrarEntradaEnCaja(
+        manager,
+        businessId,
+        savedPayment,
+        services
+      );
 
       await this.outbox.enqueue(manager, {
         eventType: EventNames.PAYMENT_PAYMENT_REGISTERED,
@@ -294,7 +312,8 @@ export class PaymentsService {
   private async registrarEntradaEnCaja(
     manager: EntityManager,
     businessId: string,
-    payment: PaymentEntity
+    payment: PaymentEntity,
+    services?: ServicioDeLaCita[]
   ): Promise<void> {
     const session = await this.cajaAbierta(
       manager,
@@ -310,7 +329,7 @@ export class PaymentsService {
         cashSessionId: session.id,
         type: CashMovementType.IN,
         amount: Number(payment.amount),
-        concept: `Pago ${payment.id}`,
+        concept: conceptoDelCobro(services),
         method: payment.method,
         paymentId: payment.id,
         registeredBy: payment.registeredBy,

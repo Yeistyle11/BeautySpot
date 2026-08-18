@@ -32,12 +32,7 @@ export const dailySummarySchema = z.object({
 });
 export type DailySummary = z.infer<typeof dailySummarySchema>;
 
-export const METHOD_LABELS: Record<string, string> = {
-  CASH: "Efectivo",
-  CARD: "Tarjeta",
-  TRANSFER: "Transferencia",
-  OTHER: "Otro",
-};
+export { ETIQUETAS_DE_METODO as METHOD_LABELS } from "@/lib/metodos-de-pago";
 
 export const METHOD_FILTERS = ["all", "CASH", "CARD", "TRANSFER"];
 

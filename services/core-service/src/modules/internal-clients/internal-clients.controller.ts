@@ -1,6 +1,6 @@
 import { Controller, Post, Get, Body, Param, Query } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { ILike, Repository } from "typeorm";
+import { ILike, In, Repository } from "typeorm";
 import {
   escapeLikePattern,
   normalizarEmail,
@@ -38,6 +38,32 @@ export class InternalClientsController {
       select: ["id", "loyaltyPoints"],
     });
     return cliente ? { loyaltyPoints: cliente.loyaltyPoints } : null;
+  }
+
+  /**
+   * Nombre de los clientes pedidos, acotado al negocio.
+   *
+   * Se resuelve en cada lectura y no se copia a quien pregunta: una ficha
+   * anonimizada por derecho de supresión deja de tener nombre, y una copia
+   * guardada en otro servicio seguiría enseñándolo.
+   */
+  @Get("names")
+  async names(
+    @Query("businessId") businessId: string,
+    @Query("ids") ids?: string
+  ): Promise<{ id: string; name: string }[]> {
+    const pedidos = (ids ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .slice(0, MAXIMO_CLIENTES_BUSCADOS);
+
+    if (!businessId || pedidos.length === 0) return [];
+
+    return this.clientRepo.find({
+      where: { businessId, id: In(pedidos) },
+      select: { id: true, name: true },
+    });
   }
 
   /** Lista los clientes vinculados a un usuario, uno por cada negocio donde reservó. */

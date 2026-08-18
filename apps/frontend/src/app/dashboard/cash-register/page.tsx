@@ -327,7 +327,13 @@ export default function CashRegisterPage() {
                         )}
                         <div>
                           <p className="text-sm font-medium">{m.concept}</p>
+                          {/*
+                            Este es el listado que se repasa cuando la caja no
+                            cuadra: sin saber de quien es cada entrada no se
+                            puede cruzar con nada.
+                          */}
                           <p className="text-muted-foreground text-xs">
+                            {m.clientName ? `${m.clientName} · ` : ""}
                             {formatTimeStamp(m.createdAt)}
                           </p>
                         </div>
@@ -413,7 +419,7 @@ export default function CashRegisterPage() {
         <div className="space-y-4">
           <Field
             label="Monto inicial (COP)"
-            hint="Dejar en 0 si la caja arranca vacia"
+            hint="Dejar en 0 si la caja arranca vacía"
           >
             <Input
               type="number"

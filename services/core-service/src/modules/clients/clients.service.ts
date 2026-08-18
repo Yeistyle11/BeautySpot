@@ -118,7 +118,7 @@ export class ClientsService extends TenantCrudService<Client> {
     const existente = await this.buscarPorContacto(businessId, contacto);
     if (existente) {
       throw new ConflictException(
-        `Ya existe un cliente con ese ${existente.email === contacto.email ? "correo" : "telefono"}: ${existente.name}`
+        `Ya existe un cliente con ese ${existente.email === contacto.email ? "correo" : "teléfono"}: ${existente.name}`
       );
     }
   }

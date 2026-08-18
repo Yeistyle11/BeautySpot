@@ -27,7 +27,7 @@ const LOCATION_FIELDS: { key: keyof BusinessData; label: string }[] = [
   { key: "address", label: "Dirección" },
   { key: "city", label: "Ciudad" },
   { key: "state", label: "Departamento" },
-  { key: "country", label: "Pais" },
+  { key: "country", label: "País" },
 ];
 
 const IMAGE_FIELDS: { key: keyof BusinessData; label: string }[] = [

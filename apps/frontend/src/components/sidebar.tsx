@@ -84,7 +84,7 @@ export function Sidebar() {
         <button
           onClick={() => setOpen(true)}
           className="hover:bg-accent rounded-lg p-2 transition-colors"
-          aria-label="Abrir menu de navegacion"
+          aria-label="Abrir menú de navegación"
           aria-expanded={open}
           aria-controls="sidebar-nav"
         >
@@ -124,7 +124,7 @@ export function Sidebar() {
           <button
             onClick={() => setOpen(false)}
             className="hover:bg-accent rounded-lg p-1 transition-colors lg:hidden"
-            aria-label="Cerrar menu de navegacion"
+            aria-label="Cerrar menú de navegación"
           >
             <X className="h-4 w-4" />
           </button>

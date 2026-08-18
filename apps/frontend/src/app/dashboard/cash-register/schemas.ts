@@ -21,6 +21,11 @@ export const cashMovementSchema = z.object({
   type: z.enum(["IN", "OUT"]),
   amount: z.number(),
   concept: z.string(),
+  /**
+   * Cliente del cobro, resuelto por el backend al leer. Falta en lo que se
+   * anota a mano y en las fichas suprimidas por derecho de supresión.
+   */
+  clientName: z.string().nullish(),
   createdAt: z.string(),
 });
 export type CashMovement = z.infer<typeof cashMovementSchema>;

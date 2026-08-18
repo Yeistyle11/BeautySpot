@@ -1,7 +1,7 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository, DataSource } from "typeorm";
-import { PaymentsService } from "./payments.service";
+import { PaymentsService, conceptoDelCobro } from "./payments.service";
 import { PaymentEntity } from "./payment.entity";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import {
@@ -835,5 +835,29 @@ describe("PaymentsService", () => {
       ).rejects.toThrow(BadRequestException);
       expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("conceptoDelCobro", () => {
+  // El identificador del pago es un dato interno y no dice nada a quien repasa
+  // la caja al cerrar; el movimiento tiene que nombrar lo que se vendio.
+  it("nombra los servicios cobrados", () => {
+    expect(
+      conceptoDelCobro([
+        { serviceId: "s-1", name: "Corte clásico" },
+        { serviceId: "s-2", name: "Barba" },
+      ] as never)
+    ).toBe("Corte clásico, Barba");
+  });
+
+  it("nombra la venta suelta cuando no hay cita detrás", () => {
+    expect(conceptoDelCobro(undefined)).toBe("Venta en mostrador");
+    expect(conceptoDelCobro([])).toBe("Venta en mostrador");
+  });
+
+  it("no deja un concepto vacío si los servicios llegan sin nombre", () => {
+    expect(conceptoDelCobro([{ serviceId: "s-1", name: "" }] as never)).toBe(
+      "Venta en mostrador"
+    );
   });
 });

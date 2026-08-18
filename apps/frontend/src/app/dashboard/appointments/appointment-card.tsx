@@ -52,7 +52,7 @@ export const AppointmentCard = memo(function AppointmentCard({
     .map((s) => s.serviceName)
     .join(", ");
   // El servidor rechaza cerrar una cita que aun no ha empezado, asi que
-  // "Completar" y "No asistio" solo aparecen cuando ya ha llegado su hora.
+  // "Completar" y "No asistió" solo aparecen cuando ya ha llegado su hora.
   const yaEmpezo = haComenzado(appointment.date, appointment.startTime);
 
   return (
@@ -110,7 +110,7 @@ export const AppointmentCard = memo(function AppointmentCard({
                 variant="outline"
                 onClick={() => onNoShow(appointment.id)}
               >
-                No asistio
+                No asistió
               </Button>
             )}
             {ANULABLES.includes(appointment.status) && canCancel && (
