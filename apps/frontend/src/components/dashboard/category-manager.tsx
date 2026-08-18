@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useDeferredValue, type ComponentType } from "react";
+import { mensajeDeError } from "@/lib/error-message";
 import { mutate } from "swr";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,6 @@ import { useAuthStore } from "@/lib/store";
 import { canDo, type ACTIONS } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
-import { getErrorMessage } from "@/lib/utils";
 import { CategoryCard } from "./category-card";
 import { CategoryFormDialog, type CategoryForm } from "./category-form-dialog";
 
@@ -149,7 +149,7 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
       await mutate(queryKey);
     } catch (err) {
       logger.error(err);
-      setCreateError(getErrorMessage(err, "No se pudo crear la categoría"));
+      setCreateError(mensajeDeError(err, "No se pudo crear la categoría"));
     } finally {
       setSavingCreate(false);
     }
@@ -181,7 +181,7 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
       await mutate(queryKey);
     } catch (err) {
       logger.error(err);
-      setEditError(getErrorMessage(err, "No se pudo guardar la categoría"));
+      setEditError(mensajeDeError(err, "No se pudo guardar la categoría"));
     } finally {
       setSavingEdit(false);
     }
@@ -195,7 +195,7 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
     } catch (err) {
       logger.error(err);
       setToggleError(
-        getErrorMessage(err, "No se pudo cambiar el estado de la categoría")
+        mensajeDeError(err, "No se pudo cambiar el estado de la categoría")
       );
     }
   };
@@ -210,9 +210,7 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
       await mutate(queryKey);
     } catch (err) {
       logger.error(err);
-      setDeleteError(
-        getErrorMessage(err, "No se pudo desactivar la categoría")
-      );
+      setDeleteError(mensajeDeError(err, "No se pudo desactivar la categoría"));
     } finally {
       setDeleting(false);
     }

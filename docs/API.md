@@ -94,6 +94,15 @@ Authorization: Bearer <access_token>
   sensible (rol, negocio, vencimiento) para hidratar la sesión en el cliente. El
   manejo del `401` se centraliza en `apps/frontend/src/lib/api.ts`, que ante un
   token vencido dispara una única renovación compartida y reintenta.
+- Las tres cookies **viven lo que la sesión de refresco**, no lo que el access
+  token. Lo que caduca a los 15 minutos es el token, que es lo que el gateway
+  valida en cada petición; la cookie solo lo transporta. Igualarlas hacía que el
+  navegador la borrara al caducar el token, y entonces el guard del panel no
+  veía ni un token vencido: mandaba a login a los 15 minutos con la sesión
+  válida durante días.
+- Una renovación **rechazada borra las tres cookies**. Mientras la pista de
+  sesión siguiera puesta, el guard anunciaría una sesión renovable y devolvería
+  al panel a quien acaba de ser rechazado.
 
 Las sesiones se pueden invalidar de forma inmediata en todos los servicios: el
 `tokenVersion` del usuario vive en Redis como fuente de verdad (ver

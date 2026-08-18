@@ -2,6 +2,7 @@
 
 // Pagina de agenda: lista y calendario de citas, con busqueda, paginacion y acciones de crear/confirmar/cancelar/completar.
 import { useState, useMemo, useCallback } from "react";
+import { mensajeDeError } from "@/lib/error-message";
 import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,13 +24,12 @@ import {
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
-import { getErrorMessage, toLocalDateKey } from "@/lib/utils";
+import { toLocalDateKey } from "@/lib/utils";
 import { useApi, paginatedSchema, revalidatePrefix } from "@/lib/swr";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { usePaginatedList } from "@/lib/use-paginated-list";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
-import { mensajeDeError } from "@/lib/error-message";
 import { AppointmentForm } from "./appointment-form";
 import { AppointmentCard } from "./appointment-card";
 import { BlockedSlotFormDialog } from "../blocked-slots/blocked-slot-form-dialog";
@@ -360,7 +360,7 @@ export default function AppointmentsPage() {
       setAsignaciones({});
       await revalidatePrefix(APPOINTMENTS_KEY);
     } catch (err) {
-      setError(getErrorMessage(err, "Error al crear la cita"));
+      setError(mensajeDeError(err, "Error al crear la cita"));
     } finally {
       setSubmitting(false);
     }

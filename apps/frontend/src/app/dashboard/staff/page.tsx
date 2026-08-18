@@ -2,6 +2,7 @@
 
 // Pagina de usuarios: gestion de miembros del equipo (alta, edicion, baja y exportacion).
 import { useMemo, useState, useDeferredValue } from "react";
+import { mensajeDeError } from "@/lib/error-message";
 import { mutate } from "swr";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,6 @@ import { Plus, Search, Users, UserCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
-import { getErrorMessage } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
 import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
@@ -129,7 +129,7 @@ export default function StaffPage() {
       setCreateForm(emptyCreateForm);
       await reload();
     } catch (err) {
-      setError(getErrorMessage(err, "Error al crear la cuenta"));
+      setError(mensajeDeError(err, "Error al crear la cuenta"));
     } finally {
       setSaving(false);
     }
@@ -165,7 +165,7 @@ export default function StaffPage() {
       setEditMember(null);
       await reload();
     } catch (err) {
-      setError(getErrorMessage(err, "Error al guardar los cambios"));
+      setError(mensajeDeError(err, "Error al guardar los cambios"));
       // Alguna de las llamadas puede haberse aplicado: se recargan los datos
       // para que la tabla refleje el estado real.
       await reload();
@@ -184,7 +184,7 @@ export default function StaffPage() {
       setConfirmId(null);
       await reload();
     } catch (err) {
-      logger.error(getErrorMessage(err));
+      logger.error(mensajeDeError(err));
     } finally {
       setSaving(false);
     }

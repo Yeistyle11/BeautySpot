@@ -24,9 +24,13 @@ function opcionesBase(configService: {
   };
 }
 
-/** Vida de cada cookie, en segundos, leída de la configuración del JWT. */
+/**
+ * Vida de las cookies de sesión, en segundos.
+ *
+ * Solo hay una: las tres duran lo que dura la sesión de refresco. Lo que caduca
+ * antes es el access token, y eso viaja dentro del propio token.
+ */
 export interface VidaSesion {
-  accessSegundos: number;
   refreshSegundos: number;
 }
 
@@ -40,10 +44,17 @@ export function fijarCookiesDeSesion(
 ): void {
   const base = opcionesBase(configService);
 
+  // La cookie vive lo que la sesión, no lo que el token que lleva dentro.
+  //
+  // Igualarlas hacía que el navegador la borrara justo al caducar el token, y
+  // entonces el guard del panel no veía ni un token caducado: mandaba a login a
+  // los quince minutos, con la sesión de refresco válida durante días. Lo que
+  // caduca a los quince minutos es el token, que es lo que el gateway valida en
+  // cada petición; la cookie solo lo transporta.
   res.cookie(ACCESS_COOKIE, tokens.accessToken, {
     ...base,
     path: "/",
-    maxAge: vida.accessSegundos * 1000,
+    maxAge: vida.refreshSegundos * 1000,
   });
 
   if (tokens.refreshToken) {

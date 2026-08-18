@@ -2,6 +2,7 @@
 
 // Pagina de configuracion: pestanas de cuenta, negocio y horarios.
 import { useEffect, useRef, useState } from "react";
+import { mensajeDeError } from "@/lib/error-message";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Building2, Clock, ClipboardList, Award } from "lucide-react";
@@ -11,8 +12,6 @@ import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
-import { mensajeDeError } from "@/lib/error-message";
-import { getErrorMessage } from "@/lib/utils";
 import { AccountTab } from "./account-tab";
 import { BusinessTab } from "./business-tab";
 import { HoursTab } from "./hours-tab";
@@ -183,7 +182,7 @@ export default function SettingsPage() {
       toast.error(mensajeDeError(err));
       setPasswordFeedback({
         type: "error",
-        message: getErrorMessage(err, "No se pudo actualizar la contraseña"),
+        message: mensajeDeError(err, "No se pudo actualizar la contraseña"),
       });
     } finally {
       setSaving(null);

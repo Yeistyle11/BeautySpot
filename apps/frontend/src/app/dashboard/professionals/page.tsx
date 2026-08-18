@@ -2,6 +2,7 @@
 
 // Pagina del equipo: lista de profesionales con alta, edicion, detalle, horario y baja.
 import { useState, useMemo, useCallback, useRef } from "react";
+import { mensajeDeError } from "@/lib/error-message";
 import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -10,12 +11,10 @@ import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
-import { getErrorMessage } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
 import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
-import { mensajeDeError } from "@/lib/error-message";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { ProCard } from "./pro-card";
 import Link from "next/link";
@@ -248,7 +247,7 @@ export default function ProfessionalsPage() {
       setDeleteError("");
     } catch (err) {
       setDeleteError(
-        getErrorMessage(err, "No se pudo inactivar el profesional")
+        mensajeDeError(err, "No se pudo inactivar el profesional")
       );
     }
   };

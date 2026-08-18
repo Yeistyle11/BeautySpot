@@ -111,10 +111,3 @@ export function formatTimeStamp(isoTimestamp: string): string {
 export function formatAniosExperiencia(anios: number): string {
   return `${anios} ${anios === 1 ? "año" : "años"} de experiencia`;
 }
-
-/** Extrae un mensaje legible de un error de tipo desconocido, con texto de reserva. */
-export function getErrorMessage(err: unknown, fallback = "Error"): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
-  return fallback;
-}

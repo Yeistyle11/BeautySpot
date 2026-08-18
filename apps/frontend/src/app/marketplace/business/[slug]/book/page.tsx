@@ -2,13 +2,13 @@
 
 // Flujo de reserva publica: asistente por pasos (servicios, profesional, horario y datos) hasta confirmar la cita.
 import { useEffect, useRef, useState, Suspense } from "react";
+import { mensajeDeError } from "@/lib/error-message";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { z } from "zod";
 import { apiPublic } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
-import { getErrorMessage } from "@/lib/utils";
 import { useApiPublic, revalidatePrefix } from "@/lib/swr";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import {
@@ -185,7 +185,7 @@ function PublicBookingPageInner() {
       setConfirmation(result);
       await revalidatePrefix("/booking/appointments");
     } catch (err) {
-      setError(getErrorMessage(err, "Error al crear la reserva"));
+      setError(mensajeDeError(err, "Error al crear la reserva"));
     } finally {
       setSubmitting(false);
     }

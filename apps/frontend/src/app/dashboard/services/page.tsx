@@ -2,6 +2,7 @@
 
 // Pagina de servicios: catalogo de servicios del negocio con alta, edicion y baja.
 import { useState, useMemo } from "react";
+import { mensajeDeError } from "@/lib/error-message";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,11 +18,9 @@ import { useApi } from "@/lib/swr";
 import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
-import { mensajeDeError } from "@/lib/error-message";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChip } from "@/components/ui/filter-chip";
-import { getErrorMessage } from "@/lib/utils";
 import { ServiceFormDialog } from "./service-form-dialog";
 import {
   CATEGORIES_KEY,
@@ -173,7 +172,7 @@ export default function ServicesPage() {
     } catch (err) {
       logger.error(err);
       toast.error(mensajeDeError(err));
-      setDeleteError(getErrorMessage(err, "No se pudo eliminar el servicio"));
+      setDeleteError(mensajeDeError(err, "No se pudo eliminar el servicio"));
     } finally {
       setDeleting(false);
     }

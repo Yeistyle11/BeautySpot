@@ -8,7 +8,6 @@ import {
   formatDateTime,
   formatDateTimeStamp,
   formatTimeStamp,
-  getErrorMessage,
   haComenzado,
 } from "../utils";
 
@@ -93,24 +92,6 @@ describe("formatTimeStamp", () => {
   it("formatea solo la hora de un timestamp ISO", () => {
     const result = formatTimeStamp("2026-03-15T14:30:00.000Z");
     expect(result).toMatch(/^\d{1,2}:\d{2}\s?(a\.?\s?m\.?|p\.?\s?m\.?)$/i);
-  });
-});
-
-describe("getErrorMessage", () => {
-  it("extrae el mensaje de un Error", () => {
-    expect(getErrorMessage(new Error("algo fallo"))).toBe("algo fallo");
-  });
-
-  it("devuelve el string directamente si el error es un string", () => {
-    expect(getErrorMessage("error crudo")).toBe("error crudo");
-  });
-
-  it("devuelve el fallback para tipos desconocidos", () => {
-    expect(getErrorMessage({ weird: true }, "fallback")).toBe("fallback");
-  });
-
-  it("usa 'Error' como fallback por defecto", () => {
-    expect(getErrorMessage(null)).toBe("Error");
   });
 });
 

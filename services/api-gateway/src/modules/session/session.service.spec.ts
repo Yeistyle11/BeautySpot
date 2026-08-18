@@ -209,4 +209,85 @@ describe("SessionService", () => {
       expect(service.cuerpoReenviado(req, cuerpo)).toBe(cuerpo);
     });
   });
+
+  describe("la cookie sobrevive al token que lleva dentro", () => {
+    const SIETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000;
+
+    /** Inicia sesión y devuelve las cookies que se escribieron. */
+    function trasIniciarSesion() {
+      const { res, cookies } = respuesta();
+      service.aplicarRespuesta(peticion("/auth/login"), res, {
+        accessToken: tokenCon({ role: "OWNER", exp: 1 }),
+        refreshToken: "refresh-1",
+      });
+      return cookies;
+    }
+
+    // Igualarlas hacía que el navegador borrara la cookie justo al caducar el
+    // token: el guard del panel no veía ni un token caducado y mandaba a login
+    // a los quince minutos, con la sesión válida durante días.
+    it("la cookie del access dura lo que la sesión, no lo que el token", () => {
+      expect(trasIniciarSesion()[ACCESS_COOKIE].opciones.maxAge).toBe(
+        SIETE_DIAS_MS
+      );
+    });
+
+    it("las tres cookies caducan a la vez", () => {
+      const cookies = trasIniciarSesion();
+
+      expect(cookies[REFRESH_COOKIE].opciones.maxAge).toBe(SIETE_DIAS_MS);
+      expect(cookies[SESSION_HINT_COOKIE].opciones.maxAge).toBe(SIETE_DIAS_MS);
+    });
+
+    it("el access sigue siendo httpOnly y de todo el sitio", () => {
+      const opciones = trasIniciarSesion()[ACCESS_COOKIE].opciones;
+
+      expect(opciones.httpOnly).toBe(true);
+      expect(opciones.path).toBe("/");
+    });
+  });
+
+  describe("una renovación rechazada cierra la sesión", () => {
+    // Mientras la pista siga puesta, el guard del navegador anuncia una sesión
+    // renovable y devuelve al panel a quien acaba de ser rechazado.
+    it("borra las cookies si la renovación no trae tokens", () => {
+      const { res, borradas } = respuesta();
+
+      service.aplicarRespuesta(peticion("/auth/refresh"), res, {
+        message: "Refresh token inválido",
+      });
+
+      expect(borradas).toEqual(
+        expect.arrayContaining([
+          ACCESS_COOKIE,
+          REFRESH_COOKIE,
+          SESSION_HINT_COOKIE,
+        ])
+      );
+    });
+
+    it("no las borra cuando la renovación sí trae tokens", () => {
+      const { res, borradas, cookies } = respuesta();
+
+      service.aplicarRespuesta(peticion("/auth/refresh"), res, {
+        accessToken: tokenCon({ role: "OWNER", exp: 1 }),
+        refreshToken: "refresh-2",
+      });
+
+      expect(borradas).toEqual([]);
+      expect(cookies[ACCESS_COOKIE]).toBeDefined();
+    });
+
+    // Un login fallido no tiene sesión que cerrar: borrar ahí echaría de la
+    // aplicación a quien ya estaba dentro y se equivocó al reautenticarse.
+    it("no toca las cookies si el que falla es un login", () => {
+      const { res, borradas } = respuesta();
+
+      service.aplicarRespuesta(peticion("/auth/login"), res, {
+        message: "Credenciales inválidas",
+      });
+
+      expect(borradas).toEqual([]);
+    });
+  });
 });
