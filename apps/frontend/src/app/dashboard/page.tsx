@@ -86,20 +86,26 @@ export default function DashboardPage() {
   const appointmentsKey = businessId
     ? `/booking/appointments?date=${today}`
     : null;
-  const clientsKey = businessId ? `/core/clients?limit=100` : null;
-
-  // Citas y clientes llegan paginados y `paginatedSchema` es el unico sitio
-  // donde se abre ese sobre. El catalogo de profesionales no pagina: lo acota el
-  // tamano del equipo y responde con la lista a secas.
+  // Las citas llegan paginadas y `paginatedSchema` es el unico sitio donde se
+  // abre ese sobre. El catalogo de profesionales no pagina: lo acota el tamano
+  // del equipo y responde con la lista a secas.
   const { data: paginaDeCitas, isLoading: loadingAppointments } = useApi(
     appointmentsKey,
     undefined,
     paginatedSchema(rawAppointmentSchema)
   );
-  const { data: paginaDeClientes, isLoading: loadingClients } = useApi(
-    clientsKey,
+
+  // Solo hacen falta los nombres de los clientes que salen hoy en pantalla, asi
+  // que se piden por id en vez de traerse la cartera del negocio para cruzar
+  // ocho filas. La ruta de nombres, ademas, la puede llamar un profesional.
+  const idsDeHoy = useMemo(
+    () => [...new Set((paginaDeCitas?.data ?? []).map((a) => a.clientId))],
+    [paginaDeCitas]
+  );
+  const { data: nombresDeClientes, isLoading: loadingClients } = useApi(
+    idsDeHoy.length ? `/core/clients/names?ids=${idsDeHoy.join(",")}` : null,
     undefined,
-    paginatedSchema(clientRefSchema)
+    z.array(clientRefSchema)
   );
   const { data: kpiData } = useApi<KpiData | null>(
     businessId ? KPIS_KEY : null,
@@ -125,10 +131,10 @@ export default function DashboardPage() {
   const loading = !!businessId && (loadingAppointments || loadingClients);
 
   // Las citas llegan sin el nombre del cliente (viven en servicios distintos),
-  // asi que se cruzan aqui contra la lista de clientes por id.
+  // asi que se cruzan aqui contra los nombres pedidos por id.
   const appointments = useMemo<Appointment[]>(() => {
     const items: RawAppointment[] = paginaDeCitas?.data ?? [];
-    const clientList: ClientRef[] = paginaDeClientes?.data ?? [];
+    const clientList: ClientRef[] = nombresDeClientes ?? [];
     const names: Record<string, string> = {};
     clientList.forEach((c) => {
       names[c.id] = c.name;
@@ -144,7 +150,7 @@ export default function DashboardPage() {
       clientName: names[a.clientId] || undefined,
       clientId: a.clientId,
     }));
-  }, [paginaDeCitas, paginaDeClientes]);
+  }, [paginaDeCitas, nombresDeClientes]);
 
   // Cada tarjeta prefiere el KPI de analytics-service y cae al calculo sobre las
   // citas de hoy si ese servicio aun no respondio, para no ensenar la tarjeta

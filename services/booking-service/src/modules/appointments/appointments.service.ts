@@ -36,6 +36,16 @@ import {
   instanteDe,
 } from "@beautyspot/shared-utils";
 
+/**
+ * Fichas como mucho que se devuelven al preguntar a quién ha atendido un
+ * profesional.
+ *
+ * Hay tope porque la lista viaja entera por HTTP en cada listado de clientes, y
+ * una agenda de años puede tener decenas de miles: quien pregunta es un filtro
+ * de permisos, no un informe.
+ */
+const TOPE_DE_CLIENTES_POR_PROFESIONAL = 500;
+
 /** Estados desde los que se puede mover una cita. */
 const ESTADOS_REAGENDABLES: AppointmentStatus[] = [
   AppointmentStatus.PENDING,
@@ -870,6 +880,46 @@ export class AppointmentsService {
       hasHistory: totalAppointments > 0,
       totalAppointments,
       completedAppointments,
+    };
+  }
+
+  /**
+   * Fichas que ha atendido un profesional en el negocio, de la más reciente a la
+   * más antigua.
+   *
+   * La pide el core para acotar qué clientes ve quien solo atiende, así que es
+   * una respuesta de autorización: si no se puede calcular, quien llama debe
+   * fallar y no seguir con la cartera entera.
+   *
+   * Cuentan todas las citas menos las canceladas. Con solo las atendidas, el
+   * profesional no vería el nombre de quien tiene reservado para esta tarde; y
+   * dejando entrar las canceladas, reservar y cancelar bastaría para quedarse
+   * con una ficha.
+   */
+  async clientIdsAtendidosPor(
+    professionalId: string,
+    businessId: string,
+    tope = TOPE_DE_CLIENTES_POR_PROFESIONAL
+  ): Promise<{ clientIds: string[]; truncado: boolean }> {
+    // Agrupar en vez de DISTINCT porque hace falta ordenar por la cita más
+    // reciente: si hay que cortar, que caiga la cola antigua y no un cliente al
+    // azar. Se pide uno de más, que es lo que delata el corte.
+    const filas = await this.apptRepo
+      .createQueryBuilder("a")
+      .select("a.client_id", "clientId")
+      .where("a.professional_id = :professionalId", { professionalId })
+      .andWhere("a.business_id = :businessId", { businessId })
+      .andWhere("a.status != :cancelada", {
+        cancelada: AppointmentStatus.CANCELLED,
+      })
+      .groupBy("a.client_id")
+      .orderBy("MAX(a.date)", "DESC")
+      .limit(tope + 1)
+      .getRawMany<{ clientId: string }>();
+
+    return {
+      clientIds: filas.slice(0, tope).map((f) => f.clientId),
+      truncado: filas.length > tope,
     };
   }
 

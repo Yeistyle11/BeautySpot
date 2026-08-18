@@ -372,12 +372,21 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 | GET    | `/names?ids=`    | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Nombre de los clientes pedidos, por lista de ids |
 | GET    | `/me`            | CLIENT                                   | Su ficha, con el nivel de fidelidad resuelto     |
 | PATCH  | `/me`            | CLIENT                                   | Sus datos personales; 404 si reservó de invitado |
-| GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Detalle                                          |
+| GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST               | Detalle                                          |
 | PATCH  | `/:id`           | OWNER, ADMIN, RECEPTIONIST               | Actualiza                                        |
 | POST   | `/:id/anonymize` | OWNER, ADMIN                             | Derecho de supresión; conserva citas y facturas  |
 
 `GET /me` devuelve además `nivel` y `siguienteNivel`, resueltos en el servidor
 contra la escala de `business-config/fidelizacion`, que el cliente no puede leer.
+
+`GET /` devuelve cosas distintas según quién pregunte. Quien gestiona el negocio
+ve la cartera entera; un **PROFESSIONAL** ve solo los clientes que ha atendido, y
+de cada uno solo `id` y `name` — el contacto, el documento, las notas y la ficha
+son datos personales del negocio, no de quien atiende (Ley 1581 de 2012). Su
+búsqueda se limita al nombre: admitir correo o teléfono convertiría el listado en
+un oráculo para comprobar si un contacto es cliente. La lista de fichas atendidas
+se la sirve booking (`/internal/appointments/professional/:id/client-ids`), así
+que si booking no responde el listado falla en vez de ampliarse.
 
 `GET /names` existe porque la agenda necesita el nombre de **los clientes que hay
 en pantalla**, no la cartera entera: esta última llega paginada y dejaba sin
@@ -520,6 +529,7 @@ nombra los días en conflicto.
 | Método | Ruta                                                              | Descripción                            |
 | ------ | ----------------------------------------------------------------- | -------------------------------------- |
 | GET    | `/internal/appointments/professional/:professionalId/has-history` | Si el profesional tiene historial      |
+| GET    | `/internal/appointments/professional/:professionalId/client-ids`  | Fichas que ha atendido (tope 500)      |
 | GET    | `/internal/appointments/capacidad`                                | Minutos disponibles del equipo ese día |
 | GET    | `/internal/appointments/:appointmentId/cobro`                     | Importe, estado y cliente de la cita   |
 | GET    | `/internal/appointments/:appointmentId/resenable`                 | Si el usuario puede reseñar esa cita   |

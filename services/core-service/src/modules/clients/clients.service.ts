@@ -5,7 +5,11 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
-import { TenantCrudService, OutboxService } from "@beautyspot/nest-common";
+import {
+  TenantCrudService,
+  OutboxService,
+  InternalHttpClient,
+} from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { Repository, Like, In, DataSource, EntityManager } from "typeorm";
 import {
@@ -30,6 +34,17 @@ import {
   CampoDeFicha,
   TipoDeCampo,
 } from "../../entities/campo-de-ficha.entity";
+import { ProfessionalsService } from "../professionals/professionals.service";
+
+/**
+ * Lo único que ve de una ficha quien solo la atiende: el nombre con el que
+ * reconocerla en su agenda.
+ *
+ * El contacto, el documento, las notas y la ficha son cartera del negocio, y
+ * servirlos en un listado es lo que permite llevarse los clientes enteros de una
+ * sola petición.
+ */
+const CAMPOS_PARA_PROFESIONAL = { id: true, name: true } as const;
 
 /** Rótulo con el que se queda una ficha tras suprimir sus datos. */
 const NOMBRE_ANONIMO = "Cliente anonimizado";
@@ -57,7 +72,9 @@ export class ClientsService extends TenantCrudService<Client> {
     private readonly camposRepo: Repository<CampoDeFicha>,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly outbox: OutboxService,
-    private readonly configuracion: BusinessConfigService
+    private readonly configuracion: BusinessConfigService,
+    private readonly professionals: ProfessionalsService,
+    private readonly http: InternalHttpClient
   ) {
     super(repo, "Cliente no encontrado");
   }
@@ -257,6 +274,68 @@ export class ClientsService extends TenantCrudService<Client> {
         ]
       : base;
     return paginate(this.repo, pagination, { where, order: { name: "ASC" } });
+  }
+
+  /**
+   * Clientes que ha atendido quien pregunta, con la ficha recortada.
+   *
+   * La relación profesional-cliente vive en las citas, que son de booking, así
+   * que la lista de fichas se le pide a él. Si no contesta, la petición falla:
+   * la respuesta es el filtro de permisos, y devolver la cartera entera es
+   * justo lo que se está evitando. Vaciarla tampoco vale, porque un profesional
+   * recién llegado ve lo mismo y creería que ha perdido sus clientes.
+   */
+  async findByBusinessParaProfesional(
+    businessId: string,
+    userId: string,
+    search: string | undefined,
+    pagination: PaginateParams
+  ): Promise<IPaginatedResponse<Pick<Client, "id" | "name">>> {
+    // Un usuario con rol de profesional puede no tener ficha: desvincularla no
+    // le quita el rol. Ve una agenda sin nombres, no un error.
+    const profesional = await this.professionals.findByUserId(
+      userId,
+      businessId
+    );
+    if (!profesional) return this.paginaVacia(pagination);
+
+    const atendidos = await this.http.pedir<{ clientIds: string[] }>(
+      "booking",
+      `/internal/appointments/professional/${profesional.id}/client-ids?businessId=${businessId}`
+    );
+    const clientIds = atendidos?.clientIds ?? [];
+    if (clientIds.length === 0) return this.paginaVacia(pagination);
+
+    // La búsqueda se limita al nombre. Buscar también por correo o teléfono
+    // convertiría el listado en un oráculo: teclear un número confirmaría que
+    // pertenece a un cliente del negocio aunque el campo no se devuelva.
+    return paginate(this.repo, pagination, {
+      where: {
+        businessId,
+        active: true,
+        id: In(clientIds),
+        ...(search ? { name: Like(`%${escapeLikePattern(search)}%`) } : {}),
+      },
+      order: { name: "ASC" },
+      select: CAMPOS_PARA_PROFESIONAL,
+    });
+  }
+
+  /** Página sin resultados con la forma que espera quien la pidió. */
+  private paginaVacia(
+    pagination: PaginateParams
+  ): IPaginatedResponse<Pick<Client, "id" | "name">> {
+    return {
+      data: [],
+      meta: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrev: pagination.page > 1,
+      },
+    };
   }
 
   /**

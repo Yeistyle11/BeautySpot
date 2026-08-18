@@ -6,12 +6,16 @@ import { ClientsController } from "./clients.controller";
 import { Client } from "../../entities/client.entity";
 import { CampoDeFicha } from "../../entities/campo-de-ficha.entity";
 import { BusinessConfigModule } from "../business-config/business-config.module";
+import { ProfessionalsModule } from "../professionals/professionals.module";
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Client, CampoDeFicha]),
     OutboxModule,
     BusinessConfigModule,
+    // El listado de un profesional se acota a quien ha atendido, y para eso hay
+    // que saber qué ficha de profesional es la de su cuenta.
+    ProfessionalsModule,
   ],
   controllers: [ClientsController],
   providers: [ClientsService],

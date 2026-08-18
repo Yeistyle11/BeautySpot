@@ -136,7 +136,9 @@ describe("AppointmentsService", () => {
       findOne: jest.fn(),
       find: jest.fn(),
       findAndCount: jest.fn(),
+      count: jest.fn(),
       update: jest.fn(),
+      createQueryBuilder: jest.fn(),
     } as any;
 
     // Sin líneas cargadas, cada cita ocupa su bloque entero.
@@ -1772,6 +1774,96 @@ describe("AppointmentsService", () => {
       expect(typeof service.reschedule).toBe("function");
       expect(typeof service.findById).toBe("function");
       expect(typeof service.findByBusiness).toBe("function");
+    });
+  });
+
+  describe("clientIdsAtendidosPor", () => {
+    /** Deja el constructor de consultas devolviendo esas filas agrupadas. */
+    function conFilas(clientIds: string[]) {
+      const getRawMany = jest
+        .fn()
+        .mockResolvedValue(clientIds.map((clientId) => ({ clientId })));
+      const qb: any = {
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        getRawMany,
+      };
+      (mockApptRepo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+      return qb;
+    }
+
+    it("devuelve los clientes del profesional en ese negocio", async () => {
+      const qb = conFilas(["client-1", "client-2"]);
+
+      const resultado = await service.clientIdsAtendidosPor(
+        "prof-123",
+        "business-123"
+      );
+
+      expect(resultado).toEqual({
+        clientIds: ["client-1", "client-2"],
+        truncado: false,
+      });
+      expect(qb.where).toHaveBeenCalledWith(
+        "a.professional_id = :professionalId",
+        { professionalId: "prof-123" }
+      );
+      expect(qb.andWhere).toHaveBeenCalledWith("a.business_id = :businessId", {
+        businessId: "business-123",
+      });
+    });
+
+    // Reservar y cancelar no crea relación con la ficha; si contara, bastaría
+    // eso para adoptar un cliente ajeno.
+    it("deja fuera las citas canceladas", async () => {
+      const qb = conFilas([]);
+
+      await service.clientIdsAtendidosPor("prof-123", "business-123");
+
+      expect(qb.andWhere).toHaveBeenCalledWith("a.status != :cancelada", {
+        cancelada: AppointmentStatus.CANCELLED,
+      });
+    });
+
+    it("agrupa por cliente y ordena por la cita más reciente", async () => {
+      const qb = conFilas([]);
+
+      await service.clientIdsAtendidosPor("prof-123", "business-123");
+
+      expect(qb.groupBy).toHaveBeenCalledWith("a.client_id");
+      expect(qb.orderBy).toHaveBeenCalledWith("MAX(a.date)", "DESC");
+    });
+
+    it("avisa de que hay más clientes de los que caben", async () => {
+      const qb = conFilas(["client-1", "client-2", "client-3"]);
+
+      const resultado = await service.clientIdsAtendidosPor(
+        "prof-123",
+        "business-123",
+        2
+      );
+
+      expect(resultado).toEqual({
+        clientIds: ["client-1", "client-2"],
+        truncado: true,
+      });
+      // Se pide uno de más justo para poder decirlo.
+      expect(qb.limit).toHaveBeenCalledWith(3);
+    });
+
+    it("devuelve la lista vacía si no ha atendido a nadie", async () => {
+      conFilas([]);
+
+      const resultado = await service.clientIdsAtendidosPor(
+        "prof-123",
+        "business-123"
+      );
+
+      expect(resultado).toEqual({ clientIds: [], truncado: false });
     });
   });
 });

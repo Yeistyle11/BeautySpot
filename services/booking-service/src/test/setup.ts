@@ -29,8 +29,11 @@ jest.mock("amqplib", () => ({
   connect: jest.fn(),
 }));
 
-// Mock de los servicios de nest-common usados por booking
+// Mock de los servicios de nest-common usados por booking. Lo demás se deja
+// real: los decoradores de los controladores tienen que existir de verdad para
+// poder importarlos en un spec.
 jest.mock("@beautyspot/nest-common", () => ({
+  ...jest.requireActual("@beautyspot/nest-common"),
   EventBusService: jest.fn().mockImplementation(() => ({
     emit: jest.fn().mockResolvedValue(undefined),
     on: jest.fn().mockReturnValue(undefined),

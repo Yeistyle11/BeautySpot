@@ -35,16 +35,30 @@ export class ClientsController {
     return this.service.create(businessId, dto);
   }
 
-  /** Lista los clientes del negocio con búsqueda y paginación. */
+  /**
+   * Lista los clientes del negocio con búsqueda y paginación.
+   *
+   * Devuelve cosas distintas según quién pregunte: la cartera es del negocio, y
+   * quien solo atiende ve su parte de ella y sin datos personales.
+   */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
   @Get()
   async findAll(
     @BusinessId() businessId: string,
+    @CurrentUser("role") role: Role,
+    @CurrentUser("userId") userId: string,
     @Query() query: Record<string, unknown>,
     @Query("search") search?: string
   ) {
     const pagination = parsePaginationQuery(query, ["name", "createdAt"]);
-    return this.service.findByBusiness(businessId, search, pagination);
+    return role === Role.PROFESSIONAL
+      ? this.service.findByBusinessParaProfesional(
+          businessId,
+          userId,
+          search,
+          pagination
+        )
+      : this.service.findByBusiness(businessId, search, pagination);
   }
 
   /**
@@ -90,8 +104,13 @@ export class ClientsController {
     return actualizado;
   }
 
-  /** Obtiene un cliente por id. */
-  @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
+  /**
+   * Obtiene un cliente por id, con la ficha completa.
+   *
+   * Fuera de quien gestiona el negocio no la ve nadie: para poner nombre a una
+   * agenda está `/names`, que devuelve solo eso.
+   */
+  @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Get(":id")
   async findById(@Param("id") id: string, @BusinessId() businessId: string) {
     return this.service.findById(id, businessId);

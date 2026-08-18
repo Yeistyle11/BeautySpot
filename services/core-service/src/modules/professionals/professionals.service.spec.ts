@@ -506,4 +506,25 @@ describe("ProfessionalsService", () => {
       expect(typeof service.remove).toBe("function");
     });
   });
+
+  describe("findByUserId", () => {
+    it("devuelve el profesional activo vinculado a esa cuenta", async () => {
+      (mockRepo.findOne as jest.Mock).mockResolvedValue(mockProfessional);
+
+      const resultado = await service.findByUserId("user-1", "business-123");
+
+      expect(resultado).toBe(mockProfessional);
+      expect(mockRepo.findOne).toHaveBeenCalledWith({
+        where: { userId: "user-1", businessId: "business-123", active: true },
+      });
+    });
+
+    it("devuelve null si la cuenta no tiene ficha de profesional", async () => {
+      (mockRepo.findOne as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.findByUserId("user-1", "business-123")
+      ).resolves.toBeNull();
+    });
+  });
 });
