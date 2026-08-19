@@ -5,7 +5,6 @@ import {
   ConflictException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { ReviewStatus } from "../../entities/review.entity";
 import { Repository, EntityManager } from "typeorm";
 import { escapeLikePattern, generateSlug } from "@beautyspot/shared-utils";
 import {
@@ -368,9 +367,6 @@ export class BusinessProfilesService {
       .addSelect("COUNT(r.id)", "count")
       .from("reviews", "r")
       .where("r.business_id = :bid", { bid: businessId })
-      .andWhere("r.status = :publicada", {
-        publicada: ReviewStatus.PUBLICADA,
-      })
       .getRawOne();
 
     const totalReviews = parseInt(result?.count || "0", 10);

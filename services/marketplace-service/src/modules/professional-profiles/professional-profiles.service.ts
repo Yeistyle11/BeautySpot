@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { ReviewStatus } from "../../entities/review.entity";
 import { Repository, EntityManager } from "typeorm";
 import { generateSlug } from "@beautyspot/shared-utils";
 import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
@@ -176,9 +175,6 @@ export class ProfessionalProfilesService {
       .addSelect("COUNT(r.id)", "count")
       .from("reviews", "r")
       .where("r.professional_id = :pid", { pid: professionalId })
-      .andWhere("r.status = :publicada", {
-        publicada: ReviewStatus.PUBLICADA,
-      })
       .getRawOne();
 
     if (result) {

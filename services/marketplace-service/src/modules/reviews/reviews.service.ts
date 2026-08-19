@@ -356,7 +356,6 @@ export class ReviewsService {
       .select("r.rating", "rating")
       .addSelect("COUNT(*)", "count")
       .where("r.business_id = :businessId", { businessId })
-      .andWhere("r.status = :publicada", { publicada: ReviewStatus.PUBLICADA })
       .groupBy("r.rating")
       .getRawMany<{ rating: number; count: string }>();
 

@@ -522,6 +522,17 @@ describe("BusinessProfilesService", () => {
       );
     });
 
+    // Ocultar una reseña la retira del listado, no de la nota: si contara, el
+    // negocio subiria su calificacion ocultando lo que no le gusta.
+    it("cuenta también las reseñas ocultas", async () => {
+      const qb = ratingQb("3.2", "12");
+      (mockRepo.manager.createQueryBuilder as any).mockReturnValue(qb);
+
+      await service.updateRating("business-123");
+
+      expect(qb.andWhere).not.toHaveBeenCalled();
+    });
+
     it("deja rating en 0 cuando no hay reseñas", async () => {
       (mockRepo.manager.createQueryBuilder as any).mockReturnValue(
         ratingQb(null, "0")

@@ -733,7 +733,9 @@ estar ya repartido. También responde 409 si el negocio ya tiene perfil.
 | POST   | `/:id/helpful`                  | Autenticado  | Marca como útil; un voto por usuario          |
 | DELETE | `/:id/helpful`                  | Autenticado  | Quita la marca                                |
 
-Una reseña oculta por moderación deja de contar en la media del negocio.
+Ocultar una reseña la retira del listado público, pero **sigue contando en la
+media y en el total** del negocio y del profesional. La moderación existe para
+retirar un insulto o un dato personal publicado, no para subir la nota.
 
 `GET /mine` acepta `appointmentIds` (lista separada por comas, máximo 200) para
 responder solo por esas citas: es lo que necesita el listado del cliente para
