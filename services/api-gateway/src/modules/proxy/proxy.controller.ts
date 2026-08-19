@@ -24,9 +24,8 @@ interface RespuestaReenviada {
 }
 
 /**
- * Un 5xx del microservicio: cuenta como fallo para el circuit breaker pero su
- * cuerpo es el que hay que devolverle al cliente, así que viaja con la
- * excepción en lugar de escribirse antes de lanzarla.
+ * Un 5xx del microservicio: cuenta como fallo para el circuit breaker y lleva
+ * consigo el cuerpo que hay que devolverle al cliente.
  */
 class ErrorDeServicio extends HttpException {
   constructor(
@@ -88,8 +87,8 @@ export class ProxyController {
       throw new HttpException("Ruta no válida", HttpStatus.BAD_REQUEST);
     }
 
-    // Una sola escritura, y fuera del breaker: la excepción que cuenta el
-    // fallo viaja después, cuando ya no queda nada por responder.
+    // Una sola escritura y fuera del breaker; la excepcion que cuenta el fallo
+    // viaja despues.
     let respuesta: RespuestaReenviada;
     try {
       respuesta = await this.circuitBreaker.execute(service, () =>
@@ -118,8 +117,7 @@ export class ProxyController {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
     // Se mide solo el salto al backend, no lo que el gateway tarda en resolver
-    // ruta y cabeceras: es lo que distingue "el sistema va lento" de "booking
-    // va lento".
+    // ruta y cabeceras.
     const comienzo = Date.now();
 
     try {
@@ -140,9 +138,9 @@ export class ProxyController {
 
       let data = await this.proxyService.parseResponseBody(response);
 
-      // Login, registro, renovación y cierre de sesión se convierten aquí en
-      // cookies; el cuerpo sale ya sin tokens.
-      if (response.ok && this.sessionService.esRutaDeSesion(req.path)) {
+      // Login, renovacion y cierre de sesion se convierten aqui en cookies,
+      // tambien cuando la respuesta del servicio no es correcta.
+      if (this.sessionService.esRutaDeSesion(req.path)) {
         data = this.sessionService.aplicarRespuesta(req, res, data);
       }
 
@@ -168,11 +166,8 @@ export class ProxyController {
   }
 
   /**
-   * Deja en el log lo que tardó el servicio de destino.
-   *
-   * Sale con el `requestId` que estampa `StructuredLogger`, así que la línea
-   * del gateway y la del servicio se pueden cruzar: la diferencia entre las dos
-   * es lo que se fue en red y en el propio reenvío.
+   * Deja en el log lo que tardo el servicio de destino, con el `requestId` que
+   * estampa `StructuredLogger`.
    */
   private medirSalto(
     service: string,
