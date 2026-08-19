@@ -14,9 +14,6 @@ describe("Field", () => {
     expect(screen.getByLabelText("Cliente")).toBeInTheDocument();
   });
 
-  // El campo de cliente de la agenda acompaña el desplegable con un aviso de
-  // faltas. El tipo de `children` admite varios, asi que un Field que exija uno
-  // solo se rompe en ejecucion y se lleva por delante la pantalla.
   it("admite un aviso junto al control", () => {
     render(
       <Field label="Cliente">
@@ -31,9 +28,6 @@ describe("Field", () => {
     expect(screen.getByRole("status")).toHaveTextContent("3 veces");
   });
 
-  // Un `&&` sin cumplir deja un `false` en la lista de hijos: cuenta como hijo
-  // aunque no pinte nada, asi que el caso "sin aviso" tiene tan poco de un solo
-  // hijo como el otro.
   it("admite un aviso condicional que no se cumple", () => {
     const faltas = 0;
 

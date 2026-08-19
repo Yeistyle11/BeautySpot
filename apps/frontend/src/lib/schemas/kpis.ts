@@ -1,6 +1,5 @@
 // Forma de los endpoints de `GET /analytics/*`, compartida por el panel de
-// inicio y la pantalla de reportes. Refleja lo que devuelve el analytics-service:
-// `today` solo trae tres contadores y el resto va agregado sobre el periodo.
+// inicio y la pantalla de reportes.
 import { z } from "zod";
 import type { Periodo } from "@/lib/periodo";
 

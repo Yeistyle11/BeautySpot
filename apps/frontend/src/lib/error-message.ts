@@ -41,10 +41,6 @@ const CONTRATO =
 /**
  * Texto que se le muestra al usuario ante un error de la API: el mensaje del
  * backend en los 4xx y un texto propio en los 5xx y en los fallos de red.
- *
- * `respaldo` deja a cada pantalla decir qué se estaba intentando cuando no hay
- * nada mejor que contar: "no se pudo crear la cuenta" orienta más que "ocurrió
- * un error". No sustituye a los textos que sí explican la causa.
  */
 export function mensajeDeError(error: unknown, respaldo = GENERICO): string {
   if (error instanceof ZodError) return CONTRATO;
@@ -65,10 +61,8 @@ export function mensajeDeError(error: unknown, respaldo = GENERICO): string {
   }
 
   if (error instanceof Error) {
-    // Un fallo de red llega como TypeError de fetch, y su mensaje es la
-    // excepción del navegador: "Failed to fetch", en inglés y sin decir nada.
-    // Una tablet de recepción con wifi irregular es el entorno normal de este
-    // producto, así que este texto sale varias veces al día en un local real.
+    // Un fallo de red llega como TypeError de fetch, con el mensaje del
+    // navegador ("Failed to fetch").
     if (error.name === "TypeError") {
       return "No se pudo conectar. Revisa tu conexión a internet e inténtalo de nuevo.";
     }

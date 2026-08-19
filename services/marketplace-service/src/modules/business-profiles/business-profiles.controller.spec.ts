@@ -6,9 +6,8 @@ import {
 import { BusinessProfilesService } from "./business-profiles.service";
 
 /**
- * Lo que se comprueba aquí es de dónde sale el negocio sobre el que se escribe.
- * El servicio decide qué se puede hacer, pero solo con lo que el controlador le
- * pase, y esa es toda la diferencia entre la ruta del panel y la interna.
+ * Comprueba de donde sale el negocio sobre el que se escribe en la ruta del
+ * panel y en la interna.
  */
 describe("BusinessProfilesController", () => {
   let controller: BusinessProfilesController;
@@ -35,8 +34,8 @@ describe("BusinessProfilesController", () => {
     expect(service.crearParaNegocio).toHaveBeenCalledWith(NEGOCIO, dto);
   });
 
-  // El DTO del panel no admite businessId, así que un dueño no puede apuntar el
-  // alta al negocio de otro ni colándolo en el cuerpo.
+  // El DTO del panel no admite businessId: no se puede apuntar el alta al
+  // negocio de otro por el cuerpo.
   it("ignora un negocio colado en el cuerpo", async () => {
     const dto = {
       name: "Barbería La Noche",

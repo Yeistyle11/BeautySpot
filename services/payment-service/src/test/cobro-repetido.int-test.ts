@@ -16,12 +16,7 @@ const SOLICITUD = "66666666-6666-4666-8666-666666666666";
 
 /**
  * Comprueba contra Postgres real que el mismo intento de cobro, enviado varias
- * veces, deja un solo cargo.
- *
- * Un cobro suelto no tiene cita que lo identifique, así que para la base tres
- * clics en "Registrar pago" son tres cobros distintos y perfectamente válidos.
- * Lo único que los distingue de tres cobros legítimos del mismo importe es el
- * identificador que pone quien cobra.
+ * veces, deja un solo cargo (`npm run test:int`).
  */
 describe("Integración: un intento de cobro se cobra una vez", () => {
   let dataSource: DataSource;

@@ -19,11 +19,8 @@ import { NotificationPreferencesModule } from "../notification-preferences/notif
           type: "exponential",
           delay: 2000,
         },
-        // El trabajo se borra en cuanto termina, y el fallido dura lo justo
-        // para poder mirarlo. El cuerpo de un correo de credenciales lleva el
-        // enlace con su token en claro —tiene que llevarlo, es lo que el
-        // usuario va a pulsar—, así que cada hora que ese trabajo sigue en
-        // Redis es una hora en que basta leer la cola para tomar la cuenta.
+        // El trabajo se borra al terminar, y el fallido dura lo justo para
+        // mirarlo: el cuerpo lleva el enlace con su token en claro.
         removeOnComplete: true,
         removeOnFail: {
           age: 600,

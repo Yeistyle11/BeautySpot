@@ -63,8 +63,6 @@ describe("cashSessionSchema", () => {
     expect(sesion.openingAmount).toBe(100000);
   });
 
-  // El histórico enseña el descuadre de cada cierre, así que tiene que llegar
-  // hasta la pantalla: sin él habría que restar sesión a sesión para verlo.
   it("conserva el descuadre del cierre", () => {
     const sesion = cashSessionSchema.parse({
       ...cajaCerradaDeLaApi,

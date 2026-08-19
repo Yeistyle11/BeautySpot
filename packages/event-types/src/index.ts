@@ -159,11 +159,8 @@ export interface AppointmentCreatedPayload {
   ocupadoHasta?: string;
   totalAmount: number;
   /**
-   * Servicios de la cita, con el nombre congelado al reservarla. Viaja en el
-   * evento porque quien avisa al cliente —notification— no tiene acceso a la
-   * base de booking.
-   *
-   * Opcional: un evento que llegue sin él debe poder consumirse igual.
+   * Servicios de la cita, con el nombre congelado al reservarla. Opcional: un
+   * evento que llegue sin el se consume igual.
    */
   services?: ServicioDeLaCita[];
 }
@@ -193,9 +190,8 @@ export type AppointmentRescheduledEvent = IBaseEvent<
   }
 >;
 /**
- * Cuál de los dos recordatorios se está pidiendo. Lo decide quien lo emite: el
- * consumidor no puede deducirlo de la hora, porque un aviso atrasado —el worker
- * estuvo caído— llega fuera de su franja y aun así hay que enviarlo.
+ * Cual de los dos recordatorios se esta pidiendo; lo decide quien lo emite, no
+ * la hora a la que llega.
  */
 export type TipoDeRecordatorio = "24h" | "1h";
 
@@ -336,9 +332,8 @@ export const DEAD_LETTER_EXCHANGE = "beautyspot.dlx";
 export const DEAD_LETTER_QUEUE = "beautyspot.dlx.dead";
 
 /**
- * Nombre de la cola de un consumidor: un servicio por evento. Cada servicio
- * tiene su propia cola para el mismo evento, así que todos lo reciben y el
- * fallo de uno no afecta a los demás.
+ * Nombre de la cola de un consumidor: una por servicio y evento, de modo que
+ * el fallo de uno no afecta a los demas.
  */
 export function nombreDeCola(servicio: string, evento: string): string {
   return `${servicio}.${evento}`;

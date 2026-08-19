@@ -15,11 +15,8 @@ import { NotificationPreferencesService } from "../notification-preferences/noti
 const ROLES_DE_GESTION: string[] = [Role.OWNER, Role.ADMIN, Role.RECEPTIONIST];
 
 /**
- * Cómo se avisa, con independencia de qué evento lo provoque.
- *
- * Los listeners deciden **a quién** avisar y **qué** decirle; esta clase resuelve
- * el resto: consultar la preferencia, escribir la notificación, encolar el correo
- * sin que su fallo arrastre lo ya guardado, y publicar la traza.
+ * Como se avisa: consulta la preferencia, escribe la notificacion, encola el
+ * correo y publica la traza. A quien avisar lo deciden los listeners.
  */
 @Injectable()
 export class AvisosService {
@@ -44,9 +41,8 @@ export class AvisosService {
         EVENTS_EXCHANGE,
         "notification.email.queued",
         {
-          // Se publica directamente por AmqpConnection, sin pasar por
-          // EventBusService, así que el eventId hay que ponerlo aquí para
-          // cumplir el contrato de IBaseEvent.
+          // Se publica por AmqpConnection, sin pasar por EventBusService: el
+          // eventId se pone aqui.
           eventId: randomUUID(),
           eventType: "notification.email.queued",
           timestamp: new Date(),
@@ -94,9 +90,8 @@ export class AvisosService {
   }
 
   /**
-   * Indica si el usuario acepta ese tipo por ese canal. Un fallo al leer la
-   * preferencia no silencia el aviso: se envía, que es el comportamiento por
-   * defecto cuando nadie ha configurado nada.
+   * Indica si el usuario acepta ese tipo por ese canal; si la preferencia no
+   * se puede leer, el aviso sale igual.
    */
   async aceptaRecibir(
     userId: string,
@@ -122,9 +117,8 @@ export class AvisosService {
   }
 
   /**
-   * Deja el aviso a quien atiende el negocio: dueño, administración y
-   * recepción, que son los que trabajan con la agenda. El profesional recibe
-   * los suyos por su propia membresía si la tiene.
+   * Deja el aviso a quien atiende el negocio: dueno, administracion y
+   * recepcion. El profesional recibe los suyos por su propia membresia.
    */
   async avisarAlNegocio(
     businessId: string,
@@ -139,12 +133,7 @@ export class AvisosService {
     }
   }
 
-  /**
-   * Encola el correo dejando su fallo en el log.
-   *
-   * El correo depende de la cola y del proveedor de envío; lo que ya se ha
-   * guardado —la notificación en la aplicación— no tiene por qué caer con él.
-   */
+  /** Encola el correo dejando su fallo en el log. */
   async intentarCorreo(
     contexto: string,
     envio: () => Promise<void>,

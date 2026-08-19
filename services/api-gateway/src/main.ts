@@ -17,10 +17,8 @@ import { CsrfOriginGuard } from "./modules/session/csrf-origin.guard";
 import helmet from "helmet";
 
 /**
- * Lo que el gateway necesita para arrancar. No tiene base de datos propia, pero
- * sin las URLs de los servicios no puede enrutar nada, y los dos secretos han de
- * coincidir con los del resto: con otros distintos rechazaría sesiones legítimas
- * y no podría hablar con nadie.
+ * Lo que el gateway necesita para arrancar: las URLs de los servicios y los
+ * dos secretos que comparte con el resto.
  */
 const REQUISITOS: RequisitosDeEntorno = {
   secretos: ["JWT_SECRET", "INTERNAL_API_SECRET"],
@@ -53,9 +51,8 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
-  // Detrás de un balanceador, req.ip es la IP del proxy salvo que se declare en
-  // cuántos saltos confiar. Sin esto el rate limit por IP agrupa a todos los
-  // clientes en una sola cuota. TRUST_PROXY = número de proxies intermedios.
+  // TRUST_PROXY dice en cuantos saltos confiar; sin el, req.ip es la del
+  // balanceador y el rate limit por IP agrupa a todo el mundo.
   const trustProxy = configService.get<string>("TRUST_PROXY");
   if (trustProxy) {
     app.getHttpAdapter().getInstance().set("trust proxy", Number(trustProxy));
@@ -73,10 +70,8 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor());
 
-  // El rate limit va primero para que el abuso se corte antes de gastar
-  // verificaciones de firma JWT en cada petición.
-  // El orden importa: primero se limita el ritmo, después se comprueba el
-  // origen —barato y sin tocar la sesión— y sólo entonces se valida el token.
+  // Orden de la cadena: primero el rate limit, despues la comprobacion de
+  // origen y solo entonces la validacion del token.
   app.useGlobalGuards(
     app.get(RateLimitGuard),
     app.get(CsrfOriginGuard),

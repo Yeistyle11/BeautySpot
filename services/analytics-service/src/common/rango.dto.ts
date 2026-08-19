@@ -9,13 +9,7 @@ import type { ValidatorConstraintInterface } from "class-validator";
 import { Transform } from "class-transformer";
 import { esFechaValida } from "@beautyspot/shared-utils";
 
-/**
- * Comprueba que el día exista de verdad.
- *
- * Un `2026-02-30` tiene la forma de una fecha y no lo es; colarlo produce un
- * rango que Postgres rechaza o, peor, uno que compara contra una fecha inválida
- * y devuelve cifras vacías sin decir por qué.
- */
+/** Comprueba que el dia exista de verdad, no solo que tenga la forma. */
 @ValidatorConstraint({ name: "esDiaDelCalendario" })
 class EsDiaDelCalendario implements ValidatorConstraintInterface {
   validate(valor: unknown): boolean {
@@ -28,11 +22,8 @@ class EsDiaDelCalendario implements ValidatorConstraintInterface {
 }
 
 /**
- * Periodo sobre el que se piden las cifras.
- *
- * Los dos extremos son opcionales y van juntos: quien no elige periodo recibe
- * el de por defecto de cada endpoint, y quien elige uno tiene que decir dónde
- * empieza y dónde acaba.
+ * Periodo sobre el que se piden las cifras: los dos extremos son opcionales y
+ * van juntos.
  */
 export class RangoQueryDto {
   @IsOptional()
@@ -56,13 +47,7 @@ export interface Rango {
   to: string;
 }
 
-/**
- * Valida el par de fechas que llega por la consulta.
- *
- * Un rango invertido no se corrige dando la vuelta a los extremos: quien lo
- * envía cree estar pidiendo otra cosa, y unas cifras que no se parecen a lo que
- * pidió son peores que un error.
- */
+/** Valida el par de fechas que llega por la consulta; no invierte el rango. */
 export function rangoPedido(query: RangoQueryDto): Rango | null {
   if (!query.from && !query.to) return null;
 
@@ -82,12 +67,8 @@ export function rangoPedido(query: RangoQueryDto): Rango | null {
 }
 
 /**
- * Periodo inmediatamente anterior y de la misma duración, que es contra el que
- * se compara.
- *
- * Se cuenta en días y no en meses a propósito: comparar febrero contra enero
- * mezcla un mes de 28 días con uno de 31, y la diferencia que sale no es la del
- * negocio sino la del calendario.
+ * Periodo inmediatamente anterior y de la misma duracion, contado en dias,
+ * que es contra el que se compara.
  */
 export function periodoAnterior(rango: Rango): Rango {
   const dias = diasEntre(rango.from, rango.to);

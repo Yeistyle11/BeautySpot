@@ -58,9 +58,8 @@ export interface CategoryManagerConfig {
 }
 
 /**
- * Pantalla generica de categorias. Las paginas de categorias de profesionales
- * y de servicios se comportan igual y solo cambian textos, iconos y endpoint,
- * asi que ambas se resuelven pasando `config`.
+ * Pantalla generica de categorias: la de profesionales y la de servicios se
+ * resuelven pasando `config`.
  */
 export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
   const { role } = useAuthStore();

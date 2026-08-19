@@ -27,12 +27,8 @@ import {
 const DEFAULT_PORT = 3000;
 
 /**
- * Lo que todo microservicio necesita para arrancar. Los siete que pasan por esta
- * fábrica tienen base propia, consumen eventos y validan el token de cada
- * petición, así que el conjunto es el mismo para todos.
- *
- * `JWT_SECRET` está aquí aunque solo auth emita tokens: los demás los verifican,
- * y con un secreto distinto rechazarían sesiones legítimas.
+ * Lo que todo microservicio necesita para arrancar. `JWT_SECRET` esta aqui
+ * aunque solo auth emita tokens: los demas los verifican.
  */
 const REQUISITOS_COMUNES: RequisitosDeEntorno = {
   secretos: ["JWT_SECRET", "INTERNAL_API_SECRET"],
@@ -45,13 +41,8 @@ function nombreDelServicio(): string {
 }
 
 /**
- * Arranca un microservicio con la configuración transversal común: cabeceras de
- * seguridad, CORS, validación estricta de DTOs, la cadena de guards global y el
- * formato uniforme de respuestas y errores.
- *
- * El orden de los guards importa: InternalSecretGuard protege las rutas
- * /internal antes de que JwtAuthGuard las deje pasar sin token; BusinessScopeGuard
- * fija el tenant que RolesGuard asume ya resuelto.
+ * Arranca un microservicio con la configuracion transversal comun: seguridad,
+ * CORS, validacion de DTOs, guards globales y el sobre de respuestas.
  */
 export async function createMicroserviceApp(
   AppModule: unknown,
@@ -128,8 +119,7 @@ export async function createMicroserviceApp(
 
 /**
  * Envoltorio de arranque para los main.ts: convierte un fallo de bootstrap en
- * una salida con código de error y traza legible, en vez de dejar una promesa
- * rechazada sin gestionar que el orquestador no sabe interpretar.
+ * una salida con codigo de error y traza legible.
  */
 export function bootstrapMicroservice(
   AppModule: unknown,

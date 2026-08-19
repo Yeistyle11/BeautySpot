@@ -59,7 +59,7 @@ describe("PaymentsService", () => {
     mockManagerRepo = {
       save: jest.fn(),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
-      // El efectivo se anota en la caja abierta, así que la transacción también
+      // El efectivo se anota en la caja abierta: la transaccion tambien
       // consulta y crea sobre las entidades de arqueo.
       findOne: jest.fn().mockResolvedValue({ id: "cash-session-1" }),
       create: jest.fn((data) => data),
@@ -144,9 +144,8 @@ describe("PaymentsService", () => {
       expect(result).toEqual(mockPayment);
     });
 
-    // Tres clics en "Registrar pago" son tres peticiones legítimas a ojos de la
-    // base: sin identificador de intento, tres cargos. Con él, el segundo choca
-    // contra el índice y se le devuelve al cajero el cobro que ya se hizo.
+    // Tres envios del mismo intento dejan un solo cargo: el segundo choca
+    // contra el indice y devuelve el cobro ya hecho.
     it("el reenvío del mismo intento devuelve el cobro que ya existe", async () => {
       const data = {
         clientId: "client-123",
@@ -590,8 +589,8 @@ describe("PaymentsService", () => {
       expect(result.status).toBe(PaymentStatus.PENDING);
     });
 
-    // La devolución exige importe, motivo, autor y ventana de 30 días, y eso
-    // solo lo comprueba refundPayment.
+    // El importe, el motivo, el autor y la ventana de 30 dias los comprueba
+    // refundPayment.
     it("no deja marcar un pago como reembolsado por esta vía", async () => {
       pagoEn(PaymentStatus.COMPLETED);
 

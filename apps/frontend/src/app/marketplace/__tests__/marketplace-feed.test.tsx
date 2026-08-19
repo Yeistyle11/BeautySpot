@@ -124,8 +124,6 @@ describe("MarketplaceFeed", () => {
       ).toHaveAttribute("href", "/marketplace/business/la-noche");
     });
 
-    // La etiqueta salía vacía para las barberías porque el catálogo del feed y
-    // el de la tarjeta eran dos listas distintas.
     it("nombra el tipo de negocio en la tarjeta", () => {
       render(<MarketplaceFeed initialFeed={FEED_CON_NEGOCIOS} />);
 

@@ -76,7 +76,7 @@ describe("resolverPeriodo", () => {
     });
   });
 
-  // Hoy cuenta, así que se retroceden veintinueve: si no, serían treinta y uno.
+  // Se retroceden veintinueve dias: hoy cuenta.
   it("los últimos 30 días son treinta días", () => {
     const rango = resolverPeriodo("ultimos30", LUNES);
 

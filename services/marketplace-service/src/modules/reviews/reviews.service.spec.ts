@@ -228,8 +228,8 @@ describe("ReviewsService", () => {
 
       await service.create(dto, "client-123");
 
-      // Dentro alargaría los bloqueos con una conversación con Redis, y si la
-      // transacción se deshiciera dejaría la caché borrada sin motivo.
+      // Fuera de la transaccion: dentro alargaria los bloqueos con una
+      // conversacion con Redis.
       expect(orden).toEqual(["tx:inicio", "tx:fin", "invalidar"]);
       expect(mockProfilesService.invalidarCache).toHaveBeenCalledWith(
         "business-123"
@@ -668,8 +668,7 @@ describe("ReviewsService", () => {
       );
     });
 
-    // Una lista vacía es "ninguna cita por la que preguntar", no "sin filtro":
-    // sin esto, una pantalla sin citas se traería el historial entero.
+    // Una lista vacia es "ninguna cita por la que preguntar", no "sin filtro".
     it("con una lista de citas vacía no consulta por todo el historial", async () => {
       mockRepo.findAndCount.mockResolvedValue([[], 0]);
 

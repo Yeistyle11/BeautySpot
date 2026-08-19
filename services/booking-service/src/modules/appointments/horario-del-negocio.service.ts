@@ -28,12 +28,8 @@ export class HorarioDelNegocioService {
   ) {}
 
   /**
-   * Tramos de apertura de ese día. Lista vacía es "cerrado ese día"; `null`,
-   * "sin horario configurado", que no restringe nada.
-   *
-   * El cierre llega en hora de reloj y aquí pasa a la escala del cálculo: un
-   * `20:00`–`02:00` sale como `20:00`–`26:00`, que es lo que entienden el
-   * arrastre de jornada y el reparto de franjas.
+   * Tramos de apertura de ese dia, en la escala del calculo. Lista vacia es
+   * "cerrado"; `null`, "sin horario configurado", que no restringe nada.
    */
   async tramosDelDia(
     businessId: string,

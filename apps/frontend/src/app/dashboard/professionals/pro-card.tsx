@@ -25,12 +25,7 @@ interface ProCardProps {
   onSchedule: (p: Professional) => void;
 }
 
-/**
- * Tarjeta de un profesional en la rejilla del equipo.
- *
- * Va memoizada y con `content-visibility:auto` porque la rejilla puede tener
- * decenas de tarjetas y todas se re-renderizaban al abrir cualquier modal.
- */
+/** Tarjeta de un profesional en la rejilla del equipo. */
 export const ProCard = memo(function ProCard({
   p,
   categoryMap,

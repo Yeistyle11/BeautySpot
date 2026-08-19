@@ -20,13 +20,7 @@ import {
 } from "@beautyspot/shared-constants";
 import { PATRON_FECHA, esFechaValida } from "@beautyspot/shared-utils";
 
-/**
- * Un nacimiento en un día que no existe.
- *
- * Se comprueba aparte del formato porque `2026-02-30` tiene los ocho dígitos y
- * los dos guiones: el patrón lo deja pasar y lo rechaza Postgres al guardarlo,
- * que es un 500 en vez de un "corrige la fecha".
- */
+/** Un nacimiento en un dia que no existe, como `2026-02-30`. */
 @ValidatorConstraint({ name: "esDiaDeNacimiento" })
 class EsDiaDeNacimiento implements ValidatorConstraintInterface {
   validate(valor: unknown): boolean {
@@ -40,10 +34,8 @@ class EsDiaDeNacimiento implements ValidatorConstraintInterface {
 }
 
 /**
- * Datos para registrar un cliente: nombre, contacto, notas y etiquetas.
- *
- * El teléfono se valida de formato porque es el canal por el que el negocio
- * avisa y recuerda las citas: un texto libre ahí es un cliente inalcanzable.
+ * Datos para registrar un cliente: nombre, contacto, notas y etiquetas. El
+ * telefono se valida de formato.
  */
 export class CreateClientDto {
   @IsString({ message: "El nombre es obligatorio" })
@@ -80,9 +72,8 @@ export class CreateClientDto {
   @IsOptional() @IsString() userId?: string;
   @IsOptional() @IsArray() tags?: string[];
   /**
-   * Valores de la ficha que el negocio se haya definido, por id de campo. Se
-   * declara aquí porque el `ValidationPipe` global descarta lo que no esté en el
-   * DTO; el contenido lo contrasta `ClientsService` con los campos del negocio.
+   * Valores de la ficha que el negocio se haya definido, por id de campo; el
+   * contenido lo contrasta `ClientsService`.
    */
   @IsOptional() @IsObject() ficha?: Record<string, unknown>;
 }
@@ -91,10 +82,8 @@ export class CreateClientDto {
 const MAXIMO_IDS = 200;
 
 /**
- * Identificadores de los clientes cuyo nombre se pide.
- *
- * Llegan como lista separada por comas y se acotan: sin tope, un `?ids=` largo
- * arma un `IN (...)` de miles de elementos con una sola petición.
+ * Identificadores de los clientes cuyo nombre se pide, como lista separada por
+ * comas y con tope de elementos.
  */
 export class ClientNamesDto {
   @Transform(({ value }) =>
@@ -147,9 +136,8 @@ export class UpdateClientDto {
   birthDate?: string | null;
   @IsOptional() @IsArray() tags?: string[];
   /**
-   * Valores de la ficha que el negocio se haya definido, por id de campo. Se
-   * declara aquí porque el `ValidationPipe` global descarta lo que no esté en el
-   * DTO; el contenido lo contrasta `ClientsService` con los campos del negocio.
+   * Valores de la ficha que el negocio se haya definido, por id de campo; el
+   * contenido lo contrasta `ClientsService`.
    */
   @IsOptional() @IsObject() ficha?: Record<string, unknown>;
   @IsOptional() @IsBoolean() active?: boolean;

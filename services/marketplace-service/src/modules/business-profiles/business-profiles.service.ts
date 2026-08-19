@@ -24,13 +24,8 @@ import { RedisCacheService } from "@beautyspot/nest-common";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
 
 /**
- * Vigencia de un perfil público en caché.
- *
- * Cinco minutos es un compromiso: las escrituras invalidan explícitamente, así
- * que el TTL sólo cubre los cambios que llegan por otra vía (eventos de otro
- * servicio, escrituras directas en la base). Un perfil de negocio que tarde unos
- * minutos en reflejar un cambio no rompe nada; que la portada consulte la base
- * en cada visita, sí se nota.
+ * Vigencia de un perfil publico en cache. Las escrituras invalidan aparte, asi
+ * que el TTL solo cubre los cambios que llegan por otra via.
  */
 const PERFIL_TTL_SEGUNDOS = 300;
 
@@ -45,10 +40,8 @@ const DEFAULT_SECTIONS: SectionConfig[] = [
 ];
 
 /**
- * Sufijos que se prueban cuando el enlace derivado del nombre ya está tomado.
- *
- * Acotado porque el bucle consulta la base en cada intento: si veinte no bastan,
- * el nombre es tan común que conviene que el dueño elija el enlace a mano.
+ * Sufijos que se prueban cuando el enlace derivado del nombre ya esta tomado,
+ * acotados porque cada intento consulta la base.
  */
 const INTENTOS_DE_ENLACE = 20;
 
@@ -104,12 +97,7 @@ export class BusinessProfilesService {
 
   // --- Alta desde el panel ---
 
-  /**
-   * Da de alta el escaparate del negocio, en borrador.
-   *
-   * No lo publica: el dueño repasa su ficha y pulsa «Publicar» cuando quiera
-   * salir en la portada, que es donde vive esa decisión.
-   */
+  /** Da de alta el escaparate del negocio, en borrador y sin publicarlo. */
   async crearParaNegocio(
     businessId: string,
     dto: CrearPerfilDto
@@ -126,9 +114,8 @@ export class BusinessProfilesService {
     try {
       return await this.createOrUpdate({ ...dto, businessId, slug });
     } catch (error) {
-      // Las comprobaciones de arriba no son atómicas: dos altas a la vez pasan
-      // las dos y la que pierde llega aquí. El mensaje distingue cuál de las dos
-      // unicidades saltó, porque el dueño solo puede hacer algo con una.
+      // Las comprobaciones de arriba no son atomicas: la de dos altas a la vez
+      // que pierde llega aqui, y el mensaje distingue que unicidad salto.
       if (esViolacionDeUnicidad(error)) {
         throw new ConflictException(
           error.constraint === "uq_business_profiles_negocio"
@@ -141,11 +128,8 @@ export class BusinessProfilesService {
   }
 
   /**
-   * Enlace público con el que nace el perfil.
-   *
-   * El que escribe el dueño se respeta o se rechaza, nunca se retoca: puede que
-   * ya lo haya repartido. El que derivamos del nombre sí se numera al chocar,
-   * porque no lo eligió él.
+   * Enlace publico con el que nace el perfil: el que escribe el dueno se
+   * respeta o se rechaza; el derivado del nombre se numera al chocar.
    */
   private async resolverEnlace(
     nombre: string,

@@ -10,13 +10,8 @@ import { CumpleanosWorker } from "../modules/cumpleanos/cumpleanos.worker";
 const NEGOCIO = "11111111-1111-4111-8111-111111111111";
 
 /**
- * Comprueba contra Postgres real que la felicitación se emite una sola vez por
- * año y que la marca y el evento se confirman juntos.
- *
- * El sondeo depende de dos cosas que ningún repositorio simulado puede
- * reproducir: que Postgres compare el día en la zona del negocio, y que el
- * `UPDATE` condicional deje fuera al segundo ciclo.
- * Requiere la infraestructura levantada; se ejecuta con `npm run test:int`.
+ * Comprueba contra Postgres real que la felicitacion se emite una sola vez por
+ * ano y que la marca y el evento se confirman juntos (`npm run test:int`).
  */
 describe("Integración: felicitación de cumpleaños", () => {
   let dataSource: DataSource;
@@ -58,9 +53,8 @@ describe("Integración: felicitación de cumpleaños", () => {
   });
 
   /**
-   * Fecha de nacimiento con el día y el mes que tenga hoy Bogotá, desplazado los
-   * días que se indiquen. La calcula Postgres para que el test no dependa de la
-   * zona de la máquina que lo ejecuta.
+   * Fecha de nacimiento con el dia y el mes de hoy en Bogota, desplazada los
+   * dias que se indiquen y calculada por Postgres.
    */
   const cumpleDesplazado = async (dias = 0): Promise<string> => {
     const [{ md }] = await dataSource.query(

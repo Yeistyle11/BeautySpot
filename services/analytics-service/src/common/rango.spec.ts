@@ -87,8 +87,8 @@ describe("diasEntre", () => {
     expect(diasEntre("2024-02-01", "2024-02-29")).toBe(29);
   });
 
-  // Se cuenta en UTC, así que un cambio de horario de verano no puede colar ni
-  // un día de más ni uno de menos.
+  // Se cuenta en UTC: un cambio de horario de verano no cuela un dia de mas
+  // ni de menos.
   it("no se descuadra al cruzar un cambio de hora", () => {
     expect(diasEntre("2026-03-01", "2026-04-30")).toBe(61);
   });

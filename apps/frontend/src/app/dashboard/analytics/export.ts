@@ -1,5 +1,4 @@
-// Armado de los CSV del reporte. Separado de la pantalla porque es una
-// traduccion de cifras a filas, y asi se puede comprobar sin renderizar nada.
+// Armado de los CSV del reporte: traduce las cifras del periodo a filas.
 import { downloadCsv } from "@/lib/export-csv";
 import { nombreDelPeriodo, variacion, type Periodo } from "@/lib/periodo";
 import type { CifrasDelPeriodo, Rentabilidad } from "@/lib/schemas/kpis";
@@ -8,13 +7,7 @@ import type { FilaDeProfesional } from "./professionals-table";
 /** Una fila del resumen: el indicador, su cifra y la del periodo anterior. */
 type FilaDeResumen = (string | number | null)[];
 
-/**
- * Filas del resumen del periodo.
- *
- * Se exportan las cifras en bruto, sin formato de moneda ni signo de
- * porcentaje: quien abre esto en una hoja de calculo va a sumar y a graficar,
- * y un "$ 1.100.000" es texto, no un numero.
- */
+/** Filas del resumen del periodo, con las cifras en bruto y sin formato. */
 export function filasDelResumen(
   cifras: CifrasDelPeriodo,
   comparado?: CifrasDelPeriodo | null

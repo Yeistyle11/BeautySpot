@@ -152,10 +152,8 @@ export const emptyCreateForm = {
 export type CreateForm = typeof emptyCreateForm;
 
 /**
- * Enlace que se le propone al dueño a partir del nombre.
- *
- * Es el mismo `generateSlug` que usa el backend al derivarlo: la propuesta que
- * ve en pantalla tiene que ser la que acabaría guardándose.
+ * Enlace que se le propone al dueno a partir del nombre, con el mismo
+ * `generateSlug` que aplica el backend.
  */
 export function sugerirEnlace(nombre: string): string {
   return generateSlug(nombre);

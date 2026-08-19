@@ -10,9 +10,8 @@ const NEGOCIO_B = "22222222-2222-4222-8222-222222222222";
 const CLIENTE = "33333333-3333-4333-8333-333333333333";
 
 /**
- * Comprueba contra Postgres real que cada negocio lleva su propia serie de
- * facturas y que dos altas simultáneas obtienen números distintos. Requiere la
- * infraestructura levantada (`npm run test:int`).
+ * Comprueba contra Postgres real que cada negocio lleva su serie de facturas y
+ * que dos altas simultaneas obtienen numeros distintos (`npm run test:int`).
  */
 describe("Integración: numeración de facturas por negocio", () => {
   let dataSource: DataSource;
@@ -42,8 +41,7 @@ describe("Integración: numeración de facturas por negocio", () => {
       {} as PdfService,
       dataSource,
       outbox as unknown as OutboxService,
-      // Aquí solo se emiten facturas; el PDF, que es quien consulta a core, no
-      // se genera.
+      // Aqui solo se emiten facturas; el PDF, que consulta a core, no se genera.
       // Sin serie configurada: numera con la de por defecto.
       {
         pedirONulo: jest.fn().mockResolvedValue(null),
@@ -128,8 +126,8 @@ describe("Integración: numeración de facturas por negocio", () => {
       })
     ).rejects.toThrow();
 
-    // La reserva del número va en la misma transacción que la factura, así que
-    // el intento fallido no deja un hueco en la serie.
+    // La reserva del numero va en la misma transaccion que la factura: el
+    // intento fallido no deja hueco en la serie.
     const siguiente = await emitir(NEGOCIO_A);
     expect(siguiente.number).toMatch(/000002$/);
   });

@@ -296,9 +296,8 @@ describe("DashboardService", () => {
       );
     });
 
-    // Los ingresos vienen de los cobros y las citas atendidas de la agenda: hay
-    // ventas sin cita, y una cita atendida puede cobrarse otro día. Dividir uno
-    // entre otro daba un ticket medio de cero teniendo la caja llena.
+    // Los ingresos vienen de los cobros y las citas atendidas de la agenda:
+    // hay ventas sin cita y citas que se cobran otro dia.
     it("no lo divide entre las citas atendidas", async () => {
       (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
         buildQueryBuilder({
@@ -315,11 +314,8 @@ describe("DashboardService", () => {
       );
     });
 
-    // Un cero se lee como "este negocio no vende"; que no haya cobros es otra
-    // cosa, y la pantalla lo dice con palabras.
-    // Los días anteriores al contador tienen ingresos y ninguna venta contada.
-    // Promediar todo el ingreso entre las pocas ventas conocidas da un ticket
-    // inflado: solo entran los días que aportan las dos cifras.
+    // Solo entran los dias que aportan las dos cifras: sin cobros no hay
+    // ticket que promediar.
     it("promedia solo los días cuyas ventas están contadas", async () => {
       (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
         buildQueryBuilder({

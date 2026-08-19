@@ -23,11 +23,8 @@ export class CoreEventListeners {
   ) {}
 
   /**
-   * Acredita al cliente los puntos que la cita atendida generó.
-   *
-   * Va dentro de `once` porque acreditar dos veces regala dinero, y el
-   * incremento comparte la transacción con la marca de procesado para que no
-   * pueda quedar uno sin el otro.
+   * Acredita al cliente los puntos que la cita atendida genero, dentro de
+   * `once` y compartiendo transaccion con la marca de procesado.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
@@ -66,11 +63,8 @@ export class CoreEventListeners {
   }
 
   /**
-   * Descuenta de la ficha los puntos que un cobro canjeó.
-   *
-   * Igual que la acreditación: dentro de `once` y compartiendo transacción con
-   * la marca de procesado, porque descontar dos veces le cobra al cliente
-   * puntos que no gastó.
+   * Descuenta de la ficha los puntos que un cobro canjeo, dentro de `once` y
+   * compartiendo transaccion con la marca de procesado.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,

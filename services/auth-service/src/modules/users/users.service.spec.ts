@@ -537,9 +537,8 @@ describe("UsersService", () => {
       });
     });
 
-    // El dueño fija la contraseña y se la da a su empleado, que no espera
-    // ningún correo. Sin esto la cuenta se crea sin confirmar y el login, que
-    // sí lo exige, la deja fuera para siempre.
+    // La cuenta que crea el dueno nace confirmada: no hay correo que su
+    // empleado espere, y el login exige confirmacion.
     it("la cuenta nace con el correo confirmado", async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
       mockUserRepository.create.mockReturnValue(mockUser);

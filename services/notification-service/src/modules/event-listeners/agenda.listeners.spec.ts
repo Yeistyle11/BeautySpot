@@ -245,8 +245,8 @@ describe("AgendaListeners", () => {
       );
     });
 
-    // Una reserva desde el marketplace la dispara el cliente: si no se avisa
-    // aquí, al negocio no le consta hasta que alguien mira la agenda.
+    // Una reserva desde el marketplace la dispara el cliente: al negocio no le
+    // consta si no se le avisa.
     it("avisa también al equipo del negocio", async () => {
       await listeners.handleAppointmentCreated(mockAppointmentCreatedEvent);
 
@@ -499,9 +499,8 @@ describe("AgendaListeners", () => {
       ).not.toHaveBeenCalled();
     });
 
-    // Quien decide cuándo toca avisar es booking, al emitir el evento; aquí solo
-    // se envía. Por eso la fecha del fixture, que no cae en ninguna ventana, no
-    // impide el envío.
+    // Cuando toca avisar lo decide booking al emitir el evento; aqui solo se
+    // envia.
     it("envía el aviso atrasado, sin recalcular si aún cae en su franja", async () => {
       await listeners.handleAppointmentReminder(buildReminderEvent("1h"));
 

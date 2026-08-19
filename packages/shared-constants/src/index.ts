@@ -21,20 +21,14 @@ export const HORAS_MINIMAS_CANCELACION = 2;
 export const PROPORCION_PUNTOS_FIDELIDAD = 0.1;
 
 /**
- * Lo que descuenta un punto al canjearlo, en la moneda del negocio.
- *
- * Es el inverso de `PROPORCION_PUNTOS_FIDELIDAD`: si una cita acredita el 10 %
- * de su importe en puntos y cada punto vale una unidad, el programa devuelve
- * exactamente ese 10 % cuando se gasta.
+ * Lo que descuenta un punto al canjearlo, en la moneda del negocio; es el
+ * inverso de `PROPORCION_PUNTOS_FIDELIDAD`.
  */
 export const VALOR_DEL_PUNTO = 1;
 
 /**
- * Colores con los que se puede pintar un nivel de fidelidad.
- *
- * La lista es cerrada porque el color viaja en la configuración del negocio y
- * acaba en una clase de Tailwind: si se admitiera texto libre, la clase no
- * estaría en el CSS compilado y el nivel saldría sin color.
+ * Colores con los que se puede pintar un nivel de fidelidad. La lista es
+ * cerrada: el color acaba en una clase de Tailwind compilada.
  */
 export const COLORES_DE_NIVEL = [
   "bronce",
@@ -69,11 +63,8 @@ export const NIVELES_FIDELIDAD_POR_DEFECTO: NivelDeFidelidad[] = [
 export const MAXIMO_NIVELES_FIDELIDAD = 8;
 
 /**
- * Nivel alcanzado con esos puntos, o el más bajo si no llega a ninguno.
- *
- * Tanto esta función como `siguienteNivel` dan por hecho que los niveles vienen
- * ordenados de menos a más puntos; es la invariante que valida el DTO al
- * guardarlos.
+ * Nivel alcanzado con esos puntos, o el mas bajo si no llega a ninguno. Da por
+ * hecho que los niveles vienen ordenados de menos a mas.
  */
 export function nivelDePuntos(
   puntos: number,
@@ -103,9 +94,8 @@ export const URL_PREFIRMADA_SEGUNDOS = 3600;
 // ─── Validación de datos de contacto ───────────────────────────────
 
 /**
- * Teléfono aceptado: entre 7 y 20 dígitos, con el prefijo internacional y los
- * separadores habituales opcionales. Es deliberadamente permisiva —los formatos
- * varían por país— pero descarta el texto libre.
+ * Telefono aceptado: entre 7 y 20 digitos, con prefijo internacional y
+ * separadores opcionales.
  */
 export const PATRON_TELEFONO = /^\+?[\d][\d\s().-]{5,19}$/;
 
@@ -135,11 +125,7 @@ export const PATRON_CONTRASENA = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/;
 export const MENSAJE_CONTRASENA =
   "La contraseña debe combinar mayúsculas, minúsculas y números";
 
-/**
- * Contraseñas descartadas por comunes. La lista es corta a propósito: cubre lo
- * que aparece primero en cualquier ataque de diccionario sin pretender ser un
- * catálogo, que es trabajo de un servicio dedicado.
- */
+/** Contrasenas descartadas por comunes, las primeras de un diccionario. */
 export const CONTRASENAS_PROHIBIDAS = [
   "password",
   "contrasena",
@@ -153,16 +139,8 @@ export const CONTRASENAS_PROHIBIDAS = [
 ];
 
 /**
- * Tipos de negocio que admite la plataforma.
- *
- * Vive aquí, y no en cada pantalla, porque el alta, el filtro del marketplace y
- * la etiqueta de la tarjeta tienen que hablar del mismo catálogo: un tipo que se
- * pueda elegir al crear el negocio pero que no sea categoría del feed deja al
- * local fuera de todos los filtros, sin que nadie lo note.
- *
- * `etiqueta` nombra un negocio (formularios, tarjeta) y `categoria` nombra al
- * conjunto (los filtros de la portada); `icono` es la clave con la que el
- * frontend elige el dibujo.
+ * Tipos de negocio que admite la plataforma: `etiqueta` nombra uno,
+ * `categoria` nombra al conjunto en la portada e `icono`, su dibujo.
  */
 export const TIPOS_DE_NEGOCIO = [
   {

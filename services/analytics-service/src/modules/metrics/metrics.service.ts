@@ -38,13 +38,8 @@ export class MetricsService {
   ) {}
 
   /**
-   * Incrementa los contadores de la métrica diaria con INSERT ... ON CONFLICT
-   * DO UPDATE, de forma atómica y sin carreras entre escritores concurrentes.
-   *
-   * El unique (business_id, date) evita filas duplicadas, pero **no hace
-   * idempotente el incremento**: aplicar dos veces el mismo evento suma dos
-   * veces. De eso se ocupa quien llama, marcando el evento como procesado
-   * dentro de esta misma transacción; para eso admite un `manager`.
+   * Incrementa los contadores de la metrica diaria con INSERT ... ON CONFLICT
+   * DO UPDATE. Admite un `manager` para correr en la transaccion de quien llama.
    */
   async incrementDailyMetric(
     businessId: string,
@@ -73,10 +68,8 @@ export class MetricsService {
   }
 
   /**
-   * Incrementa los contadores de la métrica de un profesional con
-   * INSERT ... ON CONFLICT DO UPDATE. Mismo matiz que
-   * {@link incrementDailyMetric}: el unique evita filas duplicadas, no
-   * incrementos repetidos.
+   * Incrementa los contadores de la metrica de un profesional con
+   * INSERT ... ON CONFLICT DO UPDATE.
    */
   async incrementProfessionalMetric(
     businessId: string,

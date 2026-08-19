@@ -9,7 +9,7 @@ export class CreateBlockedSlotDto {
   @EsHoraDelDia() startTime!: string;
   @EsHoraDelDia() endTime!: string;
   @IsOptional() @IsString() @MaxLength(200) reason?: string;
-  /** Sin esto el bloqueo es de un solo día. */
+  /** Ausente, el bloqueo es de un solo dia. */
   @IsOptional()
   @IsEnum(RepeticionDeBloqueo, { message: "La repetición no es válida" })
   repeticion?: RepeticionDeBloqueo;

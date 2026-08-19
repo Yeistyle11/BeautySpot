@@ -38,18 +38,14 @@ export class UpsertProfileDto {
 }
 
 /**
- * Datos con los que el dueño da de alta su escaparate desde el panel.
- *
- * No lleva `businessId`: el de `UpsertProfileDto` viene en el cuerpo porque
- * quien llama es otro servicio, pero en una ruta con usuario detrás el negocio
- * lo dice el token, o un dueño podría escribir el perfil de otro.
+ * Datos con los que el dueno da de alta su escaparate desde el panel. Sin
+ * `businessId`: en esta ruta el negocio lo dice el token.
  */
 export class CrearPerfilDto {
   @IsString() @Length(2, 120) name!: string;
 
   /**
-   * Enlace público del negocio. Es opcional porque, si no lo elige, se deriva
-   * del nombre; lo que no se hace es corregirle en silencio el que sí escribió.
+   * Enlace publico del negocio; si no lo elige, se deriva del nombre.
    */
   @IsOptional()
   @IsString()

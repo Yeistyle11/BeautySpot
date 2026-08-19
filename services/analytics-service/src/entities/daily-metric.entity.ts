@@ -31,11 +31,8 @@ export class DailyMetricEntity extends TenantEntity {
   totalRevenue: number;
 
   /**
-   * Cobros del día, que es de donde salen esos ingresos.
-   *
-   * El ticket medio se divide por aquí y no por las citas atendidas: son cosas
-   * distintas —una venta de producto no tiene cita, y una cita atendida puede
-   * cobrarse otro día— y mezclarlas da un promedio que no es de nada.
+   * Cobros del dia, que es de donde salen esos ingresos y por lo que se divide
+   * el ticket medio.
    */
   @Column({ default: 0 })
   ventas: number;

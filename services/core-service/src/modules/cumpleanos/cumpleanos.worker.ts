@@ -27,12 +27,8 @@ interface Cumpleanero {
 }
 
 /**
- * Sondea las fichas y publica `core.client.birthday` el día que el cliente
- * cumple años en la zona horaria de su negocio.
- *
- * El año felicitado se marca en la propia ficha dentro de la misma transacción
- * que el evento del outbox, así que no se repite aunque haya varias instancias
- * sondeando a la vez. Se puede desactivar con CUMPLEANOS_ENABLED=false.
+ * Sondea las fichas y publica `core.client.birthday` el dia que el cliente
+ * cumple anos en su zona. Se desactiva con CUMPLEANOS_ENABLED=false.
  */
 @Injectable()
 export class CumpleanosWorker implements OnModuleInit, OnModuleDestroy {
@@ -97,12 +93,8 @@ export class CumpleanosWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Fichas cuyo día y mes de nacimiento coinciden con la fecha de hoy en la
-   * zona del negocio.
-   *
-   * El huso lo aplica Postgres, negocio a negocio, porque un mismo instante es
-   * dos días distintos según dónde esté el salón. A quien nació un 29 de
-   * febrero se le felicita solo en los años bisiestos: es la fecha que dio.
+   * Fichas cuyo dia y mes de nacimiento coinciden con la fecha de hoy en la
+   * zona del negocio, que aplica Postgres negocio a negocio.
    */
   private async cumpleanerosDeHoy(): Promise<Cumpleanero[]> {
     return this.dataSource.query(

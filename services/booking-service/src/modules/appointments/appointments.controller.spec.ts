@@ -4,9 +4,8 @@ import { AppointmentsService } from "./appointments.service";
 import { AvailabilityQueryService } from "./availability-query.service";
 
 /**
- * Rutas que consumen otros servicios. Lo que importa aquí es que cada dato de la
- * ruta y de la consulta llegue al servicio donde corresponde: quien pregunta no
- * tiene sesión, así que no hay ningún otro sitio de donde sacarlos.
+ * Rutas que consumen otros servicios: comprueba que cada dato de la ruta y de
+ * la consulta llega al servicio donde corresponde.
  */
 describe("InternalAppointmentsController", () => {
   let controller: InternalAppointmentsController;

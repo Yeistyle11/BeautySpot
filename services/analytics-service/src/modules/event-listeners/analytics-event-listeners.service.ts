@@ -23,18 +23,8 @@ import { ZonaDelNegocioService } from "@beautyspot/nest-common";
 import { fechaDeHoy } from "../../common/fecha";
 
 /**
- * Acumula las métricas diarias y por profesional a partir de los eventos de dominio.
- *
- * Las métricas de una cita se anotan en **la fecha de la cita**, no en la del
- * evento: son las cifras que el dueño compara con su agenda, así que una cita
- * creada hoy para la semana que viene no puede contar como cita de hoy.
- * Los ingresos son la excepción — el dinero entra el día en que se cobra.
- *
- * Cada handler se ejecuta a través de {@link ProcessedEventsStore}, que descarta
- * los eventos ya aplicados. Es imprescindible aquí y no un adorno: las métricas
- * son contadores acumulativos, así que un evento entregado dos veces —la
- * entrega es at-least-once— las deja infladas para siempre, sin forma de
- * distinguir después el valor bueno del corrompido.
+ * Acumula las metricas diarias y por profesional a partir de los eventos de
+ * dominio, en la fecha de la cita salvo los ingresos, que van en la del cobro.
  */
 @Injectable()
 export class AnalyticsEventListeners {
@@ -53,10 +43,8 @@ export class AnalyticsEventListeners {
   }
 
   /**
-   * Cuenta la cita en su fecha, para el negocio y para el profesional.
-   *
-   * No toca los ingresos: el importe de una cita es una previsión, y el dinero
-   * lo anota el pago.
+   * Cuenta la cita en su fecha, para el negocio y para el profesional; los
+   * ingresos los anota el pago.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
@@ -88,9 +76,8 @@ export class AnalyticsEventListeners {
   }
 
   /**
-   * La confirmación no mueve ninguna métrica: la cita ya se contó al crearse y
-   * el ingreso se anota cuando se cobra. Se sigue escuchando para dejar
-   * constancia del cambio de estado en el log.
+   * La confirmacion no mueve ninguna metrica; se escucha para dejar constancia
+   * del cambio de estado en el log.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
@@ -231,7 +218,7 @@ export class AnalyticsEventListeners {
   })
   async handleClientCreated(event: ClientCreatedEvent): Promise<void> {
     // Nuevos y recurrentes se cuentan por visita atendida, no por alta de
-    // ficha, así que aquí solo queda la traza.
+    // ficha: aqui solo queda la traza.
     this.logger.log(`Cliente creado: ${event.payload.clientId}`);
   }
 
@@ -256,13 +243,7 @@ export class AnalyticsEventListeners {
     );
   }
 
-  /**
-   * Fija la valoración del profesional en la métrica del día.
-   *
-   * Este es el único caso naturalmente idempotente —escribe un valor absoluto,
-   * no un incremento—, pero pasa igual por el store: mantener una sola forma de
-   * escribir handlers evita que el siguiente se escriba sin protección.
-   */
+  /** Fija la valoracion del profesional en la metrica del dia. */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
     routingKey: EventNames.MARKETPLACE_REVIEW_CREATED,
@@ -286,10 +267,7 @@ export class AnalyticsEventListeners {
 
   /**
    * Aplica el evento una sola vez y captura los errores, para que un fallo de
-   * métricas no tumbe el consumidor.
-   *
-   * Si el trabajo falla, la transacción del store revierte también la marca de
-   * procesado, así que el evento no queda dado por aplicado sin estarlo.
+   * metricas no tumbe el consumidor.
    */
   private async aplicar(
     event: IBaseEvent<unknown>,

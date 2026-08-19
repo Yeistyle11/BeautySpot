@@ -5,9 +5,8 @@ import { ClientsController } from "./clients.controller";
 import { ClientsService } from "./clients.service";
 
 /**
- * La cartera de clientes es del negocio. Lo que se comprueba aquí es que el rol
- * de quien pregunta decida qué listado se le sirve, porque es la única defensa
- * entre un estilista y la agenda entera con teléfonos y documentos.
+ * Comprueba que el rol de quien pregunta decide que listado de la cartera se
+ * le sirve.
  */
 describe("ClientsController", () => {
   let controller: ClientsController;

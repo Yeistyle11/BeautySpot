@@ -31,11 +31,7 @@ interface AppointmentCardProps {
 /** Estados desde los que la cita todavia puede anularse. */
 const ANULABLES = ["PENDING", "CONFIRMED"];
 
-/**
- * Fila de la agenda en vista lista, con las acciones segun el estado. Va
- * memoizada porque teclear en el buscador re-renderiza la pagina entera y con
- * ella las veinte tarjetas.
- */
+/** Fila de la agenda en vista lista, con las acciones segun el estado. */
 export const AppointmentCard = memo(function AppointmentCard({
   appointment,
   professionalName,
@@ -51,8 +47,7 @@ export const AppointmentCard = memo(function AppointmentCard({
   const serviceNames = appointment.appointmentServices
     .map((s) => s.serviceName)
     .join(", ");
-  // El servidor rechaza cerrar una cita que aun no ha empezado, asi que
-  // "Completar" y "No asistió" solo aparecen cuando ya ha llegado su hora.
+  // "Completar" y "No asistió" solo aparecen cuando la cita ya ha empezado.
   const yaEmpezo = haComenzado(appointment.date, appointment.startTime);
 
   return (

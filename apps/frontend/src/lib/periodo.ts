@@ -1,5 +1,4 @@
-// Periodos con los que se consultan los reportes. La cuenta vive aqui, y no en
-// la pantalla, porque es aritmetica de calendario y se puede comprobar sola.
+// Periodos con los que se consultan los reportes y su aritmetica de calendario.
 import { toLocalDateKey } from "./utils";
 
 /** Periodo cerrado, con los dos extremos incluidos, como lo espera la API. */
@@ -31,13 +30,7 @@ export const ETIQUETAS_DE_PERIODO: Record<PeriodoId, string> = {
   personalizado: "Personalizado",
 };
 
-/**
- * Periodo con el que se abre la pantalla.
- *
- * El mes natural y no una ventana movil de treinta dias: el dueño factura, paga
- * nomina y declara por meses, asi que una cifra que empieza el dia 18 no cuadra
- * con ningun papel que tenga sobre la mesa.
- */
+/** Periodo con el que se abre la pantalla: el mes natural en curso. */
 export const PERIODO_POR_DEFECTO: PeriodoId = "mes";
 
 /** Dia de calendario resultante de sumar (o restar) dias a otro. */
@@ -47,12 +40,7 @@ function sumarDias(fecha: Date, dias: number): Date {
   return movida;
 }
 
-/**
- * Lunes de la semana de esa fecha.
- *
- * La semana empieza en lunes porque asi la cuenta un negocio de este sector:
- * el domingo es cierre o jornada corta, no apertura.
- */
+/** Lunes de la semana de esa fecha. */
 function lunesDe(fecha: Date): Date {
   const dia = fecha.getDay();
   // getDay() da 0 para domingo, que pertenece a la semana que empezo hace seis.
@@ -60,10 +48,8 @@ function lunesDe(fecha: Date): Date {
 }
 
 /**
- * Resuelve un periodo con nombre a sus dos fechas.
- *
- * `personalizado` no se resuelve aqui: lo eligen dos campos de fecha, y hasta
- * que el usuario los rellena no hay periodo que calcular.
+ * Resuelve un periodo con nombre a sus dos fechas; `personalizado` no se
+ * resuelve aqui, lo fijan los dos campos de fecha.
  */
 export function resolverPeriodo(id: PeriodoId, hoy = new Date()): Periodo {
   const clave = (fecha: Date) => toLocalDateKey(fecha);
@@ -90,7 +76,7 @@ export function resolverPeriodo(id: PeriodoId, hoy = new Date()): Periodo {
       };
     }
     case "ultimos30":
-      // Veintinueve hacia atras, porque hoy tambien cuenta.
+      // Veintinueve hacia atras: hoy tambien cuenta.
       return { from: clave(sumarDias(hoy, -29)), to: clave(hoy) };
     case "anio":
       return {
@@ -116,11 +102,8 @@ export function periodoValido({ from, to }: Periodo): boolean {
 }
 
 /**
- * Variacion porcentual de una cifra respecto a la del periodo anterior.
- *
- * Devuelve `null` cuando antes no habia nada: pasar de cero a cinco no es un
- * quinientos por ciento, es que antes no habia con que comparar, y una flecha
- * ahi solo confunde.
+ * Variacion porcentual de una cifra respecto a la del periodo anterior;
+ * `null` cuando antes no habia nada con que comparar.
  */
 export function variacion(
   ahora: number,

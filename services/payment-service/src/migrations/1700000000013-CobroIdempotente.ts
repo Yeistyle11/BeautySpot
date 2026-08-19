@@ -10,8 +10,7 @@ export class CobroIdempotente1700000000013 implements MigrationInterface {
         ADD COLUMN IF NOT EXISTS "solicitud_id" uuid
     `);
 
-    // Parcial porque los cobros anteriores a esta columna no traen
-    // identificador, y todos ellos serían el mismo valor nulo.
+    // Parcial: los cobros anteriores a esta columna no traen identificador.
     await queryRunner.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS "uq_payments_solicitud"
         ON "payments" ("business_id", "solicitud_id")

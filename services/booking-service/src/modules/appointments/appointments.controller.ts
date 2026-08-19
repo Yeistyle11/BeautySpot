@@ -245,8 +245,8 @@ export class InternalAppointmentsController {
   }
 
   /**
-   * Fichas que ha atendido el profesional. El core acota con ellas qué clientes
-   * ve quien solo atiende, así que la respuesta es parte del control de acceso.
+   * Fichas que ha atendido el profesional, con las que el core acota que
+   * clientes ve quien solo atiende.
    */
   @Get("professional/:professionalId/client-ids")
   async clientIdsAtendidos(

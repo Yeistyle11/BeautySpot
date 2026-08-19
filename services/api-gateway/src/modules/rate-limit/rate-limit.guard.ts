@@ -18,14 +18,8 @@ import Redis from "ioredis";
 import { REDIS_CLIENT } from "../redis/redis.module";
 
 /**
- * Incrementa el contador y fija su expiración en una sola llamada atómica.
- * Un INCR seguido de un EXPIRE por separado deja la clave sin TTL si el proceso
- * muere entre ambos, bloqueando a la IP indefinidamente. KEYS[1]=clave,
- * ARGV[1]=ventana en segundos.
- *
- * Devuelve el contador y lo que le queda a la ventana. El TTL viaja de vuelta
- * en la misma llamada porque hace falta en cada respuesta para decir cuándo se
- * podrá reintentar, y preguntarlo aparte doblaría los viajes a Redis.
+ * Incrementa el contador y fija su expiracion en una sola llamada atomica, y
+ * devuelve el conteo y el TTL. KEYS[1]=clave, ARGV[1]=ventana en segundos.
  */
 const INCR_WITH_EXPIRE = `
   local count = redis.call('INCR', KEYS[1])
@@ -100,14 +94,12 @@ export class RateLimitGuard implements CanActivate {
     const response = context.switchToHttp().getResponse<Response>();
     const isAuthRoute = this.isAuthRoute(request.path);
 
-    // En rutas de autenticación se limita también por cuenta objetivo, no solo
-    // por IP: así un ataque distribuido de credential stuffing contra un mismo
-    // email se frena aunque cada intento venga de una IP distinta.
+    // En rutas de autenticacion se limita tambien por cuenta objetivo, no solo
+    // por IP.
     const buckets = this.buildBuckets(request, isAuthRoute);
     const limit = isAuthRoute ? this.limiteCredenciales : this.limiteGeneral;
 
-    // De los dos contadores manda el que va más lleno: es el que decide si la
-    // petición pasa, así que es el que hay que contarle a quien pregunta.
+    // De los dos contadores manda el que va mas lleno.
     let usados = 0;
     let esperaSegundos = this.ventanaSegundos;
 
@@ -140,13 +132,7 @@ export class RateLimitGuard implements CanActivate {
     return true;
   }
 
-  /**
-   * Dice cuánto falta para poder reintentar.
-   *
-   * "Demasiadas solicitudes" a secas es indistinguible de una caída: quien lo
-   * lee no sabe si esperar, corregir algo o llamar a soporte. El dato ya lo
-   * tiene el propio contador.
-   */
+  /** Dice cuanto falta para poder reintentar. */
   private mensajeDeEspera(esDeCredenciales: boolean, segundos: number): string {
     const que = esDeCredenciales
       ? "Demasiados intentos"
@@ -157,9 +143,7 @@ export class RateLimitGuard implements CanActivate {
   }
 
   /**
-   * Cabeceras estándar del limitador, también cuando la petición pasa: así una
-   * integración sabe cuánto le queda antes de chocar, en vez de descubrirlo
-   * reintentando a ciegas.
+   * Cabeceras estandar del limitador, tambien cuando la peticion pasa.
    */
   private anotarCabeceras(
     response: Response,
@@ -178,9 +162,8 @@ export class RateLimitGuard implements CanActivate {
   }
 
   /**
-   * Indica si la ruta es de credenciales y le toca el límite estricto. Compara
-   * el nombre del servicio normalizado, que se acepta con y sin sufijo, y deja
-   * fuera `/auth/refresh`, cuyo token firmado no se fuerza por fuerza bruta.
+   * Indica si la ruta es de credenciales y le toca el limite estricto; deja
+   * fuera `/auth/refresh`.
    */
   private isAuthRoute(path: string): boolean {
     const normalizado = path.replace(/^(\/api\/v\d+\/[a-z]+)-service\//, "$1/");
@@ -203,9 +186,8 @@ export class RateLimitGuard implements CanActivate {
 
   /** IP a la que se le imputa la petición. */
   private resolveIp(request: Request): string {
-    // request.ip respeta el ajuste "trust proxy" de Express; si no está activo
-    // detrás de un balanceador todas las peticiones comparten cuota, por lo que
-    // debe configurarse junto con este guard.
+    // request.ip respeta el ajuste "trust proxy" de Express, que hay que
+    // configurar junto con este guard.
     return request.ip || request.socket?.remoteAddress || "unknown";
   }
 
@@ -217,9 +199,8 @@ export class RateLimitGuard implements CanActivate {
   }
 
   /**
-   * Registra un impacto en el contador de la ventana. Devuelve el conteo actual
-   * o null si Redis no responde: ante un fallo de la caché se deja pasar la
-   * petición (fail-open) en vez de tumbar todo el tráfico con errores 500.
+   * Registra un impacto en el contador de la ventana. Devuelve el conteo o
+   * null si Redis no responde, y entonces la peticion pasa (fail-open).
    */
   private async hit(key: string): Promise<Marca | null> {
     try {

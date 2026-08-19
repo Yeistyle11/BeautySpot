@@ -36,9 +36,6 @@ function pintar(clients: Client[]) {
 }
 
 describe("AppointmentForm", () => {
-  // Es la pantalla por la que existe el producto y la unica via para agendar:
-  // que se abra no puede quedar sin comprobar, sobre todo cuando lo que la
-  // tumba es un fallo de renderizado que ningun tipo detecta.
   it("se pinta con sus campos", () => {
     pintar(clientes(0));
 

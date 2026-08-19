@@ -3,9 +3,6 @@ import { MigrationInterface, QueryRunner } from "typeorm";
 /**
  * Pasa la hora de cierre a la que marca el reloj: el negocio que cerraba a las
  * "26:00" cierra a las 02:00.
- *
- * Que ese cierre caiga ya en el día siguiente se deduce de que venga antes que
- * la apertura, y por eso la vuelta atrás puede reconstruir el valor exacto.
  */
 export class HoraDeCierreDeReloj1700000000012 implements MigrationInterface {
   name = "HoraDeCierreDeReloj1700000000012";

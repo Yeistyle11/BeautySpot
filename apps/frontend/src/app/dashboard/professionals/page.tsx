@@ -131,15 +131,12 @@ export default function ProfessionalsPage() {
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
 
-  // Se recuerda de quien es la ultima peticion de horario en vuelo: abrir dos
-  // profesionales seguidos hacia que la respuesta lenta del primero sobrescribiera
-  // la semana del segundo.
+  // De quien es la ultima peticion de horario en vuelo.
   const horarioPedidoPara = useRef<string | null>(null);
 
   /**
-   * Abre el dialogo de horario de un profesional. El horario se pide a mano y no
-   * con SWR, a diferencia del resto de la pagina, porque no se cachea: es un
-   * formulario que se rellena al abrir y se descarta al cerrar.
+   * Abre el dialogo de horario de un profesional y pide su semana a mano,
+   * sin pasar por SWR.
    */
   const openSchedule = useCallback((p: Professional) => {
     setSchedulePro(p);
@@ -174,7 +171,7 @@ export default function ProfessionalsPage() {
     setSavingSchedule(true);
     setScheduleError("");
     try {
-      // Un dia sin tramos es un dia libre, asi que no se envia.
+      // Un dia sin tramos es un dia libre y no se envia.
       const slots = Object.entries(scheduleHours).flatMap(([day, tramos]) =>
         tramos.map((tramo) => ({
           dayOfWeek: Number(day),

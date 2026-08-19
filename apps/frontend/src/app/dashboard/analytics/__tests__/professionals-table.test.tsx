@@ -45,8 +45,6 @@ describe("filasDeProfesionales", () => {
     expect(filas.map((f) => f.nombre)).toEqual(["Luis Díaz", "Ana Gómez"]);
   });
 
-  // Su trabajo cuenta en el periodo aunque ya no esté en el equipo: quitarlo
-  // haría que los ingresos de la tabla no sumaran los del negocio.
   it("no descarta a quien ya no está en el equipo", () => {
     const filas = filasDeProfesionales(reporte([ANA]), []);
 

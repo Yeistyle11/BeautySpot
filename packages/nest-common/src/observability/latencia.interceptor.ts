@@ -8,24 +8,12 @@ import {
 import { Observable, tap } from "rxjs";
 import { esContextoHttp } from "../guards/http-context";
 
-/**
- * A partir de aquí una petición se considera lenta y se registra como aviso.
- *
- * No es un objetivo de servicio, es el umbral por encima del cual merece la
- * pena mirar: por debajo, el ruido taparía lo que importa.
- */
+/** A partir de aqui una peticion se considera lenta y se registra como aviso. */
 export const UMBRAL_LENTO_MS = 1000;
 
 /**
- * Mide lo que tarda cada petición y lo deja en el log.
- *
- * Con ocho servicios detrás de un gateway, saber que "algo va lento" no sirve
- * de nada si no se sabe dónde. Cada línea sale con el `requestId` que estampa
- * `StructuredLogger`, así que una petición se puede seguir de punta a punta
- * sumando lo que tardó en cada salto.
- *
- * Los errores no se registran aquí: de eso ya se ocupa `HttpExceptionFilter`,
- * y duplicarlo daría dos líneas por el mismo fallo.
+ * Mide lo que tarda cada peticion y lo deja en el log con el `requestId` que
+ * estampa `StructuredLogger`. De los errores se ocupa `HttpExceptionFilter`.
  */
 @Injectable()
 export class LatenciaInterceptor implements NestInterceptor {

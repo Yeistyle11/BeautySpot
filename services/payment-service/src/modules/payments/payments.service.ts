@@ -50,12 +50,8 @@ const TRANSICIONES_DE_PAGO: Record<PaymentStatus, PaymentStatus[]> = {
 };
 
 /**
- * Qué se vendió, para el listado de movimientos de caja.
- *
- * Antes se anotaba el identificador del pago, que es un dato interno y no dice
- * nada a quien repasa la caja al cerrar. Se nombra lo vendido y no a quien lo
- * compró: el cliente se resuelve al leer, de modo que una ficha suprimida deje
- * de aparecer también aquí.
+ * Que se vendio, para el listado de movimientos de caja; el cliente se
+ * resuelve al leer y no se copia aqui.
  */
 export function conceptoDelCobro(servicios?: ServicioDeLaCita[]): string {
   const nombres = (servicios ?? []).map((s) => s.name).filter(Boolean);
@@ -130,9 +126,8 @@ export class PaymentsService {
         services
       );
     } catch (error) {
-      // El segundo envío del mismo intento choca contra el índice: no es un
-      // fallo, es el doble clic que el índice está para absorber. Se devuelve el
-      // cobro que ya se hizo, que es lo que el cajero cree estar viendo.
+      // El segundo envio del mismo intento choca contra el indice: se devuelve
+      // el cobro que ya se hizo.
       const yaCobrado = esViolacionDeUnicidad(error) && data.solicitudId;
       if (!yaCobrado) throw error;
 
@@ -185,9 +180,8 @@ export class PaymentsService {
         },
       });
 
-      // El descuento de los puntos va por Outbox, en la misma transacción que
-      // el cobro: core es quien guarda el saldo, y un cobro con descuento cuyos
-      // puntos no se descuentan los regala.
+      // El descuento de los puntos va por Outbox, en la misma transaccion que
+      // el cobro; el saldo lo guarda core.
       if (puntosUsados > 0) {
         await this.outbox.enqueue(manager, {
           eventType: EventNames.PAYMENT_POINTS_REDEEMED,
@@ -208,10 +202,8 @@ export class PaymentsService {
   }
 
   /**
-   * De las citas indicadas, las que ya tienen un cobro vivo.
-   *
-   * Un cobro anulado no cuenta: esa cita vuelve a poder cobrarse, igual que
-   * decide el índice que impide el cobro doble.
+   * De las citas indicadas, las que ya tienen un cobro vivo; un cobro anulado
+   * no cuenta.
    */
   async citasYaCobradas(
     businessId: string,
@@ -232,14 +224,8 @@ export class PaymentsService {
   }
 
   /**
-   * Comprueba que el cliente tiene los puntos que quiere gastar.
-   *
-   * El saldo vive en core, así que entre esta lectura y el descuento efectivo
-   * cabe una carrera: dos cobros simultáneos del mismo cliente podrían gastar
-   * los mismos puntos. `subtractLoyaltyPoints` no baja de cero, con lo que el
-   * saldo nunca queda negativo; el riesgo real es regalar un descuento en un
-   * cobro presencial, y se ha preferido eso a bloquear la ficha del cliente
-   * desde otro servicio.
+   * Comprueba que el cliente tiene los puntos que quiere gastar; el saldo lo
+   * guarda core y se descuenta despues.
    */
   private async validarLosPuntos(
     businessId: string,
@@ -421,10 +407,8 @@ export class PaymentsService {
   }
 
   /**
-   * Cambia el estado de un pago siguiendo las transiciones permitidas.
-   *
-   * `REFUNDED` no está entre ellas: la devolución exige importe, motivo, autor y
-   * ventana de 30 días, y todo eso vive en {@link refundPayment}.
+   * Cambia el estado de un pago siguiendo las transiciones permitidas;
+   * `REFUNDED` no esta entre ellas, vive en {@link refundPayment}.
    */
   async updateStatus(
     id: string,
@@ -444,11 +428,8 @@ export class PaymentsService {
   }
 
   /**
-   * Resumen de pagos completados de un día, agregado por método.
-   *
-   * La suma y el conteo se hacen en SQL (SUM/COUNT + GROUP BY) en vez de cargar
-   * todas las filas del día en memoria: el volumen de pagos crece con el negocio
-   * y traer cada registro solo para sumarlo no escala.
+   * Resumen de pagos completados de un dia, agregado por metodo y sumado en
+   * SQL.
    */
   async getDailySummary(businessId: string, date: string, branchId?: string) {
     // El día va de medianoche a medianoche en el huso del negocio, con el fin
@@ -486,12 +467,8 @@ export class PaymentsService {
   }
 
   /**
-   * Reembolsa un pago completado, total o parcialmente.
-   *
-   * La transición COMPLETED → REFUNDED se aplica con un UPDATE condicionado al
-   * estado actual dentro de la transacción: dos peticiones concurrentes sobre el
-   * mismo pago no pueden reembolsarlo dos veces, porque solo la primera afecta
-   * filas. `refundedBy` registra qué usuario autorizó el reembolso.
+   * Reembolsa un pago completado, total o parcialmente, con un UPDATE
+   * condicionado al estado y anotando en `refundedBy` quien lo autorizo.
    */
   async refundPayment(
     id: string,

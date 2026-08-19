@@ -43,18 +43,16 @@ class CreatePaymentDto {
   @IsOptional() @IsString() reference?: string;
   @IsOptional() @IsString() notes?: string;
   /**
-   * Puntos de fidelidad que el cliente gasta en este cobro. `amount` es lo que
-   * paga de su bolsillo, ya rebajado: lo que tiene que cuadrar con la cita es
-   * la suma de los dos.
+   * Puntos de fidelidad que el cliente gasta en este cobro; `amount` es lo que
+   * paga de su bolsillo, ya rebajado.
    */
   @IsOptional()
   @IsInt({ message: "Los puntos deben ser un número entero" })
   @Min(1, { message: "Para canjear hay que usar al menos un punto" })
   puntosUsados?: number;
   /**
-   * Identifica el intento de cobro, no el cobro: quien cobra lo genera una vez
-   * y lo repite si reenvía. Dos envíos con el mismo identificador dejan un solo
-   * cargo, que es lo que salva al cliente del doble clic.
+   * Identifica el intento de cobro, no el cobro: dos envios con el mismo
+   * identificador dejan un solo cargo.
    */
   @IsOptional()
   @IsUUID("4", { message: "El identificador de la solicitud debe ser un UUID" })
@@ -65,10 +63,8 @@ class CreatePaymentDto {
 const MAXIMO_CITAS = 100;
 
 /**
- * Citas por las que se pregunta si ya están cobradas.
- *
- * Llegan como lista separada por comas y se acotan: sin tope, un `?ids=` largo
- * arma un `IN (...)` de miles de elementos con una sola petición.
+ * Citas por las que se pregunta si ya estan cobradas, como lista separada por
+ * comas y con tope de elementos.
  */
 export class CitasCobradasDto {
   @Transform(({ value }) =>
@@ -145,11 +141,8 @@ export class PaymentsController {
   }
 
   /**
-   * De las citas indicadas, cuáles tienen ya un cobro vivo.
-   *
-   * Booking no sabe nada de pagos, así que al ofrecer las citas por cobrar hay
-   * que preguntar aquí cuáles hay que tachar. Se responde solo con los
-   * identificadores: quien pregunta ya tiene el resto.
+   * De las citas indicadas, cuales tienen ya un cobro vivo. Responde solo con
+   * los identificadores.
    */
   @Get("cobradas")
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)

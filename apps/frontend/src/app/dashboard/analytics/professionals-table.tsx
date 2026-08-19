@@ -16,11 +16,8 @@ export interface FilaDeProfesional {
 }
 
 /**
- * Cruza el reporte con el equipo para poner nombre a cada fila.
- *
- * El reporte solo trae identificadores: analytics no guarda los nombres, que
- * son del core y pueden cambiar. Quien ya no está en el equipo sigue saliendo,
- * porque su trabajo cuenta en el periodo; se le nombra por lo que se sabe.
+ * Cruza el reporte con el equipo para poner nombre a cada fila; quien ya no
+ * esta en el equipo sigue saliendo.
  */
 export function filasDeProfesionales(
   reporte: ReporteProfesionales | undefined,

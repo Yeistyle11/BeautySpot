@@ -23,13 +23,8 @@ const CITA_DE_100 = {
 };
 
 /**
- * Comprueba contra Postgres real que el descuento de puntos y el cobro se
- * confirman juntos.
- *
- * El saldo lo guarda core, así que el descuento viaja por el outbox: si el
- * cobro se revierte y el evento quedase escrito, el cliente perdería puntos por
- * un cobro que no existe. Requiere la infraestructura levantada
- * (`npm run test:int`).
+ * Comprueba contra Postgres real que el descuento de puntos, que viaja por el
+ * outbox, y el cobro se confirman juntos (`npm run test:int`).
  */
 describe("Integración: el canje de puntos va con el cobro", () => {
   let dataSource: DataSource;

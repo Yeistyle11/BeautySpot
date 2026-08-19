@@ -38,9 +38,8 @@ interface Appointment {
   clientId: string;
 }
 
-// El analytics-service solo guarda identificadores: el nombre del profesional
-// se cruza aqui contra /core/professionals, igual que se hace con el cliente de
-// cada cita.
+// El reporte solo trae el id del profesional; el nombre se cruza contra
+// /core/professionals.
 const topProfessionalSchema = z.object({
   professionalId: z.string(),
   appointments: z.number(),
@@ -86,18 +85,14 @@ export default function DashboardPage() {
   const appointmentsKey = businessId
     ? `/booking/appointments?date=${today}`
     : null;
-  // Las citas llegan paginadas y `paginatedSchema` es el unico sitio donde se
-  // abre ese sobre. El catalogo de profesionales no pagina: lo acota el tamano
-  // del equipo y responde con la lista a secas.
+  // Las citas llegan paginadas: `paginatedSchema` abre el sobre.
   const { data: paginaDeCitas, isLoading: loadingAppointments } = useApi(
     appointmentsKey,
     undefined,
     paginatedSchema(rawAppointmentSchema)
   );
 
-  // Solo hacen falta los nombres de los clientes que salen hoy en pantalla, asi
-  // que se piden por id en vez de traerse la cartera del negocio para cruzar
-  // ocho filas. La ruta de nombres, ademas, la puede llamar un profesional.
+  // Pide a core, por id, los nombres de los clientes que salen hoy.
   const idsDeHoy = useMemo(
     () => [...new Set((paginaDeCitas?.data ?? []).map((a) => a.clientId))],
     [paginaDeCitas]
@@ -130,8 +125,7 @@ export default function DashboardPage() {
 
   const loading = !!businessId && (loadingAppointments || loadingClients);
 
-  // Las citas llegan sin el nombre del cliente (viven en servicios distintos),
-  // asi que se cruzan aqui contra los nombres pedidos por id.
+  // Cruza cada cita con el nombre de cliente pedido por id.
   const appointments = useMemo<Appointment[]>(() => {
     const items: RawAppointment[] = paginaDeCitas?.data ?? [];
     const clientList: ClientRef[] = nombresDeClientes ?? [];
@@ -152,10 +146,8 @@ export default function DashboardPage() {
     }));
   }, [paginaDeCitas, nombresDeClientes]);
 
-  // Cada tarjeta prefiere el KPI de analytics-service y cae al calculo sobre las
-  // citas de hoy si ese servicio aun no respondio, para no ensenar la tarjeta
-  // vacia. "Pendientes" no tiene equivalente en el endpoint de KPIs, asi que
-  // siempre se calcula aqui.
+  // Cada tarjeta usa el KPI de analytics y cae al calculo sobre las citas de
+  // hoy mientras no responda. "Pendientes" siempre se calcula aqui.
   const stats = useMemo(() => {
     const completadas = appointments.filter((a) => a.status === "COMPLETED");
     const pendientes = appointments.filter(

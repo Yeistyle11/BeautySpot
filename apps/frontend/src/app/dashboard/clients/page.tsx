@@ -141,10 +141,7 @@ export default function ClientsPage() {
     setSelectedClient(client);
   };
 
-  /**
-   * Ejerce el derecho de supresión. No se puede deshacer, así que se confirma
-   * explícitamente antes de llamar.
-   */
+  /** Ejerce el derecho de supresion, previa confirmacion explicita. */
   const handleAnonymize = async () => {
     if (!clienteASuprimir) return;
     setSuprimiendo(true);
@@ -184,7 +181,7 @@ export default function ClientsPage() {
         email: editForm.email || undefined,
         phone: editForm.phone || undefined,
         notes: editForm.notes || undefined,
-        // Vaciar el campo borra la fecha, así que va null y no undefined.
+        // Vaciar el campo borra la fecha: va null, no undefined.
         birthDate: editForm.birthDate || null,
       });
       setEditDialog(false);

@@ -22,9 +22,8 @@ jest.mock("ioredis", () => {
 });
 
 /**
- * Configuración mínima con la que la fábrica deja arrancar. Se declara aquí
- * porque desde este cambio un servicio sin entorno no llega ni a construirse:
- * el bootstrap valida antes de crear la aplicación.
+ * Configuracion minima con la que la fabrica deja arrancar: el bootstrap
+ * valida el entorno antes de crear la aplicacion.
  */
 const ENTORNO_VALIDO = {
   JWT_SECRET: "9f3a7c1e5b2d8a4f6c0e9b3d7a1f5c8e",
@@ -248,9 +247,8 @@ describe("createAppFactory", () => {
     it("debería serializar la respuesta antes de envolverla", async () => {
       await createMicroserviceApp({} as any);
 
-      // El orden importa por dos motivos: el de latencia va el primero para
-      // medir todo lo que viene después, y el serializador después del que
-      // envuelve, para recibir la entidad cruda y aplicar sus @Exclude().
+      // El de latencia va primero, para medir lo que viene detras, y el
+      // serializador tras el que envuelve, para recibir la entidad cruda.
       const registrados = mockApp.useGlobalInterceptors.mock.calls[0];
       expect(registrados.map((i: object) => i.constructor.name)).toEqual([
         "LatenciaInterceptor",

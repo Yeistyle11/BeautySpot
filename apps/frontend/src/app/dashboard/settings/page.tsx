@@ -66,8 +66,8 @@ export default function SettingsPage() {
     BusinessHour[] | null
   >(hoursKey, undefined, z.array(businessHourSchema).nullable());
 
-  // Los campos de la ficha y el catálogo solo hacen falta en su pestaña, pero
-  // se piden aquí porque el guardado también vive en la página.
+  // La ficha y el catalogo se piden aqui, donde vive el guardado, aunque solo
+  // se usen en su pestana.
   const puedeEditarNegocio = canDo(role, "business_edit");
   const { data: campos, mutate: mutateCampos } = useApi<CampoDeFicha[] | null>(
     puedeEditarNegocio ? "/core/client-fields" : null,
@@ -94,9 +94,7 @@ export default function SettingsPage() {
 
   const loadingBiz = canSeeBusiness && !business;
 
-  // Los formularios se siembran una sola vez, cuando el dato llega del
-  // backend. Sin el guard, cada revalidacion de SWR pisaria lo que el usuario
-  // esta escribiendo en ese momento.
+  // Siembra los formularios una sola vez, cuando el dato llega del backend.
   const businessSeeded = useRef(false);
   const hoursSeeded = useRef(false);
   const nivelesSeeded = useRef(false);

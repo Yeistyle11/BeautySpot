@@ -36,7 +36,7 @@ export { ETIQUETAS_DE_METODO as METHOD_LABELS } from "@/lib/metodos-de-pago";
 
 export const METHOD_FILTERS = ["all", "CASH", "CARD", "TRANSFER"];
 
-/** Estados de PaymentStatus, que la lista muestra tal cual si no se traducen. */
+/** Estados de PaymentStatus que la lista muestra tal cual. */
 export const STATUS_LABELS: Record<string, string> = {
   PENDING: "Pendiente",
   COMPLETED: "Completado",
@@ -44,12 +44,7 @@ export const STATUS_LABELS: Record<string, string> = {
   CANCELLED: "Cancelado",
 };
 
-/**
- * Cita atendida del cliente, tal y como la ofrece el cobro.
- *
- * Trae sus servicios porque son los que se nombran al elegirla: cobrar "Corte y
- * barba del martes" es lo que distingue una cita de otra del mismo importe.
- */
+/** Cita atendida del cliente, con sus servicios, tal y como la ofrece el cobro. */
 export const citaCobrableSchema = z.object({
   id: z.string(),
   date: z.string(),

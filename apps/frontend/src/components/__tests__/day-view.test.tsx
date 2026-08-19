@@ -135,9 +135,6 @@ describe("DayView", () => {
     expect(screen.getByText("1:00 am")).toBeInTheDocument();
   });
 
-  // El fin llega en hora de reloj: la cita de las 23:30 termina a las "00:30".
-  // Sin devolverla a la escala del reparto, el bloque se pintaría hacia arriba
-  // y la rejilla no llegaría hasta él.
   it("pinta la cita que termina pasada la medianoche", () => {
     pintar({
       appointments: [

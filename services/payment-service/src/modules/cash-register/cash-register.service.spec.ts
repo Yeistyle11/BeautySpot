@@ -314,8 +314,7 @@ describe("CashRegisterService", () => {
       );
     });
 
-    // El arqueo existe para que un descuadre obligue a explicarse, y el momento
-    // de hacerlo es ese: al día siguiente ya no habrá quien recuerde por qué.
+    // El descuadre obliga a explicarse en el momento del arqueo.
     it("no deja cerrar con descuadre sin motivo", async () => {
       mockSessionRepo.findOne.mockResolvedValue(sesionCon([]));
 
@@ -839,8 +838,8 @@ describe("CashRegisterService", () => {
       expect(resumen.movements[0]).not.toHaveProperty("clientName");
     });
 
-    // El nombre es un dato de apoyo: quedarse sin arqueo porque el core no
-    // conteste seria peor que leer el listado incompleto.
+    // El nombre es un dato de apoyo: sin respuesta del core, el listado sale
+    // igual.
     it("sirve el arqueo aunque el core no conteste", async () => {
       mockPagos.find.mockResolvedValue([{ id: "pay-1", clientId: "cli-1" }]);
       mockHttp.pedirONulo.mockResolvedValue(null);

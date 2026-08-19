@@ -14,12 +14,8 @@ interface CategoryBadgeProps {
 }
 
 /**
- * Categoría de un servicio o de un profesional.
- *
- * Distingue la categoría real de la etiqueta heredada porque no valen lo mismo:
- * por la primera se puede filtrar y contar, y la segunda es solo un texto que
- * quedó escrito en la ficha. Pintadas igual, el dueño ve todo clasificado,
- * intenta filtrar por ello y no encuentra nada.
+ * Categoria de un servicio o de un profesional, distinguiendo la categoria
+ * real de la etiqueta heredada, que es solo texto de la ficha.
  */
 export function CategoryBadge({
   nombre,
@@ -34,9 +30,8 @@ export function CategoryBadge({
       <Badge
         variant="secondary"
         className={className}
-        // El color lo define cada categoria en base de datos, asi que no puede
-        // salir de las clases de Tailwind. El sufijo "20" es el alfa en
-        // hexadecimal (~12%) para el fondo.
+        // El color viene de la base y no de Tailwind; el sufijo "20" es el alfa
+        // del fondo en hexadecimal.
         style={color ? { backgroundColor: `${color}20`, color } : undefined}
       >
         {nombre}

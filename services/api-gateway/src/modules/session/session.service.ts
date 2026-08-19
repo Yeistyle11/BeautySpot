@@ -63,10 +63,8 @@ export class SessionService {
 
     const datos = this.extraerDatos(cuerpo);
 
-    // Una renovación sin tokens es una sesión que ya no se puede renovar. Hay
-    // que borrar sus cookies: mientras la pista siga puesta, el guard del
-    // navegador seguirá anunciando una sesión renovable y devolviendo al panel
-    // a quien acaba de ser rechazado.
+    // Una renovacion sin tokens es una sesion que ya no se puede renovar: se
+    // borran sus cookies, pista incluida.
     if (!datos?.accessToken) {
       if (ruta === RUTA_REFRESH)
         limpiarCookiesDeSesion(res, this.configService);
@@ -132,7 +130,7 @@ export class SessionService {
     return undefined;
   }
 
-  /** Quita los tokens del cuerpo antes de devolverlo, porque ya viajan en cookies. */
+  /** Quita del cuerpo los tokens, que ya viajan en cookies. */
   private sinTokens(cuerpo: unknown, pista?: PistaSesion): unknown {
     if (!cuerpo || typeof cuerpo !== "object") return cuerpo;
     const raiz = cuerpo as Record<string, unknown> & {

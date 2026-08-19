@@ -71,12 +71,8 @@ export class BlockedSlotsService {
   }
 
   /**
-   * Crea el bloqueo de agenda; con `repeticion`, uno por cada día que cubra.
-   *
-   * Las ocurrencias se validan todas antes de guardar ninguna: media serie
-   * puesta y media rechazada deja al profesional con huecos que él cree
-   * bloqueados. Si alguna choca con una cita viva, no se guarda nada y el error
-   * nombra los días en conflicto para poder acortar el rango o liberar la cita.
+   * Crea el bloqueo de agenda; con `repeticion`, uno por cada dia que cubra.
+   * Valida todas las ocurrencias antes de guardar ninguna.
    */
   async create(
     businessId: string,
@@ -150,10 +146,8 @@ export class BlockedSlotsService {
   }
 
   /**
-   * Los días que cubre la serie, del primero a `repetirHasta` incluido.
-   *
-   * El tope de ocurrencias existe porque el rango lo elige quien llama: sin él,
-   * un "hasta 2099" materializa decenas de miles de filas de una sola petición.
+   * Los dias que cubre la serie, del primero a `repetirHasta` incluido, con un
+   * tope de ocurrencias.
    */
   private fechasDeLaSerie(
     desde: string,
@@ -188,8 +182,8 @@ export class BlockedSlotsService {
   }
 
   /**
-   * Comprueba el formato y el orden de las horas y que el primer día no haya
-   * pasado. Basta con el primero: las repeticiones siempre van hacia delante.
+   * Comprueba el formato y el orden de las horas y que el primer dia no haya
+   * pasado.
    */
   private async validar(
     businessId: string,
@@ -224,9 +218,8 @@ export class BlockedSlotsService {
         status: In(ESTADOS_VIVOS),
       },
     });
-    // Contra la envolvente de la cita, limpieza incluida. El fin se guarda en
-    // hora de reloj, así que la cita de anoche se compara extendida: si no,
-    // 23:30–00:30 se leería al revés y no chocaría con nada.
+    // Compara contra la envolvente de la cita, limpieza incluida, y en escala
+    // extendida: la de anoche va de 23:30 a "24:30".
     return citas.some((c) =>
       timesOverlap(
         data.startTime,

@@ -1,15 +1,8 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Un negocio tiene como mucho un perfil en el marketplace.
- *
- * El alta comprueba antes si ya existe, pero esa comprobación y la escritura no
- * son atómicas: dos peticiones a la vez crean dos filas y a partir de ahí el
- * panel carga una al azar, con la galería y la historia repartidas entre las
- * dos. La decide la base, como el resto de invariantes del proyecto.
- *
- * Antes de crearlo hay que quedarse con un perfil por negocio: se conserva el
- * más antiguo, que es el que ya puede estar publicado y enlazado por su slug.
+ * Un negocio tiene como mucho un perfil en el marketplace. Antes de crear el
+ * indice se conserva el mas antiguo de los que hubiera.
  */
 export class PerfilUnicoPorNegocio1700000000006 implements MigrationInterface {
   name = "PerfilUnicoPorNegocio1700000000006";

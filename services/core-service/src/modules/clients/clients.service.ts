@@ -37,12 +37,8 @@ import {
 import { ProfessionalsService } from "../professionals/professionals.service";
 
 /**
- * Lo único que ve de una ficha quien solo la atiende: el nombre con el que
+ * Lo unico que ve de una ficha quien solo la atiende: el nombre con el que
  * reconocerla en su agenda.
- *
- * El contacto, el documento, las notas y la ficha son cartera del negocio, y
- * servirlos en un listado es lo que permite llevarse los clientes enteros de una
- * sola petición.
  */
 const CAMPOS_PARA_PROFESIONAL = { id: true, name: true } as const;
 
@@ -148,11 +144,8 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * Comprueba la ficha contra los campos que el negocio tiene definidos: no se
-   * aceptan claves que nadie declaró, ni valores que no cuadren con su tipo.
-   *
-   * Los obligatorios solo se exigen cuando se envía ficha; dar de alta a alguien
-   * por teléfono sin más datos tiene que seguir siendo posible.
+   * Comprueba la ficha contra los campos que el negocio tiene definidos. Los
+   * obligatorios solo se exigen cuando se envia ficha.
    */
   private async validarFicha(
     businessId: string,
@@ -219,9 +212,8 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * Ejerce el derecho de supresión: vacía los datos personales y deja la ficha
-   * dada de baja. La fila se conserva porque sus citas y sus facturas la
-   * referencian, y una factura emitida no se puede borrar.
+   * Ejerce el derecho de supresion: vacia los datos personales y da de baja la
+   * ficha, que se conserva porque citas y facturas la referencian.
    */
   async anonymize(id: string, businessId: string): Promise<Client> {
     await this.rechazarSiEstaAnonimizado(id, businessId);
@@ -277,13 +269,8 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * Clientes que ha atendido quien pregunta, con la ficha recortada.
-   *
-   * La relación profesional-cliente vive en las citas, que son de booking, así
-   * que la lista de fichas se le pide a él. Si no contesta, la petición falla:
-   * la respuesta es el filtro de permisos, y devolver la cartera entera es
-   * justo lo que se está evitando. Vaciarla tampoco vale, porque un profesional
-   * recién llegado ve lo mismo y creería que ha perdido sus clientes.
+   * Clientes que ha atendido quien pregunta, con la ficha recortada. La lista
+   * se le pide a booking y, si no contesta, la peticion falla.
    */
   async findByBusinessParaProfesional(
     businessId: string,
@@ -306,9 +293,8 @@ export class ClientsService extends TenantCrudService<Client> {
     const clientIds = atendidos?.clientIds ?? [];
     if (clientIds.length === 0) return this.paginaVacia(pagination);
 
-    // La búsqueda se limita al nombre. Buscar también por correo o teléfono
-    // convertiría el listado en un oráculo: teclear un número confirmaría que
-    // pertenece a un cliente del negocio aunque el campo no se devuelva.
+    // La busqueda se limita al nombre: por correo o telefono, teclear un
+    // numero confirmaria que pertenece a un cliente del negocio.
     return paginate(this.repo, pagination, {
       where: {
         businessId,
@@ -338,13 +324,7 @@ export class ClientsService extends TenantCrudService<Client> {
     };
   }
 
-  /**
-   * Nombre de los clientes pedidos, acotado al negocio.
-   *
-   * Devuelve solo id y nombre: quien llama está poniendo cara a una lista, no
-   * consultando fichas, y el resto de columnas son datos personales que no hay
-   * por qué mover.
-   */
+  /** Nombre de los clientes pedidos, acotado al negocio: solo id y nombre. */
   async findNamesByIds(
     businessId: string,
     ids: string[]
@@ -377,11 +357,8 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * Ficha del usuario con su nivel de fidelidad ya resuelto.
-   *
-   * El nivel lo calcula el servidor porque la escala vive en `business_config`,
-   * que solo pueden leer el dueño y el administrador: al cliente le llega el
-   * resultado, no las reglas.
+   * Ficha del usuario con su nivel de fidelidad ya resuelto por el servidor,
+   * sin exponer la escala.
    */
   async findMineConNivel(userId: string): Promise<
     | (Client & {
@@ -428,11 +405,8 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * Suma puntos de fidelidad al cliente.
-   *
-   * Acepta un `manager` para poder correr dentro de la transacción de quien
-   * llame: acreditar puntos es dinero, y el incremento tiene que confirmarse a
-   * la vez que la marca de evento procesado o se duplican o se pierden.
+   * Suma puntos de fidelidad al cliente. Acepta un `manager` para correr
+   * dentro de la transaccion de quien llame.
    */
   async addLoyaltyPoints(
     id: string,
@@ -455,11 +429,8 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * Resta puntos de fidelidad al cliente, sin bajar de cero.
-   *
-   * Acepta un `manager` por el mismo motivo que `addLoyaltyPoints`: el descuento
-   * y la marca de evento procesado tienen que confirmarse juntos, o los puntos
-   * se gastan dos veces o no se gastan nunca.
+   * Resta puntos de fidelidad al cliente, sin bajar de cero. Acepta un
+   * `manager` para correr dentro de la transaccion de quien llame.
    */
   async subtractLoyaltyPoints(
     id: string,

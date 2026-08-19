@@ -26,8 +26,7 @@ const CITA_DE_100 = {
 
 /**
  * Comprueba contra Postgres real que una cita no se cobra dos veces, ni en
- * secuencia ni con dos cajeros a la vez. Requiere la infraestructura levantada
- * (`npm run test:int`).
+ * secuencia ni con dos cajeros a la vez (`npm run test:int`).
  */
 describe("Integración: una cita se cobra una sola vez", () => {
   let dataSource: DataSource;
@@ -66,10 +65,8 @@ describe("Integración: una cita se cobra una sola vez", () => {
       dataSource,
       new OutboxService(),
       { de: jest.fn().mockResolvedValue("America/Bogota") } as never,
-      // booking siempre responde la misma cita de 100, y tarda: la consulta es
-      // una llamada HTTP entre servicios. Sin esa espera los dos cobros
-      // simultáneos se serializan solos en el bucle de eventos y el test daría
-      // por buena una carrera que en producción sí ocurre.
+      // booking siempre responde la misma cita de 100, con retardo: sin el, los
+      // dos cobros simultaneos se serializarian en el bucle de eventos.
       {
         pedir: jest
           .fn()
@@ -105,9 +102,8 @@ describe("Integración: una cita se cobra una sola vez", () => {
     await expect(repo.count()).resolves.toBe(1);
   });
 
-  // El mismo patrón que el doble-booking, pero con dinero: dos cajeros
-  // cobrando la misma cita a la vez pasan los dos por la comprobación previa
-  // antes de que ninguno haya escrito.
+  // Dos cajeros cobrando la misma cita a la vez pasan los dos por la
+  // comprobacion previa antes de que ninguno haya escrito.
   it("con dos cobros simultáneos de la misma cita, solo uno prospera", async () => {
     const resultados = await Promise.allSettled([cobrar(), cobrar()]);
 
@@ -116,10 +112,8 @@ describe("Integración: una cita se cobra una sola vez", () => {
     await expect(repo.count()).resolves.toBe(1);
   });
 
-  // La comprobación del servicio y la escritura son dos pasos, así que quien
-  // garantiza esto es el índice, no el orden en que se resuelvan las promesas.
-  // Este test escribe saltándose el servicio, que es la única forma de
-  // comprobar la garantía y no la suerte.
+  // Se escribe saltandose el servicio: lo que se comprueba es la garantia del
+  // indice, no el orden en que se resuelvan las promesas.
   it("la base rechaza un segundo cobro vivo de la misma cita", async () => {
     await cobrar();
 

@@ -18,9 +18,7 @@ const FONDO = 100000;
 
 /**
  * Recorre el ciclo del arqueo contra Postgres real: abrir la caja, cobrar por
- * los distintos métodos y cerrarla comprobando que el descuadre sale de lo que
- * de verdad hay en el cajón. Requiere la infraestructura levantada
- * (`npm run test:int`).
+ * cada metodo y cerrarla comprobando el descuadre (`npm run test:int`).
  */
 describe("Integración: el arqueo de caja cuadra", () => {
   let dataSource: DataSource;
@@ -41,7 +39,7 @@ describe("Integración: el arqueo de caja cuadra", () => {
   const abrir = () =>
     caja.openSession(NEGOCIO, USUARIO, { openingAmount: FONDO } as never);
 
-  /** Cierra la caja; con descuadre hay que dar motivo, así que va uno por defecto. */
+  /** Cierra la caja, con un motivo por defecto para el descuadre. */
   const cerrar = (
     sessionId: string,
     closingAmount: number,
@@ -113,8 +111,8 @@ describe("Integración: el arqueo de caja cuadra", () => {
     expect(Number(anotados[0].amount)).toBe(30000);
   });
 
-  // La tarjeta se anota igual, porque el cierre Z desglosa por método, pero no
-  // deja dinero en el cajón: contarla como efectivo descuadraría el arqueo.
+  // La tarjeta se anota igual, porque el cierre Z desglosa por metodo, pero
+  // no cuenta como efectivo del cajon.
   it("la tarjeta se anota, pero no cuenta como efectivo", async () => {
     const sesion = await abrir();
 

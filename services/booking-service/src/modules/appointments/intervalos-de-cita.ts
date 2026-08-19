@@ -7,11 +7,8 @@ import { Appointment } from "../../entities/appointment.entity";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 
 /**
- * Agenda que ocupa la cita, profesional a profesional.
- *
- * La hora de fin llega en hora de reloj y aquí vuelve a la escala del reparto:
- * la cita de 23:30 a 00:30 ocupa hasta las "24:30", y sin devolverla no ocuparía
- * nada porque su fin caería antes que su inicio.
+ * Agenda que ocupa la cita, profesional a profesional, con el fin devuelto a
+ * la escala del reparto (de 23:30 a "24:30").
  */
 export function ocupacionDeCita(
   cita: Pick<Appointment, "startTime" | "endTime" | "professionalId">,

@@ -640,8 +640,8 @@ describe("BusinessProfilesService", () => {
       expect(perfil.slug).toBe("barberia-la-noche-2");
     });
 
-    // El enlace escrito a mano puede estar ya repartido: cambiarlo en silencio
-    // rompería lo que el dueño repartió, así que se le devuelve la decisión.
+    // El enlace escrito a mano no se retoca en silencio: se le devuelve la
+    // decision al dueno.
     it("rechaza el enlace escrito si ya está en uso", async () => {
       sinNadaCreado();
       (mockRepo.countBy as jest.Mock).mockResolvedValue(1);

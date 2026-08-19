@@ -139,9 +139,7 @@ describe("CreateAppointmentDto", () => {
     }
   }
 
-  // Tenían los ocho dígitos y los dos guiones, así que el patrón las dejaba
-  // pasar; aguas abajo daban una fecha inválida y la petición reventaba con un
-  // 500, o se rechazaba diciendo que el 30 de febrero está en el pasado.
+  // Dias con la forma correcta que no existen en el calendario.
   it.each([
     "2027-02-29",
     "2026-02-30",
@@ -169,9 +167,8 @@ describe("CreateAppointmentDto", () => {
 });
 
 /**
- * Las tres rutas que fechan comparten el mismo decorador, así que el día
- * imposible se corta en todas por igual: reservar, mover la cita y preguntar
- * por los huecos de un día.
+ * Las tres rutas que fechan comparten decorador: reservar, mover la cita y
+ * preguntar por los huecos de un dia.
  */
 describe("el día imposible se corta en toda la agenda", () => {
   it("no deja reagendar al 31 de abril", async () => {

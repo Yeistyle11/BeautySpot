@@ -1,7 +1,5 @@
-// Pagina de entrada: redirige al dashboard si hay sesion o al marketplace publico si no.
-//
-// Se resuelve en el servidor porque el access token vive en una cookie httpOnly:
-// el cliente no puede leerlo, asi que la decision no es posible en el navegador.
+// Pagina de entrada: redirige al dashboard si hay sesion y al marketplace si no.
+// Se resuelve en el servidor, donde se puede leer la cookie httpOnly.
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { decodeJwt, AUTH_COOKIE_NAME } from "@/lib/auth";

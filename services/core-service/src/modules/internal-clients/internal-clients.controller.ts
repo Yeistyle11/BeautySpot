@@ -19,7 +19,7 @@ export class InternalClientsController {
     @InjectRepository(Client) private readonly clientRepo: Repository<Client>
   ) {}
 
-  /** Devuelve el cliente existente que coincida por email/teléfono, o lo crea si no hay ninguno. */
+  /** Devuelve el cliente que coincida por email o telefono, o lo crea. */
   @Post("find-or-create")
   async findOrCreate(@Body() dto: FindOrCreateClientDto): Promise<Client> {
     const existing = await this.findExistingClient(dto);
@@ -41,11 +41,8 @@ export class InternalClientsController {
   }
 
   /**
-   * Nombre de los clientes pedidos, acotado al negocio.
-   *
-   * Se resuelve en cada lectura y no se copia a quien pregunta: una ficha
-   * anonimizada por derecho de supresión deja de tener nombre, y una copia
-   * guardada en otro servicio seguiría enseñándolo.
+   * Nombre de los clientes pedidos, acotado al negocio y resuelto en cada
+   * lectura.
    */
   @Get("names")
   async names(
@@ -109,8 +106,7 @@ export class InternalClientsController {
 
   /**
    * Busca un cliente del negocio por usuario, luego por email y luego por
-   * teléfono. El contacto se coteja normalizado: "+57 300 123 4567" y
-   * "+573001234567" son la misma persona.
+   * telefono, cotejando el contacto normalizado.
    */
   private async findExistingClient(
     dto: FindOrCreateClientDto

@@ -177,8 +177,8 @@ describe("AvailabilityService", () => {
       ).resolves.toBeDefined();
     });
 
-    // La salida se escribe como la marca el reloj, así que venir antes que la
-    // entrada es lo que dice que ya es del día siguiente.
+    // La salida se escribe como la marca el reloj: venir antes que la entrada
+    // es lo que la situa en el dia siguiente.
     it("acepta salir de madrugada", async () => {
       await expect(
         guardar([{ dayOfWeek: 3, startTime: "20:00", endTime: "02:00" }])

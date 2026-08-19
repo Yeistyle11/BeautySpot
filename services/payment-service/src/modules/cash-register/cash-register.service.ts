@@ -40,12 +40,8 @@ export class CashRegisterService {
   ) {}
 
   /**
-   * Abre una sesión de caja para la sede.
-   *
-   * Los índices únicos parciales sobre las sesiones sin cerrar son la garantía
-   * real de "una sola sesión abierta": la consulta previa solo sirve para dar un
-   * mensaje claro en el caso común, pero dos aperturas concurrentes que la
-   * superen chocan en el insert, y esa violación se traduce al mismo error.
+   * Abre una sesion de caja para la sede. Dos aperturas a la vez chocan en el
+   * indice unico parcial, que se traduce al mismo error que la consulta previa.
    */
   async openSession(
     businessId: string,
@@ -113,9 +109,7 @@ export class CashRegisterService {
 
     const diferencia = Number(dto.closingAmount) - expectedTotal;
 
-    // Un arqueo que no cuadra y nadie explica no sirve de control: el descuadre
-    // es justo el momento en que hay que dar cuenta, y es ahora o nunca, porque
-    // mañana ya no habrá quien recuerde por qué faltaban veinte mil pesos.
+    // Un descuadre obliga a dejar escrito el motivo.
     if (diferencia !== 0 && !dto.notes?.trim()) {
       throw new BadRequestException(
         `La caja descuadra en ${Math.abs(diferencia)}: anota el motivo para poder cerrarla`
@@ -226,15 +220,8 @@ export class CashRegisterService {
   }
 
   /**
-   * Añade a cada movimiento el cliente que lo originó.
-   *
-   * Es el listado que se repasa cuando la caja no cuadra, así que tiene que
-   * decir de quién es cada entrada. El nombre se resuelve al leer y no se copia
-   * al movimiento: una ficha suprimida por derecho de supresión deja de tener
-   * nombre, y una copia guardada aquí lo seguiría enseñando.
-   *
-   * Si el core no responde, los movimientos salen sin nombre: es un dato de
-   * apoyo, y quedarse sin arqueo por él sería peor que leerlo incompleto.
+   * Anade a cada movimiento el cliente que lo origino, resuelto al leer. Si el
+   * core no responde, los movimientos salen sin nombre.
    */
   private async conCliente(
     movements: CashMovementEntity[],

@@ -48,8 +48,8 @@ export default function PaymentsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  // El backend solo aplica el rango cuando recibe ambos extremos, asi que se
-  // completa el que falte para que filtrar por una sola fecha no sea un no-op.
+  // Completa el extremo que falte del rango: el backend solo lo aplica
+  // cuando recibe los dos.
   const dateRange = useMemo(() => {
     if (!dateFrom && !dateTo) return { from: undefined, to: undefined };
     return {
@@ -78,17 +78,9 @@ export default function PaymentsPage() {
   const [createDialog, setCreateDialog] = useState(false);
   const [createForm, setCreateForm] = useState<CreateForm>(emptyCreateForm);
   const [savingCreate, setSavingCreate] = useState(false);
-  /**
-   * Identifica el intento de cobro, y se renueva al abrir el formulario. Dos
-   * envios con el mismo valor dejan un solo cargo, que es lo que sostiene el
-   * guardarrail del servidor.
-   */
+  /** Identifica el intento de cobro; se renueva al abrir el formulario. */
   const solicitudId = useRef<string>("");
-  /**
-   * Cierra el envio en el mismo tick. `savingCreate` deshabilita el boton, pero
-   * eso no ocurre hasta el siguiente render: una rafaga de clics llega entera
-   * antes de que React lo aplique.
-   */
+  /** Cierra el envio en el mismo tick, antes de que React repinte. */
   const cobrando = useRef(false);
 
   /** Abre el formulario de cobro con un intento nuevo. */
@@ -102,9 +94,7 @@ export default function PaymentsPage() {
   const [editForm, setEditForm] = useState<EditForm>(emptyEditForm);
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // La lista de clientes solo hace falta con un dialogo abierto.
-  // El historial necesita la lista para poner nombre a cada cobro, asi que se
-  // carga con la pagina y no solo al abrir un dialogo.
+  // El historial necesita la lista de clientes para nombrar cada cobro.
   const { data: clientsPage } = useApi(
     CLIENTS_KEY,
     undefined,
@@ -113,9 +103,7 @@ export default function PaymentsPage() {
   const clients: Client[] = clientsPage?.data ?? [];
 
   /**
-   * Citas atendidas del cliente elegido, para poder cobrar una de ellas. Solo
-   * se piden con el diálogo abierto y un cliente ya seleccionado: fuera de ahí
-   * no hay nada que ofrecer.
+   * Citas atendidas del cliente elegido, para poder cobrar una de ellas.
    */
   const citasKey =
     createDialog && createForm.clientId
@@ -152,9 +140,8 @@ export default function PaymentsPage() {
     return map;
   }, [clients]);
 
-  // El resumen del dia se pide al backend, que lo calcula sobre todos los
-  // pagos y no solo sobre la pagina visible. El endpoint es exclusivo de
-  // OWNER/ADMIN, asi que para recepcion se cae al calculo local aproximado.
+  // El resumen del dia lo calcula el backend sobre todos los pagos; para
+  // recepcion, que no puede llamarlo, se calcula en local sobre la pagina.
   const canReadSummary = canDo(role, "payments_edit");
   const today = toLocalDateKey(new Date());
   const { data: dailySummary } = useApi<DailySummary | null>(

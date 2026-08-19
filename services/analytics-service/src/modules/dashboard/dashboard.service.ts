@@ -65,12 +65,8 @@ export class DashboardService {
   ) {}
 
   /**
-   * KPIs del negocio: cifras de hoy y agregados del periodo pedido.
-   *
-   * Sin periodo devuelve los últimos treinta días, que es lo que espera el
-   * panel de inicio. La pantalla de reportes sí lo manda, porque un dueño
-   * factura y declara por meses naturales y una ventana móvil no cuadra con
-   * ningún papel que tenga sobre la mesa.
+   * KPIs del negocio: cifras de hoy y agregados del periodo pedido, o de los
+   * ultimos treinta dias si no se indica.
    */
   async getKPIs(
     businessId: string,
@@ -111,11 +107,8 @@ export class DashboardService {
   }
 
   /**
-   * Últimos treinta días en el huso del negocio, hoy incluido.
-   *
-   * Se retroceden veintinueve y no treinta porque el rango incluye los dos
-   * extremos: treinta hacia atrás dan treinta y un días, y el promedio diario
-   * repartía entre treinta lo que había sumado de treinta y uno.
+   * Ultimos treinta dias en el huso del negocio, hoy incluido: se retroceden
+   * veintinueve porque el rango incluye los dos extremos.
    */
   private async ultimosTreintaDias(businessId: string): Promise<Rango> {
     const { today, from } = await this.dateRange(businessId, 29);
@@ -149,8 +142,7 @@ export class DashboardService {
       .addSelect("COALESCE(SUM(m.new_clients), 0)", "newClients")
       .addSelect("COALESCE(SUM(m.returning_clients), 0)", "returningClients")
       .addSelect("COALESCE(SUM(m.ventas), 0)", "ventas")
-      // Solo los ingresos de los días cuyas ventas están contadas: promediar
-      // sobre los otros daría un ticket inflado, con el importe de días que
+      // Solo los ingresos de los dias cuyas ventas estan contadas; los otros
       // no aportan divisor.
       .addSelect(
         "COALESCE(SUM(m.total_revenue) FILTER (WHERE m.ventas > 0), 0)",
@@ -211,10 +203,8 @@ export class DashboardService {
       // Entre los días del periodo, no entre los que tuvieron movimiento:
       // es el promedio diario del negocio, no el de sus días activos.
       avgDailyRevenue: dias > 0 ? Math.round(totalRevenue / dias) : 0,
-      // Entre los cobros, no entre las citas atendidas: hay ventas sin cita, y
-      // una cita atendida puede cobrarse otro día o no cobrarse aún. Sin
-      // cobros no es que el ticket valga cero, es que no hay ticket: un cero
-      // ahí se lee como "este negocio no vende".
+      // Entre los cobros, no entre las citas atendidas. Sin cobros no hay
+      // ticket, y se responde nulo en vez de cero.
       avgTicket: ventas > 0 ? Math.round(revenueDeVentas / ventas) : null,
       ocupacion: await this.ocupacion(businessId, from, to),
     };

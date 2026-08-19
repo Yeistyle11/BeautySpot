@@ -153,8 +153,7 @@ function PublicBookingPageInner() {
     setError("");
     setSubmitting(true);
     try {
-      // La ruta es pública y sin token, así que no se manda el id del usuario:
-      // el backend no puede dar por buena una identidad que nadie firma.
+      // La ruta es publica y sin token: no se manda el id del usuario.
       const identidad =
         isAuthenticated && user
           ? {

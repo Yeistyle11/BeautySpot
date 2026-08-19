@@ -78,9 +78,8 @@ export default function MarketplaceFeed({
 
   const isSearching = busquedaDiferida !== "" || activeCategory !== null;
 
-  // Los contadores del feed cuentan todo el catalogo, asi que con una busqueda
-  // activa se recalculan sobre lo encontrado. Solo si han llegado todos los
-  // resultados: sobre una lista recortada el numero seria falso.
+  // Con una busqueda activa los contadores se recalculan sobre lo encontrado,
+  // y solo cuando han llegado todos los resultados.
   const conteosVisibles = useMemo(() => {
     if (!busquedaDiferida || !searchResults) return null;
     if (searchResults.items.length < searchResults.total) return null;

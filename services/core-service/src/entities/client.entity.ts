@@ -7,8 +7,8 @@ import { Business } from "./business.entity";
 @Index(["businessId", "email"])
 @Index(["businessId", "phone"])
 @Index("idx_clients_negocio_usuario", ["businessId", "userId"])
-// El endpoint interno que resuelve los clientes de un usuario consulta por
-// user_id sin negocio, así que necesita su propio índice.
+// La ruta interna que resuelve los clientes de un usuario consulta por user_id
+// sin negocio: lleva su propio indice.
 @Index("idx_clients_usuario", ["userId"])
 // El sondeo de cumpleaños solo mira las fichas que traen fecha, que son minoría.
 @Index("idx_clients_cumpleanos", ["birthDate"], {
@@ -28,10 +28,8 @@ export class Client extends TenantEntity {
   @Column({ type: "date", name: "birth_date", nullable: true })
   birthDate!: string | null;
   /**
-   * Año en el que ya se felicitó al cliente.
-   *
-   * Marcarlo dentro de la misma transacción que el evento es lo que impide que
-   * dos instancias del worker feliciten dos veces el mismo cumpleaños.
+   * Ano en el que ya se felicito al cliente, marcado en la misma transaccion
+   * que el evento.
    */
   @Column({ type: "smallint", name: "birthday_greeted_year", nullable: true })
   birthdayGreetedYear!: number | null;
@@ -40,9 +38,8 @@ export class Client extends TenantEntity {
   @Column({ name: "no_show_count", default: 0 }) noShowCount!: number;
   @Column({ type: "simple-array", nullable: true }) tags!: string[] | null;
   /**
-   * Valores de la ficha que el negocio se haya definido, indexados por el id de
-   * cada campo. Va en jsonb y no en columnas porque los campos los decide cada
-   * negocio y cambian sin migrar el esquema.
+   * Valores de la ficha que el negocio se haya definido, indexados por el id
+   * de cada campo. Van en jsonb, sin migrar el esquema.
    */
   @Column({ type: "jsonb", nullable: true })
   ficha!: Record<string, unknown> | null;

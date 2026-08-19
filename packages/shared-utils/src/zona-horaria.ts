@@ -15,15 +15,8 @@ export function esHoraValida(hora: string): boolean {
 export const PATRON_FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Indica si el texto es un día que existe en el calendario.
- *
- * La forma no basta: `2027-02-29` y `2026-04-31` tienen los ocho dígitos y los
- * dos guiones, pero no son fechas. Colarlas produce una `Date` inválida que no
- * lanza, y a partir de ahí toda comparación con ella responde `false` en
- * silencio, así que quien la reciba dirá cualquier cosa menos la verdad.
- *
- * Se comprueba reconstruyendo el texto desde el `Date` en UTC: si el día se
- * desbordó al mes siguiente, lo reconstruido no coincide con lo que entró.
+ * Indica si el texto es un dia que existe en el calendario, reconstruyendolo
+ * desde el `Date` en UTC y comparandolo con lo que entro.
  */
 export function esFechaValida(fecha: string): boolean {
   if (!PATRON_FECHA.test(fecha)) return false;
@@ -35,14 +28,8 @@ export function esFechaValida(fecha: string): boolean {
 }
 
 /**
- * Formato de una hora de cierre `HH:mm`, de 00:00 a 24:00.
- *
- * Es la misma hora que marca el reloj de la pared cuando se echa el cierre: un
- * negocio que cierra a las dos de la mañana cierra a las 02:00. Que eso caiga ya
- * en el día siguiente se deduce de la hora de apertura, no se escribe en la hora.
- *
- * Las 24:00 se admiten aparte para poder decir "hasta el final del día" sin que
- * se confunda con el 00:00 del principio.
+ * Formato de una hora de cierre `HH:mm`, de 00:00 a 24:00, la que marca el
+ * reloj al cerrar. Las 24:00 dicen "hasta el final del dia".
  */
 export const PATRON_HORA_DE_CIERRE = /^([01]\d|2[0-3]):[0-5]\d$|^24:00$/;
 
@@ -52,11 +39,8 @@ export function esHoraDeCierreValida(hora: string): boolean {
 }
 
 /**
- * Hasta dónde puede meterse en la madrugada un tramo que cruza la medianoche.
- *
- * Ocho horas dan para cualquier jornada real y dejan fuera el dedazo: sin tope,
- * un negocio que abre a las 09:00 y teclea 08:00 como cierre abriría un tramo de
- * veintitrés horas sin que nada chirríe.
+ * Hasta donde puede meterse en la madrugada un tramo que cruza la medianoche:
+ * ocho horas.
  */
 export const MAXIMO_CIERRE_DE_MADRUGADA = "08:00";
 

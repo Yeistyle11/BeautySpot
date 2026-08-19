@@ -4,9 +4,8 @@ import { CashMovementType } from "@beautyspot/shared-types";
 /** Datos para abrir una sesión de caja: saldo inicial, sede y notas opcionales. */
 export class OpenSessionDto {
   /**
-   * Fondo con el que arranca el cajón. No puede ser negativo: no existe empezar
-   * el día debiendo dinero al cajón, y ese importe entra en el total esperado,
-   * así que un signo de más desvía el arqueo del día entero.
+   * Fondo con el que arranca el cajon; entra en el total esperado y no puede
+   * ser negativo.
    */
   @IsOptional()
   @IsNumber()

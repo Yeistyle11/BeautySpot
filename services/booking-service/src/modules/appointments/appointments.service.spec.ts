@@ -24,7 +24,7 @@ import {
 import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 
-/** Agendar exige futuro, así que las fechas del fixture se calculan al vuelo. */
+/** Las fechas del fixture se calculan al vuelo: agendar exige futuro. */
 function dentroDeDias(dias: number): string {
   const d = new Date();
   d.setDate(d.getDate() + dias);
@@ -37,9 +37,8 @@ const FECHA_SIGUIENTE = dentroDeDias(31);
 const DIA_DE_LA_SEMANA = new Date(FECHA_CITA + "T12:00:00").getDay();
 
 /**
- * Fecha y hora de una cita inminente, para las reglas de anticipación mínima.
- * El servicio interpreta `${date}T${startTime}` como hora local, así que el
- * fixture se arma con los componentes locales.
+ * Fecha y hora de una cita inminente, armada con los componentes locales que
+ * el servicio interpreta.
  */
 function dentroDeMinutos(minutos: number): { date: string; startTime: string } {
   const d = new Date(Date.now() + minutos * 60 * 1000);
@@ -97,8 +96,7 @@ describe("AppointmentsService", () => {
     ocupadoHasta: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    // Reagendar saca la duración de aquí, así que el fixture la trae: son los
-    // 60 minutos que van de las 10:00 a las 11:00.
+    // La duracion sale de aqui al reagendar: 60 minutos, de 10:00 a 11:00.
     appointmentServices: [{ duration: 60 } as never],
     generateId: () => {},
   };
@@ -118,9 +116,8 @@ describe("AppointmentsService", () => {
   };
 
   /**
-   * La misma jornada los dos días del fixture. La agenda pide los tramos del día
-   * y los del anterior —cuya madrugada puede invadirlo— y descarta los del resto,
-   * así que los tests de reagendado necesitan también el día siguiente.
+   * La misma jornada en los dos dias del fixture, incluido el siguiente, que
+   * necesitan los tests de reagendado.
    */
   const JORNADAS: Availability[] = [
     mockAvailability,
@@ -198,8 +195,8 @@ describe("AppointmentsService", () => {
       enviar: jest.fn().mockResolvedValue([CORTE]),
     };
 
-    // El negocio del fixture vive en Bogotá y no tiene horario de apertura
-    // configurado, así que la agenda solo la limita el horario del profesional.
+    // El negocio del fixture vive en Bogota y sin horario de apertura: la
+    // agenda solo la limita el horario del profesional.
     mockZonas = {
       de: jest.fn().mockResolvedValue("America/Bogota"),
     } as never;
@@ -218,9 +215,8 @@ describe("AppointmentsService", () => {
           useValue: mockApptRepo,
         },
         {
-          // Motor real sobre los mismos repositorios simulados: estos tests
-          // comprueban el comportamiento de extremo a extremo (horario,
-          // bloqueos y conflictos), no que se llame a un colaborador.
+          // Motor real sobre los repositorios simulados: se comprueba el
+          // horario, los bloqueos y los conflictos de extremo a extremo.
           provide: AvailabilityQueryService,
           useFactory: () =>
             new AvailabilityQueryService(
@@ -1596,8 +1592,7 @@ describe("AppointmentsService", () => {
       ).resolves.toMatchObject({ resenable: true });
     });
 
-    // El marketplace los usa para no fiarse de lo que el autor escriba en el
-    // cuerpo de la reseña.
+    // El marketplace los usa para no fiarse del cuerpo de la resena.
     it("devuelve el profesional y los servicios atendidos", async () => {
       mockApptRepo.findOne.mockResolvedValue(completada);
       mockHttp.pedir.mockResolvedValue([{ id: "ficha-a" }]);

@@ -75,8 +75,8 @@ describe("esFechaPasadaEn / esInstantePasadoEn", () => {
   });
 
   it("da respuestas distintas para dos negocios en zonas distintas", () => {
-    // A la misma hora son las 15:00 en Bogotá y las 22:00 en Madrid, así que
-    // una franja de las 20:00 ya pasó allí pero no aquí.
+    // A la misma hora son las 15:00 en Bogota y las 22:00 en Madrid: una
+    // franja de las 20:00 ya paso alli pero no aqui.
     expect(esInstantePasadoEn(BOGOTA, "2026-08-09", "20:00")).toBe(false);
     expect(esInstantePasadoEn(MADRID, "2026-08-09", "20:00")).toBe(true);
   });
@@ -101,8 +101,8 @@ describe("instanteDe", () => {
   });
 
   it("acierta en el mismo día del cambio de hora", () => {
-    // El 29 de marzo de 2026 Madrid adelanta el reloj a las 02:00, así que la
-    // medianoche de ese día todavía es UTC+1 y el mediodía ya es UTC+2.
+    // El 29 de marzo de 2026 Madrid adelanta el reloj a las 02:00: la
+    // medianoche de ese dia es UTC+1 y el mediodia, UTC+2.
     expect(instanteDe(MADRID, "2026-03-29", "00:00").toISOString()).toBe(
       "2026-03-28T23:00:00.000Z"
     );
@@ -149,9 +149,8 @@ describe("esHoraValida", () => {
 });
 
 describe("esHoraDeCierreValida", () => {
-  // Es la hora que marca el reloj al echar el cierre: quien cierra a las 2 de
-  // la mañana pone 02:00. Las 24:00 se admiten aparte para poder decir "hasta
-  // el final del día" sin confundirlo con el 00:00 del principio.
+  // Es la hora que marca el reloj al echar el cierre; las 24:00 se admiten
+  // aparte para decir "hasta el final del dia".
   it.each(["00:00", "02:00", "18:00", "23:59", "24:00"])(
     "acepta %s",
     (hora) => {
@@ -183,8 +182,7 @@ describe("esFechaValida", () => {
     }
   );
 
-  // Todas tienen los ocho digitos y los dos guiones, y ninguna existe: es el
-  // dato que se colaba hasta reventar el servicio o mentir sobre el motivo.
+  // Dias con la forma correcta que no existen en el calendario.
   it.each([
     "2027-02-29",
     "2026-02-30",

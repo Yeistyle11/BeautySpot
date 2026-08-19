@@ -63,11 +63,7 @@ export function CreatePaymentDialog({
 }: CreatePaymentDialogProps) {
   const set = (patch: Partial<CreateForm>) => onChange({ ...form, ...patch });
 
-  /**
-   * Al elegir una cita, el importe sale de ella y deja de escribirse a mano: el
-   * servidor rechaza cualquier otro, y tecleado suelto se pierde el precio del
-   * catálogo, el descuento queda invisible y el cobro no dice qué se vendió.
-   */
+  /** Al elegir una cita, el importe sale de ella y deja de escribirse a mano. */
   const cobraUnaCita = form.appointmentId !== "";
   const elegirCita = (appointmentId: string) => {
     const cita = citasPorCobrar.find((c) => c.id === appointmentId);

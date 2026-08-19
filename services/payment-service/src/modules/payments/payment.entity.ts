@@ -6,26 +6,16 @@ import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
 @Entity("payments")
 @Index(["businessId", "createdAt"])
 /**
- * Una cita no se cobra dos veces.
- *
- * El servicio ya lo comprueba antes de escribir, pero esa comprobación y la
- * escritura son dos pasos: dos cajeros cobrando la misma cita a la vez pueden
- * pasar los dos. Es la misma forma del doble-booking, con dinero, y se cierra
- * igual: con un índice parcial que solo mira los cobros vivos, para que anular
- * uno deje volver a cobrar.
+ * Una cita no se cobra dos veces. El indice solo mira los cobros vivos, asi
+ * que anular uno deja volver a cobrar.
  */
 @Index("uq_payments_cita_viva", ["businessId", "appointmentId"], {
   unique: true,
   where: `"appointment_id" IS NOT NULL AND status IN ('PENDING', 'COMPLETED')`,
 })
 /**
- * Un cobro enviado dos veces se guarda una.
- *
- * Un cobro suelto no tiene cita que lo identifique, así que el índice de arriba
- * no lo cubre: tres clics en "Registrar pago" son tres cobros perfectamente
- * válidos y distintos a ojos de la base. El identificador lo pone quien cobra,
- * uno por formulario abierto, y este índice hace que el segundo envío choque en
- * vez de duplicar el cargo.
+ * Un cobro enviado dos veces se guarda una: el identificador lo pone quien
+ * cobra, uno por formulario abierto, y el segundo envio choca aqui.
  */
 @Index("uq_payments_solicitud", ["businessId", "solicitudId"], {
   unique: true,
@@ -56,10 +46,8 @@ export class PaymentEntity extends TenantEntity {
   })
   status!: PaymentStatus;
   /**
-   * Puntos de fidelidad que el cliente gastó en este cobro, y lo que rebajaron.
-   *
-   * Se guardan los dos: el valor del punto puede cambiar, y una vez cobrado hay
-   * que poder explicar el importe con los números que se aplicaron entonces.
+   * Puntos de fidelidad que el cliente gasto en este cobro y lo que rebajaron,
+   * con los numeros que se aplicaron entonces.
    */
   @Column({ type: "int", name: "puntos_usados", default: 0 })
   puntosUsados!: number;

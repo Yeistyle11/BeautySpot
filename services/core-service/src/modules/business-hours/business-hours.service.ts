@@ -77,12 +77,8 @@ export class BusinessHoursService {
   }
 
   /**
-   * Valida formato `HH:MM`, los cierres de madrugada y los solapes por día y
+   * Valida formato `HH:MM`, los cierres de madrugada y los solapes por dia y
    * sede.
-   *
-   * La apertura es una hora del día y el cierre también: un salón que cierra a
-   * las dos de la mañana pone `02:00`, y que eso caiga ya en el día siguiente se
-   * deduce de que venga antes que la apertura.
    */
   private validar(items: Partial<BusinessHours>[]): void {
     for (const item of items) {

@@ -43,8 +43,7 @@ describe("CreateClientDto", () => {
     await expect(motivosDe("1990-02-28")).resolves.toBe("");
   });
 
-  // Tiene los ocho dígitos y los dos guiones, así que el patrón la dejaba pasar
-  // y la rechazaba Postgres al guardarla: un 500 en vez de "corrige la fecha".
+  // Dias con la forma correcta que no existen en el calendario.
   it.each(["2026-02-30", "1990-04-31", "1990-13-01"])(
     "rechaza %s, que no existe en el calendario",
     async (fecha) => {

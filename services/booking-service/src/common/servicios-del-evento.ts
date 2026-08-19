@@ -4,10 +4,6 @@ import { AppointmentServiceEntity } from "../entities/appointment-service.entity
 /**
  * Los servicios de la cita tal y como viajan en el evento, con el nombre y el
  * precio congelados al reservarla.
- *
- * Van en todos los eventos de cita porque notification-service es quien escribe
- * los correos y no tiene acceso a la base de booking: el nombre del servicio
- * solo puede llegarle por aquí.
  */
 export function serviciosDelEvento(
   servicios?: AppointmentServiceEntity[]

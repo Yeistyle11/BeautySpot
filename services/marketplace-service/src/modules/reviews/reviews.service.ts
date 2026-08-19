@@ -64,9 +64,8 @@ export class ReviewsService {
   ) {}
 
   /**
-   * Crea una reseña del usuario indicado (una por cita, comentario obligatorio
-   * si baja de 4 estrellas), recalcula las medias del negocio y el profesional
-   * y emite el evento REVIEW_CREATED.
+   * Crea una resena del usuario indicado (una por cita, con comentario si baja
+   * de 4 estrellas), recalcula las medias y emite REVIEW_CREATED.
    */
   async create(dto: CreateReviewDto, clientId: string): Promise<ReviewEntity> {
     const existing = await this.repo.findOne({
@@ -109,9 +108,8 @@ export class ReviewsService {
       throw error;
     });
 
-    // Tras confirmar: dentro de la transacción alargaría los bloqueos con una
-    // conversación con Redis, y si se deshiciera habríamos borrado la caché de
-    // una reseña que no llegó a existir.
+    // Tras confirmar: dentro de la transaccion alargaria los bloqueos con una
+    // conversacion con Redis.
     await this.profilesService.invalidarCache(dto.businessId);
 
     return saved;
@@ -283,11 +281,7 @@ export class ReviewsService {
 
   /**
    * Exige a booking que la cita exista, sea de este usuario y de este negocio,
-   * y esté atendida. Sin eso no hay reseña.
-   *
-   * Usa `pedir` y no `pedirONulo` a propósito: si booking no responde, el alta
-   * falla. Publicar sin verificar permitiría hundir el rating de un competidor
-   * a base de reseñas fabricadas.
+   * y este atendida; si booking no responde, el alta falla.
    */
   private async verificarCita(
     dto: CreateReviewDto,
@@ -353,9 +347,8 @@ export class ReviewsService {
   }
 
   /**
-   * Resumen de reseñas de un negocio: promedio, total y distribución por
-   * estrellas. Se calcula con un GROUP BY rating (máximo 5 filas) en vez de
-   * traer todas las reseñas a memoria para promediarlas, que no escala.
+   * Resumen de resenas de un negocio: promedio, total y distribucion por
+   * estrellas, calculada con un GROUP BY rating.
    */
   async getSummary(businessId: string): Promise<ReviewSummary> {
     const rows = await this.repo

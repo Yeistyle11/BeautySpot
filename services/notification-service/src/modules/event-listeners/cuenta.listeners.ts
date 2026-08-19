@@ -16,9 +16,8 @@ import { EmailService } from "../emails/email.service";
 import { AvisosService } from "./avisos.service";
 
 /**
- * Correos de la cuenta: bienvenida, restablecer contraseña y confirmar el
- * correo. Los tres son correo y nada más —quien acaba de registrarse todavía no
- * tiene dónde ver un aviso dentro de la aplicación—.
+ * Correos de la cuenta: bienvenida, restablecer contrasena y confirmar el
+ * correo. Los tres son solo correo.
  */
 @Injectable()
 export class CuentaListeners {
@@ -157,11 +156,8 @@ export class CuentaListeners {
   }
 
   /**
-   * Origen público de la aplicación, del que cuelgan los enlaces del correo.
-   *
-   * Es el del navegador, no el del API: las pantallas que canjean estos enlaces
-   * —`/verify-email`, `/reset-password`— las sirve el frontend, y apuntarlos al
-   * gateway devuelve un 404 en JSON a quien abra el correo.
+   * Origen publico de la aplicacion, del que cuelgan los enlaces del correo:
+   * el del navegador, que es quien sirve `/verify-email` y `/reset-password`.
    */
   private appUrl(): string {
     return this.configService.get<string>("APP_URL", "http://localhost:8080");

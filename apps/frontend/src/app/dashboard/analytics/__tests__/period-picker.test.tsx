@@ -125,8 +125,6 @@ describe("MetricRow", () => {
     expect(screen.getByText("-20%")).toBeInTheDocument();
   });
 
-  // Menos cancelaciones es una mejora: pintarla de rojo porque el número baja
-  // diría lo contrario de lo que pasó.
   it("pinta como mejora que bajen las cancelaciones", () => {
     render(
       <MetricRow

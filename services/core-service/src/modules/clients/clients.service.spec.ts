@@ -570,9 +570,8 @@ describe("ClientsService", () => {
     });
 
     it("usa el repositorio de la transacción cuando se le pasa un manager", async () => {
-      // Acreditar puntos y marcar el evento como procesado tienen que
-      // confirmarse juntos, así que el incremento va por el manager de quien
-      // llama y no por el repositorio propio.
+      // El incremento va por el manager de quien llama: acreditar puntos y
+      // marcar el evento como procesado se confirman juntos.
       const incrementEnTx = jest.fn().mockResolvedValue({ affected: 1 });
       const manager = {
         getRepository: jest.fn().mockReturnValue({ increment: incrementEnTx }),
@@ -652,8 +651,7 @@ describe("ClientsService", () => {
       });
     });
 
-    // Desvincular la ficha de un profesional no le quita el rol, así que este
-    // estado es legítimo y no un error que deba pintarse en rojo.
+    // Desvincular la ficha de un profesional no le quita el rol.
     it("devuelve página vacía si la cuenta no es de ningún profesional", async () => {
       mockProfessionals.findByUserId.mockResolvedValue(null);
 
@@ -742,8 +740,7 @@ describe("ClientsService", () => {
       expect(opciones.where).not.toHaveProperty("phone");
     });
 
-    // La respuesta de booking es el filtro de permisos: si no llega, no hay
-    // listado que servir. Devolver la cartera entera es lo que se evita.
+    // Sin respuesta de booking no hay listado que servir.
     it("propaga el fallo si booking no responde", async () => {
       mockHttp.pedir.mockRejectedValue(new Error("booking caído"));
 

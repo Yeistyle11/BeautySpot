@@ -18,19 +18,8 @@ interface FieldProps {
 }
 
 /**
- * Une una etiqueta con su control. Genera el `id` y lo inyecta en el control,
- * que es lo que hace falta para que un lector de pantalla anuncie el nombre del
- * campo: una etiqueta hermana suelta del input, sin `htmlFor`, se lee como
- * "campo de edicion" sin mas.
- *
- * Con `error`, ademas, marca el control como invalido y le enlaza el mensaje,
- * de modo que el lector lo anuncie al llegar al campo y no solo cuando aparece.
- *
- * El control es el **primer elemento** que se le pasa; lo que venga detras se
- * pinta tal cual, para que un campo pueda acompañarse de un aviso propio.
- * Aceptar varios hijos no es comodidad: la firma (`ReactNode`) ya los admite y
- * TypeScript no avisa, asi que exigir uno solo se cobraria en ejecucion,
- * tumbando la pantalla entera al abrirse.
+ * Une una etiqueta con su control: genera el `id`, lo inyecta en el primer
+ * hijo y, con `error`, lo marca invalido y le enlaza el mensaje.
  */
 export function Field({ label, children, hint, error, className }: FieldProps) {
   const id = useId();
@@ -38,8 +27,7 @@ export function Field({ label, children, hint, error, className }: FieldProps) {
   const errorId = error ? `${id}-error` : undefined;
   const describedBy = [errorId, hintId].filter(Boolean).join(" ") || undefined;
 
-  // `toArray` descarta de paso los `false` y `null` que deja un `&&` sin
-  // cumplir, que si no contarian como hijo.
+  // `toArray` descarta los `false` y `null` que deja un `&&` sin cumplir.
   const hijos = Children.toArray(children);
   const indiceDelControl = hijos.findIndex((hijo) => isValidElement(hijo));
   const labelled: ReactNode[] = hijos.map((hijo, i) =>

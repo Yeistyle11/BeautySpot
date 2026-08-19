@@ -15,13 +15,7 @@ export function generateSlug(text: string): string {
     .substring(0, 100);
 }
 
-/**
- * Oculta la mayor parte de un correo dejándolo reconocible.
- *
- * Los registros se guardan y se consultan por mucha gente; un correo completo
- * ahí es un dato personal que casi nunca hace falta para depurar, y basta con
- * distinguir de cuál se trata.
- */
+/** Oculta la mayor parte de un correo dejandolo reconocible en el log. */
 export function ocultarCorreo(correo: string): string {
   const arroba = correo.indexOf("@");
   if (arroba <= 0) return "***";
@@ -113,36 +107,23 @@ export function calculateEndTime(
 const MINUTOS_DE_UN_DIA = 24 * 60;
 
 /**
- * Indica si el tramo termina ya en el día siguiente.
- *
- * La hora de fin se guarda como la marca el reloj de la pared, así que un cierre
- * a las 02:00 con apertura a las 20:00 solo se distingue de un dedazo por venir
- * antes que la apertura. Un tramo que empieza y termina a la misma hora no dice
- * nada, y se trata como cruce para que la validación pueda rechazarlo.
+ * Indica si el tramo termina ya en el dia siguiente, lo que se deduce de que
+ * el fin venga antes que el inicio. Un tramo de ancho cero cuenta como cruce.
  */
 export function cruzaMedianoche(inicio: string, fin: string): boolean {
   return timeToMinutes(fin) <= timeToMinutes(inicio);
 }
 
 /**
- * La hora de fin en la escala con la que se calcula: minutos desde la medianoche
- * del día que abrió, que pasan de 24:00 cuando el tramo cruza.
- *
- * Es la conversión de entrada. Todo lo que compara, solapa o reparte horas
- * trabaja en esta escala, donde un tramo de 20:00 a 02:00 es 20:00–26:00 y se
- * compara con cualquier otro sin casos especiales.
+ * La hora de fin en la escala con la que se calcula: minutos desde la
+ * medianoche del dia que abrio, que pasan de 24:00 cuando el tramo cruza.
  */
 export function finExtendido(inicio: string, fin: string): string {
   if (!cruzaMedianoche(inicio, fin)) return fin;
   return minutosAHoraExtendida(timeToMinutes(fin) + MINUTOS_DE_UN_DIA);
 }
 
-/**
- * La hora tal y como la marca el reloj de la pared: "24:30" es "00:30".
- *
- * Es la conversión de salida, la que se aplica a todo lo que se guarda, se
- * responde por la API o se pinta.
- */
+/** La hora tal y como la marca el reloj de la pared: "24:30" es "00:30". */
 export function horaDeReloj(hora: string): string {
   return minutosAHoraExtendida(timeToMinutes(hora) % MINUTOS_DE_UN_DIA);
 }
@@ -177,9 +158,8 @@ export function normalizarEmail(email?: string | null): string {
 }
 
 /**
- * Deja un teléfono en su forma canónica para poder cotejarlo: solo dígitos,
- * conservando el `+` inicial si lo trae. "+57 300 123 45 67" y
- * "+573001234567" son el mismo número.
+ * Deja un telefono en su forma canonica para poder cotejarlo: solo digitos,
+ * conservando el `+` inicial si lo trae.
  */
 export function normalizarTelefono(telefono?: string | null): string {
   const texto = telefono?.trim() ?? "";

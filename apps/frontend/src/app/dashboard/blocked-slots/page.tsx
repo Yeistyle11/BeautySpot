@@ -46,8 +46,8 @@ export default function BlockedSlotsPage() {
 
   const [profesionalId, setProfesionalId] = useState("");
 
-  // Los bloqueos cuelgan del profesional, asi que hasta elegir uno no hay nada
-  // que pedir: la clave a null deja la peticion sin lanzar.
+  // Los bloqueos cuelgan del profesional: sin uno elegido, la clave va a null
+  // y no se pide nada.
   const {
     items: bloqueos,
     isLoading,

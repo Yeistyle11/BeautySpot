@@ -67,10 +67,8 @@ export class ReportsService {
     const completedAppointments = Number(
       aggregates?.completedAppointments ?? 0
     );
-    // Ingresos del periodo entre los cobros que los produjeron. Dividir por las
-    // citas atendidas mezcla dos cosas distintas: hay ventas sin cita, y una
-    // cita atendida puede cobrarse otro día o no cobrarse aún.
-    // Sin cobros no es que el ticket valga cero, es que no hay ticket.
+    // Ingresos del periodo entre los cobros que los produjeron, no entre las
+    // citas atendidas. Sin cobros no hay ticket.
     const ventas = Number(aggregates?.ventas ?? 0);
     const revenueDeVentas = Number(aggregates?.revenueDeVentas ?? 0);
     const avgTicket = ventas > 0 ? Math.round(revenueDeVentas / ventas) : null;

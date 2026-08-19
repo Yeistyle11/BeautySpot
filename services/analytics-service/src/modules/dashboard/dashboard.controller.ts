@@ -15,11 +15,8 @@ export class DashboardController {
   constructor(private readonly service: DashboardService) {}
 
   /**
-   * KPIs del negocio: las cifras de hoy y las del periodo pedido.
-   *
-   * Sin periodo son los últimos treinta días. Con `comparar` vienen además las
-   * del periodo anterior de la misma duración, que es lo que permite responder
-   * "¿cómo me fue este mes contra el pasado?".
+   * KPIs del negocio: hoy y el periodo pedido, o los ultimos treinta dias. Con
+   * `comparar`, tambien los del periodo anterior.
    */
   @Get("kpis")
   async getKPIs(

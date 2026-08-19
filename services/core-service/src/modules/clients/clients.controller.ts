@@ -36,10 +36,8 @@ export class ClientsController {
   }
 
   /**
-   * Lista los clientes del negocio con búsqueda y paginación.
-   *
-   * Devuelve cosas distintas según quién pregunte: la cartera es del negocio, y
-   * quien solo atiende ve su parte de ella y sin datos personales.
+   * Lista los clientes del negocio con busqueda y paginacion; quien solo
+   * atiende ve su parte de la cartera y sin datos personales.
    */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
   @Get()
@@ -62,11 +60,8 @@ export class ClientsController {
   }
 
   /**
-   * Nombre de los clientes pedidos, para poner cara a una lista de citas.
-   *
-   * Existe porque quien pinta una agenda necesita el nombre de **los clientes
-   * que tiene en pantalla**, y la cartera entera solo se sirve paginada: fuera
-   * de su primera página no habría nombre que cruzar.
+   * Nombre de los clientes pedidos por id, para poner cara a una lista de
+   * citas.
    */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
   @Get("names")
@@ -86,9 +81,8 @@ export class ClientsController {
   }
 
   /**
-   * Actualiza los datos personales del cliente autenticado. Devuelve 404 si
-   * reservó como invitado y no tiene ficha, para que el llamador recurra a su
-   * usuario de auth-service.
+   * Actualiza los datos personales del cliente autenticado; 404 si reservo
+   * como invitado y no tiene ficha.
    */
   @Roles(Role.CLIENT)
   @SkipBusinessScope()
@@ -105,10 +99,8 @@ export class ClientsController {
   }
 
   /**
-   * Obtiene un cliente por id, con la ficha completa.
-   *
-   * Fuera de quien gestiona el negocio no la ve nadie: para poner nombre a una
-   * agenda está `/names`, que devuelve solo eso.
+   * Obtiene un cliente por id, con la ficha completa; solo para quien gestiona
+   * el negocio.
    */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Get(":id")

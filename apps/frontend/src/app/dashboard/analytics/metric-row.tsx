@@ -12,10 +12,7 @@ interface MetricRowProps {
   actual?: number | null;
   /** La misma cifra en el periodo anterior, si se pidió comparar. */
   anterior?: number | null;
-  /**
-   * Si bajar es lo bueno. Menos cancelaciones es una mejora, y pintarlo de rojo
-   * porque el número cae diría lo contrario de lo que pasó.
-   */
+  /** Si bajar es lo bueno, como en las cancelaciones. */
   bajarEsBueno?: boolean;
   className?: string;
 }

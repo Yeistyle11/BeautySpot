@@ -37,12 +37,8 @@ import {
 } from "@beautyspot/shared-utils";
 
 /**
- * Fichas como mucho que se devuelven al preguntar a quién ha atendido un
+ * Fichas como mucho que se devuelven al preguntar a quien ha atendido un
  * profesional.
- *
- * Hay tope porque la lista viaja entera por HTTP en cada listado de clientes, y
- * una agenda de años puede tener decenas de miles: quien pregunta es un filtro
- * de permisos, no un informe.
  */
 const TOPE_DE_CLIENTES_POR_PROFESIONAL = 500;
 
@@ -70,9 +66,8 @@ interface LineaDeCita extends ServicioResuelto {
 }
 
 /**
- * Orquesta el ciclo de vida de las citas (creación, confirmación, ejecución,
- * cancelación y reagendado) evitando el doble-booking con transacciones
- * SERIALIZABLE y publicando cada cambio vía el patrón Outbox.
+ * Orquesta el ciclo de vida de las citas, evita el doble-booking con
+ * transacciones SERIALIZABLE y publica cada cambio por el Outbox.
  */
 @Injectable()
 export class AppointmentsService {
@@ -103,13 +98,8 @@ export class AppointmentsService {
   }
 
   /**
-   * Precio y duración que el catálogo del core-service aplica a estos servicios
-   * para este profesional.
-   *
-   * Es la única fuente: tomarlos del cuerpo dejaría reservar por $0 desde la
-   * ruta pública. Se usa `enviar` y no `pedirONulo` a propósito — un catálogo
-   * que no responde tiene que hacer fallar la reserva, no degradarla a precio
-   * cero.
+   * Precio y duracion que el catalogo del core-service aplica a estos
+   * servicios para este profesional; si no responde, la reserva falla.
    */
   private async resolverServicios(
     businessId: string,
@@ -237,9 +227,8 @@ export class AppointmentsService {
       data.professionalId
     );
 
-    // El cálculo de arriba va en la escala extendida, donde la cita de las 23:30
-    // termina a las "24:30". Lo que se guarda y se publica es la hora que marca
-    // el reloj: las 00:30.
+    // Pasa el fin de la escala extendida ("24:30") a la hora del reloj
+    // ("00:30"), que es lo que se guarda y se publica.
     const finGuardado = horaDeReloj(endTime);
     const ocupadoHastaGuardado = horaDeReloj(ocupadoHasta);
 
@@ -272,10 +261,8 @@ export class AppointmentsService {
       throw new BadRequestException("Ya existe una cita en ese horario");
     }
 
-    // Ejecutar dentro de transaccion SERIALIZABLE: el re-check del conflicto
-    // dentro de la tx aislada es el que previene el doble-booking (race). Una
-    // tx concurrente sobre el mismo slot recibe error de serializacion (40001),
-    // que withSerializableRetry reintenta en vez de devolver un 500.
+    // Dentro de la transaccion SERIALIZABLE se repite la comprobacion de
+    // conflicto; el error 40001 lo reintenta withSerializableRetry.
     const appointment = await withSerializableRetry(() =>
       this.dataSource.transaction("SERIALIZABLE", async (manager) => {
         const conflictInTx = await this.disponibilidad.hayConflictoEn(
@@ -321,9 +308,8 @@ export class AppointmentsService {
         );
         await manager.save(AppointmentServiceEntity, apptServices);
 
-        // El evento se persiste en la MISMA transacción que la cita (outbox):
-        // si la tx hace rollback, no queda ni cita ni evento. El
-        // OutboxRelayWorker lo publica a RabbitMQ una vez confirmado el commit.
+        // El evento se persiste en la misma transaccion que la cita; el
+        // OutboxRelayWorker lo publica tras el commit.
         await this.outbox.enqueue(manager, {
           eventType: EventNames.BOOKING_APPOINTMENT_CREATED,
           aggregateType: "appointment",
@@ -417,9 +403,8 @@ export class AppointmentsService {
         "Solo se puede completar una cita confirmada o en progreso"
       );
     }
-    // Completar arrastra el cobro y los puntos de fidelidad: darla por atendida
-    // antes de que empiece genera un ingreso por un servicio que no se ha
-    // prestado.
+    // No se da por atendida una cita que aun no ha empezado: completar
+    // arrastra el cobro y los puntos de fidelidad.
     const zona = await this.zonas.de(businessId);
     if (!esInstantePasadoEn(zona, appt.date, appt.startTime)) {
       throw new BadRequestException(
@@ -462,11 +447,7 @@ export class AppointmentsService {
   }
 
   /**
-   * Cancela la cita.
-   *
-   * La antelación mínima solo se le exige al cliente: el negocio tiene que poder
-   * cancelar lo que se le cae encima —un profesional enfermo, un imprevisto— sin
-   * pelearse con su propio sistema.
+   * Cancela la cita. La antelacion minima solo se le exige al cliente.
    */
   async cancel(
     id: string,
@@ -729,9 +710,8 @@ export class AppointmentsService {
   }
 
   /**
-   * Traduce el texto buscado a condiciones sobre la cita: el cliente se resuelve
-   * en core, que es quien guarda su nombre, y el servicio se busca por el nombre
-   * congelado en la propia cita.
+   * Traduce el texto buscado a condiciones sobre la cita: el cliente se
+   * resuelve en core y el servicio por el nombre congelado en la cita.
    */
   private async condicionesDeBusqueda(
     businessId: string,
@@ -758,9 +738,8 @@ export class AppointmentsService {
   }
 
   /**
-   * Citas de un usuario cliente en todos los negocios donde haya reservado.
-   * Las citas guardan el id de la ficha del negocio, asi que primero se
-   * traducen las que core tiene atadas a ese usuario.
+   * Citas de un usuario cliente en todos los negocios donde haya reservado,
+   * traduciendo antes sus fichas de cliente en core.
    */
   async findByClientUser(
     userId: string,
@@ -884,26 +863,16 @@ export class AppointmentsService {
   }
 
   /**
-   * Fichas que ha atendido un profesional en el negocio, de la más reciente a la
-   * más antigua.
-   *
-   * La pide el core para acotar qué clientes ve quien solo atiende, así que es
-   * una respuesta de autorización: si no se puede calcular, quien llama debe
-   * fallar y no seguir con la cartera entera.
-   *
-   * Cuentan todas las citas menos las canceladas. Con solo las atendidas, el
-   * profesional no vería el nombre de quien tiene reservado para esta tarde; y
-   * dejando entrar las canceladas, reservar y cancelar bastaría para quedarse
-   * con una ficha.
+   * Fichas que ha atendido un profesional en el negocio, de la mas reciente a
+   * la mas antigua, contando todas las citas menos las canceladas.
    */
   async clientIdsAtendidosPor(
     professionalId: string,
     businessId: string,
     tope = TOPE_DE_CLIENTES_POR_PROFESIONAL
   ): Promise<{ clientIds: string[]; truncado: boolean }> {
-    // Agrupar en vez de DISTINCT porque hace falta ordenar por la cita más
-    // reciente: si hay que cortar, que caiga la cola antigua y no un cliente al
-    // azar. Se pide uno de más, que es lo que delata el corte.
+    // Agrupa en vez de DISTINCT para poder ordenar por la cita mas reciente,
+    // y pide una de mas para saber si hubo corte.
     const filas = await this.apptRepo
       .createQueryBuilder("a")
       .select("a.client_id", "clientId")
@@ -953,12 +922,8 @@ export class AppointmentsService {
   }
 
   /**
-   * Indica si un usuario puede reseñar una cita: existe, es suya, es de ese
-   * negocio y ya se atendió. Lo consulta el marketplace para decidir si acepta
-   * la reseña.
-   *
-   * Devuelve también a quién y qué se atendió, para que el marketplace no
-   * tenga que fiarse de lo que el autor escriba en el cuerpo.
+   * Indica si un usuario puede resenar una cita, y devuelve a quien y que se
+   * atendio.
    */
   async citaReseñablePor(
     appointmentId: string,

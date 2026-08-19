@@ -223,9 +223,8 @@ describe("SessionService", () => {
       return cookies;
     }
 
-    // Igualarlas hacía que el navegador borrara la cookie justo al caducar el
-    // token: el guard del panel no veía ni un token caducado y mandaba a login
-    // a los quince minutos, con la sesión válida durante días.
+    // Igualarlas borraria la cookie al caducar el token y mandaria a login a
+    // los quince minutos, con la sesion aun valida.
     it("la cookie del access dura lo que la sesión, no lo que el token", () => {
       expect(trasIniciarSesion()[ACCESS_COOKIE].opciones.maxAge).toBe(
         SIETE_DIAS_MS

@@ -56,11 +56,7 @@ interface CompleteAppointmentDialogProps {
   pending: boolean;
 }
 
-/**
- * Cierre de una cita. Ofrece registrar el cobro en el mismo paso porque es lo
- * habitual en mostrador, pero permite completar sin pago (cortesias, cobros ya
- * registrados aparte).
- */
+/** Cierre de una cita, con la opcion de cobrarla en el mismo paso. */
 export function CompleteAppointmentDialog({
   open,
   onClose,

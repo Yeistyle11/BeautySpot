@@ -53,9 +53,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
 };
 
 /**
- * Barra de navegación lateral del dashboard. Muestra solo las páginas permitidas
- * para el rol actual, resalta la ruta activa y, en móvil, se colapsa en un menú
- * desplegable. Incluye el perfil del usuario, el cambio de tema y el cierre de sesión.
+ * Barra de navegacion lateral del dashboard: pinta las paginas permitidas al
+ * rol, el perfil, el cambio de tema y el cierre de sesion.
  */
 export function Sidebar() {
   const pathname = usePathname();

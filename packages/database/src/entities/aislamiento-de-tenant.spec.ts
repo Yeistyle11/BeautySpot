@@ -2,19 +2,8 @@ import { readdirSync, readFileSync, statSync } from "fs";
 import { join, resolve, relative } from "path";
 
 /**
- * Vigila que ninguna consulta nueva sobre una tabla multi-tenant se olvide del
- * filtro por negocio.
- *
- * El aislamiento entre negocios es lógico (ADR-002): la columna `businessId` de
- * {@link TenantEntity} y un `where` que la nombre en cada consulta. Ese `where`
- * lo escribe quien programa, así que olvidarlo en una consulta nueva no rompe
- * nada visible: devuelve datos de otros negocios y nadie se entera.
- *
- * TypeORM 0.3 no tiene filtros globales, y meterlos a mano supondría envolver
- * el repositorio de las 24 entidades. En vez de eso, esta prueba lee el código
- * de los servicios y exige que cada consulta sobre una entidad con negocio
- * mencione el filtro en su método, o esté en la lista de excepciones de abajo
- * con el motivo escrito.
+ * Lee el codigo de los servicios y exige que cada consulta sobre una entidad
+ * con `businessId` nombre el filtro por negocio en su metodo (ADR-002).
  */
 
 /** Métodos del repositorio que leen o tocan filas y por tanto necesitan filtro. */
@@ -36,14 +25,8 @@ const METODOS_DE_CONSULTA = [
 ];
 
 /**
- * Consultas que a propósito no llevan negocio, con el motivo por el que pueden.
- *
- * Todas caen en uno de tres casos: buscan por clave primaria y comprueban la
- * pertenencia después, buscan por una columna única en toda la plataforma
- * (`slug`, `userId`), o responden a una llamada entre servicios que ya viene
- * autenticada con el secreto interno.
- *
- * La clave es `ruta/del/fichero.ts#metodo`.
+ * Consultas que a proposito no llevan negocio, con el motivo por el que
+ * pueden. La clave es `ruta/del/fichero.ts#metodo`.
  */
 const SIN_NEGOCIO_A_PROPOSITO: Record<string, string> = {
   "booking-service/src/modules/appointments/appointments.service.ts#findByIdForClientUser":

@@ -66,8 +66,7 @@ import {
   type Service,
 } from "./schemas";
 
-// La agenda abre en modo lista, asi que la rejilla semanal solo se descarga si
-// el usuario cambia de vista.
+// La rejilla semanal se descarga solo al cambiar a la vista calendario.
 const CalendarView = dynamic(
   () => import("@/components/calendar-view").then((m) => m.CalendarView),
   {
@@ -104,8 +103,7 @@ export default function AppointmentsPage() {
   const [viewMode, setViewMode] = useState<"list" | "day" | "calendar">("list");
   const [dia, setDia] = useState(() => toLocalDateKey(new Date()));
 
-  // El calendario pinta una semana entera, asi que pide el maximo que admite
-  // el backend (100) en vez de paginar; la lista si pagina de 20 en 20.
+  // El calendario pide el maximo del backend (100); la lista pagina de 20.
   const {
     items: appointments,
     meta,
@@ -119,8 +117,7 @@ export default function AppointmentsPage() {
     // La vista día acota al servidor y no necesita traerse la semana entera.
     params: viewMode === "day" ? { date: dia } : undefined,
     limit: viewMode === "list" ? undefined : 100,
-    // El calendario pinta la semana entera: filtrarla por texto la dejaria a
-    // huecos, asi que la busqueda solo aplica a la lista.
+    // La busqueda por texto solo se aplica a la vista lista.
     search: viewMode === "list" ? search : "",
   });
 
@@ -176,9 +173,7 @@ export default function AppointmentsPage() {
   );
   const [notaCancelacion, setNotaCancelacion] = useState("");
 
-  // Las citas solo traen el id del cliente, que vive en otro servicio. Se piden
-  // los nombres de los que hay en pantalla y no la cartera entera, que llega
-  // paginada: fuera de su primera pagina no habria nombre que cruzar.
+  // Pide a core, por id, los nombres de los clientes que salen en pantalla.
   const idsEnPantalla = useMemo(
     () => [...new Set(appointments.map((a) => a.clientId))].sort().join(","),
     [appointments]
@@ -214,9 +209,7 @@ export default function AppointmentsPage() {
   // por servicio.
   const filtered = appointments;
 
-  // Los tres handlers que reciben las tarjetas van memoizados: sin identidad
-  // estable, AppointmentCard se re-renderizaria entera con cada pulsacion del
-  // buscador.
+  // Los tres handlers que reciben las tarjetas van memoizados.
   const handleAction = useCallback(
     async (id: string, action: string, cuerpo: unknown = {}) => {
       try {
@@ -299,8 +292,8 @@ export default function AppointmentsPage() {
     if (!completingAppt) return;
     setCompletingAction(true);
     try {
-      // El efectivo necesita una caja abierta donde anotarse. Se comprueba
-      // antes de completar para no dejar la cita cerrada y el cobro sin hacer.
+      // El cobro en efectivo exige una caja abierta; se comprueba antes
+      // de completar la cita.
       if (registerPayment && payment.method === "CASH") {
         const caja = await api.get<{ id: string } | null>(
           "/payment/cash-register/active"
@@ -342,9 +335,8 @@ export default function AppointmentsPage() {
     setError("");
     setSubmitting(true);
     try {
-      // Solo los ids: el nombre, el precio y la duracion los resuelve el
-      // backend contra el catalogo y los congela junto a la cita, para que el
-      // historico no cambie si luego se edita el servicio.
+      // Solo van los ids: el backend resuelve nombre, precio y duracion
+      // contra el catalogo y los congela junto a la cita.
       await api.post("/booking/appointments", {
         ...form,
         serviceIds: selectedServices,

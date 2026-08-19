@@ -100,8 +100,7 @@ export default function AppointmentsPage() {
     () => new Set((reviews?.data ?? []).map((r) => r.appointmentId)),
     [reviews]
   );
-  // El filtro devuelve el array original en la pestana "todas", asi que hay que
-  // copiarlo antes de ordenar: sin la copia se reordena la cache de SWR.
+  // Copia la lista antes de ordenar: el filtro devuelve el array de la cache.
   const filtered = useMemo(
     () =>
       [...filterByTab(appointments, activeTab)].sort((a, b) =>
@@ -175,9 +174,8 @@ export default function AppointmentsPage() {
             const hasReview = reviewedIds.has(appt.id);
             const canReview = appt.status === "COMPLETED" && !hasReview;
 
-            // El enlace al detalle se extiende sobre toda la tarjeta con un overlay
-            // absoluto en vez de envolverla: "Dejar reseña" es otro enlace y anidar
-            // anclas es HTML invalido, ademas de dejarlo inalcanzable por teclado.
+            // El enlace al detalle cubre la tarjeta con un overlay absoluto, sin
+            // envolverla: dentro hay otro enlace.
             return (
               <Card
                 key={appt.id}

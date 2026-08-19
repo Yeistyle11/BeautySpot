@@ -21,10 +21,8 @@ import { DataEnricherService } from "../data-enricher/data-enricher.service";
 import { AvisosService } from "./avisos.service";
 
 /**
- * Cómo se nombra lo reservado en el correo: "Corte" o "Corte y Color".
- *
- * El campo es opcional en el evento, así que queda el genérico como último
- * recurso: un correo con un nombre impreciso vale más que uno sin enviar.
+ * Como se nombra lo reservado en el correo: "Corte" o "Corte y Color", con un
+ * generico de ultimo recurso.
  */
 function nombreDelServicio(servicios?: ServicioDeLaCita[]): string {
   if (!servicios?.length) return "Servicio";
@@ -34,13 +32,8 @@ function nombreDelServicio(servicios?: ServicioDeLaCita[]): string {
 }
 
 /**
- * El ciclo de la cita: reserva, confirmación, cambio de fecha, cancelación,
- * recordatorio y cierre.
- *
- * Casi todos avisan a dos destinatarios distintos —el cliente y quien atiende el
- * negocio— y en ese orden: el aviso dentro de la aplicación no depende de la
- * cola de correo, así que se escribe antes para que un fallo de esta no lo
- * arrastre.
+ * El ciclo de la cita: reserva, confirmacion, cambio de fecha, cancelacion,
+ * recordatorio y cierre. Avisa antes dentro de la aplicacion y luego por correo.
  */
 @Injectable()
 export class AgendaListeners {
@@ -104,8 +97,8 @@ export class AgendaListeners {
             { appointmentId }
           );
 
-          // Quien reserva desde el marketplace no entra al panel, así que el
-          // aviso in-app no le llega: el acuse va por correo.
+          // Quien reserva desde el marketplace no entra al panel: el acuse va
+          // por correo.
           await this.avisos.intentarCorreo(
             "cita nueva",
             async () => {

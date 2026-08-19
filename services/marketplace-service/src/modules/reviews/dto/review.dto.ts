@@ -19,11 +19,8 @@ import { ReviewReportReason } from "../../../entities/review-report.entity";
 export const MAXIMO_FOTOS = 3;
 
 /**
- * Datos para crear una reseña: la cita reseñada, la calificación, el comentario
- * y las fotos.
- *
- * Ni el autor ni el profesional viajan aquí: el primero sale del token y el
- * segundo de la cita, para que quien escribe no elija a quién califica.
+ * Datos para crear una resena: la cita resenada, la calificacion, el
+ * comentario y las fotos. El autor sale del token y el profesional, de la cita.
  */
 export class CreateReviewDto {
   @IsString() businessId!: string;
@@ -86,12 +83,8 @@ export class ReviewQueryDto {
 const MAXIMO_CITAS = 200;
 
 /**
- * Filtros del listado propio del cliente.
- *
- * `appointmentIds` sirve para marcar en pantalla qué citas ya tienen reseña sin
- * traerse el historial entero; llega como lista separada por comas y se acota,
- * porque sin tope un `?appointmentIds=` largo arma un `IN (...)` de miles de
- * elementos con una sola petición.
+ * Filtros del listado propio del cliente. `appointmentIds` llega como lista
+ * separada por comas y se acota.
  */
 export class MisResenasQueryDto {
   @IsOptional() @Type(() => Number) @IsNumber() @Min(1) page?: number;

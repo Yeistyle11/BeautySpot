@@ -25,10 +25,6 @@ export type Entorno = Record<string, string | undefined>;
 /**
  * Comprueba que el entorno permite arrancar y devuelve todos los problemas que
  * encuentre, no solo el primero.
- *
- * Se devuelven en lugar de lanzarse para poder listarlos juntos: quien despliega
- * con tres variables mal prefiere verlas de una vez a descubrirlas en tres
- * reinicios.
  */
 export function problemasDelEntorno(
   entorno: Entorno,
@@ -77,13 +73,7 @@ export function problemasDelEntorno(
   return problemas;
 }
 
-/**
- * Aborta el arranque si el entorno no da para funcionar.
- *
- * Se comprueba aquí, y no en el primer uso de cada variable, porque un
- * contenedor que levanta verde y falla con la primera petición se descubre
- * cuando ya hay tráfico encima.
- */
+/** Aborta el arranque si el entorno no da para funcionar. */
 export function validarEntorno(
   entorno: Entorno,
   requisitos: RequisitosDeEntorno,
@@ -103,11 +93,8 @@ export function validarEntorno(
 }
 
 /**
- * Si el valor es una URL absoluta con destino.
- *
- * Se exige `host` porque `new URL()` acepta cosas como `"localhost:3002"`
- * tomando `localhost:` por esquema: justo el error que se comete al escribir la
- * URL de un servicio sin protocolo.
+ * Si el valor es una URL absoluta con destino; se exige `host` porque
+ * `new URL()` toma `"localhost:3002"` por esquema.
  */
 function esUrlValida(valor: string): boolean {
   try {
