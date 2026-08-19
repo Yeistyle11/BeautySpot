@@ -32,6 +32,7 @@ import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { AppointmentForm } from "./appointment-form";
 import { AppointmentCard } from "./appointment-card";
+import { RescheduleDialog } from "./reschedule-dialog";
 import { BlockedSlotFormDialog } from "../blocked-slots/blocked-slot-form-dialog";
 import {
   blockedSlotSchema,
@@ -172,6 +173,9 @@ export default function AppointmentsPage() {
     MOTIVOS_DE_CANCELACION[0].value
   );
   const [notaCancelacion, setNotaCancelacion] = useState("");
+  const [reagendando, setReagendando] = useState<Appointment | null>(null);
+  const [moviendo, setMoviendo] = useState(false);
+  const [errorAlMover, setErrorAlMover] = useState("");
 
   // Pide a core, por id, los nombres de los clientes que salen en pantalla.
   const idsEnPantalla = useMemo(
@@ -243,6 +247,36 @@ export default function AppointmentsPage() {
   const handleNoShow = useCallback(
     (id: string) => handleAction(id, "no-show"),
     [handleAction]
+  );
+
+  const abrirReagendar = useCallback((appt: Appointment) => {
+    setErrorAlMover("");
+    setReagendando(appt);
+  }, []);
+
+  // Reagendar no pasa por handleAction: es un PATCH y su fallo se lee en el
+  // dialogo, junto al hueco que se acaba de elegir.
+  const confirmarReagendado = useCallback(
+    async (date: string, startTime: string) => {
+      if (!reagendando) return;
+      setMoviendo(true);
+      setErrorAlMover("");
+      try {
+        await api.patch(`/booking/appointments/${reagendando.id}/reschedule`, {
+          date,
+          startTime,
+        });
+        await revalidatePrefix(APPOINTMENTS_KEY);
+        setReagendando(null);
+        toast.exito("Cita reagendada");
+      } catch (err) {
+        logger.error(err);
+        setErrorAlMover(mensajeDeError(err, "No se pudo reagendar la cita"));
+      } finally {
+        setMoviendo(false);
+      }
+    },
+    [reagendando, toast]
   );
 
   const openCompleteDialog = useCallback((appt: Appointment) => {
@@ -537,16 +571,27 @@ export default function AppointmentsPage() {
                 clientName={clientMap[appt.clientId]}
                 canConfirm={canDo(role, "appointments_confirm")}
                 canCancel={canDo(role, "appointments_cancel")}
+                canReschedule={canDo(role, "appointments_reschedule")}
                 onConfirm={handleConfirm}
                 onComplete={openCompleteDialog}
                 onCancel={handleCancel}
                 onNoShow={handleNoShow}
+                onReschedule={abrirReagendar}
               />
             ))
           )}
           <Pagination meta={meta} onPageChange={setPage} itemLabel="citas" />
         </div>
       )}
+
+      <RescheduleDialog
+        open={!!reagendando}
+        onClose={() => setReagendando(null)}
+        appointment={reagendando}
+        onConfirm={confirmarReagendado}
+        pending={moviendo}
+        error={errorAlMover}
+      />
 
       <CompleteAppointmentDialog
         open={!!completingAppt}

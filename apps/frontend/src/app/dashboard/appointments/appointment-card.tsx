@@ -2,18 +2,19 @@
 
 // Tarjeta de una cita en la lista, con su estado y las acciones disponibles segun permisos.
 import { memo } from "react";
-import { Calendar, Clock, User } from "lucide-react";
+import { Ban, Calendar, CalendarClock, Clock, User } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   formatCurrency,
   formatDate,
+  formatDateTimeStamp,
   formatTime,
   haComenzado,
 } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
-import type { Appointment } from "./schemas";
+import { etiquetaDeMotivo, type Appointment } from "./schemas";
 
 interface AppointmentCardProps {
   appointment: Appointment;
@@ -22,10 +23,12 @@ interface AppointmentCardProps {
   clientName?: string;
   canConfirm: boolean;
   canCancel: boolean;
+  canReschedule: boolean;
   onConfirm: (id: string) => void;
   onComplete: (appointment: Appointment) => void;
   onCancel: (id: string) => void;
   onNoShow: (id: string) => void;
+  onReschedule: (appointment: Appointment) => void;
 }
 
 /** Estados desde los que la cita todavia puede anularse. */
@@ -38,10 +41,12 @@ export const AppointmentCard = memo(function AppointmentCard({
   clientName,
   canConfirm,
   canCancel,
+  canReschedule,
   onConfirm,
   onComplete,
   onCancel,
   onNoShow,
+  onReschedule,
 }: AppointmentCardProps) {
   const status = getAppointmentStatus(appointment.status);
   const serviceNames = appointment.appointmentServices
@@ -79,6 +84,18 @@ export const AppointmentCard = memo(function AppointmentCard({
                   {professionalName}
                 </span>
               </div>
+              {appointment.status === "CANCELLED" && (
+                <p className="text-muted-foreground mt-1 flex items-start gap-1 text-sm">
+                  <Ban className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span>
+                    {etiquetaDeMotivo(appointment.cancelReasonType)}
+                    {appointment.cancelReason &&
+                      `: ${appointment.cancelReason}`}
+                    {appointment.cancelledAt &&
+                      ` · ${formatDateTimeStamp(appointment.cancelledAt)}`}
+                  </span>
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -106,6 +123,16 @@ export const AppointmentCard = memo(function AppointmentCard({
                 onClick={() => onNoShow(appointment.id)}
               >
                 No asistió
+              </Button>
+            )}
+            {ANULABLES.includes(appointment.status) && canReschedule && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onReschedule(appointment)}
+              >
+                <CalendarClock className="mr-1 h-4 w-4" />
+                Reagendar
               </Button>
             )}
             {ANULABLES.includes(appointment.status) && canCancel && (

@@ -156,6 +156,7 @@ export const ACTIONS = {
   appointments_create: ["OWNER", "ADMIN", "RECEPTIONIST"],
   appointments_confirm: ["OWNER", "ADMIN", "PROFESSIONAL"],
   appointments_cancel: ["OWNER", "ADMIN", "RECEPTIONIST"],
+  appointments_reschedule: ["OWNER", "ADMIN", "RECEPTIONIST"],
   payments_create: ["OWNER", "ADMIN", "RECEPTIONIST"],
   payments_edit: ["OWNER", "ADMIN"],
   payments_void: ["OWNER", "ADMIN"],
