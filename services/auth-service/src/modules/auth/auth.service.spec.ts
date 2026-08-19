@@ -401,12 +401,27 @@ describe("AuthService", () => {
         UnauthorizedException
       );
       await expect(service.login(loginDto)).rejects.toThrow(
-        "Cuenta desactivada"
+        "Tu cuenta ha sido desactivada"
       );
     });
   });
 
   describe("refreshToken", () => {
+    it("nombra la cuenta desactivada al renovar, como hace el login", async () => {
+      mockJwtService.verify.mockReturnValue({
+        sub: mockUser.id,
+        email: mockUser.email,
+      });
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        active: false,
+      });
+
+      await expect(service.refreshToken("token-valido")).rejects.toThrow(
+        "Tu cuenta ha sido desactivada"
+      );
+    });
+
     it("debería refrescar el token exitosamente", async () => {
       const payload = { sub: mockUser.id, email: mockUser.email };
       mockJwtService.verify.mockReturnValue(payload);

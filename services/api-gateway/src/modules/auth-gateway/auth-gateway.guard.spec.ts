@@ -130,4 +130,23 @@ describe("AuthGatewayGuard", () => {
       );
     });
   });
+
+  describe("respuesta al rechazar", () => {
+    it("responde en español a la petición sin usuario", () => {
+      expect(() => guard.handleRequest(null, false)).toThrow(
+        "Tu sesión no es válida o ha caducado"
+      );
+    });
+
+    it("responde en español al error de la estrategia", () => {
+      expect(() => guard.handleRequest(new Error("jwt expired"), null)).toThrow(
+        "Tu sesión no es válida o ha caducado"
+      );
+    });
+
+    it("devuelve el usuario cuando el token es válido", () => {
+      const usuario = { userId: "u-1" };
+      expect(guard.handleRequest(null, usuario)).toBe(usuario);
+    });
+  });
 });

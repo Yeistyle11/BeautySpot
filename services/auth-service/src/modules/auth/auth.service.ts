@@ -39,6 +39,10 @@ import {
 } from "@beautyspot/nest-common";
 import { toSafeUser, SafeUser } from "../users/dto/user-response.dto";
 
+/** Lo que se le dice a quien tiene la cuenta desactivada, entre o renueve. */
+const MENSAJE_CUENTA_DESACTIVADA =
+  "Tu cuenta ha sido desactivada. Habla con el administrador del negocio.";
+
 /** SHA-256 del token de recuperación: en la BD solo se guarda el hash, nunca el token en claro. */
 function hashResetToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -262,8 +266,11 @@ export class AuthService {
       where: { id: payload.sub },
       relations: ["memberships"],
     });
-    if (!user || !user.active) {
+    if (!user) {
       throw new UnauthorizedException("Refresh token inválido o expirado");
+    }
+    if (!user.active) {
+      throw new UnauthorizedException(MENSAJE_CUENTA_DESACTIVADA);
     }
 
     const currentVersion = await this.tokenVersionStore.getVersion(user.id);
@@ -475,7 +482,7 @@ export class AuthService {
       throw new UnauthorizedException("Credenciales inválidas");
     }
     if (!user.active) {
-      throw new UnauthorizedException("Cuenta desactivada");
+      throw new UnauthorizedException(MENSAJE_CUENTA_DESACTIVADA);
     }
     if (!user.emailVerified) {
       throw new UnauthorizedException(

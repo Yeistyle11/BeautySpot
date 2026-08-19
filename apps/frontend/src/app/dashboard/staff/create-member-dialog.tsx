@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
+import { LONGITUD_MINIMA_CONTRASENA } from "@beautyspot/shared-constants";
 import { emptyCreateForm, type Professional } from "./schemas";
 
 type CreateForm = typeof emptyCreateForm;
@@ -67,11 +68,11 @@ export function CreateMemberDialog({
           <Field label="Contraseña *">
             <Input
               type="password"
-              placeholder="Minimo 8 caracteres"
+              placeholder={`Mínimo ${LONGITUD_MINIMA_CONTRASENA} caracteres`}
               value={form.password}
               onChange={(e) => set({ password: e.target.value })}
               required
-              minLength={8}
+              minLength={LONGITUD_MINIMA_CONTRASENA}
             />
           </Field>
           <Field label="Teléfono">

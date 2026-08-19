@@ -387,10 +387,7 @@ export default function ProfessionalsPage() {
         title="Inactivar profesional"
         confirmLabel="Sí, inactivar"
         variant="destructive"
-        error={
-          deleteError &&
-          `${deleteError} Si tiene citas pendientes o confirmadas, debes cancelarlas o reasignarlas antes de inactivarlo.`
-        }
+        error={deleteError}
       >
         ¿Estás seguro de inactivar a{" "}
         <strong>

@@ -273,14 +273,14 @@ Negocios, sucursales, profesionales, servicios, clientes e imágenes. Base de da
 
 Roles a nivel de clase: **OWNER, ADMIN, SUPER_ADMIN**.
 
-| Método | Ruta          | Descripción                |
-| ------ | ------------- | -------------------------- |
-| POST   | `/`           | Crea un negocio            |
-| GET    | `/`           | Lista negocios (paginado)  |
-| GET    | `/slug/:slug` | Busca por slug             |
-| GET    | `/:id`        | Detalle                    |
-| PATCH  | `/:id`        | Actualiza                  |
-| DELETE | `/:id`        | Desactiva (borrado lógico) |
+| Método | Ruta          | Descripción                                                                                         |
+| ------ | ------------- | --------------------------------------------------------------------------------------------------- |
+| POST   | `/`           | Crea un negocio — **añade CLIENT**: quien se registra como cliente puede darse de alta como negocio |
+| GET    | `/`           | Lista negocios (paginado)                                                                           |
+| GET    | `/slug/:slug` | Busca por slug                                                                                      |
+| GET    | `/:id`        | Detalle                                                                                             |
+| PATCH  | `/:id`        | Actualiza                                                                                           |
+| DELETE | `/:id`        | Desactiva (borrado lógico)                                                                          |
 
 ### Sucursales — `/api/v1/core/branches`
 
