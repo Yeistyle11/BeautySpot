@@ -1,5 +1,9 @@
-import { Entity, Column, Index } from "typeorm";
-import { TenantEntity, numericTransformer } from "@beautyspot/database";
+import { Entity, Column, Check, Index } from "typeorm";
+import {
+  TenantEntity,
+  enCatalogo,
+  numericTransformer,
+} from "@beautyspot/database";
 import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
 
 /** Pago manual de un cliente (opcionalmente ligado a una cita), con sus datos de devolución. */
@@ -21,6 +25,15 @@ import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
   unique: true,
   where: `"solicitud_id" IS NOT NULL`,
 })
+// El catalogo se guarda como texto, asi que lo acota la base.
+@Check(
+  "CHK_payments_method",
+  enCatalogo("method", Object.values(PaymentMethod))
+)
+@Check(
+  "CHK_payments_status",
+  enCatalogo("status", Object.values(PaymentStatus))
+)
 export class PaymentEntity extends TenantEntity {
   /** Identificador del intento de cobro; nulo en los cobros que no lo traen. */
   @Column({ type: "uuid", name: "solicitud_id", nullable: true })

@@ -1,5 +1,9 @@
-import { Entity, Column, OneToMany, Index } from "typeorm";
-import { TenantEntity, numericTransformer } from "@beautyspot/database";
+import { Entity, Column, Check, OneToMany, Index } from "typeorm";
+import {
+  TenantEntity,
+  enCatalogo,
+  numericTransformer,
+} from "@beautyspot/database";
 import { InvoiceStatus } from "@beautyspot/shared-types";
 import { InvoiceItemEntity } from "./invoice-item.entity";
 
@@ -9,6 +13,11 @@ import { InvoiceItemEntity } from "./invoice-item.entity";
  */
 @Entity("invoices")
 @Index(["businessId", "number"], { unique: true })
+// El catalogo se guarda como texto, asi que lo acota la base.
+@Check(
+  "CHK_invoices_status",
+  enCatalogo("status", Object.values(InvoiceStatus))
+)
 export class InvoiceEntity extends TenantEntity {
   @Column({ type: "uuid", name: "client_id" }) clientId!: string;
   @Column() number!: string;

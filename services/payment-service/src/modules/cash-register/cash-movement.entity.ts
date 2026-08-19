@@ -1,10 +1,23 @@
-import { Entity, Column, ManyToOne, JoinColumn } from "typeorm";
-import { BaseEntity, numericTransformer } from "@beautyspot/database";
+import { Entity, Column, Check, ManyToOne, JoinColumn } from "typeorm";
+import {
+  BaseEntity,
+  enCatalogo,
+  numericTransformer,
+} from "@beautyspot/database";
 import { CashMovementType, PaymentMethod } from "@beautyspot/shared-types";
 import { CashSessionEntity } from "./cash-session.entity";
 
 /** Movimiento de caja (ingreso o egreso) registrado dentro de una sesión de caja. */
 @Entity("cash_movements")
+// Los dos catalogos se guardan como texto, asi que los acota la base.
+@Check(
+  "CHK_cash_movements_type",
+  enCatalogo("type", Object.values(CashMovementType))
+)
+@Check(
+  "CHK_cash_movements_method",
+  enCatalogo("method", Object.values(PaymentMethod), true)
+)
 export class CashMovementEntity extends BaseEntity {
   @Column({ type: "uuid", name: "cash_session_id" }) cashSessionId!: string;
   @Column({ type: "varchar" }) type!: CashMovementType;
