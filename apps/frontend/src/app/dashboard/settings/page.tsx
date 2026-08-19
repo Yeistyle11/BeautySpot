@@ -26,6 +26,7 @@ import { HoursTab } from "./hours-tab";
 import { FieldsTab, type NuevoCampo } from "./fields-tab";
 import { LoyaltyTab } from "./loyalty-tab";
 import { BillingTab } from "./billing-tab";
+import { SpecialDaysCard } from "./special-days-card";
 import { BookingRulesTab } from "./booking-rules-tab";
 import { FIDELIZACION_KEY, nivelSchema, type Nivel } from "@/lib/niveles";
 import {
@@ -42,6 +43,10 @@ import {
   type Feedback,
   facturacionSchema,
   reservasSchema,
+  diaEspecialSchema,
+  DIAS_ESPECIALES_KEY,
+  type DiaEspecial,
+  type NuevoDiaEspecial,
   FACTURACION_KEY,
   RESERVAS_KEY,
   type Facturacion,
@@ -116,6 +121,14 @@ export default function SettingsPage() {
       undefined,
       reservasSchema.nullable()
     );
+
+  const { data: diasEspeciales, mutate: mutateDiasEspeciales } = useApi<
+    DiaEspecial[] | null
+  >(
+    canDo(role, "business_hours_edit") ? DIAS_ESPECIALES_KEY : null,
+    undefined,
+    z.array(diaEspecialSchema).nullable()
+  );
 
   const [facturacion, setFacturacion] = useState<Facturacion>({});
   const [reservas, setReservas] = useState<Reservas>({});
@@ -273,6 +286,38 @@ export default function SettingsPage() {
     }
   };
 
+  const crearDiaEspecial = async (dia: NuevoDiaEspecial) => {
+    setSaving("special");
+    try {
+      await api.post(DIAS_ESPECIALES_KEY, {
+        startDate: dia.startDate,
+        endDate: dia.endDate,
+        closed: dia.closed,
+        motivo: dia.motivo.trim(),
+        ...(dia.closed
+          ? {}
+          : { openTime: dia.openTime, closeTime: dia.closeTime }),
+      });
+      await mutateDiasEspeciales();
+      toast.exito("Día especial añadido");
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const quitarDiaEspecial = async (id: string) => {
+    try {
+      await api.delete(`${DIAS_ESPECIALES_KEY}/${id}`);
+      await mutateDiasEspeciales();
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    }
+  };
+
   const saveFacturacion = async () => {
     setSaving("billing");
     try {
@@ -423,15 +468,24 @@ export default function SettingsPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="hours">
+        <TabsContent value="hours" className="space-y-4">
           {canDo(role, "business_hours_edit") && (
-            <HoursTab
-              hours={hours}
-              onUpdate={updateHour}
-              onSave={saveHours}
-              saving={saving === "hours"}
-              role={role}
-            />
+            <>
+              <HoursTab
+                hours={hours}
+                onUpdate={updateHour}
+                onSave={saveHours}
+                saving={saving === "hours"}
+                role={role}
+              />
+              <SpecialDaysCard
+                dias={diasEspeciales ?? []}
+                onCreate={crearDiaEspecial}
+                onRemove={quitarDiaEspecial}
+                saving={saving === "special"}
+                role={role}
+              />
+            </>
           )}
         </TabsContent>
 

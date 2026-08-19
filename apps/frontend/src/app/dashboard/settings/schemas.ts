@@ -99,3 +99,28 @@ export const reservasSchema = z.object({
 export type Reservas = z.infer<typeof reservasSchema>;
 
 export const RESERVAS_KEY = "/core/business-config/reservas";
+
+/** Día o rango con horario propio, o cerrado: festivo, vacaciones, media jornada. */
+export const diaEspecialSchema = z.object({
+  id: z.string(),
+  startDate: z.string(),
+  endDate: z.string(),
+  closed: z.boolean(),
+  openTime: z.string().nullish(),
+  closeTime: z.string().nullish(),
+  motivo: z.string(),
+});
+export type DiaEspecial = z.infer<typeof diaEspecialSchema>;
+
+export const DIAS_ESPECIALES_KEY = "/core/business-hours/especiales";
+
+export const nuevoDiaEspecial = {
+  startDate: "",
+  endDate: "",
+  closed: true,
+  openTime: "09:00",
+  closeTime: "14:00",
+  motivo: "",
+};
+
+export type NuevoDiaEspecial = typeof nuevoDiaEspecial;

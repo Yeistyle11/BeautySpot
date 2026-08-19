@@ -138,7 +138,7 @@ export class AvailabilityQueryService {
         where: { businessId, professionalId: In(profesionales), date },
       }),
       this.ocupacionDelDia(businessId, date),
-      this.aperturaDelDia(businessId, dayOfWeek),
+      this.aperturaDelDia(businessId, date),
       this.zonas.de(businessId),
     ]);
 
@@ -193,7 +193,7 @@ export class AvailabilityQueryService {
     const [blocks, ocupados, apertura, zona] = await Promise.all([
       this.blockRepo.find({ where: { businessId, professionalId, date } }),
       this.ocupacionDelDia(businessId, date),
-      this.aperturaDelDia(businessId, dayOfWeek),
+      this.aperturaDelDia(businessId, date),
       this.zonas.de(businessId),
     ]);
 
@@ -254,14 +254,11 @@ export class AvailabilityQueryService {
    */
   private async aperturaDelDia(
     businessId: string,
-    dayOfWeek: number
+    date: string
   ): Promise<Tramo[] | null> {
     const [hoy, ayer] = await Promise.all([
-      this.horarioDelNegocio.tramosDelDia(businessId, dayOfWeek),
-      this.horarioDelNegocio.tramosDelDia(
-        businessId,
-        diaAnteriorDeLaSemana(dayOfWeek)
-      ),
+      this.horarioDelNegocio.tramosDelDia(businessId, date),
+      this.horarioDelNegocio.tramosDelDia(businessId, diaAnterior(date)),
     ]);
 
     if (hoy === null) return null;
@@ -350,7 +347,7 @@ export class AvailabilityQueryService {
     const profesionales = reparto.map((o) => o.professionalId);
     const [horarios, apertura] = await Promise.all([
       this.jornadasDelDia(businessId, dayOfWeek, profesionales),
-      this.aperturaDelDia(businessId, dayOfWeek),
+      this.aperturaDelDia(businessId, date),
     ]);
 
     const tramosPorProfesional = agruparPorProfesional(horarios);
@@ -433,7 +430,7 @@ export class AvailabilityQueryService {
       this.blockRepo.find({
         where: { businessId, professionalId: In(profesionales), date },
       }),
-      this.aperturaDelDia(businessId, dayOfWeek),
+      this.aperturaDelDia(businessId, date),
     ]);
 
     const tramosPorProfesional = agruparPorProfesional(horarios);

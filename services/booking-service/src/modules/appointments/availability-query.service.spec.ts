@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { FindOperator, In, Repository } from "typeorm";
 import { AppointmentStatus } from "@beautyspot/shared-types";
+import { diaAnterior } from "@beautyspot/shared-utils";
 import { AvailabilityQueryService } from "./availability-query.service";
 import { Appointment } from "../../entities/appointment.entity";
 import { Availability } from "../../entities/availability.entity";
@@ -421,9 +422,10 @@ describe("AvailabilityQueryService", () => {
     // El servicio de horario ya devuelve el cierre en la escala del cálculo,
     // que es donde la madrugada del martes son las 26:00.
     it("la apertura del negocio tambien arrastra su madrugada", async () => {
+      const martes = diaAnterior(MIERCOLES_FUTURO);
       mockHorario.tramosDelDia.mockImplementation(
-        async (_negocio: string, dia: number) =>
-          dia === MARTES ? [{ startTime: "20:00", endTime: "26:00" }] : []
+        async (_negocio: string, fecha: string) =>
+          fecha === martes ? [{ startTime: "20:00", endTime: "26:00" }] : []
       );
 
       await expect(

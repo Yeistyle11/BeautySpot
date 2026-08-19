@@ -302,11 +302,19 @@ Roles a nivel de clase: **OWNER, ADMIN, SUPER_ADMIN**.
 
 Roles a nivel de clase: **OWNER, ADMIN**.
 
-| Método | Ruta   | Descripción                            |
-| ------ | ------ | -------------------------------------- |
-| GET    | `/`    | Horario semanal del negocio            |
-| PUT    | `/`    | Reemplaza el horario completo (upsert) |
-| PATCH  | `/:id` | Actualiza un tramo                     |
+| Método | Ruta              | Descripción                                             |
+| ------ | ----------------- | ------------------------------------------------------- |
+| GET    | `/`               | Horario semanal del negocio                             |
+| PUT    | `/`               | Reemplaza el horario completo (upsert)                  |
+| PATCH  | `/:id`            | Actualiza un tramo                                      |
+| GET    | `/especiales`     | Días especiales declarados, del más próximo             |
+| POST   | `/especiales`     | Declara un festivo, unas vacaciones o un horario propio |
+| DELETE | `/especiales/:id` | Retira un día especial                                  |
+
+Un **día especial** es un rango de fechas con motivo que manda sobre el horario
+de la semana: `closed: true` cierra el negocio esos días, y con `closed: false`
+más `openTime`/`closeTime` abre con horario propio. La agenda deja de ofrecer
+huecos en los días cerrados, también en la reserva pública del marketplace.
 
 ### Ajustes del negocio — `/api/v1/core/business-config`
 
@@ -445,20 +453,21 @@ Controlador `@Public()`: sin token. Alimenta el marketplace y la reserva públic
 
 ### Internos
 
-| Método | Ruta                                | Descripción                                           |
-| ------ | ----------------------------------- | ----------------------------------------------------- |
-| GET    | `/internal/businesses/resolve`      | Resuelve negocio por slug (lo usa el gateway)         |
-| POST   | `/internal/businesses`              | Crea negocio a petición de otro servicio              |
-| POST   | `/internal/businesses/names`        | Nombres de varios negocios, para etiquetar listas     |
-| POST   | `/internal/clients/find-or-create`  | Busca o crea cliente (reserva pública)                |
-| GET    | `/internal/clients/:id/puntos`      | Puntos disponibles, para quien vaya a canjearlos      |
-| GET    | `/internal/clients/by-user/:userId` | Fichas del usuario, una por negocio donde reservó     |
-| GET    | `/internal/clients/search`          | Ids que casan con un texto (búsqueda de citas)        |
-| GET    | `/internal/clients/names`           | Nombre de los clientes pedidos, acotado al negocio    |
-| GET    | `/internal/profiles/resolve`        | Resuelve perfiles                                     |
-| GET    | `/internal/branches`                | Sedes activas del negocio                             |
-| GET    | `/internal/business-hours`          | Horario de apertura; lo consume la agenda             |
-| POST   | `/internal/services/resolve`        | Precio y duración reales de los servicios de una cita |
+| Método | Ruta                                | Descripción                                                                         |
+| ------ | ----------------------------------- | ----------------------------------------------------------------------------------- |
+| GET    | `/internal/businesses/resolve`      | Resuelve negocio por slug (lo usa el gateway)                                       |
+| POST   | `/internal/businesses`              | Crea negocio a petición de otro servicio                                            |
+| POST   | `/internal/businesses/names`        | Nombres de varios negocios, para etiquetar listas                                   |
+| POST   | `/internal/clients/find-or-create`  | Busca o crea cliente (reserva pública)                                              |
+| GET    | `/internal/clients/:id/puntos`      | Puntos disponibles, para quien vaya a canjearlos                                    |
+| GET    | `/internal/clients/by-user/:userId` | Fichas del usuario, una por negocio donde reservó                                   |
+| GET    | `/internal/clients/search`          | Ids que casan con un texto (búsqueda de citas)                                      |
+| GET    | `/internal/clients/names`           | Nombre de los clientes pedidos, acotado al negocio                                  |
+| GET    | `/internal/profiles/resolve`        | Resuelve perfiles                                                                   |
+| GET    | `/internal/branches`                | Sedes activas del negocio                                                           |
+| GET    | `/internal/business-hours`          | Horario semanal de apertura                                                         |
+| GET    | `/internal/business-hours/dia`      | Apertura de una fecha, ya resuelta contra los días especiales; lo consume la agenda |
+| POST   | `/internal/services/resolve`        | Precio y duración reales de los servicios de una cita                               |
 
 ---
 
