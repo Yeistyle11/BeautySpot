@@ -9,7 +9,7 @@ export enum ReviewStatus {
 
 /** Reseña de un cliente sobre un negocio/profesional, con su calificación, respuesta y datos enriquecidos. */
 @Entity("reviews")
-// El catalogo se guarda como texto, asi que lo acota la base.
+// El catalogo de visibilidades, acotado en la base.
 @Check("CHK_reviews_status", enCatalogo("status", Object.values(ReviewStatus)))
 // El listado de un negocio ordena siempre por fecha; sin este índice Postgres
 // lee todas sus reseñas y las ordena en memoria en cada página.

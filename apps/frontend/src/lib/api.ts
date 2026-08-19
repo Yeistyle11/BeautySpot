@@ -3,9 +3,8 @@
 import { ApiError } from "./api-error";
 import { useAuthStore } from "./store";
 
-// Relativo: la peticion sale al mismo origen que sirve la pagina y el rewrite
-// de next.config.js la reenvia al gateway. NEXT_PUBLIC_API_URL sigue siendo la
-// salida para un despliegue que prefiera llamarlo directamente.
+// Relativo: la peticion sale al mismo origen y el rewrite de next.config.js
+// la reenvia al gateway. Con NEXT_PUBLIC_API_URL se llama al gateway directo.
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
 type UnauthorizedHandler = () => void;

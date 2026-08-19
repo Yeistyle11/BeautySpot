@@ -13,7 +13,7 @@ import { InvoiceItemEntity } from "./invoice-item.entity";
  */
 @Entity("invoices")
 @Index(["businessId", "number"], { unique: true })
-// El catalogo se guarda como texto, asi que lo acota la base.
+// El catalogo de estados, acotado en la base.
 @Check(
   "CHK_invoices_status",
   enCatalogo("status", Object.values(InvoiceStatus))

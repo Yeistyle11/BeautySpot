@@ -8,8 +8,8 @@ export class EstadosComoTexto1700000000014 implements MigrationInterface {
   name = "EstadosComoTexto1700000000014";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // El índice de cobro vivo filtra por `status`, así que cae y se rehace
-    // sobre la columna ya convertida.
+    // El índice de cobro vivo filtra por `status`: cae y se rehace sobre la
+    // columna ya convertida.
     await queryRunner.query(`DROP INDEX IF EXISTS "uq_payments_cita_viva"`);
 
     await queryRunner.query(`

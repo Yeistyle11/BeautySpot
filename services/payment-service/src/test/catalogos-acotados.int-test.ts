@@ -14,9 +14,8 @@ const USUARIO = "33333333-3333-4333-8333-333333333333";
 const CHECK_VIOLATION = "23514";
 
 /**
- * Comprueba contra Postgres real que los estados guardados como texto siguen
- * acotados por la base, y no solo por el tipo de TypeScript
- * (`npm run test:int`).
+ * Comprueba contra Postgres real que la base rechaza los estados que no estan
+ * en el catalogo (`npm run test:int`).
  */
 describe("Integración: la base acota los catálogos", () => {
   let dataSource: DataSource;

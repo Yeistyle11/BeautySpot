@@ -13,7 +13,7 @@ export enum ReviewReportReason {
 /** Denuncia de un usuario sobre una reseña; una por usuario y reseña. */
 @Entity("review_reports")
 @Unique(["reviewId", "userId"])
-// El catalogo se guarda como texto, asi que lo acota la base.
+// El catalogo de motivos, acotado en la base.
 @Check(
   "CHK_review_reports_reason",
   enCatalogo("reason", Object.values(ReviewReportReason))

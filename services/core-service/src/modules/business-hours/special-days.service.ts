@@ -71,8 +71,8 @@ export class SpecialDaysService {
   }
 
   /**
-   * El día especial que cubre esa fecha, o `null` si no hay ninguno. La sede
-   * gana al negocio, que es lo declarado para todas.
+   * El día especial que cubre esa fecha, o `null` si no hay ninguno; el de una
+   * sede gana al declarado para todo el negocio.
    */
   async delDia(
     businessId: string,

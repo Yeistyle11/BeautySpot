@@ -19,7 +19,7 @@ export function sinTildes(texto: string): string {
 
 /**
  * Expresión SQL que deja una columna en la misma forma que {@link sinTildes},
- * con el `translate` de Postgres para no depender de la extensión `unaccent`.
+ * con el `translate` de Postgres.
  */
 export function columnaSinTildes(columna: string): string {
   return `translate(lower(${columna}), '${ACENTUADAS}', '${SIN_ACENTO}')`;

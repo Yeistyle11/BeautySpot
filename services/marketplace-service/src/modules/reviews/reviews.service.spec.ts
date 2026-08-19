@@ -592,8 +592,7 @@ describe("ReviewsService", () => {
       expect(result.distribution).toEqual({ 5: 1, 4: 1, 3: 1, 2: 1, 1: 1 });
     });
 
-    // El resumen acompaña a la media, asi que cuenta lo mismo que ella: las
-    // ocultas incluidas.
+    // El resumen cuenta lo mismo que la media: las ocultas incluidas.
     it("no descarta las reseñas ocultas", async () => {
       const qb = summaryQb([{ rating: 1, count: "3" }]);
       mockRepo.createQueryBuilder.mockReturnValue(qb as any);

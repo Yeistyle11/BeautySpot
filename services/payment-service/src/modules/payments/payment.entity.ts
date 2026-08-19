@@ -25,7 +25,7 @@ import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
   unique: true,
   where: `"solicitud_id" IS NOT NULL`,
 })
-// El catalogo se guarda como texto, asi que lo acota la base.
+// Los catalogos de metodo y estado, acotados en la base.
 @Check(
   "CHK_payments_method",
   enCatalogo("method", Object.values(PaymentMethod))

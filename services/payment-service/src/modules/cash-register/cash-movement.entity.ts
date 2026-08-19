@@ -9,7 +9,7 @@ import { CashSessionEntity } from "./cash-session.entity";
 
 /** Movimiento de caja (ingreso o egreso) registrado dentro de una sesión de caja. */
 @Entity("cash_movements")
-// Los dos catalogos se guardan como texto, asi que los acota la base.
+// Los catalogos de las dos columnas, acotados en la base.
 @Check(
   "CHK_cash_movements_type",
   enCatalogo("type", Object.values(CashMovementType))

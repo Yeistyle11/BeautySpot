@@ -19,7 +19,7 @@ export enum TipoDeCampo {
  * tienen sentido en algunos sitios.
  */
 @Entity("campos_de_ficha")
-// El catalogo de tipos se guarda como texto, asi que lo acota la base.
+// El catalogo de tipos, acotado en la base.
 @Check(
   "CHK_campos_de_ficha_tipo",
   enCatalogo("tipo", Object.values(TipoDeCampo))

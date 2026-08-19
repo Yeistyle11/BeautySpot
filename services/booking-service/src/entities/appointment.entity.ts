@@ -19,8 +19,8 @@ import { AppointmentServiceEntity } from "./appointment-service.entity";
 @Index("idx_appointments_recordatorios", ["date"], {
   where: `"status" IN ('PENDING', 'CONFIRMED') AND ("reminder_24h_sent_at" IS NULL OR "reminder_1h_sent_at" IS NULL)`,
 })
-// El motivo se guarda como texto, asi que lo acota la base. Nulo mientras la
-// cita no este cancelada.
+// El catalogo del motivo, acotado en la base. Nulo mientras la cita no este
+// cancelada.
 @Check(
   "CHK_appointments_cancel_reason_type",
   enCatalogo("cancel_reason_type", Object.values(CancelReason), true)
