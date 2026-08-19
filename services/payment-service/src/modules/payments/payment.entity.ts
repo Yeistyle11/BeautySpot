@@ -38,12 +38,8 @@ export class PaymentEntity extends TenantEntity {
     transformer: numericTransformer,
   })
   amount!: number;
-  @Column({ type: "enum", enum: PaymentMethod }) method!: PaymentMethod;
-  @Column({
-    type: "enum",
-    enum: PaymentStatus,
-    default: PaymentStatus.COMPLETED,
-  })
+  @Column({ type: "varchar" }) method!: PaymentMethod;
+  @Column({ type: "varchar", default: PaymentStatus.COMPLETED })
   status!: PaymentStatus;
   /**
    * Puntos de fidelidad que el cliente gasto en este cobro y lo que rebajaron,

@@ -7,7 +7,7 @@ import { CashSessionEntity } from "./cash-session.entity";
 @Entity("cash_movements")
 export class CashMovementEntity extends BaseEntity {
   @Column({ type: "uuid", name: "cash_session_id" }) cashSessionId!: string;
-  @Column({ type: "enum", enum: CashMovementType }) type!: CashMovementType;
+  @Column({ type: "varchar" }) type!: CashMovementType;
   @Column({
     type: "decimal",
     precision: 10,

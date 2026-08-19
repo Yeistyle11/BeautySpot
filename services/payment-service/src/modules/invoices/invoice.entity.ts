@@ -49,7 +49,7 @@ export class InvoiceEntity extends TenantEntity {
     transformer: numericTransformer,
   })
   total!: number;
-  @Column({ type: "enum", enum: InvoiceStatus, default: InvoiceStatus.DRAFT })
+  @Column({ type: "varchar", default: InvoiceStatus.DRAFT })
   status!: InvoiceStatus;
   @Column({ type: "text", nullable: true }) notes!: string;
 
