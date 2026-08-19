@@ -44,11 +44,13 @@ describe("Integración: la búsqueda no distingue tildes", () => {
       slug: "salon-de-prueba",
       timezone: "America/Bogota",
     });
-    await clientes.save([
-      { businessId: NEGOCIO, name: "Carlos Pérez", active: true },
-      { businessId: NEGOCIO, name: "Ana Muñoz", active: true },
-      { businessId: NEGOCIO, name: "Sofía Gómez", active: true },
-    ]);
+    await clientes.save(
+      clientes.create([
+        { businessId: NEGOCIO, name: "Carlos Pérez", active: true },
+        { businessId: NEGOCIO, name: "Ana Muñoz", active: true },
+        { businessId: NEGOCIO, name: "Sofía Gómez", active: true },
+      ])
+    );
   });
 
   /** Nombres que devuelve el listado paginado buscando ese texto. */

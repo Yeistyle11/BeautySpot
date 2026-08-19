@@ -7,7 +7,7 @@ export class DiasEspecialesDelNegocio1700000000013 implements MigrationInterface
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "business_special_days" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL,
         "created_at" timestamptz NOT NULL DEFAULT now(),
         "updated_at" timestamptz NOT NULL DEFAULT now(),
         "business_id" uuid NOT NULL,
@@ -24,6 +24,11 @@ export class DiasEspecialesDelNegocio1700000000013 implements MigrationInterface
     `);
 
     await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_5003c098bdd1648c30a4564224"
+      ON "business_special_days" ("business_id")
+    `);
+
+    await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS "idx_special_days_negocio_rango"
       ON "business_special_days" ("business_id", "start_date", "end_date")
     `);
@@ -32,6 +37,9 @@ export class DiasEspecialesDelNegocio1700000000013 implements MigrationInterface
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
       `DROP INDEX IF EXISTS "idx_special_days_negocio_rango"`
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_5003c098bdd1648c30a4564224"`
     );
     await queryRunner.query(`DROP TABLE IF EXISTS "business_special_days"`);
   }

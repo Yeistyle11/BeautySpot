@@ -1,4 +1,4 @@
-import { Entity, Column, Index } from "typeorm";
+import { Entity, Column, Check, Index } from "typeorm";
 import { TenantEntity } from "@beautyspot/database";
 
 /**
@@ -7,6 +7,7 @@ import { TenantEntity } from "@beautyspot/database";
  */
 @Entity("business_special_days")
 @Index("idx_special_days_negocio_rango", ["businessId", "startDate", "endDate"])
+@Check("CHK_special_days_rango", `"end_date" >= "start_date"`)
 export class BusinessSpecialDay extends TenantEntity {
   @Column({ type: "uuid", name: "branch_id", nullable: true })
   branchId!: string | null;
