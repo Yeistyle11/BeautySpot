@@ -80,3 +80,22 @@ export interface Feedback {
   type: "error" | "success";
   message: string;
 }
+
+/** Datos fiscales con los que el negocio emite sus facturas. */
+export const facturacionSchema = z.object({
+  razonSocial: z.string().nullish(),
+  nit: z.string().nullish(),
+  direccionFiscal: z.string().nullish(),
+  serie: z.string().nullish(),
+});
+export type Facturacion = z.infer<typeof facturacionSchema>;
+
+export const FACTURACION_KEY = "/core/business-config/facturacion";
+
+/** Reglas de reserva y cancelación del negocio. */
+export const reservasSchema = z.object({
+  horasMinimasCancelacion: z.number().nullish(),
+});
+export type Reservas = z.infer<typeof reservasSchema>;
+
+export const RESERVAS_KEY = "/core/business-config/reservas";

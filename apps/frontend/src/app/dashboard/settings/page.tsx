@@ -5,7 +5,15 @@ import { useEffect, useRef, useState } from "react";
 import { mensajeDeError } from "@/lib/error-message";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Building2, Clock, ClipboardList, Award } from "lucide-react";
+import {
+  User,
+  Building2,
+  Clock,
+  ClipboardList,
+  Award,
+  Receipt,
+  CalendarX,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
@@ -17,6 +25,8 @@ import { BusinessTab } from "./business-tab";
 import { HoursTab } from "./hours-tab";
 import { FieldsTab, type NuevoCampo } from "./fields-tab";
 import { LoyaltyTab } from "./loyalty-tab";
+import { BillingTab } from "./billing-tab";
+import { BookingRulesTab } from "./booking-rules-tab";
 import { FIDELIZACION_KEY, nivelSchema, type Nivel } from "@/lib/niveles";
 import {
   businessDataSchema,
@@ -30,6 +40,12 @@ import {
   type CampoDeFicha,
   type ServicioBreve,
   type Feedback,
+  facturacionSchema,
+  reservasSchema,
+  FACTURACION_KEY,
+  RESERVAS_KEY,
+  type Facturacion,
+  type Reservas,
 } from "./schemas";
 
 export default function SettingsPage() {
@@ -88,6 +104,21 @@ export default function SettingsPage() {
     z.object({ niveles: z.array(nivelSchema) }).nullable()
   );
 
+  const { data: facturacionGuardada, mutate: mutateFacturacion } =
+    useApi<Facturacion | null>(
+      puedeEditarNegocio ? FACTURACION_KEY : null,
+      undefined,
+      facturacionSchema.nullable()
+    );
+  const { data: reservasGuardadas, mutate: mutateReservas } =
+    useApi<Reservas | null>(
+      puedeEditarNegocio ? RESERVAS_KEY : null,
+      undefined,
+      reservasSchema.nullable()
+    );
+
+  const [facturacion, setFacturacion] = useState<Facturacion>({});
+  const [reservas, setReservas] = useState<Reservas>({});
   const [businessForm, setBusinessForm] = useState<Partial<BusinessData>>({});
   const [hours, setHours] = useState<BusinessHour[]>(defaultHours);
   const [niveles, setNiveles] = useState<Nivel[]>([]);
@@ -98,6 +129,8 @@ export default function SettingsPage() {
   const businessSeeded = useRef(false);
   const hoursSeeded = useRef(false);
   const nivelesSeeded = useRef(false);
+  const facturacionSeeded = useRef(false);
+  const reservasSeeded = useRef(false);
 
   useEffect(() => {
     if (!business || businessSeeded.current) return;
@@ -138,6 +171,18 @@ export default function SettingsPage() {
     nivelesSeeded.current = true;
     setNiveles(fidelizacion.niveles);
   }, [fidelizacion]);
+
+  useEffect(() => {
+    if (!facturacionGuardada || facturacionSeeded.current) return;
+    facturacionSeeded.current = true;
+    setFacturacion(facturacionGuardada);
+  }, [facturacionGuardada]);
+
+  useEffect(() => {
+    if (!reservasGuardadas || reservasSeeded.current) return;
+    reservasSeeded.current = true;
+    setReservas(reservasGuardadas);
+  }, [reservasGuardadas]);
 
   const saveAccount = async () => {
     setSaving("account");
@@ -228,6 +273,34 @@ export default function SettingsPage() {
     }
   };
 
+  const saveFacturacion = async () => {
+    setSaving("billing");
+    try {
+      await api.patch(FACTURACION_KEY, facturacion);
+      await mutateFacturacion();
+      toast.exito("Datos de facturación actualizados");
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const saveReservas = async () => {
+    setSaving("booking");
+    try {
+      await api.patch(RESERVAS_KEY, reservas);
+      await mutateReservas();
+      toast.exito("Reglas de reserva actualizadas");
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const crearCampo = async (campo: NuevoCampo) => {
     setSaving("fields");
     try {
@@ -309,6 +382,16 @@ export default function SettingsPage() {
               <Award className="h-4 w-4" /> Fidelidad
             </TabsTrigger>
           )}
+          {canDo(role, "business_edit") && (
+            <TabsTrigger value="billing" className="gap-2">
+              <Receipt className="h-4 w-4" /> Facturación
+            </TabsTrigger>
+          )}
+          {canDo(role, "business_edit") && (
+            <TabsTrigger value="booking" className="gap-2">
+              <CalendarX className="h-4 w-4" /> Reservas
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="account">
@@ -372,6 +455,30 @@ export default function SettingsPage() {
               onChange={setNiveles}
               onSave={saveNiveles}
               saving={saving === "loyalty"}
+              role={role}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="billing">
+          {canDo(role, "business_edit") && (
+            <BillingTab
+              facturacion={facturacion}
+              onChange={setFacturacion}
+              onSave={saveFacturacion}
+              saving={saving === "billing"}
+              role={role}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="booking">
+          {canDo(role, "business_edit") && (
+            <BookingRulesTab
+              reservas={reservas}
+              onChange={setReservas}
+              onSave={saveReservas}
+              saving={saving === "booking"}
               role={role}
             />
           )}
