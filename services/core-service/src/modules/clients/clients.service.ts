@@ -11,19 +11,15 @@ import {
   InternalHttpClient,
 } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
-import { Repository, Like, In, DataSource, EntityManager } from "typeorm";
-import {
-  escapeLikePattern,
-  normalizarEmail,
-  normalizarTelefono,
-} from "@beautyspot/shared-utils";
+import { Repository, In, DataSource, EntityManager } from "typeorm";
+import { normalizarEmail, normalizarTelefono } from "@beautyspot/shared-utils";
 import {
   nivelDePuntos,
   siguienteNivel,
   NIVELES_FIDELIDAD_POR_DEFECTO,
   type NivelDeFidelidad,
 } from "@beautyspot/shared-constants";
-import { paginate, PaginateParams } from "@beautyspot/database";
+import { contieneTexto, paginate, PaginateParams } from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
 import {
   BusinessConfigService,
@@ -260,9 +256,9 @@ export class ClientsService extends TenantCrudService<Client> {
     const base = { businessId, active: true };
     const where = search
       ? [
-          { ...base, name: Like(`%${escapeLikePattern(search)}%`) },
-          { ...base, email: Like(`%${escapeLikePattern(search)}%`) },
-          { ...base, phone: Like(`%${escapeLikePattern(search)}%`) },
+          { ...base, name: contieneTexto(search) },
+          { ...base, email: contieneTexto(search) },
+          { ...base, phone: contieneTexto(search) },
         ]
       : base;
     return paginate(this.repo, pagination, { where, order: { name: "ASC" } });
@@ -300,7 +296,7 @@ export class ClientsService extends TenantCrudService<Client> {
         businessId,
         active: true,
         id: In(clientIds),
-        ...(search ? { name: Like(`%${escapeLikePattern(search)}%`) } : {}),
+        ...(search ? { name: contieneTexto(search) } : {}),
       },
       order: { name: "ASC" },
       select: CAMPOS_PARA_PROFESIONAL,

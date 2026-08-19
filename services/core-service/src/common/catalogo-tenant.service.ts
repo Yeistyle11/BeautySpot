@@ -1,6 +1,6 @@
 import { ConflictException, NotFoundException } from "@nestjs/common";
-import { FindOptionsWhere, Like, Repository } from "typeorm";
-import { paginate, PaginateParams } from "@beautyspot/database";
+import { FindOptionsWhere, Repository } from "typeorm";
+import { contieneTexto, paginate, PaginateParams } from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
 
 /** Forma mínima de una entidad de catálogo: nombre, orden y baja lógica. */
@@ -52,7 +52,7 @@ export abstract class CatalogoTenantService<T extends EntidadDeCatalogo> {
   ): Promise<IPaginatedResponse<T>> {
     const where: Record<string, unknown> = { businessId };
     if (activeOnly) where.active = true;
-    if (search) where.name = Like(`%${search}%`);
+    if (search) where.name = contieneTexto(search);
 
     return paginate(this.repo, params, {
       where: where as FindOptionsWhere<T>,

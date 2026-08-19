@@ -7,6 +7,8 @@ import {
   calculateEndTime,
   timesOverlap,
   escapeLikePattern,
+  sinTildes,
+  columnaSinTildes,
   cruzaMedianoche,
   finExtendido,
   horaDeReloj,
@@ -325,5 +327,29 @@ describe("Shared Utils", () => {
         expect(normalizarTelefono(valor)).toBe("");
       }
     );
+  });
+});
+
+describe("sinTildes", () => {
+  it("quita las tildes y baja a minúsculas", () => {
+    expect(sinTildes("Pérez")).toBe("perez");
+    expect(sinTildes("MARÍA JOSÉ")).toBe("maria jose");
+  });
+
+  it("conserva la eñe, que distingue palabras", () => {
+    expect(sinTildes("Muñoz")).toBe("muñoz");
+  });
+
+  it("deja intacto lo que no lleva tilde", () => {
+    expect(sinTildes("Corte + barba")).toBe("corte + barba");
+  });
+});
+
+describe("columnaSinTildes", () => {
+  it("envuelve la columna en el translate que aplica el mismo criterio", () => {
+    const sql = columnaSinTildes("nombre");
+
+    expect(sql).toContain("translate(lower(nombre)");
+    expect(sql).toContain("á");
   });
 });

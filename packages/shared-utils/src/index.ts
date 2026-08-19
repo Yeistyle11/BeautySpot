@@ -1,5 +1,6 @@
 export * from "./zona-horaria";
 export * from "./intervalos";
+export * from "./texto-buscable";
 
 /**
  * Genera un slug seguro para URLs a partir de un texto: minúsculas, sin acentos,
