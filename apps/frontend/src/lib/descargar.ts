@@ -1,8 +1,7 @@
 // Descarga de ficheros binarios del gateway.
 import { ApiError } from "./api-error";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
 /** Pide un PDF al gateway y lo guarda con el nombre indicado. */
 export async function descargarPdf(

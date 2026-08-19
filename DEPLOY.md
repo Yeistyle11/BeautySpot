@@ -209,7 +209,7 @@ Puntos importantes:
   7 microservicios no son accesibles desde fuera del host.
 - Dentro de la red de Docker las URLs entre servicios usan el nombre del
   contenedor (`http://auth-service:3001`), no `localhost`. La excepción es
-  `NEXT_PUBLIC_API_URL`: la resuelve el navegador, así que es la URL pública.
+  `NEXT_PUBLIC_SITE_URL`: la resuelve el navegador, así que es la URL pública.
 - Los `depends_on` esperan a `service_healthy`, no a que el contenedor arranque.
   Por eso importa el `HEALTHCHECK` de los 9 Dockerfile: sin él, el gateway
   empezaría a proxear hacia servicios que todavía no han abierto su conexión a
@@ -322,14 +322,19 @@ minutos, pero eso acota la ventana, no la cierra.
 
 **frontend (8080)**
 
-| Variable                  | Descripción                                    |
-| ------------------------- | ---------------------------------------------- |
-| `NEXT_PUBLIC_API_URL`     | URL pública del gateway + `/api/v1`            |
-| `NEXT_PUBLIC_IMAGE_HOSTS` | Hosts extra permitidos para optimizar imágenes |
+| Variable                  | Descripción                                         |
+| ------------------------- | --------------------------------------------------- |
+| `GATEWAY_URL`             | Gateway al que el servidor de Next reenvía `/api/*` |
+| `NEXT_PUBLIC_IMAGE_HOSTS` | Hosts extra permitidos para optimizar imágenes      |
 
-> `apps/frontend/next.config.js` tiene un `rewrite` de `/api/:path*` a
-> `http://localhost:3000`, pensado para desarrollo. En producción hay que apuntar
-> `NEXT_PUBLIC_API_URL` al gateway real, o ajustar ese rewrite en el despliegue.
+> El navegador pide `/api/v1/...` a su propio origen y el `rewrite` de
+> `apps/frontend/next.config.js` lo reenvía a `GATEWAY_URL`, que se resuelve
+> dentro de la red de Docker (`http://api-gateway:3000`). El gateway no necesita
+> publicar puerto para el tráfico del panel, y no hay CORS entre navegador y API.
+>
+> Ese salto de más cuenta para la IP del cliente: con el reverse proxy TLS
+> delante, `TRUST_PROXY` del gateway vale **2**. Con uno menos, el rate limit por
+> IP agrupa a todos los usuarios del panel en una sola cuota.
 
 ### Generar secretos
 
@@ -587,7 +592,7 @@ Revisa el .env del servicio contra su .env.example.
 ```
 
 - [ ] `CORS_ORIGINS` con el dominio real
-- [ ] `NEXT_PUBLIC_API_URL` apuntando al gateway público
+- [ ] `GATEWAY_URL` apuntando al gateway y `TRUST_PROXY=2` en el gateway
 
 Despliegue:
 

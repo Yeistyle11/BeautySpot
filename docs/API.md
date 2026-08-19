@@ -38,8 +38,12 @@ API Gateway:
 http://localhost:3000/api/v1/{servicio}/{ruta}
 ```
 
-El frontend usa `NEXT_PUBLIC_API_URL`, con `http://localhost:3000/api/v1` por defecto
-(ver `apps/frontend/src/lib/api.ts`).
+El navegador no llama a esa URL directamente: pide `/api/v1/...` a su propio
+origen y el rewrite de `apps/frontend/next.config.js` lo reenvía al gateway que
+indique `GATEWAY_URL`. Los componentes de servidor sí usan la URL absoluta
+(`apps/frontend/src/lib/api-server.ts`). `NEXT_PUBLIC_API_URL` sigue existiendo
+como salida para un despliegue que prefiera el gateway público, y entonces las
+peticiones vuelven a ser cross-origin.
 
 `{servicio}` debe ser el **nombre corto**, sin el sufijo `-service`:
 
