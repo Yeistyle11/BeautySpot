@@ -297,6 +297,25 @@ describe("ProfessionalProfilesService", () => {
   });
 
   describe("updateRating", () => {
+    // La media del profesional cuenta lo mismo que la del negocio: ocultar una
+    // resena no la mueve.
+    it("cuenta también las reseñas ocultas", async () => {
+      mockRepo.findOne.mockResolvedValue(mockProfessionalProfile);
+      const qb = {
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ avg: "2.5", count: "8" }),
+      } as any;
+      (mockRepo.manager.createQueryBuilder as any).mockReturnValue(qb);
+
+      await service.updateRating("prof-123");
+
+      expect(qb.andWhere).not.toHaveBeenCalled();
+    });
+
     it("debería actualizar el rating del profesional", async () => {
       mockRepo.findOne.mockResolvedValue(mockProfessionalProfile);
       mockRepo.update.mockResolvedValue({ affected: 1 } as any);

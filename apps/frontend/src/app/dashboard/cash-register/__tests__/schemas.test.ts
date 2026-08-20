@@ -62,6 +62,25 @@ describe("cashSessionSchema", () => {
 
     expect(sesion.openingAmount).toBe(100000);
   });
+
+  it("conserva el descuadre del cierre", () => {
+    const sesion = cashSessionSchema.parse({
+      ...cajaCerradaDeLaApi,
+      expectedTotal: 110000,
+      difference: 25000,
+    });
+
+    expect(sesion.difference).toBe(25000);
+    expect(sesion.expectedTotal).toBe(110000);
+  });
+
+  // El descuadre nace al cerrar: la caja del día en curso no lo tiene, y el
+  // histórico la lista igual que a las cerradas.
+  it("acepta una sesión sin descuadre", () => {
+    const sesion = cashSessionSchema.parse(cajaAbiertaDeLaApi);
+
+    expect(sesion.difference).toBeUndefined();
+  });
 });
 
 describe("cashMovementSchema", () => {

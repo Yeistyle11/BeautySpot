@@ -2,13 +2,13 @@
 
 // Flujo de reserva publica: asistente por pasos (servicios, profesional, horario y datos) hasta confirmar la cita.
 import { useEffect, useRef, useState, Suspense } from "react";
+import { mensajeDeError } from "@/lib/error-message";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { z } from "zod";
 import { apiPublic } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
-import { getErrorMessage } from "@/lib/utils";
 import { useApiPublic, revalidatePrefix } from "@/lib/swr";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import {
@@ -153,8 +153,7 @@ function PublicBookingPageInner() {
     setError("");
     setSubmitting(true);
     try {
-      // La ruta es pública y sin token, así que no se manda el id del usuario:
-      // el backend no puede dar por buena una identidad que nadie firma.
+      // La ruta es publica y sin token: no se manda el id del usuario.
       const identidad =
         isAuthenticated && user
           ? {
@@ -185,7 +184,7 @@ function PublicBookingPageInner() {
       setConfirmation(result);
       await revalidatePrefix("/booking/appointments");
     } catch (err) {
-      setError(getErrorMessage(err, "Error al crear la reserva"));
+      setError(mensajeDeError(err, "Error al crear la reserva"));
     } finally {
       setSubmitting(false);
     }

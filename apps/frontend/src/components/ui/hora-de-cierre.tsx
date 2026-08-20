@@ -35,11 +35,8 @@ function enMinutos(hora: string): number {
 }
 
 /**
- * Cómo se lee la hora de cierre según cuándo se abrió.
- *
- * Cerrar a las dos con el negocio abierto desde las ocho de la tarde es la
- * madrugada del día siguiente; con el negocio abierto desde la una, no habría
- * jornada. La etiqueta lo dice para que nadie tenga que deducirlo.
+ * Como se lee la hora de cierre segun cuando se abrio: a las dos de un negocio
+ * abierto desde las ocho es la madrugada siguiente.
  */
 function etiquetaDe(hora: string, apertura?: string): string {
   if (hora === "24:00") return "12:00 am (medianoche)";
@@ -60,12 +57,8 @@ interface HoraDeCierreProps extends Omit<
 }
 
 /**
- * Desplegable de la hora de cierre.
- *
- * No puede ser un `<input type="time">`: hace falta distinguir el cierre a
- * medianoche (24:00) del arranque del día, y avisar de qué horas caen ya en la
- * madrugada siguiente. Si el valor guardado no cae en la rejilla se añade como
- * opción, para no perderlo al editar.
+ * Desplegable de la hora de cierre. Distingue el cierre a medianoche (24:00)
+ * del arranque del dia y anade el valor guardado si no cae en la rejilla.
  */
 export function HoraDeCierre({
   value,
@@ -74,9 +67,8 @@ export function HoraDeCierre({
   ...props
 }: HoraDeCierreProps) {
   const horas = HORAS.includes(value) ? HORAS : [value, ...HORAS];
-  // Con el negocio abierto desde las 20:00, valen las horas posteriores del
-  // mismo día y la madrugada hasta las 08:00. Lo de en medio no es una jornada,
-  // es un dedazo, y el backend lo rechaza.
+  // Con el negocio abierto a las 20:00 valen las horas posteriores del mismo
+  // dia y la madrugada hasta las 08:00.
   const ofrecidas = horas.filter(
     (hora) =>
       hora === value ||

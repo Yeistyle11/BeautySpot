@@ -78,9 +78,8 @@ export default function AppointmentDetailPage() {
   };
 
   /**
-   * Si la fecha "YYYY-MM-DD" es hoy o posterior. El mediodia fijo evita que en
-   * timezones negativos, donde la medianoche UTC cae en el dia anterior, la cita
-   * de hoy se tome por pasada.
+   * Si la fecha "YYYY-MM-DD" es hoy o posterior, comparada al mediodia para
+   * no depender del huso.
    */
   const isFuture = (date: string) => {
     const today = new Date();
@@ -284,7 +283,7 @@ export default function AppointmentDetailPage() {
       >
         <div className="space-y-4">
           <p className="text-muted-foreground text-sm">
-            Estas seguro de que deseas cancelar esta cita? Esta accion no se
+            ¿Estás seguro de que deseas cancelar esta cita? Esta acción no se
             puede deshacer.
           </p>
           <div className="flex justify-end gap-3">

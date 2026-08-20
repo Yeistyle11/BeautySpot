@@ -247,8 +247,7 @@ describe("BusinessHoursService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    // Cada sede lleva su horario, así que el mismo tramo en dos sedes no es un
-    // solape.
+    // Cada sede lleva su horario: el mismo tramo en dos sedes no es solape.
     it("permite el mismo tramo en sedes distintas", async () => {
       await expect(
         guardar([
@@ -268,8 +267,8 @@ describe("BusinessHoursService", () => {
       ).resolves.toBeDefined();
     });
 
-    // El cierre se escribe como lo marca el reloj, así que venir antes que la
-    // apertura es lo que dice que ya es del día siguiente.
+    // El cierre se escribe como lo marca el reloj: venir antes que la apertura
+    // lo situa en el dia siguiente.
     it("acepta cerrar de madrugada", async () => {
       await expect(
         guardar([{ dayOfWeek: 3, openTime: "20:00", closeTime: "02:00" }])

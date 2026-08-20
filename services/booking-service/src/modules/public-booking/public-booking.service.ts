@@ -58,12 +58,7 @@ export class PublicBookingService {
 
   /**
    * Crea una cita a partir de los datos de un invitado: resuelve o crea el
-   * cliente, elige profesional si no vino indicado y registra la cita.
-   *
-   * El alta se delega en AppointmentsService, que es donde vive la transacción
-   * SERIALIZABLE con la comprobación final de conflicto. Este camino guardaba
-   * por su cuenta con un save suelto, así que dos reservas simultáneas sobre la
-   * misma franja se creaban las dos y la cita no emitía su evento.
+   * cliente, elige profesional si no vino indicado y delega el alta.
    */
   async createPublicAppointment(data: {
     businessId: string;
@@ -84,12 +79,8 @@ export class PublicBookingService {
       data.guestPhone
     );
 
-    // 2. Elegir profesional si el invitado no pidió uno. Para eso hace falta
-    //    la hora de fin, y la duración solo la sabe el catálogo. Se resuelve
-    //    con la duración base (sin profesional, que aún no existe) y luego el
-    //    alta la vuelve a resolver ya con el elegido, por si ese profesional
-    //    tiene una duración propia. Es la única vía con dos consultas y solo
-    //    ocurre en "cualquiera disponible".
+    // 2. Elegir profesional si el invitado no pidio uno, con la duracion base
+    //    del catalogo; el alta la vuelve a resolver con el ya elegido.
     const professionalId =
       data.professionalId ??
       (await this.elegirProfesional(data.businessId, data.serviceIds, data));
@@ -151,11 +142,8 @@ export class PublicBookingService {
   }
 
   /**
-   * Pide al core-service el cliente que coincida o uno nuevo; falla si el
-   * servicio no responde.
-   *
-   * No pasa `userId`: esta ruta no tiene token, así que no hay ninguna
-   * identidad que se pueda dar por buena para atar la ficha a una cuenta.
+   * Pide al core-service el cliente que coincida o uno nuevo, sin `userId`:
+   * esta ruta no tiene token. Falla si el servicio no responde.
    */
   private async findOrCreateGuestClient(
     businessId: string,

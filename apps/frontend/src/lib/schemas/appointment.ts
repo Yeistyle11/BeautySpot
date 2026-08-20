@@ -27,6 +27,11 @@ export const appointmentSchema = z.object({
   ocupadoHasta: z.string().nullish(),
   status: z.string(),
   notes: z.string().nullable(),
+  /** Motivo tipificado con el que se cancelo, del catalogo CancelReason. */
+  cancelReasonType: z.string().nullish(),
+  /** Nota libre de quien cancelo. */
+  cancelReason: z.string().nullish(),
+  cancelledAt: z.string().nullish(),
   totalAmount: z.number(),
   businessId: z.string(),
   professionalId: z.string(),

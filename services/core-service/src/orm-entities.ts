@@ -9,6 +9,7 @@ import { ProfessionalService } from "./entities/professional-service.entity";
 import { Service } from "./entities/service.entity";
 import { Client } from "./entities/client.entity";
 import { BusinessHours } from "./entities/business-hours.entity";
+import { BusinessSpecialDay } from "./entities/business-special-day.entity";
 import { BusinessConfig } from "./entities/business-config.entity";
 import { ProfessionalCategoryEntity } from "./entities/category.entity";
 import { ServiceCategoryEntity } from "./entities/service-category.entity";
@@ -24,6 +25,7 @@ export const entities = [
   Service,
   Client,
   BusinessHours,
+  BusinessSpecialDay,
   BusinessConfig,
   ProfessionalCategoryEntity,
   ServiceCategoryEntity,

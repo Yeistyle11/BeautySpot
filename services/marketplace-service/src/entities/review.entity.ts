@@ -1,5 +1,5 @@
-import { Entity, Column, Index } from "typeorm";
-import { TenantEntity } from "@beautyspot/database";
+import { Entity, Column, Check, Index } from "typeorm";
+import { TenantEntity, enCatalogo } from "@beautyspot/database";
 
 /** Visibilidad de una reseña. */
 export enum ReviewStatus {
@@ -9,6 +9,8 @@ export enum ReviewStatus {
 
 /** Reseña de un cliente sobre un negocio/profesional, con su calificación, respuesta y datos enriquecidos. */
 @Entity("reviews")
+// El catalogo de visibilidades, acotado en la base.
+@Check("CHK_reviews_status", enCatalogo("status", Object.values(ReviewStatus)))
 // El listado de un negocio ordena siempre por fecha; sin este índice Postgres
 // lee todas sus reseñas y las ordena en memoria en cada página.
 @Index("idx_reviews_negocio_fecha", ["businessId", "createdAt"])

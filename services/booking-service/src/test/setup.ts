@@ -29,8 +29,9 @@ jest.mock("amqplib", () => ({
   connect: jest.fn(),
 }));
 
-// Mock de los servicios de nest-common usados por booking
+// Mock de los servicios de nest-common que usa booking; el resto queda real.
 jest.mock("@beautyspot/nest-common", () => ({
+  ...jest.requireActual("@beautyspot/nest-common"),
   EventBusService: jest.fn().mockImplementation(() => ({
     emit: jest.fn().mockResolvedValue(undefined),
     on: jest.fn().mockReturnValue(undefined),

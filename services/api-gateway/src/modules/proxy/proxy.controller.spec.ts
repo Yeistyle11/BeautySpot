@@ -8,9 +8,8 @@ import { CircuitBreakerService } from "../circuit-breaker/circuit-breaker.servic
 import { SessionService } from "../session/session.service";
 
 /**
- * Comprueba, a través del router real de Express 5, que la ruta comodín
- * ":service/*splat" captura el nombre del servicio y reenvía cualquier
- * sub-ruta.
+ * Comprueba, a traves del router real de Express 5, que la ruta comodin
+ * ":service/*splat" captura el servicio y reenvia cualquier sub-ruta.
  */
 describe("ProxyController (enrutado Express 5)", () => {
   let app: INestApplication;
@@ -35,8 +34,8 @@ describe("ProxyController (enrutado Express 5)", () => {
         { provide: ProxyService, useValue: proxyServiceMock },
         { provide: CircuitBreakerService, useValue: circuitBreakerMock },
         {
-          // El paso por sesión se prueba aparte; aquí sólo debe dejar el
-          // cuerpo y la respuesta tal cual para no enmascarar el enrutado.
+          // El paso por sesion se prueba aparte: aqui deja el cuerpo y la
+          // respuesta tal cual.
           provide: SessionService,
           useValue: {
             esRutaDeSesion: () => false,
@@ -92,9 +91,8 @@ describe("ProxyController (enrutado Express 5)", () => {
       .expect(404);
   });
 
-  // La ruta se concatena con la URL del servicio sin normalizar, y el
-  // analizador de URL de fetch resuelve `%2e%2e` como un `..`: sin este
-  // rechazo se podría alcanzar /internal/* del backend.
+  // La ruta se concatena sin normalizar y el analizador de URL de fetch
+  // resuelve `%2e%2e` como `..`, que alcanzaria /internal/*.
   it.each([
     "/api/v1/core-service/x/../../internal/businesses/resolve",
     "/api/v1/core-service/x/%2e%2e/%2e%2e/internal/businesses/resolve",
@@ -118,10 +116,8 @@ describe("ProxyController (enrutado Express 5)", () => {
 });
 
 /**
- * Reenvío real (sin router): ejercita buildTargetUrl, buildForwardedHeaders,
- * parseResponseBody y mapProxyError contra un `fetch` simulado. El circuit
- * breaker se limita a ejecutar la función que recibe, para observar el proxy
- * aislado de la lógica de apertura/cierre del breaker.
+ * Reenvio real (sin router): ejercita buildTargetUrl, buildForwardedHeaders,
+ * parseResponseBody y mapProxyError contra un `fetch` simulado.
  */
 describe("ProxyController (reenvío)", () => {
   let controller: ProxyController;
@@ -184,9 +180,8 @@ describe("ProxyController (reenvío)", () => {
       controllers: [ProxyController],
       providers: [
         {
-          // Servicio real: estos tests ejercitan justamente su mecánica
-          // (URL destino, cabeceras, cuerpo de la respuesta y traducción de
-          // errores).
+          // Servicio real: estos tests ejercitan su mecanica (URL destino,
+          // cabeceras, cuerpo y traduccion de errores).
           provide: ProxyService,
           useFactory: () =>
             new ProxyService({
@@ -208,8 +203,8 @@ describe("ProxyController (reenvío)", () => {
           },
         },
         {
-          // El paso por sesión se prueba aparte; aquí sólo debe dejar el
-          // cuerpo y la respuesta tal cual para no enmascarar el enrutado.
+          // El paso por sesion se prueba aparte: aqui deja el cuerpo y la
+          // respuesta tal cual.
           provide: SessionService,
           useValue: {
             esRutaDeSesion: () => false,
@@ -269,9 +264,8 @@ describe("ProxyController (reenvío)", () => {
       expect(fetchMock.mock.calls[0][0]).toBe(`${SERVICE_URL}/businesses`);
     });
 
-    // Regresión: la forma larga producía /marketplace/feed en vez de /feed, así
-    // que TODA petición con sufijo -service devolvía 404. Los microservicios no
-    // definen setGlobalPrefix: sus controladores cuelgan de la raíz.
+    // La forma larga tiene que dar /feed y no /marketplace/feed: los
+    // microservicios no definen setGlobalPrefix.
     it("resuelve igual la forma larga {service}-service", async () => {
       fetchMock.mockResolvedValue(fakeResponse(200, "{}"));
       const { res } = fakeResponseOut();
@@ -468,9 +462,7 @@ describe("ProxyController (reenvío)", () => {
 
   describe("traducción de errores", () => {
     // El 5xx cuenta como fallo para el breaker, pero el cuerpo del backend se
-    // propaga tal cual y se escribe UNA sola vez: si el controlador relanzara
-    // después de responder, el filtro global reventaría con
-    // ERR_HTTP_HEADERS_SENT en cada 500 de cualquier servicio.
+    // propaga tal cual y se escribe una sola vez.
     it("propaga el 5xx del backend sin relanzar tras haber respondido", async () => {
       fetchMock.mockResolvedValue(fakeResponse(500, '{"error":"boom"}'));
       const { res, sent, contador } = fakeResponseOut();
@@ -509,5 +501,100 @@ describe("ProxyController (reenvío)", () => {
         controller.proxyRequest("core-service", fakeRequest(), res)
       ).rejects.toMatchObject({ status: HttpStatus.SERVICE_UNAVAILABLE });
     });
+  });
+});
+
+/**
+ * El paso por sesion corre tambien cuando el servicio rechaza la peticion: una
+ * renovacion fallida es la que tiene que borrar las cookies.
+ */
+describe("ProxyController (rutas de sesión)", () => {
+  let controller: ProxyController;
+  let fetchMock: jest.Mock;
+  let aplicarRespuesta: jest.Mock;
+
+  beforeEach(async () => {
+    fetchMock = jest.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+    aplicarRespuesta = jest.fn(
+      (_req: unknown, _res: unknown, cuerpo: unknown) => cuerpo
+    );
+
+    const moduleRef = await Test.createTestingModule({
+      controllers: [ProxyController],
+      providers: [
+        {
+          provide: ProxyService,
+          useFactory: () =>
+            new ProxyService({
+              getUrl: () => "http://auth:3001",
+              hasUrl: () => true,
+            } as never),
+        },
+        {
+          provide: CircuitBreakerService,
+          useValue: {
+            execute: <T>(_service: string, fn: () => Promise<T>) => fn(),
+          },
+        },
+        {
+          provide: SessionService,
+          useValue: {
+            esRutaDeSesion: (path: string) => path.includes("/auth/"),
+            cuerpoReenviado: (_req: unknown, cuerpo: unknown) => cuerpo,
+            aplicarRespuesta,
+          },
+        },
+      ],
+    }).compile();
+
+    controller = moduleRef.get(ProxyController);
+  });
+
+  /** Reenvía esa ruta con la respuesta que devuelva el servicio de destino. */
+  async function reenviar(path: string, estado: number) {
+    fetchMock.mockResolvedValue({ status: estado, text: async () => "{}" });
+    const req = {
+      path,
+      originalUrl: path,
+      method: "POST",
+      headers: {},
+      body: {},
+    } as never;
+    const res = {
+      status: () => ({ json: () => undefined }),
+    } as never;
+
+    try {
+      await controller.proxyRequest("auth", req, res);
+    } catch {
+      // Un 4xx se propaga como excepción; lo que importa es lo que pasó antes.
+    }
+  }
+
+  it("pasa por sesión una renovación correcta", async () => {
+    await reenviar("/api/v1/auth/refresh", 200);
+
+    expect(aplicarRespuesta).toHaveBeenCalled();
+  });
+
+  // Sin esto, la sesion rechazada conserva su pista y el guard devuelve al
+  // panel a quien acaba de ser echado.
+  it("pasa por sesión una renovación rechazada", async () => {
+    await reenviar("/api/v1/auth/refresh", 401);
+
+    expect(aplicarRespuesta).toHaveBeenCalled();
+  });
+
+  it("pasa por sesión un cierre de sesión, responda lo que responda", async () => {
+    await reenviar("/api/v1/auth/logout", 500);
+
+    expect(aplicarRespuesta).toHaveBeenCalled();
+  });
+
+  it("no toca las rutas que no son de sesión", async () => {
+    await reenviar("/api/v1/core/businesses", 401);
+
+    expect(aplicarRespuesta).not.toHaveBeenCalled();
   });
 });

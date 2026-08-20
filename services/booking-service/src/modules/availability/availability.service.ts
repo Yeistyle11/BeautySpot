@@ -64,12 +64,7 @@ export class AvailabilityService {
 
   /**
    * Valida formato `HH:MM`, las horas de salida de madrugada y los solapes
-   * dentro de cada día.
-   *
-   * La jornada empieza dentro del día y puede terminar de madrugada; la hora de
-   * salida se escribe como la marca el reloj, así que quien sale a las dos pone
-   * `02:00` y es la comparación con la entrada la que revela que ya es del día
-   * siguiente.
+   * dentro de cada dia.
    */
   private validar(slots: TramoSemanal[]): void {
     for (const slot of slots) {

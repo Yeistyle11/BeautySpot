@@ -3,8 +3,9 @@
 import { ApiError } from "./api-error";
 import { useAuthStore } from "./store";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
+// Relativo: la peticion sale al mismo origen y el rewrite de next.config.js
+// la reenvia al gateway. Con NEXT_PUBLIC_API_URL se llama al gateway directo.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
 type UnauthorizedHandler = () => void;
 

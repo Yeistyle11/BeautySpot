@@ -24,14 +24,19 @@ const IMAGE_HOSTS = [
     .filter(Boolean),
 ];
 
-// Origen del gateway, que es el unico destino de las peticiones del navegador.
-// Se declara aqui para que connect-src no tenga que abrirse a cualquier host.
+// Origen del gateway al que el servidor de Next reenvia /api/*. No lleva
+// prefijo NEXT_PUBLIC porque el navegador no lo resuelve: dentro de Docker
+// puede ser el nombre del contenedor, que fuera de la red no existe.
+const GATEWAY_ORIGIN = process.env.GATEWAY_URL || "http://localhost:3000";
+
+// Host al que conecta el navegador. Con el rewrite es el propio origen; solo
+// hay otro si el despliegue fija NEXT_PUBLIC_API_URL para saltarselo.
 const apiOrigin = (() => {
+  if (!process.env.NEXT_PUBLIC_API_URL) return "";
   try {
-    return new URL(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000")
-      .origin;
+    return ` ${new URL(process.env.NEXT_PUBLIC_API_URL).origin}`;
   } catch {
-    return "http://localhost:3000";
+    return "";
   }
 })();
 
@@ -46,7 +51,7 @@ const csp = [
   // el optimizador de imagenes con remotePatterns.
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  `connect-src 'self' ${apiOrigin}`,
+  `connect-src 'self'${apiOrigin}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -95,7 +100,8 @@ const nextConfig = {
   },
   async rewrites() {
     return [
-      { source: "/api/:path*", destination: "http://localhost:3000/:path*" },
+      // El gateway sirve bajo /api/v1, asi que el prefijo se conserva.
+      { source: "/api/:path*", destination: `${GATEWAY_ORIGIN}/api/:path*` },
     ];
   },
   async headers() {

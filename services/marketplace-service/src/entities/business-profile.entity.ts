@@ -29,6 +29,9 @@ export interface GalleryImage {
 @Entity("business_profiles")
 @Index(["active", "isPublished"])
 @Index(["city"])
+// Un negocio tiene un solo escaparate: el alta lo comprueba antes de escribir,
+// pero dos altas a la vez pasarían las dos comprobaciones.
+@Index("uq_business_profiles_negocio", ["businessId"], { unique: true })
 export class BusinessProfileEntity extends TenantEntity {
   @Column({ unique: true }) slug!: string;
 

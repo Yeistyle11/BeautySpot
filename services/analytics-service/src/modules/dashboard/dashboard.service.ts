@@ -5,6 +5,7 @@ import { DailyMetricEntity } from "../../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
 import { ZonaDelNegocioService } from "@beautyspot/nest-common";
 import { fechaDeHoy, fechaHaceDias } from "../../common/fecha";
+import { diasEntre, periodoAnterior, type Rango } from "../../common/rango.dto";
 
 /** Fila cruda del ranking, tal como la devuelve el agregado SQL. */
 interface TopProfessionalRow {
@@ -20,6 +21,29 @@ export interface TopProfessionalResult {
   appointments: number;
   revenue: number;
   avgRating: number;
+}
+
+/** Cifras del negocio agregadas sobre un periodo, con el periodo que describen. */
+export interface CifrasDelPeriodo {
+  from: string;
+  to: string;
+  /** Días que abarca, extremos incluidos; es el divisor del promedio diario. */
+  dias: number;
+  totalRevenue: number;
+  totalAppointments: number;
+  completedAppointments: number;
+  cancelledAppointments: number;
+  noShowAppointments: number;
+  completionRate: number;
+  cancellationRate: number;
+  noShowRate: number;
+  newClients: number;
+  returningClients: number;
+  avgDailyRevenue: number;
+  /** Ingresos entre los cobros que los produjeron; nulo si no hubo ninguno. */
+  avgTicket: number | null;
+  /** Minutos vendidos sobre minutos disponibles, en porcentaje. */
+  ocupacion: number;
 }
 
 /** Punto de la serie de ingresos que consume la gráfica del dashboard. */
@@ -40,89 +64,34 @@ export class DashboardService {
     private readonly zonas: ZonaDelNegocioService
   ) {}
 
-  /** KPIs del negocio: cifras de hoy y agregados/tasas de los últimos 30 días. */
-  async getKPIs(businessId: string): Promise<{
+  /**
+   * KPIs del negocio: cifras de hoy y agregados del periodo pedido, o de los
+   * ultimos treinta dias si no se indica.
+   */
+  async getKPIs(
+    businessId: string,
+    rango?: Rango,
+    comparar = false
+  ): Promise<{
     today: Pick<
       DailyMetricEntity,
       "totalAppointments" | "totalRevenue" | "completedAppointments"
     > | null;
-    last30Days: {
-      totalRevenue: number;
-      totalAppointments: number;
-      completedAppointments: number;
-      cancelledAppointments: number;
-      noShowAppointments: number;
-      completionRate: number;
-      cancellationRate: number;
-      noShowRate: number;
-      newClients: number;
-      returningClients: number;
-      avgDailyRevenue: number;
-      /** Ingresos entre citas atendidas. */
-      avgTicket: number;
-      /** Minutos vendidos sobre minutos disponibles, en porcentaje. */
-      ocupacion: number;
-    };
+    periodo: CifrasDelPeriodo;
+    comparado: CifrasDelPeriodo | null;
   }> {
-    const { today, thirtyDaysAgo, dias } = await this.dateRange(businessId, 30);
+    // Una sola lectura del huso para las dos cosas: el día en curso y, si no
+    // llega periodo, la ventana por defecto que acaba en él.
+    const { today, from } = await this.dateRange(businessId, 29);
+    const periodo = rango ?? { from, to: today };
 
-    const [aggregates, todayMetrics] = await Promise.all([
-      this.dailyRepo
-        .createQueryBuilder("m")
-        .select("COALESCE(SUM(m.total_revenue), 0)", "totalRevenue")
-        .addSelect(
-          "COALESCE(SUM(m.total_appointments), 0)",
-          "totalAppointments"
-        )
-        .addSelect(
-          "COALESCE(SUM(m.completed_appointments), 0)",
-          "completedAppointments"
-        )
-        .addSelect(
-          "COALESCE(SUM(m.cancelled_appointments), 0)",
-          "cancelledAppointments"
-        )
-        .addSelect(
-          "COALESCE(SUM(m.no_show_appointments), 0)",
-          "noShowAppointments"
-        )
-        .addSelect("COALESCE(SUM(m.new_clients), 0)", "newClients")
-        .addSelect("COALESCE(SUM(m.returning_clients), 0)", "returningClients")
-        .where("m.business_id = :businessId", { businessId })
-        .andWhere("m.date BETWEEN :from AND :to", {
-          from: thirtyDaysAgo,
-          to: today,
-        })
-        .getRawOne<{
-          totalRevenue: string;
-          totalAppointments: string;
-          completedAppointments: string;
-          cancelledAppointments: string;
-          noShowAppointments: string;
-          newClients: string;
-          returningClients: string;
-        }>(),
-      this.dailyRepo.findOne({
-        where: { businessId, date: today },
-      }),
+    const [cifras, todayMetrics, comparado] = await Promise.all([
+      this.cifrasDe(businessId, periodo),
+      this.dailyRepo.findOne({ where: { businessId, date: today } }),
+      comparar
+        ? this.cifrasDe(businessId, periodoAnterior(periodo))
+        : Promise.resolve(null),
     ]);
-
-    const agg = aggregates ?? {
-      totalRevenue: "0",
-      totalAppointments: "0",
-      completedAppointments: "0",
-      cancelledAppointments: "0",
-      noShowAppointments: "0",
-      newClients: "0",
-      returningClients: "0",
-    };
-    const totalRevenue = Number(agg.totalRevenue);
-    const totalAppointments = Number(agg.totalAppointments);
-    const completedAppointments = Number(agg.completedAppointments);
-    const cancelledAppointments = Number(agg.cancelledAppointments);
-    const noShowAppointments = Number(agg.noShowAppointments);
-    const newClients = Number(agg.newClients);
-    const returningClients = Number(agg.returningClients);
 
     return {
       today: todayMetrics
@@ -132,32 +101,112 @@ export class DashboardService {
             completedAppointments: todayMetrics.completedAppointments,
           }
         : { totalAppointments: 0, totalRevenue: 0, completedAppointments: 0 },
-      last30Days: {
-        totalRevenue,
-        totalAppointments,
-        completedAppointments,
+      periodo: cifras,
+      comparado,
+    };
+  }
+
+  /**
+   * Ultimos treinta dias en el huso del negocio, hoy incluido: se retroceden
+   * veintinueve porque el rango incluye los dos extremos.
+   */
+  private async ultimosTreintaDias(businessId: string): Promise<Rango> {
+    const { today, from } = await this.dateRange(businessId, 29);
+    return { from, to: today };
+  }
+
+  /** Agregados y tasas del negocio en un periodo cualquiera. */
+  private async cifrasDe(
+    businessId: string,
+    rango: Rango
+  ): Promise<CifrasDelPeriodo> {
+    const { from, to } = rango;
+    const dias = diasEntre(from, to);
+
+    const aggregates = await this.dailyRepo
+      .createQueryBuilder("m")
+      .select("COALESCE(SUM(m.total_revenue), 0)", "totalRevenue")
+      .addSelect("COALESCE(SUM(m.total_appointments), 0)", "totalAppointments")
+      .addSelect(
+        "COALESCE(SUM(m.completed_appointments), 0)",
+        "completedAppointments"
+      )
+      .addSelect(
+        "COALESCE(SUM(m.cancelled_appointments), 0)",
+        "cancelledAppointments"
+      )
+      .addSelect(
+        "COALESCE(SUM(m.no_show_appointments), 0)",
+        "noShowAppointments"
+      )
+      .addSelect("COALESCE(SUM(m.new_clients), 0)", "newClients")
+      .addSelect("COALESCE(SUM(m.returning_clients), 0)", "returningClients")
+      .addSelect("COALESCE(SUM(m.ventas), 0)", "ventas")
+      // Solo los ingresos de los dias cuyas ventas estan contadas; los otros
+      // no aportan divisor.
+      .addSelect(
+        "COALESCE(SUM(m.total_revenue) FILTER (WHERE m.ventas > 0), 0)",
+        "revenueDeVentas"
+      )
+      .where("m.business_id = :businessId", { businessId })
+      .andWhere("m.date BETWEEN :from AND :to", { from, to })
+      .getRawOne<{
+        totalRevenue: string;
+        totalAppointments: string;
+        completedAppointments: string;
+        cancelledAppointments: string;
+        noShowAppointments: string;
+        newClients: string;
+        returningClients: string;
+        ventas: string;
+        revenueDeVentas: string;
+      }>();
+
+    const agg = aggregates ?? {
+      totalRevenue: "0",
+      totalAppointments: "0",
+      completedAppointments: "0",
+      cancelledAppointments: "0",
+      noShowAppointments: "0",
+      newClients: "0",
+      returningClients: "0",
+      ventas: "0",
+      revenueDeVentas: "0",
+    };
+    const totalRevenue = Number(agg.totalRevenue);
+    const totalAppointments = Number(agg.totalAppointments);
+    const completedAppointments = Number(agg.completedAppointments);
+    const cancelledAppointments = Number(agg.cancelledAppointments);
+    const noShowAppointments = Number(agg.noShowAppointments);
+    const newClients = Number(agg.newClients);
+    const returningClients = Number(agg.returningClients);
+    const ventas = Number(agg.ventas);
+    const revenueDeVentas = Number(agg.revenueDeVentas);
+
+    return {
+      from,
+      to,
+      dias,
+      totalRevenue,
+      totalAppointments,
+      completedAppointments,
+      cancelledAppointments,
+      noShowAppointments,
+      completionRate: this.percentage(completedAppointments, totalAppointments),
+      cancellationRate: this.percentage(
         cancelledAppointments,
-        noShowAppointments,
-        completionRate: this.percentage(
-          completedAppointments,
-          totalAppointments
-        ),
-        cancellationRate: this.percentage(
-          cancelledAppointments,
-          totalAppointments
-        ),
-        noShowRate: this.percentage(noShowAppointments, totalAppointments),
-        newClients,
-        returningClients,
-        // Entre los días del periodo, no entre los que tuvieron movimiento:
-        // es el promedio diario del negocio, no el de sus días activos.
-        avgDailyRevenue: dias > 0 ? Math.round(totalRevenue / dias) : 0,
-        avgTicket:
-          completedAppointments > 0
-            ? Math.round(totalRevenue / completedAppointments)
-            : 0,
-        ocupacion: await this.ocupacion(businessId, thirtyDaysAgo, today),
-      },
+        totalAppointments
+      ),
+      noShowRate: this.percentage(noShowAppointments, totalAppointments),
+      newClients,
+      returningClients,
+      // Entre los días del periodo, no entre los que tuvieron movimiento:
+      // es el promedio diario del negocio, no el de sus días activos.
+      avgDailyRevenue: dias > 0 ? Math.round(totalRevenue / dias) : 0,
+      // Entre los cobros, no entre las citas atendidas. Sin cobros no hay
+      // ticket, y se responde nulo en vez de cero.
+      avgTicket: ventas > 0 ? Math.round(revenueDeVentas / ventas) : null,
+      ocupacion: await this.ocupacion(businessId, from, to),
     };
   }
 
@@ -219,7 +268,7 @@ export class DashboardService {
   /** Servicios del periodo ordenados por lo que ingresaron. */
   async getRentabilidadPorServicio(
     businessId: string,
-    days = 30
+    rango?: Rango
   ): Promise<
     {
       serviceId: string;
@@ -230,7 +279,7 @@ export class DashboardService {
       ingresoPorHora: number;
     }[]
   > {
-    const { from, today } = await this.dateRange(businessId, days);
+    const { from, to } = rango ?? (await this.ultimosTreintaDias(businessId));
 
     const filas = (await this.dataSource.query(
       `SELECT service_id, service_name,
@@ -241,7 +290,7 @@ export class DashboardService {
        WHERE business_id = $1 AND date BETWEEN $2 AND $3
        GROUP BY service_id, service_name
        ORDER BY SUM(ingresos) DESC`,
-      [businessId, from, today]
+      [businessId, from, to]
     )) as {
       service_id: string;
       service_name: string;
@@ -262,12 +311,13 @@ export class DashboardService {
     }));
   }
 
-  /** Ranking de profesionales por ingresos en los últimos 30 días. */
+  /** Ranking de profesionales por ingresos en el periodo. */
   async getTopProfessionals(
     businessId: string,
-    limit = 10
+    limit = 10,
+    rango?: Rango
   ): Promise<TopProfessionalResult[]> {
-    const { today, thirtyDaysAgo } = await this.dateRange(businessId, 30);
+    const { from, to } = rango ?? (await this.ultimosTreintaDias(businessId));
 
     const rows = await this.profRepo
       .createQueryBuilder("pm")
@@ -276,10 +326,7 @@ export class DashboardService {
       .addSelect("SUM(pm.revenue)", "revenue")
       .addSelect("AVG(pm.rating)", "avgRating")
       .where("pm.business_id = :businessId", { businessId })
-      .andWhere("pm.date BETWEEN :from AND :to", {
-        from: thirtyDaysAgo,
-        to: today,
-      })
+      .andWhere("pm.date BETWEEN :from AND :to", { from, to })
       .groupBy("pm.professional_id")
       // Se ordena por la expresión y no por el alias: Postgres pasa a
       // minúsculas cualquier identificador sin comillas.

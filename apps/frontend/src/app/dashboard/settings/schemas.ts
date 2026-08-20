@@ -80,3 +80,47 @@ export interface Feedback {
   type: "error" | "success";
   message: string;
 }
+
+/** Datos fiscales con los que el negocio emite sus facturas. */
+export const facturacionSchema = z.object({
+  razonSocial: z.string().nullish(),
+  nit: z.string().nullish(),
+  direccionFiscal: z.string().nullish(),
+  serie: z.string().nullish(),
+});
+export type Facturacion = z.infer<typeof facturacionSchema>;
+
+export const FACTURACION_KEY = "/core/business-config/facturacion";
+
+/** Reglas de reserva y cancelación del negocio. */
+export const reservasSchema = z.object({
+  horasMinimasCancelacion: z.number().nullish(),
+});
+export type Reservas = z.infer<typeof reservasSchema>;
+
+export const RESERVAS_KEY = "/core/business-config/reservas";
+
+/** Día o rango con horario propio, o cerrado: festivo, vacaciones, media jornada. */
+export const diaEspecialSchema = z.object({
+  id: z.string(),
+  startDate: z.string(),
+  endDate: z.string(),
+  closed: z.boolean(),
+  openTime: z.string().nullish(),
+  closeTime: z.string().nullish(),
+  motivo: z.string(),
+});
+export type DiaEspecial = z.infer<typeof diaEspecialSchema>;
+
+export const DIAS_ESPECIALES_KEY = "/core/business-hours/especiales";
+
+export const nuevoDiaEspecial = {
+  startDate: "",
+  endDate: "",
+  closed: true,
+  openTime: "09:00",
+  closeTime: "14:00",
+  motivo: "",
+};
+
+export type NuevoDiaEspecial = typeof nuevoDiaEspecial;

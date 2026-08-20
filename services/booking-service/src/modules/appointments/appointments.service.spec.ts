@@ -24,7 +24,7 @@ import {
 import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 
-/** Agendar exige futuro, así que las fechas del fixture se calculan al vuelo. */
+/** Las fechas del fixture se calculan al vuelo: agendar exige futuro. */
 function dentroDeDias(dias: number): string {
   const d = new Date();
   d.setDate(d.getDate() + dias);
@@ -37,9 +37,8 @@ const FECHA_SIGUIENTE = dentroDeDias(31);
 const DIA_DE_LA_SEMANA = new Date(FECHA_CITA + "T12:00:00").getDay();
 
 /**
- * Fecha y hora de una cita inminente, para las reglas de anticipación mínima.
- * El servicio interpreta `${date}T${startTime}` como hora local, así que el
- * fixture se arma con los componentes locales.
+ * Fecha y hora de una cita inminente, armada con los componentes locales que
+ * el servicio interpreta.
  */
 function dentroDeMinutos(minutos: number): { date: string; startTime: string } {
   const d = new Date(Date.now() + minutos * 60 * 1000);
@@ -97,8 +96,7 @@ describe("AppointmentsService", () => {
     ocupadoHasta: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    // Reagendar saca la duración de aquí, así que el fixture la trae: son los
-    // 60 minutos que van de las 10:00 a las 11:00.
+    // La duracion sale de aqui al reagendar: 60 minutos, de 10:00 a 11:00.
     appointmentServices: [{ duration: 60 } as never],
     generateId: () => {},
   };
@@ -118,9 +116,8 @@ describe("AppointmentsService", () => {
   };
 
   /**
-   * La misma jornada los dos días del fixture. La agenda pide los tramos del día
-   * y los del anterior —cuya madrugada puede invadirlo— y descarta los del resto,
-   * así que los tests de reagendado necesitan también el día siguiente.
+   * La misma jornada en los dos dias del fixture, incluido el siguiente, que
+   * necesitan los tests de reagendado.
    */
   const JORNADAS: Availability[] = [
     mockAvailability,
@@ -136,7 +133,9 @@ describe("AppointmentsService", () => {
       findOne: jest.fn(),
       find: jest.fn(),
       findAndCount: jest.fn(),
+      count: jest.fn(),
       update: jest.fn(),
+      createQueryBuilder: jest.fn(),
     } as any;
 
     // Sin líneas cargadas, cada cita ocupa su bloque entero.
@@ -196,8 +195,8 @@ describe("AppointmentsService", () => {
       enviar: jest.fn().mockResolvedValue([CORTE]),
     };
 
-    // El negocio del fixture vive en Bogotá y no tiene horario de apertura
-    // configurado, así que la agenda solo la limita el horario del profesional.
+    // El negocio del fixture vive en Bogota y sin horario de apertura: la
+    // agenda solo la limita el horario del profesional.
     mockZonas = {
       de: jest.fn().mockResolvedValue("America/Bogota"),
     } as never;
@@ -216,9 +215,8 @@ describe("AppointmentsService", () => {
           useValue: mockApptRepo,
         },
         {
-          // Motor real sobre los mismos repositorios simulados: estos tests
-          // comprueban el comportamiento de extremo a extremo (horario,
-          // bloqueos y conflictos), no que se llame a un colaborador.
+          // Motor real sobre los repositorios simulados: se comprueba el
+          // horario, los bloqueos y los conflictos de extremo a extremo.
           provide: AvailabilityQueryService,
           useFactory: () =>
             new AvailabilityQueryService(
@@ -1594,8 +1592,7 @@ describe("AppointmentsService", () => {
       ).resolves.toMatchObject({ resenable: true });
     });
 
-    // El marketplace los usa para no fiarse de lo que el autor escriba en el
-    // cuerpo de la reseña.
+    // El marketplace los usa para no fiarse del cuerpo de la resena.
     it("devuelve el profesional y los servicios atendidos", async () => {
       mockApptRepo.findOne.mockResolvedValue(completada);
       mockHttp.pedir.mockResolvedValue([{ id: "ficha-a" }]);
@@ -1772,6 +1769,96 @@ describe("AppointmentsService", () => {
       expect(typeof service.reschedule).toBe("function");
       expect(typeof service.findById).toBe("function");
       expect(typeof service.findByBusiness).toBe("function");
+    });
+  });
+
+  describe("clientIdsAtendidosPor", () => {
+    /** Deja el constructor de consultas devolviendo esas filas agrupadas. */
+    function conFilas(clientIds: string[]) {
+      const getRawMany = jest
+        .fn()
+        .mockResolvedValue(clientIds.map((clientId) => ({ clientId })));
+      const qb: any = {
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        getRawMany,
+      };
+      (mockApptRepo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+      return qb;
+    }
+
+    it("devuelve los clientes del profesional en ese negocio", async () => {
+      const qb = conFilas(["client-1", "client-2"]);
+
+      const resultado = await service.clientIdsAtendidosPor(
+        "prof-123",
+        "business-123"
+      );
+
+      expect(resultado).toEqual({
+        clientIds: ["client-1", "client-2"],
+        truncado: false,
+      });
+      expect(qb.where).toHaveBeenCalledWith(
+        "a.professional_id = :professionalId",
+        { professionalId: "prof-123" }
+      );
+      expect(qb.andWhere).toHaveBeenCalledWith("a.business_id = :businessId", {
+        businessId: "business-123",
+      });
+    });
+
+    // Reservar y cancelar no crea relación con la ficha; si contara, bastaría
+    // eso para adoptar un cliente ajeno.
+    it("deja fuera las citas canceladas", async () => {
+      const qb = conFilas([]);
+
+      await service.clientIdsAtendidosPor("prof-123", "business-123");
+
+      expect(qb.andWhere).toHaveBeenCalledWith("a.status != :cancelada", {
+        cancelada: AppointmentStatus.CANCELLED,
+      });
+    });
+
+    it("agrupa por cliente y ordena por la cita más reciente", async () => {
+      const qb = conFilas([]);
+
+      await service.clientIdsAtendidosPor("prof-123", "business-123");
+
+      expect(qb.groupBy).toHaveBeenCalledWith("a.client_id");
+      expect(qb.orderBy).toHaveBeenCalledWith("MAX(a.date)", "DESC");
+    });
+
+    it("avisa de que hay más clientes de los que caben", async () => {
+      const qb = conFilas(["client-1", "client-2", "client-3"]);
+
+      const resultado = await service.clientIdsAtendidosPor(
+        "prof-123",
+        "business-123",
+        2
+      );
+
+      expect(resultado).toEqual({
+        clientIds: ["client-1", "client-2"],
+        truncado: true,
+      });
+      // Se pide uno de más justo para poder decirlo.
+      expect(qb.limit).toHaveBeenCalledWith(3);
+    });
+
+    it("devuelve la lista vacía si no ha atendido a nadie", async () => {
+      conFilas([]);
+
+      const resultado = await service.clientIdsAtendidosPor(
+        "prof-123",
+        "business-123"
+      );
+
+      expect(resultado).toEqual({ clientIds: [], truncado: false });
     });
   });
 });

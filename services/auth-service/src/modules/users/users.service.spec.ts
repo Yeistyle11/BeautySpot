@@ -537,6 +537,24 @@ describe("UsersService", () => {
       });
     });
 
+    // La cuenta que crea el dueno nace confirmada: no hay correo que su
+    // empleado espere, y el login exige confirmacion.
+    it("la cuenta nace con el correo confirmado", async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockUserRepository.create.mockReturnValue(mockUser);
+      mockUserRepository.save.mockResolvedValue(mockUser);
+      mockMembershipRepository.create.mockReturnValue(mockMembership);
+      mockMembershipRepository.save.mockResolvedValue(mockMembership);
+      mockAuditLogRepository.create.mockReturnValue({});
+      mockAuditLogRepository.save.mockResolvedValue({});
+
+      await service.createStaff("business-123", dto);
+
+      expect(mockUserRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ emailVerified: true })
+      );
+    });
+
     it("lanza Conflict si el email ya está registrado", async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser);
 

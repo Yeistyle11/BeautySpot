@@ -3,6 +3,7 @@ import { Test } from "@nestjs/testing";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
 import { FeedService } from "./feed.service";
+import { TIPOS_DE_NEGOCIO } from "@beautyspot/shared-constants";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
 import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
 
@@ -102,7 +103,7 @@ describe("FeedService", () => {
 
       const result = await service.getFeed();
 
-      expect(result.categories).toHaveLength(3);
+      expect(result.categories).toHaveLength(TIPOS_DE_NEGOCIO.length);
       expect(result.sections).toHaveLength(4);
       expect(result.sections[0].id).toBe("popular_nearby");
     });
@@ -142,7 +143,7 @@ describe("FeedService", () => {
       const result = await service.getFeed();
 
       expect(result.sections).toHaveLength(0);
-      expect(result.categories).toHaveLength(3);
+      expect(result.categories).toHaveLength(TIPOS_DE_NEGOCIO.length);
     });
 
     it("debería calcular categorías correctamente", async () => {
@@ -162,14 +163,34 @@ describe("FeedService", () => {
 
       const result = await service.getFeed();
 
-      // Un solo GROUP BY para las tres categorías, en vez de una consulta por
+      // Un solo GROUP BY para todas las categorías, en vez de una consulta por
       // cada una que además traía una fila de perfil para descartarla.
       expect(mockBusinessService.contarPorTipo).toHaveBeenCalledTimes(1);
       expect(result.categories).toEqual([
         expect.objectContaining({ id: "BARBERIA", count: 0 }),
         expect.objectContaining({ id: "SALON", count: 7 }),
         expect.objectContaining({ id: "SPA", count: 2 }),
+        expect.objectContaining({ id: "BELLEZA", count: 0 }),
       ]);
+    });
+
+    // Un tipo que se pueda elegir al crear el negocio y que no sea categoría de
+    // la portada deja al local fuera de todos los filtros.
+    it("ofrece una categoría por cada tipo de negocio que admite el alta", async () => {
+      mockBusinessService.contarPorTipo.mockResolvedValue(new Map());
+      mockBusinessService.findPublished.mockResolvedValue({
+        items: [],
+        total: 0,
+      });
+      mockBusinessService.findTopRated.mockResolvedValue([]);
+      mockBusinessService.findRecent.mockResolvedValue([]);
+      mockProfessionalService.findTopRated.mockResolvedValue([]);
+
+      const result = await service.getFeed();
+
+      expect(result.categories.map((c) => c.id)).toEqual(
+        TIPOS_DE_NEGOCIO.map((t) => t.valor)
+      );
     });
   });
 });

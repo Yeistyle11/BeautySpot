@@ -43,9 +43,7 @@ export function formatDayMonth(date: string): string {
   });
 }
 
-// Clave "YYYY-MM-DD" en horario local. `toISOString()` convierte a UTC, asi
-// que en timezones negativos (es-CO, UTC-5) a partir de las 19:00 devolveria
-// ya el dia siguiente y descuadraria el agrupamiento por dia.
+// Clave "YYYY-MM-DD" en horario local; `toISOString()` daria la del dia UTC.
 export function toLocalDateKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -54,11 +52,8 @@ export function toLocalDateKey(date: Date): string {
 }
 
 /**
- * Indica si una cita ("YYYY-MM-DD" + "HH:MM") ya ha empezado.
- *
- * Ambos formatos son de ancho fijo y con ceros a la izquierda, asi que
- * compararlos como texto ordena igual que compararlos como instantes, y evita
- * construir una fecha que el navegador interpretaria en su propio huso.
+ * Indica si una cita ("YYYY-MM-DD" + "HH:MM") ya ha empezado, comparando
+ * ambos formatos como texto.
  */
 export function haComenzado(date: string, startTime: string): boolean {
   const ahora = new Date();
@@ -69,11 +64,8 @@ export function haComenzado(date: string, startTime: string): boolean {
 }
 
 /**
- * Convierte una hora "HH:MM" (24h) a formato de 12h con am/pm.
- *
- * La agenda calcula en horas que pueden pasar de 24 —la cita de las 23:30 que
- * dura una hora termina a las "24:30"—, así que la hora se baja al reloj antes
- * de leerla: si no, las 24:30 se anunciarían como "12:30 pm".
+ * Convierte una hora "HH:MM" (24h) a formato de 12h con am/pm, bajando al
+ * reloj las horas que pasan de 24 ("24:30" son las 12:30 am).
  */
 export function formatTime(time: string): string {
   const [h, m] = time.split(":");
@@ -110,11 +102,4 @@ export function formatTimeStamp(isoTimestamp: string): string {
 /** Años de experiencia en singular o plural: "1 año", "4 años". */
 export function formatAniosExperiencia(anios: number): string {
   return `${anios} ${anios === 1 ? "año" : "años"} de experiencia`;
-}
-
-/** Extrae un mensaje legible de un error de tipo desconocido, con texto de reserva. */
-export function getErrorMessage(err: unknown, fallback = "Error"): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
-  return fallback;
 }

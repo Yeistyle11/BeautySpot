@@ -2,10 +2,8 @@ import { z } from "zod";
 import { COLORES_DE_NIVEL } from "@beautyspot/shared-constants";
 
 /**
- * Clase de fondo de cada color de nivel.
- *
- * Las clases se escriben literales para que Tailwind las encuentre al compilar:
- * si se armaran concatenando el nombre del color, no estarían en el CSS.
+ * Clase de fondo de cada color de nivel, escrita literal para que Tailwind la
+ * encuentre al compilar.
  */
 export const CLASE_DE_COLOR: Record<string, string> = {
   bronce: "bg-amber-700",

@@ -2,11 +2,11 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { ReviewStatus } from "../../entities/review.entity";
 import { Repository, EntityManager } from "typeorm";
-import { escapeLikePattern } from "@beautyspot/shared-utils";
+import { escapeLikePattern, generateSlug } from "@beautyspot/shared-utils";
 import {
   BusinessProfileEntity,
   SectionConfig,
@@ -14,6 +14,7 @@ import {
 import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
 import {
   UpsertProfileDto,
+  CrearPerfilDto,
   UpdateProfileConfigDto,
   AddGalleryImagesDto,
   UpdateGalleryImageDto,
@@ -22,13 +23,8 @@ import { RedisCacheService } from "@beautyspot/nest-common";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
 
 /**
- * Vigencia de un perfil público en caché.
- *
- * Cinco minutos es un compromiso: las escrituras invalidan explícitamente, así
- * que el TTL sólo cubre los cambios que llegan por otra vía (eventos de otro
- * servicio, escrituras directas en la base). Un perfil de negocio que tarde unos
- * minutos en reflejar un cambio no rompe nada; que la portada consulte la base
- * en cada visita, sí se nota.
+ * Vigencia de un perfil publico en cache. Las escrituras invalidan aparte, asi
+ * que el TTL solo cubre los cambios que llegan por otra via.
  */
 const PERFIL_TTL_SEGUNDOS = 300;
 
@@ -41,6 +37,23 @@ const DEFAULT_SECTIONS: SectionConfig[] = [
   { id: "reviews", enabled: true, order: 5 },
   { id: "location", enabled: true, order: 6 },
 ];
+
+/**
+ * Sufijos que se prueban cuando el enlace derivado del nombre ya esta tomado,
+ * acotados porque cada intento consulta la base.
+ */
+const INTENTOS_DE_ENLACE = 20;
+
+/** Detecta la violación de índice único de Postgres (SQLSTATE 23505). */
+function esViolacionDeUnicidad(
+  error: unknown
+): error is { code: string; constraint?: string } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: string }).code === "23505"
+  );
+}
 
 /**
  * Gestiona el perfil público de un negocio en el marketplace: sincronización
@@ -79,6 +92,75 @@ export class BusinessProfilesService {
     });
     profile.profileCompleteness = await this.calculateCompleteness(profile);
     return this.guardar(profile);
+  }
+
+  // --- Alta desde el panel ---
+
+  /** Da de alta el escaparate del negocio, en borrador y sin publicarlo. */
+  async crearParaNegocio(
+    businessId: string,
+    dto: CrearPerfilDto
+  ): Promise<BusinessProfileEntity> {
+    const existente = await this.repo.findOne({ where: { businessId } });
+    if (existente) {
+      throw new ConflictException(
+        "Este negocio ya tiene perfil en el marketplace"
+      );
+    }
+
+    const slug = await this.resolverEnlace(dto.name, dto.slug);
+
+    try {
+      return await this.createOrUpdate({ ...dto, businessId, slug });
+    } catch (error) {
+      // Las comprobaciones de arriba no son atomicas: la de dos altas a la vez
+      // que pierde llega aqui, y el mensaje distingue que unicidad salto.
+      if (esViolacionDeUnicidad(error)) {
+        throw new ConflictException(
+          error.constraint === "uq_business_profiles_negocio"
+            ? "Este negocio ya tiene perfil en el marketplace"
+            : "Ese enlace ya está en uso, elige otro"
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Enlace publico con el que nace el perfil: el que escribe el dueno se
+   * respeta o se rechaza; el derivado del nombre se numera al chocar.
+   */
+  private async resolverEnlace(
+    nombre: string,
+    pedido?: string
+  ): Promise<string> {
+    if (pedido) {
+      if (await this.enlaceTomado(pedido)) {
+        throw new ConflictException("Ese enlace ya está en uso, elige otro");
+      }
+      return pedido;
+    }
+
+    const base = generateSlug(nombre);
+    if (!base) {
+      throw new BadRequestException(
+        "El nombre no sirve para formar un enlace, escribe uno"
+      );
+    }
+
+    for (let intento = 1; intento <= INTENTOS_DE_ENLACE; intento++) {
+      const candidato = intento === 1 ? base : `${base}-${intento}`;
+      if (!(await this.enlaceTomado(candidato))) return candidato;
+    }
+
+    throw new ConflictException(
+      "No encontramos un enlace libre para ese nombre, elige uno"
+    );
+  }
+
+  /** Indica si ya hay un perfil con ese enlace. */
+  private async enlaceTomado(slug: string): Promise<boolean> {
+    return (await this.repo.countBy({ slug })) > 0;
   }
 
   // --- Lectura publica ---
@@ -285,9 +367,6 @@ export class BusinessProfilesService {
       .addSelect("COUNT(r.id)", "count")
       .from("reviews", "r")
       .where("r.business_id = :bid", { bid: businessId })
-      .andWhere("r.status = :publicada", {
-        publicada: ReviewStatus.PUBLICADA,
-      })
       .getRawOne();
 
     const totalReviews = parseInt(result?.count || "0", 10);

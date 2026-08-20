@@ -6,11 +6,8 @@ import {
 } from "../../../common/es-hora-del-dia.decorator";
 
 /**
- * Una franja de disponibilidad: día de la semana con hora de inicio y fin. Un
- * mismo día puede traer varias, que es como se modela la jornada partida.
- *
- * La entrada es una hora del día; la salida admite además las `24:00`, que es
- * como se dice "hasta el filo de la medianoche".
+ * Una franja de disponibilidad: dia de la semana con hora de inicio y fin, y
+ * varias por dia en la jornada partida. La salida admite las `24:00`.
  */
 export class SlotDto {
   @IsNumber() @Min(0) @Max(6) dayOfWeek!: number;

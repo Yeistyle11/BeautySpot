@@ -37,12 +37,21 @@ export class ReportsService {
           "COALESCE(SUM(m.total_appointments), 0)",
           "totalAppointments"
         )
+        .addSelect("COALESCE(SUM(m.ventas), 0)", "ventas")
+        // Solo los ingresos de los días cuyas ventas están contadas: promediar
+        // sobre los otros daría un ticket inflado.
+        .addSelect(
+          "COALESCE(SUM(m.total_revenue) FILTER (WHERE m.ventas > 0), 0)",
+          "revenueDeVentas"
+        )
         .where("m.business_id = :businessId", { businessId })
         .andWhere("m.date BETWEEN :from AND :to", { from, to })
         .getRawOne<{
           totalRevenue: string;
           totalAppointments: string;
           completedAppointments: string;
+          ventas: string;
+          revenueDeVentas: string;
         }>(),
       this.dailyRepo.find({
         where: { businessId, date: Between(from, to) },
@@ -58,11 +67,11 @@ export class ReportsService {
     const completedAppointments = Number(
       aggregates?.completedAppointments ?? 0
     );
-    // Ingresos del periodo entre las citas atendidas.
-    const avgTicket =
-      completedAppointments > 0
-        ? Math.round(totalRevenue / completedAppointments)
-        : 0;
+    // Ingresos del periodo entre los cobros que los produjeron, no entre las
+    // citas atendidas. Sin cobros no hay ticket.
+    const ventas = Number(aggregates?.ventas ?? 0);
+    const revenueDeVentas = Number(aggregates?.revenueDeVentas ?? 0);
+    const avgTicket = ventas > 0 ? Math.round(revenueDeVentas / ventas) : null;
 
     return {
       period: { from, to },

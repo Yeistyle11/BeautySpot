@@ -228,8 +228,8 @@ describe("ReviewsService", () => {
 
       await service.create(dto, "client-123");
 
-      // Dentro alargaría los bloqueos con una conversación con Redis, y si la
-      // transacción se deshiciera dejaría la caché borrada sin motivo.
+      // Fuera de la transaccion: dentro alargaria los bloqueos con una
+      // conversacion con Redis.
       expect(orden).toEqual(["tx:inicio", "tx:fin", "invalidar"]);
       expect(mockProfilesService.invalidarCache).toHaveBeenCalledWith(
         "business-123"
@@ -592,6 +592,16 @@ describe("ReviewsService", () => {
       expect(result.distribution).toEqual({ 5: 1, 4: 1, 3: 1, 2: 1, 1: 1 });
     });
 
+    // El resumen cuenta lo mismo que la media: las ocultas incluidas.
+    it("no descarta las reseñas ocultas", async () => {
+      const qb = summaryQb([{ rating: 1, count: "3" }]);
+      mockRepo.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.getSummary("business-123");
+
+      expect(qb.andWhere).not.toHaveBeenCalled();
+    });
+
     it("debería calcular promedio 0 si no hay reseñas", async () => {
       mockRepo.createQueryBuilder.mockReturnValue(summaryQb([]) as any);
 
@@ -668,8 +678,7 @@ describe("ReviewsService", () => {
       );
     });
 
-    // Una lista vacía es "ninguna cita por la que preguntar", no "sin filtro":
-    // sin esto, una pantalla sin citas se traería el historial entero.
+    // Una lista vacia es "ninguna cita por la que preguntar", no "sin filtro".
     it("con una lista de citas vacía no consulta por todo el historial", async () => {
       mockRepo.findAndCount.mockResolvedValue([[], 0]);
 

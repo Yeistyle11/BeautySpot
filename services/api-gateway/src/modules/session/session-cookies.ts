@@ -24,9 +24,11 @@ function opcionesBase(configService: {
   };
 }
 
-/** Vida de cada cookie, en segundos, leída de la configuración del JWT. */
+/**
+ * Vida de las cookies de sesion, en segundos: las tres duran lo que la sesion
+ * de refresco.
+ */
 export interface VidaSesion {
-  accessSegundos: number;
   refreshSegundos: number;
 }
 
@@ -40,10 +42,12 @@ export function fijarCookiesDeSesion(
 ): void {
   const base = opcionesBase(configService);
 
+  // La cookie vive lo que la sesion, no lo que el token que lleva dentro, que
+  // caduca antes y es lo que el gateway valida en cada peticion.
   res.cookie(ACCESS_COOKIE, tokens.accessToken, {
     ...base,
     path: "/",
-    maxAge: vida.accessSegundos * 1000,
+    maxAge: vida.refreshSegundos * 1000,
   });
 
   if (tokens.refreshToken) {

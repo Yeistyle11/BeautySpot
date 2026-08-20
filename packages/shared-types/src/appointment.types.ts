@@ -9,10 +9,8 @@ export enum AppointmentStatus {
 }
 
 /**
- * Cada cuánto se repite un bloqueo de agenda.
- *
- * `SEMANAL` cae siempre en el mismo día de la semana ("los martes por la
- * tarde"); `DIARIA` cubre días seguidos, que es como se modelan las vacaciones.
+ * Cada cuanto se repite un bloqueo de agenda: `SEMANAL` cae en el mismo dia de
+ * la semana y `DIARIA` cubre dias seguidos.
  */
 export enum RepeticionDeBloqueo {
   DIARIA = "DIARIA",

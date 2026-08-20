@@ -1,7 +1,7 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository, DataSource } from "typeorm";
-import { PaymentsService } from "./payments.service";
+import { PaymentsService, conceptoDelCobro } from "./payments.service";
 import { PaymentEntity } from "./payment.entity";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import {
@@ -59,7 +59,7 @@ describe("PaymentsService", () => {
     mockManagerRepo = {
       save: jest.fn(),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
-      // El efectivo se anota en la caja abierta, así que la transacción también
+      // El efectivo se anota en la caja abierta: la transaccion tambien
       // consulta y crea sobre las entidades de arqueo.
       findOne: jest.fn().mockResolvedValue({ id: "cash-session-1" }),
       create: jest.fn((data) => data),
@@ -142,6 +142,78 @@ describe("PaymentsService", () => {
         })
       );
       expect(result).toEqual(mockPayment);
+    });
+
+    // Tres envios del mismo intento dejan un solo cargo: el segundo choca
+    // contra el indice y devuelve el cobro ya hecho.
+    it("el reenvío del mismo intento devuelve el cobro que ya existe", async () => {
+      const data = {
+        clientId: "client-123",
+        amount: 99000,
+        method: PaymentMethod.CARD,
+        registeredBy: "user-123",
+        solicitudId: "66666666-6666-4666-8666-666666666666",
+      };
+
+      mockRepo.create.mockReturnValue(mockPayment);
+      mockManagerRepo.save.mockRejectedValue({ code: "23505" });
+      mockRepo.findOne.mockResolvedValue(mockPayment);
+
+      const result = await service.create("business-123", data);
+
+      expect(result).toEqual(mockPayment);
+      expect(mockRepo.findOne).toHaveBeenCalledWith({
+        where: {
+          businessId: "business-123",
+          solicitudId: data.solicitudId,
+        },
+      });
+    });
+
+    // El formulario ofrece las citas atendidas del cliente, y las ya cobradas
+    // hay que tacharlas: booking no sabe de pagos.
+    it("dice cuáles de unas citas ya tienen cobro vivo", async () => {
+      // `select` deja fuera el resto de columnas: solo interesa el id de cita.
+      mockRepo.find.mockResolvedValue([
+        { appointmentId: "cita-1" },
+        { appointmentId: "cita-3" },
+      ] as never);
+
+      const cobradas = await service.citasYaCobradas("business-123", [
+        "cita-1",
+        "cita-2",
+        "cita-3",
+      ]);
+
+      expect(cobradas).toEqual(["cita-1", "cita-3"]);
+      expect(mockRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ businessId: "business-123" }),
+        })
+      );
+    });
+
+    it("sin citas por las que preguntar no consulta nada", async () => {
+      await expect(
+        service.citasYaCobradas("business-123", [])
+      ).resolves.toEqual([]);
+      expect(mockRepo.find).not.toHaveBeenCalled();
+    });
+
+    // Sin identificador no hay forma de saber si el choque es un reenvío o un
+    // cobro distinto que topa con otra restriccion: el error tiene que salir.
+    it("propaga el choque cuando el cobro no trae identificador", async () => {
+      mockRepo.create.mockReturnValue(mockPayment);
+      mockManagerRepo.save.mockRejectedValue({ code: "23505" });
+
+      await expect(
+        service.create("business-123", {
+          clientId: "client-123",
+          amount: 99000,
+          method: PaymentMethod.CARD,
+          registeredBy: "user-123",
+        })
+      ).rejects.toMatchObject({ code: "23505" });
     });
 
     it("anota el efectivo como entrada en la caja abierta", async () => {
@@ -517,8 +589,8 @@ describe("PaymentsService", () => {
       expect(result.status).toBe(PaymentStatus.PENDING);
     });
 
-    // La devolución exige importe, motivo, autor y ventana de 30 días, y eso
-    // solo lo comprueba refundPayment.
+    // El importe, el motivo, el autor y la ventana de 30 dias los comprueba
+    // refundPayment.
     it("no deja marcar un pago como reembolsado por esta vía", async () => {
       pagoEn(PaymentStatus.COMPLETED);
 
@@ -762,5 +834,29 @@ describe("PaymentsService", () => {
       ).rejects.toThrow(BadRequestException);
       expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("conceptoDelCobro", () => {
+  // El identificador del pago es un dato interno y no dice nada a quien repasa
+  // la caja al cerrar; el movimiento tiene que nombrar lo que se vendio.
+  it("nombra los servicios cobrados", () => {
+    expect(
+      conceptoDelCobro([
+        { serviceId: "s-1", name: "Corte clásico" },
+        { serviceId: "s-2", name: "Barba" },
+      ] as never)
+    ).toBe("Corte clásico, Barba");
+  });
+
+  it("nombra la venta suelta cuando no hay cita detrás", () => {
+    expect(conceptoDelCobro(undefined)).toBe("Venta en mostrador");
+    expect(conceptoDelCobro([])).toBe("Venta en mostrador");
+  });
+
+  it("no deja un concepto vacío si los servicios llegan sin nombre", () => {
+    expect(conceptoDelCobro([{ serviceId: "s-1", name: "" }] as never)).toBe(
+      "Venta en mostrador"
+    );
   });
 });

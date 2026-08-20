@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { FindOperator, In, Repository } from "typeorm";
 import { AppointmentStatus } from "@beautyspot/shared-types";
+import { diaAnterior } from "@beautyspot/shared-utils";
 import { AvailabilityQueryService } from "./availability-query.service";
 import { Appointment } from "../../entities/appointment.entity";
 import { Availability } from "../../entities/availability.entity";
@@ -11,11 +12,8 @@ import { ZonaDelNegocioService } from "@beautyspot/nest-common";
 import { HorarioDelNegocioService } from "./horario-del-negocio.service";
 
 /**
- * Miércoles futuro, calculado y no escrito a mano: el servicio marca no
- * disponible toda franja que ya pasó, así que una fecha fija deja de ofrecer
- * huecos en cuanto el calendario la alcanza y tumba la suite sin que nadie haya
- * tocado el código. Miércoles para que case con el `dayOfWeek: 3` de
- * `jornadaCorta`.
+ * Miercoles futuro, calculado al vuelo: el servicio no ofrece franjas
+ * pasadas, y el dia 3 es el de `jornadaCorta`.
  */
 const MIERCOLES_FUTURO = (() => {
   const dia = new Date();
@@ -101,8 +99,8 @@ describe("AvailabilityQueryService", () => {
     mockAvailRepo = { findOne: jest.fn(), find: jest.fn() } as never;
     mockBlockRepo = { find: jest.fn() } as never;
     mockZonas = { de: jest.fn().mockResolvedValue("America/Bogota") };
-    // Por defecto el negocio no tiene horario configurado, así que la agenda la
-    // limita solo el horario del profesional.
+    // El negocio del fixture no tiene horario configurado: la agenda la limita
+    // solo el horario del profesional.
     mockHorario = { tramosDelDia: jest.fn().mockResolvedValue(null) };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -136,9 +134,8 @@ describe("AvailabilityQueryService", () => {
         60
       );
 
-      // Se piden todos los tramos del día, no solo el primero (la jornada
-      // partida son varias filas), y también los del día anterior, cuya
-      // madrugada puede invadir este.
+      // Se piden todos los tramos del dia (la jornada partida son varias
+      // filas) y tambien los del dia anterior.
       expect(mockAvailRepo.find).toHaveBeenCalledWith({
         where: [
           {
@@ -387,9 +384,7 @@ describe("AvailabilityQueryService", () => {
       expect(slots.find((s) => s.startTime === "02:00")).toBeUndefined();
     });
 
-    // Esa madrugada se ofrece bajo el miércoles, que es el día al que
-    // pertenece. Ofrecerla también bajo el martes sería la misma hora dos
-    // veces, con dos fechas distintas.
+    // Esa madrugada se ofrece bajo el miercoles, el dia al que pertenece.
     it("no ofrece esa madrugada tambien bajo el martes", async () => {
       const slots = await service.franjasDeProfesional(
         "business-123",
@@ -427,9 +422,10 @@ describe("AvailabilityQueryService", () => {
     // El servicio de horario ya devuelve el cierre en la escala del cálculo,
     // que es donde la madrugada del martes son las 26:00.
     it("la apertura del negocio tambien arrastra su madrugada", async () => {
+      const martes = diaAnterior(MIERCOLES_FUTURO);
       mockHorario.tramosDelDia.mockImplementation(
-        async (_negocio: string, dia: number) =>
-          dia === MARTES ? [{ startTime: "20:00", endTime: "26:00" }] : []
+        async (_negocio: string, fecha: string) =>
+          fecha === martes ? [{ startTime: "20:00", endTime: "26:00" }] : []
       );
 
       await expect(
@@ -499,9 +495,8 @@ describe("AvailabilityQueryService", () => {
 
       await service.franjasDelNegocio("business-123", MIERCOLES_FUTURO, 30);
 
-      // Una consulta de horarios, una de bloqueos y dos de citas —el día y el
-      // anterior, por lo que arrastra pasada la medianoche—: el coste es fijo y
-      // no crece con el tamaño del equipo, que es lo que se vigila aquí.
+      // Una consulta de horarios, una de bloqueos y dos de citas: el coste no
+      // crece con el tamano del equipo.
       expect(mockAvailRepo.find).toHaveBeenCalledTimes(1);
       expect(mockBlockRepo.find).toHaveBeenCalledTimes(1);
       expect(mockApptRepo.find).toHaveBeenCalledTimes(2);
@@ -871,8 +866,7 @@ describe("AvailabilityQueryService", () => {
       ).resolves.toBe(false);
     });
 
-    // Una cita de 23:30 a 00:30 ocupa media hora del dia siguiente: se consulta
-    // por fecha, asi que sin traer ese sobrante se vende dos veces. La
+    // Una cita de 23:30 a 00:30 ocupa media hora del dia siguiente; la
     // ocupacion se recalcula desde las lineas, no desde la hora guardada.
     it("ve el conflicto con la cita de anoche que invade la madrugada", async () => {
       mockApptRepo.find.mockImplementation(

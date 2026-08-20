@@ -7,7 +7,7 @@ import {
   Inject,
   Logger,
 } from "@nestjs/common";
-import { Request } from "express";
+import { Request, Response } from "express";
 import {
   RATE_LIMIT_AUTH_REQUESTS,
   RATE_LIMIT_GENERAL_REQUESTS,
@@ -18,18 +18,22 @@ import Redis from "ioredis";
 import { REDIS_CLIENT } from "../redis/redis.module";
 
 /**
- * Incrementa el contador y fija su expiración en una sola llamada atómica.
- * Un INCR seguido de un EXPIRE por separado deja la clave sin TTL si el proceso
- * muere entre ambos, bloqueando a la IP indefinidamente. KEYS[1]=clave,
- * ARGV[1]=ventana en segundos. Devuelve el nuevo valor del contador.
+ * Incrementa el contador y fija su expiracion en una sola llamada atomica, y
+ * devuelve el conteo y el TTL. KEYS[1]=clave, ARGV[1]=ventana en segundos.
  */
 const INCR_WITH_EXPIRE = `
   local count = redis.call('INCR', KEYS[1])
   if count == 1 then
     redis.call('EXPIRE', KEYS[1], ARGV[1])
   end
-  return count
+  return { count, redis.call('TTL', KEYS[1]) }
 `;
+
+/** Lo que un contador responde al anotar una petición: cuántas van y cuánto queda. */
+interface Marca {
+  count: number;
+  espera: number;
+}
 
 /** Rutas que exponen credenciales y quedan bajo el límite estricto. */
 const RUTAS_DE_CREDENCIALES = [
@@ -87,38 +91,79 @@ export class RateLimitGuard implements CanActivate {
   /** Cuenta la petición y la rechaza si supera el límite de su ventana. */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
+    const response = context.switchToHttp().getResponse<Response>();
     const isAuthRoute = this.isAuthRoute(request.path);
 
-    // En rutas de autenticación se limita también por cuenta objetivo, no solo
-    // por IP: así un ataque distribuido de credential stuffing contra un mismo
-    // email se frena aunque cada intento venga de una IP distinta.
+    // En rutas de autenticacion se limita tambien por cuenta objetivo, no solo
+    // por IP.
     const buckets = this.buildBuckets(request, isAuthRoute);
     const limit = isAuthRoute ? this.limiteCredenciales : this.limiteGeneral;
 
+    // De los dos contadores manda el que va mas lleno.
+    let usados = 0;
+    let esperaSegundos = this.ventanaSegundos;
+
     for (const bucket of buckets) {
-      const count = await this.hit(bucket);
-      if (count !== null && count > limit) {
-        throw new HttpException(
-          {
-            success: false,
-            error: {
-              code: "RATE_LIMIT_EXCEEDED",
-              message: "Demasiadas solicitudes",
-            },
-            statusCode: HttpStatus.TOO_MANY_REQUESTS,
-          },
-          HttpStatus.TOO_MANY_REQUESTS
-        );
+      const marca = await this.hit(bucket);
+      if (marca === null) continue;
+
+      if (marca.count > usados) {
+        usados = marca.count;
+        esperaSegundos = marca.espera;
       }
+    }
+
+    this.anotarCabeceras(response, limit, usados, esperaSegundos);
+
+    if (usados > limit) {
+      throw new HttpException(
+        {
+          success: false,
+          error: {
+            code: "RATE_LIMIT_EXCEEDED",
+            message: this.mensajeDeEspera(isAuthRoute, esperaSegundos),
+          },
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+        },
+        HttpStatus.TOO_MANY_REQUESTS
+      );
     }
 
     return true;
   }
 
+  /** Dice cuanto falta para poder reintentar. */
+  private mensajeDeEspera(esDeCredenciales: boolean, segundos: number): string {
+    const que = esDeCredenciales
+      ? "Demasiados intentos"
+      : "Demasiadas solicitudes";
+    return `${que}. Espera ${segundos} ${
+      segundos === 1 ? "segundo" : "segundos"
+    } y vuelve a intentarlo.`;
+  }
+
   /**
-   * Indica si la ruta es de credenciales y le toca el límite estricto. Compara
-   * el nombre del servicio normalizado, que se acepta con y sin sufijo, y deja
-   * fuera `/auth/refresh`, cuyo token firmado no se fuerza por fuerza bruta.
+   * Cabeceras estandar del limitador, tambien cuando la peticion pasa.
+   */
+  private anotarCabeceras(
+    response: Response,
+    limite: number,
+    usados: number,
+    espera: number
+  ): void {
+    // `setHeader` no existe si quien llama no trae una respuesta de Express,
+    // como pasa en algunas pruebas del guard.
+    if (typeof response?.setHeader !== "function") return;
+
+    response.setHeader("RateLimit-Limit", limite);
+    response.setHeader("RateLimit-Remaining", Math.max(0, limite - usados));
+    response.setHeader("RateLimit-Reset", espera);
+    if (usados > limite) response.setHeader("Retry-After", espera);
+  }
+
+  /**
+   * Indica si la ruta es de credenciales y le toca el limite estricto; deja
+   * fuera `/auth/refresh`.
    */
   private isAuthRoute(path: string): boolean {
     const normalizado = path.replace(/^(\/api\/v\d+\/[a-z]+)-service\//, "$1/");
@@ -141,9 +186,8 @@ export class RateLimitGuard implements CanActivate {
 
   /** IP a la que se le imputa la petición. */
   private resolveIp(request: Request): string {
-    // request.ip respeta el ajuste "trust proxy" de Express; si no está activo
-    // detrás de un balanceador todas las peticiones comparten cuota, por lo que
-    // debe configurarse junto con este guard.
+    // request.ip respeta el ajuste "trust proxy" de Express, que hay que
+    // configurar junto con este guard.
     return request.ip || request.socket?.remoteAddress || "unknown";
   }
 
@@ -155,19 +199,24 @@ export class RateLimitGuard implements CanActivate {
   }
 
   /**
-   * Registra un impacto en el contador de la ventana. Devuelve el conteo actual
-   * o null si Redis no responde: ante un fallo de la caché se deja pasar la
-   * petición (fail-open) en vez de tumbar todo el tráfico con errores 500.
+   * Registra un impacto en el contador de la ventana. Devuelve el conteo o
+   * null si Redis no responde, y entonces la peticion pasa (fail-open).
    */
-  private async hit(key: string): Promise<number | null> {
+  private async hit(key: string): Promise<Marca | null> {
     try {
-      const count = (await this.redis.eval(
+      const [count, ttl] = (await this.redis.eval(
         INCR_WITH_EXPIRE,
         1,
         key,
         String(this.ventanaSegundos)
-      )) as number;
-      return count;
+      )) as [number, number];
+
+      return {
+        count,
+        // Un TTL negativo es una clave sin caducidad o ya ida; en ese caso lo
+        // que queda es, como mucho, una ventana entera.
+        espera: ttl > 0 ? ttl : this.ventanaSegundos,
+      };
     } catch (error) {
       this.logger.warn(
         `Rate limit no disponible (Redis) para ${key}: ${

@@ -1,7 +1,6 @@
 /**
  * Secretos que nunca deben llegar a un despliegue: los de ejemplo y los de los
- * ficheros .env.test, que están versionados y superan la longitud mínima, de
- * modo que copiarlos por error no lo detectaría nada más.
+ * .env.test, que estan versionados.
  */
 export const DEFAULT_WEAK_SECRETS = [
   "dev-jwt-secret-change-in-production",
@@ -14,8 +13,7 @@ export const DEFAULT_WEAK_SECRETS = [
 ];
 
 /**
- * Longitud mínima del secreto. HS256 usa una clave de 256 bits, así que por
- * debajo de 32 caracteres se firma con menos entropía de la que el algoritmo
- * supone; los .env.example ya piden 32.
+ * Longitud minima del secreto: HS256 usa una clave de 256 bits, asi que por
+ * debajo de 32 caracteres se firma con menos entropia.
  */
 export const MIN_SECRET_LENGTH = 32;

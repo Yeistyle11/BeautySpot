@@ -2,6 +2,7 @@
 
 // Pagina de agenda: lista y calendario de citas, con busqueda, paginacion y acciones de crear/confirmar/cancelar/completar.
 import { useState, useMemo, useCallback } from "react";
+import { mensajeDeError } from "@/lib/error-message";
 import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,15 +24,15 @@ import {
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
-import { getErrorMessage, toLocalDateKey } from "@/lib/utils";
+import { toLocalDateKey } from "@/lib/utils";
 import { useApi, paginatedSchema, revalidatePrefix } from "@/lib/swr";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { usePaginatedList } from "@/lib/use-paginated-list";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
-import { mensajeDeError } from "@/lib/error-message";
 import { AppointmentForm } from "./appointment-form";
 import { AppointmentCard } from "./appointment-card";
+import { RescheduleDialog } from "./reschedule-dialog";
 import { BlockedSlotFormDialog } from "../blocked-slots/blocked-slot-form-dialog";
 import {
   blockedSlotSchema,
@@ -66,8 +67,7 @@ import {
   type Service,
 } from "./schemas";
 
-// La agenda abre en modo lista, asi que la rejilla semanal solo se descarga si
-// el usuario cambia de vista.
+// La rejilla semanal se descarga solo al cambiar a la vista calendario.
 const CalendarView = dynamic(
   () => import("@/components/calendar-view").then((m) => m.CalendarView),
   {
@@ -104,8 +104,7 @@ export default function AppointmentsPage() {
   const [viewMode, setViewMode] = useState<"list" | "day" | "calendar">("list");
   const [dia, setDia] = useState(() => toLocalDateKey(new Date()));
 
-  // El calendario pinta una semana entera, asi que pide el maximo que admite
-  // el backend (100) en vez de paginar; la lista si pagina de 20 en 20.
+  // El calendario pide el maximo del backend (100); la lista pagina de 20.
   const {
     items: appointments,
     meta,
@@ -119,8 +118,7 @@ export default function AppointmentsPage() {
     // La vista día acota al servidor y no necesita traerse la semana entera.
     params: viewMode === "day" ? { date: dia } : undefined,
     limit: viewMode === "list" ? undefined : 100,
-    // El calendario pinta la semana entera: filtrarla por texto la dejaria a
-    // huecos, asi que la busqueda solo aplica a la lista.
+    // La busqueda por texto solo se aplica a la vista lista.
     search: viewMode === "list" ? search : "",
   });
 
@@ -175,10 +173,11 @@ export default function AppointmentsPage() {
     MOTIVOS_DE_CANCELACION[0].value
   );
   const [notaCancelacion, setNotaCancelacion] = useState("");
+  const [reagendando, setReagendando] = useState<Appointment | null>(null);
+  const [moviendo, setMoviendo] = useState(false);
+  const [errorAlMover, setErrorAlMover] = useState("");
 
-  // Las citas solo traen el id del cliente, que vive en otro servicio. Se piden
-  // los nombres de los que hay en pantalla y no la cartera entera, que llega
-  // paginada: fuera de su primera pagina no habria nombre que cruzar.
+  // Pide a core, por id, los nombres de los clientes que salen en pantalla.
   const idsEnPantalla = useMemo(
     () => [...new Set(appointments.map((a) => a.clientId))].sort().join(","),
     [appointments]
@@ -214,9 +213,7 @@ export default function AppointmentsPage() {
   // por servicio.
   const filtered = appointments;
 
-  // Los tres handlers que reciben las tarjetas van memoizados: sin identidad
-  // estable, AppointmentCard se re-renderizaria entera con cada pulsacion del
-  // buscador.
+  // Los tres handlers que reciben las tarjetas van memoizados.
   const handleAction = useCallback(
     async (id: string, action: string, cuerpo: unknown = {}) => {
       try {
@@ -250,6 +247,36 @@ export default function AppointmentsPage() {
   const handleNoShow = useCallback(
     (id: string) => handleAction(id, "no-show"),
     [handleAction]
+  );
+
+  const abrirReagendar = useCallback((appt: Appointment) => {
+    setErrorAlMover("");
+    setReagendando(appt);
+  }, []);
+
+  // Reagendar no pasa por handleAction: es un PATCH y su fallo se lee en el
+  // dialogo, junto al hueco que se acaba de elegir.
+  const confirmarReagendado = useCallback(
+    async (date: string, startTime: string) => {
+      if (!reagendando) return;
+      setMoviendo(true);
+      setErrorAlMover("");
+      try {
+        await api.patch(`/booking/appointments/${reagendando.id}/reschedule`, {
+          date,
+          startTime,
+        });
+        await revalidatePrefix(APPOINTMENTS_KEY);
+        setReagendando(null);
+        toast.exito("Cita reagendada");
+      } catch (err) {
+        logger.error(err);
+        setErrorAlMover(mensajeDeError(err, "No se pudo reagendar la cita"));
+      } finally {
+        setMoviendo(false);
+      }
+    },
+    [reagendando, toast]
   );
 
   const openCompleteDialog = useCallback((appt: Appointment) => {
@@ -299,8 +326,8 @@ export default function AppointmentsPage() {
     if (!completingAppt) return;
     setCompletingAction(true);
     try {
-      // El efectivo necesita una caja abierta donde anotarse. Se comprueba
-      // antes de completar para no dejar la cita cerrada y el cobro sin hacer.
+      // El cobro en efectivo exige una caja abierta; se comprueba antes
+      // de completar la cita.
       if (registerPayment && payment.method === "CASH") {
         const caja = await api.get<{ id: string } | null>(
           "/payment/cash-register/active"
@@ -342,9 +369,8 @@ export default function AppointmentsPage() {
     setError("");
     setSubmitting(true);
     try {
-      // Solo los ids: el nombre, el precio y la duracion los resuelve el
-      // backend contra el catalogo y los congela junto a la cita, para que el
-      // historico no cambie si luego se edita el servicio.
+      // Solo van los ids: el backend resuelve nombre, precio y duracion
+      // contra el catalogo y los congela junto a la cita.
       await api.post("/booking/appointments", {
         ...form,
         serviceIds: selectedServices,
@@ -360,7 +386,7 @@ export default function AppointmentsPage() {
       setAsignaciones({});
       await revalidatePrefix(APPOINTMENTS_KEY);
     } catch (err) {
-      setError(getErrorMessage(err, "Error al crear la cita"));
+      setError(mensajeDeError(err, "Error al crear la cita"));
     } finally {
       setSubmitting(false);
     }
@@ -545,16 +571,27 @@ export default function AppointmentsPage() {
                 clientName={clientMap[appt.clientId]}
                 canConfirm={canDo(role, "appointments_confirm")}
                 canCancel={canDo(role, "appointments_cancel")}
+                canReschedule={canDo(role, "appointments_reschedule")}
                 onConfirm={handleConfirm}
                 onComplete={openCompleteDialog}
                 onCancel={handleCancel}
                 onNoShow={handleNoShow}
+                onReschedule={abrirReagendar}
               />
             ))
           )}
           <Pagination meta={meta} onPageChange={setPage} itemLabel="citas" />
         </div>
       )}
+
+      <RescheduleDialog
+        open={!!reagendando}
+        onClose={() => setReagendando(null)}
+        appointment={reagendando}
+        onConfirm={confirmarReagendado}
+        pending={moviendo}
+        error={errorAlMover}
+      />
 
       <CompleteAppointmentDialog
         open={!!completingAppt}

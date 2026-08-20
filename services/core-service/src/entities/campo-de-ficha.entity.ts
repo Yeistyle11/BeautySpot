@@ -1,5 +1,5 @@
-import { Entity, Column, ManyToOne, JoinColumn, Index } from "typeorm";
-import { TenantEntity } from "@beautyspot/database";
+import { Entity, Column, Check, ManyToOne, JoinColumn, Index } from "typeorm";
+import { TenantEntity, enCatalogo } from "@beautyspot/database";
 import { Business } from "./business.entity";
 
 /** Tipos de dato que puede pedir un campo de la ficha del cliente. */
@@ -19,6 +19,11 @@ export enum TipoDeCampo {
  * tienen sentido en algunos sitios.
  */
 @Entity("campos_de_ficha")
+// El catalogo de tipos, acotado en la base.
+@Check(
+  "CHK_campos_de_ficha_tipo",
+  enCatalogo("tipo", Object.values(TipoDeCampo))
+)
 @Index(["businessId", "active"])
 export class CampoDeFicha extends TenantEntity {
   @Column() etiqueta!: string;

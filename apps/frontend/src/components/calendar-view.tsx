@@ -46,9 +46,8 @@ function getWeekDates(referenceDate: Date): Date[] {
 }
 
 /**
- * Vista semanal de la agenda: distribuye las citas en una rejilla de días (lun-dom)
- * por franja horaria, permite navegar entre semanas y, al seleccionar una cita,
- * muestra su detalle con las acciones de confirmar, completar o cancelar según permisos.
+ * Vista semanal de la agenda: reparte las citas por dia y franja horaria, y
+ * abre el detalle de la elegida con sus acciones.
  */
 export function CalendarView({
   appointments,
@@ -247,7 +246,7 @@ export function CalendarView({
                       variant="outline"
                       onClick={() => onNoShow(selectedAppt.id)}
                     >
-                      No asistio
+                      No asistió
                     </Button>
                   </>
                 )}

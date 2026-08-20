@@ -1,12 +1,8 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Pasa a hora de reloj lo que se guardaba contado desde la medianoche del día
- * que empezó: la jornada que acababa a las "25:00" acaba a la 01:00, y la cita
- * que terminaba a las "24:30" termina a las 00:30.
- *
- * Que la hora caiga ya en el día siguiente se deduce de que venga antes que la
- * de entrada, y por eso la vuelta atrás reconstruye el valor exacto.
+ * Pasa a hora de reloj lo que se guardaba contado desde la medianoche del dia
+ * que empezo: las "25:00" son la 01:00 y las "24:30", las 00:30.
  */
 export class HorasDeReloj1700000000011 implements MigrationInterface {
   name = "HorasDeReloj1700000000011";

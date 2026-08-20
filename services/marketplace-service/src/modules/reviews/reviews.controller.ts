@@ -35,10 +35,8 @@ export class ReviewsController {
   constructor(private readonly service: ReviewsService) {}
 
   /**
-   * Crea una reseña a nombre del usuario del token, no del cuerpo.
-   *
-   * `@SkipBusinessScope` se queda porque un cliente no lleva negocio en el
-   * token; el negocio lo aporta la cita, que sí se verifica.
+   * Crea una resena a nombre del usuario del token. `@SkipBusinessScope`
+   * porque el negocio lo aporta la cita, no el token del cliente.
    */
   @Post()
   @Roles(Role.CLIENT)
@@ -68,11 +66,8 @@ export class ReviewsController {
   }
 
   /**
-   * Reseñas escritas por el usuario autenticado, paginadas.
-   *
-   * Con `appointmentIds` responde solo por esas citas, que es lo que necesita el
-   * listado del cliente para marcar cuáles ya valoró sin arrastrar un historial
-   * que crece con cada visita.
+   * Resenas escritas por el usuario autenticado, paginadas; con
+   * `appointmentIds`, solo las de esas citas.
    */
   @Get("mine")
   @Roles(Role.CLIENT)

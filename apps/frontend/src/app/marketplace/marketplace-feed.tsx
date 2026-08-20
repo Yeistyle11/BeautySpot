@@ -20,6 +20,8 @@ import {
 import { useApiPublic } from "@/lib/swr";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { Spinner } from "@/components/ui/spinner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { TIPOS_DE_NEGOCIO } from "@beautyspot/shared-constants";
 import {
   feedResponseSchema,
   searchResultSchema,
@@ -33,13 +35,14 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   scissors: <Scissors className="h-5 w-5" />,
   mirror: <Sparkles className="h-5 w-5" />,
   spa: <Sparkles className="h-5 w-5" />,
+  sparkles: <Sparkles className="h-5 w-5" />,
 };
 
-const TYPE_LABELS: Record<string, string> = {
-  BELLEZA: "Centro de belleza",
-  SALON: " Salon de Belleza",
-  SPA: "Spa",
-};
+// Del catálogo compartido, para que la etiqueta de la tarjeta no se quede atrás
+// cuando cambien los tipos que se pueden elegir al crear el negocio.
+const TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  TIPOS_DE_NEGOCIO.map((t) => [t.valor, t.etiqueta])
+);
 
 /**
  * Portada del marketplace. `initialFeed` llega resuelto del servidor; la
@@ -75,9 +78,8 @@ export default function MarketplaceFeed({
 
   const isSearching = busquedaDiferida !== "" || activeCategory !== null;
 
-  // Los contadores del feed cuentan todo el catalogo, asi que con una busqueda
-  // activa se recalculan sobre lo encontrado. Solo si han llegado todos los
-  // resultados: sobre una lista recortada el numero seria falso.
+  // Con una busqueda activa los contadores se recalculan sobre lo encontrado,
+  // y solo cuando han llegado todos los resultados.
   const conteosVisibles = useMemo(() => {
     if (!busquedaDiferida || !searchResults) return null;
     if (searchResults.items.length < searchResults.total) return null;
@@ -195,7 +197,13 @@ export default function MarketplaceFeed({
                 ))}
               </div>
             ) : (
-              <EmptyState />
+              <EmptyState
+                sinTarjeta
+                icon={Scissors}
+                className="py-20"
+                titulo="No encontramos negocios"
+                descripcion="Prueba con otra búsqueda o quita el filtro de categoría."
+              />
             )}
           </div>
         ) : feed && feed.sections.length > 0 ? (
@@ -206,7 +214,21 @@ export default function MarketplaceFeed({
             ))}
           </div>
         ) : (
-          <EmptyState />
+          <EmptyState
+            sinTarjeta
+            icon={Scissors}
+            className="py-20"
+            titulo="Todavía no hay negocios publicados"
+            descripcion="Estamos sumando locales a BeautySpot. Vuelve pronto."
+            accion={
+              <Link
+                href="/registro"
+                className="text-primary text-sm font-medium underline-offset-4 hover:underline"
+              >
+                ¿Tienes un negocio? Publícalo
+              </Link>
+            }
+          />
         )}
       </div>
     </div>
@@ -346,15 +368,5 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
         </CardContent>
       </Card>
     </Link>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="text-muted-foreground py-20 text-center">
-      <Scissors className="mx-auto h-16 w-16 opacity-20" />
-      <p className="mt-4 text-lg font-medium">No encontramos negocios</p>
-      <p className="text-sm">Intenta con otra busqueda</p>
-    </div>
   );
 }

@@ -8,11 +8,12 @@ export interface Tramo {
   endTime: string;
 }
 
-/** Tramo de apertura tal y como lo devuelve core. */
-interface TramoDeApertura {
-  dayOfWeek: number;
-  openTime: string;
-  closeTime: string;
+/** Apertura de una fecha, ya resuelta por core contra sus días especiales. */
+interface AperturaDelDia {
+  tramos: { openTime: string; closeTime: string }[];
+  origen: "semanal" | "especial";
+  configurado: boolean;
+  motivo?: string;
 }
 
 const TTL_SEGUNDOS = 600;
@@ -28,54 +29,52 @@ export class HorarioDelNegocioService {
   ) {}
 
   /**
-   * Tramos de apertura de ese día. Lista vacía es "cerrado ese día"; `null`,
-   * "sin horario configurado", que no restringe nada.
-   *
-   * El cierre llega en hora de reloj y aquí pasa a la escala del cálculo: un
-   * `20:00`–`02:00` sale como `20:00`–`26:00`, que es lo que entienden el
-   * arrastre de jornada y el reparto de franjas.
+   * Tramos de apertura de esa fecha, en la escala del calculo. Lista vacia es
+   * "cerrado"; `null`, "sin horario configurado", que no restringe nada.
    */
   async tramosDelDia(
     businessId: string,
-    dayOfWeek: number
+    fecha: string
   ): Promise<Tramo[] | null> {
-    const semana = await this.semana(businessId);
-    if (semana === null) return null;
+    const dia = await this.delDia(businessId, fecha);
+    if (dia === null) return null;
+    if (dia.origen === "semanal" && !dia.configurado) return null;
 
-    return semana
-      .filter((t) => t.dayOfWeek === dayOfWeek)
-      .map((t) => ({
-        startTime: t.openTime,
-        endTime: finExtendido(t.openTime, t.closeTime),
-      }));
+    return dia.tramos.map((t) => ({
+      startTime: t.openTime,
+      endTime: finExtendido(t.openTime, t.closeTime),
+    }));
   }
 
-  /** Horario completo del negocio, o `null` si no se pudo resolver. */
-  private async semana(businessId: string): Promise<TramoDeApertura[] | null> {
+  /** Apertura de esa fecha, cacheada por dia. */
+  private async delDia(
+    businessId: string,
+    fecha: string
+  ): Promise<AperturaDelDia | null> {
     return this.cache.remember(
-      `horario:negocio:${businessId}`,
+      `horario:negocio:${businessId}:${fecha}`,
       TTL_SEGUNDOS,
-      () => this.consultar(businessId)
+      () => this.consultar(businessId, fecha)
     );
   }
 
-  /** Pide el horario a core. Falla en abierto: sin respuesta, `null`. */
+  /** Pide la apertura a core. Falla en abierto: sin respuesta, `null`. */
   private async consultar(
-    businessId: string
-  ): Promise<TramoDeApertura[] | null> {
-    const tramos = await this.http.pedirONulo<TramoDeApertura[]>(
+    businessId: string,
+    fecha: string
+  ): Promise<AperturaDelDia | null> {
+    const dia = await this.http.pedirONulo<AperturaDelDia>(
       "core",
-      `/internal/business-hours?businessId=${businessId}`
+      `/internal/business-hours/dia?businessId=${businessId}&date=${fecha}`
     );
 
-    if (!Array.isArray(tramos)) {
+    if (!dia || !Array.isArray(dia.tramos)) {
       this.logger.warn(
-        `No se pudo resolver el horario de ${businessId}: no se aplica el limite de apertura`
+        `No se pudo resolver el horario de ${businessId} el ${fecha}: no se aplica el limite de apertura`
       );
       return null;
     }
 
-    // Sin ningún tramo, el negocio no tiene horario configurado.
-    return tramos.length > 0 ? tramos : null;
+    return dia;
   }
 }

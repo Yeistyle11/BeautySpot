@@ -105,8 +105,8 @@ export class AvailabilityQueryService {
     });
     const negocios = [...new Set(horarios.map((h) => h.businessId))];
 
-    // Esta ruta pública no dice de qué negocio se pregunta, así que solo puede
-    // responder cuando el profesional trabaja en uno.
+    // La ruta publica no dice de que negocio se pregunta: solo responde cuando
+    // el profesional trabaja en uno.
     if (negocios.length !== 1) return [];
 
     return this.franjasDeProfesional(
@@ -138,7 +138,7 @@ export class AvailabilityQueryService {
         where: { businessId, professionalId: In(profesionales), date },
       }),
       this.ocupacionDelDia(businessId, date),
-      this.aperturaDelDia(businessId, dayOfWeek),
+      this.aperturaDelDia(businessId, date),
       this.zonas.de(businessId),
     ]);
 
@@ -193,7 +193,7 @@ export class AvailabilityQueryService {
     const [blocks, ocupados, apertura, zona] = await Promise.all([
       this.blockRepo.find({ where: { businessId, professionalId, date } }),
       this.ocupacionDelDia(businessId, date),
-      this.aperturaDelDia(businessId, dayOfWeek),
+      this.aperturaDelDia(businessId, date),
       this.zonas.de(businessId),
     ]);
 
@@ -212,15 +212,8 @@ export class AvailabilityQueryService {
   }
 
   /**
-   * Jornadas que se trabajan ese día: las del propio día más la madrugada que
-   * arrastra la jornada del día anterior.
-   *
-   * Quien entra el sábado a las 20:00 y sale a las 02:00 sigue trabajando de
-   * 00:00 a 02:00 del domingo. Sin traer ese arrastre, la madrugada no ofrece
-   * ninguna franja aunque el local esté abierto y el profesional dentro.
-   *
-   * La salida llega en hora de reloj y aquí pasa a la escala del cálculo, donde
-   * esa jornada es 20:00–26:00 y el arrastre sale de restarle el día.
+   * Jornadas que se trabajan ese dia: las del propio dia mas la madrugada que
+   * arrastra la del dia anterior, pasada a la escala del calculo.
    */
   private async jornadasDelDia(
     businessId: string,
@@ -261,14 +254,11 @@ export class AvailabilityQueryService {
    */
   private async aperturaDelDia(
     businessId: string,
-    dayOfWeek: number
+    date: string
   ): Promise<Tramo[] | null> {
     const [hoy, ayer] = await Promise.all([
-      this.horarioDelNegocio.tramosDelDia(businessId, dayOfWeek),
-      this.horarioDelNegocio.tramosDelDia(
-        businessId,
-        diaAnteriorDeLaSemana(dayOfWeek)
-      ),
+      this.horarioDelNegocio.tramosDelDia(businessId, date),
+      this.horarioDelNegocio.tramosDelDia(businessId, diaAnterior(date)),
     ]);
 
     if (hoy === null) return null;
@@ -289,9 +279,8 @@ export class AvailabilityQueryService {
       await this.repartoDe(otras, manager)
     );
 
-    // Una cita que empieza a las 23:30 y dura una hora termina a las "24:30",
-    // que es madrugada del día siguiente. Sin traer ese sobrante, la agenda de
-    // mañana da la franja por libre y se vende dos veces.
+    // Trae el sobrante del dia anterior: una cita de 23:30 que dura una hora
+    // termina a las "24:30", ya en esta madrugada.
     const deAyer = await this.citasVivas(
       businessId,
       diaAnterior(date),
@@ -358,7 +347,7 @@ export class AvailabilityQueryService {
     const profesionales = reparto.map((o) => o.professionalId);
     const [horarios, apertura] = await Promise.all([
       this.jornadasDelDia(businessId, dayOfWeek, profesionales),
-      this.aperturaDelDia(businessId, dayOfWeek),
+      this.aperturaDelDia(businessId, date),
     ]);
 
     const tramosPorProfesional = agruparPorProfesional(horarios);
@@ -408,9 +397,8 @@ export class AvailabilityQueryService {
   }
 
   /**
-   * Re-check de conflicto dentro de una transacción SERIALIZABLE. Es el check
-   * autoritativo que previene el doble-booking, y por eso recibe el manager de
-   * la transacción en lugar de usar el repositorio.
+   * Re-check de conflicto dentro de la transaccion SERIALIZABLE; por eso recibe
+   * su manager y no el repositorio.
    */
   async hayConflictoEn(
     manager: EntityManager,
@@ -442,7 +430,7 @@ export class AvailabilityQueryService {
       this.blockRepo.find({
         where: { businessId, professionalId: In(profesionales), date },
       }),
-      this.aperturaDelDia(businessId, dayOfWeek),
+      this.aperturaDelDia(businessId, date),
     ]);
 
     const tramosPorProfesional = agruparPorProfesional(horarios);
@@ -526,10 +514,8 @@ export class AvailabilityQueryService {
   }
 
   /**
-   * Divide en franjas cada tramo de trabajo y marca como ocupadas las que chocan
-   * con un bloqueo, con una cita o con el cierre del negocio.
-   *
-   * `apertura` en `null` significa negocio sin horario configurado: no acota.
+   * Divide en franjas cada tramo de trabajo y marca las que chocan con un
+   * bloqueo, una cita o el cierre. `apertura` en `null` no acota.
    */
   private calcularFranjas(
     tramos: Tramo[],
@@ -547,9 +533,8 @@ export class AvailabilityQueryService {
       const finDelTramo = timeToMinutes(tramo.endTime);
 
       for (const slotStart of this.iniciosCandidatos(tramo, iniciosExtra)) {
-        // Lo que empieza pasada la medianoche pertenece al día siguiente y allí
-        // se ofrece, traído por el arrastre de la jornada. Ofrecerlo también
-        // aquí sería la misma hora dos veces, bajo dos fechas.
+        // Lo que empieza pasada la medianoche se ofrece bajo el dia siguiente,
+        // traido por el arrastre de la jornada.
         if (timeToMinutes(slotStart) >= MINUTOS_DEL_DIA) continue;
 
         const slotEnd = calculateEndTime(slotStart, duration);

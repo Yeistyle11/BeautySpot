@@ -83,10 +83,8 @@ export class NegocioMetricsService {
   }
 
   /**
-   * Fija de una vez la capacidad de todo el equipo de un negocio ese día.
-   *
-   * Una sentencia por profesional convierte un negocio de veinte personas en
-   * veinte viajes a la base; aquí van todos en un `INSERT` con varias filas.
+   * Fija de una vez la capacidad de todo el equipo de un negocio ese dia, en un
+   * solo `INSERT` con varias filas.
    */
   async fijarCapacidadDelDia(
     businessId: string,

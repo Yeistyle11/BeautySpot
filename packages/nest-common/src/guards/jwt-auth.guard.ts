@@ -95,7 +95,9 @@ export class JwtAuthGuard implements CanActivate {
           );
         }
       } else if (actual.version !== esperada) {
-        throw new UnauthorizedException("Sesión invalidada");
+        throw new UnauthorizedException(
+          "Tu sesión ya no es válida: vuelve a iniciar sesión. Si tu cuenta fue desactivada, habla con el administrador del negocio."
+        );
       }
     }
 

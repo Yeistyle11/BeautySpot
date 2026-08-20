@@ -1,6 +1,5 @@
-// Control de acceso del frontend basado en roles: qué páginas ve cada rol (PAGES)
-// y qué acciones puede ejecutar (ACTIONS). Espeja la autorización del backend, que
-// es la que realmente decide; aquí solo se ajusta la UI (menús, botones, rutas).
+// Control de acceso del frontend por roles: que paginas ve cada uno (PAGES) y
+// que acciones puede ejecutar (ACTIONS). Solo ajusta la UI; decide el backend.
 import type { Role } from "./store";
 
 /** Página del dashboard con su ruta, etiqueta, icono y los roles que pueden acceder. */
@@ -157,6 +156,7 @@ export const ACTIONS = {
   appointments_create: ["OWNER", "ADMIN", "RECEPTIONIST"],
   appointments_confirm: ["OWNER", "ADMIN", "PROFESSIONAL"],
   appointments_cancel: ["OWNER", "ADMIN", "RECEPTIONIST"],
+  appointments_reschedule: ["OWNER", "ADMIN", "RECEPTIONIST"],
   payments_create: ["OWNER", "ADMIN", "RECEPTIONIST"],
   payments_edit: ["OWNER", "ADMIN"],
   payments_void: ["OWNER", "ADMIN"],
@@ -176,9 +176,8 @@ export const ACTIONS = {
 /** Indica si el rol puede acceder a una ruta (gana el prefijo más específico de PAGES). */
 export function canAccess(role: Role | null, path: string): boolean {
   if (!role) return false;
-  // Ordenamos por longitud de path descendente para que el prefijo mas
-  // especifico gane (ej. /dashboard/clients vs /dashboard/client), sin
-  // depender del orden de declaracion en PAGES.
+  // Ordena por longitud de path descendente para que gane el prefijo mas
+  // especifico (/dashboard/clients frente a /dashboard/client).
   const page = [...PAGES]
     .sort((a, b) => b.path.length - a.path.length)
     .find((p) =>

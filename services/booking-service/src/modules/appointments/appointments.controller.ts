@@ -244,6 +244,18 @@ export class InternalAppointmentsController {
     return this.service.professionalHasHistory(professionalId, businessId);
   }
 
+  /**
+   * Fichas que ha atendido el profesional, con las que el core acota que
+   * clientes ve quien solo atiende.
+   */
+  @Get("professional/:professionalId/client-ids")
+  async clientIdsAtendidos(
+    @Param("professionalId") professionalId: string,
+    @Query("businessId") businessId: string
+  ) {
+    return this.service.clientIdsAtendidosPor(professionalId, businessId);
+  }
+
   /** Minutos disponibles de cada profesional del negocio ese día. */
   @Get("capacidad")
   async capacidad(

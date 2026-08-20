@@ -1,9 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { DataSource, In, Repository } from "typeorm";
-import { OutboxService } from "@beautyspot/nest-common";
+import { OutboxService, InternalHttpClient } from "@beautyspot/nest-common";
 import { ClientsService } from "./clients.service";
 import { BusinessConfigService } from "../business-config/business-config.service";
+import { ProfessionalsService } from "../professionals/professionals.service";
 import { Client } from "../../entities/client.entity";
 import {
   CampoDeFicha,
@@ -21,6 +22,8 @@ describe("ClientsService", () => {
   let mockOutbox: { enqueue: jest.Mock };
   let mockCamposRepo: jest.Mocked<Repository<CampoDeFicha>>;
   let mockConfig: { leer: jest.Mock };
+  let mockProfessionals: { findByUserId: jest.Mock };
+  let mockHttp: { pedir: jest.Mock };
 
   const mockClient: Client = {
     id: "client-123",
@@ -62,6 +65,8 @@ describe("ClientsService", () => {
     mockOutbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
     // Sin escala guardada, el nivel sale de los niveles por defecto.
     mockConfig = { leer: jest.fn().mockResolvedValue({}) };
+    mockProfessionals = { findByUserId: jest.fn() };
+    mockHttp = { pedir: jest.fn() };
     // La transacción entrega el mismo repositorio simulado del test.
     const mockDataSource = {
       transaction: jest.fn((cb: (m: unknown) => unknown) =>
@@ -83,6 +88,8 @@ describe("ClientsService", () => {
         { provide: DataSource, useValue: mockDataSource },
         { provide: OutboxService, useValue: mockOutbox },
         { provide: BusinessConfigService, useValue: mockConfig },
+        { provide: ProfessionalsService, useValue: mockProfessionals },
+        { provide: InternalHttpClient, useValue: mockHttp },
       ],
     }).compile();
 
@@ -563,9 +570,8 @@ describe("ClientsService", () => {
     });
 
     it("usa el repositorio de la transacción cuando se le pasa un manager", async () => {
-      // Acreditar puntos y marcar el evento como procesado tienen que
-      // confirmarse juntos, así que el incremento va por el manager de quien
-      // llama y no por el repositorio propio.
+      // El incremento va por el manager de quien llama: acreditar puntos y
+      // marcar el evento como procesado se confirman juntos.
       const incrementEnTx = jest.fn().mockResolvedValue({ affected: 1 });
       const manager = {
         getRepository: jest.fn().mockReturnValue({ increment: incrementEnTx }),
@@ -625,6 +631,140 @@ describe("ClientsService", () => {
       expect(typeof service.update).toBe("function");
       expect(typeof service.addLoyaltyPoints).toBe("function");
       expect(typeof service.subtractLoyaltyPoints).toBe("function");
+    });
+  });
+
+  describe("findByBusinessParaProfesional", () => {
+    const PAGINA = {
+      page: 1,
+      limit: 20,
+      offset: 0,
+      sort: "name",
+      order: "ASC" as const,
+    };
+
+    beforeEach(() => {
+      mockProfessionals.findByUserId.mockResolvedValue({ id: "prof-1" });
+      mockHttp.pedir.mockResolvedValue({
+        clientIds: ["client-123"],
+        truncado: false,
+      });
+    });
+
+    // Desvincular la ficha de un profesional no le quita el rol.
+    it("devuelve página vacía si la cuenta no es de ningún profesional", async () => {
+      mockProfessionals.findByUserId.mockResolvedValue(null);
+
+      const resultado = await service.findByBusinessParaProfesional(
+        "business-123",
+        "user-1",
+        undefined,
+        PAGINA
+      );
+
+      expect(resultado.data).toEqual([]);
+      expect(resultado.meta.total).toBe(0);
+      expect(mockHttp.pedir).not.toHaveBeenCalled();
+    });
+
+    it("no consulta la base si no ha atendido a nadie", async () => {
+      mockHttp.pedir.mockResolvedValue({ clientIds: [], truncado: false });
+
+      const resultado = await service.findByBusinessParaProfesional(
+        "business-123",
+        "user-1",
+        undefined,
+        PAGINA
+      );
+
+      expect(resultado.data).toEqual([]);
+      expect(mockRepo.findAndCount).not.toHaveBeenCalled();
+    });
+
+    // El hallazgo en una línea: ni la cartera entera ni los datos personales.
+    it("acota a los clientes atendidos y solo devuelve id y nombre", async () => {
+      await service.findByBusinessParaProfesional(
+        "business-123",
+        "user-1",
+        undefined,
+        PAGINA
+      );
+
+      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            businessId: "business-123",
+            active: true,
+            id: In(["client-123"]),
+          },
+          select: { id: true, name: true },
+        })
+      );
+    });
+
+    it("pregunta a booking por el profesional de esa cuenta", async () => {
+      await service.findByBusinessParaProfesional(
+        "business-123",
+        "user-1",
+        undefined,
+        PAGINA
+      );
+
+      expect(mockProfessionals.findByUserId).toHaveBeenCalledWith(
+        "user-1",
+        "business-123"
+      );
+      expect(mockHttp.pedir).toHaveBeenCalledWith(
+        "booking",
+        expect.stringContaining(
+          "/internal/appointments/professional/prof-1/client-ids"
+        )
+      );
+    });
+
+    // Buscar por teléfono o correo confirmaría que ese contacto es cliente del
+    // negocio aunque el campo no se devuelva.
+    it("busca solo por nombre, no por correo ni teléfono", async () => {
+      await service.findByBusinessParaProfesional(
+        "business-123",
+        "user-1",
+        "juan",
+        PAGINA
+      );
+
+      const [opciones] = (mockRepo.findAndCount as jest.Mock).mock.calls[0];
+      expect(opciones.where).toEqual(
+        expect.objectContaining({ name: expect.anything() })
+      );
+      expect(opciones.where).not.toHaveProperty("email");
+      expect(opciones.where).not.toHaveProperty("phone");
+    });
+
+    // Sin respuesta de booking no hay listado que servir.
+    it("propaga el fallo si booking no responde", async () => {
+      mockHttp.pedir.mockRejectedValue(new Error("booking caído"));
+
+      await expect(
+        service.findByBusinessParaProfesional(
+          "business-123",
+          "user-1",
+          undefined,
+          PAGINA
+        )
+      ).rejects.toThrow("booking caído");
+      expect(mockRepo.findAndCount).not.toHaveBeenCalled();
+    });
+
+    // El listado admite ordenar por una columna que ya no se selecciona.
+    it("admite ordenar por una columna que no devuelve", async () => {
+      await service.findByBusinessParaProfesional(
+        "business-123",
+        "user-1",
+        undefined,
+        { ...PAGINA, sort: "createdAt" }
+      );
+
+      expect(mockRepo.findAndCount).toHaveBeenCalled();
     });
   });
 });

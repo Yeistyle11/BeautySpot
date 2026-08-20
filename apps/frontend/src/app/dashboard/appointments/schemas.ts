@@ -51,6 +51,14 @@ export const MOTIVOS_DE_CANCELACION = [
   { value: "OTRO", label: "Otro motivo" },
 ] as const;
 
+/** Etiqueta del motivo con el que se cancelo una cita. */
+export function etiquetaDeMotivo(motivo: string | null | undefined): string {
+  return (
+    MOTIVOS_DE_CANCELACION.find((m) => m.value === motivo)?.label ??
+    "Sin motivo registrado"
+  );
+}
+
 export const APPOINTMENTS_KEY = "/booking/appointments";
 export const PROFESSIONALS_KEY = "/core/professionals";
 export const SERVICES_KEY = "/core/services";

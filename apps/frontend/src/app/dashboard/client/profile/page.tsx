@@ -51,9 +51,8 @@ export default function ClientProfilePage() {
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "" });
 
-  // El formulario se siembra una sola vez, con lo primero que llegue: el perfil
-  // del backend si responde, y si no los datos de la sesion. Sin el guard, cada
-  // revalidacion de SWR pisaria lo que el usuario esta escribiendo.
+  // Siembra el formulario una sola vez, con el perfil del backend o, en su
+  // defecto, con los datos de la sesion.
   const seeded = useRef(false);
 
   useEffect(() => {
@@ -67,9 +66,8 @@ export default function ClientProfilePage() {
     }
   }, [client, user]);
 
-  // Un cliente que reservo como invitado todavia no tiene ficha en core-service,
-  // asi que si ese endpoint no lo encuentra los datos se guardan contra su
-  // usuario de auth-service.
+  // Si core-service no tiene ficha del cliente (reservo como invitado), los
+  // datos se guardan contra su usuario de auth-service.
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);

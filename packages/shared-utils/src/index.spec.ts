@@ -7,6 +7,8 @@ import {
   calculateEndTime,
   timesOverlap,
   escapeLikePattern,
+  sinTildes,
+  columnaSinTildes,
   cruzaMedianoche,
   finExtendido,
   horaDeReloj,
@@ -187,9 +189,8 @@ describe("Shared Utils", () => {
       expect(calculateEndTime("23:30", 30)).toBe("24:00");
     });
 
-    // La hora se cuenta desde la medianoche de su propio día, así que pasar de
-    // las 24:00 es la forma de decir "de madrugada": es lo que espera el resto
-    // de la agenda (arrastreDelDiaAnterior, arrastreDeJornada).
+    // La hora se cuenta desde la medianoche de su propio dia: pasar de las
+    // 24:00 es la forma de decir "de madrugada".
     it("debería seguir contando pasada la medianoche", () => {
       expect(calculateEndTime("23:00", 120)).toBe("25:00");
       expect(calculateEndTime("22:30", 90)).toBe("24:00");
@@ -309,7 +310,7 @@ describe("Shared Utils", () => {
   });
 
   describe("normalizarTelefono", () => {
-    // Es lo que evita que la misma persona acabe con dos fichas.
+    // Es lo que impide que la misma persona acabe con dos fichas.
     it("reduce a la misma forma los formatos habituales", () => {
       expect(normalizarTelefono("+57 300 123 45 67")).toBe("+573001234567");
       expect(normalizarTelefono("+57-300-123-4567")).toBe("+573001234567");
@@ -326,5 +327,29 @@ describe("Shared Utils", () => {
         expect(normalizarTelefono(valor)).toBe("");
       }
     );
+  });
+});
+
+describe("sinTildes", () => {
+  it("quita las tildes y baja a minúsculas", () => {
+    expect(sinTildes("Pérez")).toBe("perez");
+    expect(sinTildes("MARÍA JOSÉ")).toBe("maria jose");
+  });
+
+  it("conserva la eñe, que distingue palabras", () => {
+    expect(sinTildes("Muñoz")).toBe("muñoz");
+  });
+
+  it("deja intacto lo que no lleva tilde", () => {
+    expect(sinTildes("Corte + barba")).toBe("corte + barba");
+  });
+});
+
+describe("columnaSinTildes", () => {
+  it("envuelve la columna en el translate que aplica el mismo criterio", () => {
+    const sql = columnaSinTildes("nombre");
+
+    expect(sql).toContain("translate(lower(nombre)");
+    expect(sql).toContain("á");
   });
 });

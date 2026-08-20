@@ -18,7 +18,7 @@ import {
   parsePaginationQuery,
   escapeLikePattern,
 } from "@beautyspot/shared-utils";
-import { Role } from "@beautyspot/shared-types";
+import { IPaginatedResponse, Role } from "@beautyspot/shared-types";
 
 /**
  * CRUD de negocios con control de acceso por tenant: cada llamante solo ve y
@@ -73,12 +73,8 @@ export class BusinessesService {
   }
 
   /**
-   * Alta de negocio por parte de quien lo va a regentar: crea el negocio y lo
-   * deja con su membresía de OWNER.
-   *
-   * La membresía vive en auth-service, así que se pide por HTTP interno en vez
-   * de por evento: sin ella el usuario no tendría negocio en su token y no
-   * podría entrar al panel que acaba de crear.
+   * Alta de negocio por parte de quien lo va a regentar: crea el negocio y
+   * pide a auth-service su membresia de OWNER.
    */
   async createWithOwner(
     data: Partial<Business>,
@@ -93,8 +89,7 @@ export class BusinessesService {
         role: Role.OWNER,
       });
     } catch (error) {
-      // Sin membresía el negocio queda huérfano y el usuario atascado, así que
-      // se deshace en vez de dejar un alta a medias.
+      // Sin membresia el alta queda a medias, asi que se deshace.
       await this.repo.delete({ id: creado.id });
       this.logger.error(
         `No se pudo crear la membresía OWNER del negocio ${creado.id}`,
@@ -107,13 +102,14 @@ export class BusinessesService {
   }
 
   /**
-   * Lista negocios. SUPER_ADMIN ve todos; resto scoped a su businessId.
+   * Lista negocios con el sobre `{ data, meta }` del helper `paginate`.
+   * SUPER_ADMIN ve todos; el resto, los de su businessId.
    */
   async findAll(
     query: Record<string, unknown>,
     callerBusinessId?: string,
     callerRole?: Role
-  ) {
+  ): Promise<IPaginatedResponse<Business>> {
     const params = parsePaginationQuery(query, [
       "createdAt",
       "updatedAt",
@@ -147,9 +143,21 @@ export class BusinessesService {
       .skip(params.offset)
       .take(params.limit);
 
-    const [items, total] = await qb.getManyAndCount();
-    await this.adjuntarColecciones(items);
-    return { items, total, page: params.page, limit: params.limit };
+    const [data, total] = await qb.getManyAndCount();
+    await this.adjuntarColecciones(data);
+
+    const totalPages = Math.ceil(total / params.limit);
+    return {
+      data,
+      meta: {
+        page: params.page,
+        limit: params.limit,
+        total,
+        totalPages,
+        hasNext: params.page < totalPages,
+        hasPrev: params.page > 1,
+      },
+    };
   }
 
   /**
@@ -289,13 +297,8 @@ export class BusinessesService {
   }
 
   /**
-   * Verifica que el llamante tiene acceso al negocio.
-   *
-   * Un llamante sin negocio pasa de largo porque las rutas internas
-   * (servicio a servicio) no lo llevan, y esas ya están protegidas por el
-   * secreto compartido. Se registra igualmente: por HTTP el guard de tenant
-   * exige la cabecera, así que llegar aquí sin negocio y con un rol de usuario
-   * significa que alguien ha abierto un camino que se salta esa comprobación.
+   * Verifica que el llamante tiene acceso al negocio. Un llamante sin negocio
+   * pasa de largo, como llegan las rutas internas, y se registra.
    */
   private assertOwnership(
     businessId: string,

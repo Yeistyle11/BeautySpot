@@ -2,6 +2,7 @@
 
 // Pagina del equipo: lista de profesionales con alta, edicion, detalle, horario y baja.
 import { useState, useMemo, useCallback, useRef } from "react";
+import { mensajeDeError } from "@/lib/error-message";
 import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -10,14 +11,13 @@ import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
-import { getErrorMessage } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
 import { useCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
-import { mensajeDeError } from "@/lib/error-message";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { ProCard } from "./pro-card";
+import Link from "next/link";
 import {
   categorySchema,
   DAYS_MAP,
@@ -131,15 +131,12 @@ export default function ProfessionalsPage() {
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
 
-  // Se recuerda de quien es la ultima peticion de horario en vuelo: abrir dos
-  // profesionales seguidos hacia que la respuesta lenta del primero sobrescribiera
-  // la semana del segundo.
+  // De quien es la ultima peticion de horario en vuelo.
   const horarioPedidoPara = useRef<string | null>(null);
 
   /**
-   * Abre el dialogo de horario de un profesional. El horario se pide a mano y no
-   * con SWR, a diferencia del resto de la pagina, porque no se cachea: es un
-   * formulario que se rellena al abrir y se descarta al cerrar.
+   * Abre el dialogo de horario de un profesional y pide su semana a mano,
+   * sin pasar por SWR.
    */
   const openSchedule = useCallback((p: Professional) => {
     setSchedulePro(p);
@@ -174,7 +171,7 @@ export default function ProfessionalsPage() {
     setSavingSchedule(true);
     setScheduleError("");
     try {
-      // Un dia sin tramos es un dia libre, asi que no se envia.
+      // Un dia sin tramos es un dia libre y no se envia.
       const slots = Object.entries(scheduleHours).flatMap(([day, tramos]) =>
         tramos.map((tramo) => ({
           dayOfWeek: Number(day),
@@ -247,7 +244,7 @@ export default function ProfessionalsPage() {
       setDeleteError("");
     } catch (err) {
       setDeleteError(
-        getErrorMessage(err, "No se pudo inactivar el profesional")
+        mensajeDeError(err, "No se pudo inactivar el profesional")
       );
     }
   };
@@ -297,6 +294,26 @@ export default function ProfessionalsPage() {
           </Button>
         )}
       </div>
+
+      {/*
+        Sin categorias dadas de alta, lo que sale en las fichas es texto suelto:
+        se ve igual que una categoria y no clasifica nada. La pantalla no decia
+        donde se crean.
+      */}
+      {!loading && categories.length === 0 && professionals.length > 0 && (
+        <div className="bg-muted/40 text-muted-foreground mb-4 flex flex-wrap items-center gap-2 rounded-lg p-3 text-sm">
+          <span>
+            Todavía no has creado categorías de profesional, así que las
+            etiquetas del equipo no clasifican nada.
+          </span>
+          <Link
+            href="/dashboard/categories"
+            className="text-primary font-medium underline-offset-4 hover:underline"
+          >
+            Crear categorías
+          </Link>
+        </div>
+      )}
 
       {loading ? (
         <p className="text-muted-foreground">Cargando...</p>
@@ -368,19 +385,16 @@ export default function ProfessionalsPage() {
         }}
         onConfirm={handleDelete}
         title="Inactivar profesional"
-        confirmLabel="Si, inactivar"
+        confirmLabel="Sí, inactivar"
         variant="destructive"
-        error={
-          deleteError &&
-          `${deleteError} Si tiene citas pendientes o confirmadas, debes cancelarlas o reasignarlas antes de inactivarlo.`
-        }
+        error={deleteError}
       >
-        Estas seguro de inactivar a{" "}
+        ¿Estás seguro de inactivar a{" "}
         <strong>
           {professionals.find((p) => p.id === deleteConfirm)?.name}
         </strong>
-        ? Quedara marcado como inactivo; si tiene citas pendientes, la accion
-        sera rechazada.
+        ? Quedará marcado como inactivo; si tiene citas pendientes, la acción
+        será rechazada.
       </ConfirmDialog>
 
       <ScheduleDialog

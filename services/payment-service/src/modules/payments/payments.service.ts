@@ -50,6 +50,24 @@ const TRANSICIONES_DE_PAGO: Record<PaymentStatus, PaymentStatus[]> = {
 };
 
 /**
+ * Que se vendio, para el listado de movimientos de caja; el cliente se
+ * resuelve al leer y no se copia aqui.
+ */
+export function conceptoDelCobro(servicios?: ServicioDeLaCita[]): string {
+  const nombres = (servicios ?? []).map((s) => s.name).filter(Boolean);
+  return nombres.length > 0 ? nombres.join(", ") : "Venta en mostrador";
+}
+
+/** Detecta la violación de índice único de Postgres (SQLSTATE 23505). */
+function esViolacionDeUnicidad(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: string }).code === "23505"
+  );
+}
+
+/**
  * Registra pagos manuales y sus reembolsos, publicando cada operación vía Outbox
  * y protegiendo los reembolsos contra dobles aplicaciones concurrentes.
  */
@@ -78,6 +96,7 @@ export class PaymentsService {
       registeredBy: string;
       branchId?: string;
       puntosUsados?: number;
+      solicitudId?: string;
     }
   ): Promise<PaymentEntity> {
     const puntosUsados = data.puntosUsados ?? 0;
@@ -98,6 +117,36 @@ export class PaymentsService {
       );
     }
 
+    try {
+      return await this.registrar(
+        businessId,
+        data,
+        puntosUsados,
+        descuento,
+        services
+      );
+    } catch (error) {
+      // El segundo envio del mismo intento choca contra el indice: se devuelve
+      // el cobro que ya se hizo.
+      const yaCobrado = esViolacionDeUnicidad(error) && data.solicitudId;
+      if (!yaCobrado) throw error;
+
+      const previo = await this.repo.findOne({
+        where: { businessId, solicitudId: data.solicitudId },
+      });
+      if (!previo) throw error;
+      return previo;
+    }
+  }
+
+  /** Escribe el cobro, su entrada en caja y sus eventos, todo en una transacción. */
+  private async registrar(
+    businessId: string,
+    data: Parameters<PaymentsService["create"]>[1],
+    puntosUsados: number,
+    descuento: number,
+    services: ServicioDeLaCita[] | undefined
+  ): Promise<PaymentEntity> {
     return this.dataSource.transaction(async (manager) => {
       const payment = this.repo.create({
         ...data,
@@ -109,7 +158,12 @@ export class PaymentsService {
         .getRepository(PaymentEntity)
         .save(payment);
 
-      await this.registrarEntradaEnCaja(manager, businessId, savedPayment);
+      await this.registrarEntradaEnCaja(
+        manager,
+        businessId,
+        savedPayment,
+        services
+      );
 
       await this.outbox.enqueue(manager, {
         eventType: EventNames.PAYMENT_PAYMENT_REGISTERED,
@@ -126,9 +180,8 @@ export class PaymentsService {
         },
       });
 
-      // El descuento de los puntos va por Outbox, en la misma transacción que
-      // el cobro: core es quien guarda el saldo, y un cobro con descuento cuyos
-      // puntos no se descuentan los regala.
+      // El descuento de los puntos va por Outbox, en la misma transaccion que
+      // el cobro; el saldo lo guarda core.
       if (puntosUsados > 0) {
         await this.outbox.enqueue(manager, {
           eventType: EventNames.PAYMENT_POINTS_REDEEMED,
@@ -149,14 +202,30 @@ export class PaymentsService {
   }
 
   /**
-   * Comprueba que el cliente tiene los puntos que quiere gastar.
-   *
-   * El saldo vive en core, así que entre esta lectura y el descuento efectivo
-   * cabe una carrera: dos cobros simultáneos del mismo cliente podrían gastar
-   * los mismos puntos. `subtractLoyaltyPoints` no baja de cero, con lo que el
-   * saldo nunca queda negativo; el riesgo real es regalar un descuento en un
-   * cobro presencial, y se ha preferido eso a bloquear la ficha del cliente
-   * desde otro servicio.
+   * De las citas indicadas, las que ya tienen un cobro vivo; un cobro anulado
+   * no cuenta.
+   */
+  async citasYaCobradas(
+    businessId: string,
+    appointmentIds: string[]
+  ): Promise<string[]> {
+    if (appointmentIds.length === 0) return [];
+
+    const cobros = await this.repo.find({
+      where: {
+        businessId,
+        appointmentId: In(appointmentIds),
+        status: In([PaymentStatus.PENDING, PaymentStatus.COMPLETED]),
+      },
+      select: { appointmentId: true },
+    });
+
+    return cobros.map((c) => c.appointmentId);
+  }
+
+  /**
+   * Comprueba que el cliente tiene los puntos que quiere gastar; el saldo lo
+   * guarda core y se descuenta despues.
    */
   private async validarLosPuntos(
     businessId: string,
@@ -229,7 +298,8 @@ export class PaymentsService {
   private async registrarEntradaEnCaja(
     manager: EntityManager,
     businessId: string,
-    payment: PaymentEntity
+    payment: PaymentEntity,
+    services?: ServicioDeLaCita[]
   ): Promise<void> {
     const session = await this.cajaAbierta(
       manager,
@@ -245,7 +315,7 @@ export class PaymentsService {
         cashSessionId: session.id,
         type: CashMovementType.IN,
         amount: Number(payment.amount),
-        concept: `Pago ${payment.id}`,
+        concept: conceptoDelCobro(services),
         method: payment.method,
         paymentId: payment.id,
         registeredBy: payment.registeredBy,
@@ -337,10 +407,8 @@ export class PaymentsService {
   }
 
   /**
-   * Cambia el estado de un pago siguiendo las transiciones permitidas.
-   *
-   * `REFUNDED` no está entre ellas: la devolución exige importe, motivo, autor y
-   * ventana de 30 días, y todo eso vive en {@link refundPayment}.
+   * Cambia el estado de un pago siguiendo las transiciones permitidas;
+   * `REFUNDED` no esta entre ellas, vive en {@link refundPayment}.
    */
   async updateStatus(
     id: string,
@@ -360,11 +428,8 @@ export class PaymentsService {
   }
 
   /**
-   * Resumen de pagos completados de un día, agregado por método.
-   *
-   * La suma y el conteo se hacen en SQL (SUM/COUNT + GROUP BY) en vez de cargar
-   * todas las filas del día en memoria: el volumen de pagos crece con el negocio
-   * y traer cada registro solo para sumarlo no escala.
+   * Resumen de pagos completados de un dia, agregado por metodo y sumado en
+   * SQL.
    */
   async getDailySummary(businessId: string, date: string, branchId?: string) {
     // El día va de medianoche a medianoche en el huso del negocio, con el fin
@@ -402,12 +467,8 @@ export class PaymentsService {
   }
 
   /**
-   * Reembolsa un pago completado, total o parcialmente.
-   *
-   * La transición COMPLETED → REFUNDED se aplica con un UPDATE condicionado al
-   * estado actual dentro de la transacción: dos peticiones concurrentes sobre el
-   * mismo pago no pueden reembolsarlo dos veces, porque solo la primera afecta
-   * filas. `refundedBy` registra qué usuario autorizó el reembolso.
+   * Reembolsa un pago completado, total o parcialmente, con un UPDATE
+   * condicionado al estado y anotando en `refundedBy` quien lo autorizo.
    */
   async refundPayment(
     id: string,

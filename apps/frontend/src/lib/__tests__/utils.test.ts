@@ -8,7 +8,6 @@ import {
   formatDateTime,
   formatDateTimeStamp,
   formatTimeStamp,
-  getErrorMessage,
   haComenzado,
 } from "../utils";
 
@@ -64,9 +63,6 @@ describe("formatTime", () => {
     expect(formatTime("00:00")).toBe("12:00 am");
   });
 
-  // La agenda calcula en horas que se pasan del dia: la cita de las 23:30 que
-  // dura una hora termina a las "24:30". Leerlas tal cual anunciaria las 24:30
-  // como "12:30 pm", que es media jornada de diferencia.
   it("baja al reloj las horas que se pasan del dia", () => {
     expect(formatTime("24:30")).toBe("12:30 am");
     expect(formatTime("25:00")).toBe("1:00 am");
@@ -93,24 +89,6 @@ describe("formatTimeStamp", () => {
   it("formatea solo la hora de un timestamp ISO", () => {
     const result = formatTimeStamp("2026-03-15T14:30:00.000Z");
     expect(result).toMatch(/^\d{1,2}:\d{2}\s?(a\.?\s?m\.?|p\.?\s?m\.?)$/i);
-  });
-});
-
-describe("getErrorMessage", () => {
-  it("extrae el mensaje de un Error", () => {
-    expect(getErrorMessage(new Error("algo fallo"))).toBe("algo fallo");
-  });
-
-  it("devuelve el string directamente si el error es un string", () => {
-    expect(getErrorMessage("error crudo")).toBe("error crudo");
-  });
-
-  it("devuelve el fallback para tipos desconocidos", () => {
-    expect(getErrorMessage({ weird: true }, "fallback")).toBe("fallback");
-  });
-
-  it("usa 'Error' como fallback por defecto", () => {
-    expect(getErrorMessage(null)).toBe("Error");
   });
 });
 

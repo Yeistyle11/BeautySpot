@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { SWRConfig } from "swr";
 import { ZodError } from "zod";
 import { setUnauthorizedHandler } from "@/lib/api";
-import { isAuthError } from "@/lib/api-error";
+import { isAuthError, isNotFoundError } from "@/lib/api-error";
 import { useAuthStore } from "@/lib/store";
 import { logger } from "@/lib/logger";
 import { aplicarTemaGuardado } from "@/lib/use-theme";
@@ -62,9 +62,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         revalidateOnFocus: false,
         dedupingInterval: 5000,
         errorRetryCount: 1,
-        // Un 401/403 no se arregla reintentando: hace falta otra sesion u
-        // otros permisos.
-        shouldRetryOnError: (err: unknown) => !isAuthError(err),
+        // Ni un 401/403 ni un 404 se arreglan reintentando: hacen falta otra
+        // sesion, otros permisos o que el recurso llegue a existir.
+        shouldRetryOnError: (err: unknown) =>
+          !isAuthError(err) && !isNotFoundError(err),
         onError: registrarFalloDeCarga,
       }}
     >

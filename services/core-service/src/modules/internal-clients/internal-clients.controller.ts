@@ -1,6 +1,6 @@
 import { Controller, Post, Get, Body, Param, Query } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { ILike, Repository } from "typeorm";
+import { ILike, In, Repository } from "typeorm";
 import {
   escapeLikePattern,
   normalizarEmail,
@@ -19,7 +19,7 @@ export class InternalClientsController {
     @InjectRepository(Client) private readonly clientRepo: Repository<Client>
   ) {}
 
-  /** Devuelve el cliente existente que coincida por email/teléfono, o lo crea si no hay ninguno. */
+  /** Devuelve el cliente que coincida por email o telefono, o lo crea. */
   @Post("find-or-create")
   async findOrCreate(@Body() dto: FindOrCreateClientDto): Promise<Client> {
     const existing = await this.findExistingClient(dto);
@@ -38,6 +38,29 @@ export class InternalClientsController {
       select: ["id", "loyaltyPoints"],
     });
     return cliente ? { loyaltyPoints: cliente.loyaltyPoints } : null;
+  }
+
+  /**
+   * Nombre de los clientes pedidos, acotado al negocio y resuelto en cada
+   * lectura.
+   */
+  @Get("names")
+  async names(
+    @Query("businessId") businessId: string,
+    @Query("ids") ids?: string
+  ): Promise<{ id: string; name: string }[]> {
+    const pedidos = (ids ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .slice(0, MAXIMO_CLIENTES_BUSCADOS);
+
+    if (!businessId || pedidos.length === 0) return [];
+
+    return this.clientRepo.find({
+      where: { businessId, id: In(pedidos) },
+      select: { id: true, name: true },
+    });
   }
 
   /** Lista los clientes vinculados a un usuario, uno por cada negocio donde reservó. */
@@ -83,8 +106,7 @@ export class InternalClientsController {
 
   /**
    * Busca un cliente del negocio por usuario, luego por email y luego por
-   * teléfono. El contacto se coteja normalizado: "+57 300 123 4567" y
-   * "+573001234567" son la misma persona.
+   * telefono, cotejando el contacto normalizado.
    */
   private async findExistingClient(
     dto: FindOrCreateClientDto

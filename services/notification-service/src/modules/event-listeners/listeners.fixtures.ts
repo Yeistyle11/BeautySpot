@@ -38,11 +38,8 @@ export interface EntornoDeListeners {
 }
 
 /**
- * Monta los cuatro listeners contra los mismos dobles.
- *
- * `AvisosService` se registra **real**: es el colaborador que decide si el aviso
- * sale y por dónde, así que mockearlo dejaría sin comprobar justo lo que cada
- * listener delega en él.
+ * Monta los cuatro listeners contra los mismos dobles, con `AvisosService`
+ * real.
  */
 export async function crearEntornoDeListeners(): Promise<EntornoDeListeners> {
   const emails = {
@@ -73,7 +70,7 @@ export async function crearEntornoDeListeners(): Promise<EntornoDeListeners> {
 
   const config = {
     get: jest.fn((clave: string) =>
-      clave === "APP_URL" ? "http://localhost:3000" : undefined
+      clave === "APP_URL" ? "http://localhost:8080" : undefined
     ),
   } as unknown as ConfigService;
 

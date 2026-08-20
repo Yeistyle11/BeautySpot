@@ -10,6 +10,7 @@ import {
 import { BusinessProfilesService } from "./business-profiles.service";
 import {
   UpsertProfileDto,
+  CrearPerfilDto,
   UpdateProfileConfigDto,
   AddGalleryImagesDto,
   UpdateGalleryImageDto,
@@ -27,6 +28,13 @@ export class BusinessProfilesController {
   @Roles(Role.OWNER, Role.ADMIN)
   async findMyProfile(@BusinessId() businessId: string) {
     return this.service.findByBusinessId(businessId);
+  }
+
+  /** Da de alta el escaparate del negocio en el marketplace, sin publicarlo. */
+  @Post()
+  @Roles(Role.OWNER, Role.ADMIN)
+  async crear(@BusinessId() businessId: string, @Body() dto: CrearPerfilDto) {
+    return this.service.crearParaNegocio(businessId, dto);
   }
 
   /** Actualiza la configuración del perfil inmersivo. */

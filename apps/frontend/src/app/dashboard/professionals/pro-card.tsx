@@ -7,6 +7,7 @@ import { Star, Briefcase, Eye, Pencil, Trash2, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CategoryBadge } from "@/components/ui/category-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { canDo } from "@/lib/permissions";
 import { imageUnoptimized } from "@/lib/image";
@@ -24,12 +25,7 @@ interface ProCardProps {
   onSchedule: (p: Professional) => void;
 }
 
-/**
- * Tarjeta de un profesional en la rejilla del equipo.
- *
- * Va memoizada y con `content-visibility:auto` porque la rejilla puede tener
- * decenas de tarjetas y todas se re-renderizaban al abrir cualquier modal.
- */
+/** Tarjeta de un profesional en la rejilla del equipo. */
 export const ProCard = memo(function ProCard({
   p,
   categoryMap,
@@ -67,25 +63,16 @@ export const ProCard = memo(function ProCard({
           )}
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold">{p.name || "Sin nombre"}</p>
-            {p.category && (
-              <Badge
-                variant="secondary"
-                className="mt-0.5 text-xs"
-                // El color lo define cada categoria en base de datos, asi que
-                // no puede salir de las clases de Tailwind. El sufijo "20" es
-                // el alfa en hexadecimal (~12%) para el fondo.
-                style={
-                  categoryColor
-                    ? {
-                        backgroundColor: `${categoryColor}20`,
-                        color: categoryColor,
-                      }
-                    : undefined
-                }
-              >
-                {p.category}
-              </Badge>
-            )}
+            <CategoryBadge
+              nombre={p.category ?? ""}
+              // La categoria vale cuando esta dada de alta; si solo hay texto
+              // en la ficha, es una etiqueta heredada por la que no se filtra.
+              delCatalogo={Boolean(
+                p.categoryId && categoryMap.has(p.categoryId)
+              )}
+              color={categoryColor ?? undefined}
+              className="mt-0.5 text-xs"
+            />
             <div className="mt-1 flex items-center gap-1">
               <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
               <span className="text-muted-foreground text-sm">

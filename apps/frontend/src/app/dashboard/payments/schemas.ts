@@ -32,16 +32,11 @@ export const dailySummarySchema = z.object({
 });
 export type DailySummary = z.infer<typeof dailySummarySchema>;
 
-export const METHOD_LABELS: Record<string, string> = {
-  CASH: "Efectivo",
-  CARD: "Tarjeta",
-  TRANSFER: "Transferencia",
-  OTHER: "Otro",
-};
+export { ETIQUETAS_DE_METODO as METHOD_LABELS } from "@/lib/metodos-de-pago";
 
 export const METHOD_FILTERS = ["all", "CASH", "CARD", "TRANSFER"];
 
-/** Estados de PaymentStatus, que la lista muestra tal cual si no se traducen. */
+/** Estados de PaymentStatus que la lista muestra tal cual. */
 export const STATUS_LABELS: Record<string, string> = {
   PENDING: "Pendiente",
   COMPLETED: "Completado",
@@ -49,8 +44,22 @@ export const STATUS_LABELS: Record<string, string> = {
   CANCELLED: "Cancelado",
 };
 
+/** Cita atendida del cliente, con sus servicios, tal y como la ofrece el cobro. */
+export const citaCobrableSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  startTime: z.string(),
+  totalAmount: z.union([z.string(), z.number()]),
+  appointmentServices: z
+    .array(z.object({ serviceName: z.string().nullish() }))
+    .nullish(),
+});
+export type CitaCobrable = z.infer<typeof citaCobrableSchema>;
+
 export const emptyCreateForm = {
   clientId: "",
+  /** Cita que se cobra; vacío es una venta suelta, sin cita detrás. */
+  appointmentId: "",
   amount: "",
   method: "CASH",
   reference: "",
@@ -78,3 +87,5 @@ export interface PaymentSummary {
 
 export const PAYMENTS_KEY = "/payment/payments";
 export const CLIENTS_KEY = "/core/clients?limit=100";
+/** Cuáles de unas citas dadas ya tienen cobro; lo sabe payment, no booking. */
+export const COBRADAS_KEY = "/payment/payments/cobradas";

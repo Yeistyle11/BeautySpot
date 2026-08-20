@@ -152,9 +152,8 @@ export class UsersService {
   }
 
   /**
-   * Nombre de cada negocio, resuelto en core. Falla en abierto: el nombre es
-   * una etiqueta, y quedarse sin la lista de membresías por no poder pintarla
-   * sería peor.
+   * Nombre de cada negocio, resuelto en core. Falla en abierto: sin el, las
+   * membresias se listan igual.
    */
   private async nombresDeNegocio(ids: string[]): Promise<Map<string, string>> {
     try {
@@ -172,8 +171,8 @@ export class UsersService {
   // --- Admin: Crear cuenta de staff ---
 
   /**
-   * Crea un usuario, hashea la contrasena, y le asigna una membresia
-   * en el negocio con el rol especificado.
+   * Crea un usuario, hashea la contrasena y le asigna una membresia en el
+   * negocio con el rol indicado. La cuenta nace con el correo confirmado.
    */
   async createStaff(
     businessId: string,
@@ -200,6 +199,7 @@ export class UsersService {
         password: hashedPassword,
         name: dto.name,
         phone: dto.phone,
+        emailVerified: true,
       });
       await userRepo.save(user);
 
@@ -359,11 +359,8 @@ export class UsersService {
   // --- Admin: Activar/Desactivar cuenta ---
 
   /**
-   * Activa o desactiva la CUENTA DE USUARIO y su membresia.
-   * IMPORTANTE: Esto NO afecta al perfil profesional (core-service).
-   * La cuenta de usuario y el profesional son entidades independientes:
-   *   - Desactivar la cuenta = el usuario no puede iniciar sesion
-   *   - El profesional sigue activo en el equipo del negocio
+   * Activa o desactiva la cuenta de usuario y su membresia; el perfil
+   * profesional del core-service es independiente y no se toca.
    */
   async toggleActive(
     userId: string,

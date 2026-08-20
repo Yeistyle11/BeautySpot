@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
-import { Repository, DataSource, IsNull } from "typeorm";
+import { Repository, DataSource, In, IsNull } from "typeorm";
 import { CashSessionEntity } from "./cash-session.entity";
 import { CashMovementEntity } from "./cash-movement.entity";
 import { CashMovementType, PaymentMethod } from "@beautyspot/shared-types";
@@ -16,7 +16,8 @@ import {
   CloseSessionDto,
   RegisterMovementDto,
 } from "./dto/cash-register.dto";
-import { OutboxService } from "@beautyspot/nest-common";
+import { OutboxService, InternalHttpClient } from "@beautyspot/nest-common";
+import { PaymentEntity } from "../payments/payment.entity";
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
 import { EventNames } from "@beautyspot/event-types";
@@ -34,16 +35,13 @@ export class CashRegisterService {
     private readonly movementRepo: Repository<CashMovementEntity>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
-    private readonly outbox: OutboxService
+    private readonly outbox: OutboxService,
+    private readonly http: InternalHttpClient
   ) {}
 
   /**
-   * Abre una sesión de caja para la sede.
-   *
-   * Los índices únicos parciales sobre las sesiones sin cerrar son la garantía
-   * real de "una sola sesión abierta": la consulta previa solo sirve para dar un
-   * mensaje claro en el caso común, pero dos aperturas concurrentes que la
-   * superen chocan en el insert, y esa violación se traduce al mismo error.
+   * Abre una sesion de caja para la sede. Dos aperturas a la vez chocan en el
+   * indice unico parcial, que se traduce al mismo error que la consulta previa.
    */
   async openSession(
     businessId: string,
@@ -109,10 +107,19 @@ export class CashRegisterService {
     const expectedTotal =
       Number(session.openingAmount) + efectivo.entradas - efectivo.salidas;
 
+    const diferencia = Number(dto.closingAmount) - expectedTotal;
+
+    // Un descuadre obliga a dejar escrito el motivo.
+    if (diferencia !== 0 && !dto.notes?.trim()) {
+      throw new BadRequestException(
+        `La caja descuadra en ${Math.abs(diferencia)}: anota el motivo para poder cerrarla`
+      );
+    }
+
     session.closedBy = closedBy;
     session.closingAmount = dto.closingAmount;
     session.expectedTotal = expectedTotal;
-    session.difference = Number(dto.closingAmount) - expectedTotal;
+    session.difference = diferencia;
     session.closedAt = new Date();
     if (dto.notes) session.notes = dto.notes;
 
@@ -200,7 +207,7 @@ export class CashRegisterService {
         closedAt: session.closedAt,
         isOpen: session.isOpen,
       },
-      movements: session.movements,
+      movements: await this.conCliente(session.movements, businessId),
       summary: {
         totalIn,
         totalOut,
@@ -210,6 +217,49 @@ export class CashRegisterService {
           Number(session.openingAmount) + efectivo.entradas - efectivo.salidas,
       },
     };
+  }
+
+  /**
+   * Anade a cada movimiento el cliente que lo origino, resuelto al leer. Si el
+   * core no responde, los movimientos salen sin nombre.
+   */
+  private async conCliente(
+    movements: CashMovementEntity[],
+    businessId: string
+  ): Promise<(CashMovementEntity & { clientName?: string })[]> {
+    const conPago = movements.filter((m) => m.paymentId);
+    if (conPago.length === 0) return movements;
+
+    const pagos = await this.dataSource.getRepository(PaymentEntity).find({
+      where: { id: In(conPago.map((m) => m.paymentId as string)), businessId },
+      select: { id: true, clientId: true },
+    });
+    if (pagos.length === 0) return movements;
+
+    const nombres = await this.nombresDeClientes(businessId, [
+      ...new Set(pagos.map((p) => p.clientId)),
+    ]);
+    const clientePorPago = new Map(pagos.map((p) => [p.id, p.clientId]));
+
+    return movements.map((m) => {
+      const clientId = m.paymentId
+        ? clientePorPago.get(m.paymentId)
+        : undefined;
+      const clientName = clientId ? nombres.get(clientId) : undefined;
+      return clientName ? Object.assign(m, { clientName }) : m;
+    });
+  }
+
+  /** Nombre de cada cliente pedido, o el mapa vacío si el core no contesta. */
+  private async nombresDeClientes(
+    businessId: string,
+    ids: string[]
+  ): Promise<Map<string, string>> {
+    const fichas = await this.http.pedirONulo<{ id: string; name: string }[]>(
+      "core",
+      `/internal/clients/names?businessId=${businessId}&ids=${ids.join(",")}`
+    );
+    return new Map((fichas ?? []).map((f) => [f.id, f.name]));
   }
 
   /** Suma los movimientos: totales, desglose por método y el efectivo aparte. */

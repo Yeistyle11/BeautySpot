@@ -16,9 +16,8 @@ import { EmailService } from "../emails/email.service";
 import { AvisosService } from "./avisos.service";
 
 /**
- * Correos de la cuenta: bienvenida, restablecer contraseña y confirmar el
- * correo. Los tres son correo y nada más —quien acaba de registrarse todavía no
- * tiene dónde ver un aviso dentro de la aplicación—.
+ * Correos de la cuenta: bienvenida, restablecer contrasena y confirmar el
+ * correo. Los tres son solo correo.
  */
 @Injectable()
 export class CuentaListeners {
@@ -156,9 +155,12 @@ export class CuentaListeners {
     }
   }
 
-  /** Origen público de la aplicación, del que cuelgan los enlaces del correo. */
+  /**
+   * Origen publico de la aplicacion, del que cuelgan los enlaces del correo:
+   * el del navegador, que es quien sirve `/verify-email` y `/reset-password`.
+   */
   private appUrl(): string {
-    return this.configService.get<string>("APP_URL", "http://localhost:3000");
+    return this.configService.get<string>("APP_URL", "http://localhost:8080");
   }
 
   /** Horas que le quedan al enlace, redondeadas hacia arriba para el correo. */

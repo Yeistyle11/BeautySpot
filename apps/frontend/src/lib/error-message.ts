@@ -42,12 +42,12 @@ const CONTRATO =
  * Texto que se le muestra al usuario ante un error de la API: el mensaje del
  * backend en los 4xx y un texto propio en los 5xx y en los fallos de red.
  */
-export function mensajeDeError(error: unknown): string {
+export function mensajeDeError(error: unknown, respaldo = GENERICO): string {
   if (error instanceof ZodError) return CONTRATO;
 
   if (isApiError(error)) {
     if (error.status >= 500) {
-      return POR_ESTADO_SERVIDOR[error.status] ?? GENERICO;
+      return POR_ESTADO_SERVIDOR[error.status] ?? respaldo;
     }
 
     // El backend enumera qué campos fallaron; el mensaje que los acompaña
@@ -57,16 +57,17 @@ export function mensajeDeError(error: unknown): string {
     const mensaje = error.message?.trim();
     if (mensaje && !OPACOS.has(mensaje.toLowerCase())) return mensaje;
 
-    return POR_ESTADO_CLIENTE[error.status] ?? GENERICO;
+    return POR_ESTADO_CLIENTE[error.status] ?? respaldo;
   }
 
   if (error instanceof Error) {
-    // Un fallo de red llega como TypeError de fetch.
+    // Un fallo de red llega como TypeError de fetch, con el mensaje del
+    // navegador ("Failed to fetch").
     if (error.name === "TypeError") {
-      return "No se pudo conectar con el servidor. Comprueba tu conexión.";
+      return "No se pudo conectar. Revisa tu conexión a internet e inténtalo de nuevo.";
     }
     if (error.message?.trim()) return error.message;
   }
 
-  return GENERICO;
+  return respaldo;
 }

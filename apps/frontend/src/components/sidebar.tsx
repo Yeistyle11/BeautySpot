@@ -53,9 +53,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
 };
 
 /**
- * Barra de navegación lateral del dashboard. Muestra solo las páginas permitidas
- * para el rol actual, resalta la ruta activa y, en móvil, se colapsa en un menú
- * desplegable. Incluye el perfil del usuario, el cambio de tema y el cierre de sesión.
+ * Barra de navegacion lateral del dashboard: pinta las paginas permitidas al
+ * rol, el perfil, el cambio de tema y el cierre de sesion.
  */
 export function Sidebar() {
   const pathname = usePathname();
@@ -84,7 +83,7 @@ export function Sidebar() {
         <button
           onClick={() => setOpen(true)}
           className="hover:bg-accent rounded-lg p-2 transition-colors"
-          aria-label="Abrir menu de navegacion"
+          aria-label="Abrir menú de navegación"
           aria-expanded={open}
           aria-controls="sidebar-nav"
         >
@@ -124,7 +123,7 @@ export function Sidebar() {
           <button
             onClick={() => setOpen(false)}
             className="hover:bg-accent rounded-lg p-1 transition-colors lg:hidden"
-            aria-label="Cerrar menu de navegacion"
+            aria-label="Cerrar menú de navegación"
           >
             <X className="h-4 w-4" />
           </button>

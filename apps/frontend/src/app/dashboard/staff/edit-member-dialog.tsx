@@ -9,6 +9,7 @@ import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { LONGITUD_MINIMA_CONTRASENA } from "@beautyspot/shared-constants";
 import type { EditForm, Professional, StaffMember } from "./schemas";
 
 function Section({
@@ -110,10 +111,10 @@ export function EditMemberDialog({
               <Field label="Nueva contraseña">
                 <Input
                   type="password"
-                  placeholder="Minimo 8 caracteres"
+                  placeholder={`Mínimo ${LONGITUD_MINIMA_CONTRASENA} caracteres`}
                   value={form.newPassword}
                   onChange={(e) => set({ newPassword: e.target.value })}
-                  minLength={8}
+                  minLength={LONGITUD_MINIMA_CONTRASENA}
                 />
               </Field>
               <Field label="Confirmar contraseña">

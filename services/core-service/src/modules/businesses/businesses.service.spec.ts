@@ -210,10 +210,17 @@ describe("BusinessesService", () => {
       const result = await service.findAll({});
 
       expect(mockRepository.createQueryBuilder).toHaveBeenCalledWith("b");
-      expect(result).toHaveProperty("items");
-      expect(result).toHaveProperty("total");
-      expect(result).toHaveProperty("page");
-      expect(result).toHaveProperty("limit");
+      // El mismo sobre que el resto de listados: sin eso, cada pantalla nueva
+      // tiene que adivinar cual le toca abriendo el controlador.
+      expect(result).toHaveProperty("data");
+      expect(result.meta).toMatchObject({
+        page: expect.any(Number),
+        limit: expect.any(Number),
+        total: expect.any(Number),
+        totalPages: expect.any(Number),
+        hasNext: expect.any(Boolean),
+        hasPrev: expect.any(Boolean),
+      });
     });
 
     it("no debe unir las colecciones al listado, sino pedirlas por lote", async () => {
@@ -229,8 +236,8 @@ describe("BusinessesService", () => {
       expect(mockBranchRepo.find).toHaveBeenCalledTimes(1);
       expect(mockServiceRepo.find).toHaveBeenCalledTimes(1);
       expect(mockProfessionalRepo.find).toHaveBeenCalledTimes(1);
-      expect(result.items[0].branches).toHaveLength(1);
-      expect(result.items[0].services).toEqual([]);
+      expect(result.data[0].branches).toHaveLength(1);
+      expect(result.data[0].services).toEqual([]);
     });
 
     it("debería filtrar por ciudad", async () => {

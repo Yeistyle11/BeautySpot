@@ -30,6 +30,13 @@ export class DailyMetricEntity extends TenantEntity {
   })
   totalRevenue: number;
 
+  /**
+   * Cobros del dia, que es de donde salen esos ingresos y por lo que se divide
+   * el ticket medio.
+   */
+  @Column({ default: 0 })
+  ventas: number;
+
   @Column({ name: "new_clients", default: 0 })
   newClients: number;
 

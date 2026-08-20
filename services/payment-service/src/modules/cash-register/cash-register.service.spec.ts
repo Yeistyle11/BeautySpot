@@ -6,7 +6,7 @@ import { CashSessionEntity } from "./cash-session.entity";
 import { CashMovementEntity } from "./cash-movement.entity";
 import { CashMovementType, PaymentMethod } from "@beautyspot/shared-types";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
-import { OutboxService } from "@beautyspot/nest-common";
+import { OutboxService, InternalHttpClient } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 
 describe("CashRegisterService", () => {
@@ -17,6 +17,8 @@ describe("CashRegisterService", () => {
   let mockManager: any;
   let mockDataSource: any;
   let mockOutbox: jest.Mocked<OutboxService>;
+  let mockHttp: { pedirONulo: jest.Mock };
+  let mockPagos: { find: jest.Mock };
 
   const mockSession: CashSessionEntity = {
     id: "session-123",
@@ -88,14 +90,18 @@ describe("CashRegisterService", () => {
     mockManager = {
       getRepository: jest.fn().mockReturnValue(mockManagerRepo),
     };
+    mockPagos = { find: jest.fn().mockResolvedValue([]) };
     mockDataSource = {
       transaction: jest.fn(async (fn: (m: any) => Promise<any>) =>
         fn(mockManager)
       ),
+      // El resumen consulta los pagos para poner nombre a cada movimiento.
+      getRepository: jest.fn().mockReturnValue(mockPagos),
     };
     mockOutbox = {
       enqueue: jest.fn().mockResolvedValue(undefined),
     } as any;
+    mockHttp = { pedirONulo: jest.fn().mockResolvedValue([]) };
 
     const module = await Test.createTestingModule({
       providers: [
@@ -110,6 +116,7 @@ describe("CashRegisterService", () => {
         },
         { provide: DataSource, useValue: mockDataSource },
         { provide: OutboxService, useValue: mockOutbox },
+        { provide: InternalHttpClient, useValue: mockHttp },
       ],
     }).compile();
 
@@ -299,11 +306,48 @@ describe("CashRegisterService", () => {
       // 50.000 + 10.000 − 5.000 = 55.000 esperados; se cuentan 54.000.
       await service.closeSession("session-123", "business-123", "user-123", {
         closingAmount: 54000,
+        notes: "Faltó un billete de mil",
       });
 
       expect(mockManagerRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ expectedTotal: 55000, difference: -1000 })
       );
+    });
+
+    // El descuadre obliga a explicarse en el momento del arqueo.
+    it("no deja cerrar con descuadre sin motivo", async () => {
+      mockSessionRepo.findOne.mockResolvedValue(sesionCon([]));
+
+      await expect(
+        service.closeSession("session-123", "business-123", "user-123", {
+          closingAmount: 52000,
+        })
+      ).rejects.toThrow(/anota el motivo/i);
+      expect(mockManagerRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("tampoco con un motivo en blanco", async () => {
+      mockSessionRepo.findOne.mockResolvedValue(sesionCon([]));
+
+      await expect(
+        service.closeSession("session-123", "business-123", "user-123", {
+          closingAmount: 52000,
+          notes: "   ",
+        })
+      ).rejects.toThrow(/anota el motivo/i);
+    });
+
+    // Con la caja cuadrada la nota no aporta nada, y exigirla solo enseñaría a
+    // rellenarla con cualquier cosa.
+    it("deja cerrar sin motivo cuando la caja cuadra", async () => {
+      mockSessionRepo.findOne.mockResolvedValue(sesionCon([]));
+      mockManagerRepo.save.mockImplementation((s: unknown) => s);
+
+      await expect(
+        service.closeSession("session-123", "business-123", "user-123", {
+          closingAmount: 50000,
+        })
+      ).resolves.toBeDefined();
     });
 
     it("desglosa el cierre por método de pago", async () => {
@@ -375,6 +419,7 @@ describe("CashRegisterService", () => {
 
       await service.closeSession("session-123", "business-123", "user-123", {
         closingAmount: 52000,
+        notes: "Sobrante sin identificar",
       });
 
       expect(mockManagerRepo.save).toHaveBeenCalledWith(
@@ -388,6 +433,7 @@ describe("CashRegisterService", () => {
 
       await service.closeSession("session-123", "business-123", "user-123", {
         closingAmount: 49000,
+        notes: "Descuadre pendiente de revisar",
       });
 
       expect(mockOutbox.enqueue).toHaveBeenCalledWith(
@@ -513,7 +559,9 @@ describe("CashRegisterService", () => {
     });
 
     it("debería propagar errores de outbox (fail-closed: la tx revierte)", async () => {
-      const dto = { closingAmount: 55000 };
+      // Sin movimientos, el fondo de 50.000 es lo esperado: se cuenta eso mismo
+      // para que el cierre cuadre y el único fallo sea el del outbox.
+      const dto = { closingAmount: 50000 };
       const openSession = {
         ...mockSession,
         movements: [],
@@ -724,6 +772,102 @@ describe("CashRegisterService", () => {
       expect(mockSessionRepo.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({ take: 100 })
       );
+    });
+  });
+
+  describe("getSessionSummary, el listado que se repasa al cerrar", () => {
+    const movimiento = (extra = {}) => ({
+      id: "mov-1",
+      concept: "Corte clásico",
+      amount: 30000,
+      paymentId: "pay-1",
+      ...extra,
+    });
+
+    /** Deja la sesión con esos movimientos y devuelve el resumen. */
+    async function resumenCon(movements: unknown[]) {
+      mockSessionRepo.findOne.mockResolvedValue({
+        id: "sesion-1",
+        businessId: "business-123",
+        openingAmount: 0,
+        closingAmount: null,
+        difference: null,
+        openedAt: new Date(),
+        closedAt: null,
+        isOpen: true,
+        movements,
+      } as never);
+
+      return service.getSessionSummary("sesion-1", "business-123");
+    }
+
+    // Es el listado que se repasa cuando la caja no cuadra: sin saber de quién
+    // es cada entrada no se puede auditar nada.
+    it("pone nombre al cliente de cada cobro", async () => {
+      mockPagos.find.mockResolvedValue([{ id: "pay-1", clientId: "cli-1" }]);
+      mockHttp.pedirONulo.mockResolvedValue([
+        { id: "cli-1", name: "Carlos Pérez" },
+      ]);
+
+      const resumen = await resumenCon([movimiento()]);
+
+      expect(resumen.movements[0]).toMatchObject({
+        concept: "Corte clásico",
+        clientName: "Carlos Pérez",
+      });
+    });
+
+    it("pide los nombres al negocio de la sesión", async () => {
+      mockPagos.find.mockResolvedValue([{ id: "pay-1", clientId: "cli-1" }]);
+      mockHttp.pedirONulo.mockResolvedValue([]);
+
+      await resumenCon([movimiento()]);
+
+      expect(mockHttp.pedirONulo).toHaveBeenCalledWith(
+        "core",
+        expect.stringContaining("businessId=business-123&ids=cli-1")
+      );
+    });
+
+    it("no pregunta por lo que se anotó a mano, que no tiene cobro", async () => {
+      const resumen = await resumenCon([
+        movimiento({ concept: "Compra de toallas", paymentId: null }),
+      ]);
+
+      expect(mockHttp.pedirONulo).not.toHaveBeenCalled();
+      expect(resumen.movements[0]).not.toHaveProperty("clientName");
+    });
+
+    // El nombre es un dato de apoyo: sin respuesta del core, el listado sale
+    // igual.
+    it("sirve el arqueo aunque el core no conteste", async () => {
+      mockPagos.find.mockResolvedValue([{ id: "pay-1", clientId: "cli-1" }]);
+      mockHttp.pedirONulo.mockResolvedValue(null);
+
+      const resumen = await resumenCon([movimiento()]);
+
+      expect(resumen.movements).toHaveLength(1);
+      expect(resumen.movements[0]).not.toHaveProperty("clientName");
+    });
+
+    it("no repite el mismo cliente en la consulta", async () => {
+      mockPagos.find.mockResolvedValue([
+        { id: "pay-1", clientId: "cli-1" },
+        { id: "pay-2", clientId: "cli-1" },
+      ]);
+      mockHttp.pedirONulo.mockResolvedValue([]);
+
+      await resumenCon([
+        movimiento(),
+        movimiento({ id: "mov-2", paymentId: "pay-2" }),
+      ]);
+
+      expect(mockHttp.pedirONulo).toHaveBeenCalledWith(
+        "core",
+        expect.stringContaining("ids=cli-1")
+      );
+      const [, ruta] = mockHttp.pedirONulo.mock.calls[0];
+      expect(ruta).not.toContain("cli-1,cli-1");
     });
   });
 });

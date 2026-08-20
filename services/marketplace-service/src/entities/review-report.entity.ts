@@ -1,5 +1,5 @@
-import { Entity, Column, Index, Unique } from "typeorm";
-import { BaseEntity } from "@beautyspot/database";
+import { Entity, Column, Check, Index, Unique } from "typeorm";
+import { BaseEntity, enCatalogo } from "@beautyspot/database";
 
 /** Motivos por los que se puede denunciar una reseña. */
 export enum ReviewReportReason {
@@ -13,6 +13,11 @@ export enum ReviewReportReason {
 /** Denuncia de un usuario sobre una reseña; una por usuario y reseña. */
 @Entity("review_reports")
 @Unique(["reviewId", "userId"])
+// El catalogo de motivos, acotado en la base.
+@Check(
+  "CHK_review_reports_reason",
+  enCatalogo("reason", Object.values(ReviewReportReason))
+)
 export class ReviewReportEntity extends BaseEntity {
   @Column({ type: "uuid", name: "review_id" })
   @Index()

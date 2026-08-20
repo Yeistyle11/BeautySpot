@@ -30,10 +30,8 @@ export class ClienteListeners {
   ) {}
 
   /**
-   * Avisa al negocio de que le han dejado una reseña.
-   *
-   * Solo aviso dentro de la aplicación, sin correo: quien gestiona el negocio ya
-   * está dentro cuando le interesa responder.
+   * Avisa al negocio de que le han dejado una resena, solo dentro de la
+   * aplicacion.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
@@ -68,11 +66,8 @@ export class ClienteListeners {
   }
 
   /**
-   * Felicita al cliente el día de su cumpleaños, por correo y dentro de la
-   * aplicación.
-   *
-   * El correo sale aunque el cliente no tenga cuenta: el aviso in-app necesita
-   * un usuario, pero la dirección la trae la ficha.
+   * Felicita al cliente el dia de su cumpleanos, por correo y dentro de la
+   * aplicacion. El correo sale aunque no tenga cuenta.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,

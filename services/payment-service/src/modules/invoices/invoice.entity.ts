@@ -1,5 +1,9 @@
-import { Entity, Column, OneToMany, Index } from "typeorm";
-import { TenantEntity, numericTransformer } from "@beautyspot/database";
+import { Entity, Column, Check, OneToMany, Index } from "typeorm";
+import {
+  TenantEntity,
+  enCatalogo,
+  numericTransformer,
+} from "@beautyspot/database";
 import { InvoiceStatus } from "@beautyspot/shared-types";
 import { InvoiceItemEntity } from "./invoice-item.entity";
 
@@ -9,6 +13,11 @@ import { InvoiceItemEntity } from "./invoice-item.entity";
  */
 @Entity("invoices")
 @Index(["businessId", "number"], { unique: true })
+// El catalogo de estados, acotado en la base.
+@Check(
+  "CHK_invoices_status",
+  enCatalogo("status", Object.values(InvoiceStatus))
+)
 export class InvoiceEntity extends TenantEntity {
   @Column({ type: "uuid", name: "client_id" }) clientId!: string;
   @Column() number!: string;
@@ -49,15 +58,11 @@ export class InvoiceEntity extends TenantEntity {
     transformer: numericTransformer,
   })
   total!: number;
-  @Column({ type: "enum", enum: InvoiceStatus, default: InvoiceStatus.DRAFT })
+  @Column({ type: "varchar", default: InvoiceStatus.DRAFT })
   status!: InvoiceStatus;
   @Column({ type: "text", nullable: true }) notes!: string;
 
-  /**
-   * Las líneas se insertan con la factura: se crean en el mismo `save`, dentro
-   * de la transacción que reserva el número, y una factura sin su detalle no es
-   * una factura.
-   */
+  /** Las lineas se insertan con la factura, en el mismo `save`. */
   @OneToMany(() => InvoiceItemEntity, (item) => item.invoice, {
     cascade: ["insert"],
   })

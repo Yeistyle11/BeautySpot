@@ -1,5 +1,9 @@
-import { Entity, Column, OneToMany, Index } from "typeorm";
-import { AuditableEntity, numericTransformer } from "@beautyspot/database";
+import { Entity, Column, Check, OneToMany, Index } from "typeorm";
+import {
+  AuditableEntity,
+  enCatalogo,
+  numericTransformer,
+} from "@beautyspot/database";
 import { AppointmentStatus, CancelReason } from "@beautyspot/shared-types";
 import { AppointmentServiceEntity } from "./appointment-service.entity";
 
@@ -15,6 +19,12 @@ import { AppointmentServiceEntity } from "./appointment-service.entity";
 @Index("idx_appointments_recordatorios", ["date"], {
   where: `"status" IN ('PENDING', 'CONFIRMED') AND ("reminder_24h_sent_at" IS NULL OR "reminder_1h_sent_at" IS NULL)`,
 })
+// El catalogo del motivo, acotado en la base. Nulo mientras la cita no este
+// cancelada.
+@Check(
+  "CHK_appointments_cancel_reason_type",
+  enCatalogo("cancel_reason_type", Object.values(CancelReason), true)
+)
 export class Appointment extends AuditableEntity {
   @Column({ type: "uuid", name: "branch_id", nullable: true })
   branchId!: string;

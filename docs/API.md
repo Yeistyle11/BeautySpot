@@ -38,8 +38,12 @@ API Gateway:
 http://localhost:3000/api/v1/{servicio}/{ruta}
 ```
 
-El frontend usa `NEXT_PUBLIC_API_URL`, con `http://localhost:3000/api/v1` por defecto
-(ver `apps/frontend/src/lib/api.ts`).
+El navegador no llama a esa URL directamente: pide `/api/v1/...` a su propio
+origen y el rewrite de `apps/frontend/next.config.js` lo reenvía al gateway que
+indique `GATEWAY_URL`. Los componentes de servidor sí usan la URL absoluta
+(`apps/frontend/src/lib/api-server.ts`). `NEXT_PUBLIC_API_URL` sigue existiendo
+como salida para un despliegue que prefiera el gateway público, y entonces las
+peticiones vuelven a ser cross-origin.
 
 `{servicio}` debe ser el **nombre corto**, sin el sufijo `-service`:
 
@@ -94,6 +98,15 @@ Authorization: Bearer <access_token>
   sensible (rol, negocio, vencimiento) para hidratar la sesión en el cliente. El
   manejo del `401` se centraliza en `apps/frontend/src/lib/api.ts`, que ante un
   token vencido dispara una única renovación compartida y reintenta.
+- Las tres cookies **viven lo que la sesión de refresco**, no lo que el access
+  token. Lo que caduca a los 15 minutos es el token, que es lo que el gateway
+  valida en cada petición; la cookie solo lo transporta. Igualarlas hacía que el
+  navegador la borrara al caducar el token, y entonces el guard del panel no
+  veía ni un token vencido: mandaba a login a los 15 minutos con la sesión
+  válida durante días.
+- Una renovación **rechazada borra las tres cookies**. Mientras la pista de
+  sesión siguiera puesta, el guard anunciaría una sesión renovable y devolvería
+  al panel a quien acaba de ser rechazado.
 
 Las sesiones se pueden invalidar de forma inmediata en todos los servicios: el
 `tokenVersion` del usuario vive en Redis como fuente de verdad (ver
@@ -159,6 +172,16 @@ Las rutas de listado aceptan `?page=` y `?limit=` y responden con la forma
   }
 }
 ```
+
+**Es el único sobre paginado que existe.** Un listado o responde así, o responde
+con el arreglo a secas; no hay una tercera forma. Los catálogos que el tamaño del
+negocio ya acota —servicios, profesionales, sedes, horarios, campos de ficha—
+devuelven el arreglo directamente y no aceptan `?page=`.
+
+Del lado del navegador eso se traduce en dos herramientas de `lib/swr.ts`:
+`paginatedSchema(item)` para lo paginado y `z.array(item)` para lo demás. Elegir
+la que no toca no rompe la pantalla: Zod rechaza, el hook devuelve `undefined` y
+el listado se pinta **vacío**, indistinguible de "no hay nada".
 
 ### Formato de error
 
@@ -254,14 +277,14 @@ Negocios, sucursales, profesionales, servicios, clientes e imágenes. Base de da
 
 Roles a nivel de clase: **OWNER, ADMIN, SUPER_ADMIN**.
 
-| Método | Ruta          | Descripción                |
-| ------ | ------------- | -------------------------- |
-| POST   | `/`           | Crea un negocio            |
-| GET    | `/`           | Lista negocios (paginado)  |
-| GET    | `/slug/:slug` | Busca por slug             |
-| GET    | `/:id`        | Detalle                    |
-| PATCH  | `/:id`        | Actualiza                  |
-| DELETE | `/:id`        | Desactiva (borrado lógico) |
+| Método | Ruta          | Descripción                                                                                         |
+| ------ | ------------- | --------------------------------------------------------------------------------------------------- |
+| POST   | `/`           | Crea un negocio — **añade CLIENT**: quien se registra como cliente puede darse de alta como negocio |
+| GET    | `/`           | Lista negocios (paginado)                                                                           |
+| GET    | `/slug/:slug` | Busca por slug                                                                                      |
+| GET    | `/:id`        | Detalle                                                                                             |
+| PATCH  | `/:id`        | Actualiza                                                                                           |
+| DELETE | `/:id`        | Desactiva (borrado lógico)                                                                          |
 
 ### Sucursales — `/api/v1/core/branches`
 
@@ -279,11 +302,19 @@ Roles a nivel de clase: **OWNER, ADMIN, SUPER_ADMIN**.
 
 Roles a nivel de clase: **OWNER, ADMIN**.
 
-| Método | Ruta   | Descripción                            |
-| ------ | ------ | -------------------------------------- |
-| GET    | `/`    | Horario semanal del negocio            |
-| PUT    | `/`    | Reemplaza el horario completo (upsert) |
-| PATCH  | `/:id` | Actualiza un tramo                     |
+| Método | Ruta              | Descripción                                             |
+| ------ | ----------------- | ------------------------------------------------------- |
+| GET    | `/`               | Horario semanal del negocio                             |
+| PUT    | `/`               | Reemplaza el horario completo (upsert)                  |
+| PATCH  | `/:id`            | Actualiza un tramo                                      |
+| GET    | `/especiales`     | Días especiales declarados, del más próximo             |
+| POST   | `/especiales`     | Declara un festivo, unas vacaciones o un horario propio |
+| DELETE | `/especiales/:id` | Retira un día especial                                  |
+
+Un **día especial** es un rango de fechas con motivo que manda sobre el horario
+de la semana: `closed: true` cierra el negocio esos días, y con `closed: false`
+más `openTime`/`closeTime` abre con horario propio. La agenda deja de ofrecer
+huecos en los días cerrados, también en la reserva pública del marketplace.
 
 ### Ajustes del negocio — `/api/v1/core/business-config`
 
@@ -362,12 +393,21 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 | GET    | `/names?ids=`    | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Nombre de los clientes pedidos, por lista de ids |
 | GET    | `/me`            | CLIENT                                   | Su ficha, con el nivel de fidelidad resuelto     |
 | PATCH  | `/me`            | CLIENT                                   | Sus datos personales; 404 si reservó de invitado |
-| GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Detalle                                          |
+| GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST               | Detalle                                          |
 | PATCH  | `/:id`           | OWNER, ADMIN, RECEPTIONIST               | Actualiza                                        |
 | POST   | `/:id/anonymize` | OWNER, ADMIN                             | Derecho de supresión; conserva citas y facturas  |
 
 `GET /me` devuelve además `nivel` y `siguienteNivel`, resueltos en el servidor
 contra la escala de `business-config/fidelizacion`, que el cliente no puede leer.
+
+`GET /` devuelve cosas distintas según quién pregunte. Quien gestiona el negocio
+ve la cartera entera; un **PROFESSIONAL** ve solo los clientes que ha atendido, y
+de cada uno solo `id` y `name` — el contacto, el documento, las notas y la ficha
+son datos personales del negocio, no de quien atiende (Ley 1581 de 2012). Su
+búsqueda se limita al nombre: admitir correo o teléfono convertiría el listado en
+un oráculo para comprobar si un contacto es cliente. La lista de fichas atendidas
+se la sirve booking (`/internal/appointments/professional/:id/client-ids`), así
+que si booking no responde el listado falla en vez de ampliarse.
 
 `GET /names` existe porque la agenda necesita el nombre de **los clientes que hay
 en pantalla**, no la cartera entera: esta última llega paginada y dejaba sin
@@ -413,19 +453,21 @@ Controlador `@Public()`: sin token. Alimenta el marketplace y la reserva públic
 
 ### Internos
 
-| Método | Ruta                                | Descripción                                           |
-| ------ | ----------------------------------- | ----------------------------------------------------- |
-| GET    | `/internal/businesses/resolve`      | Resuelve negocio por slug (lo usa el gateway)         |
-| POST   | `/internal/businesses`              | Crea negocio a petición de otro servicio              |
-| POST   | `/internal/businesses/names`        | Nombres de varios negocios, para etiquetar listas     |
-| POST   | `/internal/clients/find-or-create`  | Busca o crea cliente (reserva pública)                |
-| GET    | `/internal/clients/:id/puntos`      | Puntos disponibles, para quien vaya a canjearlos      |
-| GET    | `/internal/clients/by-user/:userId` | Fichas del usuario, una por negocio donde reservó     |
-| GET    | `/internal/clients/search`          | Ids que casan con un texto (búsqueda de citas)        |
-| GET    | `/internal/profiles/resolve`        | Resuelve perfiles                                     |
-| GET    | `/internal/branches`                | Sedes activas del negocio                             |
-| GET    | `/internal/business-hours`          | Horario de apertura; lo consume la agenda             |
-| POST   | `/internal/services/resolve`        | Precio y duración reales de los servicios de una cita |
+| Método | Ruta                                | Descripción                                                                         |
+| ------ | ----------------------------------- | ----------------------------------------------------------------------------------- |
+| GET    | `/internal/businesses/resolve`      | Resuelve negocio por slug (lo usa el gateway)                                       |
+| POST   | `/internal/businesses`              | Crea negocio a petición de otro servicio                                            |
+| POST   | `/internal/businesses/names`        | Nombres de varios negocios, para etiquetar listas                                   |
+| POST   | `/internal/clients/find-or-create`  | Busca o crea cliente (reserva pública)                                              |
+| GET    | `/internal/clients/:id/puntos`      | Puntos disponibles, para quien vaya a canjearlos                                    |
+| GET    | `/internal/clients/by-user/:userId` | Fichas del usuario, una por negocio donde reservó                                   |
+| GET    | `/internal/clients/search`          | Ids que casan con un texto (búsqueda de citas)                                      |
+| GET    | `/internal/clients/names`           | Nombre de los clientes pedidos, acotado al negocio                                  |
+| GET    | `/internal/profiles/resolve`        | Resuelve perfiles                                                                   |
+| GET    | `/internal/branches`                | Sedes activas del negocio                                                           |
+| GET    | `/internal/business-hours`          | Horario semanal de apertura                                                         |
+| GET    | `/internal/business-hours/dia`      | Apertura de una fecha, ya resuelta contra los días especiales; lo consume la agenda |
+| POST   | `/internal/services/resolve`        | Precio y duración reales de los servicios de una cita                               |
 
 ---
 
@@ -510,6 +552,7 @@ nombra los días en conflicto.
 | Método | Ruta                                                              | Descripción                            |
 | ------ | ----------------------------------------------------------------- | -------------------------------------- |
 | GET    | `/internal/appointments/professional/:professionalId/has-history` | Si el profesional tiene historial      |
+| GET    | `/internal/appointments/professional/:professionalId/client-ids`  | Fichas que ha atendido (tope 500)      |
 | GET    | `/internal/appointments/capacidad`                                | Minutos disponibles del equipo ese día |
 | GET    | `/internal/appointments/:appointmentId/cobro`                     | Importe, estado y cliente de la cita   |
 | GET    | `/internal/appointments/:appointmentId/resenable`                 | Si el usuario puede reseñar esa cita   |
@@ -523,14 +566,24 @@ Pagos manuales, facturas y caja. Base de datos `beautyspot_payment`. Usa el patr
 
 ### Pagos — `/api/v1/payment/payments`
 
-| Método | Ruta             | Roles                      | Descripción            |
-| ------ | ---------------- | -------------------------- | ---------------------- |
-| POST   | `/`              | ADMIN, RECEPTIONIST        | Registra pago          |
-| GET    | `/`              | OWNER, ADMIN, RECEPTIONIST | Lista pagos (paginado) |
-| GET    | `/daily-summary` | OWNER, ADMIN               | Resumen del día        |
-| GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST | Detalle                |
-| PATCH  | `/:id/status`    | OWNER, ADMIN               | Cambia el estado       |
-| POST   | `/:id/refund`    | OWNER, ADMIN               | Procesa devolución     |
+| Método | Ruta             | Roles                      | Descripción                       |
+| ------ | ---------------- | -------------------------- | --------------------------------- |
+| POST   | `/`              | ADMIN, RECEPTIONIST        | Registra pago                     |
+| GET    | `/`              | OWNER, ADMIN, RECEPTIONIST | Lista pagos (paginado)            |
+| GET    | `/cobradas`      | OWNER, ADMIN, RECEPTIONIST | De unas citas, cuáles ya se cobró |
+| GET    | `/daily-summary` | OWNER, ADMIN               | Resumen del día                   |
+| GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST | Detalle                           |
+| PATCH  | `/:id/status`    | OWNER, ADMIN               | Cambia el estado                  |
+| POST   | `/:id/refund`    | OWNER, ADMIN               | Procesa devolución                |
+
+Un cobro puede llevar `appointmentId`: entonces el importe tiene que coincidir
+con el de la cita, esa cita no se puede cobrar dos veces mientras el cobro siga
+vivo, y el evento `payment.registered` sale con los servicios que se vendieron.
+Sin él es una venta suelta, con el importe tecleado a mano.
+
+`GET /cobradas` acepta `appointmentIds` (lista separada por comas, máximo 100) y
+responde con los identificadores que ya tienen cobro. Booking no sabe de pagos,
+así que es la vía para no ofrecer una cita que el servidor va a rechazar.
 
 ### Facturas — `/api/v1/payment/invoices`
 
@@ -631,6 +684,7 @@ Perfiles públicos, búsqueda, feed y reseñas. Base de datos `beautyspot_market
 
 | Método | Ruta              | Roles        | Descripción                 |
 | ------ | ----------------- | ------------ | --------------------------- |
+| POST   | `/`               | OWNER, ADMIN | Da de alta el perfil        |
 | GET    | `/`               | OWNER, ADMIN | Perfil del negocio propio   |
 | PUT    | `/config`         | OWNER, ADMIN | Actualiza la configuración  |
 | POST   | `/gallery`        | OWNER, ADMIN | Añade imágenes a la galería |
@@ -638,6 +692,14 @@ Perfiles públicos, búsqueda, feed y reseñas. Base de datos `beautyspot_market
 | DELETE | `/gallery/:index` | OWNER, ADMIN | Quita una imagen            |
 | POST   | `/publish`        | OWNER, ADMIN | Publica el perfil           |
 | POST   | `/unpublish`      | OWNER, ADMIN | Lo retira del marketplace   |
+
+`POST /` es por donde el negocio entra en el marketplace, y es el que usa el
+panel; `/internal/business-profiles/sync` queda para la sincronización entre
+servicios, que por eso recibe el negocio en el cuerpo y no del token. El alta no
+publica: el perfil nace en borrador y sale a la portada cuando el dueño pulsa
+`POST /publish`. El enlace público se deriva del nombre si no se manda, numerando
+al chocar; el que llega escrito se respeta o se rechaza con 409, porque puede
+estar ya repartido. También responde 409 si el negocio ya tiene perfil.
 
 ### Perfiles públicos — `/api/v1/marketplace/profiles`
 
@@ -680,7 +742,9 @@ Perfiles públicos, búsqueda, feed y reseñas. Base de datos `beautyspot_market
 | POST   | `/:id/helpful`                  | Autenticado  | Marca como útil; un voto por usuario          |
 | DELETE | `/:id/helpful`                  | Autenticado  | Quita la marca                                |
 
-Una reseña oculta por moderación deja de contar en la media del negocio.
+Ocultar una reseña la retira del listado público, pero **sigue contando en la
+media y en el total** del negocio y del profesional. La moderación existe para
+retirar un insulto o un dato personal publicado, no para subir la nota.
 
 `GET /mine` acepta `appointmentIds` (lista separada por comas, máximo 200) para
 responder solo por esas citas: es lo que necesita el listado del cliente para
@@ -708,11 +772,27 @@ controladores exigen **SUPER_ADMIN, OWNER o ADMIN**.
 
 | Método | Ruta                 | Descripción                                      |
 | ------ | -------------------- | ------------------------------------------------ |
-| GET    | `/kpis`              | KPIs principales                                 |
-| GET    | `/top-professionals` | Ranking de profesionales                         |
-| GET    | `/revenue-chart`     | Serie de ingresos para la gráfica                |
+| GET    | `/kpis`              | KPIs del periodo, con el anterior si se compara  |
+| GET    | `/top-professionals` | Ranking de profesionales del periodo             |
+| GET    | `/revenue-chart`     | Serie de ingresos para la gráfica (`days`)       |
 | GET    | `/retencion`         | Tasa de retorno y frecuencia de visita           |
 | GET    | `/servicios`         | Rentabilidad e ingreso por hora de cada servicio |
+
+`/kpis`, `/top-professionals` y `/servicios` aceptan el periodo en `from` y `to`
+(días de calendario `AAAA-MM-DD`, ambos extremos incluidos). Van juntos: mandar
+solo uno es un 400, y un periodo invertido también —darle la vuelta devolvería
+cifras de un periodo que nadie pidió—. Sin periodo son los últimos treinta días,
+hoy incluido, que es lo que consume el panel de inicio.
+
+`/kpis?comparar=true` añade `comparado` con las mismas cifras del periodo
+inmediatamente anterior y de la misma duración. Se cuenta en días y no en meses:
+comparar febrero contra enero mediría el calendario y no el negocio.
+
+La respuesta de `/kpis` trae `today` con los contadores del día y `periodo` con
+los agregados del rango, incluido el `dias` que abarca —es el divisor del
+promedio diario, y por eso viaja—. `/retencion` **no** se acota al periodo: el
+retorno se mide sobre toda la vida del cliente, porque quien vuelve cada cuatro
+meses no cabe en una semana.
 
 ### Métricas — `/api/v1/analytics/metrics`
 
@@ -733,6 +813,12 @@ controladores exigen **SUPER_ADMIN, OWNER o ADMIN**.
 | GET    | `/professionals` | Informe por profesional |
 | GET    | `/appointments`  | Informe de citas        |
 
+Los tres exigen `from` y `to`. `/professionals` devuelve un identificador por
+fila y ninguna cifra de nombre: analytics no guarda los nombres del equipo, que
+son del core y pueden cambiar, así que quien pinte la tabla los resuelve contra
+`GET /core/professionals`. Un profesional dado de baja sigue apareciendo, porque
+su trabajo cuenta en el periodo.
+
 ---
 
 ## api-gateway (3000)
@@ -747,7 +833,12 @@ controladores exigen **SUPER_ADMIN, OWNER o ADMIN**.
 > cubre en `proxy.controller.spec.ts`.
 
 El gateway también aplica **rate limiting** con Redis, configurable con
-`RATE_LIMIT_AUTH_MAX` y `RATE_LIMIT_GENERAL_MAX`.
+`RATE_LIMIT_AUTH_MAX` y `RATE_LIMIT_GENERAL_MAX`. Toda respuesta lleva
+`RateLimit-Limit`, `RateLimit-Remaining` y `RateLimit-Reset` —los segundos que le
+quedan a la ventana—, de modo que una integración sepa cuánto le falta antes de
+chocar en vez de descubrirlo reintentando. El 429 añade `Retry-After` con esos
+mismos segundos, y su mensaje los nombra: "Demasiados intentos. Espera 42
+segundos y vuelve a intentarlo."
 
 ---
 

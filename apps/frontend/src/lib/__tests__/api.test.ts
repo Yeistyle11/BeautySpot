@@ -33,6 +33,20 @@ describe("api.request", () => {
     global.fetch = originalFetch;
   });
 
+  it("llama al mismo origen, por el rewrite y no al gateway", async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue(jsonResponse(200, { success: true, data: null }));
+    global.fetch = fetchMock;
+
+    await api.get("/core/clients");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/core/clients",
+      expect.anything()
+    );
+  });
+
   it("desenvuelve la forma { success, data } del gateway", async () => {
     global.fetch = jest
       .fn()

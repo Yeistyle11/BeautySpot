@@ -405,7 +405,9 @@ describe("AnalyticsEventListeners", () => {
   });
 
   describe("handlePaymentRegistered", () => {
-    it("debería incrementar totalRevenue (daily)", async () => {
+    // El cobro suma su importe y cuenta como una venta: el ticket medio se
+    // divide por esas ventas, no por las citas atendidas.
+    it("debería incrementar totalRevenue y contar la venta", async () => {
       const event = {
         eventType: "payment.payment.registered",
         timestamp: new Date(),
@@ -425,7 +427,7 @@ describe("AnalyticsEventListeners", () => {
       expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
         "biz-333",
         expect.any(String),
-        { totalRevenue: 75000 },
+        { totalRevenue: 75000, ventas: 1 },
         managerFalso
       );
     });

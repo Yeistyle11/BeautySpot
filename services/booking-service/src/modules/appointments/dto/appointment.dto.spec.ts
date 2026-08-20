@@ -1,5 +1,9 @@
 import { BadRequestException, ValidationPipe } from "@nestjs/common";
-import { CreateAppointmentDto } from "./appointment.dto";
+import {
+  AvailabilityQueryDto,
+  CreateAppointmentDto,
+  RescheduleDto,
+} from "./appointment.dto";
 
 // Mismo pipe que monta createMicroserviceApp.
 const pipe = new ValidationPipe({
@@ -122,5 +126,79 @@ describe("CreateAppointmentDto", () => {
         metadata
       )
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  /** Mensajes con los que el pipe rechaza esa fecha. */
+  async function motivosDe(date: string): Promise<string> {
+    try {
+      await pipe.transform({ ...citaDelPanel, date }, metadata);
+      return "";
+    } catch (error) {
+      const respuesta = (error as BadRequestException).getResponse();
+      return JSON.stringify(respuesta);
+    }
+  }
+
+  // Dias con la forma correcta que no existen en el calendario.
+  it.each([
+    "2027-02-29",
+    "2026-02-30",
+    "2026-04-31",
+    "2026-13-01",
+    "2026-00-10",
+  ])("rechaza %s, que no existe en el calendario", async (date) => {
+    const motivos = await motivosDe(date);
+
+    expect(motivos).toContain("no existe en el calendario");
+  });
+
+  it("acepta el 29 de febrero de un año bisiesto", async () => {
+    await expect(motivosDe("2028-02-29")).resolves.toBe("");
+  });
+
+  // Equivocarse de formato y elegir un día que no existe son dos correcciones
+  // distintas, y el mensaje tiene que decir cuál toca.
+  it("distingue el formato mal escrito del día inexistente", async () => {
+    const formato = await motivosDe("13-08-2026");
+
+    expect(formato).toContain("formato YYYY-MM-DD");
+    expect(formato).not.toContain("no existe en el calendario");
+  });
+});
+
+/**
+ * Las tres rutas que fechan comparten decorador: reservar, mover la cita y
+ * preguntar por los huecos de un dia.
+ */
+describe("el día imposible se corta en toda la agenda", () => {
+  it("no deja reagendar al 31 de abril", async () => {
+    await expect(
+      pipe.transform(
+        { date: "2026-04-31", startTime: "10:00" },
+        { type: "body", metatype: RescheduleDto }
+      )
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("no deja pedir los huecos de un 29 de febrero que no existe", async () => {
+    await expect(
+      pipe.transform(
+        {
+          professionalId: citaDelPanel.professionalId,
+          date: "2027-02-29",
+          duration: 30,
+        },
+        { type: "body", metatype: AvailabilityQueryDto }
+      )
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("sigue dejando pasar los días que sí existen", async () => {
+    await expect(
+      pipe.transform(
+        { date: "2026-04-30", startTime: "10:00" },
+        { type: "body", metatype: RescheduleDto }
+      )
+    ).resolves.toMatchObject({ date: "2026-04-30" });
   });
 });

@@ -256,11 +256,8 @@ export class EmailService {
   // ─── Queue methods (thin wrappers over queueEmail) ────────
 
   /**
-   * Encola el acuse de la cita recién solicitada.
-   *
-   * Es un correo distinto al de confirmación a propósito: la cita nace
-   * PENDING, y decirle "confirmada" a quien todavía espera respuesta del
-   * negocio es prometer algo que aún no ha pasado.
+   * Encola el acuse de la cita recien solicitada, distinto del correo de
+   * confirmacion: la cita nace PENDING.
    */
   async queueAppointmentCreated(
     to: string,

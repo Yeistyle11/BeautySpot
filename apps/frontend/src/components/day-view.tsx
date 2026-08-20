@@ -36,10 +36,7 @@ interface DayViewProps {
   clientNames: Record<string, string>;
   /** Bloqueos del día de todo el equipo, para pintarlos sobre la rejilla. */
   bloqueos?: BloqueoDeAgenda[];
-  /**
-   * Bloquear desde un hueco. Sin este prop la rejilla no es pulsable, que es lo
-   * que corresponde a quien no puede crear bloqueos.
-   */
+  /** Bloquear desde un hueco; sin este prop la rejilla no es pulsable. */
   onBloquearHueco?: (professionalId: string, hora: string) => void;
 }
 
@@ -64,11 +61,8 @@ const HORA_FIN_MINIMA = 21;
 const ALTO_HORA = 64;
 
 /**
- * Franja de horas que hay que pintar para que quepan todas las citas y bloqueos
- * del día.
- *
- * Un negocio que cierra de madrugada tiene citas a las 00:30, y una jornada fija
- * de 7 a 21 las dejaría fuera de la rejilla, invisibles.
+ * Franja de horas que hay que pintar para que quepan todas las citas y
+ * bloqueos del dia, incluidos los de madrugada.
  */
 function franjaDelDia(
   bloques: BloqueDeCita[],
@@ -138,8 +132,8 @@ function lineasDe(appt: Appointment) {
 
 /** Un bloque por profesional: cada uno ocupa solo los servicios que atiende. */
 function bloquesDe(appt: Appointment): BloqueDeCita[] {
-  // El fin llega en hora de reloj: la cita de las 23:30 termina a las "00:30" y
-  // hay que devolverla a la escala del reparto, o se pintaría hacia arriba.
+  // Devuelve el fin a la escala del reparto: llega en hora de reloj y la cita
+  // de las 23:30 termina a las "00:30".
   const reparto = repartoPorProfesional(
     appt.startTime,
     finExtendido(appt.startTime, appt.ocupadoHasta ?? appt.endTime),
@@ -160,8 +154,7 @@ function bloquesDe(appt: Appointment): BloqueDeCita[] {
 
 /**
  * Vista de un dia con una columna por profesional. Cada cita se posiciona por
- * minutos y se pinta partida en los tramos que ocupan al profesional: el hueco
- * del procesado queda transparente y la limpieza se marca aparte.
+ * minutos y se pinta partida en los tramos que ocupan al profesional.
  */
 export function DayView({
   appointments,
@@ -265,7 +258,9 @@ export function DayView({
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
-        <span className="ml-2 text-sm font-medium capitalize">{etiqueta}</span>
+        <span className="ml-2 text-sm font-medium first-letter:uppercase">
+          {etiqueta}
+        </span>
       </div>
 
       {columnas.length === 0 ? (
@@ -430,7 +425,7 @@ export function DayView({
                       variant="outline"
                       onClick={() => onNoShow(selectedAppt.id)}
                     >
-                      No asistio
+                      No asistió
                     </Button>
                   </>
                 )}
@@ -451,12 +446,7 @@ export function DayView({
   );
 }
 
-/**
- * Franja bloqueada, rayada para no confundirla con una cita.
- *
- * Va por debajo de las citas en el orden de pintado: si algo se solapara, lo que
- * interesa ver es la cita.
- */
+/** Franja bloqueada, rayada y pintada por debajo de las citas. */
 function BloqueoPintado({
   bloqueo,
   horaInicio,

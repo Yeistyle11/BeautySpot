@@ -23,7 +23,7 @@ import {
 } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
 import { useAuthStore } from "@/lib/store";
-import { useApi } from "@/lib/swr";
+import { useApi, paginatedSchema } from "@/lib/swr";
 import { kpiDataSchema, KPIS_KEY, type KpiData } from "@/lib/schemas/kpis";
 
 interface Appointment {
@@ -38,9 +38,8 @@ interface Appointment {
   clientId: string;
 }
 
-// El analytics-service solo guarda identificadores: el nombre del profesional
-// se cruza aqui contra /core/professionals, igual que se hace con el cliente de
-// cada cita.
+// El reporte solo trae el id del profesional; el nombre se cruza contra
+// /core/professionals.
 const topProfessionalSchema = z.object({
   professionalId: z.string(),
   appointments: z.number(),
@@ -52,11 +51,6 @@ const professionalRefSchema = z.object({
   id: z.string(),
   name: z.string(),
 });
-type ProfessionalRef = z.infer<typeof professionalRefSchema>;
-const professionalRefListSchema = z.union([
-  z.array(professionalRefSchema),
-  z.object({ items: z.array(professionalRefSchema) }),
-]);
 
 const revenuePointSchema = z.object({
   date: z.string(),
@@ -84,18 +78,6 @@ const rawAppointmentSchema = z.object({
 });
 type RawAppointment = z.infer<typeof rawAppointmentSchema>;
 
-// La API devuelve, segun el endpoint, o el arreglo crudo o
-// { items: [...] } -- se refleja tal cual con z.union, no se investiga ni
-// se normaliza esa inconsistencia de contrato en esta fase.
-const rawAppointmentListSchema = z.union([
-  z.array(rawAppointmentSchema),
-  z.object({ items: z.array(rawAppointmentSchema) }),
-]);
-const clientRefListSchema = z.union([
-  z.array(clientRefSchema),
-  z.object({ items: z.array(clientRefSchema) }),
-]);
-
 export default function DashboardPage() {
   const { businessId } = useAuthStore();
 
@@ -103,14 +85,23 @@ export default function DashboardPage() {
   const appointmentsKey = businessId
     ? `/booking/appointments?date=${today}`
     : null;
-  const clientsKey = businessId ? `/core/clients?limit=100` : null;
+  // Las citas llegan paginadas: `paginatedSchema` abre el sobre.
+  const { data: paginaDeCitas, isLoading: loadingAppointments } = useApi(
+    appointmentsKey,
+    undefined,
+    paginatedSchema(rawAppointmentSchema)
+  );
 
-  const { data: rawAppointments, isLoading: loadingAppointments } = useApi<
-    RawAppointment[] | { items: RawAppointment[] }
-  >(appointmentsKey, undefined, rawAppointmentListSchema);
-  const { data: rawClients, isLoading: loadingClients } = useApi<
-    ClientRef[] | { items: ClientRef[] }
-  >(clientsKey, undefined, clientRefListSchema);
+  // Pide a core, por id, los nombres de los clientes que salen hoy.
+  const idsDeHoy = useMemo(
+    () => [...new Set((paginaDeCitas?.data ?? []).map((a) => a.clientId))],
+    [paginaDeCitas]
+  );
+  const { data: nombresDeClientes, isLoading: loadingClients } = useApi(
+    idsDeHoy.length ? `/core/clients/names?ids=${idsDeHoy.join(",")}` : null,
+    undefined,
+    z.array(clientRefSchema)
+  );
   const { data: kpiData } = useApi<KpiData | null>(
     businessId ? KPIS_KEY : null,
     undefined,
@@ -121,12 +112,10 @@ export default function DashboardPage() {
     undefined,
     z.array(topProfessionalSchema)
   );
-  const { data: rawProfessionals } = useApi<
-    ProfessionalRef[] | { items: ProfessionalRef[] }
-  >(
-    businessId ? "/core/professionals?limit=100" : null,
+  const { data: profesionales } = useApi(
+    businessId ? "/core/professionals" : null,
     undefined,
-    professionalRefListSchema
+    z.array(professionalRefSchema)
   );
   const { data: revenueChart } = useApi<RevenuePoint[]>(
     businessId ? "/analytics/dashboard/revenue-chart?days=7" : null,
@@ -136,15 +125,10 @@ export default function DashboardPage() {
 
   const loading = !!businessId && (loadingAppointments || loadingClients);
 
-  // Las citas llegan sin el nombre del cliente (viven en servicios distintos),
-  // asi que se cruzan aqui contra la lista de clientes por id.
+  // Cruza cada cita con el nombre de cliente pedido por id.
   const appointments = useMemo<Appointment[]>(() => {
-    const items: RawAppointment[] = Array.isArray(rawAppointments)
-      ? rawAppointments
-      : (rawAppointments?.items ?? []);
-    const clientList: ClientRef[] = Array.isArray(rawClients)
-      ? rawClients
-      : (rawClients?.items ?? []);
+    const items: RawAppointment[] = paginaDeCitas?.data ?? [];
+    const clientList: ClientRef[] = nombresDeClientes ?? [];
     const names: Record<string, string> = {};
     clientList.forEach((c) => {
       names[c.id] = c.name;
@@ -160,12 +144,10 @@ export default function DashboardPage() {
       clientName: names[a.clientId] || undefined,
       clientId: a.clientId,
     }));
-  }, [rawAppointments, rawClients]);
+  }, [paginaDeCitas, nombresDeClientes]);
 
-  // Cada tarjeta prefiere el KPI de analytics-service y cae al calculo sobre las
-  // citas de hoy si ese servicio aun no respondio, para no ensenar la tarjeta
-  // vacia. "Pendientes" no tiene equivalente en el endpoint de KPIs, asi que
-  // siempre se calcula aqui.
+  // Cada tarjeta usa el KPI de analytics y cae al calculo sobre las citas de
+  // hoy mientras no responda. "Pendientes" siempre se calcula aqui.
   const stats = useMemo(() => {
     const completadas = appointments.filter((a) => a.status === "COMPLETED");
     const pendientes = appointments.filter(
@@ -217,15 +199,12 @@ export default function DashboardPage() {
   );
 
   const nombresDeProfesional = useMemo(() => {
-    const lista: ProfessionalRef[] = Array.isArray(rawProfessionals)
-      ? rawProfessionals
-      : (rawProfessionals?.items ?? []);
     const nombres: Record<string, string> = {};
-    lista.forEach((p) => {
+    (profesionales ?? []).forEach((p) => {
       nombres[p.id] = p.name;
     });
     return nombres;
-  }, [rawProfessionals]);
+  }, [profesionales]);
 
   const maxRevenue = useMemo(
     () => Math.max(...(revenueChart ?? []).map((r) => r.revenue), 1),
@@ -261,7 +240,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {kpiData?.last30Days && (
+      {kpiData?.periodo && (
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4">
@@ -269,7 +248,7 @@ export default function DashboardPage() {
                 <TrendingUp className="h-4 w-4" /> Ingresos 30 días
               </div>
               <p className="mt-1 text-xl font-bold">
-                {formatCurrency(kpiData.last30Days.totalRevenue)}
+                {formatCurrency(kpiData.periodo.totalRevenue)}
               </p>
             </CardContent>
           </Card>
@@ -279,7 +258,7 @@ export default function DashboardPage() {
                 <Calendar className="h-4 w-4" /> Citas 30 días
               </div>
               <p className="mt-1 text-xl font-bold">
-                {kpiData.last30Days.totalAppointments}
+                {kpiData.periodo.totalAppointments}
               </p>
             </CardContent>
           </Card>
@@ -289,7 +268,7 @@ export default function DashboardPage() {
                 <CheckCircle className="h-4 w-4" /> Tasa completado
               </div>
               <p className="mt-1 text-xl font-bold">
-                {kpiData.last30Days.completionRate.toFixed(1)}%
+                {kpiData.periodo.completionRate.toFixed(1)}%
               </p>
             </CardContent>
           </Card>
@@ -299,7 +278,7 @@ export default function DashboardPage() {
                 <Users className="h-4 w-4" /> Clientes nuevos
               </div>
               <p className="mt-1 text-xl font-bold">
-                {kpiData.last30Days.newClients}
+                {kpiData.periodo.newClients}
               </p>
             </CardContent>
           </Card>

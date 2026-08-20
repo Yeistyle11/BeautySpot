@@ -19,13 +19,12 @@ import { NotificationPreferencesModule } from "../notification-preferences/notif
           type: "exponential",
           delay: 2000,
         },
-        removeOnComplete: {
-          age: 3600,
-          count: 1000,
-        },
+        // El trabajo se borra al terminar, y el fallido dura lo justo para
+        // mirarlo: el cuerpo lleva el enlace con su token en claro.
+        removeOnComplete: true,
         removeOnFail: {
-          age: 24 * 3600,
-          count: 5000,
+          age: 600,
+          count: 100,
         },
       },
     }),

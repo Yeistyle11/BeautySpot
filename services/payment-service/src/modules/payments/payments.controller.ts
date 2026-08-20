@@ -14,10 +14,13 @@ import {
   IsInt,
   IsEnum,
   IsOptional,
+  IsArray,
   IsDateString,
+  IsUUID,
   Min,
   MaxLength,
 } from "class-validator";
+import { Transform } from "class-transformer";
 import { PaymentMethod, PaymentStatus, Role } from "@beautyspot/shared-types";
 import {
   Roles,
@@ -40,14 +43,42 @@ class CreatePaymentDto {
   @IsOptional() @IsString() reference?: string;
   @IsOptional() @IsString() notes?: string;
   /**
-   * Puntos de fidelidad que el cliente gasta en este cobro. `amount` es lo que
-   * paga de su bolsillo, ya rebajado: lo que tiene que cuadrar con la cita es
-   * la suma de los dos.
+   * Puntos de fidelidad que el cliente gasta en este cobro; `amount` es lo que
+   * paga de su bolsillo, ya rebajado.
    */
   @IsOptional()
   @IsInt({ message: "Los puntos deben ser un número entero" })
   @Min(1, { message: "Para canjear hay que usar al menos un punto" })
   puntosUsados?: number;
+  /**
+   * Identifica el intento de cobro, no el cobro: dos envios con el mismo
+   * identificador dejan un solo cargo.
+   */
+  @IsOptional()
+  @IsUUID("4", { message: "El identificador de la solicitud debe ser un UUID" })
+  solicitudId?: string;
+}
+
+/** Tope de citas por consulta; el formulario ofrece una página, no el historial. */
+const MAXIMO_CITAS = 100;
+
+/**
+ * Citas por las que se pregunta si ya estan cobradas, como lista separada por
+ * comas y con tope de elementos.
+ */
+export class CitasCobradasDto {
+  @Transform(({ value }) =>
+    typeof value === "string"
+      ? value
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean)
+          .slice(0, MAXIMO_CITAS)
+      : []
+  )
+  @IsArray()
+  @IsUUID("4", { each: true, message: "Cada id de cita debe ser un UUID" })
+  appointmentIds!: string[];
 }
 
 /** Día del que se pide el resumen, en formato ISO. */
@@ -107,6 +138,19 @@ export class PaymentsController {
       },
       pagination
     );
+  }
+
+  /**
+   * De las citas indicadas, cuales tienen ya un cobro vivo. Responde solo con
+   * los identificadores.
+   */
+  @Get("cobradas")
+  @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
+  async cobradas(
+    @BusinessId() businessId: string,
+    @Query() query: CitasCobradasDto
+  ): Promise<string[]> {
+    return this.service.citasYaCobradas(businessId, query.appointmentIds);
   }
 
   /** Devuelve el resumen de pagos completados de un día, agregado por método. */

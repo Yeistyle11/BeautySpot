@@ -25,8 +25,6 @@ describe("SlotDto", () => {
     expect(await erroresDe("endTime", "20:00", "02:00")).toEqual([]);
   });
 
-  // Sin esto, la jornada que acaba al filo de la medianoche no se puede guardar
-  // aunque el servicio la acepte: el DTO la corta antes.
   it("acepta las 24:00 como salida", async () => {
     expect(await erroresDe("endTime", "09:00", "24:00")).toEqual([]);
   });

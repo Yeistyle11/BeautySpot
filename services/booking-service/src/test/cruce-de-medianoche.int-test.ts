@@ -38,15 +38,7 @@ const MADRUGADA = (() => {
 
 /**
  * Comprueba contra Postgres real que una cita que termina pasada la medianoche
- * ocupa la madrugada del día siguiente.
- *
- * La ocupación se consulta por fecha, así que sin traer ese sobrante la agenda
- * del día siguiente daría la franja por libre y la vendería otra vez.
- *
- * La cita de anoche se escribe directamente en la tabla en los casos que solo
- * miran la ocupación: así el escenario queda montado sin depender de la jornada
- * del profesional, que es lo que prueban aparte los casos del cierre de
- * madrugada.
+ * ocupa la madrugada del dia siguiente.
  */
 describe("Integración: la cita de anoche ocupa la madrugada", () => {
   let dataSource: DataSource;
@@ -162,10 +154,8 @@ describe("Integración: la cita de anoche ocupa la madrugada", () => {
   });
 
   /**
-   * Deja al profesional trabajando los siete días entre esas dos horas.
-   *
-   * La salida se guarda como la marca el reloj, así que una anterior a la
-   * entrada es la del día siguiente: `20:00`–`01:00` es el turno de noche.
+   * Deja al profesional trabajando los siete dias entre esas dos horas; una
+   * salida anterior a la entrada es la del dia siguiente.
    */
   const jornada = async (startTime: string, endTime: string) => {
     const disponibilidades = dataSource.getRepository(Availability);
@@ -195,7 +185,7 @@ describe("Integración: la cita de anoche ocupa la madrugada", () => {
 
   it("no admite una cita que se salga de la jornada por la medianoche", async () => {
     await expect(reservar(NOCHE, "23:30")).rejects.toThrow(
-      /no esta disponible/i
+      /no está disponible/i
     );
   });
 

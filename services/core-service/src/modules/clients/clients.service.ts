@@ -5,21 +5,21 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
-import { TenantCrudService, OutboxService } from "@beautyspot/nest-common";
-import { EventNames } from "@beautyspot/event-types";
-import { Repository, Like, In, DataSource, EntityManager } from "typeorm";
 import {
-  escapeLikePattern,
-  normalizarEmail,
-  normalizarTelefono,
-} from "@beautyspot/shared-utils";
+  TenantCrudService,
+  OutboxService,
+  InternalHttpClient,
+} from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
+import { Repository, In, DataSource, EntityManager } from "typeorm";
+import { normalizarEmail, normalizarTelefono } from "@beautyspot/shared-utils";
 import {
   nivelDePuntos,
   siguienteNivel,
   NIVELES_FIDELIDAD_POR_DEFECTO,
   type NivelDeFidelidad,
 } from "@beautyspot/shared-constants";
-import { paginate, PaginateParams } from "@beautyspot/database";
+import { contieneTexto, paginate, PaginateParams } from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
 import {
   BusinessConfigService,
@@ -30,6 +30,13 @@ import {
   CampoDeFicha,
   TipoDeCampo,
 } from "../../entities/campo-de-ficha.entity";
+import { ProfessionalsService } from "../professionals/professionals.service";
+
+/**
+ * Lo unico que ve de una ficha quien solo la atiende: el nombre con el que
+ * reconocerla en su agenda.
+ */
+const CAMPOS_PARA_PROFESIONAL = { id: true, name: true } as const;
 
 /** Rótulo con el que se queda una ficha tras suprimir sus datos. */
 const NOMBRE_ANONIMO = "Cliente anonimizado";
@@ -57,7 +64,9 @@ export class ClientsService extends TenantCrudService<Client> {
     private readonly camposRepo: Repository<CampoDeFicha>,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly outbox: OutboxService,
-    private readonly configuracion: BusinessConfigService
+    private readonly configuracion: BusinessConfigService,
+    private readonly professionals: ProfessionalsService,
+    private readonly http: InternalHttpClient
   ) {
     super(repo, "Cliente no encontrado");
   }
@@ -101,7 +110,7 @@ export class ClientsService extends TenantCrudService<Client> {
     const existente = await this.buscarPorContacto(businessId, contacto);
     if (existente) {
       throw new ConflictException(
-        `Ya existe un cliente con ese ${existente.email === contacto.email ? "correo" : "telefono"}: ${existente.name}`
+        `Ya existe un cliente con ese ${existente.email === contacto.email ? "correo" : "teléfono"}: ${existente.name}`
       );
     }
   }
@@ -131,11 +140,8 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * Comprueba la ficha contra los campos que el negocio tiene definidos: no se
-   * aceptan claves que nadie declaró, ni valores que no cuadren con su tipo.
-   *
-   * Los obligatorios solo se exigen cuando se envía ficha; dar de alta a alguien
-   * por teléfono sin más datos tiene que seguir siendo posible.
+   * Comprueba la ficha contra los campos que el negocio tiene definidos. Los
+   * obligatorios solo se exigen cuando se envia ficha.
    */
   private async validarFicha(
     businessId: string,
@@ -202,9 +208,8 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * Ejerce el derecho de supresión: vacía los datos personales y deja la ficha
-   * dada de baja. La fila se conserva porque sus citas y sus facturas la
-   * referencian, y una factura emitida no se puede borrar.
+   * Ejerce el derecho de supresion: vacia los datos personales y da de baja la
+   * ficha, que se conserva porque citas y facturas la referencian.
    */
   async anonymize(id: string, businessId: string): Promise<Client> {
     await this.rechazarSiEstaAnonimizado(id, businessId);
@@ -251,21 +256,71 @@ export class ClientsService extends TenantCrudService<Client> {
     const base = { businessId, active: true };
     const where = search
       ? [
-          { ...base, name: Like(`%${escapeLikePattern(search)}%`) },
-          { ...base, email: Like(`%${escapeLikePattern(search)}%`) },
-          { ...base, phone: Like(`%${escapeLikePattern(search)}%`) },
+          { ...base, name: contieneTexto(search) },
+          { ...base, email: contieneTexto(search) },
+          { ...base, phone: contieneTexto(search) },
         ]
       : base;
     return paginate(this.repo, pagination, { where, order: { name: "ASC" } });
   }
 
   /**
-   * Nombre de los clientes pedidos, acotado al negocio.
-   *
-   * Devuelve solo id y nombre: quien llama está poniendo cara a una lista, no
-   * consultando fichas, y el resto de columnas son datos personales que no hay
-   * por qué mover.
+   * Clientes que ha atendido quien pregunta, con la ficha recortada. La lista
+   * se le pide a booking y, si no contesta, la peticion falla.
    */
+  async findByBusinessParaProfesional(
+    businessId: string,
+    userId: string,
+    search: string | undefined,
+    pagination: PaginateParams
+  ): Promise<IPaginatedResponse<Pick<Client, "id" | "name">>> {
+    // Un usuario con rol de profesional puede no tener ficha: desvincularla no
+    // le quita el rol. Ve una agenda sin nombres, no un error.
+    const profesional = await this.professionals.findByUserId(
+      userId,
+      businessId
+    );
+    if (!profesional) return this.paginaVacia(pagination);
+
+    const atendidos = await this.http.pedir<{ clientIds: string[] }>(
+      "booking",
+      `/internal/appointments/professional/${profesional.id}/client-ids?businessId=${businessId}`
+    );
+    const clientIds = atendidos?.clientIds ?? [];
+    if (clientIds.length === 0) return this.paginaVacia(pagination);
+
+    // La busqueda se limita al nombre: por correo o telefono, teclear un
+    // numero confirmaria que pertenece a un cliente del negocio.
+    return paginate(this.repo, pagination, {
+      where: {
+        businessId,
+        active: true,
+        id: In(clientIds),
+        ...(search ? { name: contieneTexto(search) } : {}),
+      },
+      order: { name: "ASC" },
+      select: CAMPOS_PARA_PROFESIONAL,
+    });
+  }
+
+  /** Página sin resultados con la forma que espera quien la pidió. */
+  private paginaVacia(
+    pagination: PaginateParams
+  ): IPaginatedResponse<Pick<Client, "id" | "name">> {
+    return {
+      data: [],
+      meta: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrev: pagination.page > 1,
+      },
+    };
+  }
+
+  /** Nombre de los clientes pedidos, acotado al negocio: solo id y nombre. */
   async findNamesByIds(
     businessId: string,
     ids: string[]
@@ -298,11 +353,8 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * Ficha del usuario con su nivel de fidelidad ya resuelto.
-   *
-   * El nivel lo calcula el servidor porque la escala vive en `business_config`,
-   * que solo pueden leer el dueño y el administrador: al cliente le llega el
-   * resultado, no las reglas.
+   * Ficha del usuario con su nivel de fidelidad ya resuelto por el servidor,
+   * sin exponer la escala.
    */
   async findMineConNivel(userId: string): Promise<
     | (Client & {
@@ -349,11 +401,8 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * Suma puntos de fidelidad al cliente.
-   *
-   * Acepta un `manager` para poder correr dentro de la transacción de quien
-   * llame: acreditar puntos es dinero, y el incremento tiene que confirmarse a
-   * la vez que la marca de evento procesado o se duplican o se pierden.
+   * Suma puntos de fidelidad al cliente. Acepta un `manager` para correr
+   * dentro de la transaccion de quien llame.
    */
   async addLoyaltyPoints(
     id: string,
@@ -376,11 +425,8 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * Resta puntos de fidelidad al cliente, sin bajar de cero.
-   *
-   * Acepta un `manager` por el mismo motivo que `addLoyaltyPoints`: el descuento
-   * y la marca de evento procesado tienen que confirmarse juntos, o los puntos
-   * se gastan dos veces o no se gastan nunca.
+   * Resta puntos de fidelidad al cliente, sin bajar de cero. Acepta un
+   * `manager` para correr dentro de la transaccion de quien llame.
    */
   async subtractLoyaltyPoints(
     id: string,

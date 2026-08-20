@@ -2,12 +2,8 @@ import { InternalServerErrorException } from "@nestjs/common";
 import { DEFAULT_WEAK_SECRETS, MIN_SECRET_LENGTH } from "./secretos";
 
 /**
- * Valida el JWT secret donde se va a usar y aborta si es inseguro: ausente, con
- * un valor por defecto conocido o demasiado corto.
- *
- * Es la última barrera, no la primera: `validarEntorno` ya rechaza el arranque
- * con una configuración así. Se conserva porque quien firma o verifica un token
- * no debe fiarse de que alguien haya comprobado antes.
+ * Valida el JWT secret donde se va a usar y aborta si es inseguro: ausente,
+ * con un valor por defecto conocido o demasiado corto.
  */
 export function assertJwtSecret(
   secret: string | undefined,

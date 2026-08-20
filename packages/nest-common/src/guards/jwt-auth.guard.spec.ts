@@ -360,7 +360,7 @@ describe("JwtAuthGuard", () => {
       const context = mockExecutionContext("/api/test", "Bearer token");
 
       await expect(guard.canActivate(context)).rejects.toThrow(
-        "Sesión invalidada"
+        "Tu sesión ya no es válida"
       );
     });
 

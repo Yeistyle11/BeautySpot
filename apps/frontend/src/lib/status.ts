@@ -1,6 +1,5 @@
-// Mapea cada estado de cita a su etiqueta en español y sus clases de color, tanto
-// para los badges como para los chips densos del calendario. Fuente única para que
-// el mismo estado se vea igual en toda la app.
+// Etiqueta en espanol y clases de color de cada estado de cita, para los badges
+// y para los chips densos del calendario.
 export type AppointmentStatus =
   | "PENDING"
   | "CONFIRMED"
@@ -23,16 +22,11 @@ export type BadgeVariant =
 
 export interface StatusInfo {
   label: string;
-  /**
-   * Variante del Badge. Es la unica forma de pintar un estado: antes convivia
-   * con un campo `color` de clases sueltas que no coincidia con ella, asi que
-   * el mismo estado se veia distinto segun la pantalla.
-   */
+  /** Variante del Badge con la que se pinta el estado. */
   variant: BadgeVariant;
   /**
-   * Chip denso del calendario, mas saturado y con borde. Lleva las seis tonos
-   * crudos porque hacen falta seis matices distinguibles entre si y el tema solo
-   * define tres (success, warning, info); cada uno trae su variante oscura.
+   * Chip denso del calendario, mas saturado y con borde, con los seis tonos
+   * crudos y su variante oscura.
    */
   calendarColor: string;
 }
@@ -69,7 +63,7 @@ const APPOINTMENT_STATUS: Record<AppointmentStatus, StatusInfo> = {
       "bg-red-200 border-red-400 text-red-900 dark:bg-red-900 dark:border-red-700 dark:text-red-100",
   },
   NO_SHOW: {
-    label: "No asistio",
+    label: "No asistió",
     variant: "muted",
     calendarColor:
       "bg-gray-200 border-gray-400 text-gray-700 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200",

@@ -6,6 +6,7 @@ import {
   TopProfessionalsQueryDto,
   RevenueChartQueryDto,
 } from "./dto/dashboard-query.dto";
+import { RangoQueryDto, rangoPedido } from "../../common/rango.dto";
 
 /** Endpoints del dashboard: KPIs, ranking de profesionales y gráfica de ingresos. */
 @Controller("dashboard")
@@ -13,10 +14,20 @@ import {
 export class DashboardController {
   constructor(private readonly service: DashboardService) {}
 
-  /** Devuelve los KPIs del negocio (hoy y últimos 30 días). */
+  /**
+   * KPIs del negocio: hoy y el periodo pedido, o los ultimos treinta dias. Con
+   * `comparar`, tambien los del periodo anterior.
+   */
   @Get("kpis")
-  async getKPIs(@BusinessId() businessId: string) {
-    return this.service.getKPIs(businessId);
+  async getKPIs(
+    @BusinessId() businessId: string,
+    @Query() query: RangoQueryDto
+  ) {
+    return this.service.getKPIs(
+      businessId,
+      rangoPedido(query) ?? undefined,
+      query.comparar
+    );
   }
 
   /** Devuelve el ranking de profesionales por ingresos. */
@@ -25,7 +36,11 @@ export class DashboardController {
     @BusinessId() businessId: string,
     @Query() query: TopProfessionalsQueryDto
   ) {
-    return this.service.getTopProfessionals(businessId, query.limit ?? 10);
+    return this.service.getTopProfessionals(
+      businessId,
+      query.limit ?? 10,
+      rangoPedido(query) ?? undefined
+    );
   }
 
   /** Devuelve la serie diaria para la gráfica de ingresos. */
@@ -47,11 +62,11 @@ export class DashboardController {
   @Get("servicios")
   async getRentabilidadPorServicio(
     @BusinessId() businessId: string,
-    @Query("days") days?: string
+    @Query() query: RangoQueryDto
   ) {
     return this.service.getRentabilidadPorServicio(
       businessId,
-      days ? parseInt(days, 10) : undefined
+      rangoPedido(query) ?? undefined
     );
   }
 }

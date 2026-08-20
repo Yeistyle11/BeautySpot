@@ -4,6 +4,7 @@
 import { Banknote, CreditCard, Smartphone, Wallet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
+import { nombreDelMetodo } from "@/lib/metodos-de-pago";
 import type { PaymentSummary as Summary } from "./schemas";
 
 function SummaryCard({
@@ -53,7 +54,7 @@ export function PaymentSummaryCards({ summary }: { summary: Summary }) {
       <SummaryCard
         icon={<CreditCard className="text-info h-5 w-5" />}
         iconClass="bg-info-soft"
-        label="Tarjeta"
+        label={nombreDelMetodo("CARD")}
         amount={summary.card}
       />
       <SummaryCard

@@ -18,9 +18,7 @@ const FONDO = 100000;
 
 /**
  * Recorre el ciclo del arqueo contra Postgres real: abrir la caja, cobrar por
- * los distintos métodos y cerrarla comprobando que el descuadre sale de lo que
- * de verdad hay en el cajón. Requiere la infraestructura levantada
- * (`npm run test:int`).
+ * cada metodo y cerrarla comprobando el descuadre (`npm run test:int`).
  */
 describe("Integración: el arqueo de caja cuadra", () => {
   let dataSource: DataSource;
@@ -41,9 +39,15 @@ describe("Integración: el arqueo de caja cuadra", () => {
   const abrir = () =>
     caja.openSession(NEGOCIO, USUARIO, { openingAmount: FONDO } as never);
 
-  const cerrar = (sessionId: string, closingAmount: number) =>
+  /** Cierra la caja, con un motivo por defecto para el descuadre. */
+  const cerrar = (
+    sessionId: string,
+    closingAmount: number,
+    notes = "Arqueo de la prueba"
+  ) =>
     caja.closeSession(sessionId, NEGOCIO, USUARIO, {
       closingAmount,
+      notes,
     } as never);
 
   beforeAll(async () => {
@@ -66,7 +70,15 @@ describe("Integración: el arqueo de caja cuadra", () => {
     movimientos = dataSource.getRepository(CashMovementEntity);
     const outbox = new OutboxService();
 
-    caja = new CashRegisterService(sesiones, movimientos, dataSource, outbox);
+    caja = new CashRegisterService(
+      sesiones,
+      movimientos,
+      dataSource,
+      outbox,
+      // El nombre del cliente es un dato de apoyo del listado: sin core, los
+      // movimientos salen igual, solo que sin nombre.
+      { pedirONulo: jest.fn().mockResolvedValue(null) } as never
+    );
     pagos = new PaymentsService(
       dataSource.getRepository(PaymentEntity),
       dataSource,
@@ -99,8 +111,8 @@ describe("Integración: el arqueo de caja cuadra", () => {
     expect(Number(anotados[0].amount)).toBe(30000);
   });
 
-  // La tarjeta se anota igual, porque el cierre Z desglosa por método, pero no
-  // deja dinero en el cajón: contarla como efectivo descuadraría el arqueo.
+  // La tarjeta se anota igual, porque el cierre Z desglosa por metodo, pero
+  // no cuenta como efectivo del cajon.
   it("la tarjeta se anota, pero no cuenta como efectivo", async () => {
     const sesion = await abrir();
 
@@ -150,6 +162,23 @@ describe("Integración: el arqueo de caja cuadra", () => {
     const cerrada = await cerrar(sesion.id, FONDO + 32000);
 
     expect(Number(cerrada.difference)).toBe(2000);
+  });
+
+  // El arqueo solo controla algo si el descuadre obliga a explicarse en el
+  // momento; después, nadie recuerda por qué faltaban cinco mil pesos.
+  it("no deja cerrar con descuadre y sin motivo", async () => {
+    const sesion = await abrir();
+    await cobrar(30000, PaymentMethod.CASH);
+
+    await expect(
+      caja.closeSession(sesion.id, NEGOCIO, USUARIO, {
+        closingAmount: FONDO + 25000,
+      } as never)
+    ).rejects.toThrow(/anota el motivo/i);
+
+    // Y la caja sigue abierta, no a medio cerrar.
+    const viva = await sesiones.findOne({ where: { id: sesion.id } });
+    expect(viva?.closedAt).toBeNull();
   });
 
   it("el cierre publica el arqueo por el outbox", async () => {

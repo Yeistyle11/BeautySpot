@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { RedisCacheService } from "@beautyspot/nest-common";
+import { TIPOS_DE_NEGOCIO } from "@beautyspot/shared-constants";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
 import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
@@ -29,13 +30,8 @@ export interface FeedResponse {
 }
 
 /**
- * Vigencia del feed en caché.
- *
- * Más corta que la del perfil: el feed ordena por popularidad y novedad, así que
- * un negocio recién publicado debe aparecer pronto. No se invalida en las
- * escrituras porque cualquier alta o cambio de valoración afectaría a todas las
- * claves por ubicación; a este ritmo de cambio, caducar sale más barato que
- * recalcular.
+ * Vigencia del feed en cache, mas corta que la del perfil. No se invalida en
+ * las escrituras: caduca solo.
  */
 const FEED_TTL_SEGUNDOS = 60;
 
@@ -52,12 +48,8 @@ export class FeedService {
   ) {}
 
   /**
-   * Arma el feed (categorías y secciones), personalizando "populares" por
-   * ubicación si se da.
-   *
-   * Es la portada del marketplace: la lectura más repetida del sistema,
-   * idéntica para todos los visitantes de una misma zona, y son cinco consultas
-   * por visita. Va cacheada.
+   * Arma el feed (categorias y secciones), personalizando "populares" por
+   * ubicacion si se da. Va cacheado: son cinco consultas por visita.
    */
   async getFeed(
     lat?: number,
@@ -146,15 +138,16 @@ export class FeedService {
 
   /** Devuelve las categorías de negocio con su número de perfiles publicados. */
   private async getCategories(): Promise<FeedCategory[]> {
-    const categoryConfigs = [
-      { id: "BARBERIA", name: "Barberías", icon: "scissors" },
-      { id: "SALON", name: "Salones de Belleza", icon: "mirror" },
-      { id: "SPA", name: "Spas y Centros Estéticos", icon: "spa" },
-    ];
+    // Las categorias salen del catalogo compartido de tipos, el mismo que se
+    // elige al crear el negocio.
+    const categoryConfigs = TIPOS_DE_NEGOCIO.map((tipo) => ({
+      id: tipo.valor,
+      name: tipo.categoria,
+      icon: tipo.icono,
+    }));
 
-    // Un GROUP BY en vez de una consulta por categoría: cada una traía además
-    // una fila de perfil que se descartaba, porque el listado devuelve datos y
-    // total a la vez.
+    // Un GROUP BY en vez de una consulta por categoria, que ademas traia una
+    // fila de perfil que se descartaba.
     const conteos = await this.profilesService.contarPorTipo();
 
     return categoryConfigs.map((cfg) => ({

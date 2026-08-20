@@ -24,10 +24,8 @@ const METODOS_CON_RECIBO: PaymentMethod[] = [
 ];
 
 /**
- * Lo que el cliente recibe cuando se le cobra: la factura y el recibo del pago.
- *
- * El destinatario es siempre el cliente —el negocio ya ve el cobro en su
- * caja—, así que aquí no hay avisos al equipo.
+ * Lo que el cliente recibe cuando se le cobra: la factura y el recibo del
+ * pago. No hay avisos al equipo.
  */
 @Injectable()
 export class CobrosListeners {

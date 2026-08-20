@@ -35,24 +35,33 @@ export class ClientsController {
     return this.service.create(businessId, dto);
   }
 
-  /** Lista los clientes del negocio con búsqueda y paginación. */
+  /**
+   * Lista los clientes del negocio con busqueda y paginacion; quien solo
+   * atiende ve su parte de la cartera y sin datos personales.
+   */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
   @Get()
   async findAll(
     @BusinessId() businessId: string,
+    @CurrentUser("role") role: Role,
+    @CurrentUser("userId") userId: string,
     @Query() query: Record<string, unknown>,
     @Query("search") search?: string
   ) {
     const pagination = parsePaginationQuery(query, ["name", "createdAt"]);
-    return this.service.findByBusiness(businessId, search, pagination);
+    return role === Role.PROFESSIONAL
+      ? this.service.findByBusinessParaProfesional(
+          businessId,
+          userId,
+          search,
+          pagination
+        )
+      : this.service.findByBusiness(businessId, search, pagination);
   }
 
   /**
-   * Nombre de los clientes pedidos, para poner cara a una lista de citas.
-   *
-   * Existe porque quien pinta una agenda necesita el nombre de **los clientes
-   * que tiene en pantalla**, y la cartera entera solo se sirve paginada: fuera
-   * de su primera página no habría nombre que cruzar.
+   * Nombre de los clientes pedidos por id, para poner cara a una lista de
+   * citas.
    */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
   @Get("names")
@@ -72,9 +81,8 @@ export class ClientsController {
   }
 
   /**
-   * Actualiza los datos personales del cliente autenticado. Devuelve 404 si
-   * reservó como invitado y no tiene ficha, para que el llamador recurra a su
-   * usuario de auth-service.
+   * Actualiza los datos personales del cliente autenticado; 404 si reservo
+   * como invitado y no tiene ficha.
    */
   @Roles(Role.CLIENT)
   @SkipBusinessScope()
@@ -90,8 +98,11 @@ export class ClientsController {
     return actualizado;
   }
 
-  /** Obtiene un cliente por id. */
-  @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
+  /**
+   * Obtiene un cliente por id, con la ficha completa; solo para quien gestiona
+   * el negocio.
+   */
+  @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Get(":id")
   async findById(@Param("id") id: string, @BusinessId() businessId: string) {
     return this.service.findById(id, businessId);

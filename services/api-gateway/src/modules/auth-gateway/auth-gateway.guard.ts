@@ -1,4 +1,8 @@
-import { Injectable, ExecutionContext } from "@nestjs/common";
+import {
+  Injectable,
+  ExecutionContext,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { Request } from "express";
 
@@ -73,5 +77,15 @@ export class AuthGatewayGuard extends AuthGuard("jwt") {
     }
 
     return super.canActivate(context);
+  }
+
+  /** Responde en español a la sesión que falta, ha caducado o ya no vale. */
+  handleRequest<TUser>(err: unknown, user: TUser): TUser {
+    if (err || !user) {
+      throw new UnauthorizedException(
+        "Tu sesión no es válida o ha caducado. Vuelve a iniciar sesión."
+      );
+    }
+    return user;
   }
 }

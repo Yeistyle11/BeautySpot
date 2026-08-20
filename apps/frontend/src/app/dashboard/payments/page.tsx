@@ -1,7 +1,8 @@
 "use client";
 
 // Pagina de pagos: lista de pagos registrados con resumen, busqueda por fecha y paginacion.
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
+import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,8 +23,10 @@ import { PaymentSummaryCards } from "./payment-summary";
 import { PaymentCard } from "./payment-card";
 import { CreatePaymentDialog, EditPaymentDialog } from "./payment-dialogs";
 import {
+  citaCobrableSchema,
   clientSchema,
   CLIENTS_KEY,
+  COBRADAS_KEY,
   dailySummarySchema,
   emptyCreateForm,
   emptyEditForm,
@@ -45,8 +48,8 @@ export default function PaymentsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  // El backend solo aplica el rango cuando recibe ambos extremos, asi que se
-  // completa el que falte para que filtrar por una sola fecha no sea un no-op.
+  // Completa el extremo que falte del rango: el backend solo lo aplica
+  // cuando recibe los dos.
   const dateRange = useMemo(() => {
     if (!dateFrom && !dateTo) return { from: undefined, to: undefined };
     return {
@@ -75,21 +78,59 @@ export default function PaymentsPage() {
   const [createDialog, setCreateDialog] = useState(false);
   const [createForm, setCreateForm] = useState<CreateForm>(emptyCreateForm);
   const [savingCreate, setSavingCreate] = useState(false);
+  /** Identifica el intento de cobro; se renueva al abrir el formulario. */
+  const solicitudId = useRef<string>("");
+  /** Cierra el envio en el mismo tick, antes de que React repinte. */
+  const cobrando = useRef(false);
+
+  /** Abre el formulario de cobro con un intento nuevo. */
+  const abrirCobro = () => {
+    solicitudId.current = crypto.randomUUID();
+    setCreateDialog(true);
+  };
 
   const [editDialog, setEditDialog] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditForm>(emptyEditForm);
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // La lista de clientes solo hace falta con un dialogo abierto.
-  // El historial necesita la lista para poner nombre a cada cobro, asi que se
-  // carga con la pagina y no solo al abrir un dialogo.
+  // El historial necesita la lista de clientes para nombrar cada cobro.
   const { data: clientsPage } = useApi(
     CLIENTS_KEY,
     undefined,
     paginatedSchema(clientSchema)
   );
   const clients: Client[] = clientsPage?.data ?? [];
+
+  /**
+   * Citas atendidas del cliente elegido, para poder cobrar una de ellas.
+   */
+  const citasKey =
+    createDialog && createForm.clientId
+      ? `/booking/appointments?clientId=${createForm.clientId}&status=COMPLETED&limit=20&sort=date&order=DESC`
+      : null;
+  const { data: paginaDeCitas } = useApi(
+    citasKey,
+    undefined,
+    paginatedSchema(citaCobrableSchema)
+  );
+  const citasAtendidas = useMemo(
+    () => paginaDeCitas?.data ?? [],
+    [paginaDeCitas]
+  );
+
+  // Booking no sabe de pagos: cuáles están cobradas hay que preguntárselo a
+  // payment, o se ofrecerían citas que el servidor va a rechazar.
+  const idsDeCitas = citasAtendidas.map((c) => c.id).join(",");
+  const { data: yaCobradas } = useApi(
+    idsDeCitas ? `${COBRADAS_KEY}?appointmentIds=${idsDeCitas}` : null,
+    undefined,
+    z.array(z.string())
+  );
+  const citasPorCobrar = useMemo(() => {
+    const cobradas = new Set(yaCobradas ?? []);
+    return citasAtendidas.filter((c) => !cobradas.has(c.id));
+  }, [citasAtendidas, yaCobradas]);
 
   const clientMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -99,9 +140,8 @@ export default function PaymentsPage() {
     return map;
   }, [clients]);
 
-  // El resumen del dia se pide al backend, que lo calcula sobre todos los
-  // pagos y no solo sobre la pagina visible. El endpoint es exclusivo de
-  // OWNER/ADMIN, asi que para recepcion se cae al calculo local aproximado.
+  // El resumen del dia lo calcula el backend sobre todos los pagos; para
+  // recepcion, que no puede llamarlo, se calcula en local sobre la pagina.
   const canReadSummary = canDo(role, "payments_edit");
   const today = toLocalDateKey(new Date());
   const { data: dailySummary } = useApi<DailySummary | null>(
@@ -138,16 +178,20 @@ export default function PaymentsPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (cobrando.current) return;
+    cobrando.current = true;
     setSavingCreate(true);
     try {
       await api.post("/payment/payments", {
         clientId: createForm.clientId,
+        appointmentId: createForm.appointmentId || undefined,
         amount: parseFloat(createForm.amount),
         method: createForm.method,
         reference: createForm.reference || undefined,
         notes: createForm.notes || undefined,
         // Sin canje no se manda el campo: el backend exige al menos un punto.
         puntosUsados: Number(createForm.puntosUsados) || undefined,
+        solicitudId: solicitudId.current || undefined,
       });
       setCreateDialog(false);
       setCreateForm(emptyCreateForm);
@@ -156,6 +200,7 @@ export default function PaymentsPage() {
       logger.error(err);
       toast.error(mensajeDeError(err));
     } finally {
+      cobrando.current = false;
       setSavingCreate(false);
     }
   };
@@ -201,7 +246,7 @@ export default function PaymentsPage() {
           <p className="text-muted-foreground">Historial y registro de pagos</p>
         </div>
         {canDo(role, "payments_create") && (
-          <Button onClick={() => setCreateDialog(true)}>
+          <Button onClick={abrirCobro}>
             <Plus className="mr-2 h-4 w-4" />
             Nuevo pago
           </Button>
@@ -283,6 +328,7 @@ export default function PaymentsPage() {
         form={createForm}
         onChange={setCreateForm}
         onSubmit={handleCreate}
+        citasPorCobrar={citasPorCobrar}
         clients={clients ?? []}
         saving={savingCreate}
       />

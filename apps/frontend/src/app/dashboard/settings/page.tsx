@@ -2,22 +2,32 @@
 
 // Pagina de configuracion: pestanas de cuenta, negocio y horarios.
 import { useEffect, useRef, useState } from "react";
+import { mensajeDeError } from "@/lib/error-message";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Building2, Clock, ClipboardList, Award } from "lucide-react";
+import {
+  User,
+  Building2,
+  Clock,
+  ClipboardList,
+  Award,
+  Receipt,
+  CalendarX,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
-import { mensajeDeError } from "@/lib/error-message";
-import { getErrorMessage } from "@/lib/utils";
 import { AccountTab } from "./account-tab";
 import { BusinessTab } from "./business-tab";
 import { HoursTab } from "./hours-tab";
 import { FieldsTab, type NuevoCampo } from "./fields-tab";
 import { LoyaltyTab } from "./loyalty-tab";
+import { BillingTab } from "./billing-tab";
+import { SpecialDaysCard } from "./special-days-card";
+import { BookingRulesTab } from "./booking-rules-tab";
 import { FIDELIZACION_KEY, nivelSchema, type Nivel } from "@/lib/niveles";
 import {
   businessDataSchema,
@@ -31,6 +41,16 @@ import {
   type CampoDeFicha,
   type ServicioBreve,
   type Feedback,
+  facturacionSchema,
+  reservasSchema,
+  diaEspecialSchema,
+  DIAS_ESPECIALES_KEY,
+  type DiaEspecial,
+  type NuevoDiaEspecial,
+  FACTURACION_KEY,
+  RESERVAS_KEY,
+  type Facturacion,
+  type Reservas,
 } from "./schemas";
 
 export default function SettingsPage() {
@@ -67,8 +87,8 @@ export default function SettingsPage() {
     BusinessHour[] | null
   >(hoursKey, undefined, z.array(businessHourSchema).nullable());
 
-  // Los campos de la ficha y el catálogo solo hacen falta en su pestaña, pero
-  // se piden aquí porque el guardado también vive en la página.
+  // La ficha y el catalogo se piden aqui, donde vive el guardado, aunque solo
+  // se usen en su pestana.
   const puedeEditarNegocio = canDo(role, "business_edit");
   const { data: campos, mutate: mutateCampos } = useApi<CampoDeFicha[] | null>(
     puedeEditarNegocio ? "/core/client-fields" : null,
@@ -89,18 +109,41 @@ export default function SettingsPage() {
     z.object({ niveles: z.array(nivelSchema) }).nullable()
   );
 
+  const { data: facturacionGuardada, mutate: mutateFacturacion } =
+    useApi<Facturacion | null>(
+      puedeEditarNegocio ? FACTURACION_KEY : null,
+      undefined,
+      facturacionSchema.nullable()
+    );
+  const { data: reservasGuardadas, mutate: mutateReservas } =
+    useApi<Reservas | null>(
+      puedeEditarNegocio ? RESERVAS_KEY : null,
+      undefined,
+      reservasSchema.nullable()
+    );
+
+  const { data: diasEspeciales, mutate: mutateDiasEspeciales } = useApi<
+    DiaEspecial[] | null
+  >(
+    canDo(role, "business_hours_edit") ? DIAS_ESPECIALES_KEY : null,
+    undefined,
+    z.array(diaEspecialSchema).nullable()
+  );
+
+  const [facturacion, setFacturacion] = useState<Facturacion>({});
+  const [reservas, setReservas] = useState<Reservas>({});
   const [businessForm, setBusinessForm] = useState<Partial<BusinessData>>({});
   const [hours, setHours] = useState<BusinessHour[]>(defaultHours);
   const [niveles, setNiveles] = useState<Nivel[]>([]);
 
   const loadingBiz = canSeeBusiness && !business;
 
-  // Los formularios se siembran una sola vez, cuando el dato llega del
-  // backend. Sin el guard, cada revalidacion de SWR pisaria lo que el usuario
-  // esta escribiendo en ese momento.
+  // Siembra los formularios una sola vez, cuando el dato llega del backend.
   const businessSeeded = useRef(false);
   const hoursSeeded = useRef(false);
   const nivelesSeeded = useRef(false);
+  const facturacionSeeded = useRef(false);
+  const reservasSeeded = useRef(false);
 
   useEffect(() => {
     if (!business || businessSeeded.current) return;
@@ -141,6 +184,18 @@ export default function SettingsPage() {
     nivelesSeeded.current = true;
     setNiveles(fidelizacion.niveles);
   }, [fidelizacion]);
+
+  useEffect(() => {
+    if (!facturacionGuardada || facturacionSeeded.current) return;
+    facturacionSeeded.current = true;
+    setFacturacion(facturacionGuardada);
+  }, [facturacionGuardada]);
+
+  useEffect(() => {
+    if (!reservasGuardadas || reservasSeeded.current) return;
+    reservasSeeded.current = true;
+    setReservas(reservasGuardadas);
+  }, [reservasGuardadas]);
 
   const saveAccount = async () => {
     setSaving("account");
@@ -183,7 +238,7 @@ export default function SettingsPage() {
       toast.error(mensajeDeError(err));
       setPasswordFeedback({
         type: "error",
-        message: getErrorMessage(err, "No se pudo actualizar la contraseña"),
+        message: mensajeDeError(err, "No se pudo actualizar la contraseña"),
       });
     } finally {
       setSaving(null);
@@ -223,6 +278,66 @@ export default function SettingsPage() {
       await api.patch(FIDELIZACION_KEY, { niveles });
       await mutateFidelizacion();
       toast.exito("Niveles actualizados");
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const crearDiaEspecial = async (dia: NuevoDiaEspecial) => {
+    setSaving("special");
+    try {
+      await api.post(DIAS_ESPECIALES_KEY, {
+        startDate: dia.startDate,
+        endDate: dia.endDate,
+        closed: dia.closed,
+        motivo: dia.motivo.trim(),
+        ...(dia.closed
+          ? {}
+          : { openTime: dia.openTime, closeTime: dia.closeTime }),
+      });
+      await mutateDiasEspeciales();
+      toast.exito("Día especial añadido");
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const quitarDiaEspecial = async (id: string) => {
+    try {
+      await api.delete(`${DIAS_ESPECIALES_KEY}/${id}`);
+      await mutateDiasEspeciales();
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    }
+  };
+
+  const saveFacturacion = async () => {
+    setSaving("billing");
+    try {
+      await api.patch(FACTURACION_KEY, facturacion);
+      await mutateFacturacion();
+      toast.exito("Datos de facturación actualizados");
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const saveReservas = async () => {
+    setSaving("booking");
+    try {
+      await api.patch(RESERVAS_KEY, reservas);
+      await mutateReservas();
+      toast.exito("Reglas de reserva actualizadas");
     } catch (err) {
       logger.error(err);
       toast.error(mensajeDeError(err));
@@ -312,6 +427,16 @@ export default function SettingsPage() {
               <Award className="h-4 w-4" /> Fidelidad
             </TabsTrigger>
           )}
+          {canDo(role, "business_edit") && (
+            <TabsTrigger value="billing" className="gap-2">
+              <Receipt className="h-4 w-4" /> Facturación
+            </TabsTrigger>
+          )}
+          {canDo(role, "business_edit") && (
+            <TabsTrigger value="booking" className="gap-2">
+              <CalendarX className="h-4 w-4" /> Reservas
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="account">
@@ -343,15 +468,24 @@ export default function SettingsPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="hours">
+        <TabsContent value="hours" className="space-y-4">
           {canDo(role, "business_hours_edit") && (
-            <HoursTab
-              hours={hours}
-              onUpdate={updateHour}
-              onSave={saveHours}
-              saving={saving === "hours"}
-              role={role}
-            />
+            <>
+              <HoursTab
+                hours={hours}
+                onUpdate={updateHour}
+                onSave={saveHours}
+                saving={saving === "hours"}
+                role={role}
+              />
+              <SpecialDaysCard
+                dias={diasEspeciales ?? []}
+                onCreate={crearDiaEspecial}
+                onRemove={quitarDiaEspecial}
+                saving={saving === "special"}
+                role={role}
+              />
+            </>
           )}
         </TabsContent>
 
@@ -375,6 +509,30 @@ export default function SettingsPage() {
               onChange={setNiveles}
               onSave={saveNiveles}
               saving={saving === "loyalty"}
+              role={role}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="billing">
+          {canDo(role, "business_edit") && (
+            <BillingTab
+              facturacion={facturacion}
+              onChange={setFacturacion}
+              onSave={saveFacturacion}
+              saving={saving === "billing"}
+              role={role}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="booking">
+          {canDo(role, "business_edit") && (
+            <BookingRulesTab
+              reservas={reservas}
+              onChange={setReservas}
+              onSave={saveReservas}
+              saving={saving === "booking"}
               role={role}
             />
           )}

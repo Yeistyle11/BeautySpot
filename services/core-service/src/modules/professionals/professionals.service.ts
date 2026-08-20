@@ -213,6 +213,14 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     return this.findById(id, businessId);
   }
 
+  /** Profesional vinculado a esa cuenta de usuario dentro del negocio. */
+  async findByUserId(
+    userId: string,
+    businessId: string
+  ): Promise<Professional | null> {
+    return this.repo.findOne({ where: { userId, businessId, active: true } });
+  }
+
   // --- Helpers ---
 
   /**

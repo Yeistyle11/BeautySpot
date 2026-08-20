@@ -80,15 +80,12 @@ export class InvoicesService {
       });
     });
 
-    // El impuesto se calcula y se guarda al emitir, junto con el tipo aplicado:
-    // así el PDF no tiene que deducirlo del total y la factura sigue cuadrando
-    // aunque el IVA cambie por ley.
+    // El impuesto y el tipo aplicado se calculan y se guardan al emitir.
     const tax = Math.round(subtotal * IVA * 100) / 100;
     const total = subtotal + tax;
 
-    // El número se reserva dentro de la misma transacción que la factura: si
-    // esta no llega a guardarse, el número no se consume y la serie no deja
-    // huecos.
+    // El numero se reserva dentro de la misma transaccion que la factura, de
+    // modo que la serie no deja huecos.
     return this.dataSource.transaction(async (manager) => {
       const invoice = manager.getRepository(InvoiceEntity).create({
         businessId,
@@ -249,9 +246,8 @@ export class InvoicesService {
   ): Promise<Buffer> {
     const invoice = await this.findById(invoiceId, businessId);
 
-    // El emisor y el receptor se resuelven contra core con `pedir`: una factura
-    // con los datos de otro es peor que una factura que no se genera, así que
-    // si core no responde esto falla en vez de caer a valores por defecto.
+    // El emisor y el receptor se resuelven contra core con `pedir`: si no
+    // responde, la emision falla en vez de caer a valores por defecto.
     const perfiles = await this.http.pedir<ProfileResolution>(
       "core",
       `/internal/profiles/resolve?businessId=${businessId}&clientId=${invoice.clientId}`
@@ -301,9 +297,8 @@ export class InvoicesService {
   }
 
   /**
-   * Reserva el siguiente número de la serie del negocio, con formato
-   * `INV-{año}-{secuencia}`, con un INSERT … ON CONFLICT DO UPDATE … RETURNING
-   * que lo reserva y lo devuelve en una sola operación atómica.
+   * Reserva el siguiente numero de la serie del negocio, con formato
+   * `INV-{ano}-{secuencia}`, en un solo INSERT ... ON CONFLICT ... RETURNING.
    */
   private async generateInvoiceNumber(
     businessId: string,

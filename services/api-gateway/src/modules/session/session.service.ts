@@ -62,7 +62,14 @@ export class SessionService {
     }
 
     const datos = this.extraerDatos(cuerpo);
-    if (!datos?.accessToken) return cuerpo;
+
+    // Una renovacion sin tokens es una sesion que ya no se puede renovar: se
+    // borran sus cookies, pista incluida.
+    if (!datos?.accessToken) {
+      if (ruta === RUTA_REFRESH)
+        limpiarCookiesDeSesion(res, this.configService);
+      return cuerpo;
+    }
 
     const pista = this.pistaDe(datos.accessToken);
 
@@ -80,13 +87,9 @@ export class SessionService {
     return this.sinTokens(cuerpo, pista);
   }
 
-  /** Vida de cada cookie, tomada de la configuración del JWT de auth-service. */
+  /** Vida de las cookies, tomada de la configuración del JWT de auth-service. */
   private vidaSesion() {
     return {
-      accessSegundos: aSegundos(
-        this.configService.get<string>("JWT_EXPIRES_IN") ?? "",
-        15 * 60
-      ),
       refreshSegundos: aSegundos(
         this.configService.get<string>("JWT_REFRESH_EXPIRES_IN") ?? "",
         7 * 24 * 60 * 60
@@ -127,7 +130,7 @@ export class SessionService {
     return undefined;
   }
 
-  /** Quita los tokens del cuerpo antes de devolverlo, porque ya viajan en cookies. */
+  /** Quita del cuerpo los tokens, que ya viajan en cookies. */
   private sinTokens(cuerpo: unknown, pista?: PistaSesion): unknown {
     if (!cuerpo || typeof cuerpo !== "object") return cuerpo;
     const raiz = cuerpo as Record<string, unknown> & {

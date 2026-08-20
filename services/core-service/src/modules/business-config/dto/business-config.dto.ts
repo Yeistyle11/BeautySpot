@@ -81,10 +81,7 @@ export class NivelDto {
 
 /**
  * Comprueba lo que no se puede expresar nivel a nivel: que el primero arranque
- * en cero, que los umbrales suban y que ningún nombre se repita.
- *
- * `nivelDePuntos` y `siguienteNivel` recorren la lista una sola vez confiando en
- * ese orden, así que guardarla desordenada daría un nivel equivocado sin error.
+ * en cero, que los umbrales suban y que ningun nombre se repita.
  */
 @ValidatorConstraint({ name: "escalaDeNiveles" })
 export class EscalaDeNiveles implements ValidatorConstraintInterface {

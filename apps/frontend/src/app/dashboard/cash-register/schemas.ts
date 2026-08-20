@@ -5,6 +5,10 @@ export const cashSessionSchema = z.object({
   id: z.string(),
   openingAmount: z.number(),
   closingAmount: z.number().nullish(),
+  /** Lo que el sistema esperaba encontrar en el cajón al cerrar. */
+  expectedTotal: z.number().nullish(),
+  /** Contado menos esperado: negativo falta, positivo sobra. */
+  difference: z.number().nullish(),
   openedAt: z.string(),
   closedAt: z.string().nullish(),
   notes: z.string().nullish(),
@@ -17,6 +21,11 @@ export const cashMovementSchema = z.object({
   type: z.enum(["IN", "OUT"]),
   amount: z.number(),
   concept: z.string(),
+  /**
+   * Cliente del cobro, resuelto por el backend al leer. Falta en lo que se
+   * anota a mano y en las fichas suprimidas por derecho de supresión.
+   */
+  clientName: z.string().nullish(),
   createdAt: z.string(),
 });
 export type CashMovement = z.infer<typeof cashMovementSchema>;

@@ -23,10 +23,8 @@ const MAXIMO_POR_SONDEO = 1000;
 const MAXIMO_PAGINAS = 10;
 
 /**
- * Cada recordatorio se dispara **por debajo** de su umbral, no dentro de una
- * franja: si el worker estuvo caído a las 24 h, el aviso sale en cuanto vuelve.
- * `minimo` es la antelación por debajo de la cual ese aviso ya no aporta —el de
- * 1 h lo releva, o la cita ya empezó— y se marca sin enviar nada.
+ * Cada recordatorio se dispara por debajo de su umbral; `minimo` es la
+ * antelacion por debajo de la cual ya no se envia.
  */
 const VENTANAS = {
   "24h": { umbral: 24, minimo: 1, columna: "reminder24hSentAt" },
@@ -39,12 +37,8 @@ type Ventana = keyof typeof VENTANAS;
 type Decision = "esperar" | "emitir" | "descartar";
 
 /**
- * Sondea las citas próximas y publica `booking.appointment.reminder-due` cuando
- * entran en el umbral de 24h o de 1h.
- *
- * Cada recordatorio se marca en la propia cita dentro de la misma transacción que
- * el evento del outbox, así que no se repite aunque haya varias instancias
- * sondeando a la vez. Se puede desactivar con REMINDERS_ENABLED=false.
+ * Sondea las citas proximas y publica `booking.appointment.reminder-due` al
+ * entrar en el umbral de 24h o de 1h. Se desactiva con REMINDERS_ENABLED=false.
  */
 @Injectable()
 export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
@@ -103,9 +97,8 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
     this.running = true;
     try {
       const ahora = new Date();
-      // El rango se abre un día por cada lado del tramo que interesa: la fecha
-      // de la cita es hora de pared de su negocio y aquí aún no se sabe en qué
-      // huso está. El corte fino lo hace `decidir`, ya con la zona resuelta.
+      // El rango se abre un dia por cada lado: la fecha de la cita es hora de
+      // pared y el corte fino lo hace `decidir`, ya con el huso resuelto.
       const rango = Between(
         this.aFecha(this.sumarHoras(ahora, -24)),
         this.aFecha(this.sumarHoras(ahora, 48))
@@ -183,8 +176,7 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Marca el recordatorio y, si toca avisar, encola el evento en la misma
-   * transacción. Los descartados se marcan igual, para no reevaluarlos cada
-   * ciclo mientras la cita siga en el rango.
+   * transaccion. Los descartados tambien se marcan.
    */
   private async marcar(
     cita: Appointment,

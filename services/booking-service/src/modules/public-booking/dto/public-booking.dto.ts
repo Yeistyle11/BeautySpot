@@ -10,12 +10,8 @@ import { EsFechaSola } from "../../../common/es-fecha-sola.decorator";
 import { EsHoraDelDia } from "../../../common/es-hora-del-dia.decorator";
 
 /**
- * Datos de una reserva pública: negocio, profesional, servicios, horario y datos
- * del invitado.
- *
- * No lleva `userId`: la ruta es pública y sin token, así que aceptarlo dejaría
- * atar la ficha de cliente a la cuenta de cualquiera. Quien tenga sesión reserva
- * por la ruta autenticada.
+ * Datos de una reserva publica: negocio, profesional, servicios, horario y
+ * datos del invitado. Sin `userId`: la ruta va sin token.
  */
 export class PublicBookingDto {
   @IsUUID() businessId!: string;

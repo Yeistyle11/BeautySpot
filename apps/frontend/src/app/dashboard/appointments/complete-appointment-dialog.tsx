@@ -17,12 +17,13 @@ import { Dialog } from "@/components/ui/dialog";
 import { RadioGroup } from "@/components/ui/radio-group";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import type { Appointment } from "./schemas";
+import { nombreDelMetodo } from "@/lib/metodos-de-pago";
 
 export const PAYMENT_METHOD_OPTIONS = [
   { value: "CASH", label: "Efectivo", icon: <Banknote className="h-5 w-5" /> },
   {
     value: "CARD",
-    label: "Datáfono",
+    label: nombreDelMetodo("CARD"),
     icon: <CreditCard className="h-5 w-5" />,
   },
   {
@@ -55,11 +56,7 @@ interface CompleteAppointmentDialogProps {
   pending: boolean;
 }
 
-/**
- * Cierre de una cita. Ofrece registrar el cobro en el mismo paso porque es lo
- * habitual en mostrador, pero permite completar sin pago (cortesias, cobros ya
- * registrados aparte).
- */
+/** Cierre de una cita, con la opcion de cobrarla en el mismo paso. */
 export function CompleteAppointmentDialog({
   open,
   onClose,

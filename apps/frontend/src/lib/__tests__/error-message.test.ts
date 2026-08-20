@@ -134,4 +134,46 @@ describe("mensajeDeError", () => {
       expect(mensajeDeError(new Error("   "))).toContain("inesperado");
     });
   });
+
+  describe("respaldo con contexto de la pantalla", () => {
+    // "No se pudo crear la cuenta" orienta mas que "ocurrio un error": la
+    // pantalla sabe que se estaba intentando y el texto generico no.
+    it("usa el respaldo de quien llama cuando no hay nada que contar", () => {
+      expect(mensajeDeError(null, "No se pudo crear la cuenta")).toBe(
+        "No se pudo crear la cuenta"
+      );
+    });
+
+    it("usa el respaldo ante un 4xx sin mensaje util", () => {
+      expect(
+        mensajeDeError(new ApiError(400, "Bad Request"), "No se pudo guardar")
+      ).toBe("No se pudo guardar");
+    });
+
+    // El respaldo es el ultimo recurso, no un sustituto: los textos que si
+    // explican la causa mandan sobre el.
+    it("no pisa el motivo cuando el backend lo explica", () => {
+      expect(
+        mensajeDeError(
+          new ApiError(400, "El correo ya está registrado"),
+          "No se pudo crear la cuenta"
+        )
+      ).toBe("El correo ya está registrado");
+    });
+
+    it("no pisa la explicación de un fallo de red", () => {
+      expect(
+        mensajeDeError(new TypeError("Failed to fetch"), "No se pudo guardar")
+      ).toContain("Revisa tu conexión");
+    });
+
+    it("no pisa el texto de un 503", () => {
+      expect(
+        mensajeDeError(
+          new ApiError(503, "Service Unavailable"),
+          "No se pudo guardar"
+        )
+      ).toContain("no está disponible");
+    });
+  });
 });

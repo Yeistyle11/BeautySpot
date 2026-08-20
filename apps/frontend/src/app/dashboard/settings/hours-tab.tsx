@@ -34,7 +34,7 @@ export function HoursTab({
   return (
     <Card className="border-0 shadow-sm">
       <CardHeader>
-        <CardTitle className="text-lg">Horarios de atencion</CardTitle>
+        <CardTitle className="text-lg">Horarios de atención</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-3">
