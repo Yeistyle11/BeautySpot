@@ -516,7 +516,26 @@ describe("ReviewsService", () => {
         "r.business_id = :businessId",
         { businessId: "business-123" }
       );
-      expect(result).toEqual({ items: reviews, total: 10 });
+      expect(result.data.map((r) => r.id)).toEqual(reviews.map((r) => r.id));
+      expect(result.meta.total).toBe(10);
+    });
+
+    it("no publica el cliente, la cita ni las denuncias de cada reseña", async () => {
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[mockReview], 1]),
+      } as any;
+      mockRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+
+      const result = await service.findByBusiness("business-123", {});
+
+      expect(result.data[0]).not.toHaveProperty("clientId");
+      expect(result.data[0]).not.toHaveProperty("appointmentId");
+      expect(result.data[0]).not.toHaveProperty("reportCount");
     });
 
     it("debería filtrar por rating", async () => {

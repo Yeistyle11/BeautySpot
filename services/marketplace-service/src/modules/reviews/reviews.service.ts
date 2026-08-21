@@ -7,8 +7,13 @@ import {
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { Repository, DataSource, EntityManager, In, MoreThan } from "typeorm";
-import { paginate, PaginateParams } from "@beautyspot/database";
+import {
+  paginarQueryBuilder,
+  paginate,
+  PaginateParams,
+} from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
+import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import { ReviewEntity, ReviewStatus } from "../../entities/review.entity";
 import { ReviewHelpfulEntity } from "../../entities/review-helpful.entity";
 import {
@@ -26,6 +31,9 @@ import {
   ReviewQueryDto,
   UpdateReviewDto,
 } from "./dto/review.dto";
+
+/** Lo más ancha que puede pedirse una página de reseñas. */
+const MAXIMO_POR_PAGINA = 50;
 
 /** Código de Postgres para violación de restricción única. */
 const VIOLACION_DE_UNICIDAD = "23505";
@@ -314,10 +322,11 @@ export class ReviewsService {
   async findByBusiness(
     businessId: string,
     query: ReviewQueryDto
-  ): Promise<{ items: ReviewEntity[]; total: number }> {
-    const page = query.page || 1;
-    const limit = Math.min(query.limit || 20, 50);
-    const offset = (page - 1) * limit;
+  ): Promise<IPaginatedResponse<ResenaPublica>> {
+    const paginacion = parsePaginationQuery({
+      page: query.page,
+      limit: Math.min(query.limit ?? MAXIMO_POR_PAGINA, MAXIMO_POR_PAGINA),
+    });
 
     const qb = this.repo
       .createQueryBuilder("r")
@@ -343,8 +352,10 @@ export class ReviewsService {
 
     qb.orderBy("r.created_at", "DESC");
 
-    const [items, total] = await qb.skip(offset).take(limit).getManyAndCount();
-    return { items, total };
+    // El listado es público, así que se sirve la proyección y no la fila: el
+    // cliente que la escribió, la cita y las denuncias son del negocio.
+    const pagina = await paginarQueryBuilder(qb, paginacion);
+    return { ...pagina, data: pagina.data.map(aResenaPublica) };
   }
 
   /**

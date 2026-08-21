@@ -1,7 +1,15 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { escapeLikePattern } from "@beautyspot/shared-utils";
+import {
+  escapeLikePattern,
+  parsePaginationQuery,
+} from "@beautyspot/shared-utils";
+import {
+  metadataDePaginacion,
+  paginarQueryBuilder,
+} from "@beautyspot/database";
+import { IPaginatedResponse } from "@beautyspot/shared-types";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
 import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
 
@@ -19,13 +27,25 @@ export interface SearchFilters {
   type?: "business" | "professional" | "all";
 }
 
+/** Lo más ancha que puede pedirse una página del marketplace. */
+const MAXIMO_POR_PAGINA = 50;
+
 /** Resultado paginado de una búsqueda, con los ítems y el tipo consultado. */
-export interface SearchResult {
-  items: (BusinessProfileEntity | ProfessionalProfileEntity)[];
-  total: number;
-  page: number;
-  limit: number;
+export type SearchResult = IPaginatedResponse<
+  BusinessProfileEntity | ProfessionalProfileEntity
+> & {
   type: "business" | "professional" | "all";
+};
+
+/**
+ * Normaliza la paginación pedida acotando la página al tope general y el
+ * tamaño al del marketplace, que es la mitad del general.
+ */
+function paginacionPedida(filters: SearchFilters) {
+  return parsePaginationQuery({
+    page: filters.page,
+    limit: Math.min(filters.limit ?? MAXIMO_POR_PAGINA, MAXIMO_POR_PAGINA),
+  });
 }
 
 /** Busca negocios y/o profesionales publicados aplicando texto, filtros y cercanía geográfica. */
@@ -51,11 +71,13 @@ export class SearchService {
         this.searchBusinesses(filters),
         this.searchProfessionals(filters),
       ]);
+      // Son dos consultas independientes: la página combinada trae las dos
+      // páginas seguidas y el total es la suma, de donde sale si queda algo por
+      // pedir en alguna de las dos.
+      const total = businesses.meta.total + professionals.meta.total;
       return {
-        items: [...businesses.items, ...professionals.items],
-        total: businesses.total + professionals.total,
-        page: businesses.page,
-        limit: businesses.limit,
+        data: [...businesses.data, ...professionals.data],
+        meta: metadataDePaginacion(businesses.meta, total),
         type,
       };
     }
@@ -66,10 +88,8 @@ export class SearchService {
   /** Busca negocios publicados por texto, ciudad, tipo y valoración, ordenando por cercanía o rating. */
   private async searchBusinesses(
     filters: SearchFilters
-  ): Promise<Omit<SearchResult, "type">> {
-    const page = filters.page || 1;
-    const limit = Math.min(filters.limit || 20, 50);
-    const offset = (page - 1) * limit;
+  ): Promise<IPaginatedResponse<BusinessProfileEntity>> {
+    const paginacion = paginacionPedida(filters);
 
     const qb = this.repo
       .createQueryBuilder("bp")
@@ -115,18 +135,14 @@ export class SearchService {
       qb.orderBy("bp.rating", "DESC").addOrderBy("bp.total_reviews", "DESC");
     }
 
-    const [items, total] = await qb.skip(offset).take(limit).getManyAndCount();
-
-    return { items, total, page, limit };
+    return paginarQueryBuilder(qb, paginacion);
   }
 
   /** Busca profesionales visibles por texto y valoración, filtrando por ciudad vía el perfil del negocio. */
   private async searchProfessionals(
     filters: SearchFilters
-  ): Promise<Omit<SearchResult, "type">> {
-    const page = filters.page || 1;
-    const limit = Math.min(filters.limit || 20, 50);
-    const offset = (page - 1) * limit;
+  ): Promise<IPaginatedResponse<ProfessionalProfileEntity>> {
+    const paginacion = paginacionPedida(filters);
 
     const qb = this.proRepo
       .createQueryBuilder("pp")
@@ -158,8 +174,6 @@ export class SearchService {
 
     qb.orderBy("pp.rating", "DESC").addOrderBy("pp.total_reviews", "DESC");
 
-    const [items, total] = await qb.skip(offset).take(limit).getManyAndCount();
-
-    return { items, total, page, limit };
+    return paginarQueryBuilder(qb, paginacion);
   }
 }

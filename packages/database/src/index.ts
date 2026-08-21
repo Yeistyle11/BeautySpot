@@ -6,7 +6,11 @@ export {
   createTypeOrmModuleOptions,
   createMigrationDataSourceOptions,
 } from "./config/typeorm.config";
-export { paginate } from "./helpers/pagination.helper";
+export {
+  paginate,
+  paginarQueryBuilder,
+  metadataDePaginacion,
+} from "./helpers/pagination.helper";
 export { contieneTexto } from "./helpers/busqueda.helper";
 export { enCatalogo } from "./helpers/catalogo.helper";
 export type { PaginateParams } from "./helpers/pagination.helper";

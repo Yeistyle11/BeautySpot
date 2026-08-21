@@ -725,15 +725,19 @@ estar ya repartido. También responde 409 si el negocio ya tiene perfil.
 
 | Método | Ruta      | Roles   | Descripción                       |
 | ------ | --------- | ------- | --------------------------------- |
-| GET    | `/search` | PÚBLICA | Búsqueda con filtros              |
+| GET    | `/search` | PÚBLICA | Búsqueda con filtros, paginada    |
 | GET    | `/feed`   | PÚBLICA | Feed de actividad del marketplace |
+
+`/search` devuelve `{ data, meta }` como el resto de listados. Con
+`type=all` la página trae seguidas la de negocios y la de profesionales, y
+`meta.total` es la suma de las dos.
 
 ### Reseñas — `/api/v1/marketplace/reviews`
 
 | Método | Ruta                            | Roles        | Descripción                                   |
 | ------ | ------------------------------- | ------------ | --------------------------------------------- |
 | POST   | `/`                             | CLIENT       | Crea reseña; el negocio lo aporta la cita     |
-| GET    | `/business/:businessId`         | PÚBLICA      | Reseñas del negocio                           |
+| GET    | `/business/:businessId`         | PÚBLICA      | Reseñas del negocio, paginadas                |
 | GET    | `/business/:businessId/summary` | PÚBLICA      | Resumen y media de valoración                 |
 | GET    | `/mine`                         | CLIENT       | Las que ha escrito, paginadas                 |
 | GET    | `/appointment/:appointmentId`   | CLIENT       | Reseñas de una cita concreta                  |
@@ -743,10 +747,13 @@ estar ya repartido. También responde 409 si el negocio ya tiene perfil.
 | POST   | `/:id/respond`                  | OWNER, ADMIN | Responde a una reseña                         |
 | PATCH  | `/:id/respond`                  | OWNER, ADMIN | Reescribe la respuesta                        |
 | DELETE | `/:id/respond`                  | OWNER, ADMIN | Retira la respuesta                           |
-| POST   | `/:id/report`                   | Autenticado  | Denuncia; una por usuario y reseña            |
-| PATCH  | `/:id/moderar`                  | OWNER, ADMIN | Oculta o vuelve a publicar                    |
-| POST   | `/:id/helpful`                  | Autenticado  | Marca como útil; un voto por usuario          |
-| DELETE | `/:id/helpful`                  | Autenticado  | Quita la marca                                |
+
+Los dos listados públicos de reseñas devuelven `{ data, meta }` y sirven una
+proyección sin el cliente que la escribió, la cita ni el recuento de denuncias.
+| POST | `/:id/report` | Autenticado | Denuncia; una por usuario y reseña |
+| PATCH | `/:id/moderar` | OWNER, ADMIN | Oculta o vuelve a publicar |
+| POST | `/:id/helpful` | Autenticado | Marca como útil; un voto por usuario |
+| DELETE | `/:id/helpful` | Autenticado | Quita la marca |
 
 Ocultar una reseña la retira del listado público, pero **sigue contando en la
 media y en el total** del negocio y del profesional. La moderación existe para

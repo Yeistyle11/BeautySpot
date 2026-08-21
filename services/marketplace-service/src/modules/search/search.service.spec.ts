@@ -95,8 +95,8 @@ describe("SearchService", () => {
       const result = await service.search({});
 
       expect(result.type).toBe("business");
-      expect(result.items).toHaveLength(1);
-      expect(result.total).toBe(1);
+      expect(result.data).toHaveLength(1);
+      expect(result.meta.total).toBe(1);
     });
 
     it("debería buscar profesionales si type es professional", async () => {
@@ -109,7 +109,7 @@ describe("SearchService", () => {
       const result = await service.search({ type: "professional" });
 
       expect(result.type).toBe("professional");
-      expect(result.items).toHaveLength(1);
+      expect(result.data).toHaveLength(1);
       expect(mockProRepo.createQueryBuilder).toHaveBeenCalled();
     });
 
@@ -128,8 +128,8 @@ describe("SearchService", () => {
       const result = await service.search({ type: "all" });
 
       expect(result.type).toBe("all");
-      expect(result.items).toHaveLength(2);
-      expect(result.total).toBe(2);
+      expect(result.data).toHaveLength(2);
+      expect(result.meta.total).toBe(2);
     });
 
     it("debería limitar resultados a 50 máximo", async () => {

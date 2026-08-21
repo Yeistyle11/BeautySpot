@@ -82,10 +82,10 @@ export default function MarketplaceFeed({
   // y solo cuando han llegado todos los resultados.
   const conteosVisibles = useMemo(() => {
     if (!busquedaDiferida || !searchResults) return null;
-    if (searchResults.items.length < searchResults.total) return null;
+    if (searchResults.meta.hasNext) return null;
 
     const conteos: Record<string, number> = {};
-    searchResults.items.forEach((p) => {
+    searchResults.data.forEach((p) => {
       if (p.businessType) {
         conteos[p.businessType] = (conteos[p.businessType] ?? 0) + 1;
       }
@@ -182,7 +182,7 @@ export default function MarketplaceFeed({
               <h2 className="text-2xl font-bold">Resultados</h2>
               {searchResults && (
                 <Badge variant="secondary">
-                  {searchResults.total} encontrados
+                  {searchResults.meta.total} encontrados
                 </Badge>
               )}
             </div>
@@ -190,9 +190,9 @@ export default function MarketplaceFeed({
               <div className="flex justify-center py-20">
                 <Spinner variant="inline" className="h-8 w-8 border-4" />
               </div>
-            ) : searchResults && searchResults.items.length > 0 ? (
+            ) : searchResults && searchResults.data.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {searchResults.items.map((p) => (
+                {searchResults.data.map((p) => (
                   <ProfileCard key={p.id} profile={p} />
                 ))}
               </div>

@@ -1,4 +1,9 @@
-import { FindManyOptions, Repository, ObjectLiteral } from "typeorm";
+import {
+  FindManyOptions,
+  Repository,
+  SelectQueryBuilder,
+  ObjectLiteral,
+} from "typeorm";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
 
 /** Parámetros de paginación ya validados que consume {@link paginate}. */
@@ -32,17 +37,44 @@ export async function paginate<T extends ObjectLiteral>(
     }) as FindManyOptions<T>["order"],
   });
 
+  return { data, meta: metadataDePaginacion(params, total) };
+}
+
+/**
+ * Pagina una consulta ya construida con el query builder y devuelve el mismo
+ * sobre que {@link paginate}. Existe porque `paginate` solo acepta un
+ * repositorio: sin esto, todo listado que necesite un `join`, un filtro
+ * calculado o un orden por distancia acaba reescribiendo la paginación a mano,
+ * y con ella el sobre de la respuesta.
+ *
+ * El orden lo pone quien construye la consulta, que es el único que sabe si
+ * ordena por una columna o por una expresión.
+ */
+export async function paginarQueryBuilder<T extends ObjectLiteral>(
+  qb: SelectQueryBuilder<T>,
+  params: PaginateParams
+): Promise<IPaginatedResponse<T>> {
+  const [data, total] = await qb
+    .skip(params.offset)
+    .take(params.limit)
+    .getManyAndCount();
+
+  return { data, meta: metadataDePaginacion(params, total) };
+}
+
+/** Metadatos de la página a partir de lo pedido y de cuántos hay en total. */
+export function metadataDePaginacion(
+  params: Pick<PaginateParams, "page" | "limit">,
+  total: number
+): IPaginatedResponse<never>["meta"] {
   const totalPages = Math.ceil(total / params.limit);
 
   return {
-    data,
-    meta: {
-      page: params.page,
-      limit: params.limit,
-      total,
-      totalPages,
-      hasNext: params.page < totalPages,
-      hasPrev: params.page > 1,
-    },
+    page: params.page,
+    limit: params.limit,
+    total,
+    totalPages,
+    hasNext: params.page < totalPages,
+    hasPrev: params.page > 1,
   };
 }

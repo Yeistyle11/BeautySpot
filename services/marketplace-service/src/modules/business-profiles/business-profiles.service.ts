@@ -6,7 +6,13 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, EntityManager } from "typeorm";
-import { escapeLikePattern, generateSlug } from "@beautyspot/shared-utils";
+import {
+  escapeLikePattern,
+  generateSlug,
+  parsePaginationQuery,
+} from "@beautyspot/shared-utils";
+import { paginarQueryBuilder } from "@beautyspot/database";
+import { IPaginatedResponse } from "@beautyspot/shared-types";
 import {
   BusinessProfileEntity,
   SectionConfig,
@@ -43,6 +49,9 @@ const DEFAULT_SECTIONS: SectionConfig[] = [
  * acotados porque cada intento consulta la base.
  */
 const INTENTOS_DE_ENLACE = 20;
+
+/** Lo más ancha que puede pedirse una página de perfiles. */
+const MAXIMO_POR_PAGINA = 50;
 
 /** Detecta la violación de índice único de Postgres (SQLSTATE 23505). */
 function esViolacionDeUnicidad(
@@ -386,10 +395,11 @@ export class BusinessProfilesService {
     page?: number;
     limit?: number;
     orderBy?: "rating" | "distance" | "createdAt";
-  }): Promise<{ items: BusinessProfileEntity[]; total: number }> {
-    const page = options.page || 1;
-    const limit = Math.min(options.limit || 20, 50);
-    const offset = (page - 1) * limit;
+  }): Promise<IPaginatedResponse<BusinessProfileEntity>> {
+    const paginacion = parsePaginationQuery({
+      page: options.page,
+      limit: Math.min(options.limit ?? MAXIMO_POR_PAGINA, MAXIMO_POR_PAGINA),
+    });
 
     const qb = this.repo
       .createQueryBuilder("bp")
@@ -423,8 +433,7 @@ export class BusinessProfilesService {
       qb.orderBy("bp.rating", "DESC");
     }
 
-    const [items, total] = await qb.skip(offset).take(limit).getManyAndCount();
-    return { items, total };
+    return paginarQueryBuilder(qb, paginacion);
   }
 
   /** Cuenta los perfiles publicados de cada tipo de negocio, en una sola consulta. */

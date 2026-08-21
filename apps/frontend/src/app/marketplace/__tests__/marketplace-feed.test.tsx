@@ -62,9 +62,22 @@ const FEED_CON_NEGOCIOS: FeedResponse = {
   ],
 };
 
+/** Respuesta de búsqueda con el sobre paginado que devuelve el marketplace. */
+const busqueda = (data: ReturnType<typeof perfil>[]) => ({
+  data,
+  meta: {
+    page: 1,
+    limit: 20,
+    total: data.length,
+    totalPages: data.length ? 1 : 0,
+    hasNext: false,
+    hasPrev: false,
+  },
+});
+
 beforeEach(() => {
   respuestas["/marketplace/feed"] = FEED_VACIO;
-  respuestas["/marketplace/search"] = { items: [], total: 0 };
+  respuestas["/marketplace/search"] = busqueda([]);
 });
 
 describe("MarketplaceFeed", () => {
@@ -140,7 +153,7 @@ describe("MarketplaceFeed", () => {
     });
 
     it("filtra al pulsar una categoría y vuelve al pulsarla otra vez", async () => {
-      respuestas["/marketplace/search"] = { items: [perfil()], total: 1 };
+      respuestas["/marketplace/search"] = busqueda([perfil()]);
       render(<MarketplaceFeed initialFeed={FEED_CON_NEGOCIOS} />);
 
       const barberias = screen.getByRole("button", { name: /barberías/i });
@@ -159,7 +172,7 @@ describe("MarketplaceFeed", () => {
     });
 
     it("dice cuántos resultados encontró la búsqueda", async () => {
-      respuestas["/marketplace/search"] = { items: [perfil()], total: 1 };
+      respuestas["/marketplace/search"] = busqueda([perfil()]);
       render(<MarketplaceFeed initialFeed={FEED_CON_NEGOCIOS} />);
 
       fireEvent.change(screen.getByPlaceholderText(/buscar por nombre/i), {

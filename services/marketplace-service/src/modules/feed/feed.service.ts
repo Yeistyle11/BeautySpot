@@ -159,7 +159,7 @@ export class FeedService {
     lng?: number,
     city?: string
   ): Promise<BusinessProfileEntity[]> {
-    const { items } = await this.profilesService.findPublished({
+    const { data } = await this.profilesService.findPublished({
       lat,
       lng,
       city,
@@ -168,7 +168,7 @@ export class FeedService {
       page: 1,
       orderBy: "rating",
     });
-    return items;
+    return data;
   }
 
   /** Los negocios mejor calificados de la plataforma. */

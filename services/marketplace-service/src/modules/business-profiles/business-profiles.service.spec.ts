@@ -461,7 +461,8 @@ describe("BusinessProfilesService", () => {
         businessType: "barbería",
       });
 
-      expect(result).toEqual({ items: [mockBusinessProfile], total: 1 });
+      expect(result.data).toEqual([mockBusinessProfile]);
+      expect(result.meta.total).toBe(1);
       expect(qb.orderBy).toHaveBeenCalledWith("bp.rating", "DESC");
     });
 
