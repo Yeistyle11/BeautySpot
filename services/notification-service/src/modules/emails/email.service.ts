@@ -1,12 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
-import * as nodemailer from "nodemailer";
-import * as handlebars from "handlebars";
 import * as fs from "fs";
-import * as path from "path";
 import { formatearDinero } from "@beautyspot/shared-utils";
+import { PlantillasService } from "./plantillas.service";
+import { SmtpTransport } from "./smtp.transport";
 
 type EmailPriority = "low" | "normal" | "high";
 
@@ -22,43 +20,17 @@ interface QueueEmailInput {
 }
 
 /**
- * Compone y envía los correos transaccionales con plantillas Handlebars y SMTP.
- * Ofrece envío directo y encolado (BullMQ) para cada tipo de correo del sistema.
+ * Compone los correos transaccionales del producto: qué plantilla lleva cada
+ * aviso y con qué asunto sale. Renderizar y entregar son de {@link
+ * PlantillasService} y {@link SmtpTransport}.
  */
 @Injectable()
 export class EmailService {
-  private transporter: nodemailer.Transporter;
-  private templates: Map<string, handlebars.TemplateDelegate>;
-
   constructor(
-    private readonly configService: ConfigService,
+    private readonly plantillas: PlantillasService,
+    private readonly smtp: SmtpTransport,
     @InjectQueue("emails") private readonly emailQueue: Queue
-  ) {
-    this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>("SMTP_HOST"),
-      port: parseInt(this.configService.get<string>("SMTP_PORT", "587")),
-      secure: this.configService.get<string>("SMTP_SECURE", "false") === "true",
-      auth: {
-        user: this.configService.get<string>("SMTP_USER"),
-        pass: this.configService.get<string>("SMTP_PASS"),
-      },
-    });
-    this.templates = new Map();
-    this.loadTemplates();
-  }
-
-  /** Compila y cachea todas las plantillas .hbs de la carpeta templates al arrancar. */
-  private loadTemplates() {
-    const templatesDir = path.join(__dirname, "templates");
-    if (!fs.existsSync(templatesDir)) return;
-
-    for (const file of fs
-      .readdirSync(templatesDir)
-      .filter((f) => f.endsWith(".hbs"))) {
-      const content = fs.readFileSync(path.join(templatesDir, file), "utf-8");
-      this.templates.set(file.replace(".hbs", ""), handlebars.compile(content));
-    }
-  }
+  ) {}
 
   /** Renderiza la plantilla indicada y envía el correo por SMTP de inmediato. */
   async sendEmail(
@@ -66,22 +38,13 @@ export class EmailService {
     templateName: string,
     context: Record<string, unknown> = {}
   ): Promise<{ messageId: string }> {
-    const template = this.templates.get(templateName);
-    if (!template) {
-      throw new Error(`Template ${templateName} not found`);
-    }
-
-    const html = template(context);
-    const info = await this.transporter.sendMail({
-      from: this.configService.get<string>("EMAIL_FROM"),
+    return this.smtp.enviar({
       to,
       subject:
         (context.subject as string | undefined) ||
         `BeautySpot - ${templateName}`,
-      html,
-      text: html.replace(/<[^>]*>/g, "").trim(),
+      html: this.plantillas.render(templateName, context),
     });
-    return { messageId: info.messageId };
   }
 
   /** Encola el correo en BullMQ para que el worker lo envíe de forma asíncrona. */
@@ -191,17 +154,15 @@ export class EmailService {
     };
 
     if (pdfPath && fs.existsSync(pdfPath)) {
-      const info = await this.transporter.sendMail({
-        from: this.configService.get<string>("EMAIL_FROM"),
+      return this.smtp.enviar({
         to,
         subject: context.subject,
-        html: this.templates.get("invoice-generated")!(context),
+        html: this.plantillas.render("invoice-generated", context),
         text: "",
         attachments: [
           { filename: `Factura_${data.invoiceNumber}.pdf`, path: pdfPath },
         ],
       });
-      return { messageId: info.messageId };
     }
     return this.sendEmail(to, "invoice-generated", context);
   }

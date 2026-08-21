@@ -5,6 +5,8 @@ import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { EVENTS_EXCHANGE, DEAD_LETTER_EXCHANGE } from "@beautyspot/event-types";
 import { EmailsController } from "./emails.controller";
 import { EmailService } from "./email.service";
+import { PlantillasService } from "./plantillas.service";
+import { SmtpTransport } from "./smtp.transport";
 import { SendEmailProcessor } from "./processors/send-email.processor";
 import { NotificationPreferencesModule } from "../notification-preferences/notification-preferences.module";
 
@@ -41,7 +43,12 @@ import { NotificationPreferencesModule } from "../notification-preferences/notif
     }),
   ],
   controllers: [EmailsController],
-  providers: [EmailService, SendEmailProcessor],
+  providers: [
+    EmailService,
+    PlantillasService,
+    SmtpTransport,
+    SendEmailProcessor,
+  ],
   exports: [EmailService],
 })
 /** Cablea el envío de correos, su cola BullMQ y el worker de envío. */
