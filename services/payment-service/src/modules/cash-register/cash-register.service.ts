@@ -16,7 +16,11 @@ import {
   CloseSessionDto,
   RegisterMovementDto,
 } from "./dto/cash-register.dto";
-import { OutboxService, InternalHttpClient } from "@beautyspot/nest-common";
+import {
+  esViolacionDeUnicidad,
+  OutboxService,
+  InternalHttpClient,
+} from "@beautyspot/nest-common";
 import { PaymentEntity } from "../payments/payment.entity";
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
@@ -68,20 +72,11 @@ export class CashRegisterService {
         })
       );
     } catch (error) {
-      if (this.isUniqueViolation(error)) {
+      if (esViolacionDeUnicidad(error)) {
         throw new BadRequestException("Ya existe una sesión de caja abierta");
       }
       throw error;
     }
-  }
-
-  /** Detecta la violación de índice único de Postgres (SQLSTATE 23505). */
-  private isUniqueViolation(error: unknown): boolean {
-    return (
-      typeof error === "object" &&
-      error !== null &&
-      (error as { code?: string }).code === "23505"
-    );
   }
 
   /** Cierra la sesión, calcula los totales de movimientos y emite el evento de cierre. */

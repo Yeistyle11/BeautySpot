@@ -27,7 +27,7 @@ import {
   CashMovementType,
   IPaginatedResponse,
 } from "@beautyspot/shared-types";
-import { OutboxService } from "@beautyspot/nest-common";
+import { esViolacionDeUnicidad, OutboxService } from "@beautyspot/nest-common";
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { EventNames, ServicioDeLaCita } from "@beautyspot/event-types";
 import { VALOR_DEL_PUNTO } from "@beautyspot/shared-constants";
@@ -57,15 +57,6 @@ const TRANSICIONES_DE_PAGO: Record<PaymentStatus, PaymentStatus[]> = {
 export function conceptoDelCobro(servicios?: ServicioDeLaCita[]): string {
   const nombres = (servicios ?? []).map((s) => s.name).filter(Boolean);
   return nombres.length > 0 ? nombres.join(", ") : "Venta en mostrador";
-}
-
-/** Detecta la violación de índice único de Postgres (SQLSTATE 23505). */
-function esViolacionDeUnicidad(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    (error as { code?: string }).code === "23505"
-  );
 }
 
 /**

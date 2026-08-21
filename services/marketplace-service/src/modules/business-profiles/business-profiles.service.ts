@@ -11,7 +11,7 @@ import {
   generateSlug,
   parsePaginationQuery,
 } from "@beautyspot/shared-utils";
-import { paginarQueryBuilder } from "@beautyspot/database";
+import { distanciaEnKm, paginarQueryBuilder } from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
 import {
   BusinessProfileEntity,
@@ -25,7 +25,10 @@ import {
   AddGalleryImagesDto,
   UpdateGalleryImageDto,
 } from "./dto/profile.dto";
-import { RedisCacheService } from "@beautyspot/nest-common";
+import {
+  esViolacionDeUnicidad,
+  RedisCacheService,
+} from "@beautyspot/nest-common";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
 
 /**
@@ -52,17 +55,6 @@ const INTENTOS_DE_ENLACE = 20;
 
 /** Lo más ancha que puede pedirse una página de perfiles. */
 const MAXIMO_POR_PAGINA = 50;
-
-/** Detecta la violación de índice único de Postgres (SQLSTATE 23505). */
-function esViolacionDeUnicidad(
-  error: unknown
-): error is { code: string; constraint?: string } {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    (error as { code?: string }).code === "23505"
-  );
-}
 
 /**
  * Gestiona el perfil público de un negocio en el marketplace: sincronización
@@ -418,15 +410,14 @@ export class BusinessProfilesService {
 
     if (options.lat && options.lng) {
       const radius = options.radius || 10;
-      qb.andWhere(
-        `(6371 * acos(cos(radians(:lat)) * cos(radians(bp.lat)) * cos(radians(bp.lng) - radians(:lng)) + sin(radians(:lat)) * sin(radians(bp.lat)))) <= :radius`,
-        { lat: options.lat, lng: options.lng, radius }
-      );
-      qb.orderBy(
-        `(6371 * acos(cos(radians(:lat2)) * cos(radians(bp.lat)) * cos(radians(bp.lng) - radians(:lng2)) + sin(radians(:lat2)) * sin(radians(bp.lat))))`,
-        "ASC"
-      );
-      qb.setParameters({ lat2: options.lat, lng2: options.lng });
+      qb.andWhere(`${distanciaEnKm("bp")} <= :radius`, {
+        lat: options.lat,
+        lng: options.lng,
+        radius,
+      });
+      // Ordenar por la misma expresión con la que se filtró: los parámetros
+      // del punto ya están puestos por el andWhere de arriba.
+      qb.orderBy(distanciaEnKm("bp"), "ASC");
     } else if (options.orderBy === "createdAt") {
       qb.orderBy("bp.created_at", "DESC");
     } else {

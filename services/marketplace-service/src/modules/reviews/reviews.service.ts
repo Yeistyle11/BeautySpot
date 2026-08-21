@@ -22,7 +22,11 @@ import {
 } from "../../entities/review-report.entity";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
-import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
+import {
+  esViolacionDeUnicidad,
+  InternalHttpClient,
+  OutboxService,
+} from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import {
   aResenaPublica,
@@ -34,9 +38,6 @@ import {
 
 /** Lo más ancha que puede pedirse una página de reseñas. */
 const MAXIMO_POR_PAGINA = 50;
-
-/** Código de Postgres para violación de restricción única. */
-const VIOLACION_DE_UNICIDAD = "23505";
 
 /** Conteo de reseñas por número de estrellas (1 a 5). */
 export interface RatingDistribution {
@@ -111,7 +112,7 @@ export class ReviewsService {
       clientId,
       professionalId
     ).catch((error: unknown) => {
-      if ((error as { code?: string })?.code === VIOLACION_DE_UNICIDAD) {
+      if (esViolacionDeUnicidad(error)) {
         throw new ConflictException("Ya existe una reseña para esta cita");
       }
       throw error;
@@ -194,7 +195,7 @@ export class ReviewsService {
           .increment({ id }, "reportCount", 1);
       });
     } catch (error: unknown) {
-      if ((error as { code?: string })?.code !== VIOLACION_DE_UNICIDAD) {
+      if (!esViolacionDeUnicidad(error)) {
         throw error;
       }
     }

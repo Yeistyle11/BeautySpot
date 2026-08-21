@@ -6,6 +6,7 @@ import {
   parsePaginationQuery,
 } from "@beautyspot/shared-utils";
 import {
+  distanciaEnKm,
   metadataDePaginacion,
   paginarQueryBuilder,
 } from "@beautyspot/database";
@@ -122,15 +123,14 @@ export class SearchService {
 
     if (filters.lat && filters.lng) {
       const radius = filters.radius || 10;
-      qb.andWhere(
-        `(6371 * acos(cos(radians(:lat)) * cos(radians(bp.lat)) * cos(radians(bp.lng) - radians(:lng)) + sin(radians(:lat)) * sin(radians(bp.lat)))) <= :radius`,
-        { lat: filters.lat, lng: filters.lng, radius }
-      );
-      qb.orderBy(
-        `(6371 * acos(cos(radians(:lat2)) * cos(radians(bp.lat)) * cos(radians(bp.lng) - radians(:lng2)) + sin(radians(:lat2)) * sin(radians(bp.lat))))`,
-        "ASC"
-      );
-      qb.setParameters({ lat2: filters.lat, lng2: filters.lng });
+      qb.andWhere(`${distanciaEnKm("bp")} <= :radius`, {
+        lat: filters.lat,
+        lng: filters.lng,
+        radius,
+      });
+      // Ordenar por la misma expresión con la que se filtró: los parámetros
+      // del punto ya están puestos por el andWhere de arriba.
+      qb.orderBy(distanciaEnKm("bp"), "ASC");
     } else {
       qb.orderBy("bp.rating", "DESC").addOrderBy("bp.total_reviews", "DESC");
     }

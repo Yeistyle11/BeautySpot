@@ -254,12 +254,23 @@ describe("EmailService", () => {
     });
   });
 
-  describe("formatCurrency", () => {
-    it("debería formatear montos en pesos colombianos", () => {
-      // Access private method via bracket notation for testing
-      const amount = (service as any).formatCurrency(50000);
-      expect(amount).toContain("$");
-      expect(amount).toContain("50.000");
+  describe("importes", () => {
+    it("el correo lleva el dinero escrito, no el numero crudo", async () => {
+      mockFs.existsSync.mockReturnValue(false);
+
+      await service.sendInvoice("juan@example.com", {
+        clientName: "Juan",
+        invoiceNumber: "INV-002",
+        amount: 50000,
+        dueDate: "2026-07-01",
+        businessName: "EliteBarbers",
+        services: [{ name: "Corte", price: 50000 }],
+      });
+
+      const transporter = mockNodemailer.createTransport().sendMail;
+      const { html } = transporter.mock.calls.at(-1)[0];
+      expect(html).toContain("50.000");
+      expect(html).not.toContain('"amount":50000');
     });
   });
 });

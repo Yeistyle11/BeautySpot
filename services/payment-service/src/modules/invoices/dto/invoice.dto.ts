@@ -5,8 +5,8 @@ import {
   IsEnum,
   IsArray,
   ValidateNested,
-  IsDateString,
 } from "class-validator";
+import { EsFechaSola } from "@beautyspot/nest-common";
 import { Type } from "class-transformer";
 import { InvoiceStatus } from "@beautyspot/shared-types";
 
@@ -20,8 +20,8 @@ export class CreateInvoiceItemDto {
 /** Datos para crear una factura: cliente, fechas, notas y sus líneas. */
 export class CreateInvoiceDto {
   @IsString() clientId!: string;
-  @IsOptional() @IsDateString() date?: string;
-  @IsOptional() @IsDateString() dueDate?: string;
+  @IsOptional() @EsFechaSola() date?: string;
+  @IsOptional() @EsFechaSola() dueDate?: string;
   @IsOptional() @IsString() notes?: string;
   @IsArray()
   @ValidateNested({ each: true })

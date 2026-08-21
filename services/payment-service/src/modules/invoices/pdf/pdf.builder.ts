@@ -1,4 +1,5 @@
 import PDFDocument from "pdfkit";
+import { formatearDinero } from "@beautyspot/shared-utils";
 
 /** Datos que necesita el PDF de una factura: emisor, cliente, líneas y totales. */
 export interface InvoiceData {
@@ -35,15 +36,6 @@ export interface InvoiceData {
 }
 
 type Documento = InstanceType<typeof PDFDocument>;
-
-/** Formatea un importe como moneda colombiana (COP) sin decimales. */
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    minimumFractionDigits: 0,
-  }).format(amount);
-}
 
 /** Formatea una fecha en español de Colombia (día, mes y año). */
 function formatDate(date: Date): string {
@@ -142,8 +134,8 @@ function addItemsTable(doc: Documento, data: InvoiceData): void {
 
     doc.text(item.name, 50, y, { width: itemWidth });
     doc.text(item.quantity.toString(), 350, y, { width: quantityWidth });
-    doc.text(formatCurrency(item.price), 410, y, { width: priceWidth });
-    doc.text(formatCurrency(itemTotal), 490, y, { width: totalWidth });
+    doc.text(formatearDinero(item.price), 410, y, { width: priceWidth });
+    doc.text(formatearDinero(itemTotal), 490, y, { width: totalWidth });
 
     y += 20;
   }
@@ -158,7 +150,7 @@ function addTotals(doc: Documento, data: InvoiceData): void {
   doc.fontSize(10);
 
   doc.text("Subtotal:", 400, y, { width: 100, align: "right" });
-  doc.text(formatCurrency(data.subtotal), 505, y, {
+  doc.text(formatearDinero(data.subtotal), 505, y, {
     width: 100,
     align: "right",
   });
@@ -166,7 +158,7 @@ function addTotals(doc: Documento, data: InvoiceData): void {
 
   const porcentaje = (data.taxRate * 100).toFixed(0);
   doc.text(`IVA (${porcentaje}%):`, 400, y, { width: 100, align: "right" });
-  doc.text(formatCurrency(data.tax), 505, y, {
+  doc.text(formatearDinero(data.tax), 505, y, {
     width: 100,
     align: "right",
   });
@@ -174,7 +166,7 @@ function addTotals(doc: Documento, data: InvoiceData): void {
 
   doc.fontSize(12).fillColor("#000");
   doc.text("TOTAL:", 400, y, { width: 100, align: "right" });
-  doc.text(formatCurrency(data.total), 505, y, {
+  doc.text(formatearDinero(data.total), 505, y, {
     width: 100,
     align: "right",
   });

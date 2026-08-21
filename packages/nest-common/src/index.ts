@@ -61,6 +61,12 @@ export type {
   OpcionesLlamada,
 } from "./http/internal-http.client";
 export { InternalHttpModule } from "./http/internal-http.module";
+export {
+  EsFechaSola,
+  EsDiaDelCalendario,
+} from "./decorators/es-fecha-sola.decorator";
+export { CatalogoTenantService } from "./database/catalogo-tenant.service";
+export type { EntidadDeCatalogo } from "./database/catalogo-tenant.service";
 export { TenantCrudService } from "./database/tenant-crud.service";
 export type { EntidadDeNegocio } from "./database/tenant-crud.service";
 export { ProcessedEventsPurgeWorker } from "./modules/idempotency/processed-events-purge.worker";
@@ -82,5 +88,6 @@ export { assertJwtSecret } from "./security/assert-jwt-secret";
 export { validarEntorno, problemasDelEntorno } from "./config/validar-entorno";
 export type { RequisitosDeEntorno, Entorno } from "./config/validar-entorno";
 export { withSerializableRetry } from "./database/serializable-retry";
+export { esViolacionDeUnicidad } from "./database/violacion-de-unicidad";
 export { ZonaDelNegocioService } from "./zona/zona-del-negocio.service";
 export { ZonaDelNegocioModule } from "./zona/zona-del-negocio.module";

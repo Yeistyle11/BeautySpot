@@ -12,7 +12,7 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 import { CancelReason } from "@beautyspot/shared-types";
-import { EsFechaSola } from "../../../common/es-fecha-sola.decorator";
+import { EsFechaSola } from "@beautyspot/nest-common";
 import { EsHoraDelDia } from "../../../common/es-hora-del-dia.decorator";
 
 /** Servicio de la cita que atiende alguien distinto del titular. */

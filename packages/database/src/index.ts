@@ -12,6 +12,7 @@ export {
   metadataDePaginacion,
 } from "./helpers/pagination.helper";
 export { contieneTexto } from "./helpers/busqueda.helper";
+export { distanciaEnKm } from "./helpers/geo.helper";
 export { enCatalogo } from "./helpers/catalogo.helper";
 export type { PaginateParams } from "./helpers/pagination.helper";
 export { numericTransformer } from "./transformers/numeric.transformer";

@@ -15,7 +15,6 @@ import {
   IsEnum,
   IsOptional,
   IsArray,
-  IsDateString,
   IsUUID,
   Min,
   MaxLength,
@@ -27,6 +26,7 @@ import {
   BranchId,
   BusinessId,
   CurrentUser,
+  EsFechaSola,
 } from "@beautyspot/nest-common";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
 
@@ -83,7 +83,7 @@ export class CitasCobradasDto {
 
 /** Día del que se pide el resumen, en formato ISO. */
 class DailySummaryQueryDto {
-  @IsDateString() date!: string;
+  @EsFechaSola() date!: string;
 }
 
 /** Nuevo estado a asignar a un pago. */

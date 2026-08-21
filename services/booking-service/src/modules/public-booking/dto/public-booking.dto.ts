@@ -6,7 +6,7 @@ import {
   IsEmail,
   IsUUID,
 } from "class-validator";
-import { EsFechaSola } from "../../../common/es-fecha-sola.decorator";
+import { EsFechaSola } from "@beautyspot/nest-common";
 import { EsHoraDelDia } from "../../../common/es-hora-del-dia.decorator";
 
 /**

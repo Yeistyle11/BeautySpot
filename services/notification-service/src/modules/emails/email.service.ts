@@ -6,6 +6,7 @@ import * as nodemailer from "nodemailer";
 import * as handlebars from "handlebars";
 import * as fs from "fs";
 import * as path from "path";
+import { formatearDinero } from "@beautyspot/shared-utils";
 
 type EmailPriority = "low" | "normal" | "high";
 
@@ -185,7 +186,7 @@ export class EmailService {
   ): Promise<{ messageId: string }> {
     const context = {
       ...data,
-      amount: this.formatCurrency(data.amount),
+      amount: formatearDinero(data.amount),
       subject: `Factura #${data.invoiceNumber} - ${data.businessName}`,
     };
 
@@ -243,8 +244,8 @@ export class EmailService {
   ): Promise<void> {
     await this.sendEmail(to, "monthly-report", {
       ...data,
-      totalRevenue: this.formatCurrency(data.totalRevenue),
-      topServiceRevenue: this.formatCurrency(data.topServiceRevenue),
+      totalRevenue: formatearDinero(data.totalRevenue),
+      topServiceRevenue: formatearDinero(data.topServiceRevenue),
       subject: `Reporte mensual - ${data.businessName} (${data.month} ${data.year})`,
     });
   }
@@ -376,7 +377,7 @@ export class EmailService {
     return this.queueEmail({
       to,
       template: "invoice-generated",
-      data: { ...data, amount: this.formatCurrency(data.amount) },
+      data: { ...data, amount: formatearDinero(data.amount) },
       subject: `Factura #${data.invoiceNumber} - ${data.businessName}`,
       priority: "normal",
       pdfPath,
@@ -477,20 +478,11 @@ export class EmailService {
       template: "monthly-report",
       data: {
         ...data,
-        totalRevenue: this.formatCurrency(data.totalRevenue),
-        topServiceRevenue: this.formatCurrency(data.topServiceRevenue),
+        totalRevenue: formatearDinero(data.totalRevenue),
+        topServiceRevenue: formatearDinero(data.topServiceRevenue),
       },
       subject: `Reporte mensual - ${data.businessName} (${data.month} ${data.year})`,
       priority: "low",
     });
-  }
-
-  /** Formatea un importe como moneda colombiana (COP) sin decimales. */
-  private formatCurrency(amount: number): string {
-    return new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      minimumFractionDigits: 0,
-    }).format(amount);
   }
 }
