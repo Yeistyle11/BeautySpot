@@ -13,7 +13,11 @@ import {
   CancelReason,
   IPaginatedResponse,
 } from "@beautyspot/shared-types";
-import { EventNames, ServicioDeLaCita } from "@beautyspot/event-types";
+import {
+  AppointmentCreatedPayload,
+  EventNames,
+  ServicioDeLaCita,
+} from "@beautyspot/event-types";
 import {
   InternalHttpClient,
   OutboxService,
@@ -63,6 +67,38 @@ interface ServicioResuelto {
 interface LineaDeCita extends ServicioResuelto {
   orden: number;
   professionalId: string | null;
+}
+
+/**
+ * Cuerpo comun de los eventos de una cita. Los seis —alta, confirmacion,
+ * atendida, cancelacion, ausencia y cambio de hora— describen la misma cita, y
+ * escribirlo en cada uno hacia que anadir un campo pidiera seis ediciones
+ * iguales; olvidar una no rompia la compilacion, porque los campos son
+ * opcionales, y el evento salia incompleto hasta que faltaba un dato en
+ * analytics.
+ *
+ * `cambios` es para lo que el evento sabe mejor que la fila: al reagendar, la
+ * fecha y la hora nuevas todavia no estan escritas.
+ */
+function cuerpoDeCita(
+  appt: Appointment,
+  businessId: string,
+  cambios: Partial<AppointmentCreatedPayload> = {}
+): AppointmentCreatedPayload {
+  return {
+    appointmentId: appt.id,
+    businessId,
+    branchId: appt.branchId,
+    clientId: appt.clientId,
+    professionalId: appt.professionalId,
+    date: appt.date,
+    startTime: appt.startTime,
+    endTime: appt.endTime,
+    ocupadoHasta: appt.ocupadoHasta ?? undefined,
+    totalAmount: appt.totalAmount,
+    services: serviciosDelEvento(appt.appointmentServices),
+    ...cambios,
+  };
 }
 
 /**
@@ -315,16 +351,9 @@ export class AppointmentsService {
           aggregateType: "appointment",
           aggregateId: saved.id,
           payload: {
-            appointmentId: saved.id,
-            businessId,
-            clientId: data.clientId,
-            professionalId: data.professionalId,
-            date: data.date,
-            startTime: data.startTime,
-            endTime: finGuardado,
-            ocupadoHasta: ocupadoHastaGuardado,
-            totalAmount,
-            services: serviciosDelEvento(apptServices),
+            ...cuerpoDeCita(saved, businessId, {
+              services: serviciosDelEvento(apptServices),
+            }),
           },
         });
 
@@ -357,17 +386,7 @@ export class AppointmentsService {
         eventType: EventNames.BOOKING_APPOINTMENT_CONFIRMED,
         aggregateType: "appointment",
         aggregateId: id,
-        payload: {
-          appointmentId: id,
-          businessId,
-          clientId: appt.clientId,
-          professionalId: appt.professionalId,
-          date: appt.date,
-          startTime: appt.startTime,
-          endTime: appt.endTime,
-          totalAmount: appt.totalAmount,
-          services: serviciosDelEvento(appt.appointmentServices),
-        },
+        payload: { ...cuerpoDeCita(appt, businessId) },
       });
     });
     return this.findById(id, businessId);
@@ -428,18 +447,7 @@ export class AppointmentsService {
         eventType: EventNames.BOOKING_APPOINTMENT_COMPLETED,
         aggregateType: "appointment",
         aggregateId: id,
-        payload: {
-          appointmentId: id,
-          businessId,
-          clientId: appt.clientId,
-          professionalId: appt.professionalId,
-          date: appt.date,
-          startTime: appt.startTime,
-          endTime: appt.endTime,
-          totalAmount: appt.totalAmount,
-          pointsEarned,
-          services: serviciosDelEvento(appt.appointmentServices),
-        },
+        payload: { ...cuerpoDeCita(appt, businessId), pointsEarned },
       });
     });
 
@@ -497,15 +505,7 @@ export class AppointmentsService {
         aggregateType: "appointment",
         aggregateId: id,
         payload: {
-          appointmentId: id,
-          businessId,
-          clientId: appt.clientId,
-          professionalId: appt.professionalId,
-          date: appt.date,
-          startTime: appt.startTime,
-          endTime: appt.endTime,
-          totalAmount: appt.totalAmount,
-          services: serviciosDelEvento(appt.appointmentServices),
+          ...cuerpoDeCita(appt, businessId),
           cancelReason: motivo.nota,
           cancelReasonType: motivo.tipo,
           cancelledBy: motivo.canceladaPor,
@@ -537,17 +537,7 @@ export class AppointmentsService {
         eventType: EventNames.BOOKING_APPOINTMENT_NO_SHOWED,
         aggregateType: "appointment",
         aggregateId: id,
-        payload: {
-          appointmentId: id,
-          businessId,
-          clientId: appt.clientId,
-          professionalId: appt.professionalId,
-          date: appt.date,
-          startTime: appt.startTime,
-          endTime: appt.endTime,
-          totalAmount: appt.totalAmount,
-          services: serviciosDelEvento(appt.appointmentServices),
-        },
+        payload: { ...cuerpoDeCita(appt, businessId) },
       });
     });
     return this.findById(id, businessId);
@@ -653,15 +643,11 @@ export class AppointmentsService {
         aggregateType: "appointment",
         aggregateId: id,
         payload: {
-          appointmentId: id,
-          businessId,
-          clientId: appt.clientId,
-          professionalId: appt.professionalId,
-          date: newDate,
-          startTime: newStartTime,
-          endTime: finGuardado,
-          totalAmount: appt.totalAmount,
-          services: serviciosDelEvento(appt.appointmentServices),
+          ...cuerpoDeCita(appt, businessId, {
+            date: newDate,
+            startTime: newStartTime,
+            endTime: finGuardado,
+          }),
           previousDate: appt.date,
           previousStartTime: appt.startTime,
         },

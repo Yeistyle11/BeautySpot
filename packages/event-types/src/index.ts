@@ -150,6 +150,11 @@ export interface ServicioDeLaCita {
 export interface AppointmentCreatedPayload {
   appointmentId: string;
   businessId: string;
+  /**
+   * Sede donde se atiende. Opcional porque los eventos ya encolados no lo
+   * llevan: se empezó a enviar después de que la cita tuviera sede.
+   */
+  branchId?: string;
   clientId: string;
   professionalId: string;
   date: string;
