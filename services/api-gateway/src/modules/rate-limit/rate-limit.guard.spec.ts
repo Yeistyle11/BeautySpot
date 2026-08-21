@@ -3,6 +3,7 @@ import { RateLimitGuard } from "./rate-limit.guard";
 import {
   RATE_LIMIT_AUTH_REQUESTS,
   RATE_LIMIT_GENERAL_REQUESTS,
+  RATE_LIMIT_RESERVA_PUBLICA_REQUESTS,
 } from "@beautyspot/shared-constants";
 
 describe("RateLimitGuard", () => {
@@ -156,11 +157,117 @@ describe("RateLimitGuard", () => {
     );
   });
 
-  it("deja pasar la petición si Redis falla (fail-open)", async () => {
+  it("deja pasar el trafico corriente si Redis falla", async () => {
     redis.eval.mockRejectedValue(new Error("Redis caído"));
     const request = { path: "/api/v1/clients", ip: "1.1.1.1", body: {} };
 
     await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);
+  });
+
+  describe("reserva publica", () => {
+    const RUTA = "/api/v1/booking/public/appointments";
+
+    const reserva = (body: Record<string, unknown> = {}) => ({
+      path: RUTA,
+      ip: "1.1.1.1",
+      body,
+    });
+
+    it("tiene su propio presupuesto, mas estrecho que el general", async () => {
+      redis.eval.mockResolvedValue(
+        cuenta(RATE_LIMIT_RESERVA_PUBLICA_REQUESTS + 1)
+      );
+
+      await expect(guard.canActivate(contextFor(reserva()))).rejects.toThrow(
+        HttpException
+      );
+      expect(RATE_LIMIT_RESERVA_PUBLICA_REQUESTS).toBeLessThan(
+        RATE_LIMIT_GENERAL_REQUESTS
+      );
+    });
+
+    it("cuenta tambien por el correo del invitado, no solo por IP", async () => {
+      redis.eval.mockResolvedValue(cuenta(1));
+
+      await guard.canActivate(
+        contextFor(reserva({ guestEmail: " Ana@Example.com " }))
+      );
+
+      const claves = redis.eval.mock.calls.map((llamada) => llamada[2]);
+      expect(claves).toContain("rate-limit:ip:1.1.1.1:reserva");
+      expect(claves).toContain("rate-limit:invitado:ana@example.com");
+    });
+
+    it("si no dio correo, cuenta por el telefono", async () => {
+      redis.eval.mockResolvedValue(cuenta(1));
+
+      await guard.canActivate(
+        contextFor(reserva({ guestPhone: "300 123 4567" }))
+      );
+
+      const claves = redis.eval.mock.calls.map((llamada) => llamada[2]);
+      expect(claves).toContain("rate-limit:invitado:3001234567");
+    });
+
+    it("sin contacto se queda con el contador por IP", async () => {
+      redis.eval.mockResolvedValue(cuenta(1));
+
+      await guard.canActivate(contextFor(reserva({ guestName: "Ana" })));
+
+      expect(redis.eval).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("cuando Redis no responde", () => {
+    /** Estado del rechazo, o null si la peticion paso. */
+    async function estadoDe(request: any): Promise<number | null> {
+      redis.eval.mockRejectedValue(new Error("Redis caído"));
+      try {
+        await guard.canActivate(contextFor(request));
+        return null;
+      } catch (error) {
+        return (error as HttpException).getStatus();
+      }
+    }
+
+    it("cierra la reserva publica: sin contar no hay limite", async () => {
+      const estado = await estadoDe({
+        path: "/api/v1/booking/public/appointments",
+        ip: "1.1.1.1",
+        body: { guestEmail: "ana@example.com" },
+      });
+
+      expect(estado).toBe(503);
+    });
+
+    it("cierra tambien las rutas de credenciales", async () => {
+      const estado = await estadoDe({
+        path: "/api/v1/auth/login",
+        ip: "1.1.1.1",
+        body: { email: "ana@example.com" },
+      });
+
+      expect(estado).toBe(503);
+    });
+
+    it("no confunde el cierre con un exceso de peticiones", async () => {
+      redis.eval.mockRejectedValue(new Error("Redis caído"));
+      const request = {
+        path: "/api/v1/auth/login",
+        ip: "1.1.1.1",
+        body: {},
+      };
+
+      await guard
+        .canActivate(contextFor(request))
+        .then(() => {
+          throw new Error("debería haber cerrado");
+        })
+        .catch((error: HttpException) => {
+          const cuerpo = error.getResponse() as { error: { code: string } };
+          expect(cuerpo.error.code).toBe("RATE_LIMIT_UNAVAILABLE");
+        });
+    });
   });
 
   describe("cuando bloquea, dice cuanto esperar", () => {

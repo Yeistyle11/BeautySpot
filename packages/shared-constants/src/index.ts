@@ -9,6 +9,12 @@ export const PROXY_TIMEOUT_MS = 10_000;
 export const RATE_LIMIT_AUTH_REQUESTS = 5;
 /** Máximo de peticiones a rutas generales por ventana. */
 export const RATE_LIMIT_GENERAL_REQUESTS = 100;
+/**
+ * Máximo de reservas públicas por ventana. Un invitado reserva una vez y se va;
+ * lo que este número corta es llenar la agenda de un salón con citas falsas,
+ * que además dispara un correo por cada una.
+ */
+export const RATE_LIMIT_RESERVA_PUBLICA_REQUESTS = 5;
 /** Duración (segundos) de la ventana deslizante del rate limiting. */
 export const RATE_LIMIT_WINDOW_SECONDS = 60;
 
