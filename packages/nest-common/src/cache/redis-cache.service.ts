@@ -68,9 +68,9 @@ export class RedisCacheService implements OnModuleDestroy {
    * Devuelve el valor cacheado o lo calcula y lo guarda. Si Redis falla, recurre
    * al origen. La clave no distingue usuario: no usar para datos por permisos.
    *
-   * Las cargas simultáneas de la misma clave se agrupan en una sola: al caducar
-   * una clave muy visitada, todas las peticiones en vuelo fallaban a la vez y
-   * cada una recalculaba por su cuenta.
+   * Las cargas simultáneas de la misma clave se agrupan en una sola, para que
+   * al caducar una clave muy visitada no la recalculen a la vez todas las
+   * peticiones en vuelo.
    *
    * `etiquetaDe` permite asociar la clave a un grupo (por ejemplo, un negocio)
    * para poder invalidar después solo ese grupo con {@link invalidarEtiqueta}.

@@ -25,8 +25,6 @@ class CambiarEstadoDto {
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // --- Perfil propio ---
-
   /** Devuelve el perfil del usuario autenticado. */
   @Get("me")
   async getMe(@CurrentUser("userId") userId: string) {
@@ -48,8 +46,6 @@ export class UsersController {
   async getMemberships(@CurrentUser("userId") userId: string) {
     return this.usersService.getUserMemberships(userId);
   }
-
-  // --- Admin: Gestion de staff del negocio ---
 
   /**
    * Lista todos los miembros del staff del negocio actual.

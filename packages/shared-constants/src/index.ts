@@ -3,7 +3,7 @@
 /** Tiempo máximo (ms) que el gateway espera la respuesta de un servicio antes de abortar. */
 export const PROXY_TIMEOUT_MS = 10_000;
 
-// ─── Rate Limiting ─────────────────────────────────────────────────
+// ─── Límite de peticiones ─────────────────────────────────────────────────
 
 /** Máximo de peticiones a rutas de autenticación por ventana (más estricto por seguridad). */
 export const RATE_LIMIT_AUTH_REQUESTS = 5;

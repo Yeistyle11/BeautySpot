@@ -18,7 +18,7 @@ export class Client extends TenantEntity {
   @Column({ type: "uuid", name: "user_id", nullable: true })
   userId!: string | null;
   @Column() name!: string;
-  // El tipo va explícito: con `string | null` TypeORM ya no puede deducirlo.
+  // El tipo va explícito porque con `string | null` TypeORM no lo deduce.
   @Column({ type: "varchar", nullable: true }) email!: string | null;
   @Column({ type: "varchar", nullable: true }) phone!: string | null;
   /** Documento de identidad, necesario para identificar al receptor en la factura. */

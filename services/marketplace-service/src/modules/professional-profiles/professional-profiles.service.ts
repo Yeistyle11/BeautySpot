@@ -19,8 +19,6 @@ export class ProfessionalProfilesService {
     private readonly repo: Repository<ProfessionalProfileEntity>
   ) {}
 
-  // --- Sincronizacion desde core-service ---
-
   /** Crea o actualiza el perfil de un profesional con los datos del core, generándole un slug único. */
   async syncFromCore(
     dto: SyncProfessionalDto
@@ -59,8 +57,6 @@ export class ProfessionalProfilesService {
     );
   }
 
-  // --- Actualizacion desde el panel del negocio ---
-
   /** Actualiza los campos que el negocio controla del perfil (tagline, portafolio, redes, visibilidad). */
   async updateProfile(
     professionalId: string,
@@ -83,8 +79,6 @@ export class ProfessionalProfilesService {
     return this.repo.save(profile);
   }
 
-  // --- Visibilidad en el marketplace ---
-
   /** Muestra u oculta al profesional en el perfil público del negocio. */
   async toggleVisibility(
     professionalId: string,
@@ -100,8 +94,6 @@ export class ProfessionalProfilesService {
     profile.visibleOnProfile = visible;
     return this.repo.save(profile);
   }
-
-  // --- Consultas publicas ---
 
   /** Lista los profesionales activos y visibles de un negocio, mejor valorados primero. */
   async findVisibleByBusiness(
@@ -123,8 +115,6 @@ export class ProfessionalProfilesService {
     return profile;
   }
 
-  // --- Consultas internas ---
-
   /** Lista todos los profesionales activos de un negocio (incluidos los no visibles), para uso interno. */
   async findByBusiness(
     businessId: string
@@ -143,8 +133,6 @@ export class ProfessionalProfilesService {
     return profile;
   }
 
-  // --- Feed: profesionales destacados ---
-
   /** Devuelve los profesionales visibles mejor valorados para el feed. */
   async findTopRated(limit: number): Promise<ProfessionalProfileEntity[]> {
     return this.repo.find({
@@ -153,8 +141,6 @@ export class ProfessionalProfilesService {
       take: limit,
     });
   }
-
-  // --- Metricas ---
 
   /** Recalcula la media de calificación y el total de reseñas del profesional a partir de sus reviews. */
   async updateRating(
@@ -187,8 +173,6 @@ export class ProfessionalProfilesService {
       );
     }
   }
-
-  // --- Helpers ---
 
   /** Genera un slug a partir del nombre, añadiendo un sufijo numérico si ya está en uso. */
   private async ensureUniqueSlug(

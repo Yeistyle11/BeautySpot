@@ -26,6 +26,7 @@ export class BusinessConfigController {
     return this.service.leer(businessId, CLAVE_FACTURACION);
   }
 
+  /** Guarda los datos fiscales con los que se emiten las facturas. */
   @Patch("facturacion")
   async guardarFacturacion(
     @BusinessId() businessId: string,
@@ -40,6 +41,7 @@ export class BusinessConfigController {
     return this.service.leer(businessId, CLAVE_RESERVAS);
   }
 
+  /** Guarda las reglas de reserva y la política de cancelación. */
   @Patch("reservas")
   async guardarReservas(
     @BusinessId() businessId: string,
@@ -55,6 +57,7 @@ export class BusinessConfigController {
     return { niveles: guardado.niveles ?? NIVELES_FIDELIDAD_POR_DEFECTO };
   }
 
+  /** Guarda los niveles del programa de fidelidad del negocio. */
   @Patch("fidelizacion")
   async guardarFidelizacion(
     @BusinessId() businessId: string,

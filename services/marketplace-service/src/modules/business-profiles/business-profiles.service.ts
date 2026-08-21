@@ -71,8 +71,6 @@ export class BusinessProfilesService {
   /** Prefijo de las claves de caché de este servicio, para poder invalidarlas juntas. */
   private static readonly PREFIJO_CACHE = "marketplace:perfil:";
 
-  // --- Sincronizacion desde core-service ---
-
   /** Crea o actualiza el perfil de un negocio y recalcula su completitud. */
   async createOrUpdate(dto: UpsertProfileDto): Promise<BusinessProfileEntity> {
     const existing = await this.repo.findOne({
@@ -93,8 +91,6 @@ export class BusinessProfilesService {
     profile.profileCompleteness = await this.calculateCompleteness(profile);
     return this.guardar(profile);
   }
-
-  // --- Alta desde el panel ---
 
   /** Da de alta el escaparate del negocio, en borrador y sin publicarlo. */
   async crearParaNegocio(
@@ -163,8 +159,6 @@ export class BusinessProfilesService {
     return (await this.repo.countBy({ slug })) > 0;
   }
 
-  // --- Lectura publica ---
-
   /** Devuelve el perfil publicado por slug junto con su equipo, si la sección "team" está activa. */
   async findBySlug(slug: string): Promise<{
     profile: BusinessProfileEntity;
@@ -189,7 +183,6 @@ export class BusinessProfilesService {
     if (!profile)
       throw new NotFoundException("Perfil de negocio no encontrado");
 
-    // Incluir profesionales si la seccion "team" esta habilitada
     const teamSection = profile.sectionConfig?.sections?.find(
       (s) => s.id === "team"
     );
@@ -216,7 +209,6 @@ export class BusinessProfilesService {
     if (!business)
       throw new NotFoundException("Perfil de negocio no encontrado");
 
-    // Verificar que la seccion "team" este habilitada
     const teamSection = business.sectionConfig?.sections?.find(
       (s) => s.id === "team"
     );
@@ -227,7 +219,6 @@ export class BusinessProfilesService {
     const professional =
       await this.professionalProfilesService.findBySlug(professionalSlug);
 
-    // Verificar que el profesional pertenece a este negocio
     if (professional.businessId !== business.businessId) {
       throw new NotFoundException("Profesional no encontrado en este negocio");
     }
@@ -251,8 +242,6 @@ export class BusinessProfilesService {
     return profile;
   }
 
-  // --- Configuracion del perfil inmersivo ---
-
   /** Actualiza los campos del perfil inmersivo (historia, redes, secciones) y recalcula la completitud. */
   async updateConfig(
     businessId: string,
@@ -275,8 +264,6 @@ export class BusinessProfilesService {
     profile.profileCompleteness = await this.calculateCompleteness(profile);
     return this.guardar(profile);
   }
-
-  // --- Galeria ---
 
   /** Añade imágenes a la galería del perfil. */
   async addGalleryImages(
@@ -328,8 +315,6 @@ export class BusinessProfilesService {
     return this.guardar(profile);
   }
 
-  // --- Publicacion ---
-
   /** Publica el perfil (lo hace visible en el marketplace); exige nombre y slug. */
   async publish(businessId: string): Promise<BusinessProfileEntity> {
     const profile = await this.findByBusinessId(businessId);
@@ -349,9 +334,12 @@ export class BusinessProfilesService {
     return this.guardar(profile);
   }
 
-  // --- Rating ---
-
-  /** Recalcula la media de calificación y el total de reseñas del negocio a partir de sus reviews. */
+  /**
+   * Recalcula la media de calificación y el total de reseñas del negocio a
+   * partir de sus reviews, contándolas **todas**, también las ocultas: ocultar
+   * una reseña la retira del listado público pero no debe subir la nota del
+   * negocio que la modera.
+   */
   async updateRating(
     businessId: string,
     manager?: EntityManager
@@ -387,8 +375,6 @@ export class BusinessProfilesService {
       BusinessProfilesService.etiquetaDe(businessId)
     );
   }
-
-  // --- Feed helpers ---
 
   /** Lista perfiles publicados con filtros por ciudad/tipo y orden por cercanía, rating o novedad. */
   async findPublished(options: {
@@ -482,8 +468,6 @@ export class BusinessProfilesService {
       .getMany();
   }
 
-  // --- Completitud ---
-
   /**
    * Punto único por el que pasan las escrituras del perfil: lo persiste e
    * invalida por etiqueta las claves con que se sirve ese negocio.
@@ -505,6 +489,11 @@ export class BusinessProfilesService {
     return `${BusinessProfilesService.PREFIJO_CACHE}negocio:${businessId}`;
   }
 
+  /**
+   * Puntúa de 0 a 100 lo completo que está el escaparate. Los tramos de abajo
+   * son la definición de "perfil completo" del producto: cada bloque reparte su
+   * presupuesto entre los datos que más ayudan a que el negocio se venda.
+   */
   private async calculateCompleteness(
     profile: BusinessProfileEntity
   ): Promise<number> {

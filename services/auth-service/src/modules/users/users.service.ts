@@ -50,8 +50,6 @@ export class UsersService {
     private readonly http: InternalHttpClient
   ) {}
 
-  // --- Consultas ---
-
   /** Busca un usuario por id; lanza 404 si no existe. */
   async findById(id: string): Promise<User> {
     const user = await this.userRepository.findOne({ where: { id } });
@@ -115,8 +113,6 @@ export class UsersService {
     };
   }
 
-  // --- Perfil propio ---
-
   /** Actualiza el perfil del propio usuario (nombre, teléfono, avatar). */
   async updateProfile(
     id: string,
@@ -167,8 +163,6 @@ export class UsersService {
       return new Map();
     }
   }
-
-  // --- Admin: Crear cuenta de staff ---
 
   /**
    * Crea un usuario, hashea la contrasena y le asigna una membresia en el
@@ -251,8 +245,6 @@ export class UsersService {
     });
   }
 
-  // --- Admin: Actualizar cuenta de staff ---
-
   /**
    * Actualiza datos de un usuario (nombre, email, telefono, avatar).
    * Verifica que el usuario pertenezca al negocio.
@@ -309,8 +301,6 @@ export class UsersService {
     });
   }
 
-  // --- Admin: Resetear contrasena ---
-
   /**
    * Permite al admin establecer una nueva contrasena para un miembro del staff.
    */
@@ -355,8 +345,6 @@ export class UsersService {
 
     return { message: "Contrasena actualizada correctamente" };
   }
-
-  // --- Admin: Activar/Desactivar cuenta ---
 
   /**
    * Activa o desactiva la cuenta de usuario y su membresia; el perfil
@@ -418,8 +406,6 @@ export class UsersService {
         : "Cuenta desactivada correctamente",
     };
   }
-
-  // --- Audit logging ---
 
   /** Escribe una entrada de auditoría de usuarios, opcionalmente dentro de una transacción. */
   private async logAction(

@@ -39,6 +39,7 @@ export class ServiceCategoriesController {
     Role.PROFESSIONAL,
     Role.RECEPTIONIST
   )
+  /** Categorías de servicio del negocio, paginadas y filtrables por texto. */
   @Get()
   async findAll(
     @BusinessId() businessId: string,
@@ -82,6 +83,7 @@ export class ServiceCategoriesController {
     Role.PROFESSIONAL,
     Role.RECEPTIONIST
   )
+  /** Una categoría de servicio del negocio. */
   @Get(":id")
   async findById(@Param("id") id: string, @BusinessId() businessId: string) {
     return this.service.findById(id, businessId);

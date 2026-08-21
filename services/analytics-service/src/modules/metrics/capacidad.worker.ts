@@ -42,6 +42,7 @@ export class CapacidadWorker implements OnModuleInit, OnModuleDestroy {
     this.enabled = configService.get<string>("CAPACIDAD_ENABLED") !== "false";
   }
 
+  /** Arranca el sondeo periódico, salvo que esté desactivado por configuración. */
   onModuleInit(): void {
     if (!this.enabled) {
       this.logger.warn("Capacidad deshabilitada (CAPACIDAD_ENABLED=false)");
@@ -58,6 +59,7 @@ export class CapacidadWorker implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Capacidad de agenda iniciada (cada ${this.intervalMs}ms)`);
   }
 
+  /** Detiene el sondeo al parar el servicio. */
   async onModuleDestroy(): Promise<void> {
     if (this.timer) {
       clearInterval(this.timer);

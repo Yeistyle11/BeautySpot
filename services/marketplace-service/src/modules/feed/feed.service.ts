@@ -80,10 +80,8 @@ export class FeedService {
     lng?: number,
     city?: string
   ): Promise<FeedResponse> {
-    // Categorias disponibles
     const categories = await this.getCategories();
 
-    // Secciones curadas en paralelo
     const [popular, topRated, recent, topProfessionals] = await Promise.all([
       this.getPopularNearby(lat, lng, city),
       this.getTopRated(),
@@ -146,8 +144,7 @@ export class FeedService {
       icon: tipo.icono,
     }));
 
-    // Un GROUP BY en vez de una consulta por categoria, que ademas traia una
-    // fila de perfil que se descartaba.
+    // Los recuentos salen de un solo GROUP BY.
     const conteos = await this.profilesService.contarPorTipo();
 
     return categoryConfigs.map((cfg) => ({

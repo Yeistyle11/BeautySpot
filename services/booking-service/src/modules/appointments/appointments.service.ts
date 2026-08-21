@@ -951,6 +951,4 @@ export class AppointmentsService {
       servicios: cita.appointmentServices.map((s) => s.serviceName),
     };
   }
-
-  // ─── Helpers privados ──────────────────────────────────────
 }

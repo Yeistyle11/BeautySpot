@@ -59,8 +59,6 @@ export class EmailService {
     }
   }
 
-  // ─── Core send/queue ──────────────────────────────────────
-
   /** Renderiza la plantilla indicada y envía el correo por SMTP de inmediato. */
   async sendEmail(
     to: string,
@@ -97,8 +95,6 @@ export class EmailService {
     });
     return { jobId: job.id! };
   }
-
-  // ─── Direct send methods ──────────────────────────────────
 
   /** Envía el correo de confirmación de una cita. */
   async sendAppointmentConfirmation(
@@ -252,8 +248,6 @@ export class EmailService {
       subject: `Reporte mensual - ${data.businessName} (${data.month} ${data.year})`,
     });
   }
-
-  // ─── Queue methods (thin wrappers over queueEmail) ────────
 
   /**
    * Encola el acuse de la cita recien solicitada, distinto del correo de

@@ -41,7 +41,7 @@ export class ProfessionalProfileEntity extends TenantEntity {
   @Column({ name: "visible_on_profile", default: true })
   visibleOnProfile!: boolean;
 
-  // Metricas calculadas
+  // Las derivan las reseñas; no se escriben a mano.
   @Column({
     type: "decimal",
     precision: 3,

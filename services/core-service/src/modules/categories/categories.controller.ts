@@ -36,6 +36,7 @@ export class CategoriesController {
     Role.PROFESSIONAL,
     Role.RECEPTIONIST
   )
+  /** Categorías del negocio, paginadas y filtrables por texto. */
   @Get()
   async findAll(
     @BusinessId() businessId: string,

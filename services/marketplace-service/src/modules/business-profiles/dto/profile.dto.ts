@@ -15,8 +15,6 @@ import { Type } from "class-transformer";
 import { VALORES_TIPO_DE_NEGOCIO } from "@beautyspot/shared-constants";
 import { SocialLinks } from "../../../entities/business-profile.entity";
 
-// --- Perfil basico (sincronizacion desde core-service) ---
-
 /** Datos que el core envía para crear o actualizar el perfil de un negocio. */
 export class UpsertProfileDto {
   @IsString() businessId!: string;
@@ -69,8 +67,6 @@ export class CrearPerfilDto {
   @IsOptional() @IsNumber() lng?: number;
 }
 
-// --- Configuracion del perfil inmersivo ---
-
 /** Configuración de una sección del perfil: id, si se muestra, orden y título. */
 export class SectionConfigDto {
   @IsString() id!: string;
@@ -97,8 +93,6 @@ export class UpdateProfileConfigDto {
   @Type(() => SectionConfigDto)
   sectionConfig?: SectionConfigDto[];
 }
-
-// --- Galeria ---
 
 /** Una imagen de la galería: URL, título, categoría y marca de destacada. */
 export class GalleryImageDto {
