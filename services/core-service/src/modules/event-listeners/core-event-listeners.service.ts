@@ -63,8 +63,10 @@ export class CoreEventListeners {
   }
 
   /**
-   * Descuenta de la ficha los puntos que un cobro canjeo, dentro de `once` y
-   * compartiendo transaccion con la marca de procesado.
+   * Deja constancia del canje. El saldo lo descuenta el propio cobro contra
+   * `/internal/clients/:id/puntos/reservar` antes de registrarse, porque el
+   * descuento decide el importe y no puede resolverse después: hacerlo aquí
+   * dejaría que dos cobros simultáneos gastaran el mismo saldo.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
@@ -73,23 +75,10 @@ export class CoreEventListeners {
     queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
   })
   async handlePointsRedeemed(event: PointsRedeemedEvent): Promise<void> {
-    const { paymentId, clientId, businessId, points } = event.payload;
-
-    await this.processedEvents.once(
-      event,
-      "core:canje de puntos",
-      async (manager) => {
-        await this.clients.subtractLoyaltyPoints(
-          clientId,
-          businessId,
-          points,
-          manager
-        );
-      }
-    );
+    const { paymentId, clientId, points } = event.payload;
 
     this.logger.log(
-      `Descontados ${points} puntos al cliente ${clientId} por el cobro ${paymentId}`
+      `Canjeados ${points} puntos del cliente ${clientId} en el cobro ${paymentId}`
     );
   }
 

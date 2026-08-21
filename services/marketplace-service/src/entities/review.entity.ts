@@ -17,6 +17,9 @@ export enum ReviewStatus {
 // Una reseña por cita, y garantizado por la base: con un índice no único, dos
 // altas simultáneas pasan las dos la comprobación previa.
 @Index("idx_reviews_cita", ["appointmentId"], { unique: true })
+// Filtra el listado del escaparate y ordena el recalculo de la nota del
+// profesional, que corre en cada alta, edicion, borrado y moderacion.
+@Index("idx_reviews_profesional", ["professionalId"])
 export class ReviewEntity extends TenantEntity {
   @Column({ type: "uuid", name: "appointment_id", nullable: true })
   appointmentId!: string;
@@ -41,7 +44,8 @@ export class ReviewEntity extends TenantEntity {
   @Column({ type: "timestamptz", nullable: true, name: "edited_at" })
   editedAt!: Date | null;
 
-  // Campos enriquecidos
+  // Copias de lo que se reseñó, congeladas al crear la reseña: el servicio y
+  // el profesional pueden cambiar de nombre después.
 
   @Column({ nullable: true, name: "service_name" })
   serviceName!: string;

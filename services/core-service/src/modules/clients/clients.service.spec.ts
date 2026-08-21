@@ -588,33 +588,69 @@ describe("ClientsService", () => {
     });
   });
 
-  describe("subtractLoyaltyPoints", () => {
-    it("debería restar puntos de lealtad correctamente", async () => {
-      const clientWithPoints = { ...mockClient, loyaltyPoints: 100 } as any;
+  // El descuento decide el importe de un cobro, asi que la condicion tiene que
+  // ir dentro del UPDATE: leer el saldo y escribirlo despues dejaba que dos
+  // canjes simultaneos gastaran el mismo.
+  describe("redeemLoyaltyPoints", () => {
+    /** Constructor de consulta que dice cuantas filas tocó el UPDATE. */
+    function updateQueQueda(affected: number) {
+      const qb: Record<string, jest.Mock> = {
+        update: jest.fn(() => qb),
+        set: jest.fn(() => qb),
+        where: jest.fn(() => qb),
+        andWhere: jest.fn(() => qb),
+        execute: jest.fn().mockResolvedValue({ affected }),
+      };
+      mockRepo.createQueryBuilder = jest.fn(() => qb) as never;
+      return qb;
+    }
 
-      mockRepo.findOne.mockResolvedValue(clientWithPoints);
-      mockRepo.update.mockResolvedValue({ affected: 1 } as any);
+    it("descuenta y confirma cuando el saldo alcanza", async () => {
+      const qb = updateQueQueda(1);
 
-      await service.subtractLoyaltyPoints("client-123", "business-123", 30);
-
-      expect(mockRepo.update).toHaveBeenCalledWith(
-        { id: "client-123", businessId: "business-123" },
-        { loyaltyPoints: 70 }
+      const pudo = await service.redeemLoyaltyPoints(
+        "client-123",
+        "business-123",
+        30
       );
+
+      expect(pudo).toBe(true);
+      expect(qb.andWhere).toHaveBeenCalledWith("loyalty_points >= :points", {
+        points: 30,
+      });
     });
 
-    it("debería mantener puntos en 0 si la resta daría negativo", async () => {
-      const clientWithFewPoints = { ...mockClient, loyaltyPoints: 20 } as any;
+    it("no descuenta nada y lo dice cuando el saldo no alcanza", async () => {
+      updateQueQueda(0);
 
-      mockRepo.findOne.mockResolvedValue(clientWithFewPoints);
-      mockRepo.update.mockResolvedValue({ affected: 1 } as any);
-
-      await service.subtractLoyaltyPoints("client-123", "business-123", 50);
-
-      expect(mockRepo.update).toHaveBeenCalledWith(
-        { id: "client-123", businessId: "business-123" },
-        { loyaltyPoints: 0 }
+      const pudo = await service.redeemLoyaltyPoints(
+        "client-123",
+        "business-123",
+        500
       );
+
+      expect(pudo).toBe(false);
+    });
+
+    it("acota el UPDATE al negocio, no solo al cliente", async () => {
+      const qb = updateQueQueda(1);
+
+      await service.redeemLoyaltyPoints("client-123", "business-123", 10);
+
+      expect(qb.andWhere).toHaveBeenCalledWith("business_id = :businessId", {
+        businessId: "business-123",
+      });
+    });
+
+    it("rechaza unos puntos que no son un entero positivo", async () => {
+      updateQueQueda(1);
+
+      await expect(
+        service.redeemLoyaltyPoints("client-123", "business-123", 0)
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.redeemLoyaltyPoints("client-123", "business-123", 1.5)
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -630,7 +666,7 @@ describe("ClientsService", () => {
       expect(typeof service.findByUserId).toBe("function");
       expect(typeof service.update).toBe("function");
       expect(typeof service.addLoyaltyPoints).toBe("function");
-      expect(typeof service.subtractLoyaltyPoints).toBe("function");
+      expect(typeof service.redeemLoyaltyPoints).toBe("function");
     });
   });
 

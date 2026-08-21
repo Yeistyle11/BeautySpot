@@ -91,42 +91,50 @@ export class CashRegisterService {
     closedBy: string,
     dto: CloseSessionDto
   ): Promise<CashSessionEntity> {
-    const session = await this.sessionRepo.findOne({
-      where: { id: sessionId, businessId },
-      relations: ["movements"],
-    });
-    if (!session) throw new NotFoundException("Sesión de caja no encontrada");
-    if (session.closedAt)
-      throw new BadRequestException("La sesión ya está cerrada");
-
-    const { totalIn, totalOut, porMetodo, efectivo } = this.arquear(
-      session.movements
-    );
-
-    // Solo el efectivo, que es lo que hay en el cajón.
-    const expectedTotal =
-      Number(session.openingAmount) + efectivo.entradas - efectivo.salidas;
-
-    const diferencia = Number(dto.closingAmount) - expectedTotal;
-
-    // Un descuadre obliga a dejar escrito el motivo.
-    if (diferencia !== 0 && !dto.notes?.trim()) {
-      throw new BadRequestException(
-        `La caja descuadra en ${Math.abs(diferencia)}: anota el motivo para poder cerrarla`
-      );
-    }
-
-    session.closedBy = closedBy;
-    session.closingAmount = dto.closingAmount;
-    session.expectedTotal = expectedTotal;
-    session.difference = diferencia;
-    session.closedAt = new Date();
-    if (dto.notes) session.notes = dto.notes;
-
     return this.dataSource.transaction(async (manager) => {
-      const closedSession = await manager
-        .getRepository(CashSessionEntity)
-        .save(session);
+      const sessionRepo = manager.getRepository(CashSessionEntity);
+
+      // El arqueo se calcula con la fila bloqueada: leer los movimientos fuera
+      // de la transacción dejaba entrar un cobro entre la cuenta y el cierre, y
+      // ese efectivo se quedaba sin arquear. El bloqueo también impide que dos
+      // cierres simultáneos pasen los dos.
+      const session = await sessionRepo.findOne({
+        where: { id: sessionId, businessId },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (!session) throw new NotFoundException("Sesión de caja no encontrada");
+      if (session.closedAt)
+        throw new BadRequestException("La sesión ya está cerrada");
+
+      session.movements = await manager.getRepository(CashMovementEntity).find({
+        where: { cashSessionId: sessionId },
+      });
+
+      const { totalIn, totalOut, porMetodo, efectivo } = this.arquear(
+        session.movements
+      );
+
+      // Solo el efectivo, que es lo que hay en el cajón.
+      const expectedTotal =
+        Number(session.openingAmount) + efectivo.entradas - efectivo.salidas;
+
+      const diferencia = Number(dto.closingAmount) - expectedTotal;
+
+      // Un descuadre obliga a dejar escrito el motivo.
+      if (diferencia !== 0 && !dto.notes?.trim()) {
+        throw new BadRequestException(
+          `La caja descuadra en ${Math.abs(diferencia)}: anota el motivo para poder cerrarla`
+        );
+      }
+
+      session.closedBy = closedBy;
+      session.closingAmount = dto.closingAmount;
+      session.expectedTotal = expectedTotal;
+      session.difference = diferencia;
+      session.closedAt = new Date();
+      if (dto.notes) session.notes = dto.notes;
+
+      const closedSession = await sessionRepo.save(session);
 
       await this.outbox.enqueue(manager, {
         eventType: EventNames.PAYMENT_CASH_SESSION_CLOSED,

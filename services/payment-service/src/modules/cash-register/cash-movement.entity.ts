@@ -1,4 +1,4 @@
-import { Entity, Column, Check, ManyToOne, JoinColumn } from "typeorm";
+import { Entity, Column, Check, Index, ManyToOne, JoinColumn } from "typeorm";
 import {
   BaseEntity,
   enCatalogo,
@@ -9,6 +9,9 @@ import { CashSessionEntity } from "./cash-session.entity";
 
 /** Movimiento de caja (ingreso o egreso) registrado dentro de una sesión de caja. */
 @Entity("cash_movements")
+// El arqueo lee los movimientos de una sesion; la clave ajena no basta, que
+// Postgres no la indexa sola.
+@Index("idx_cash_movements_sesion", ["cashSessionId"])
 // Los catalogos de las dos columnas, acotados en la base.
 @Check(
   "CHK_cash_movements_type",

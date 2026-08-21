@@ -73,12 +73,19 @@ describe("Integración: el canje de puntos va con el cobro", () => {
       new OutboxService(),
       { de: jest.fn().mockResolvedValue("America/Bogota") } as never,
       {
-        // core responde el saldo del cliente; booking, la cita.
-        pedir: jest
-          .fn()
-          .mockImplementation(async (servicio: string) =>
-            servicio === "core" ? { loyaltyPoints: saldo } : CITA_DE_100
-          ),
+        // booking responde la cita.
+        pedir: jest.fn().mockResolvedValue(CITA_DE_100),
+        // core descuenta los puntos si le alcanzan al cliente, y falla si no:
+        // el saldo lo mueve él, no este servicio.
+        enviar: jest.fn().mockImplementation(async (_s, ruta: string) => {
+          if (ruta.endsWith("/devolver")) {
+            saldo += 40;
+            return { loyaltyPoints: saldo };
+          }
+          if (saldo < 40) throw new Error("409");
+          saldo -= 40;
+          return { loyaltyPoints: saldo };
+        }),
       } as never
     );
   }, 60000);
@@ -132,10 +139,21 @@ describe("Integración: el canje de puntos va con el cobro", () => {
   it("no descuenta nada si el cliente no tiene saldo suficiente", async () => {
     saldo = 10;
 
-    await expect(cobrarConPuntos()).rejects.toThrow(/solo tiene 10 puntos/i);
+    await expect(cobrarConPuntos()).rejects.toThrow(/puntos suficientes/i);
 
     await expect(repo.count()).resolves.toBe(0);
     await expect(eventosDeCanje()).resolves.toBe(0);
+    expect(saldo).toBe(10);
+  });
+
+  // El compensatorio es lo que impide que un cobro fallido se lleve los puntos:
+  // core ya los habia descontado cuando la transaccion revienta.
+  it("devuelve los puntos al cliente si el cobro se revierte", async () => {
+    await expect(cobrarConPuntos(PaymentMethod.CASH)).rejects.toThrow(
+      /caja abierta/i
+    );
+
+    expect(saldo).toBe(500);
   });
 
   it("un cobro sin canje no encola ningún descuento", async () => {

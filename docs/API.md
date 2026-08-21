@@ -453,21 +453,23 @@ Controlador `@Public()`: sin token. Alimenta el marketplace y la reserva públic
 
 ### Internos
 
-| Método | Ruta                                | Descripción                                                                         |
-| ------ | ----------------------------------- | ----------------------------------------------------------------------------------- |
-| GET    | `/internal/businesses/resolve`      | Resuelve negocio por slug (lo usa el gateway)                                       |
-| POST   | `/internal/businesses`              | Crea negocio a petición de otro servicio                                            |
-| POST   | `/internal/businesses/names`        | Nombres de varios negocios, para etiquetar listas                                   |
-| POST   | `/internal/clients/find-or-create`  | Busca o crea cliente (reserva pública)                                              |
-| GET    | `/internal/clients/:id/puntos`      | Puntos disponibles, para quien vaya a canjearlos                                    |
-| GET    | `/internal/clients/by-user/:userId` | Fichas del usuario, una por negocio donde reservó                                   |
-| GET    | `/internal/clients/search`          | Ids que casan con un texto (búsqueda de citas)                                      |
-| GET    | `/internal/clients/names`           | Nombre de los clientes pedidos, acotado al negocio                                  |
-| GET    | `/internal/profiles/resolve`        | Resuelve perfiles                                                                   |
-| GET    | `/internal/branches`                | Sedes activas del negocio                                                           |
-| GET    | `/internal/business-hours`          | Horario semanal de apertura                                                         |
-| GET    | `/internal/business-hours/dia`      | Apertura de una fecha, ya resuelta contra los días especiales; lo consume la agenda |
-| POST   | `/internal/services/resolve`        | Precio y duración reales de los servicios de una cita                               |
+| Método | Ruta                                    | Descripción                                                                         |
+| ------ | --------------------------------------- | ----------------------------------------------------------------------------------- |
+| GET    | `/internal/businesses/resolve`          | Resuelve negocio por slug (lo usa el gateway)                                       |
+| POST   | `/internal/businesses`                  | Crea negocio a petición de otro servicio                                            |
+| POST   | `/internal/businesses/names`            | Nombres de varios negocios, para etiquetar listas                                   |
+| POST   | `/internal/clients/find-or-create`      | Busca o crea cliente (reserva pública)                                              |
+| GET    | `/internal/clients/:id/puntos`          | Puntos disponibles, para quien vaya a canjearlos                                    |
+| POST   | `/internal/clients/:id/puntos/reservar` | Descuenta los puntos si alcanzan; 409 si no                                         |
+| POST   | `/internal/clients/:id/puntos/devolver` | Devuelve unos puntos reservados por un cobro que no llegó a registrarse             |
+| GET    | `/internal/clients/by-user/:userId`     | Fichas del usuario, una por negocio donde reservó                                   |
+| GET    | `/internal/clients/search`              | Ids que casan con un texto (búsqueda de citas)                                      |
+| GET    | `/internal/clients/names`               | Nombre de los clientes pedidos, acotado al negocio                                  |
+| GET    | `/internal/profiles/resolve`            | Resuelve perfiles                                                                   |
+| GET    | `/internal/branches`                    | Sedes activas del negocio                                                           |
+| GET    | `/internal/business-hours`              | Horario semanal de apertura                                                         |
+| GET    | `/internal/business-hours/dia`          | Apertura de una fecha, ya resuelta contra los días especiales; lo consume la agenda |
+| POST   | `/internal/services/resolve`            | Precio y duración reales de los servicios de una cita                               |
 
 ---
 

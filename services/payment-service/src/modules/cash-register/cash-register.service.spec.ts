@@ -14,6 +14,7 @@ describe("CashRegisterService", () => {
   let mockSessionRepo: jest.Mocked<Repository<CashSessionEntity>>;
   let mockMovementRepo: jest.Mocked<Repository<CashMovementEntity>>;
   let mockManagerRepo: any;
+  let mockMovimientosEnTx: any;
   let mockManager: any;
   let mockDataSource: any;
   let mockOutbox: jest.Mocked<OutboxService>;
@@ -86,9 +87,25 @@ describe("CashRegisterService", () => {
 
     mockManagerRepo = {
       save: jest.fn(),
+      // El cierre relee la sesión ya dentro de la transacción, con la fila
+      // bloqueada; los tests la siguen preparando en mockSessionRepo.
+      findOne: jest.fn((opciones: unknown) =>
+        mockSessionRepo.findOne(opciones as never)
+      ),
+    };
+    // Los movimientos ya no llegan por la relación de la sesión: se leen aparte
+    // una vez bloqueada, para que ningún cobro se cuele entre la cuenta y el
+    // cierre.
+    mockMovimientosEnTx = {
+      find: jest.fn(async () => {
+        const sesion = await mockSessionRepo.findOne({} as never);
+        return (sesion as { movements?: unknown[] } | null)?.movements ?? [];
+      }),
     };
     mockManager = {
-      getRepository: jest.fn().mockReturnValue(mockManagerRepo),
+      getRepository: jest.fn((entidad: unknown) =>
+        entidad === CashMovementEntity ? mockMovimientosEnTx : mockManagerRepo
+      ),
     };
     mockPagos = { find: jest.fn().mockResolvedValue([]) };
     mockDataSource = {
@@ -556,6 +573,41 @@ describe("CashRegisterService", () => {
           closingAmount: 50000,
         })
       ).rejects.toThrow(BadRequestException);
+    });
+
+    // Dos cierres a la vez sacaban el arqueo dos veces porque la sesión se leía
+    // fuera de la transacción: el segundo veía la fila todavía abierta.
+    it("cuenta el arqueo con la fila de la sesión bloqueada", async () => {
+      mockSessionRepo.findOne.mockResolvedValue(sesionCon([]));
+      mockManagerRepo.save.mockImplementation((s: unknown) => s);
+
+      await service.closeSession("session-123", "business-123", "user-123", {
+        closingAmount: 50000,
+      });
+
+      expect(mockManagerRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ lock: { mode: "pessimistic_write" } })
+      );
+      // Y la lectura va por el manager de la transacción, no por el repositorio
+      // suelto, que es lo que dejaba el hueco.
+      expect(mockManagerRepo.findOne).toHaveBeenCalled();
+    });
+
+    it("lee los movimientos dentro de la misma transacción", async () => {
+      mockSessionRepo.findOne.mockResolvedValue(
+        sesionCon([
+          { ...mockMovement, type: CashMovementType.IN, amount: 3000 },
+        ])
+      );
+      mockManagerRepo.save.mockImplementation((s: unknown) => s);
+
+      await service.closeSession("session-123", "business-123", "user-123", {
+        closingAmount: 53000,
+      });
+
+      expect(mockMovimientosEnTx.find).toHaveBeenCalledWith({
+        where: { cashSessionId: "session-123" },
+      });
     });
 
     it("debería propagar errores de outbox (fail-closed: la tx revierte)", async () => {

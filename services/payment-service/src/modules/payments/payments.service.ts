@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
@@ -73,6 +74,8 @@ function esViolacionDeUnicidad(error: unknown): boolean {
  */
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     @InjectRepository(PaymentEntity)
     private readonly repo: Repository<PaymentEntity>,
@@ -102,10 +105,6 @@ export class PaymentsService {
     const puntosUsados = data.puntosUsados ?? 0;
     const descuento = puntosUsados * VALOR_DEL_PUNTO;
 
-    if (puntosUsados > 0) {
-      await this.validarLosPuntos(businessId, data.clientId, puntosUsados);
-    }
-
     // Lo que se cobró solo lo sabe booking: payment guarda el importe, no el
     // detalle. Se toma de la misma consulta que ya valida la cita.
     let services: ServicioDeLaCita[] | undefined;
@@ -117,6 +116,13 @@ export class PaymentsService {
       );
     }
 
+    // Los puntos se descuentan antes de escribir nada, porque es el descuento
+    // lo que decide el importe. Va lo último de las validaciones para que un
+    // cobro rechazado por otro motivo no obligue a devolverlos.
+    if (puntosUsados > 0) {
+      await this.reservarLosPuntos(businessId, data.clientId, puntosUsados);
+    }
+
     try {
       return await this.registrar(
         businessId,
@@ -126,6 +132,13 @@ export class PaymentsService {
         services
       );
     } catch (error) {
+      // El cobro no llegó a escribirse, así que los puntos reservados vuelven a
+      // su sitio. También cuando el intento resulta ser un reenvío: el cobro
+      // que se devuelve ya gastó los suyos.
+      if (puntosUsados > 0) {
+        await this.devolverLosPuntos(businessId, data.clientId, puntosUsados);
+      }
+
       // El segundo envio del mismo intento choca contra el indice: se devuelve
       // el cobro que ya se hizo.
       const yaCobrado = esViolacionDeUnicidad(error) && data.solicitudId;
@@ -180,8 +193,8 @@ export class PaymentsService {
         },
       });
 
-      // El descuento de los puntos va por Outbox, en la misma transaccion que
-      // el cobro; el saldo lo guarda core.
+      // El saldo ya lo movió core al reservar; este evento deja constancia del
+      // canje para quien lleve la cuenta de lo gastado en fidelización.
       if (puntosUsados > 0) {
         await this.outbox.enqueue(manager, {
           eventType: EventNames.PAYMENT_POINTS_REDEEMED,
@@ -224,10 +237,12 @@ export class PaymentsService {
   }
 
   /**
-   * Comprueba que el cliente tiene los puntos que quiere gastar; el saldo lo
-   * guarda core y se descuenta despues.
+   * Descuenta en core los puntos que va a gastar el cobro. El saldo lo guarda
+   * core y lo mueve él en una sola sentencia condicionada, de modo que dos
+   * cobros simultáneos del mismo cliente no puedan gastar el mismo saldo: el
+   * segundo recibe un 409 y no llega a registrarse.
    */
-  private async validarLosPuntos(
+  private async reservarLosPuntos(
     businessId: string,
     clientId: string,
     puntos: number
@@ -236,18 +251,42 @@ export class PaymentsService {
       throw new BadRequestException("Los puntos a canjear no son válidos");
     }
 
-    const ficha = await this.http.pedir<{ loyaltyPoints: number } | null>(
-      "core",
-      `/internal/clients/${clientId}/puntos?businessId=${businessId}`
-    );
-    if (!ficha) {
+    try {
+      await this.http.enviar<{ loyaltyPoints: number }>(
+        "core",
+        `/internal/clients/${clientId}/puntos/reservar`,
+        { businessId, puntos }
+      );
+    } catch {
       throw new BadRequestException(
-        "El cliente no existe o no pertenece a este negocio"
+        "El cliente no tiene puntos suficientes o no pertenece a este negocio"
       );
     }
-    if (ficha.loyaltyPoints < puntos) {
-      throw new BadRequestException(
-        `El cliente solo tiene ${ficha.loyaltyPoints} puntos`
+  }
+
+  /**
+   * Devuelve a core los puntos reservados para un cobro que no llegó a
+   * registrarse. Es el compensatorio de {@link reservarLosPuntos}: sin él, un
+   * fallo posterior a la reserva dejaría al cliente sin puntos y sin descuento.
+   */
+  private async devolverLosPuntos(
+    businessId: string,
+    clientId: string,
+    puntos: number
+  ): Promise<void> {
+    try {
+      await this.http.enviar<{ loyaltyPoints: number }>(
+        "core",
+        `/internal/clients/${clientId}/puntos/devolver`,
+        { businessId, puntos }
+      );
+    } catch (error) {
+      // No puede tumbar la petición: el cobro ya falló y lo que el usuario debe
+      // ver es ese error, no el del compensatorio.
+      this.logger.error(
+        `No se pudieron devolver ${puntos} puntos al cliente ${clientId} del negocio ${businessId}: ${
+          error instanceof Error ? error.message : "error desconocido"
+        }`
       );
     }
   }
@@ -334,8 +373,12 @@ export class PaymentsService {
     method: PaymentMethod,
     accion: string
   ): Promise<CashSessionEntity | null> {
+    // Se bloquea la fila mientras dure la transacción del cobro: sin esto, un
+    // cierre en paralelo puede arquear la caja justo antes de que entre este
+    // efectivo, y el movimiento queda fuera del cuadre.
     const session = await manager.getRepository(CashSessionEntity).findOne({
       where: { businessId, branchId: branchId ?? IsNull(), closedAt: IsNull() },
+      lock: { mode: "pessimistic_write" },
     });
     if (session) return session;
 

@@ -10,7 +10,7 @@ describe("CoreEventListeners", () => {
   let service: CoreEventListeners;
   let mockClients: {
     addLoyaltyPoints: jest.Mock;
-    subtractLoyaltyPoints: jest.Mock;
+    redeemLoyaltyPoints: jest.Mock;
     addNoShow: jest.Mock;
   };
   let mockProcessedEvents: { once: jest.Mock };
@@ -43,7 +43,7 @@ describe("CoreEventListeners", () => {
     vistos = new Set();
     mockClients = {
       addLoyaltyPoints: jest.fn().mockResolvedValue(undefined),
-      subtractLoyaltyPoints: jest.fn().mockResolvedValue(undefined),
+      redeemLoyaltyPoints: jest.fn().mockResolvedValue(true),
       addNoShow: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -168,23 +168,19 @@ describe("CoreEventListeners", () => {
         },
       }) as never;
 
-    it("descuenta los puntos dentro de la transacción del evento", async () => {
+    // El saldo lo mueve el propio cobro al reservar los puntos contra core.
+    // Tocarlo tambien aqui se los cobraria al cliente dos veces.
+    it("no vuelve a tocar el saldo del cliente", async () => {
       await service.handlePointsRedeemed(canje());
 
-      expect(mockClients.subtractLoyaltyPoints).toHaveBeenCalledWith(
-        CLIENTE,
-        NEGOCIO,
-        40,
-        manager
-      );
+      expect(mockClients.redeemLoyaltyPoints).not.toHaveBeenCalled();
+      expect(mockClients.addLoyaltyPoints).not.toHaveBeenCalled();
     });
 
-    // Descontar dos veces le cobra al cliente puntos que no gastó.
-    it("no los descuenta dos veces con el mismo evento", async () => {
-      await service.handlePointsRedeemed(canje());
-      await service.handlePointsRedeemed(canje());
-
-      expect(mockClients.subtractLoyaltyPoints).toHaveBeenCalledTimes(1);
+    it("deja constancia del canje sin fallar", async () => {
+      await expect(
+        service.handlePointsRedeemed(canje())
+      ).resolves.toBeUndefined();
     });
   });
 });
