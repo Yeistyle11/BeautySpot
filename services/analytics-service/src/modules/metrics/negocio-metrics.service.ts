@@ -42,26 +42,58 @@ export class NegocioMetricsService {
     servicios: ServicioDeLaCita[],
     manager?: EntityManager
   ): Promise<void> {
+    if (servicios.length === 0) return;
+
+    // Se agrupan antes de escribir por dos motivos: una cita puede llevar dos
+    // veces el mismo servicio, y Postgres rechaza que un ON CONFLICT toque la
+    // misma fila dos veces en la misma sentencia.
+    const porServicio = new Map<
+      string,
+      { name: string; veces: number; ingresos: number; minutos: number }
+    >();
     for (const servicio of servicios) {
-      await (manager ?? this.dataSource).query(
-        `INSERT INTO service_metrics
-           (id, business_id, service_id, service_name, date, veces, ingresos, minutos)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, 1, $5, $6)
-         ON CONFLICT (business_id, service_id, date) DO UPDATE SET
-           service_name = EXCLUDED.service_name,
-           veces = service_metrics.veces + 1,
-           ingresos = service_metrics.ingresos + EXCLUDED.ingresos,
-           minutos = service_metrics.minutos + EXCLUDED.minutos`,
-        [
-          businessId,
-          servicio.serviceId,
-          servicio.name,
-          date,
-          servicio.price,
-          servicio.duration,
-        ]
-      );
+      const acumulado = porServicio.get(servicio.serviceId) ?? {
+        name: servicio.name,
+        veces: 0,
+        ingresos: 0,
+        minutos: 0,
+      };
+      acumulado.name = servicio.name;
+      acumulado.veces += 1;
+      acumulado.ingresos += Number(servicio.price);
+      acumulado.minutos += Number(servicio.duration);
+      porServicio.set(servicio.serviceId, acumulado);
     }
+
+    // Una sola sentencia para todos los servicios de la cita: iba dentro de la
+    // transaccion del evento, y un UPSERT por servicio la alargaba tanto como
+    // servicios llevara.
+    const valores: unknown[] = [businessId, date];
+    const tuplas = [...porServicio].map(([serviceId, acumulado]) => {
+      const primero = valores.length + 1;
+      valores.push(
+        serviceId,
+        acumulado.name,
+        acumulado.veces,
+        acumulado.ingresos,
+        acumulado.minutos
+      );
+      return `(gen_random_uuid(), $1, $${primero}, $${primero + 1}, $2, $${
+        primero + 2
+      }, $${primero + 3}, $${primero + 4})`;
+    });
+
+    await (manager ?? this.dataSource).query(
+      `INSERT INTO service_metrics
+         (id, business_id, service_id, service_name, date, veces, ingresos, minutos)
+       VALUES ${tuplas.join(", ")}
+       ON CONFLICT (business_id, service_id, date) DO UPDATE SET
+         service_name = EXCLUDED.service_name,
+         veces = service_metrics.veces + EXCLUDED.veces,
+         ingresos = service_metrics.ingresos + EXCLUDED.ingresos,
+         minutos = service_metrics.minutos + EXCLUDED.minutos`,
+      valores
+    );
   }
 
   /** Suma los minutos que la cita ocupó en la agenda del profesional. */

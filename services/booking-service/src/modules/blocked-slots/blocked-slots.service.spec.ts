@@ -241,7 +241,7 @@ describe("BlockedSlotsService", () => {
     // una franja que la agenda ya daba por cerrada.
     it("avisa si la franja tiene citas vivas encima", async () => {
       mockApptRepo.find.mockResolvedValue([
-        { startTime: "12:30", endTime: "13:30" },
+        { date: MANANA, startTime: "12:30", endTime: "13:30" },
       ] as never);
 
       await expect(
@@ -256,7 +256,7 @@ describe("BlockedSlotsService", () => {
 
     it("deja bloquear si las citas del dia no tocan la franja", async () => {
       mockApptRepo.find.mockResolvedValue([
-        { startTime: "09:00", endTime: "10:00" },
+        { date: MANANA, startTime: "09:00", endTime: "10:00" },
       ] as never);
       mockRepo.create.mockReturnValue(mockBlockedSlot);
       mockRepo.save.mockResolvedValue(mockBlockedSlot);
@@ -360,6 +360,22 @@ describe("BlockedSlotsService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it("pregunta por las citas de la serie entera de una vez", async () => {
+      mockApptRepo.find.mockResolvedValue([] as never);
+      mockRepo.create.mockReturnValue(mockBlockedSlot);
+      mockRepo.save.mockResolvedValue([mockBlockedSlot] as never);
+
+      await service.create("business-123", "prof-123", {
+        date: MANANA,
+        ...franja,
+        repeticion: RepeticionDeBloqueo.DIARIA,
+        repetirHasta: dentroDeDias(30),
+      });
+
+      // Una consulta, no una por dia bloqueado.
+      expect(mockApptRepo.find).toHaveBeenCalledTimes(1);
+    });
+
     it("rechaza una serie mas larga de lo que se admite", async () => {
       await expect(
         service.create("business-123", "prof-123", {
@@ -373,15 +389,15 @@ describe("BlockedSlotsService", () => {
 
     // Media serie puesta deja al profesional con huecos que cree bloqueados.
     it("no guarda nada si un solo dia choca con una cita", async () => {
-      mockApptRepo.find.mockImplementation(
-        (opciones) =>
-          Promise.resolve(
-            (opciones as { where: { date: string } }).where.date ===
-              dentroDeDias(2)
-              ? [{ startTime: "12:30", endTime: "13:30", ocupadoHasta: null }]
-              : []
-          ) as never
-      );
+      // Las citas de toda la serie llegan de una consulta, con su fecha.
+      mockApptRepo.find.mockResolvedValue([
+        {
+          date: dentroDeDias(2),
+          startTime: "12:30",
+          endTime: "13:30",
+          ocupadoHasta: null,
+        },
+      ] as never);
 
       await expect(
         service.create("business-123", "prof-123", {

@@ -34,10 +34,22 @@ describe("CategoriesService", () => {
       count: jest.fn(),
       manager: {
         count: jest.fn().mockResolvedValue(0),
-        // El reorder se aplica dentro de una transacción sobre el mismo repo.
+        // Reordenar es una sola sentencia, dentro de una transacción para que
+        // el rechazo deshaga lo que ya hubiera casado.
+        query: jest.fn().mockResolvedValue([]),
         transaction: jest.fn(async (fn: (m: unknown) => Promise<unknown>) =>
-          fn({ getRepository: () => mockRepo })
+          fn(mockRepo.manager)
         ),
+      },
+      metadata: {
+        tablePath: "professional_categories",
+        findColumnWithPropertyName: (propiedad: string) => ({
+          databaseName: {
+            id: "id",
+            businessId: "business_id",
+            sortOrder: "sort_order",
+          }[propiedad],
+        }),
       },
     } as any;
 
@@ -329,22 +341,24 @@ describe("CategoriesService", () => {
         { id: "cat-2", sortOrder: 1 },
       ];
 
-      mockRepo.update.mockResolvedValue({ affected: 1 } as any);
+      (mockRepo.manager.query as jest.Mock).mockResolvedValue([
+        { id: "cat-1" },
+        { id: "cat-2" },
+      ]);
 
       await service.reorder("business-123", items);
 
-      // Un UPDATE acotado por negocio y por id, sin leer antes cada fila.
-      expect(mockRepo.update).toHaveBeenCalledTimes(2);
-      expect(mockRepo.update).toHaveBeenCalledWith(
-        { id: "cat-1", businessId: "business-123" },
-        { sortOrder: 0 }
-      );
+      // Una sola sentencia acotada por negocio, sin leer antes cada fila.
+      expect(mockRepo.manager.query).toHaveBeenCalledTimes(1);
+      const [, parametros] = (mockRepo.manager.query as jest.Mock).mock
+        .calls[0];
+      expect(parametros).toEqual(["business-123", "cat-1", 0, "cat-2", 1]);
     });
 
     it("debería lanzar NotFoundException si una categoría no existe", async () => {
       const items = [{ id: "non-existent", sortOrder: 0 }];
 
-      mockRepo.update.mockResolvedValue({ affected: 0 } as any);
+      (mockRepo.manager.query as jest.Mock).mockResolvedValue([]);
 
       await expect(service.reorder("business-123", items)).rejects.toThrow(
         NotFoundException

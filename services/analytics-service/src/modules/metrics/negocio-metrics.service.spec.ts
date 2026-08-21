@@ -50,21 +50,48 @@ describe("NegocioMetricsService", () => {
   });
 
   describe("registrarServicios", () => {
-    it("acumula una fila por servicio y día", async () => {
+    it("acumula una fila por servicio y día en una sola sentencia", async () => {
       await service.registrarServicios(NEGOCIO, "2026-08-10", [
         { serviceId: "svc-1", name: "Tinte", price: 120000, duration: 90 },
         { serviceId: "svc-2", name: "Corte", price: 30000, duration: 30 },
       ]);
 
-      expect(mockDataSource.query).toHaveBeenCalledTimes(2);
+      expect(mockDataSource.query).toHaveBeenCalledTimes(1);
+      const [sql, parametros] = mockDataSource.query.mock.calls[0];
+      expect(sql).toContain("ON CONFLICT (business_id, service_id, date)");
+      expect(parametros).toEqual([
+        NEGOCIO,
+        "2026-08-10",
+        "svc-1",
+        "Tinte",
+        1,
+        120000,
+        90,
+        "svc-2",
+        "Corte",
+        1,
+        30000,
+        30,
+      ]);
+    });
+
+    // Postgres rechaza que un ON CONFLICT toque la misma fila dos veces en la
+    // misma sentencia, y una cita puede llevar el mismo servicio repetido.
+    it("junta el servicio que aparece dos veces en la cita", async () => {
+      await service.registrarServicios(NEGOCIO, "2026-08-10", [
+        { serviceId: "svc-1", name: "Tinte", price: 120000, duration: 90 },
+        { serviceId: "svc-1", name: "Tinte", price: 120000, duration: 90 },
+      ]);
+
       const [, parametros] = mockDataSource.query.mock.calls[0];
       expect(parametros).toEqual([
         NEGOCIO,
+        "2026-08-10",
         "svc-1",
         "Tinte",
-        "2026-08-10",
-        120000,
-        90,
+        2,
+        240000,
+        180,
       ]);
     });
 

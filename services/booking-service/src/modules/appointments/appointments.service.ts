@@ -184,15 +184,18 @@ export class AppointmentsService {
       porProfesional.set(profesional, suyos);
     }
 
+    // Una llamada por profesional, porque el precio y la duracion dependen de
+    // quien atiende, pero todas a la vez: en serie, una cita repartida entre
+    // varios profesionales sumaba un viaje a core detras de otro.
+    const porProfesionalResueltos = await Promise.all(
+      [...porProfesional].map(([profesional, ids]) =>
+        this.resolverServicios(businessId, ids, profesional)
+      )
+    );
+
     const resueltos = new Map<string, ServicioResuelto>();
-    for (const [profesional, ids] of porProfesional) {
-      for (const servicio of await this.resolverServicios(
-        businessId,
-        ids,
-        profesional
-      )) {
-        resueltos.set(servicio.id, servicio);
-      }
+    for (const servicio of porProfesionalResueltos.flat()) {
+      resueltos.set(servicio.id, servicio);
     }
 
     return serviceIds.map((serviceId, orden) => {

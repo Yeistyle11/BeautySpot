@@ -24,11 +24,13 @@ describe("CatalogoTenantService", () => {
     findOne: jest.Mock;
     update: jest.Mock;
     findAndCount: jest.Mock;
-    manager: { transaction: jest.Mock };
-    target: string;
+    manager: { query: jest.Mock; transaction: jest.Mock };
+    metadata: {
+      tablePath: string;
+      findColumnWithPropertyName: (p: string) => { databaseName: string };
+    };
   };
   let service: CategoriasService;
-  let repoDeLaTransaccion: { update: jest.Mock };
 
   const categoria: Categoria = {
     id: "cat-1",
@@ -39,9 +41,6 @@ describe("CatalogoTenantService", () => {
   };
 
   beforeEach(() => {
-    repoDeLaTransaccion = {
-      update: jest.fn().mockResolvedValue({ affected: 1 }),
-    };
     repo = {
       create: jest.fn((dto) => dto),
       save: jest.fn(async (entidad) => entidad),
@@ -50,11 +49,21 @@ describe("CatalogoTenantService", () => {
       update: jest.fn().mockResolvedValue({ affected: 1 }),
       findAndCount: jest.fn().mockResolvedValue([[categoria], 1]),
       manager: {
-        transaction: jest.fn(async (cb) =>
-          cb({ getRepository: () => repoDeLaTransaccion })
+        query: jest.fn().mockResolvedValue([]),
+        transaction: jest.fn(async (cb: (m: unknown) => Promise<void>) =>
+          cb(repo.manager)
         ),
       },
-      target: "categorias",
+      metadata: {
+        tablePath: "professional_categories",
+        findColumnWithPropertyName: (propiedad: string) => ({
+          databaseName: {
+            id: "id",
+            businessId: "business_id",
+            sortOrder: "sort_order",
+          }[propiedad]!,
+        }),
+      },
     };
     service = new CategoriasService(repo as unknown as Repository<Categoria>);
   });
@@ -194,23 +203,38 @@ describe("CatalogoTenantService", () => {
   });
 
   describe("reorder", () => {
-    it("no abre transacción si no hay nada que reordenar", async () => {
+    it("no consulta si no hay nada que reordenar", async () => {
       await service.reorder("negocio-1", []);
 
-      expect(repo.manager.transaction).not.toHaveBeenCalled();
+      expect(repo.manager.query).not.toHaveBeenCalled();
     });
 
-    it("aplica el orden de todos en la misma transacción", async () => {
+    it("aplica el orden de todos en una sola sentencia", async () => {
+      repo.manager.query.mockResolvedValue([{ id: "cat-1" }, { id: "cat-2" }]);
+
       await service.reorder("negocio-1", [
         { id: "cat-1", sortOrder: 2 },
         { id: "cat-2", sortOrder: 1 },
       ]);
 
-      expect(repoDeLaTransaccion.update).toHaveBeenCalledTimes(2);
+      expect(repo.manager.query).toHaveBeenCalledTimes(1);
+      const [sql, parametros] = repo.manager.query.mock.calls[0];
+      expect(sql).toContain("professional_categories");
+      expect(sql).toContain('"sort_order"');
+      expect(parametros).toEqual(["negocio-1", "cat-1", 2, "cat-2", 1]);
+    });
+
+    it("acota la escritura al negocio", async () => {
+      repo.manager.query.mockResolvedValue([{ id: "cat-1" }]);
+
+      await service.reorder("negocio-1", [{ id: "cat-1", sortOrder: 1 }]);
+
+      const [sql] = repo.manager.query.mock.calls[0];
+      expect(sql).toContain('"business_id" = $1');
     });
 
     it("un id de otro negocio corta la reordenación entera", async () => {
-      repoDeLaTransaccion.update.mockResolvedValue({ affected: 0 });
+      repo.manager.query.mockResolvedValue([]);
 
       await expect(
         service.reorder("negocio-1", [{ id: "ajeno", sortOrder: 1 }])
