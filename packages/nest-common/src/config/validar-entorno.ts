@@ -11,6 +11,12 @@ export interface RequisitosDeEntorno {
   secretos?: string[];
   /** Variables que deben ser una URL que el runtime sepa parsear. */
   urls?: string[];
+  /**
+   * Pares de variables cuyo valor debe diferir. Dos secretos con el mismo valor
+   * dejan de aislar lo que separan, y el fallo no da la cara hasta que alguien
+   * lo explota.
+   */
+  distintos?: [string, string][];
 }
 
 /**
@@ -58,6 +64,14 @@ export function problemasDelEntorno(
       problemas.push(
         `${nombre} es demasiado corta (mínimo ${MIN_SECRET_LENGTH} caracteres)`
       );
+    }
+  }
+
+  for (const [uno, otro] of requisitos.distintos ?? []) {
+    const valorUno = entorno[uno]?.trim();
+    const valorOtro = entorno[otro]?.trim();
+    if (valorUno && valorOtro && valorUno === valorOtro) {
+      problemas.push(`${uno} y ${otro} tienen el mismo valor y deben diferir`);
     }
   }
 

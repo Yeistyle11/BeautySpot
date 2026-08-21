@@ -13,7 +13,7 @@ export interface IBaseEvent<T = unknown> {
   payload: T;
 }
 
-// ─── Auth Events ──────────────────────────────────────────────
+// ─── Eventos de autenticación ──────────────────────────────────────────────
 
 export interface UserRegisteredPayload {
   userId: string;
@@ -75,7 +75,7 @@ export interface MembershipRoleChangedPayload {
 export type MembershipRoleChangedEvent =
   IBaseEvent<MembershipRoleChangedPayload>;
 
-// ─── Core Events ──────────────────────────────────────────────
+// ─── Eventos del core ──────────────────────────────────────────────
 
 export interface BusinessCreatedPayload {
   businessId: string;
@@ -137,7 +137,7 @@ export interface ClientBirthdayPayload {
 
 export type ClientBirthdayEvent = IBaseEvent<ClientBirthdayPayload>;
 
-// ─── Booking Events ───────────────────────────────────────────
+// ─── Eventos de agenda ───────────────────────────────────────────
 
 /** Servicio de una cita, con lo que se congeló al reservarlo. */
 export interface ServicioDeLaCita {
@@ -199,7 +199,7 @@ export type AppointmentReminderDueEvent = IBaseEvent<
   AppointmentCreatedPayload & { reminderType: TipoDeRecordatorio }
 >;
 
-// ─── Payment Events ───────────────────────────────────────────
+// ─── Eventos de cobros ───────────────────────────────────────────
 
 export interface PaymentRegisteredPayload {
   paymentId: string;
@@ -275,7 +275,7 @@ export interface InvoiceGeneratedPayload {
 
 export type InvoiceGeneratedEvent = IBaseEvent<InvoiceGeneratedPayload>;
 
-// ─── Marketplace Events ───────────────────────────────────────
+// ─── Eventos del marketplace ───────────────────────────────────────
 
 export interface ReviewCreatedPayload {
   reviewId: string;
@@ -288,7 +288,7 @@ export interface ReviewCreatedPayload {
 
 export type ReviewCreatedEvent = IBaseEvent<ReviewCreatedPayload>;
 
-// ─── Notification Events ───────────────────────────────────────
+// ─── Eventos de notificaciones ───────────────────────────────────────
 
 export interface EmailQueuedPayload {
   jobId: string;
@@ -317,7 +317,7 @@ export interface EmailFailedPayload {
 
 export type EmailFailedEvent = IBaseEvent<EmailFailedPayload>;
 
-// ─── Event Name Constants ─────────────────────────────────────
+// ─── Nombres de los eventos ─────────────────────────────────────
 
 /** Exchange de tipo topic por el que viajan todos los eventos de dominio. */
 export const EVENTS_EXCHANGE = "beautyspot.events";
@@ -380,3 +380,14 @@ export const EventNames = {
   NOTIFICATION_EMAIL_SENT: "notification.email.sent",
   NOTIFICATION_EMAIL_FAILED: "notification.email.failed",
 } as const;
+
+/**
+ * Eventos cuyo payload transporta un secreto de un solo uso: el enlace de
+ * restablecimiento de contraseña y el de confirmación de correo. El relay borra
+ * su fila del outbox en cuanto los publica, en lugar de conservarla hasta la
+ * purga, para que el secreto no siga legible en la base después de entregarse.
+ */
+export const EVENTOS_CON_SECRETO: readonly string[] = [
+  EventNames.AUTH_PASSWORD_RESET_REQUESTED,
+  EventNames.AUTH_EMAIL_VERIFICATION_REQUESTED,
+];

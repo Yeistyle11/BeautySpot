@@ -116,9 +116,10 @@ describe("BookingEventListeners", () => {
       );
     });
 
-    // El listener no debe propagar el fallo: si lo hiciera, el mensaje se
-    // reencolaría en RabbitMQ y se reintentaría la creación en bucle.
-    it("registra el error y no propaga si falla la disponibilidad", async () => {
+    // El fallo se propaga para que el mensaje acabe en la cola de fallidos:
+    // darlo por consumido dejaría al profesional sin disponibilidad semanal y
+    // sin rastro de que faltó crearla.
+    it("registra el error y lo propaga si falla la disponibilidad", async () => {
       const errorSpy = jest.spyOn(Logger.prototype, "error");
       const fallo = new Error("base de datos caída");
       mockAvailabilityService.replaceWeekly.mockRejectedValueOnce(fallo);
@@ -130,9 +131,9 @@ describe("BookingEventListeners", () => {
         specialties: [],
       });
 
-      await expect(
-        service.handleProfessionalCreated(event)
-      ).resolves.toBeUndefined();
+      await expect(service.handleProfessionalCreated(event)).rejects.toBe(
+        fallo
+      );
 
       expect(errorSpy).toHaveBeenCalledWith(
         "Error creando disponibilidad: base de datos caída",
@@ -140,7 +141,7 @@ describe("BookingEventListeners", () => {
       );
     });
 
-    it("tolera un rechazo que no es Error", async () => {
+    it("envuelve en Error un rechazo que no lo es, y lo propaga", async () => {
       const errorSpy = jest.spyOn(Logger.prototype, "error");
       mockAvailabilityService.replaceWeekly.mockRejectedValueOnce("boom");
 
@@ -151,9 +152,9 @@ describe("BookingEventListeners", () => {
         specialties: [],
       });
 
-      await expect(
-        service.handleProfessionalCreated(event)
-      ).resolves.toBeUndefined();
+      await expect(service.handleProfessionalCreated(event)).rejects.toThrow(
+        "Error desconocido"
+      );
 
       expect(errorSpy).toHaveBeenCalledWith(
         "Error creando disponibilidad: Error desconocido",

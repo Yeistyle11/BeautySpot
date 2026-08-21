@@ -506,10 +506,14 @@ las del panel, respetan la antelación mínima de cancelación del negocio.
 
 Roles a nivel de clase: **OWNER, ADMIN, PROFESSIONAL**.
 
-| Método | Ruta | Descripción                            |
-| ------ | ---- | -------------------------------------- |
-| GET    | `/`  | Disponibilidad semanal del profesional |
-| POST   | `/`  | Reemplaza la semana completa           |
+| Método | Ruta | Roles        | Descripción                            |
+| ------ | ---- | ------------ | -------------------------------------- |
+| GET    | `/`  | los de clase | Disponibilidad semanal del profesional |
+| POST   | `/`  | OWNER, ADMIN | Reemplaza la semana completa           |
+
+El profesional va en la URL y el token no permite comprobar que sea el suyo, así
+que reemplazar la semana queda en OWNER y ADMIN: si no, cualquiera del equipo
+podría reescribir la agenda de otro.
 
 Al crearse un profesional en core-service, booking recibe
 `core.professional.created` y le genera una disponibilidad por defecto de lunes a

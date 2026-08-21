@@ -61,6 +61,10 @@ export async function createMicroserviceApp(
         ...(requisitos.secretos ?? []),
       ],
       urls: [...(REQUISITOS_COMUNES.urls ?? []), ...(requisitos.urls ?? [])],
+      distintos: [
+        ...(REQUISITOS_COMUNES.distintos ?? []),
+        ...(requisitos.distintos ?? []),
+      ],
     },
     nombreDelServicio()
   );

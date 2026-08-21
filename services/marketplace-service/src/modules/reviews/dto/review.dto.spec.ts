@@ -1,6 +1,7 @@
 import { validate } from "class-validator";
 import { plainToInstance } from "class-transformer";
-import { CreateReviewDto, MAXIMO_FOTOS } from "./review.dto";
+import { MAX_PAGE } from "@beautyspot/shared-utils";
+import { CreateReviewDto, MAXIMO_FOTOS, ReviewQueryDto } from "./review.dto";
 
 const FOTO = "https://cdn.beautyspot.co/reviews/";
 
@@ -40,5 +41,29 @@ describe("CreateReviewDto: fotos", () => {
 
   it("sigue exigiendo que cada foto sea una URL", async () => {
     expect(await erroresDeFotos(["no-es-una-url"])).not.toEqual([]);
+  });
+});
+
+/** Errores del campo `page` del filtro de listado con ese valor. */
+async function erroresDePagina(page: unknown): Promise<string[]> {
+  const dto = plainToInstance(ReviewQueryDto, { page });
+  const errores = await validate(dto);
+  const pagina = errores.find((e) => e.property === "page");
+  return Object.values(pagina?.constraints ?? {});
+}
+
+// El listado por negocio es público y sin token: sin tope, una página enorme
+// se traduce en un OFFSET que Postgres recorre y descarta entero.
+describe("ReviewQueryDto: tope de página", () => {
+  it("acepta la última página permitida", async () => {
+    expect(await erroresDePagina(MAX_PAGE)).toEqual([]);
+  });
+
+  it("rechaza pasarse del tope", async () => {
+    expect(await erroresDePagina(MAX_PAGE + 1)).not.toEqual([]);
+  });
+
+  it("rechaza una página desmesurada", async () => {
+    expect(await erroresDePagina(100_000_000)).not.toEqual([]);
   });
 });

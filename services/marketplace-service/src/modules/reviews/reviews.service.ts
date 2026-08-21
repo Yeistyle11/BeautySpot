@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
-import { Repository, DataSource, EntityManager, In } from "typeorm";
+import { Repository, DataSource, EntityManager, In, MoreThan } from "typeorm";
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
 import { ReviewEntity, ReviewStatus } from "../../entities/review.entity";
@@ -20,7 +20,9 @@ import { ProfessionalProfilesService } from "../professional-profiles/profession
 import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import {
+  aResenaPublica,
   CreateReviewDto,
+  ResenaPublica,
   ReviewQueryDto,
   UpdateReviewDto,
 } from "./dto/review.dto";
@@ -74,7 +76,6 @@ export class ReviewsService {
     if (existing)
       throw new ConflictException("Ya existe una reseña para esta cita");
 
-    // Si rating < 4 y no hay comentario, requerirlo
     if (dto.rating < 4 && !dto.comment) {
       throw new BadRequestException(
         "El comentario es obligatorio para calificaciones menores a 4 estrellas"
@@ -349,6 +350,11 @@ export class ReviewsService {
   /**
    * Resumen de resenas de un negocio: promedio, total y distribucion por
    * estrellas, calculada con un GROUP BY rating.
+   *
+   * Cuenta **todas** las resenas, tambien las ocultas, y es deliberado: ocultar
+   * retira la resena del listado publico pero no cambia la nota, para que el
+   * negocio no gane calificacion moderando lo que no le gusta. Filtrar aqui por
+   * estado volveria a premiarlo.
    */
   async getSummary(businessId: string): Promise<ReviewSummary> {
     const rows = await this.repo
@@ -379,11 +385,19 @@ export class ReviewsService {
     };
   }
 
-  /** Obtiene una reseña por id; lanza 404 si no existe. */
-  async findById(id: string): Promise<ReviewEntity> {
-    const review = await this.repo.findOne({ where: { id } });
+  /**
+   * Obtiene una reseña publicada por su id, tal y como la ve cualquiera desde
+   * el escaparate; lanza 404 si no existe o si está oculta. Una reseña que el
+   * negocio retiró no debe seguir siendo recuperable por su id, y quien la
+   * escribió no se identifica: el vínculo con su usuario y su cita se queda
+   * dentro.
+   */
+  async findById(id: string): Promise<ResenaPublica> {
+    const review = await this.repo.findOne({
+      where: { id, status: ReviewStatus.PUBLICADA },
+    });
     if (!review) throw new NotFoundException("Reseña no encontrada");
-    return review;
+    return aResenaPublica(review);
   }
 
   /**
@@ -471,10 +485,9 @@ export class ReviewsService {
     const existing = await this.helpfulRepo.findOne({
       where: { reviewId, userId },
     });
-    if (existing) return; // Ya voto, idempotente
+    if (existing) return;
 
     await this.helpfulRepo.save(this.helpfulRepo.create({ reviewId, userId }));
-    // Increment atómico para evitar race conditions
     await this.repo.increment({ id: reviewId }, "helpfulCount", 1);
   }
 
@@ -486,7 +499,13 @@ export class ReviewsService {
     if (!existing) return;
 
     await this.helpfulRepo.remove(existing);
-    // Decrement atómico con protección contra valores negativos
-    await this.repo.decrement({ id: reviewId }, "helpfulCount", 1);
+
+    // El descuento va condicionado a que quede algo que descontar: `decrement`
+    // resta sin mirar, y un recuento que se descuadre por cualquier motivo se
+    // quedaría en negativo.
+    await this.repo.update(
+      { id: reviewId, helpfulCount: MoreThan(0) },
+      { helpfulCount: () => `"helpful_count" - 1` }
+    );
   }
 }

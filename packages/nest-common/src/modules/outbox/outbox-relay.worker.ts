@@ -7,6 +7,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource, In, LessThan } from "typeorm";
+import { EVENTOS_CON_SECRETO } from "@beautyspot/event-types";
 import { EventBusService } from "../event-bus/event-bus.service";
 import { OutboxMessageEntity, OutboxStatus } from "./outbox-message.entity";
 
@@ -193,7 +194,7 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
         eventId: message.id,
         correlationId: message.aggregateId,
       });
-      await this.markProcessed(message.id);
+      await this.markProcessed(message);
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -201,9 +202,21 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /** Marca el evento como publicado. */
-  private async markProcessed(id: string): Promise<void> {
-    await this.dataSource.getRepository(OutboxMessageEntity).update(id, {
+  /**
+   * Marca el evento como publicado. Los que llevan un secreto en el payload se
+   * borran en vez de marcarse: entregado el enlace, conservar la fila hasta la
+   * purga dejaría el secreto legible en la base durante días, mucho más de lo
+   * que vive el propio enlace.
+   */
+  private async markProcessed(message: OutboxMessageEntity): Promise<void> {
+    const repo = this.dataSource.getRepository(OutboxMessageEntity);
+
+    if (EVENTOS_CON_SECRETO.includes(message.eventType)) {
+      await repo.delete(message.id);
+      return;
+    }
+
+    await repo.update(message.id, {
       status: OutboxStatus.PROCESSED,
       processedAt: new Date(),
       lastError: null,
@@ -220,6 +233,11 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
       await repo.update(message.id, {
         status: OutboxStatus.DEAD,
         lastError: errorMessage,
+        // Un mensaje muerto se queda para que alguien lo mire, y el secreto de
+        // uno que nunca llegó a entregarse no debe quedarse con él.
+        ...(EVENTOS_CON_SECRETO.includes(message.eventType)
+          ? { payload: {} }
+          : {}),
       });
       this.logger.error(
         `Outbox message ${message.id} marcado DEAD tras ${message.attempts} intentos: ${errorMessage}`

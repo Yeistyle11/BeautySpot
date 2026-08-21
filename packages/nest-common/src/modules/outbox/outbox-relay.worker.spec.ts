@@ -1,5 +1,6 @@
 import { ConfigService } from "@nestjs/config";
 import { OutboxRelayWorker } from "./outbox-relay.worker";
+import { EventNames } from "@beautyspot/event-types";
 import { OutboxStatus } from "./outbox-message.entity";
 
 describe("OutboxRelayWorker", () => {
@@ -232,6 +233,80 @@ describe("OutboxRelayWorker", () => {
       expect(mockQb.setLock).toHaveBeenCalledWith("pessimistic_write");
       expect(mockQb.setOnLocked).toHaveBeenCalledWith("skip_locked");
       expect(mockQb.take).toHaveBeenCalled();
+    });
+  });
+
+  describe("eventos que llevan un secreto en el payload", () => {
+    it("borra la fila al publicarla, en vez de dejarla como PROCESSED", async () => {
+      const msg = makeMessage({
+        id: "msg-secreto",
+        eventType: EventNames.AUTH_PASSWORD_RESET_REQUESTED,
+        payload: { email: "a@b.co", resetToken: "token-en-claro" },
+      });
+      mockQb.getMany.mockResolvedValueOnce([msg]).mockResolvedValue([]);
+
+      await worker.poll();
+
+      expect(mockEventBus.emit).toHaveBeenCalledTimes(1);
+      expect(mockRepo.delete).toHaveBeenCalledWith("msg-secreto");
+      expect(mockRepo.update).not.toHaveBeenCalledWith(
+        "msg-secreto",
+        expect.objectContaining({ status: OutboxStatus.PROCESSED })
+      );
+    });
+
+    it("vacía el payload del que muere tras agotar los intentos", async () => {
+      const msg = makeMessage({
+        id: "msg-muerto",
+        eventType: EventNames.AUTH_EMAIL_VERIFICATION_REQUESTED,
+        payload: { email: "a@b.co", verificationToken: "token-en-claro" },
+        attempts: 4,
+      });
+      mockQb.getMany.mockResolvedValueOnce([msg]).mockResolvedValue([]);
+      mockEventBus.emit.mockRejectedValueOnce(new Error("rabbit caído"));
+
+      await worker.poll();
+
+      expect(mockRepo.update).toHaveBeenCalledWith(
+        "msg-muerto",
+        expect.objectContaining({
+          status: OutboxStatus.DEAD,
+          payload: {},
+        })
+      );
+    });
+
+    it("conserva el payload de un evento normal que muere", async () => {
+      const msg = makeMessage({ id: "msg-normal", attempts: 4 });
+      mockQb.getMany.mockResolvedValueOnce([msg]).mockResolvedValue([]);
+      mockEventBus.emit.mockRejectedValueOnce(new Error("rabbit caído"));
+
+      await worker.poll();
+
+      const [, cambios] = mockRepo.update.mock.calls.find(
+        ([id]: [string]) => id === "msg-normal"
+      );
+      expect(cambios.status).toBe(OutboxStatus.DEAD);
+      expect(cambios).not.toHaveProperty("payload");
+    });
+
+    it("mantiene el payload mientras quedan reintentos, para poder republicar", async () => {
+      const msg = makeMessage({
+        id: "msg-reintento",
+        eventType: EventNames.AUTH_PASSWORD_RESET_REQUESTED,
+        payload: { resetToken: "token-en-claro" },
+        attempts: 0,
+      });
+      mockQb.getMany.mockResolvedValueOnce([msg]).mockResolvedValue([]);
+      mockEventBus.emit.mockRejectedValueOnce(new Error("rabbit caído"));
+
+      await worker.poll();
+
+      const [, cambios] = mockRepo.update.mock.calls.find(
+        ([id]: [string]) => id === "msg-reintento"
+      );
+      expect(cambios.status).toBe(OutboxStatus.PENDING);
+      expect(cambios).not.toHaveProperty("payload");
     });
   });
 

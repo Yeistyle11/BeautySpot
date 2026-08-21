@@ -262,6 +262,13 @@ export class AuthService {
       throw new UnauthorizedException("Refresh token inválido o expirado");
     }
 
+    // Un access token no sirve para renovar: no lleva jti, así que el canje no
+    // lo retiraría ni detectaría su reutilización. Los tokens sin `typ` son los
+    // emitidos antes de marcarlos y se aceptan hasta que caduquen.
+    if (payload.typ && payload.typ !== "refresh") {
+      throw new UnauthorizedException("Refresh token inválido o expirado");
+    }
+
     const user = await this.userRepository.findOne({
       where: { id: payload.sub },
       relations: ["memberships"],
@@ -612,6 +619,7 @@ export class AuthService {
       businessIds,
       memberships,
       tokenVersion,
+      typ: "access",
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -629,7 +637,7 @@ export class AuthService {
     // canjearlo y detectar que alguien reutiliza uno ya gastado.
     const jti = randomUUID();
     const refreshToken = this.jwtService.sign(
-      { sub: user.id, email: user.email, tokenVersion, jti },
+      { sub: user.id, email: user.email, tokenVersion, jti, typ: "refresh" },
       {
         secret: assertJwtSecret(
           this.configService.get<string>("JWT_REFRESH_SECRET"),

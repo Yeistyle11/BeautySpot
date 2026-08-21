@@ -19,7 +19,13 @@ export class AvailabilityController {
     return this.service.findByProfessional(businessId, professionalId);
   }
 
-  /** Reemplaza por completo la disponibilidad semanal del profesional. */
+  /**
+   * Reemplaza por completo la disponibilidad semanal del profesional. Queda
+   * fuera del alcance de PROFESSIONAL: la ruta lleva el profesional en la URL y
+   * el token no permite comprobar que sea el suyo, así que cualquiera del
+   * equipo podría reescribir la agenda de otro.
+   */
+  @Roles(Role.OWNER, Role.ADMIN)
   @Post()
   async replace(
     @Param("professionalId") professionalId: string,

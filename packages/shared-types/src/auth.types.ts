@@ -32,6 +32,13 @@ export interface IJwtPayload {
   tokenVersion?: number;
   /** Identificador del refresh token, para poder retirarlo al canjearlo. */
   jti?: string;
+  /**
+   * Para qué sirve el token. `/auth/refresh` solo acepta los de refresco, de
+   * modo que un access token no vale como refresh aunque ambos se firmaran con
+   * el mismo secreto. Los tokens emitidos sin este claim se siguen aceptando
+   * mientras caducan.
+   */
+  typ?: "access" | "refresh";
   iat?: number;
   exp?: number;
 }
