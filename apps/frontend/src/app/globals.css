@@ -44,6 +44,10 @@
     --info-soft: 214 95% 95%;
     --info-soft-foreground: 224 64% 33%;
 
+    /* Estrella de valoracion. Es su propio token porque no significa aviso:
+       las paginas lo tenian como amber-400 en unas y yellow-400 en otras. */
+    --rating: 43 96% 50%;
+
     color-scheme: light;
   }
   .dark {
@@ -88,6 +92,8 @@
     --info-foreground: 224 64% 12%;
     --info-soft: 222 47% 20%;
     --info-soft-foreground: 214 95% 88%;
+
+    --rating: 43 96% 58%;
   }
 }
 

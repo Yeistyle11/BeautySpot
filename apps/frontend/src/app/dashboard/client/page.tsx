@@ -2,6 +2,7 @@
 
 // Panel del cliente: resumen de sus proximas citas y accesos rapidos.
 import { Card, CardContent } from "@/components/ui/card";
+import { StatGrid } from "@/components/ui/stat-grid";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -88,27 +89,7 @@ export default function ClientDashboardPage() {
         <p className="text-muted-foreground">Bienvenido a tu panel de citas</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.title} className="border-0 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm">{stat.title}</p>
-                  <p className="mt-1 text-2xl font-bold">
-                    {loading ? "..." : stat.value}
-                  </p>
-                </div>
-                <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-xl ${stat.bg}`}
-                >
-                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <StatGrid stats={stats} loading={loading} />
 
       <div className="from-primary mt-6 rounded-xl bg-gradient-to-r to-purple-700 p-6 text-white">
         <div className="flex items-center justify-between">

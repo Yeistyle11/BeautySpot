@@ -6,6 +6,8 @@ import { mensajeDeError } from "@/lib/error-message";
 import { mutate } from "swr";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -192,25 +194,23 @@ export default function StaffPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Usuarios</h1>
-          <p className="text-muted-foreground">
-            Gestiona las cuentas de tu equipo y clientes
-          </p>
-        </div>
-        {canDo(role, "staff_create") && (
-          <Button
-            onClick={() => {
-              setShowCreate(true);
-              setCreateForm(emptyCreateForm);
-              setError("");
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" /> Crear cuenta
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Usuarios"
+        descripcion="Gestiona las cuentas de tu equipo y clientes"
+        accion={
+          canDo(role, "staff_create") && (
+            <Button
+              onClick={() => {
+                setShowCreate(true);
+                setCreateForm(emptyCreateForm);
+                setError("");
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" /> Crear cuenta
+            </Button>
+          )
+        }
+      />
 
       <div className="mb-6">
         <div className="relative max-w-md">
@@ -226,7 +226,7 @@ export default function StaffPage() {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground py-8 text-center">Cargando...</p>
+        <LoadingState recurso="las cuentas" />
       ) : loadError ? (
         <ErrorDeCarga
           error={loadError}
@@ -265,7 +265,7 @@ export default function StaffPage() {
           <MemberTable
             members={clientMembers}
             title="Clientes"
-            icon={<UserCircle className="h-4 w-4 text-emerald-500" />}
+            icon={<UserCircle className="text-success h-4 w-4" />}
             dotColor="bg-success"
             role={role}
             sortField={sortField}

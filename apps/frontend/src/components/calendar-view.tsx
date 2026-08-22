@@ -175,7 +175,7 @@ export function CalendarView({
                             )
                           }
                           aria-pressed={selectedId === appt.id}
-                          className={`w-full cursor-pointer rounded border px-1.5 py-0.5 text-left text-[10px] ${colorClass} ${selectedId === appt.id ? "ring-primary ring-2" : ""}`}
+                          className={`w-full cursor-pointer rounded border px-1.5 py-0.5 text-left text-xs ${colorClass} ${selectedId === appt.id ? "ring-primary ring-2" : ""}`}
                         >
                           <p className="truncate font-medium">
                             {clientNames[appt.clientId] || "Cliente"}

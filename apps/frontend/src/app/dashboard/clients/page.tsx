@@ -5,12 +5,16 @@ import { useState } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pagination } from "@/components/ui/pagination";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -214,20 +218,18 @@ export default function ClientsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Clientes</h1>
-          <p className="text-muted-foreground">
-            Administra tu cartera de clientes
-          </p>
-        </div>
-        {canDo(role, "clients_create") && (
-          <Button onClick={() => setCreateDialog(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo cliente
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Clientes"
+        descripcion="Administra tu cartera de clientes"
+        accion={
+          canDo(role, "clients_create") && (
+            <Button onClick={() => setCreateDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo cliente
+            </Button>
+          )
+        }
+      />
 
       <div className="mb-4">
         <div className="relative max-w-sm">
@@ -274,7 +276,7 @@ export default function ClientsPage() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {loading ? (
-          <p className="text-muted-foreground">Cargando...</p>
+          <LoadingState recurso="los clientes" />
         ) : (
           clients.map((c) => (
             <Card
@@ -292,7 +294,7 @@ export default function ClientsPage() {
                 <CardContent className="p-5">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-11 w-11">
-                      <AvatarFallback className="bg-blue-50 font-bold text-blue-600">
+                      <AvatarFallback className="bg-info-soft text-info-soft-foreground font-bold">
                         {c.name.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
@@ -315,7 +317,7 @@ export default function ClientsPage() {
                     </div>
                   </div>
                   {c.loyaltyPoints > 0 && (
-                    <div className="mt-3 flex items-center gap-1.5 text-sm text-amber-600">
+                    <div className="text-warning mt-3 flex items-center gap-1.5 text-sm">
                       <Award className="h-4 w-4" />
                       {c.loyaltyPoints} puntos
                     </div>
@@ -381,9 +383,11 @@ export default function ClientsPage() {
             />
           </Field>
           <div className="flex gap-3 pt-2">
-            <Button type="submit" disabled={savingCreate}>
-              {savingCreate ? "Guardando..." : "Crear cliente"}
-            </Button>
+            <SubmitButton
+              label="Crear cliente"
+              pendingLabel="Guardando..."
+              pending={savingCreate}
+            />
             <Button
               type="button"
               variant="outline"
@@ -406,7 +410,7 @@ export default function ClientsPage() {
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16">
-                  <AvatarFallback className="bg-blue-50 text-2xl font-bold text-blue-600">
+                  <AvatarFallback className="bg-info-soft text-info-soft-foreground text-2xl font-bold">
                     {selectedClient.name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
@@ -453,9 +457,9 @@ export default function ClientsPage() {
             </div>
 
             {selectedClient.loyaltyPoints > 0 && (
-              <div className="flex items-center gap-2 rounded-lg bg-amber-50 p-3">
-                <Award className="h-5 w-5 text-amber-600" />
-                <span className="font-medium text-amber-700">
+              <div className="bg-warning-soft flex items-center gap-2 rounded-lg p-3">
+                <Award className="text-warning-soft-foreground h-5 w-5" />
+                <span className="text-warning-soft-foreground font-medium">
                   {selectedClient.loyaltyPoints} puntos de fidelidad
                 </span>
               </div>
@@ -480,7 +484,7 @@ export default function ClientsPage() {
                 <Calendar className="h-4 w-4" /> Historial de citas
               </h4>
               {loadingDetail ? (
-                <p className="text-muted-foreground text-sm">Cargando...</p>
+                <LoadingState recurso="el historial" />
               ) : (clientAppointments ?? []).length === 0 ? (
                 <p className="text-muted-foreground text-sm">
                   No hay citas registradas
@@ -580,9 +584,11 @@ export default function ClientsPage() {
             />
           </Field>
           <div className="flex gap-3">
-            <Button type="submit" disabled={savingEdit}>
-              {savingEdit ? "Guardando..." : "Guardar cambios"}
-            </Button>
+            <SubmitButton
+              label="Guardar cambios"
+              pendingLabel="Guardando..."
+              pending={savingEdit}
+            />
             <Button
               type="button"
               variant="outline"
@@ -594,34 +600,25 @@ export default function ClientsPage() {
         </form>
       </Dialog>
 
-      <Dialog
+      <ConfirmDialog
         open={!!clienteASuprimir}
         onClose={() => setClienteASuprimir(null)}
+        onConfirm={handleAnonymize}
         title="Suprimir los datos del cliente"
+        variant="destructive"
+        confirmLabel="Suprimir los datos"
+        pendingLabel="Suprimiendo..."
+        pending={suprimiendo}
       >
-        <div className="space-y-4">
-          <p className="text-sm">
-            Se borrarán el nombre, el correo, el teléfono, el documento y las
-            notas de <strong>{clienteASuprimir?.name}</strong>. Sus citas y sus
-            facturas se conservan, porque son documentos contables.
-          </p>
-          <p className="text-muted-foreground text-sm">
-            No se puede deshacer, y la ficha ya no se podrá editar.
-          </p>
-          <div className="flex gap-3">
-            <Button
-              variant="destructive"
-              onClick={handleAnonymize}
-              disabled={suprimiendo}
-            >
-              {suprimiendo ? "Suprimiendo..." : "Suprimir los datos"}
-            </Button>
-            <Button variant="outline" onClick={() => setClienteASuprimir(null)}>
-              Cancelar
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+        <p className="text-sm">
+          Se borrarán el nombre, el correo, el teléfono, el documento y las
+          notas de <strong>{clienteASuprimir?.name}</strong>. Sus citas y sus
+          facturas se conservan, porque son documentos contables.
+        </p>
+        <p className="text-muted-foreground text-sm">
+          No se puede deshacer, y la ficha ya no se podrá editar.
+        </p>
+      </ConfirmDialog>
     </div>
   );
 }

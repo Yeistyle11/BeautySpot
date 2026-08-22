@@ -117,9 +117,7 @@ export function Sidebar() {
           </div>
           <div className="flex-1">
             <p className="text-sm font-bold">BeautySpot</p>
-            <p className="text-muted-foreground text-[10px]">
-              Panel de gestión
-            </p>
+            <p className="text-muted-foreground text-xs">Panel de gestión</p>
           </div>
           <button
             onClick={() => setOpen(false)}
@@ -170,7 +168,7 @@ export function Sidebar() {
               <p className="truncate text-sm font-medium">
                 {user?.name || "Usuario"}
               </p>
-              <p className="text-muted-foreground truncate text-[11px]">
+              <p className="text-muted-foreground truncate text-xs">
                 {role || ""}
               </p>
             </div>

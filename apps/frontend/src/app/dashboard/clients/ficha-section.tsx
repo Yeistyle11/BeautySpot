@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
@@ -43,8 +44,7 @@ function ControlDelCampo({
 
   if (campo.tipo === "opciones") {
     return (
-      <select
-        className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+      <Select
         value={typeof valor === "string" ? valor : ""}
         onChange={(e) => onChange(e.target.value || undefined)}
         disabled={deshabilitado}
@@ -56,7 +56,7 @@ function ControlDelCampo({
             {opcion}
           </option>
         ))}
-      </select>
+      </Select>
     );
   }
 

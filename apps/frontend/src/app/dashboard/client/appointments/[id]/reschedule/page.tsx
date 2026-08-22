@@ -113,7 +113,7 @@ export default function ReschedulePage() {
   if (!appointment && loadError) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-red-600">Error al cargar la cita</p>
+        <p className="text-destructive">Error al cargar la cita</p>
         <Link href="/dashboard/client/appointments">
           <Button variant="outline" className="mt-4 gap-2">
             <ArrowLeft className="h-4 w-4" />
@@ -129,7 +129,7 @@ export default function ReschedulePage() {
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <CheckCircle className="mb-4 h-16 w-16 text-emerald-500" />
+        <CheckCircle className="text-success mb-4 h-16 w-16" />
         <h2 className="text-xl font-bold">Cita reagendada</h2>
         <p className="text-muted-foreground mt-2">
           Tu cita ha sido reagendada exitosamente

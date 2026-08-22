@@ -3,6 +3,7 @@
 // Dialogos para registrar y editar un pago (metodo, monto y notas).
 import { Banknote, CreditCard, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
@@ -178,9 +179,11 @@ export function CreatePaymentDialog({
           />
         </Field>
         <div className="flex gap-3 pt-2">
-          <Button type="submit" disabled={saving}>
-            {saving ? "Guardando..." : "Registrar pago"}
-          </Button>
+          <SubmitButton
+            label="Registrar pago"
+            pendingLabel="Guardando..."
+            pending={saving}
+          />
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
@@ -250,9 +253,11 @@ export function EditPaymentDialog({
           />
         </Field>
         <div className="flex gap-3 pt-2">
-          <Button type="submit" disabled={saving}>
-            {saving ? "Guardando..." : "Guardar cambios"}
-          </Button>
+          <SubmitButton
+            label="Guardar cambios"
+            pendingLabel="Guardando..."
+            pending={saving}
+          />
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>

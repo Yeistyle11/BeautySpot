@@ -4,6 +4,7 @@
 import { useMemo } from "react";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatGrid } from "@/components/ui/stat-grid";
 import { Badge } from "@/components/ui/badge";
 import {
   Calendar,
@@ -218,27 +219,7 @@ export default function DashboardPage() {
         <p className="text-muted-foreground">Resumen de tu negocio</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.title} className="border-0 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm">{stat.title}</p>
-                  <p className="mt-1 text-2xl font-bold">
-                    {loading ? "..." : stat.value}
-                  </p>
-                </div>
-                <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-xl ${stat.bg}`}
-                >
-                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <StatGrid stats={stats} loading={loading} />
 
       {kpiData?.periodo && (
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -391,7 +372,7 @@ export default function DashboardPage() {
         <Card className="mt-6 border-0 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Star className="h-5 w-5 text-amber-500" /> Top profesionales (30
+              <Star className="text-rating h-5 w-5" /> Top profesionales (30
               días)
             </CardTitle>
           </CardHeader>

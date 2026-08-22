@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { z } from "zod";
 import { useApi } from "@/lib/swr";
+import { Select } from "@/components/ui/select";
 import { useAuthStore } from "@/lib/store";
 import { ROLES } from "@/lib/auth";
 import { getDefaultPath } from "@/lib/permissions";
@@ -57,18 +58,18 @@ export function BusinessSwitcher() {
         <Building2 className="h-3.5 w-3.5" />
         Negocio
       </label>
-      <select
+      <Select
         id="business-switcher"
         value={businessId ?? ""}
         onChange={(e) => cambiar(e.target.value)}
-        className="border-input bg-background focus:ring-ring h-9 w-full rounded-md border px-2 text-sm focus:outline-none focus:ring-2"
+        className="h-9 px-2"
       >
         {membresias.map((m) => (
           <option key={m.businessId} value={m.businessId}>
             {m.businessName || m.businessId}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   );
 }

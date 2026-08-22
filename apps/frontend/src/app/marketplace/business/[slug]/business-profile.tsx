@@ -215,7 +215,7 @@ export default function BusinessProfile({
                 <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-white/80">
                   {Number(profile.rating) > 0 && (
                     <span className="flex items-center gap-1">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <Star className="fill-rating text-rating h-4 w-4" />
                       <span className="font-semibold text-white">
                         {Number(profile.rating).toFixed(1)}
                       </span>

@@ -4,7 +4,7 @@
 // enlace de restablecimiento.
 import { useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import {
   Card,
   CardContent,
@@ -109,9 +109,12 @@ export default function ForgotPasswordPage() {
                       {error}
                     </p>
                   )}
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Enviando..." : "Enviar enlace"}
-                  </Button>
+                  <SubmitButton
+                    className="w-full"
+                    label="Enviar enlace"
+                    pendingLabel="Enviando..."
+                    pending={loading}
+                  />
                 </form>
                 <div className="text-muted-foreground mt-4 text-center text-sm">
                   <Link

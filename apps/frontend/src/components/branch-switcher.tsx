@@ -4,6 +4,7 @@
 import { MapPin } from "lucide-react";
 import { z } from "zod";
 import { useApi, revalidateAll } from "@/lib/swr";
+import { Select } from "@/components/ui/select";
 import { useAuthStore } from "@/lib/store";
 
 const sedeSchema = z.object({
@@ -41,11 +42,11 @@ export function BranchSwitcher() {
         <MapPin className="h-3.5 w-3.5" />
         Sede
       </label>
-      <select
+      <Select
         id="branch-switcher"
         value={branchId ?? ""}
         onChange={(e) => cambiar(e.target.value)}
-        className="border-input bg-background focus:ring-ring h-9 w-full rounded-md border px-2 text-sm focus:outline-none focus:ring-2"
+        className="h-9 px-2"
       >
         <option value="">Todas las sedes</option>
         {sedes.map((s) => (
@@ -53,7 +54,7 @@ export function BranchSwitcher() {
             {s.name}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   );
 }

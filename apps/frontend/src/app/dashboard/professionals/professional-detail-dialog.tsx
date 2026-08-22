@@ -70,7 +70,7 @@ export function ProfessionalDetailDialog({
                 <Badge className="mt-1">{professional.category}</Badge>
               )}
               <div className="mt-2 flex items-center gap-2">
-                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                <Star className="fill-rating text-rating h-4 w-4" />
                 <span className="text-sm">
                   {Number(professional.rating).toFixed(1)} (
                   {professional.totalReviews} reseñas)

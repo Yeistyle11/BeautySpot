@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { Loader2, Plus, Trash2, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -155,8 +156,7 @@ export function FieldsTab({
             </Field>
 
             <Field label="Tipo">
-              <select
-                className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+              <Select
                 value={nuevo.tipo}
                 onChange={(e) =>
                   setNuevo({
@@ -170,7 +170,7 @@ export function FieldsTab({
                     {t.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
 
             {nuevo.tipo === "opciones" && (

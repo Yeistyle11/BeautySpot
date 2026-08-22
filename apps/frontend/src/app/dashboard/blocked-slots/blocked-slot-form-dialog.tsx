@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
@@ -92,9 +93,11 @@ export function BlockedSlotFormDialog({
           />
         </Field>
         <div className="flex gap-3 pt-2">
-          <Button type="submit" disabled={guardando}>
-            {guardando ? "Guardando..." : "Bloquear"}
-          </Button>
+          <SubmitButton
+            label="Bloquear"
+            pendingLabel="Guardando..."
+            pending={guardando}
+          />
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>

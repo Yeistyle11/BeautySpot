@@ -298,7 +298,7 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
 
           {Number(p.rating) > 0 && (
             <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-xs font-bold shadow-sm backdrop-blur">
-              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+              <Star className="fill-rating text-rating h-3 w-3" />
               {Number(p.rating).toFixed(1)}
             </div>
           )}

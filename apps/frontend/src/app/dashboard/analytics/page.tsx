@@ -14,6 +14,8 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { formatCurrency } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -107,26 +109,26 @@ export default function AnalyticsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Reportes</h1>
-          <p className="text-muted-foreground">
-            {consultable
-              ? `Del ${periodo.from} al ${periodo.to}`
-              : "Elige un periodo"}
-          </p>
-        </div>
-        {data && (
-          <Button
-            variant="outline"
-            onClick={() =>
-              exportarResumen(periodo, data.periodo, data.comparado)
-            }
-          >
-            <Download className="mr-2 h-4 w-4" /> Exportar resumen
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Reportes"
+        descripcion={
+          consultable
+            ? `Del ${periodo.from} al ${periodo.to}`
+            : "Elige un periodo"
+        }
+        accion={
+          data && (
+            <Button
+              variant="outline"
+              onClick={() =>
+                exportarResumen(periodo, data.periodo, data.comparado)
+              }
+            >
+              <Download className="mr-2 h-4 w-4" /> Exportar resumen
+            </Button>
+          )
+        }
+      />
 
       <div className="mb-6">
         <PeriodPicker
@@ -143,7 +145,7 @@ export default function AnalyticsPage() {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Cargando...</p>
+        <LoadingState recurso="el reporte" />
       ) : data ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <Card className="border-0 shadow-sm">
@@ -177,7 +179,7 @@ export default function AnalyticsPage() {
                 actual={data.periodo.cancelledAppointments}
                 anterior={data.comparado?.cancelledAppointments}
                 bajarEsBueno
-                className="text-red-600"
+                className="text-destructive"
               />
               <MetricRow
                 etiqueta="No asistieron"
@@ -185,7 +187,7 @@ export default function AnalyticsPage() {
                 actual={data.periodo.noShowAppointments}
                 anterior={data.comparado?.noShowAppointments}
                 bajarEsBueno
-                className="text-amber-600"
+                className="text-warning"
               />
             </CardContent>
           </Card>

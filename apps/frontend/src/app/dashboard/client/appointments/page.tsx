@@ -229,7 +229,7 @@ export default function AppointmentsPage() {
                       {canReview && (
                         <Link
                           href={`/dashboard/client/appointments/${appt.id}/review`}
-                          className="relative ml-1 inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 hover:underline"
+                          className="text-warning relative ml-1 inline-flex items-center gap-1 text-xs font-medium hover:underline"
                         >
                           <Star className="h-3 w-3" />
                           Dejar reseña

@@ -5,6 +5,8 @@ import { useState, useMemo, useRef } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import { DollarSign, Plus, Calendar } from "lucide-react";
@@ -245,18 +247,18 @@ export default function PaymentsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Pagos</h1>
-          <p className="text-muted-foreground">Historial y registro de pagos</p>
-        </div>
-        {canDo(role, "payments_create") && (
-          <Button onClick={abrirCobro}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo pago
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Pagos"
+        descripcion="Historial y registro de pagos"
+        accion={
+          canDo(role, "payments_create") && (
+            <Button onClick={abrirCobro}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo pago
+            </Button>
+          )
+        }
+      />
 
       <PaymentSummaryCards summary={summary} />
 
@@ -298,7 +300,7 @@ export default function PaymentsPage() {
 
       <div className="space-y-3">
         {loading ? (
-          <p className="text-muted-foreground">Cargando...</p>
+          <LoadingState recurso="los pagos" />
         ) : loadError ? (
           <ErrorDeCarga
             error={loadError}

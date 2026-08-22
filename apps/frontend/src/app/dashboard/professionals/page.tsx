@@ -6,6 +6,8 @@ import { mensajeDeError } from "@/lib/error-message";
 import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
@@ -280,22 +282,22 @@ export default function ProfessionalsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Equipo</h1>
-          <p className="text-muted-foreground">Gestiona tus profesionales</p>
-        </div>
-        {canDo(role, "professionals_create") && (
-          <Button
-            onClick={() => {
-              setShowCreate(true);
-              setForm(emptyForm);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" /> Agregar
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Equipo"
+        descripcion="Gestiona tus profesionales"
+        accion={
+          canDo(role, "professionals_create") && (
+            <Button
+              onClick={() => {
+                setShowCreate(true);
+                setForm(emptyForm);
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" /> Agregar
+            </Button>
+          )
+        }
+      />
 
       {/*
         Sin categorias dadas de alta, lo que sale en las fichas es texto suelto:
@@ -318,7 +320,7 @@ export default function ProfessionalsPage() {
       )}
 
       {loading ? (
-        <p className="text-muted-foreground">Cargando...</p>
+        <LoadingState recurso="el equipo" />
       ) : loadError ? (
         <ErrorDeCarga
           error={loadError}
@@ -340,7 +342,7 @@ export default function ProfessionalsPage() {
           </ProfessionalGroup>
           <ProfessionalGroup
             title="Inactivos"
-            dotColor="bg-gray-400"
+            dotColor="bg-muted-foreground"
             items={inactivePros}
           >
             {renderCard}

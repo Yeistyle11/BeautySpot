@@ -5,6 +5,7 @@ import { mensajeDeError } from "@/lib/error-message";
 import { mutate } from "swr";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Plus, Search } from "lucide-react";
@@ -260,7 +261,7 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {loading ? (
-          <p className="text-muted-foreground">Cargando categorías...</p>
+          <LoadingState recurso="las categorías" />
         ) : filtered.length === 0 ? (
           <div className="col-span-full py-12 text-center">
             <EmptyIcon className="text-muted-foreground/40 mx-auto h-12 w-12" />

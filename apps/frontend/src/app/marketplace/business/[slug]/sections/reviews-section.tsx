@@ -55,7 +55,7 @@ export function ReviewsSection({
                 key={s}
                 className={`h-5 w-5 ${
                   s <= Math.round(rating)
-                    ? "fill-yellow-400 text-yellow-400"
+                    ? "fill-rating text-rating"
                     : "text-muted-foreground/30"
                 }`}
               />
@@ -77,10 +77,10 @@ export function ReviewsSection({
               return (
                 <div key={star} className="flex items-center gap-3 text-sm">
                   <span className="w-8 text-right">{star}</span>
-                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                  <Star className="fill-rating text-rating h-3 w-3" />
                   <div className="bg-muted h-2 flex-1 overflow-hidden rounded-full">
                     <div
-                      className="h-full rounded-full bg-yellow-400"
+                      className="bg-rating h-full rounded-full"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
@@ -110,7 +110,7 @@ export function ReviewsSection({
                             key={s}
                             className={`h-4 w-4 ${
                               s <= r.rating
-                                ? "fill-yellow-400 text-yellow-400"
+                                ? "fill-rating text-rating"
                                 : "text-muted-foreground/30"
                             }`}
                           />
