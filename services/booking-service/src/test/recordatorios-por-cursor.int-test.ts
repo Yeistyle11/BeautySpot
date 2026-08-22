@@ -1,5 +1,7 @@
 import { DataSource } from "typeorm";
+import { join } from "path";
 import { ConfigService } from "@nestjs/config";
+import { createMigrationDataSourceOptions } from "@beautyspot/database";
 import { OutboxService, ZonaDelNegocioService } from "@beautyspot/nest-common";
 import { RemindersWorker } from "../modules/reminders/reminders.worker";
 import { entities } from "../orm-entities";
@@ -26,12 +28,18 @@ describe("Integración: el sondeo de recordatorios no se salta citas", () => {
 
   beforeAll(async () => {
     dataSource = new DataSource({
-      type: "postgres",
-      url: process.env.DATABASE_URL,
-      entities,
-      synchronize: true,
+      ...createMigrationDataSourceOptions(
+        entities,
+        join(__dirname, "..", "migrations")
+      ),
+      logging: false,
     });
     await dataSource.initialize();
+    // Como sus hermanos: el esquema lo levantan las migraciones, no
+    // `synchronize`, que además dejaría la base a medias para el resto.
+    await dataSource.query("DROP SCHEMA public CASCADE");
+    await dataSource.query("CREATE SCHEMA public");
+    await dataSource.runMigrations();
   }, 60000);
 
   afterAll(async () => {
@@ -54,7 +62,13 @@ describe("Integración: el sondeo de recordatorios no se salta citas", () => {
         }
       ),
     };
-    const zonas = { de: jest.fn().mockResolvedValue("America/Bogota") };
+    // La zona del proceso: así la hora de pared que se inserta y la que lee el
+    // worker son la misma, corra donde corra el test.
+    const zonas = {
+      de: jest
+        .fn()
+        .mockResolvedValue(Intl.DateTimeFormat().resolvedOptions().timeZone),
+    };
     const config = { get: () => undefined } as unknown as ConfigService;
 
     worker = new RemindersWorker(
@@ -71,15 +85,21 @@ describe("Integración: el sondeo de recordatorios no se salta citas", () => {
    * desempatar por id.
    */
   async function citasPendientes(cuantas: number): Promise<void> {
+    // La fecha y la hora son de pared, las dos en el mismo reloj: mezclar el
+    // día en UTC con la hora local desplaza la cita cinco horas y la saca de
+    // la ventana que se quiere probar.
+    const dosDigitos = (n: number) => `${n}`.padStart(2, "0");
     const manana = new Date(Date.now() + 20 * 3600000);
-    const fecha = manana.toISOString().slice(0, 10);
-    const hora = `${`${manana.getHours()}`.padStart(2, "0")}:00`;
+    const fecha = `${manana.getFullYear()}-${dosDigitos(
+      manana.getMonth() + 1
+    )}-${dosDigitos(manana.getDate())}`;
+    const hora = `${dosDigitos(manana.getHours())}:00`;
 
     await dataSource.query(
       `
       INSERT INTO "appointments"
         ("id", "business_id", "client_id", "professional_id",
-         "date", "start_time", "end_time", "status", "total_amount", "created_at")
+         "date", "start_time", "end_time", "status", "totalAmount", "created_at")
       SELECT gen_random_uuid(), $1, $2, $3, $4::date, $5, '23:59', 'CONFIRMED', 0,
              now() - interval '72 hours'
       FROM generate_series(1, $6)
