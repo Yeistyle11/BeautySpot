@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
@@ -142,9 +143,9 @@ export function Sidebar() {
                 : pathname.startsWith(page.path);
             const Icon = ICON_MAP[page.icon] || LayoutDashboard;
             return (
-              <button
+              <Link
                 key={page.path}
-                onClick={() => router.push(page.path)}
+                href={page.path}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "focus-visible:ring-ring flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2",
@@ -155,7 +156,7 @@ export function Sidebar() {
               >
                 <Icon className="h-4 w-4" />
                 {page.label}
-              </button>
+              </Link>
             );
           })}
         </nav>

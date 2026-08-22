@@ -53,11 +53,21 @@ export function ProfessionalsTable({ filas }: { filas: FilaDeProfesional[] }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-muted-foreground border-b text-left">
-                  <th className="py-2 font-medium">Profesional</th>
-                  <th className="py-2 text-right font-medium">Citas</th>
-                  <th className="py-2 text-right font-medium">Ingresos</th>
-                  <th className="py-2 text-right font-medium">Valoración</th>
-                  <th className="py-2 text-right font-medium">Días activos</th>
+                  <th scope="col" className="py-2 font-medium">
+                    Profesional
+                  </th>
+                  <th scope="col" className="py-2 text-right font-medium">
+                    Citas
+                  </th>
+                  <th scope="col" className="py-2 text-right font-medium">
+                    Ingresos
+                  </th>
+                  <th scope="col" className="py-2 text-right font-medium">
+                    Valoración
+                  </th>
+                  <th scope="col" className="py-2 text-right font-medium">
+                    Días activos
+                  </th>
                 </tr>
               </thead>
               <tbody>

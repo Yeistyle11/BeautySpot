@@ -279,41 +279,49 @@ export default function ClientsPage() {
           clients.map((c) => (
             <Card
               key={c.id}
-              className="cursor-pointer border-0 shadow-sm transition-shadow [contain-intrinsic-size:auto_140px] [content-visibility:auto] hover:shadow-md"
-              onClick={() => openDetail(c)}
+              className="focus-within:ring-ring border-0 shadow-sm transition-shadow [contain-intrinsic-size:auto_140px] [content-visibility:auto] focus-within:ring-2 hover:shadow-md"
             >
-              <CardContent className="p-5">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-11 w-11">
-                    <AvatarFallback className="bg-blue-50 font-bold text-blue-600">
-                      {c.name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{c.name}</p>
-                    <div className="mt-1 space-y-0.5">
-                      {c.email && (
-                        <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                          <Mail className="h-3 w-3" />
-                          {c.email}
-                        </p>
-                      )}
-                      {c.phone && (
-                        <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                          <Phone className="h-3 w-3" />
-                          {c.phone}
-                        </p>
-                      )}
+              {/* La tarjeta entera abre la ficha, y es la unica via de acceso a
+                  ella: tiene que ser un boton para que llegue el teclado. */}
+              <button
+                type="button"
+                onClick={() => openDetail(c)}
+                aria-label={`Ver la ficha de ${c.name}`}
+                className="w-full cursor-pointer text-left focus:outline-none"
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-11 w-11">
+                      <AvatarFallback className="bg-blue-50 font-bold text-blue-600">
+                        {c.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold">{c.name}</p>
+                      <div className="mt-1 space-y-0.5">
+                        {c.email && (
+                          <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                            <Mail className="h-3 w-3" />
+                            {c.email}
+                          </p>
+                        )}
+                        {c.phone && (
+                          <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                            <Phone className="h-3 w-3" />
+                            {c.phone}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                {c.loyaltyPoints > 0 && (
-                  <div className="mt-3 flex items-center gap-1.5 text-sm text-amber-600">
-                    <Award className="h-4 w-4" />
-                    {c.loyaltyPoints} puntos
-                  </div>
-                )}
-              </CardContent>
+                  {c.loyaltyPoints > 0 && (
+                    <div className="mt-3 flex items-center gap-1.5 text-sm text-amber-600">
+                      <Award className="h-4 w-4" />
+                      {c.loyaltyPoints} puntos
+                    </div>
+                  )}
+                </CardContent>
+              </button>
             </Card>
           ))
         )}

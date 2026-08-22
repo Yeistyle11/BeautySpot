@@ -300,6 +300,7 @@ export default function ServicesPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => openEdit(s)}
+                        aria-label={`Editar el servicio ${s.name}`}
                       >
                         <Edit className="text-muted-foreground h-4 w-4" />
                       </Button>

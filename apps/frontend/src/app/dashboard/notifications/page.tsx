@@ -112,7 +112,8 @@ export default function NotificationsPage() {
                   {!n.read && (
                     <button
                       onClick={() => markRead(n.id)}
-                      className="text-primary hover:text-primary/80"
+                      aria-label="Marcar el aviso como leido"
+                      className="text-primary hover:text-primary/80 focus-visible:ring-ring rounded focus-visible:outline-none focus-visible:ring-2"
                     >
                       <CheckCheck className="h-5 w-5" />
                     </button>

@@ -257,6 +257,7 @@ export default function StaffPage() {
             dotColor="bg-primary"
             role={role}
             sortField={sortField}
+            sortDir={sortDir}
             onToggleSort={toggleSort}
             onEdit={openEdit}
             onRequestToggle={setConfirmId}
@@ -268,6 +269,7 @@ export default function StaffPage() {
             dotColor="bg-success"
             role={role}
             sortField={sortField}
+            sortDir={sortDir}
             onToggleSort={toggleSort}
             onEdit={openEdit}
             onRequestToggle={setConfirmId}
