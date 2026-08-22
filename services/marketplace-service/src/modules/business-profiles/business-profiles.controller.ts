@@ -15,7 +15,7 @@ import {
   AddGalleryImagesDto,
   UpdateGalleryImageDto,
 } from "./dto/profile.dto";
-import { Roles, Public, BusinessId } from "@beautyspot/nest-common";
+import { Roles, Public, BusinessId, Internal } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
 /** Endpoints con los que el dueño configura y publica el perfil de su negocio en el marketplace. */
@@ -93,8 +93,8 @@ export class BusinessProfilesController {
 }
 
 /** Endpoint interno con el que el core sincroniza el perfil del negocio en el marketplace. */
+@Internal()
 @Controller("internal/business-profiles")
-@Public()
 export class InternalBusinessProfilesController {
   constructor(private readonly service: BusinessProfilesService) {}
 

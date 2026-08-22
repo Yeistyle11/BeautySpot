@@ -12,6 +12,7 @@ import { Membresia, Role } from "@beautyspot/shared-types";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 import { SESION_VERIFICABLE_KEY } from "../decorators/sesion-verificable.decorator";
 import { esContextoHttp } from "./http-context";
+import { esRutaInterna } from "./internal-context";
 import { assertJwtSecret } from "../security/assert-jwt-secret";
 import {
   TokenVersionStore,
@@ -54,9 +55,10 @@ export class JwtAuthGuard implements CanActivate {
 
     if (!esContextoHttp(context)) return true;
 
+    if (esRutaInterna(context, this.reflector)) return true;
+
     const request = context.switchToHttp().getRequest();
-    if (request.url === "/health" || request.url.startsWith("/internal"))
-      return true;
+    if (request.url === "/health") return true;
 
     const authHeader = request.headers["authorization"];
     if (!authHeader) {

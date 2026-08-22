@@ -1,3 +1,4 @@
+import { Internal } from "@beautyspot/nest-common";
 import {
   Controller,
   Post,
@@ -23,6 +24,7 @@ import { ClientsService } from "../clients/clients.service";
 const MAXIMO_CLIENTES_BUSCADOS = 200;
 
 /** Endpoint interno (servicio-a-servicio) para resolver el cliente de una reserva. */
+@Internal()
 @Controller("internal/clients")
 export class InternalClientsController {
   constructor(

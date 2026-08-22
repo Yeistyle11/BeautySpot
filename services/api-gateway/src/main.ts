@@ -1,9 +1,10 @@
-import { NestFactory } from "@nestjs/core";
+import { NestFactory, Reflector } from "@nestjs/core";
 import { Logger, ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AppModule } from "./app.module";
 import {
   HttpExceptionFilter,
+  InternalSecretGuard,
   TransformInterceptor,
   buildCorsOptions,
   requestContextMiddleware,
@@ -71,10 +72,12 @@ async function bootstrap() {
   app.useGlobalInterceptors(new TransformInterceptor());
 
   // Orden de la cadena: primero el rate limit, despues la comprobacion de
-  // origen y solo entonces la validacion del token.
+  // origen, el secreto de las rutas internas y solo entonces la validacion del
+  // token.
   app.useGlobalGuards(
     app.get(RateLimitGuard),
     app.get(CsrfOriginGuard),
+    new InternalSecretGuard(configService, app.get(Reflector)),
     app.get(AuthGatewayGuard)
   );
 

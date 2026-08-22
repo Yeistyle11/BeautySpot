@@ -14,6 +14,7 @@ import {
   BusinessId,
   CurrentUser,
   SkipBusinessScope,
+  Internal,
 } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import {
@@ -111,6 +112,7 @@ export class BusinessesController {
 }
 
 /** Internal endpoint — protegido por InternalSecretGuard (requiere header x-internal-secret) */
+@Internal()
 @Controller("internal/businesses")
 export class InternalBusinessesController {
   constructor(private readonly service: BusinessesService) {}

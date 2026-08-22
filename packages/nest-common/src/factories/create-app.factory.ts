@@ -128,7 +128,7 @@ export async function createMicroserviceApp(
   );
 
   app.useGlobalGuards(
-    new InternalSecretGuard(configService),
+    new InternalSecretGuard(configService, reflector),
     new JwtAuthGuard(configService, reflector, tokenVersionStore),
     new BusinessScopeGuard(reflector),
     new RolesGuard(reflector)

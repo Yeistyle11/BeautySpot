@@ -5,6 +5,11 @@ export { BusinessScopeGuard } from "./guards/business-scope.guard";
 export { RolesGuard } from "./guards/roles.guard";
 export { Public, IS_PUBLIC_KEY } from "./decorators/public.decorator";
 export {
+  Internal,
+  IS_INTERNAL_KEY,
+  PREFIJO_INTERNO,
+} from "./decorators/internal.decorator";
+export {
   SkipBusinessScope,
   SKIP_BUSINESS_SCOPE_KEY,
 } from "./decorators/skip-business-scope.decorator";

@@ -6,6 +6,7 @@ import {
   Roles,
   BusinessId,
   SesionVerificable,
+  Internal,
 } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
@@ -139,6 +140,7 @@ export class UsersController {
  * Los otros microservicios validan la revocación contra Redis, que es volátil;
  * cuando la clave no está, preguntan aquí, que es donde vive el dato duradero.
  */
+@Internal()
 @Controller("internal/users")
 export class InternalUsersController {
   constructor(private readonly usersService: UsersService) {}
