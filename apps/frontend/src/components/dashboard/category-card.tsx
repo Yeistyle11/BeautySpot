@@ -44,6 +44,9 @@ export function CategoryCard({
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
               style={{ backgroundColor: `${color}20` }}
             >
+              {/* No se crea ningun componente: resolveCategoryIcon devuelve
+                  uno de los iconos del catalogo, definidos en su modulo. */}
+              {/* eslint-disable-next-line react-hooks/static-components */}
               <Icon className="h-5 w-5" style={{ color }} />
             </div>
             <div>

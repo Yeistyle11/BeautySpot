@@ -18,9 +18,13 @@ export function useSeededForm<T>(
 ): () => void {
   const sembrado = useRef(false);
   // La funcion suele ser un literal nuevo en cada render; guardarla en una ref
-  // evita volver a sembrar solo porque haya cambiado su identidad.
+  // evita volver a sembrar solo porque haya cambiado su identidad. La ref se
+  // actualiza en su propio efecto, que corre antes que el de abajo, porque
+  // escribirla durante el render rompe el renderizado concurrente.
   const ultimaSiembra = useRef(sembrar);
-  ultimaSiembra.current = sembrar;
+  useEffect(() => {
+    ultimaSiembra.current = sembrar;
+  });
 
   useEffect(() => {
     if (dato == null || sembrado.current) return;
