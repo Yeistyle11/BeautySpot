@@ -54,14 +54,13 @@ en desarrollo la infraestructura la levanta Docker Compose.
      v                         v                          v
   PostgreSQL 16            RabbitMQ                     Redis
   host :5433               beautyspot.events (topic)    sesiones revocadas,
-  7 bases, 1 motor,        + beautyspot.dlx             cache de tenant,
+  7 bases, 1 motor,        + beautyspot.dlx             cache de perfiles,
   1 usuario por base       1 cola por servicio/evento   rate limit
 ```
 
 Lo que este dibujo no dice y conviene saber: **en produccion delante del gateway
-hay un reverse proxy con certificado wildcard** para `*.beautyspot.co`, que es lo
-que hace posible la resolucion de tenant por subdominio. No esta en el
-repositorio; es parte del checklist de [../DEPLOY.md](../DEPLOY.md).
+hay un reverse proxy con certificado**, que no esta en el repositorio; es parte
+del checklist de [../DEPLOY.md](../DEPLOY.md).
 
 ---
 
@@ -322,9 +321,8 @@ BeautySpot utiliza **multi-tenancy logico** (base de datos compartida con aislam
 
 ### 6.2 Resolucion de tenant
 
-Hay **dos caminos**, y el que se usa en cada peticion del panel es el primero.
-
-**Desde el token** (`ProxyService.negocioDeLaPeticion`). El JWT trae `businessId`
+**Desde el token** (`ProxyService.negocioDeLaPeticion`), que es el unico camino.
+El JWT trae `businessId`
 y `businessIds`. Si el cliente pide un negocio concreto con `x-business-id`, se
 respeta **solo si tiene membresia en el**; si no, 403. Sin cabecera, se usa el
 suyo por defecto.
@@ -334,12 +332,13 @@ trabaja en dos sitios necesita decir en cual esta operando, y sin atender esa
 cabecera solo podria entrar al primero de su lista. Lo que no puede es pedir uno
 que no sea suyo.
 
-**Desde el subdominio** (`TenantService`), para lo que llega sin sesion:
-`{slug}.beautyspot.co` -> se busca `tenant:{slug}` en Redis y, si no esta, se
-pregunta a `GET /internal/businesses/resolve?slug=…` y se cachea **300 segundos**.
-Los subdominios `www` y `api` no cuentan como negocio.
+El resultado sale hacia el servicio como `x-business-id`.
 
-En los dos casos el resultado sale hacia el servicio como `x-business-id`.
+La resolucion **por subdominio** (`{slug}.beautyspot.co`) esta descrita en la
+vision de producto pero no existe en el codigo: el escaparate publico resuelve
+el negocio por su slug en la propia ruta (`/marketplace/business/{slug}`), sin
+necesitar tenant. Habia un `TenantService` en el gateway que nadie llegaba a
+llamar, y se retiro para no dar por hecha una funcionalidad que no corre.
 
 ### 6.3 Filtro obligatorio de businessId
 

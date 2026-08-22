@@ -758,13 +758,13 @@ un perfil recién publicado puede tardar ese minuto en aparecer.
 | POST   | `/:id/respond`                  | OWNER, ADMIN | Responde a una reseña                         |
 | PATCH  | `/:id/respond`                  | OWNER, ADMIN | Reescribe la respuesta                        |
 | DELETE | `/:id/respond`                  | OWNER, ADMIN | Retira la respuesta                           |
+| POST   | `/:id/report`                   | Autenticado  | Denuncia; una por usuario y reseña            |
+| PATCH  | `/:id/moderar`                  | OWNER, ADMIN | Oculta o vuelve a publicar                    |
+| POST   | `/:id/helpful`                  | Autenticado  | Marca como útil; un voto por usuario          |
+| DELETE | `/:id/helpful`                  | Autenticado  | Quita la marca                                |
 
 Los dos listados públicos de reseñas devuelven `{ data, meta }` y sirven una
 proyección sin el cliente que la escribió, la cita ni el recuento de denuncias.
-| POST | `/:id/report` | Autenticado | Denuncia; una por usuario y reseña |
-| PATCH | `/:id/moderar` | OWNER, ADMIN | Oculta o vuelve a publicar |
-| POST | `/:id/helpful` | Autenticado | Marca como útil; un voto por usuario |
-| DELETE | `/:id/helpful` | Autenticado | Quita la marca |
 
 Ocultar una reseña la retira del listado público, pero **sigue contando en la
 media y en el total** del negocio y del profesional. La moderación existe para
@@ -849,7 +849,8 @@ su trabajo cuenta en el periodo.
 
 | Método | Ruta                      | Roles   | Descripción                                      |
 | ------ | ------------------------- | ------- | ------------------------------------------------ |
-| GET    | `/health`                 | PÚBLICA | Estado del gateway y de los 7 servicios          |
+| GET    | `/health`                 | PÚBLICA | Salud del conjunto, sin desglose                 |
+| GET    | `/health/detalle`         | INTERNA | Estado servicio a servicio; exige el secreto     |
 | ALL    | `/api/v1/:service/*splat` | —       | Reenvía al microservicio bajo el circuit breaker |
 
 > La ruta comodín es `:service/*splat`, con el comodín **nombrado**: Express 5
