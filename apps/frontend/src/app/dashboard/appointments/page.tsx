@@ -155,7 +155,12 @@ export default function AppointmentsPage() {
     undefined,
     paginatedSchema(clientSchema)
   );
-  const clients: Client[] = clientsPage?.data ?? [];
+  // Memoizado porque alimenta a clientMap: un array nuevo en cada render
+  // invalida ese useMemo y, con el, la memoizacion de toda la lista.
+  const clients: Client[] = useMemo(
+    () => clientsPage?.data ?? [],
+    [clientsPage]
+  );
 
   const [form, setForm] = useState<FormValues>(emptyForm);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);

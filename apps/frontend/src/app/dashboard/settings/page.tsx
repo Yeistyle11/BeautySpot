@@ -2,6 +2,7 @@
 
 // Pagina de configuracion: pestanas de cuenta, negocio y horarios.
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { mensajeDeError } from "@/lib/error-message";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,13 +22,39 @@ import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { AccountTab } from "./account-tab";
-import { BusinessTab } from "./business-tab";
-import { HoursTab } from "./hours-tab";
-import { FieldsTab, type NuevoCampo } from "./fields-tab";
-import { LoyaltyTab } from "./loyalty-tab";
-import { BillingTab } from "./billing-tab";
-import { SpecialDaysCard } from "./special-days-card";
-import { BookingRulesTab } from "./booking-rules-tab";
+import { type NuevoCampo } from "./fields-tab";
+
+// Solo se ve una pestana a la vez, y varias estan detras de un permiso: cargarlas
+// todas por adelantado hace descargar al usuario codigo que quiza no llegue a ver.
+const cargando = () => <p className="text-muted-foreground p-4">Cargando...</p>;
+
+const BusinessTab = dynamic(
+  () => import("./business-tab").then((m) => m.BusinessTab),
+  { loading: cargando }
+);
+const HoursTab = dynamic(() => import("./hours-tab").then((m) => m.HoursTab), {
+  loading: cargando,
+});
+const FieldsTab = dynamic(
+  () => import("./fields-tab").then((m) => m.FieldsTab),
+  { loading: cargando }
+);
+const LoyaltyTab = dynamic(
+  () => import("./loyalty-tab").then((m) => m.LoyaltyTab),
+  { loading: cargando }
+);
+const BillingTab = dynamic(
+  () => import("./billing-tab").then((m) => m.BillingTab),
+  { loading: cargando }
+);
+const SpecialDaysCard = dynamic(
+  () => import("./special-days-card").then((m) => m.SpecialDaysCard),
+  { loading: cargando }
+);
+const BookingRulesTab = dynamic(
+  () => import("./booking-rules-tab").then((m) => m.BookingRulesTab),
+  { loading: cargando }
+);
 import { FIDELIZACION_KEY, nivelSchema, type Nivel } from "@/lib/niveles";
 import {
   businessDataSchema,

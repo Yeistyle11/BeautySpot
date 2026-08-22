@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 
 export type Theme = "light" | "dark";
 
-const STORAGE_KEY = "ui:v1:theme";
+/** Clave del tema elegido. La usa tambien el script que lo aplica en <head>. */
+export const THEME_STORAGE_KEY = "ui:v1:theme";
 
 function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
@@ -13,7 +14,7 @@ function applyTheme(theme: Theme) {
 /** Tema elegido por el usuario, o claro si aún no ha elegido. */
 export function temaGuardado(): Theme {
   if (typeof window === "undefined") return "light";
-  return localStorage.getItem(STORAGE_KEY) === "dark" ? "dark" : "light";
+  return localStorage.getItem(THEME_STORAGE_KEY) === "dark" ? "dark" : "light";
 }
 
 /**
@@ -42,7 +43,7 @@ export function useTheme() {
   const toggleTheme = useCallback(() => {
     setTheme((current) => {
       const next: Theme = current === "dark" ? "light" : "dark";
-      localStorage.setItem(STORAGE_KEY, next);
+      localStorage.setItem(THEME_STORAGE_KEY, next);
       applyTheme(next);
       return next;
     });
