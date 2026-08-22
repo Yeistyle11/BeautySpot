@@ -1,4 +1,3 @@
-// Desplegable nativo estilizado.
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -7,7 +6,7 @@ export type SelectProps = React.SelectHTMLAttributes<HTMLSelectElement>;
 /**
  * Select nativo con el estilo del sistema. Se mantiene nativo a proposito: en
  * movil abre el selector del sistema operativo y ya trae teclado y lectores de
- * pantalla resueltos. Antes esta misma clase estaba copiada en cada formulario.
+ * pantalla resueltos.
  */
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   ({ className, ...props }, ref) => (

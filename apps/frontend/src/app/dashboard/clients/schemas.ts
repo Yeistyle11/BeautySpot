@@ -1,4 +1,3 @@
-// Esquemas Zod y tipos de la pantalla de clientes.
 import { z } from "zod";
 
 export const clientSchema = z.object({

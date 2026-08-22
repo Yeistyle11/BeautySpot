@@ -53,6 +53,7 @@ const config: Config = {
           soft: "hsl(var(--info-soft))",
           "soft-foreground": "hsl(var(--info-soft-foreground))",
         },
+        rating: "hsl(var(--rating))",
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",

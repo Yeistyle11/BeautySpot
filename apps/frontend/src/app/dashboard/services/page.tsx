@@ -6,6 +6,8 @@ import { mensajeDeError } from "@/lib/error-message";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { CategoryBadge } from "@/components/ui/category-badge";
@@ -180,20 +182,18 @@ export default function ServicesPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Servicios</h1>
-          <p className="text-muted-foreground">
-            Administra los servicios de tu negocio
-          </p>
-        </div>
-        {canDo(role, "services_create") && (
-          <Button onClick={() => setCreateDialog(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo servicio
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Servicios"
+        descripcion="Administra los servicios de tu negocio"
+        accion={
+          canDo(role, "services_create") && (
+            <Button onClick={() => setCreateDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo servicio
+            </Button>
+          )
+        }
+      />
 
       {/*
         Sin taxonomia no hay nada por lo que filtrar, y la pantalla no daba
@@ -266,7 +266,7 @@ export default function ServicesPage() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {loading ? (
-          <p className="text-muted-foreground">Cargando...</p>
+          <LoadingState recurso="los servicios" />
         ) : loadError ? (
           <ErrorDeCarga
             error={loadError}
@@ -282,8 +282,8 @@ export default function ServicesPage() {
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50">
-                      <Scissors className="h-5 w-5 text-purple-600" />
+                    <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
+                      <Scissors className="text-primary h-5 w-5" />
                     </div>
                     <div>
                       <p className="font-semibold">{s.name}</p>
@@ -300,6 +300,7 @@ export default function ServicesPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => openEdit(s)}
+                        aria-label={`Editar el servicio ${s.name}`}
                       >
                         <Edit className="text-muted-foreground h-4 w-4" />
                       </Button>

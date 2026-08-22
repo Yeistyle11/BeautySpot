@@ -2,20 +2,27 @@
 
 // Selector de la sede sobre la que se trabaja, para negocios con varios locales.
 import { MapPin } from "lucide-react";
+import { z } from "zod";
 import { useApi, revalidateAll } from "@/lib/swr";
+import { Select } from "@/components/ui/select";
 import { useAuthStore } from "@/lib/store";
 
-interface Sede {
-  id: string;
-  name: string;
-}
+const sedeSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+const sedesSchema = z.array(sedeSchema);
+
+type Sede = z.infer<typeof sedeSchema>;
 
 /** Cambia la sede activa. Se oculta si el negocio tiene una sola sede. */
 export function BranchSwitcher() {
   const { branchId, role, setSedeActiva } = useAuthStore();
   // El listado de sedes no se pide para el rol CLIENT.
   const { data: sedes } = useApi<Sede[]>(
-    role && role !== "CLIENT" ? "/core/branches" : null
+    role && role !== "CLIENT" ? "/core/branches" : null,
+    undefined,
+    sedesSchema
   );
 
   if (!sedes || sedes.length < 2) return null;
@@ -35,11 +42,11 @@ export function BranchSwitcher() {
         <MapPin className="h-3.5 w-3.5" />
         Sede
       </label>
-      <select
+      <Select
         id="branch-switcher"
         value={branchId ?? ""}
         onChange={(e) => cambiar(e.target.value)}
-        className="border-input bg-background focus:ring-ring h-9 w-full rounded-md border px-2 text-sm focus:outline-none focus:ring-2"
+        className="h-9 px-2"
       >
         <option value="">Todas las sedes</option>
         {sedes.map((s) => (
@@ -47,7 +54,7 @@ export function BranchSwitcher() {
             {s.name}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   );
 }

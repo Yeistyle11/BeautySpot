@@ -463,7 +463,7 @@ function BloqueoPintado({
       style={{ top: arriba, height: alto }}
       title={bloqueo.reason ?? "Agenda bloqueada"}
     >
-      <span className="text-muted-foreground block truncate text-[10px] leading-tight">
+      <span className="text-muted-foreground block truncate text-xs leading-tight">
         {bloqueo.reason || "Bloqueado"}
       </span>
     </div>
@@ -516,7 +516,7 @@ function BloqueCita({
           style={{ top: tramo.arriba, height: tramo.alto }}
         />
       ))}
-      <span className="relative block px-1.5 py-0.5 text-[10px] leading-tight">
+      <span className="relative block px-1.5 py-0.5 text-xs leading-tight">
         <span className="block truncate font-medium">{cliente}</span>
         <span className="block truncate opacity-70">
           {formatTime(appt.startTime)} ·{" "}

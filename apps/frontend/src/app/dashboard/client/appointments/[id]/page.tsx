@@ -112,7 +112,7 @@ export default function AppointmentDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <AlertTriangle className="mb-3 h-12 w-12 text-red-400" />
-        <p className="text-red-600">{error}</p>
+        <p className="text-destructive">{error}</p>
         <Link href="/dashboard/client/appointments">
           <Button variant="outline" className="mt-4 gap-2">
             <ArrowLeft className="h-4 w-4" />

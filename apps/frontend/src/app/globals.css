@@ -25,11 +25,10 @@
     --ring: 262 83% 58%;
     --radius: 0.75rem;
 
-    /* Colores con significado (exito, aviso, informacion). Existen porque el
-       codigo los tenia como clases fijas de Tailwind (bg-green-50,
-       text-amber-600...) repartidas por las paginas, lo que impedia cambiar la
-       paleta en un sitio y rompia el tema oscuro. Cada uno tiene una version
-       plana y otra "soft" para fondos suaves. */
+    /* Colores con significado (exito, aviso, informacion). Cada uno tiene una
+       version plana y otra "soft" para fondos suaves, y ambas cambian con el
+       tema: son la alternativa a fijar bg-green-50 o text-amber-600 en la
+       pagina, que no responden al modo oscuro. */
     --success: 142 71% 29%;
     --success-foreground: 0 0% 100%;
     --success-soft: 141 79% 95%;
@@ -44,6 +43,10 @@
     --info-foreground: 0 0% 100%;
     --info-soft: 214 95% 95%;
     --info-soft-foreground: 224 64% 33%;
+
+    /* Estrella de valoracion. Es su propio token porque no significa aviso:
+       las paginas lo tenian como amber-400 en unas y yellow-400 en otras. */
+    --rating: 43 96% 50%;
 
     color-scheme: light;
   }
@@ -89,6 +92,8 @@
     --info-foreground: 224 64% 12%;
     --info-soft: 222 47% 20%;
     --info-soft-foreground: 214 95% 88%;
+
+    --rating: 43 96% 58%;
   }
 }
 

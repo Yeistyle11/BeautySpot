@@ -538,7 +538,7 @@ export default function CashRegisterPage() {
               className={
                 diferenciaCierre < 0
                   ? "rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"
-                  : "rounded-lg bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                  : "bg-warning-soft text-warning-soft-foreground rounded-lg p-3 text-sm"
               }
             >
               {diferenciaCierre < 0 ? "Faltan " : "Sobran "}

@@ -52,8 +52,11 @@ export function toLocalDateKey(date: Date): string {
 }
 
 /**
- * Indica si una cita ("YYYY-MM-DD" + "HH:MM") ya ha empezado, comparando
- * ambos formatos como texto.
+ * Indica si una cita ("YYYY-MM-DD" + "HH:MM") ya ha empezado.
+ *
+ * Compara las cadenas tal cual, lo que solo funciona con ese formato exacto y
+ * con las horas rellenadas a dos digitos; una hora "9:00" se ordenaria despues
+ * de "10:00". Ambos lados se toman en hora local, sin zona horaria.
  */
 export function haComenzado(date: string, startTime: string): boolean {
   const ahora = new Date();

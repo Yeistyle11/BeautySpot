@@ -1,7 +1,7 @@
 "use client";
 
 // Flujo de reserva publica: asistente por pasos (servicios, profesional, horario y datos) hasta confirmar la cita.
-import { useEffect, useRef, useState, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { mensajeDeError } from "@/lib/error-message";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -10,6 +10,7 @@ import { z } from "zod";
 import { apiPublic } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { useApiPublic, revalidatePrefix } from "@/lib/swr";
+import { useSeededForm } from "@/lib/use-seeded-form";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import {
   availabilitySlotSchema,
@@ -86,7 +87,12 @@ function PublicBookingPageInner() {
   const [selectedProfessional, setSelectedProfessional] =
     useState(preselectedProfId);
   const [date, setDate] = useState("");
-  const [startTime, setStartTime] = useState("");
+  // La hora se guarda junto a la combinacion con la que se eligio, para poder
+  // derivar si sigue valiendo en vez de tener que borrarla desde un efecto.
+  const [horaElegida, setHoraElegida] = useState({
+    combinacion: "",
+    startTime: "",
+  });
   const [guest, setGuest] = useState<GuestDetails>({
     name: "",
     email: "",
@@ -124,23 +130,21 @@ function PublicBookingPageInner() {
     .filter((s) => s.available)
     .map((s) => s.startTime);
 
-  // Cambiar de fecha, profesional o servicios invalida la hora ya elegida.
-  useEffect(() => {
-    setStartTime("");
-  }, [date, selectedProfessional, totalDuration]);
+  // Cambiar de fecha, profesional o servicios invalida la hora ya elegida: el
+  // hueco de las 10:00 del martes no existe necesariamente el miercoles.
+  const combinacionDeHora = `${date}|${selectedProfessional}|${totalDuration}`;
+  const startTime =
+    horaElegida.combinacion === combinacionDeHora ? horaElegida.startTime : "";
+  const setStartTime = (valor: string) =>
+    setHoraElegida({ combinacion: combinacionDeHora, startTime: valor });
 
-  // Los datos del usuario se copian al formulario una sola vez: si el store se
-  // rehidrata mas tarde, no debe pisar lo que ya haya corregido a mano.
-  const datosSembrados = useRef(false);
-  useEffect(() => {
-    if (!isAuthenticated || !user || datosSembrados.current) return;
-    datosSembrados.current = true;
+  useSeededForm(isAuthenticated ? user : null, (u) =>
     setGuest({
-      name: user.name || "",
-      email: user.email || "",
-      phone: user.phone || "",
-    });
-  }, [isAuthenticated, user]);
+      name: u.name || "",
+      email: u.email || "",
+      phone: u.phone || "",
+    })
+  );
 
   const toggleService = (id: string) => {
     setSelectedServices((prev) =>

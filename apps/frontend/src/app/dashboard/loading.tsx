@@ -1,5 +1,4 @@
 import { Spinner } from "@/components/ui/spinner";
-// Estado de carga (spinner) de las paginas del dashboard.
 export default function DashboardLoading() {
   return (
     <div className="flex h-64 items-center justify-center">

@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
@@ -61,15 +62,14 @@ export function Sidebar() {
   const router = useRouter();
   const { user, role } = useAuthStore();
   const cerrarSesion = useLogout();
-  const [open, setOpen] = useState(false);
+  // El panel movil se guarda junto a la ruta en que se abrio. Navegar cambia la
+  // ruta y con eso deja de estar abierto, sin importar desde donde se navegue:
+  // si no, tapa la pagina recien abierta y obliga a cerrarlo a mano.
+  const [panel, setPanel] = useState({ abierto: false, ruta: pathname });
+  const open = panel.abierto && panel.ruta === pathname;
+  const setOpen = (abierto: boolean) => setPanel({ abierto, ruta: pathname });
 
   const pages = getPagesForRole(role);
-
-  // Navegar debe cerrar el panel en movil; si no, tapa la pagina recien
-  // abierta y obliga a cerrarlo a mano.
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
 
   const handleLogout = async () => {
     await cerrarSesion();
@@ -116,9 +116,7 @@ export function Sidebar() {
           </div>
           <div className="flex-1">
             <p className="text-sm font-bold">BeautySpot</p>
-            <p className="text-muted-foreground text-[10px]">
-              Panel de gestión
-            </p>
+            <p className="text-muted-foreground text-xs">Panel de gestión</p>
           </div>
           <button
             onClick={() => setOpen(false)}
@@ -142,9 +140,9 @@ export function Sidebar() {
                 : pathname.startsWith(page.path);
             const Icon = ICON_MAP[page.icon] || LayoutDashboard;
             return (
-              <button
+              <Link
                 key={page.path}
-                onClick={() => router.push(page.path)}
+                href={page.path}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "focus-visible:ring-ring flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2",
@@ -155,7 +153,7 @@ export function Sidebar() {
               >
                 <Icon className="h-4 w-4" />
                 {page.label}
-              </button>
+              </Link>
             );
           })}
         </nav>
@@ -169,7 +167,7 @@ export function Sidebar() {
               <p className="truncate text-sm font-medium">
                 {user?.name || "Usuario"}
               </p>
-              <p className="text-muted-foreground truncate text-[11px]">
+              <p className="text-muted-foreground truncate text-xs">
                 {role || ""}
               </p>
             </div>

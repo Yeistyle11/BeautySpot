@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 /** Alterna entre tema claro y oscuro y recuerda la eleccion. */
 export function ThemeToggle({ className }: { className?: string }) {
-  const { theme, toggleTheme, mounted } = useTheme();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <button
@@ -19,9 +19,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         theme === "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro"
       }
     >
-      {/* Hasta montar no se sabe el tema guardado; se muestra el sol por
-          defecto para no provocar un salto visual al hidratar. */}
-      {mounted && theme === "dark" ? (
+      {theme === "dark" ? (
         <Sun className="h-4 w-4" />
       ) : (
         <Moon className="h-4 w-4" />

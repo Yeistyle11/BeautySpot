@@ -5,7 +5,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import {
   Card,
   CardContent,
@@ -165,9 +165,12 @@ function ResetPasswordInner() {
                     {error}
                   </p>
                 )}
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Guardando..." : "Cambiar contraseña"}
-                </Button>
+                <SubmitButton
+                  className="w-full"
+                  label="Cambiar contraseña"
+                  pendingLabel="Guardando..."
+                  pending={loading}
+                />
               </form>
             )}
           </CardContent>

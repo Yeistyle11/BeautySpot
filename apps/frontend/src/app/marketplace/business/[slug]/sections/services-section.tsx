@@ -1,5 +1,3 @@
-"use client";
-
 // Seccion de servicios del perfil publico: que ofrece el negocio, a que precio
 // y cuanto dura, con enlace directo a reservarlo.
 import Link from "next/link";

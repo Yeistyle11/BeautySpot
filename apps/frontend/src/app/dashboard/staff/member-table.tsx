@@ -12,6 +12,7 @@ import {
   ROLE_COLORS,
   ROLE_LABELS,
   type SortField,
+  type SortDir,
   type StaffMember,
 } from "./schemas";
 
@@ -65,6 +66,7 @@ interface MemberTableProps {
   dotColor: string;
   role: Role | null;
   sortField: SortField;
+  sortDir: SortDir;
   onToggleSort: (field: SortField) => void;
   onEdit: (member: StaffMember) => void;
   onRequestToggle: (id: string) => void;
@@ -78,6 +80,7 @@ export function MemberTable({
   dotColor,
   role,
   sortField,
+  sortDir,
   onToggleSort,
   onEdit,
   onRequestToggle,
@@ -112,11 +115,20 @@ export function MemberTable({
                   <th
                     key={col.label}
                     scope="col"
+                    // Sin aria-sort la flecha solo existe para quien la ve: el
+                    // lector de pantalla nombra la columna y nada mas.
+                    aria-sort={
+                      col.field && col.field === sortField
+                        ? sortDir === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : undefined
+                    }
                     className={`px-4 py-3 text-left font-medium ${col.hiddenOnMobile ? "hidden md:table-cell" : ""}`}
                   >
                     {col.field ? (
                       <button
-                        className="hover:text-foreground flex items-center transition-colors"
+                        className="hover:text-foreground focus-visible:ring-ring flex items-center rounded transition-colors focus-visible:outline-none focus-visible:ring-2"
                         onClick={() => onToggleSort(col.field!)}
                       >
                         {col.label}{" "}

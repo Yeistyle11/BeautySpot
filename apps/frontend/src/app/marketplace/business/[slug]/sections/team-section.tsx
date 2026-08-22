@@ -1,5 +1,3 @@
-"use client";
-
 // Seccion de equipo del perfil publico, con enlace a reservar con cada profesional.
 import Image from "next/image";
 import Link from "next/link";
@@ -68,7 +66,7 @@ export function TeamSection({
                     )}
                     {Number(p.rating) > 0 && (
                       <span className="flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                        <Star className="fill-rating text-rating h-3 w-3" />
                         {Number(p.rating).toFixed(1)}
                       </span>
                     )}

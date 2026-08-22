@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { canDo } from "@/lib/permissions";
-import type { Role } from "@/lib/store";
+import { useAuthStore } from "@/lib/store";
 import type { Facturacion } from "./schemas";
 
 interface BillingTabProps {
@@ -15,7 +15,6 @@ interface BillingTabProps {
   onChange: (facturacion: Facturacion) => void;
   onSave: () => void;
   saving: boolean;
-  role: Role | null;
 }
 
 /** Datos fiscales del negocio, con los que se emiten sus facturas. */
@@ -24,8 +23,8 @@ export function BillingTab({
   onChange,
   onSave,
   saving,
-  role,
 }: BillingTabProps) {
+  const { role } = useAuthStore();
   const puedeEditar = canDo(role, "business_edit");
   const set = (cambios: Partial<Facturacion>) =>
     onChange({ ...facturacion, ...cambios });

@@ -2,7 +2,7 @@
 
 // Resena de una cita completada: calificacion y comentario del cliente.
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/swr";
+import { useSeededForm } from "@/lib/use-seeded-form";
 import { logger } from "@/lib/logger";
 import { mensajeDeError } from "@/lib/error-message";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
@@ -79,7 +80,7 @@ function StarRating({
             className={cn(
               "h-8 w-8 transition-colors",
               (hovered || value) >= star
-                ? "fill-amber-400 text-amber-400"
+                ? "fill-rating text-rating"
                 : "text-muted-foreground/40 fill-none"
             )}
           />
@@ -124,23 +125,17 @@ export default function ReviewPage() {
   const [submitting, setSubmitting] = useState(false);
   const [borrando, setBorrando] = useState(false);
   const [success, setSuccess] = useState(false);
-  // La resena llega despues del primer render: se vuelca una sola vez para no
-  // pisar lo que el usuario ya esté escribiendo.
-  const volcada = useRef(false);
-
-  useEffect(() => {
-    if (!existente || volcada.current) return;
-    volcada.current = true;
-    setRating(existente.rating);
-    setComment(existente.comment ?? "");
-    const fotos = existente.photos ?? [];
+  const permitirNuevaSiembra = useSeededForm(existente, (resena) => {
+    setRating(resena.rating);
+    setComment(resena.comment ?? "");
+    const fotos = resena.photos ?? [];
     setPhotos(
       fotos.length > 0
         ? fotos.map((url, i) => ({ id: i, url }))
         : [{ id: 0, url: "" }]
     );
     siguienteIdFoto.current = Math.max(fotos.length, 1);
-  }, [existente]);
+  });
 
   // Una calificacion baja obliga a explicarla: sin motivo, el negocio no puede
   // hacer nada con la resena.
@@ -220,7 +215,7 @@ export default function ReviewPage() {
     try {
       await api.delete(`/marketplace/reviews/${existente.id}`);
       await recargarResena();
-      volcada.current = false;
+      permitirNuevaSiembra();
       setRating(0);
       setComment("");
       setPhotos([{ id: 0, url: "" }]);
@@ -243,7 +238,7 @@ export default function ReviewPage() {
   if (!appointment && loadError) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-red-600">Error al cargar la cita</p>
+        <p className="text-destructive">Error al cargar la cita</p>
         <Link href="/dashboard/client/appointments">
           <Button variant="outline" className="mt-4 gap-2">
             <ArrowLeft className="h-4 w-4" />
@@ -259,7 +254,7 @@ export default function ReviewPage() {
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <CheckCircle className="mb-4 h-16 w-16 text-emerald-500" />
+        <CheckCircle className="text-success mb-4 h-16 w-16" />
         <h2 className="text-xl font-bold">
           {existente ? "Reseña actualizada" : "Reseña publicada"}
         </h2>

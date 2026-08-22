@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { HoraDeCierre } from "@/components/ui/hora-de-cierre";
 import { canDo } from "@/lib/permissions";
-import type { Role } from "@/lib/store";
+import { useAuthStore } from "@/lib/store";
 import { DAYS, type BusinessHour } from "./schemas";
 
 interface HoursTabProps {
@@ -20,17 +20,11 @@ interface HoursTabProps {
   ) => void;
   onSave: () => void;
   saving: boolean;
-  role: Role | null;
 }
 
 /** Horario de apertura del negocio, dia a dia. */
-export function HoursTab({
-  hours,
-  onUpdate,
-  onSave,
-  saving,
-  role,
-}: HoursTabProps) {
+export function HoursTab({ hours, onUpdate, onSave, saving }: HoursTabProps) {
+  const { role } = useAuthStore();
   return (
     <Card className="border-0 shadow-sm">
       <CardHeader>

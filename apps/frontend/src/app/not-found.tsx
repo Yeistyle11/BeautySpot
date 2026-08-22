@@ -1,4 +1,3 @@
-// Pagina 404 de la aplicacion.
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { SearchX } from "lucide-react";

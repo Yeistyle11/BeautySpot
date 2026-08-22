@@ -1,8 +1,6 @@
 // Esquemas Zod y tipos de la configuracion (cuenta, negocio y horarios).
 import { z } from "zod";
 
-// Los campos opcionales admiten null o ausencia.
-
 export const businessDataSchema = z.object({
   id: z.string(),
   name: z.string(),

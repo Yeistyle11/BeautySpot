@@ -20,9 +20,8 @@ interface ProfessionalFormDialogProps {
 }
 
 /**
- * Formulario de alta y edicion de un profesional. Es el mismo en los dos casos
- * (antes estaba duplicado campo por campo en dos modales distintos), asi que
- * solo cambian el titulo y la etiqueta del boton.
+ * Formulario de alta y edicion de un profesional: los campos son los mismos en
+ * los dos casos, solo cambian el titulo y la etiqueta del boton.
  */
 export function ProfessionalFormDialog({
   open,

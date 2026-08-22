@@ -8,7 +8,8 @@ export const AUTH_COOKIE_NAME = "bs_access";
 /** Cookie legible con datos no sensibles de la sesión: rol, negocio y caducidad. */
 export const SESSION_HINT_COOKIE = "bs_session";
 
-const ROLES = [
+/** Catalogo de roles del sistema, compartido por los schemas que lo validan. */
+export const ROLES = [
   "SUPER_ADMIN",
   "OWNER",
   "ADMIN",

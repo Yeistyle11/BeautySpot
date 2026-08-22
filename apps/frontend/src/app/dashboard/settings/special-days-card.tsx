@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { HoraDeCierre } from "@/components/ui/hora-de-cierre";
 import { formatDate } from "@/lib/utils";
 import { canDo } from "@/lib/permissions";
-import type { Role } from "@/lib/store";
+import { useAuthStore } from "@/lib/store";
 import {
   nuevoDiaEspecial,
   type DiaEspecial,
@@ -24,7 +24,6 @@ interface SpecialDaysCardProps {
   onCreate: (dia: NuevoDiaEspecial) => Promise<void>;
   onRemove: (id: string) => void;
   saving: boolean;
-  role: Role | null;
 }
 
 /** Como se lee en la lista lo que pasa ese dia. */
@@ -39,8 +38,8 @@ export function SpecialDaysCard({
   onCreate,
   onRemove,
   saving,
-  role,
 }: SpecialDaysCardProps) {
+  const { role } = useAuthStore();
   const puedeEditar = canDo(role, "business_hours_edit");
   const [form, setForm] = useState<NuevoDiaEspecial>(nuevoDiaEspecial);
   const set = (cambios: Partial<NuevoDiaEspecial>) =>

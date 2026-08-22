@@ -1,5 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { SpecialDaysCard } from "../special-days-card";
+import { useAuthStore } from "@/lib/store";
+
+// La tarjeta lee el rol del store para decidir si deja editar.
+beforeEach(() => {
+  useAuthStore.setState({ role: "OWNER" });
+});
 import type { DiaEspecial } from "../schemas";
 
 const FESTIVO: DiaEspecial = {
@@ -30,7 +36,6 @@ function pintar(dias: DiaEspecial[], props = {}) {
       onCreate={jest.fn()}
       onRemove={jest.fn()}
       saving={false}
-      role="OWNER"
       {...props}
     />
   );
@@ -108,7 +113,8 @@ describe("SpecialDaysCard", () => {
   });
 
   it("a quien no puede editar le deja mirar, no tocar", () => {
-    pintar([FESTIVO], { role: "RECEPTIONIST" });
+    useAuthStore.setState({ role: "RECEPTIONIST" });
+    pintar([FESTIVO]);
 
     expect(screen.getByText("20 de julio")).toBeInTheDocument();
     expect(

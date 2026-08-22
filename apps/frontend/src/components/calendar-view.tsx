@@ -65,8 +65,8 @@ export function CalendarView({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedAppt = appointments.find((a) => a.id === selectedId) ?? null;
 
-  // La semana visible depende solo del offset; se recalcula al navegar, no en
-  // cada render (antes la referencia era un `new Date()` nuevo cada vez).
+  // La semana visible depende solo del offset, asi que se recalcula al navegar
+  // y no en cada render.
   const weekDates = useMemo(() => {
     const reference = new Date();
     reference.setDate(reference.getDate() + weekOffset * 7);
@@ -175,7 +175,7 @@ export function CalendarView({
                             )
                           }
                           aria-pressed={selectedId === appt.id}
-                          className={`w-full cursor-pointer rounded border px-1.5 py-0.5 text-left text-[10px] ${colorClass} ${selectedId === appt.id ? "ring-primary ring-2" : ""}`}
+                          className={`w-full cursor-pointer rounded border px-1.5 py-0.5 text-left text-xs ${colorClass} ${selectedId === appt.id ? "ring-primary ring-2" : ""}`}
                         >
                           <p className="truncate font-medium">
                             {clientNames[appt.clientId] || "Cliente"}

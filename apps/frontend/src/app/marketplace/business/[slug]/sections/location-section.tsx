@@ -1,5 +1,3 @@
-"use client";
-
 // Seccion de ubicacion del perfil publico, con enlace al mapa.
 import { ExternalLink, MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";

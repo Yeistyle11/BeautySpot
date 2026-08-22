@@ -150,7 +150,7 @@ describe("MetricRow", () => {
       />
     );
 
-    expect(screen.getByText("+100%")).toHaveClass("text-red-600");
+    expect(screen.getByText("+100%")).toHaveClass("text-destructive");
   });
 
   it("no inventa una variación cuando antes no había nada", () => {

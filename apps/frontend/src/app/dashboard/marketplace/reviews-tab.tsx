@@ -18,7 +18,7 @@ function RatingStars({ rating }: { rating: number }) {
         <Star
           key={star}
           aria-hidden="true"
-          className={`h-4 w-4 ${star <= rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
+          className={`h-4 w-4 ${star <= rating ? "fill-rating text-rating" : "text-muted-foreground/30"}`}
         />
       ))}
     </div>

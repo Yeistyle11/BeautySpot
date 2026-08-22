@@ -2,7 +2,7 @@
 
 // Reprogramacion de una cita: seleccion de nueva fecha y horario disponibles.
 
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,7 +53,12 @@ export default function ReschedulePage() {
   const [error, setError] = useState<string | null>(null);
 
   const [selectedDate, setSelectedDate] = useState<string>("");
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  // El hueco se guarda junto a la combinacion con la que se eligio, para poder
+  // derivar si sigue valiendo en vez de tener que borrarlo desde un efecto.
+  const [huecoElegido, setHuecoElegido] = useState<{
+    combinacion: string;
+    startTime: string;
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -74,9 +79,13 @@ export default function ReschedulePage() {
   >(slotsKey, undefined, z.array(availabilitySlotSchema));
   const slots = rawSlots ?? [];
 
-  useEffect(() => {
-    setSelectedSlot(null);
-  }, [selectedDate, appointment?.professionalId, totalDuration]);
+  // Cambiar de fecha, de profesional o de servicios invalida lo ya elegido: el
+  // hueco de las 10:00 del martes no existe necesariamente el miercoles.
+  const combinacionDeHueco = `${selectedDate}|${appointment?.professionalId ?? ""}|${totalDuration}`;
+  const selectedSlot =
+    huecoElegido?.combinacion === combinacionDeHueco
+      ? huecoElegido.startTime
+      : null;
 
   const today = toLocalDateKey(new Date());
 
@@ -113,7 +122,7 @@ export default function ReschedulePage() {
   if (!appointment && loadError) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-red-600">Error al cargar la cita</p>
+        <p className="text-destructive">Error al cargar la cita</p>
         <Link href="/dashboard/client/appointments">
           <Button variant="outline" className="mt-4 gap-2">
             <ArrowLeft className="h-4 w-4" />
@@ -129,7 +138,7 @@ export default function ReschedulePage() {
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <CheckCircle className="mb-4 h-16 w-16 text-emerald-500" />
+        <CheckCircle className="text-success mb-4 h-16 w-16" />
         <h2 className="text-xl font-bold">Cita reagendada</h2>
         <p className="text-muted-foreground mt-2">
           Tu cita ha sido reagendada exitosamente
@@ -252,7 +261,12 @@ export default function ReschedulePage() {
                     {availableSlots.map((slot) => (
                       <button
                         key={slot.startTime}
-                        onClick={() => setSelectedSlot(slot.startTime)}
+                        onClick={() =>
+                          setHuecoElegido({
+                            combinacion: combinacionDeHueco,
+                            startTime: slot.startTime,
+                          })
+                        }
                         className={cn(
                           "rounded-lg border-2 px-3 py-3 text-center text-sm font-medium transition-all",
                           selectedSlot === slot.startTime

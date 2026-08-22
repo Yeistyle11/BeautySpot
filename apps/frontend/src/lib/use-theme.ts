@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
+import { THEME_STORAGE_KEY } from "./tema-inicial";
 
 export type Theme = "light" | "dark";
 
-const STORAGE_KEY = "ui:v1:theme";
+export { THEME_STORAGE_KEY } from "./tema-inicial";
 
 function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
@@ -13,17 +14,32 @@ function applyTheme(theme: Theme) {
 /** Tema elegido por el usuario, o claro si aún no ha elegido. */
 export function temaGuardado(): Theme {
   if (typeof window === "undefined") return "light";
-  return localStorage.getItem(STORAGE_KEY) === "dark" ? "dark" : "light";
+  return localStorage.getItem(THEME_STORAGE_KEY) === "dark" ? "dark" : "light";
 }
 
-/**
- * Aplica el tema guardado. Vive aparte del hook porque lo llama la raíz de la
- * aplicación, que es lo único por lo que pasan todas las páginas.
- */
-export function aplicarTemaGuardado(): Theme {
-  const tema = temaGuardado();
-  applyTheme(tema);
-  return tema;
+// El tema no vive en React: lo guarda localStorage y lo aplica el script que
+// corre en <head> antes del primer pintado. Estos oyentes son lo que permite
+// leerlo con useSyncExternalStore, que ya sabe distinguir el valor del servidor
+// del del navegador y no necesita un efecto que lo copie despues de montar.
+const oyentes = new Set<() => void>();
+
+function avisarDelCambio() {
+  oyentes.forEach((oyente) => oyente());
+}
+
+function suscribirseAlTema(oyente: () => void): () => void {
+  oyentes.add(oyente);
+  // Otra pestaña del mismo usuario tambien puede cambiarlo.
+  window.addEventListener("storage", oyente);
+  return () => {
+    oyentes.delete(oyente);
+    window.removeEventListener("storage", oyente);
+  };
+}
+
+/** En el servidor no hay eleccion que leer: se pinta el tema claro. */
+function temaEnElServidor(): Theme {
+  return "light";
 }
 
 /**
@@ -31,23 +47,18 @@ export function aplicarTemaGuardado(): Theme {
  * sólo pasa a oscuro si el usuario lo pide; su elección queda guardada.
  */
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>("light");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setTheme(aplicarTemaGuardado());
-    setMounted(true);
-  }, []);
+  const theme = useSyncExternalStore(
+    suscribirseAlTema,
+    temaGuardado,
+    temaEnElServidor
+  );
 
   const toggleTheme = useCallback(() => {
-    setTheme((current) => {
-      const next: Theme = current === "dark" ? "light" : "dark";
-      localStorage.setItem(STORAGE_KEY, next);
-      applyTheme(next);
-      return next;
-    });
+    const next: Theme = temaGuardado() === "dark" ? "light" : "dark";
+    localStorage.setItem(THEME_STORAGE_KEY, next);
+    applyTheme(next);
+    avisarDelCambio();
   }, []);
 
-  // `mounted` indica que ya se ha leído el tema guardado.
-  return { theme, toggleTheme, mounted };
+  return { theme, toggleTheme };
 }

@@ -72,14 +72,16 @@ function destino(respuesta: Response): string | null {
 }
 
 describe("middleware", () => {
-  it("deja pasar al panel con la sesion vigente", () => {
-    const res = middleware(peticion("/dashboard", { bs_access: vigente }));
+  it("deja pasar al panel con la sesion vigente", async () => {
+    const res = await middleware(
+      peticion("/dashboard", { bs_access: vigente })
+    );
 
     expect(destino(res)).toBeNull();
   });
 
-  it("manda al login sin sesion, recordando a donde iba", () => {
-    const res = middleware(peticion("/dashboard/payments", {}));
+  it("manda al login sin sesion, recordando a donde iba", async () => {
+    const res = await middleware(peticion("/dashboard/payments", {}));
 
     expect(destino(res)).toBe("/login?next=%2Fdashboard%2Fpayments");
   });
@@ -88,21 +90,23 @@ describe("middleware", () => {
   // canjea—, asi que el testigo de que la sesion aun se puede renovar es la
   // pista. Expulsar al caducar el access tiraba al usuario a mitad de un flujo
   // teniendo con que seguir.
-  it("deja pasar con el access caducado si la sesion aun puede renovarse", () => {
-    const res = middleware(
+  it("deja pasar con el access caducado si la sesion aun puede renovarse", async () => {
+    const res = await middleware(
       peticion("/dashboard", { bs_access: caducado, bs_session: pista })
     );
 
     expect(destino(res)).toBeNull();
   });
 
-  it("manda al login si el access caduco y no queda pista de sesion", () => {
-    const res = middleware(peticion("/dashboard", { bs_access: caducado }));
+  it("manda al login si el access caduco y no queda pista de sesion", async () => {
+    const res = await middleware(
+      peticion("/dashboard", { bs_access: caducado })
+    );
 
     expect(destino(res)).toBe("/login?next=%2Fdashboard");
   });
 
-  it("saca del panel al rol que no puede ver la seccion", () => {
+  it("saca del panel al rol que no puede ver la seccion", async () => {
     const cliente = token({
       sub: "user-2",
       email: "cliente@ejemplo.com",
@@ -111,39 +115,39 @@ describe("middleware", () => {
       iat: AHORA,
     });
 
-    const res = middleware(
+    const res = await middleware(
       peticion("/dashboard/payments", { bs_access: cliente })
     );
 
     expect(destino(res)).toBe("/dashboard/client");
   });
 
-  it("no devuelve al login a quien ya tiene sesion", () => {
-    const res = middleware(peticion("/login", { bs_access: vigente }));
+  it("no devuelve al login a quien ya tiene sesion", async () => {
+    const res = await middleware(peticion("/login", { bs_access: vigente }));
 
     expect(destino(res)).toBe("/dashboard");
   });
 
-  it("deja ver el login a quien no la tiene", () => {
-    const res = middleware(peticion("/login", {}));
+  it("deja ver el login a quien no la tiene", async () => {
+    const res = await middleware(peticion("/login", {}));
 
     expect(destino(res)).toBeNull();
   });
 
-  it("tampoco devuelve al registro a quien ya tiene sesion", () => {
-    const res = middleware(peticion("/registro", { bs_access: vigente }));
+  it("tampoco devuelve al registro a quien ya tiene sesion", async () => {
+    const res = await middleware(peticion("/registro", { bs_access: vigente }));
 
     expect(destino(res)).toBe("/dashboard");
   });
 
-  it("deja ver el registro a quien no la tiene", () => {
-    const res = middleware(peticion("/registro", {}));
+  it("deja ver el registro a quien no la tiene", async () => {
+    const res = await middleware(peticion("/registro", {}));
 
     expect(destino(res)).toBeNull();
   });
 
-  it("ignora un token que no se puede decodificar", () => {
-    const res = middleware(
+  it("ignora un token que no se puede decodificar", async () => {
+    const res = await middleware(
       peticion("/dashboard", { bs_access: "esto-no-es-un-jwt" })
     );
 

@@ -31,7 +31,6 @@ describe("useTheme", () => {
     const { result } = renderHook(() => useTheme());
 
     expect(result.current.theme).toBe("dark");
-    expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 
   it("guarda la elección al conmutar", () => {

@@ -1,6 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { useAuthStore } from "@/lib/store";
 import { BillingTab } from "../billing-tab";
 import { BookingRulesTab } from "../booking-rules-tab";
+
+// Las pestanas leen el rol del store para decidir si dejan editar.
+beforeEach(() => {
+  useAuthStore.setState({ role: "OWNER" });
+});
 
 describe("BillingTab", () => {
   it("pinta los datos fiscales guardados", () => {
@@ -10,7 +16,6 @@ describe("BillingTab", () => {
         onChange={jest.fn()}
         onSave={jest.fn()}
         saving={false}
-        role="OWNER"
       />
     );
 
@@ -27,7 +32,6 @@ describe("BillingTab", () => {
         onChange={onChange}
         onSave={onSave}
         saving={false}
-        role="OWNER"
       />
     );
 
@@ -43,13 +47,13 @@ describe("BillingTab", () => {
   });
 
   it("a quien no puede editar le deja mirar, no escribir", () => {
+    useAuthStore.setState({ role: "RECEPTIONIST" });
     render(
       <BillingTab
         facturacion={{ nit: "900.123.456-7" }}
         onChange={jest.fn()}
         onSave={jest.fn()}
         saving={false}
-        role="RECEPTIONIST"
       />
     );
 
@@ -68,7 +72,6 @@ describe("BookingRulesTab", () => {
         onChange={jest.fn()}
         onSave={jest.fn()}
         saving={false}
-        role="OWNER"
       />
     );
 
@@ -83,7 +86,6 @@ describe("BookingRulesTab", () => {
         onChange={onChange}
         onSave={jest.fn()}
         saving={false}
-        role="OWNER"
       />
     );
 

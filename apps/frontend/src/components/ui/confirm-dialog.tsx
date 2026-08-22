@@ -24,8 +24,7 @@ interface ConfirmDialogProps {
 
 /**
  * Dialogo de confirmacion para acciones puntuales (desactivar, eliminar,
- * cerrar caja). Antes cada pagina repetia este mismo bloque de markup con
- * pequenas variaciones de texto y de estilo del boton.
+ * cerrar caja): titulo, explicacion y un boton que puede ir en rojo.
  */
 export function ConfirmDialog({
   open,

@@ -2,12 +2,18 @@
 
 // Seccion de galeria del perfil publico de un negocio.
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { Camera } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { imageUnoptimized } from "@/lib/image";
 import type { GalleryImage } from "../schemas";
-import { GalleryLightbox } from "./gallery-lightbox";
+
+// El visor solo hace falta al abrir una foto, asi que no viaja en la carga
+// inicial del perfil publico.
+const GalleryLightbox = dynamic(() =>
+  import("./gallery-lightbox").then((m) => m.GalleryLightbox)
+);
 
 /**
  * Rejilla de fotos del negocio. Es dueña del visor a pantalla completa, asi que
@@ -93,13 +99,15 @@ export function GallerySection({
         </div>
       )}
 
-      <GalleryLightbox
-        images={images}
-        index={indice}
-        onIndexChange={setIndice}
-        open={visorAbierto}
-        onClose={() => setVisorAbierto(false)}
-      />
+      {visorAbierto && (
+        <GalleryLightbox
+          images={images}
+          index={indice}
+          onIndexChange={setIndice}
+          open={visorAbierto}
+          onClose={() => setVisorAbierto(false)}
+        />
+      )}
     </section>
   );
 }

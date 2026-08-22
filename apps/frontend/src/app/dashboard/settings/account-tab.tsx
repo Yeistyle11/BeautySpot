@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { canDo } from "@/lib/permissions";
-import type { Role } from "@/lib/store";
+import { useAuthStore } from "@/lib/store";
 import type { Feedback } from "./schemas";
 
 interface AccountTabProps {
@@ -25,7 +25,6 @@ interface AccountTabProps {
   onChangePassword: () => void;
   savingPassword: boolean;
   passwordFeedback: Feedback | null;
-  role: Role | null;
 }
 
 /** Datos personales y cambio de contrasena del usuario que ha iniciado sesion. */
@@ -40,8 +39,8 @@ export function AccountTab({
   onChangePassword,
   savingPassword,
   passwordFeedback,
-  role,
 }: AccountTabProps) {
+  const { role } = useAuthStore();
   const canSave = canDo(role, "settings_edit");
 
   return (

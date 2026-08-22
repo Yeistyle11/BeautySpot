@@ -63,7 +63,7 @@ function Variacion({
           ? "text-muted-foreground"
           : mejora
             ? "text-success"
-            : "text-red-600"
+            : "text-destructive"
       )}
       title="Frente al periodo anterior"
     >

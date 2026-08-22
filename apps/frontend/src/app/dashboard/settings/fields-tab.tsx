@@ -4,13 +4,14 @@
 import { useState } from "react";
 import { Loader2, Plus, Trash2, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { canDo } from "@/lib/permissions";
-import type { Role } from "@/lib/store";
+import { useAuthStore } from "@/lib/store";
 import {
   TIPOS_DE_CAMPO,
   type CampoDeFicha,
@@ -40,7 +41,6 @@ interface FieldsTabProps {
   onCreate: (campo: NuevoCampo) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
   saving: boolean;
-  role: Role | null;
 }
 
 /** Nombre legible del tipo de un campo. */
@@ -58,8 +58,8 @@ export function FieldsTab({
   onCreate,
   onRemove,
   saving,
-  role,
 }: FieldsTabProps) {
+  const { role } = useAuthStore();
   const [nuevo, setNuevo] = useState<NuevoCampo>(campoVacio);
   const puedeEditar = canDo(role, "business_edit");
 
@@ -155,8 +155,7 @@ export function FieldsTab({
             </Field>
 
             <Field label="Tipo">
-              <select
-                className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+              <Select
                 value={nuevo.tipo}
                 onChange={(e) =>
                   setNuevo({
@@ -170,7 +169,7 @@ export function FieldsTab({
                     {t.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
 
             {nuevo.tipo === "opciones" && (

@@ -3,6 +3,7 @@
 // Dialogo para editar un miembro: datos, rol, estado y vinculo con un profesional.
 import { Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Field } from "@/components/ui/field";
@@ -168,7 +169,7 @@ export function EditMemberDialog({
                   <label className="flex cursor-pointer items-center gap-2">
                     <input
                       type="checkbox"
-                      className="rounded border-gray-300"
+                      className="border-input rounded"
                       checked={form.unlinkProfessional}
                       onChange={(e) =>
                         set({
@@ -211,9 +212,11 @@ export function EditMemberDialog({
           )}
 
           <div className="flex gap-2 border-t pt-2">
-            <Button type="submit" disabled={saving}>
-              {saving ? "Guardando..." : "Guardar todos los cambios"}
-            </Button>
+            <SubmitButton
+              label="Guardar todos los cambios"
+              pendingLabel="Guardando..."
+              pending={saving}
+            />
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>

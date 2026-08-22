@@ -106,7 +106,7 @@ export function PeriodPicker({
             cifras de un periodo que nadie pidió, y quien las lea no lo sabrá.
           */}
           {invertido && (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-destructive text-sm">
               La fecha de inicio tiene que ser anterior a la de fin.
             </p>
           )}

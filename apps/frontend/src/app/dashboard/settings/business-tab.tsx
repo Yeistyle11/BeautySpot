@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { canDo } from "@/lib/permissions";
-import type { Role } from "@/lib/store";
+import { useAuthStore } from "@/lib/store";
 import type { BusinessData } from "./schemas";
 
 /** Campos de texto simples del negocio, en el orden en que se muestran. */
@@ -41,7 +41,6 @@ interface BusinessTabProps {
   onSave: () => void;
   saving: boolean;
   loading: boolean;
-  role: Role | null;
 }
 
 /** Datos publicos del negocio: contacto, ubicacion e imagenes. */
@@ -51,8 +50,8 @@ export function BusinessTab({
   onSave,
   saving,
   loading,
-  role,
 }: BusinessTabProps) {
+  const { role } = useAuthStore();
   if (loading) {
     return (
       <Card className="border-0 shadow-sm">

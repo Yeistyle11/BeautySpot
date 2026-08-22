@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { canDo } from "@/lib/permissions";
-import type { Role } from "@/lib/store";
+import { useAuthStore } from "@/lib/store";
 import type { Reservas } from "./schemas";
 
 interface BookingRulesTabProps {
@@ -15,7 +15,6 @@ interface BookingRulesTabProps {
   onChange: (reservas: Reservas) => void;
   onSave: () => void;
   saving: boolean;
-  role: Role | null;
 }
 
 /** Política de cancelación del negocio, en horas de antelación. */
@@ -24,8 +23,8 @@ export function BookingRulesTab({
   onChange,
   onSave,
   saving,
-  role,
 }: BookingRulesTabProps) {
+  const { role } = useAuthStore();
   const puedeEditar = canDo(role, "business_edit");
   const horas = reservas.horasMinimasCancelacion;
 

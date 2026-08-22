@@ -4,16 +4,24 @@
 // mas de uno.
 import { useRouter } from "next/navigation";
 import { Building2 } from "lucide-react";
+import { z } from "zod";
 import { useApi } from "@/lib/swr";
-import { useAuthStore, type Role } from "@/lib/store";
+import { Select } from "@/components/ui/select";
+import { useAuthStore } from "@/lib/store";
+import { ROLES } from "@/lib/auth";
 import { getDefaultPath } from "@/lib/permissions";
 
-interface Membresia {
-  id: string;
-  businessId: string;
-  businessName: string;
-  role: Role;
-}
+// De esta respuesta salen el negocio y el rol activos, asi que un cambio de
+// contrato aqui decide permisos: se valida antes de dejarla entrar.
+const membresiaSchema = z.object({
+  id: z.string(),
+  businessId: z.string(),
+  businessName: z.string(),
+  role: z.enum(ROLES),
+});
+const membresiasSchema = z.array(membresiaSchema);
+
+type Membresia = z.infer<typeof membresiaSchema>;
 
 /**
  * Cambia el negocio activo. Se oculta con una sola membresia: quien trabaja en
@@ -22,7 +30,11 @@ interface Membresia {
 export function BusinessSwitcher() {
   const router = useRouter();
   const { businessId, setNegocioActivo } = useAuthStore();
-  const { data: membresias } = useApi<Membresia[]>("/auth/users/memberships");
+  const { data: membresias } = useApi<Membresia[]>(
+    "/auth/users/memberships",
+    undefined,
+    membresiasSchema
+  );
 
   if (!membresias || membresias.length < 2) return null;
 
@@ -46,18 +58,18 @@ export function BusinessSwitcher() {
         <Building2 className="h-3.5 w-3.5" />
         Negocio
       </label>
-      <select
+      <Select
         id="business-switcher"
         value={businessId ?? ""}
         onChange={(e) => cambiar(e.target.value)}
-        className="border-input bg-background focus:ring-ring h-9 w-full rounded-md border px-2 text-sm focus:outline-none focus:ring-2"
+        className="h-9 px-2"
       >
         {membresias.map((m) => (
           <option key={m.businessId} value={m.businessId}>
             {m.businessName || m.businessId}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   );
 }

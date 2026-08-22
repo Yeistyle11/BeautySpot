@@ -1,7 +1,4 @@
-// Esquemas Zod y tipos de los pagos.
 import { z } from "zod";
-
-// Los campos opcionales admiten null o ausencia.
 
 export const paymentSchema = z.object({
   id: z.string(),

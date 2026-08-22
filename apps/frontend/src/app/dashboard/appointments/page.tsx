@@ -6,12 +6,15 @@ import { mensajeDeError } from "@/lib/error-message";
 import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog } from "@/components/ui/dialog";
 import { Pagination } from "@/components/ui/pagination";
+import { FilterChip } from "@/components/ui/filter-chip";
 import {
   Calendar,
   Plus,
@@ -84,6 +87,13 @@ const DayView = dynamic(
   }
 );
 
+/** Las tres formas de ver la agenda, en el orden en que se ofrecen. */
+const VISTAS = [
+  { id: "list", etiqueta: "Lista", icono: List },
+  { id: "day", etiqueta: "Día", icono: Columns3 },
+  { id: "calendar", etiqueta: "Semana", icono: CalendarDays },
+] as const;
+
 /** Media hora despues, que es lo que dura por defecto un bloqueo rapido. */
 function sumarMediaHora(hora: string): string {
   const [h, m] = hora.split(":").map(Number);
@@ -155,7 +165,12 @@ export default function AppointmentsPage() {
     undefined,
     paginatedSchema(clientSchema)
   );
-  const clients: Client[] = clientsPage?.data ?? [];
+  // Memoizado porque alimenta a clientMap: un array nuevo en cada render
+  // invalida ese useMemo y, con el, la memoizacion de toda la lista.
+  const clients: Client[] = useMemo(
+    () => clientsPage?.data ?? [],
+    [clientsPage]
+  );
 
   const [form, setForm] = useState<FormValues>(emptyForm);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -322,6 +337,12 @@ export default function AppointmentsPage() {
     }
   };
 
+  /**
+   * Cierra la cita y, si se pide, la cobra. Son dos escrituras encadenadas sin
+   * transaccion: si falla la del pago, la cita ya quedo completada y el cobro
+   * hay que registrarlo despues desde Pagos. Por eso la caja se comprueba antes
+   * de completar nada, que es el fallo que si se puede prever.
+   */
   const handleCompleteWithPayment = async (registerPayment: boolean) => {
     if (!completingAppt) return;
     setCompletingAction(true);
@@ -371,6 +392,10 @@ export default function AppointmentsPage() {
     try {
       // Solo van los ids: el backend resuelve nombre, precio y duracion
       // contra el catalogo y los congela junto a la cita.
+      //
+      // En asignaciones viajan unicamente los servicios que atiende otro: los
+      // que se queda el titular se omiten, porque es a quien el backend asigna
+      // por defecto lo que no viene repartido.
       await api.post("/booking/appointments", {
         ...form,
         serviceIds: selectedServices,
@@ -401,47 +426,41 @@ export default function AppointmentsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Agenda</h1>
-          <p className="text-muted-foreground">Gestiona tus citas</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex overflow-hidden rounded-md border">
-            <button
-              onClick={() => setViewMode("list")}
-              aria-pressed={viewMode === "list"}
-              className={`flex items-center gap-1 px-3 py-1.5 text-sm ${viewMode === "list" ? "bg-primary text-primary-foreground" : ""}`}
-            >
-              <List className="h-4 w-4" /> Lista
-            </button>
-            <button
-              onClick={() => setViewMode("day")}
-              aria-pressed={viewMode === "day"}
-              className={`flex items-center gap-1 px-3 py-1.5 text-sm ${viewMode === "day" ? "bg-primary text-primary-foreground" : ""}`}
-            >
-              <Columns3 className="h-4 w-4" /> Día
-            </button>
-            <button
-              onClick={() => setViewMode("calendar")}
-              aria-pressed={viewMode === "calendar"}
-              className={`flex items-center gap-1 px-3 py-1.5 text-sm ${viewMode === "calendar" ? "bg-primary text-primary-foreground" : ""}`}
-            >
-              <CalendarDays className="h-4 w-4" /> Semana
-            </button>
+      <PageHeader
+        titulo="Agenda"
+        descripcion="Gestiona tus citas"
+        accion={
+          <div className="flex items-center gap-2">
+            <div className="flex overflow-hidden rounded-md border">
+              {VISTAS.map(({ id, etiqueta, icono: Icono }) => (
+                <FilterChip
+                  key={id}
+                  variante="segment"
+                  activo={viewMode === id}
+                  onClick={() => setViewMode(id)}
+                  className={
+                    viewMode === id
+                      ? "bg-primary text-primary-foreground flex items-center gap-1 rounded-none px-3 py-1.5 shadow-none"
+                      : "flex items-center gap-1 rounded-none px-3 py-1.5"
+                  }
+                >
+                  <Icono className="h-4 w-4" /> {etiqueta}
+                </FilterChip>
+              ))}
+            </div>
+            {canDo(role, "appointments_create") && (
+              <Button onClick={() => setShowForm(!showForm)}>
+                {showForm ? (
+                  <X className="mr-2 h-4 w-4" />
+                ) : (
+                  <Plus className="mr-2 h-4 w-4" />
+                )}
+                {showForm ? "Cancelar" : "Nueva cita"}
+              </Button>
+            )}
           </div>
-          {canDo(role, "appointments_create") && (
-            <Button onClick={() => setShowForm(!showForm)}>
-              {showForm ? (
-                <X className="mr-2 h-4 w-4" />
-              ) : (
-                <Plus className="mr-2 h-4 w-4" />
-              )}
-              {showForm ? "Cancelar" : "Nueva cita"}
-            </Button>
-          )}
-        </div>
-      </div>
+        }
+      />
 
       {showForm && (
         <AppointmentForm
@@ -585,6 +604,9 @@ export default function AppointmentsPage() {
       )}
 
       <RescheduleDialog
+        // Remonta al cambiar de cita: la fecha y la hora del formulario salen
+        // de la cita que se esta moviendo.
+        key={reagendando?.id}
         open={!!reagendando}
         onClose={() => setReagendando(null)}
         appointment={reagendando}
@@ -619,8 +641,7 @@ export default function AppointmentsPage() {
       >
         <div className="space-y-4">
           <Field label="Motivo">
-            <select
-              className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+            <Select
               value={motivoCancelacion}
               onChange={(e) => setMotivoCancelacion(e.target.value)}
             >
@@ -629,7 +650,7 @@ export default function AppointmentsPage() {
                   {m.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label="Nota (opcional)">
             <Textarea

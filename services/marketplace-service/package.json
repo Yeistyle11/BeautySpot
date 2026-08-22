@@ -15,7 +15,7 @@
     "test:e2e": "jest --config jest.integration.config.js",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "type-check": "tsc --noEmit",
-    "lint": "eslint src --ext .ts",
+    "lint": "eslint src",
     "test:int": "jest --config jest.integration.config.js"
   },
   "dependencies": {

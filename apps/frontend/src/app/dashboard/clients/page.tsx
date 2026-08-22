@@ -5,12 +5,13 @@ import { useState } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
-import { Field } from "@/components/ui/field";
-import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pagination } from "@/components/ui/pagination";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -38,6 +39,11 @@ import { getAppointmentStatus } from "@/lib/status";
 import { appointmentSchema, type Appointment } from "@/lib/schemas/appointment";
 import { FichaSection } from "./ficha-section";
 import {
+  ClientFormDialog,
+  emptyClientForm,
+  type ClientForm,
+} from "./client-form-dialog";
+import {
   clientSchema,
   campoDeFichaSchema,
   servicioBreveSchema,
@@ -47,8 +53,6 @@ import {
   type CampoDeFicha,
   type ServicioBreve,
 } from "./schemas";
-
-const emptyForm = { name: "", email: "", phone: "", birthDate: "" };
 
 export default function ClientsPage() {
   const toast = useToast();
@@ -71,18 +75,15 @@ export default function ClientsPage() {
   });
 
   const [createDialog, setCreateDialog] = useState(false);
-  const [createForm, setCreateForm] = useState(emptyForm);
+  const [createForm, setCreateForm] = useState<ClientForm>(emptyClientForm);
   const [savingCreate, setSavingCreate] = useState(false);
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   const [editDialog, setEditDialog] = useState(false);
-  const [editForm, setEditForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
+  const [editForm, setEditForm] = useState<ClientForm>({
+    ...emptyClientForm,
     notes: "",
-    birthDate: "",
   });
   const [editId, setEditId] = useState<string | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -127,7 +128,7 @@ export default function ClientsPage() {
         phone: createForm.phone || undefined,
         birthDate: createForm.birthDate || undefined,
       });
-      setCreateForm(emptyForm);
+      setCreateForm(emptyClientForm);
       setCreateDialog(false);
     } catch (err) {
       logger.error(err);
@@ -214,20 +215,18 @@ export default function ClientsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Clientes</h1>
-          <p className="text-muted-foreground">
-            Administra tu cartera de clientes
-          </p>
-        </div>
-        {canDo(role, "clients_create") && (
-          <Button onClick={() => setCreateDialog(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo cliente
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Clientes"
+        descripcion="Administra tu cartera de clientes"
+        accion={
+          canDo(role, "clients_create") && (
+            <Button onClick={() => setCreateDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo cliente
+            </Button>
+          )
+        }
+      />
 
       <div className="mb-4">
         <div className="relative max-w-sm">
@@ -274,46 +273,54 @@ export default function ClientsPage() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {loading ? (
-          <p className="text-muted-foreground">Cargando...</p>
+          <LoadingState recurso="los clientes" />
         ) : (
           clients.map((c) => (
             <Card
               key={c.id}
-              className="cursor-pointer border-0 shadow-sm transition-shadow [contain-intrinsic-size:auto_140px] [content-visibility:auto] hover:shadow-md"
-              onClick={() => openDetail(c)}
+              className="focus-within:ring-ring border-0 shadow-sm transition-shadow [contain-intrinsic-size:auto_140px] [content-visibility:auto] focus-within:ring-2 hover:shadow-md"
             >
-              <CardContent className="p-5">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-11 w-11">
-                    <AvatarFallback className="bg-blue-50 font-bold text-blue-600">
-                      {c.name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{c.name}</p>
-                    <div className="mt-1 space-y-0.5">
-                      {c.email && (
-                        <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                          <Mail className="h-3 w-3" />
-                          {c.email}
-                        </p>
-                      )}
-                      {c.phone && (
-                        <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                          <Phone className="h-3 w-3" />
-                          {c.phone}
-                        </p>
-                      )}
+              {/* La tarjeta entera abre la ficha, y es la unica via de acceso a
+                  ella: tiene que ser un boton para que llegue el teclado. */}
+              <button
+                type="button"
+                onClick={() => openDetail(c)}
+                aria-label={`Ver la ficha de ${c.name}`}
+                className="w-full cursor-pointer text-left focus:outline-none"
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-11 w-11">
+                      <AvatarFallback className="bg-info-soft text-info-soft-foreground font-bold">
+                        {c.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold">{c.name}</p>
+                      <div className="mt-1 space-y-0.5">
+                        {c.email && (
+                          <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                            <Mail className="h-3 w-3" />
+                            {c.email}
+                          </p>
+                        )}
+                        {c.phone && (
+                          <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                            <Phone className="h-3 w-3" />
+                            {c.phone}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                {c.loyaltyPoints > 0 && (
-                  <div className="mt-3 flex items-center gap-1.5 text-sm text-amber-600">
-                    <Award className="h-4 w-4" />
-                    {c.loyaltyPoints} puntos
-                  </div>
-                )}
-              </CardContent>
+                  {c.loyaltyPoints > 0 && (
+                    <div className="text-warning mt-3 flex items-center gap-1.5 text-sm">
+                      <Award className="h-4 w-4" />
+                      {c.loyaltyPoints} puntos
+                    </div>
+                  )}
+                </CardContent>
+              </button>
             </Card>
           ))
         )}
@@ -321,71 +328,16 @@ export default function ClientsPage() {
 
       <Pagination meta={meta} onPageChange={setPage} itemLabel="clientes" />
 
-      <Dialog
+      <ClientFormDialog
         open={createDialog}
         onClose={() => setCreateDialog(false)}
+        onSubmit={handleCreate}
+        form={createForm}
+        onChange={setCreateForm}
         title="Nuevo cliente"
-      >
-        <form onSubmit={handleCreate} className="space-y-4">
-          <Field label="Nombre">
-            <Input
-              placeholder="Maria Garcia"
-              value={createForm.name}
-              onChange={(e) =>
-                setCreateForm({ ...createForm, name: e.target.value })
-              }
-              required
-            />
-          </Field>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Email">
-              <Input
-                type="email"
-                placeholder="maria@email.com"
-                value={createForm.email}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, email: e.target.value })
-                }
-              />
-            </Field>
-            <Field label="Teléfono">
-              <Input
-                type="tel"
-                inputMode="tel"
-                placeholder="+57 300 1234567"
-                value={createForm.phone}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, phone: e.target.value })
-                }
-              />
-            </Field>
-          </div>
-          <Field
-            label="Fecha de nacimiento"
-            hint="Con ella el cliente recibe una felicitación el día de su cumpleaños."
-          >
-            <Input
-              type="date"
-              value={createForm.birthDate}
-              onChange={(e) =>
-                setCreateForm({ ...createForm, birthDate: e.target.value })
-              }
-            />
-          </Field>
-          <div className="flex gap-3 pt-2">
-            <Button type="submit" disabled={savingCreate}>
-              {savingCreate ? "Guardando..." : "Crear cliente"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setCreateDialog(false)}
-            >
-              Cancelar
-            </Button>
-          </div>
-        </form>
-      </Dialog>
+        submitLabel="Crear cliente"
+        saving={savingCreate}
+      />
 
       <Dialog
         open={!!selectedClient}
@@ -398,7 +350,7 @@ export default function ClientsPage() {
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16">
-                  <AvatarFallback className="bg-blue-50 text-2xl font-bold text-blue-600">
+                  <AvatarFallback className="bg-info-soft text-info-soft-foreground text-2xl font-bold">
                     {selectedClient.name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
@@ -445,15 +397,18 @@ export default function ClientsPage() {
             </div>
 
             {selectedClient.loyaltyPoints > 0 && (
-              <div className="flex items-center gap-2 rounded-lg bg-amber-50 p-3">
-                <Award className="h-5 w-5 text-amber-600" />
-                <span className="font-medium text-amber-700">
+              <div className="bg-warning-soft flex items-center gap-2 rounded-lg p-3">
+                <Award className="text-warning-soft-foreground h-5 w-5" />
+                <span className="text-warning-soft-foreground font-medium">
                   {selectedClient.loyaltyPoints} puntos de fidelidad
                 </span>
               </div>
             )}
 
             <FichaSection
+              // Remonta al cambiar de cliente: el dialogo no se desmonta entre
+              // uno y otro, y el borrador tiene que empezar de cero.
+              key={selectedClient.id}
               campos={campos ?? []}
               servicios={servicios ?? []}
               valores={selectedClient.ficha ?? {}}
@@ -469,7 +424,7 @@ export default function ClientsPage() {
                 <Calendar className="h-4 w-4" /> Historial de citas
               </h4>
               {loadingDetail ? (
-                <p className="text-muted-foreground text-sm">Cargando...</p>
+                <LoadingState recurso="el historial" />
               ) : (clientAppointments ?? []).length === 0 ? (
                 <p className="text-muted-foreground text-sm">
                   No hay citas registradas
@@ -511,106 +466,37 @@ export default function ClientsPage() {
         )}
       </Dialog>
 
-      <Dialog
+      <ClientFormDialog
         open={editDialog}
         onClose={() => setEditDialog(false)}
+        onSubmit={handleUpdate}
+        form={editForm}
+        onChange={setEditForm}
         title="Editar cliente"
-      >
-        <form onSubmit={handleUpdate} className="space-y-4">
-          <Field label="Nombre">
-            <Input
-              value={editForm.name}
-              onChange={(e) =>
-                setEditForm({ ...editForm, name: e.target.value })
-              }
-              required
-            />
-          </Field>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Email">
-              <Input
-                type="email"
-                value={editForm.email}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, email: e.target.value })
-                }
-              />
-            </Field>
-            <Field label="Teléfono">
-              <Input
-                type="tel"
-                inputMode="tel"
-                value={editForm.phone}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, phone: e.target.value })
-                }
-              />
-            </Field>
-          </div>
-          <Field
-            label="Fecha de nacimiento"
-            hint="Con ella el cliente recibe una felicitación el día de su cumpleaños."
-          >
-            <Input
-              type="date"
-              value={editForm.birthDate}
-              onChange={(e) =>
-                setEditForm({ ...editForm, birthDate: e.target.value })
-              }
-            />
-          </Field>
-          <Field label="Notas">
-            <Textarea
-              value={editForm.notes}
-              onChange={(e) =>
-                setEditForm({ ...editForm, notes: e.target.value })
-              }
-              rows={3}
-            />
-          </Field>
-          <div className="flex gap-3">
-            <Button type="submit" disabled={savingEdit}>
-              {savingEdit ? "Guardando..." : "Guardar cambios"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setEditDialog(false)}
-            >
-              Cancelar
-            </Button>
-          </div>
-        </form>
-      </Dialog>
+        submitLabel="Guardar cambios"
+        saving={savingEdit}
+        conNotas
+      />
 
-      <Dialog
+      <ConfirmDialog
         open={!!clienteASuprimir}
         onClose={() => setClienteASuprimir(null)}
+        onConfirm={handleAnonymize}
         title="Suprimir los datos del cliente"
+        variant="destructive"
+        confirmLabel="Suprimir los datos"
+        pendingLabel="Suprimiendo..."
+        pending={suprimiendo}
       >
-        <div className="space-y-4">
-          <p className="text-sm">
-            Se borrarán el nombre, el correo, el teléfono, el documento y las
-            notas de <strong>{clienteASuprimir?.name}</strong>. Sus citas y sus
-            facturas se conservan, porque son documentos contables.
-          </p>
-          <p className="text-muted-foreground text-sm">
-            No se puede deshacer, y la ficha ya no se podrá editar.
-          </p>
-          <div className="flex gap-3">
-            <Button
-              variant="destructive"
-              onClick={handleAnonymize}
-              disabled={suprimiendo}
-            >
-              {suprimiendo ? "Suprimiendo..." : "Suprimir los datos"}
-            </Button>
-            <Button variant="outline" onClick={() => setClienteASuprimir(null)}>
-              Cancelar
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+        <p className="text-sm">
+          Se borrarán el nombre, el correo, el teléfono, el documento y las
+          notas de <strong>{clienteASuprimir?.name}</strong>. Sus citas y sus
+          facturas se conservan, porque son documentos contables.
+        </p>
+        <p className="text-muted-foreground text-sm">
+          No se puede deshacer, y la ficha ya no se podrá editar.
+        </p>
+      </ConfirmDialog>
     </div>
   );
 }

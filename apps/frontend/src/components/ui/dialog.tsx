@@ -1,6 +1,5 @@
 "use client";
 
-// Modal accesible construido sobre Radix Dialog.
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,10 +13,9 @@ interface DialogProps {
 }
 
 /**
- * Modal de la app. Se apoya en Radix para lo que una implementacion a mano no
- * cubria: atrapar el foco dentro del dialogo, devolverlo al elemento que lo
- * abrio al cerrar y exponer role/aria-modal a los lectores de pantalla.
- * La API (`open`/`onClose`/`title`/`wide`) se mantiene igual que antes.
+ * Modal de la app. Se apoya en Radix para atrapar el foco dentro del dialogo,
+ * devolverlo al elemento que lo abrio al cerrar y exponer role/aria-modal a los
+ * lectores de pantalla.
  */
 export function Dialog({ open, onClose, title, children, wide }: DialogProps) {
   return (

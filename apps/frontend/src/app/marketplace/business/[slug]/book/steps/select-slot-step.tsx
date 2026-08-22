@@ -44,8 +44,9 @@ export function SelectSlotStep({
             type="date"
             value={date}
             onChange={(e) => onDateChange(e.target.value)}
-            // Fecha local: con toISOString() el minimo saltaba a mañana a
-            // partir de las 19:00 en Colombia e impedia reservar hoy.
+            // Fecha local, no UTC: con toISOString() el minimo saltaria a
+            // mañana a partir de las 19:00 en Colombia, y hoy dejaria de poder
+            // reservarse.
             min={toLocalDateKey(new Date())}
           />
         </Field>

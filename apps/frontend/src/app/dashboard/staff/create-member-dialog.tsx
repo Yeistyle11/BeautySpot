@@ -1,7 +1,7 @@
 "use client";
 
-// Dialogo para crear un miembro del equipo.
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
@@ -114,9 +114,11 @@ export function CreateMemberDialog({
           )}
         </div>
         <div className="flex gap-2 pt-2">
-          <Button type="submit" disabled={saving}>
-            {saving ? "Creando..." : "Crear cuenta"}
-          </Button>
+          <SubmitButton
+            label="Crear cuenta"
+            pendingLabel="Creando..."
+            pending={saving}
+          />
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>

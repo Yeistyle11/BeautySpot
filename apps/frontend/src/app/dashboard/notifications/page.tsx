@@ -4,6 +4,7 @@
 import { useCallback } from "react";
 import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
+import { LoadingState } from "@/components/ui/loading-state";
 import { Bell, CheckCheck } from "lucide-react";
 import { z } from "zod";
 import { api } from "@/lib/api";
@@ -79,7 +80,7 @@ export default function NotificationsPage() {
       </div>
       <div className="space-y-3">
         {loading ? (
-          <p className="text-muted-foreground">Cargando...</p>
+          <LoadingState recurso="los avisos" />
         ) : loadError ? (
           <ErrorDeCarga
             error={loadError}
@@ -112,7 +113,8 @@ export default function NotificationsPage() {
                   {!n.read && (
                     <button
                       onClick={() => markRead(n.id)}
-                      className="text-primary hover:text-primary/80"
+                      aria-label="Marcar el aviso como leido"
+                      className="text-primary hover:text-primary/80 focus-visible:ring-ring rounded focus-visible:outline-none focus-visible:ring-2"
                     >
                       <CheckCheck className="h-5 w-5" />
                     </button>

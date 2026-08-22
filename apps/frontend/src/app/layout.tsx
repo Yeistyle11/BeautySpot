@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { SCRIPT_DE_TEMA } from "@/lib/tema-inicial";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -27,7 +28,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
+      <head>
+        {/*
+          Corre antes del primer pintado: aplicarlo desde un efecto dejaba un
+          destello blanco en cada carga a quien tiene guardado el tema oscuro.
+          Solo mira lo que el usuario eligio, no `prefers-color-scheme`: sin
+          eleccion explicita el tema es claro.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_DE_TEMA }} />
+      </head>
       <body className={inter.className}>
         <Providers>{children}</Providers>
       </body>

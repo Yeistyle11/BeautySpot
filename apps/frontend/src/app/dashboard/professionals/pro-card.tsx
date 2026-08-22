@@ -74,7 +74,7 @@ export const ProCard = memo(function ProCard({
               className="mt-0.5 text-xs"
             />
             <div className="mt-1 flex items-center gap-1">
-              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+              <Star className="fill-rating text-rating h-3.5 w-3.5" />
               <span className="text-muted-foreground text-sm">
                 {Number(p.rating).toFixed(1)} ({p.totalReviews})
               </span>
