@@ -14,7 +14,6 @@ import { AuditLog } from "../../entities/audit-log.entity";
 import {
   UnauthorizedException,
   BadRequestException,
-  ConflictException,
   NotFoundException,
 } from "@nestjs/common";
 import { Role } from "@beautyspot/shared-types";
@@ -260,25 +259,47 @@ describe("AuthService", () => {
           payload: expect.objectContaining({ email: mockUser.email }),
         })
       );
-      expect(result.user).not.toHaveProperty("password");
       expect(result).not.toHaveProperty("accessToken");
       expect(result.message).toContain("confirmar");
     });
 
-    it("debería lanzar ConflictException si el email ya existe", async () => {
+    it("responde lo mismo cuando el correo ya tiene cuenta", async () => {
       const registerDto = {
         email: "existing@example.com",
         password: "Password123",
         name: "Existing User",
       };
-
       mockUserRepository.findOne.mockResolvedValue(mockUser);
 
-      await expect(service.register(registerDto)).rejects.toThrow(
-        ConflictException
+      const repetido = await service.register(registerDto);
+
+      // Mismo cuerpo y mismo estado que un alta nueva: distinguirlos delata
+      // qué correos están registrados.
+      expect(repetido.message).toContain("confirmar");
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+    });
+
+    it("avisa al dueño de la cuenta del alta repetida", async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+
+      await service.register({
+        email: "existing@example.com",
+        password: "Password123",
+        name: "Existing User",
+      });
+
+      expect(mockOutboxService.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.AUTH_REGISTRO_DUPLICADO,
+          payload: { email: mockUser.email, name: mockUser.name },
+        })
       );
-      await expect(service.register(registerDto)).rejects.toThrow(
-        "No se pudo completar el registro"
+      expect(mockOutboxService.enqueue).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.AUTH_EMAIL_VERIFICATION_REQUESTED,
+        })
       );
     });
 
@@ -1127,6 +1148,31 @@ describe("AuthService", () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
       await expect(validar(mockUser)).rejects.toThrow("Cuenta bloqueada");
+    });
+
+    it("no le dice a quien falla la contraseña que la cuenta está bloqueada", async () => {
+      // El mensaje de bloqueo revela que ese correo tiene cuenta, así que solo
+      // lo ve quien ya ha demostrado conocer la contraseña.
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        lockedUntil: new Date(Date.now() + 5 * 60000),
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      await expect(validar(mockUser)).rejects.toThrow("Credenciales inválidas");
+    });
+
+    it("no alarga el bloqueo con los intentos de quien prueba a ciegas", async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        failedLoginAttempts: MAX_INTENTOS_FALLIDOS - 1,
+        lockedUntil: new Date(Date.now() + 5 * 60000),
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      await expect(validar(mockUser)).rejects.toThrow("Credenciales inválidas");
+
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
     });
 
     it("limpia los fallos tras un acceso correcto", async () => {

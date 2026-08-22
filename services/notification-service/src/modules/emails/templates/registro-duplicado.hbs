@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ya tienes cuenta en BeautySpot</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #9c27b0 0%, #8e44ad 100%);
+      color: white;
+      padding: 30px 40px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .content {
+      padding: 30px 40px;
+    }
+    .boton {
+      display: inline-block;
+      background: #9c27b0;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 12px 28px;
+      border-radius: 6px;
+      font-weight: 600;
+      margin: 20px 0;
+    }
+    .aviso {
+      font-size: 13px;
+      color: #6c757d;
+      line-height: 1.6;
+      border-top: 1px solid #e9ecef;
+      padding-top: 16px;
+      margin-top: 24px;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 20px 40px;
+      text-align: center;
+      font-size: 12px;
+      color: #6c757d;
+    }
+    .footer a {
+      color: #9c27b0;
+      text-decoration: none;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Ya tienes cuenta</h1>
+      <p>BeautySpot</p>
+    </div>
+
+    <div class="content">
+      <p style="font-size: 16px; color: #212529;">
+        Hola <strong>{{clientName}}</strong>,
+      </p>
+      <p style="font-size: 14px; color: #495057; line-height: 1.6;">
+        Alguien acaba de intentar crear una cuenta con este correo, y ya hay una
+        registrada. No hemos creado ninguna cuenta nueva ni hemos tocado la que
+        tienes.
+      </p>
+      <p style="font-size: 14px; color: #495057; line-height: 1.6;">
+        Si fuiste tú y no recuerdas la contraseña, puedes cambiarla desde aquí:
+      </p>
+      <p style="text-align: center;">
+        <a class="boton" href="{{recoveryLink}}">Recuperar mi contraseña</a>
+      </p>
+
+      <p class="aviso">
+        Si no has sido tú, no tienes que hacer nada: tu cuenta sigue igual y
+        nadie ha podido entrar con este aviso.
+      </p>
+    </div>
+
+    <div class="footer">
+      <p>© {{year}} BeautySpot. Todos los derechos reservados.</p>
+      <p>
+        Powered by <a href="https://beautyspot.co" target="_blank">BeautySpot</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>

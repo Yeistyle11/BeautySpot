@@ -236,6 +236,12 @@ Autenticación, usuarios, personal y membresías. Base de datos `beautyspot_auth
 | POST   | `/resend-verification` | PÚBLICA     | Reenvía el enlace de confirmación          |
 | GET    | `/me`                  | Autenticado | Usuario del token                          |
 
+`/register` responde `201` con `{ message }` **exista o no ya una cuenta con ese
+correo**: distinguir los dos casos delataría qué correos están registrados. Si
+ya existe no se crea nada y se le avisa por correo a su dueño, con el enlace
+para recuperar la contraseña. Tampoco devuelve el usuario creado: la cuenta no
+entra hasta confirmar el correo.
+
 ### Usuarios y personal — `/api/v1/auth/users`
 
 | Método | Ruta                  | Roles                     | Descripción                         |
@@ -864,18 +870,18 @@ segundos y vuelve a intentarlo."
 
 La API no es el único contrato entre servicios: hay 30 nombres de evento
 declarados como constantes en `packages/event-types/src/` —de los que hoy
-circulan 25; el detalle de quién publica y quién consume cada uno está en
+circulan 26; el detalle de quién publica y quién consume cada uno está en
 [04-ARQUITECTURA.md](04-ARQUITECTURA.md#71-catalogo-de-eventos)—. Siguen el
 patrón `{servicio}.{agregado}.{acción}`:
 
-| Familia          | Eventos                                                                                                                                          |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `auth.*`         | `user.registered`, `user.logged-in`, `password-reset.requested`, `email-verification.requested`, `membership.created`, `membership.role-changed` |
-| `core.*`         | `business.created`, `business.updated`, `professional.created`, `service.created`, `service.updated`, `client.created`, `client.birthday`        |
-| `booking.*`      | `appointment.created`, `.confirmed`, `.cancelled`, `.completed`, `.no-showed`, `.rescheduled`, `.reminder-due`                                   |
-| `payment.*`      | `payment.registered`, `invoice.generated`, `points.redeemed`, `refund.processed`, `cash.session.closed`                                          |
-| `marketplace.*`  | `review.created`, `review.updated`                                                                                                               |
-| `notification.*` | `email.queued`, `email.sent`, `email.failed`                                                                                                     |
+| Familia          | Eventos                                                                                                                                                                |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.*`         | `user.registered`, `registro.duplicado`, `user.logged-in`, `password-reset.requested`, `email-verification.requested`, `membership.created`, `membership.role-changed` |
+| `core.*`         | `business.created`, `business.updated`, `professional.created`, `service.created`, `service.updated`, `client.created`, `client.birthday`                              |
+| `booking.*`      | `appointment.created`, `.confirmed`, `.cancelled`, `.completed`, `.no-showed`, `.rescheduled`, `.reminder-due`                                                         |
+| `payment.*`      | `payment.registered`, `invoice.generated`, `points.redeemed`, `refund.processed`, `cash.session.closed`                                                                |
+| `marketplace.*`  | `review.created`, `review.updated`                                                                                                                                     |
+| `notification.*` | `email.queued`, `email.sent`, `email.failed`                                                                                                                           |
 
 Los servicios que publican eventos de forma crítica (auth, booking, core,
 marketplace y payment) usan el patrón **Transactional Outbox**: el evento se

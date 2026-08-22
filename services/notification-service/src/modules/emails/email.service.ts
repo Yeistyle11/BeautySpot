@@ -420,6 +420,24 @@ export class EmailService {
     });
   }
 
+  /**
+   * Encola el aviso de que alguien intentó darse de alta con un correo que ya
+   * tiene cuenta. Va con prioridad alta: es un aviso de seguridad y quien lo
+   * recibe puede estar esperándolo delante de la pantalla.
+   */
+  async queueRegistroDuplicado(
+    to: string,
+    data: { clientName: string; recoveryLink: string }
+  ): Promise<{ jobId: string }> {
+    return this.queueEmail({
+      to,
+      template: "registro-duplicado",
+      data,
+      subject: "Ya tienes una cuenta en BeautySpot",
+      priority: "high",
+    });
+  }
+
   /** Encola el reporte mensual del negocio (prioridad baja). */
   async queueMonthlyReport(
     to: string,

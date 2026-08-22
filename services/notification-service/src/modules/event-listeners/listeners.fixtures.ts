@@ -46,6 +46,7 @@ export async function crearEntornoDeListeners(): Promise<EntornoDeListeners> {
     queueWelcomeEmail: jest.fn().mockResolvedValue({ jobId: "job-123" }),
     queuePasswordReset: jest.fn().mockResolvedValue({ jobId: "job-129" }),
     queueEmailVerification: jest.fn().mockResolvedValue({ jobId: "job-130" }),
+    queueRegistroDuplicado: jest.fn().mockResolvedValue({ jobId: "job-131" }),
     queueReviewRequest: jest.fn().mockResolvedValue({ jobId: "job-131" }),
     queueAppointmentConfirmation: jest
       .fn()

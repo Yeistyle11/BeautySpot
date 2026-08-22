@@ -54,6 +54,20 @@ export interface EmailVerificationRequestedPayload {
 export type EmailVerificationRequestedEvent =
   IBaseEvent<EmailVerificationRequestedPayload>;
 
+/**
+ * Alguien intentó darse de alta con un correo que ya tiene cuenta.
+ *
+ * El alta responde lo mismo exista o no la cuenta, para no revelar qué correos
+ * están registrados; este aviso es lo que le dice a su dueño lo que ha pasado y
+ * le da la salida, que es recuperar la contraseña.
+ */
+export interface RegistroDuplicadoPayload {
+  email: string;
+  name: string;
+}
+
+export type RegistroDuplicadoEvent = IBaseEvent<RegistroDuplicadoPayload>;
+
 export interface MembershipCreatedPayload {
   membershipId: string;
   userId: string;
@@ -350,6 +364,7 @@ export function nombreDeCola(servicio: string, evento: string): string {
  */
 export const EventNames = {
   AUTH_USER_REGISTERED: "auth.user.registered",
+  AUTH_REGISTRO_DUPLICADO: "auth.registro.duplicado",
   AUTH_USER_LOGGED_IN: "auth.user.logged-in",
   AUTH_PASSWORD_RESET_REQUESTED: "auth.password-reset.requested",
   AUTH_EMAIL_VERIFICATION_REQUESTED: "auth.email-verification.requested",

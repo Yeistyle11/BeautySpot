@@ -5,7 +5,6 @@ import {
   Logger,
   UnauthorizedException,
   BadRequestException,
-  ConflictException,
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -38,6 +37,13 @@ import {
   TOKEN_VERSION_DEFAULT,
 } from "@beautyspot/nest-common";
 import { toSafeUser, SafeUser } from "../users/dto/user-response.dto";
+
+/**
+ * Lo que responde el alta, exista ya la cuenta o no. Es el mismo mensaje a
+ * propósito: un 409 solo cuando el correo existe delata qué correos tienen
+ * cuenta, por genérico que sea el texto.
+ */
+const MENSAJE_ALTA = "Te enviamos un correo para confirmar tu cuenta";
 
 /** Lo que se le dice a quien tiene la cuenta desactivada, entre o renueve. */
 const MENSAJE_CUENTA_DESACTIVADA =
@@ -81,15 +87,13 @@ export class AuthService {
    * Crea la cuenta (rechazando emails duplicados), la audita y encola el correo
    * de confirmación. No emite tokens: la cuenta entra cuando confirma.
    */
-  async register(
-    dto: RegisterDto
-  ): Promise<{ user: SafeUser; message: string }> {
+  async register(dto: RegisterDto): Promise<{ message: string }> {
     const existing = await this.userRepository.findOne({
       where: { email: dto.email },
     });
     if (existing) {
-      // Mensaje genérico para no revelar qué correos están dados de alta.
-      throw new ConflictException("No se pudo completar el registro");
+      await this.avisarDeAltaRepetida(existing);
+      return { message: MENSAJE_ALTA };
     }
 
     const hashedPassword = await bcrypt.hash(
@@ -97,7 +101,7 @@ export class AuthService {
       this.getSaltRounds()
     );
 
-    const user = await this.dataSource.transaction(async (manager) => {
+    await this.dataSource.transaction(async (manager) => {
       const userRepo = manager.getRepository(User);
       const created = userRepo.create({
         email: dto.email,
@@ -130,10 +134,26 @@ export class AuthService {
     });
 
     // Sin tokens: la cuenta no puede entrar hasta confirmar el correo.
-    return {
-      user: toSafeUser(user),
-      message: "Te enviamos un correo para confirmar tu cuenta",
-    };
+    return { message: MENSAJE_ALTA };
+  }
+
+  /**
+   * Avisa al dueño de la cuenta de que alguien ha intentado darse de alta con
+   * su correo, y le recuerda por dónde se recupera una contraseña.
+   *
+   * Es lo que permite responder lo mismo exista o no la cuenta: quien prueba
+   * correos no aprende nada, y quien olvidó que ya tenía cuenta recibe la
+   * salida en el mismo sitio donde la esperaba.
+   */
+  private async avisarDeAltaRepetida(user: User): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      await this.outboxService.enqueue(manager, {
+        eventType: EventNames.AUTH_REGISTRO_DUPLICADO,
+        aggregateType: "users",
+        aggregateId: user.id,
+        payload: { email: user.email, name: user.name },
+      });
+    });
   }
 
   /** Genera el token de verificación y encola el correo en la misma transacción. */
@@ -481,13 +501,18 @@ export class AuthService {
     const hashToCompare = user?.password ?? (await this.getDecoyHash());
     const isPasswordValid = await bcrypt.compare(password, hashToCompare);
 
-    // El bloqueo se comprueba después de bcrypt para no acortar la respuesta.
-    if (user) this.rechazarSiEstaBloqueada(user);
-
     if (!user || !isPasswordValid) {
-      if (user) await this.anotarFalloDeAcceso(user);
+      // Mientras dura un bloqueo no se suman intentos: si no, quien prueba a
+      // ciegas podría mantener la cuenta bloqueada para siempre.
+      if (user && !this.estaBloqueada(user)) {
+        await this.anotarFalloDeAcceso(user);
+      }
       throw new UnauthorizedException("Credenciales inválidas");
     }
+
+    // Después de comprobar la contraseña: decirle a quien no la ha acertado
+    // que la cuenta está bloqueada revela que ese correo tiene cuenta.
+    this.rechazarSiEstaBloqueada(user);
     if (!user.active) {
       throw new UnauthorizedException(MENSAJE_CUENTA_DESACTIVADA);
     }
@@ -501,13 +526,17 @@ export class AuthService {
     return user;
   }
 
+  /** Si la cuenta sigue dentro de su ventana de bloqueo. */
+  private estaBloqueada(user: User): boolean {
+    return !!user.lockedUntil && user.lockedUntil.getTime() > Date.now();
+  }
+
   /** Corta el intento mientras el bloqueo siga vigente. */
   private rechazarSiEstaBloqueada(user: User): void {
-    if (!user.lockedUntil || user.lockedUntil.getTime() <= Date.now()) return;
+    const hasta = user.lockedUntil;
+    if (!hasta || hasta.getTime() <= Date.now()) return;
 
-    const minutos = Math.ceil(
-      (user.lockedUntil.getTime() - Date.now()) / 60000
-    );
+    const minutos = Math.ceil((hasta.getTime() - Date.now()) / 60000);
     throw new UnauthorizedException(
       `Cuenta bloqueada por varios intentos fallidos. Vuelve a intentarlo en ${minutos} minuto(s)`
     );

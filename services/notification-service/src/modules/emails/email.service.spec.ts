@@ -181,6 +181,25 @@ describe("EmailService", () => {
     });
   });
 
+  describe("alta repetida", () => {
+    it("sale con prioridad alta: es un aviso de seguridad", async () => {
+      const result = await service.queueRegistroDuplicado("ya@example.com", {
+        clientName: "Dueña",
+        recoveryLink: "http://localhost:8080/forgot-password",
+      });
+
+      expect(result).toEqual({ jobId: "job-123" });
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        "send",
+        expect.objectContaining({
+          to: "ya@example.com",
+          template: "registro-duplicado",
+          priority: "high",
+        })
+      );
+    });
+  });
+
   describe("importes", () => {
     it("el correo lleva el dinero escrito, no el numero crudo", async () => {
       mockFs.existsSync.mockReturnValue(false);

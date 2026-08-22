@@ -216,9 +216,14 @@ fidelidad o a incrementar dos veces la metrica del dia.
 
 6. Notification Service consume ambos: bienvenida y enlace de confirmacion
 
-7. Respuesta al cliente: { user, message } — sin tokens; la cuenta no
+7. Respuesta al cliente: { message } — sin tokens ni usuario; la cuenta no
    entra hasta canjear el enlace en POST /api/v1/auth/verify-email
 ```
+
+Si el correo **ya tiene cuenta** no se crea nada, pero la respuesta es la misma:
+un 201 con el mismo mensaje. Distinguir los dos casos convierte el alta en una
+lista de qué correos estan registrados. Lo que cambia es el evento que sale -`auth.registro.duplicado` en vez del de confirmacion-, y con el un aviso al
+dueño de la cuenta con el enlace para recuperar la contraseña.
 
 ### 5.2 Login
 
@@ -374,12 +379,13 @@ el negocio, pero vive en la base de auth, junto a `users`.
 
 Los nombres canonicos viven en `packages/event-types/src/index.ts` (`EventNames`),
 compartidos por productores y consumidores para que nadie escriba la cadena a
-mano. Son **30 nombres declarados** con el patron `{servicio}.{agregado}.{accion}`,
-de los que hoy circulan 25.
+mano. Son **31 nombres declarados** con el patron `{servicio}.{agregado}.{accion}`,
+de los que hoy circulan 26.
 
 | Routing key                         | Publica          | Consume                       |
 | ----------------------------------- | ---------------- | ----------------------------- |
 | `auth.user.registered`              | Auth             | Notification                  |
+| `auth.registro.duplicado`           | Auth             | Notification                  |
 | `auth.user.logged-in`               | Auth             | —                             |
 | `auth.password-reset.requested`     | Auth             | Notification                  |
 | `auth.email-verification.requested` | Auth             | Notification                  |
