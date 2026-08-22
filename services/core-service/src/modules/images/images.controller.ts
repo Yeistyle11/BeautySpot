@@ -15,6 +15,7 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
+import { URL_PREFIRMADA_SEGUNDOS } from "@beautyspot/shared-constants";
 import {
   ImagesService,
   UploadResult,
@@ -197,7 +198,7 @@ export class ImagesController {
     @BusinessId() tenantBusinessId: string,
     @Query() dto: GenerateUploadSignatureDto
   ) {
-    const expiresIn = dto.expiresIn ? parseInt(dto.expiresIn) : 3600;
+    const expiresIn = dto.expiresIn ?? URL_PREFIRMADA_SEGUNDOS;
 
     // Mapea el tipo de recurso a su prefijo en S3 y verifica el acceso al recurso.
     const resourceMap: Record<string, { prefix: string; verifyAs: string }> = {
@@ -287,7 +288,7 @@ export class ImagesController {
       role,
       businessId: tenantBusinessId,
     });
-    const expiresIn = query.expiresIn ? parseInt(query.expiresIn) : 3600;
+    const expiresIn = query.expiresIn ?? URL_PREFIRMADA_SEGUNDOS;
     const url = await this.imagesService.getImageUrl(query.key, expiresIn);
     return { url };
   }

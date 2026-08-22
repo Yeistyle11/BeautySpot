@@ -98,6 +98,16 @@ export const IVA = 0.19;
 export const URL_PREFIRMADA_SEGUNDOS = 3600;
 
 /**
+ * Lo más que puede pedirse que dure una URL prefirmada: un día. Quien tiene el
+ * enlace tiene la imagen mientras el enlace viva, así que la validez la acota
+ * el servidor y no quien la pide.
+ */
+export const URL_PREFIRMADA_MAXIMO_SEGUNDOS = 24 * 3600;
+
+/** Lo mínimo que tiene sentido pedir: por debajo, la subida no da tiempo. */
+export const URL_PREFIRMADA_MINIMO_SEGUNDOS = 60;
+
+/**
  * Longitud máxima del texto de una búsqueda. Nadie escribe un nombre de salón
  * de cien caracteres, y sin tope el texto entero entra en el LIKE.
  */
