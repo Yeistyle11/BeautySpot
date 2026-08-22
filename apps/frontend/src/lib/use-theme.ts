@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { THEME_STORAGE_KEY } from "./tema-inicial";
 
 export type Theme = "light" | "dark";
 
-/** Clave del tema elegido. La usa tambien el script que lo aplica en <head>. */
-export const THEME_STORAGE_KEY = "ui:v1:theme";
+export { THEME_STORAGE_KEY } from "./tema-inicial";
 
 function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");

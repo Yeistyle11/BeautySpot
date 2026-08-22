@@ -40,12 +40,19 @@ const apiOrigin = (() => {
   }
 })();
 
-// La CSP va en Report-Only: Next inyecta scripts y estilos en linea, asi que
-// aplicarla en modo bloqueo exigiria antes propagar un nonce por todo el arbol.
-// En Report-Only se ve que romperia sin romper nada todavia.
+// La politica se aplica en modo bloqueo, salvo `script-src`, que conserva
+// 'unsafe-inline' porque Next inserta sus scripts de arranque en linea. La
+// alternativa es firmarlos con un nonce por peticion, pero el nonce solo se
+// emite en paginas que se renderizan en cada visita: adoptarlo convierte en
+// dinamicas las 27 rutas que hoy se prerenderizan y le quita al escaparate su
+// revalidacion cada cinco minutos.
+//
+// Aun sin cubrir la inyeccion en linea, bloquea lo demas: scripts de otros
+// origenes, incrustar la aplicacion en un iframe ajeno, plugins, reescribir la
+// base de las URLs relativas y enviar formularios fuera del sitio.
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   // Los negocios alojan sus fotos donde quieren; la lista blanca real la aplica
   // el optimizador de imagenes con remotePatterns.
@@ -59,7 +66,7 @@ const csp = [
 ].join("; ");
 
 const SECURITY_HEADERS = [
-  { key: "Content-Security-Policy-Report-Only", value: csp },
+  { key: "Content-Security-Policy", value: csp },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
-import { THEME_STORAGE_KEY } from "@/lib/use-theme";
+import { SCRIPT_DE_TEMA } from "@/lib/tema-inicial";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -36,11 +36,7 @@ export default function RootLayout({
           Solo mira lo que el usuario eligio, no `prefers-color-scheme`: sin
           eleccion explicita el tema es claro.
         */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem("${THEME_STORAGE_KEY}")==="dark")document.documentElement.classList.add("dark")}catch(e){}`,
-          }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_DE_TEMA }} />
       </head>
       <body className={inter.className}>
         <Providers>{children}</Providers>
