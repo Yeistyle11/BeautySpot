@@ -25,11 +25,10 @@
     --ring: 262 83% 58%;
     --radius: 0.75rem;
 
-    /* Colores con significado (exito, aviso, informacion). Existen porque el
-       codigo los tenia como clases fijas de Tailwind (bg-green-50,
-       text-amber-600...) repartidas por las paginas, lo que impedia cambiar la
-       paleta en un sitio y rompia el tema oscuro. Cada uno tiene una version
-       plana y otra "soft" para fondos suaves. */
+    /* Colores con significado (exito, aviso, informacion). Cada uno tiene una
+       version plana y otra "soft" para fondos suaves, y ambas cambian con el
+       tema: son la alternativa a fijar bg-green-50 o text-amber-600 en la
+       pagina, que no responden al modo oscuro. */
     --success: 142 71% 29%;
     --success-foreground: 0 0% 100%;
     --success-soft: 141 79% 95%;

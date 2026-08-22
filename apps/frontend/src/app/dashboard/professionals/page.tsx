@@ -131,7 +131,9 @@ export default function ProfessionalsPage() {
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
 
-  // De quien es la ultima peticion de horario en vuelo.
+  // De quien es la ultima peticion de horario en vuelo. Abrir dos profesionales
+  // seguidos lanza dos peticiones, y la primera puede contestar despues: al
+  // volver se compara contra esta ref y la respuesta que ya no toca se descarta.
   const horarioPedidoPara = useRef<string | null>(null);
 
   /**

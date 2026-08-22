@@ -65,8 +65,8 @@ export function CalendarView({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedAppt = appointments.find((a) => a.id === selectedId) ?? null;
 
-  // La semana visible depende solo del offset; se recalcula al navegar, no en
-  // cada render (antes la referencia era un `new Date()` nuevo cada vez).
+  // La semana visible depende solo del offset, asi que se recalcula al navegar
+  // y no en cada render.
   const weekDates = useMemo(() => {
     const reference = new Date();
     reference.setDate(reference.getDate() + weekOffset * 7);

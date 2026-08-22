@@ -1,4 +1,3 @@
-// Esquemas Zod y tipos de la caja registradora.
 import { z } from "zod";
 
 export const cashSessionSchema = z.object({

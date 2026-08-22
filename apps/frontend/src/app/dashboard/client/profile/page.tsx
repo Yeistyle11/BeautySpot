@@ -59,7 +59,9 @@ export default function ClientProfilePage() {
   );
 
   // Si core-service no tiene ficha del cliente (reservo como invitado), los
-  // datos se guardan contra su usuario de auth-service.
+  // datos se guardan contra su usuario de auth-service. El fallback salta ante
+  // cualquier fallo de la primera llamada, tambien una caida de red, asi que un
+  // corte se traduce en un segundo intento contra el otro servicio.
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);

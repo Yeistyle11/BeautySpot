@@ -3,8 +3,6 @@ import { z } from "zod";
 import { generateSlug } from "@beautyspot/shared-utils";
 import { TIPOS_DE_NEGOCIO } from "@beautyspot/shared-constants";
 
-// Los campos opcionales admiten null o ausencia.
-
 export const galleryImageSchema = z.object({
   url: z.string(),
   title: z.string().nullish(),

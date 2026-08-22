@@ -17,8 +17,8 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
 }
 
 // El gateway no siempre responde JSON: un 502 devuelve HTML y un 204 no
-// devuelve nada. Parsear a ciegas convertia esos casos en un
-// "Unexpected token '<'" que acababa impreso en pantalla.
+// devuelve nada. Parsear a ciegas los convierte en un "Unexpected token '<'"
+// que acaba impreso en pantalla, asi que se comprueba el tipo antes.
 async function parseBody(res: Response): Promise<Record<string, unknown>> {
   if (res.status === 204) return {};
   const contentType = res.headers.get("content-type") ?? "";
@@ -56,12 +56,6 @@ async function renovarSesion(): Promise<boolean> {
 }
 
 /**
- * Ejecuta una petición al gateway y normaliza el error a {@link ApiError}.
- * Devuelve el campo `data` del sobre estándar o el cuerpo tal cual si no viene
- * envuelto. La sesión viaja en la cookie httpOnly. Ante un 401 renueva una vez
- * y repite la petición; si la renovación falla, cierra la sesión.
- */
-/**
  * Negocio sobre el que va la peticion, para quien trabaja en mas de uno. El
  * gateway comprueba que el usuario tenga membresia en el.
  */
@@ -75,6 +69,12 @@ function cabeceraDeNegocio(publicMode: boolean): Record<string, string> {
   };
 }
 
+/**
+ * Ejecuta una petición al gateway y normaliza el error a {@link ApiError}.
+ * Devuelve el campo `data` del sobre estándar o el cuerpo tal cual si no viene
+ * envuelto. La sesión viaja en la cookie httpOnly. Ante un 401 renueva una vez
+ * y repite la petición; si la renovación falla, cierra la sesión.
+ */
 async function request<T>(
   path: string,
   options?: RequestInit,
@@ -117,7 +117,7 @@ async function request<T>(
   return (data.success !== undefined ? data.data : data) as T;
 }
 
-/** API autenticada: añade el token Bearer a cada petición. */
+/** API con sesión: la credencial viaja en la cookie httpOnly del gateway. */
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body: unknown) =>

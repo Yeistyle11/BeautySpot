@@ -327,6 +327,12 @@ export default function AppointmentsPage() {
     }
   };
 
+  /**
+   * Cierra la cita y, si se pide, la cobra. Son dos escrituras encadenadas sin
+   * transaccion: si falla la del pago, la cita ya quedo completada y el cobro
+   * hay que registrarlo despues desde Pagos. Por eso la caja se comprueba antes
+   * de completar nada, que es el fallo que si se puede prever.
+   */
   const handleCompleteWithPayment = async (registerPayment: boolean) => {
     if (!completingAppt) return;
     setCompletingAction(true);
@@ -376,6 +382,10 @@ export default function AppointmentsPage() {
     try {
       // Solo van los ids: el backend resuelve nombre, precio y duracion
       // contra el catalogo y los congela junto a la cita.
+      //
+      // En asignaciones viajan unicamente los servicios que atiende otro: los
+      // que se queda el titular se omiten, porque es a quien el backend asigna
+      // por defecto lo que no viene repartido.
       await api.post("/booking/appointments", {
         ...form,
         serviceIds: selectedServices,
