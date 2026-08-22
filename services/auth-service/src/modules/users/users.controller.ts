@@ -132,3 +132,20 @@ export class UsersController {
     return this.usersService.toggleActive(userId, businessId, body.active);
   }
 }
+
+/**
+ * Endpoint interno (servicio-a-servicio) que da la versión de token vigente.
+ *
+ * Los otros microservicios validan la revocación contra Redis, que es volátil;
+ * cuando la clave no está, preguntan aquí, que es donde vive el dato duradero.
+ */
+@Controller("internal/users")
+export class InternalUsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  /** Versión de token del usuario; 0 si la cuenta ya no existe. */
+  @Get(":id/token-version")
+  async tokenVersion(@Param("id") userId: string) {
+    return { version: await this.usersService.versionDeToken(userId) };
+  }
+}

@@ -39,7 +39,7 @@ en desarrollo la infraestructura la levanta Docker Compose.
                             v
               +---------------------------------+
               |      API GATEWAY  :3000         |
-              |  rate limit · JWT+tokenVersion  |
+              |  rate limit · firma del JWT     |
               |  tenant · circuit breaker       |
               +----------------+----------------+
                                |  /api/v1/{servicio}/{ruta}
@@ -76,8 +76,8 @@ una de ellas**:
    su propio prefijo y reenvia a `<SERVICE_URL><ruta>`. No conoce las rutas de
    los servicios ni hay tabla que mantener: si el nombre del servicio es valido,
    se reenvia lo que venga.
-2. **Autenticar**: valida el JWT y su `tokenVersion` contra Redis
-   (`AuthGatewayGuard`), de modo que un logout invalida los tokens ya emitidos.
+2. **Autenticar**: valida la firma y la expiracion del JWT (`AuthGatewayGuard`).
+   La revocacion por `tokenVersion` la comprueba cada microservicio (5.3).
 3. **Resolver el tenant**: saca el negocio del token y lo inyecta como
    `x-business-id`. **El cliente no puede falsificarlo**, porque la cabecera se
    construye a partir del token y no de la peticion entrante.
@@ -110,13 +110,14 @@ Navegador -> API Gateway (3000)
                   |
                   +-> 1. Rate limit (Redis)
                   +-> 2. Origen permitido (CSRF) en las peticiones con efecto
-                  +-> 3. Validar JWT + tokenVersion (salvo ruta @Public)
+                  +-> 3. Validar firma y expiracion del JWT (salvo ruta @Public)
                   +-> 4. Resolver el negocio del token
                   +-> 5. Reenviar con las cabeceras de arriba, bajo el breaker
                   +-> 6. Traducir el fallo: 5xx->502, timeout->504, caido->503
                   |
                   v
-              Microservicio: @Roles decide si el rol puede
+              Microservicio: tokenVersion decide si la sesion sigue viva
+                             y @Roles si el rol puede
 ```
 
 ---
@@ -259,14 +260,23 @@ manifiesta como un 401 en todo.
 
 2. AuthGatewayGuard verifica la firma (HS256 con JWT_SECRET) y la expiracion
 
-3. Compara payload.tokenVersion con la version vigente en Redis
-   - Distinta -> 401. Es lo que hace que un logout invalide de inmediato
-     los tokens ya emitidos, sin esperar a que expiren ni mantener una
-     lista negra token a token
-
-4. Reenvia authorization tal cual e inyecta x-business-id con el negocio
+3. Reenvia authorization tal cual e inyecta x-business-id con el negocio
    resuelto del token
 ```
+
+Quien comprueba la revocacion es cada microservicio, no el gateway: el
+`JwtAuthGuard` de `packages/nest-common` compara el `tokenVersion` del token con
+el vigente del usuario. Es lo que hace que un logout invalide de inmediato los
+tokens ya emitidos, sin esperar a que expiren ni mantener una lista negra token
+a token.
+
+**Redis es cache; la fuente de verdad es auth-service**, que guarda la version
+en su tabla `users`. Cuando la clave no esta en Redis -un FLUSHALL, un failover,
+una eviccion por maxmemory-, el guard la pide a auth por HTTP interno
+(`GET /internal/users/:id/token-version`) y repuebla la cache. Si tampoco se
+puede preguntar, la peticion pasa salvo en las rutas marcadas
+`@SesionVerificable()`, que responden 503: dejar leer un listado sin poder
+comprobar la revocacion es asumible, ejecutar una accion no.
 
 No se inyectan `X-User-Id`, `X-User-Role` ni `X-User-Memberships`: el servicio
 recibe el token entero y saca de el lo que necesita con `@CurrentUser()`.

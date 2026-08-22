@@ -78,6 +78,7 @@ export {
 export type { VersionDeToken } from "./security/token-version.store";
 export { SecurityModule } from "./security/security.module";
 export { TOKEN_VERSION_RESOLVER } from "./security/token-version.resolver";
+export { HttpTokenVersionResolver } from "./security/http-token-version.resolver";
 export type { TokenVersionResolver } from "./security/token-version.resolver";
 export {
   createMicroserviceApp,

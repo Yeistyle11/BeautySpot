@@ -50,6 +50,20 @@ export class UsersService {
     private readonly http: InternalHttpClient
   ) {}
 
+  /**
+   * Versión de token guardada del usuario, leída de la tabla y no de la caché:
+   * es la respuesta que los demás servicios usan para comprobar una revocación
+   * cuando Redis no tiene el dato. Un usuario que ya no existe da 0, que es lo
+   * mismo que una cuenta que nunca revocó nada.
+   */
+  async versionDeToken(id: string): Promise<number> {
+    const row = await this.userRepository.findOne({
+      where: { id },
+      select: { id: true, tokenVersion: true },
+    });
+    return row?.tokenVersion ?? 0;
+  }
+
   /** Busca un usuario por id; lanza 404 si no existe. */
   async findById(id: string): Promise<User> {
     const user = await this.userRepository.findOne({ where: { id } });

@@ -463,7 +463,9 @@ Tres cosas que suelen darse por hechas y no son así:
   trabaja en dos negocios cambiar de contexto sin volver a identificarse.
 
 `tokenVersion` es lo que hace revocable un JWT: se compara con la versión vigente
-en Redis y, si no coinciden, el token está muerto aunque no haya expirado.
+del usuario y, si no coinciden, el token está muerto aunque no haya expirado. La
+versión se lee de Redis y, cuando no está, de auth-service, que es quien la
+guarda.
 
 ### Los guards, en orden
 

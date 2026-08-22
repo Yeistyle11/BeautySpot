@@ -109,7 +109,7 @@ Authorization: Bearer <access_token>
   al panel a quien acaba de ser rechazado.
 
 Las sesiones se pueden invalidar de forma inmediata en todos los servicios: el
-`tokenVersion` del usuario vive en Redis como fuente de verdad (ver
+`tokenVersion` del usuario se guarda en auth-service y se cachea en Redis (ver
 `docs/04-ARQUITECTURA.md`), así que un `logout` o un cambio de contraseña
 invalida los tokens ya emitidos sin esperar a que expiren.
 
@@ -265,6 +265,7 @@ Autenticación, usuarios, personal y membresías. Base de datos `beautyspot_auth
 | ------ | -------------------------------------------- | ------------------------------------------------ |
 | POST   | `/internal/memberships`                      | Crea membresía sin comprobar el rol del llamante |
 | GET    | `/internal/memberships/business/:businessId` | Quién trabaja en el negocio y con qué rol        |
+| GET    | `/internal/users/:id/token-version`          | Versión de token vigente, para validar sesiones  |
 
 ---
 

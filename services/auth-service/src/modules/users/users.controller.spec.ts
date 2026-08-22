@@ -1,4 +1,4 @@
-import { UsersController } from "./users.controller";
+import { UsersController, InternalUsersController } from "./users.controller";
 import { UsersService } from "./users.service";
 import { User } from "../../entities/user.entity";
 
@@ -116,5 +116,20 @@ describe("UsersController", () => {
 
       expect(service.toggleActive).toHaveBeenCalledWith(OTRO, NEGOCIO, false);
     });
+  });
+});
+
+describe("InternalUsersController", () => {
+  it("devuelve la versión de token que auth tiene guardada", async () => {
+    const service = {
+      versionDeToken: jest.fn().mockResolvedValue(4),
+    } as unknown as jest.Mocked<UsersService>;
+
+    const respuesta = await new InternalUsersController(service).tokenVersion(
+      USUARIO
+    );
+
+    expect(respuesta).toEqual({ version: 4 });
+    expect(service.versionDeToken).toHaveBeenCalledWith(USUARIO);
   });
 });
