@@ -7,15 +7,17 @@ import {
   IsIn,
   Min,
   Max,
+  MaxLength,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { Public } from "@beautyspot/nest-common";
 import { MAX_PAGE } from "@beautyspot/shared-utils";
+import { LONGITUD_MAXIMA_BUSQUEDA } from "@beautyspot/shared-constants";
 
 /** Parámetros de la búsqueda pública: texto, ubicación, tipo, valoración mínima y paginación. */
 class SearchQueryDto {
-  @IsOptional() @IsString() q?: string;
-  @IsOptional() @IsString() city?: string;
+  @IsOptional() @IsString() @MaxLength(LONGITUD_MAXIMA_BUSQUEDA) q?: string;
+  @IsOptional() @IsString() @MaxLength(LONGITUD_MAXIMA_BUSQUEDA) city?: string;
   @IsOptional() @IsString() businessType?: string;
   @IsOptional() @Type(() => Number) @IsNumber() lat?: number;
   @IsOptional() @Type(() => Number) @IsNumber() lng?: number;

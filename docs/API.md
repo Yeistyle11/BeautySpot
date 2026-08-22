@@ -733,6 +733,10 @@ estar ya repartido. También responde 409 si el negocio ya tiene perfil.
 `type=all` la página trae seguidas la de negocios y la de profesionales, y
 `meta.total` es la suma de las dos.
 
+El texto (`q` y `city`) admite 100 caracteres, ignora tildes y mayúsculas, y la
+respuesta se cachea 60 segundos por combinación de filtros, igual que el feed:
+un perfil recién publicado puede tardar ese minuto en aparecer.
+
 ### Reseñas — `/api/v1/marketplace/reviews`
 
 | Método | Ruta                            | Roles        | Descripción                                   |

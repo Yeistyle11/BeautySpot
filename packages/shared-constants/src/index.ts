@@ -97,6 +97,12 @@ export const IVA = 0.19;
 /** Validez (segundos) de las URLs prefirmadas de subida y descarga de imágenes. */
 export const URL_PREFIRMADA_SEGUNDOS = 3600;
 
+/**
+ * Longitud máxima del texto de una búsqueda. Nadie escribe un nombre de salón
+ * de cien caracteres, y sin tope el texto entero entra en el LIKE.
+ */
+export const LONGITUD_MAXIMA_BUSQUEDA = 100;
+
 // ─── Validación de datos de contacto ───────────────────────────────
 
 /**
