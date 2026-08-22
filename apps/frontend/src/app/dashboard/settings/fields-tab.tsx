@@ -11,7 +11,7 @@ import { Field } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { canDo } from "@/lib/permissions";
-import type { Role } from "@/lib/store";
+import { useAuthStore } from "@/lib/store";
 import {
   TIPOS_DE_CAMPO,
   type CampoDeFicha,
@@ -41,7 +41,6 @@ interface FieldsTabProps {
   onCreate: (campo: NuevoCampo) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
   saving: boolean;
-  role: Role | null;
 }
 
 /** Nombre legible del tipo de un campo. */
@@ -59,8 +58,8 @@ export function FieldsTab({
   onCreate,
   onRemove,
   saving,
-  role,
 }: FieldsTabProps) {
+  const { role } = useAuthStore();
   const [nuevo, setNuevo] = useState<NuevoCampo>(campoVacio);
   const puedeEditar = canDo(role, "business_edit");
 

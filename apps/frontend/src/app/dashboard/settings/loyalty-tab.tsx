@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { canDo } from "@/lib/permissions";
-import type { Role } from "@/lib/store";
+import { useAuthStore } from "@/lib/store";
 import { CLASE_DE_COLOR, NOMBRE_DE_COLOR, type Nivel } from "@/lib/niveles";
 import {
   COLORES_DE_NIVEL,
@@ -22,7 +22,6 @@ interface LoyaltyTabProps {
   onChange: (niveles: Nivel[]) => void;
   onSave: () => void;
   saving: boolean;
-  role: Role | null;
 }
 
 /** Lo que hay que gastar para ganar un punto, en la moneda del negocio. */
@@ -34,8 +33,8 @@ export function LoyaltyTab({
   onChange,
   onSave,
   saving,
-  role,
 }: LoyaltyTabProps) {
+  const { role } = useAuthStore();
   const puedeEditar = canDo(role, "settings_edit");
 
   const actualizar = (indice: number, cambios: Partial<Nivel>) =>

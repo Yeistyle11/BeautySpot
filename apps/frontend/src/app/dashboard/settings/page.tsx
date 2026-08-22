@@ -456,7 +456,6 @@ export default function SettingsPage() {
             onChangePassword={changePassword}
             savingPassword={saving === "password"}
             passwordFeedback={passwordFeedback}
-            role={role}
           />
         </TabsContent>
 
@@ -468,7 +467,6 @@ export default function SettingsPage() {
               onSave={saveBusiness}
               saving={saving === "business"}
               loading={loadingBiz}
-              role={role}
             />
           )}
         </TabsContent>
@@ -481,14 +479,12 @@ export default function SettingsPage() {
                 onUpdate={updateHour}
                 onSave={saveHours}
                 saving={saving === "hours"}
-                role={role}
               />
               <SpecialDaysCard
                 dias={diasEspeciales ?? []}
                 onCreate={crearDiaEspecial}
                 onRemove={quitarDiaEspecial}
                 saving={saving === "special"}
-                role={role}
               />
             </>
           )}
@@ -502,7 +498,6 @@ export default function SettingsPage() {
               onCreate={crearCampo}
               onRemove={quitarCampo}
               saving={saving === "fields"}
-              role={role}
             />
           )}
         </TabsContent>
@@ -514,7 +509,6 @@ export default function SettingsPage() {
               onChange={setNiveles}
               onSave={saveNiveles}
               saving={saving === "loyalty"}
-              role={role}
             />
           )}
         </TabsContent>
@@ -526,7 +520,6 @@ export default function SettingsPage() {
               onChange={setFacturacion}
               onSave={saveFacturacion}
               saving={saving === "billing"}
-              role={role}
             />
           )}
         </TabsContent>
@@ -538,7 +531,6 @@ export default function SettingsPage() {
               onChange={setReservas}
               onSave={saveReservas}
               saving={saving === "booking"}
-              role={role}
             />
           )}
         </TabsContent>

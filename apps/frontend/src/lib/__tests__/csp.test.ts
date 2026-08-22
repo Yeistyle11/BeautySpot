@@ -3,16 +3,15 @@
  * "Report-Only" colado por descuido no rompe nada visible: la politica deja de
  * aplicarse y no hay forma de notarlo mirando la aplicacion.
  */
-const nextConfig = require("../../../next.config.js");
+interface NextConfig {
+  headers: () => Promise<{ headers: { key: string; value: string }[] }[]>;
+}
 
 async function cabeceras(): Promise<Record<string, string>> {
+  const nextConfig: NextConfig = (await import("../../../next.config.js"))
+    .default;
   const reglas = await nextConfig.headers();
-  return Object.fromEntries(
-    reglas[0].headers.map((h: { key: string; value: string }) => [
-      h.key,
-      h.value,
-    ])
-  );
+  return Object.fromEntries(reglas[0].headers.map((h) => [h.key, h.value]));
 }
 
 describe("politica de contenido", () => {
