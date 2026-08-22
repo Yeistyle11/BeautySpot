@@ -2,7 +2,7 @@
 
 // Resena de una cita completada: calificacion y comentario del cliente.
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/swr";
+import { useSeededForm } from "@/lib/use-seeded-form";
 import { logger } from "@/lib/logger";
 import { mensajeDeError } from "@/lib/error-message";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
@@ -124,23 +125,17 @@ export default function ReviewPage() {
   const [submitting, setSubmitting] = useState(false);
   const [borrando, setBorrando] = useState(false);
   const [success, setSuccess] = useState(false);
-  // La resena llega despues del primer render: se vuelca una sola vez para no
-  // pisar lo que el usuario ya esté escribiendo.
-  const volcada = useRef(false);
-
-  useEffect(() => {
-    if (!existente || volcada.current) return;
-    volcada.current = true;
-    setRating(existente.rating);
-    setComment(existente.comment ?? "");
-    const fotos = existente.photos ?? [];
+  const permitirNuevaSiembra = useSeededForm(existente, (resena) => {
+    setRating(resena.rating);
+    setComment(resena.comment ?? "");
+    const fotos = resena.photos ?? [];
     setPhotos(
       fotos.length > 0
         ? fotos.map((url, i) => ({ id: i, url }))
         : [{ id: 0, url: "" }]
     );
     siguienteIdFoto.current = Math.max(fotos.length, 1);
-  }, [existente]);
+  });
 
   // Una calificacion baja obliga a explicarla: sin motivo, el negocio no puede
   // hacer nada con la resena.
@@ -220,7 +215,7 @@ export default function ReviewPage() {
     try {
       await api.delete(`/marketplace/reviews/${existente.id}`);
       await recargarResena();
-      volcada.current = false;
+      permitirNuevaSiembra();
       setRating(0);
       setComment("");
       setPhotos([{ id: 0, url: "" }]);

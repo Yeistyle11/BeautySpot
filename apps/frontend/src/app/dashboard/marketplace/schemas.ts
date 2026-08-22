@@ -158,3 +158,17 @@ export type CreateForm = typeof emptyCreateForm;
 export function sugerirEnlace(nombre: string): string {
   return generateSlug(nombre);
 }
+
+// Datos del negocio con los que se rellena el alta del escaparate. Todo es
+// opcional: el alta se puede empezar con la ficha a medias.
+export const datosDelNegocioSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  businessType: z.string().optional(),
+});
+
+export type DatosDelNegocio = z.infer<typeof datosDelNegocioSchema>;

@@ -1,7 +1,7 @@
 "use client";
 
 // Pagina de gestion del perfil publico: pestanas para editar la ficha del negocio en el marketplace.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Megaphone, ExternalLink } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { useApi, usePaginatedApi } from "@/lib/swr";
+import { useSeededForm } from "@/lib/use-seeded-form";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { OverviewTab } from "./overview-tab";
 import { emptyGalleryForm, type GalleryForm } from "./add-image-dialog";
 import {
+  datosDelNegocioSchema,
   defaultSections,
   emptyConfigForm,
   emptyCreateForm,
@@ -29,6 +31,7 @@ import {
   reviewSchema,
   type ConfigForm,
   type CreateForm,
+  type DatosDelNegocio,
   type GalleryImage,
   type Profile,
   type Review,
@@ -89,26 +92,21 @@ export default function MarketplacePage() {
   const [sections, setSections] = useState<SectionItem[]>(defaultSections);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
 
-  // El formulario y las secciones se siembran una sola vez: las revalidaciones
-  // de SWR no deben pisar lo que el usuario esta editando.
-  const seeded = useRef(false);
-  useEffect(() => {
-    if (!profile || seeded.current) return;
-    seeded.current = true;
+  useSeededForm(profile, (p) => {
     setConfigForm({
-      tagline: profile.tagline || "",
-      storyTitle: profile.storyTitle || "",
-      storyText: profile.storyText || "",
-      storyImage: profile.storyImage || "",
-      foundedYear: profile.foundedYear?.toString() || "",
-      founders: profile.founders || "",
-      instagram: profile.socialLinks?.instagram || "",
-      facebook: profile.socialLinks?.facebook || "",
-      tiktok: profile.socialLinks?.tiktok || "",
-      website: profile.socialLinks?.website || "",
+      tagline: p.tagline || "",
+      storyTitle: p.storyTitle || "",
+      storyText: p.storyText || "",
+      storyImage: p.storyImage || "",
+      foundedYear: p.foundedYear?.toString() || "",
+      founders: p.founders || "",
+      instagram: p.socialLinks?.instagram || "",
+      facebook: p.socialLinks?.facebook || "",
+      tiktok: p.socialLinks?.tiktok || "",
+      website: p.socialLinks?.website || "",
     });
-    setSections(profile.sectionConfig?.sections || defaultSections);
-  }, [profile]);
+    setSections(p.sectionConfig?.sections || defaultSections);
+  });
 
   // La galeria si sigue al servidor en cada recarga: se edita con acciones
   // puntuales (agregar/quitar), no con un formulario abierto que pisar.
@@ -127,15 +125,11 @@ export default function MarketplacePage() {
 
   // Los datos del negocio rellenan el alta, y solo se piden cuando hace falta
   // rellenarla.
-  const { data: negocio } = useApi<{
-    name?: string;
-    description?: string;
-    phone?: string;
-    email?: string;
-    address?: string;
-    city?: string;
-    businessType?: string;
-  }>(sinPerfil && businessId ? `/core/businesses/${businessId}` : null);
+  const { data: negocio } = useApi<DatosDelNegocio>(
+    sinPerfil && businessId ? `/core/businesses/${businessId}` : null,
+    undefined,
+    datosDelNegocioSchema
+  );
 
   const crearPerfil = async (form: CreateForm) => {
     try {

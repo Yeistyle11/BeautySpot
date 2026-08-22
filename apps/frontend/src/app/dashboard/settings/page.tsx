@@ -1,7 +1,7 @@
 "use client";
 
 // Pagina de configuracion: pestanas de cuenta, negocio y horarios.
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import { mensajeDeError } from "@/lib/error-message";
 import { z } from "zod";
@@ -19,6 +19,7 @@ import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
+import { useSeededForm } from "@/lib/use-seeded-form";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { AccountTab } from "./account-tab";
@@ -165,64 +166,41 @@ export default function SettingsPage() {
 
   const loadingBiz = canSeeBusiness && !business;
 
-  // Siembra los formularios una sola vez, cuando el dato llega del backend.
-  const businessSeeded = useRef(false);
-  const hoursSeeded = useRef(false);
-  const nivelesSeeded = useRef(false);
-  const facturacionSeeded = useRef(false);
-  const reservasSeeded = useRef(false);
-
-  useEffect(() => {
-    if (!business || businessSeeded.current) return;
-    businessSeeded.current = true;
+  useSeededForm(business, (b) =>
     setBusinessForm({
-      name: business.name,
-      description: business.description,
-      phone: business.phone,
-      email: business.email,
-      website: business.website,
-      address: business.address,
-      city: business.city,
-      state: business.state,
-      country: business.country,
-      logo: business.logo,
-      coverImage: business.coverImage,
-    });
-  }, [business]);
+      name: b.name,
+      description: b.description,
+      phone: b.phone,
+      email: b.email,
+      website: b.website,
+      address: b.address,
+      city: b.city,
+      state: b.state,
+      country: b.country,
+      logo: b.logo,
+      coverImage: b.coverImage,
+    })
+  );
 
-  useEffect(() => {
-    if (!hoursData || hoursData.length === 0 || hoursSeeded.current) return;
-    hoursSeeded.current = true;
+  // Una respuesta vacia no siembra: los horarios se rellenan con el dia por
+  // defecto y guardarlos asi sobreescribiria los del negocio con nada.
+  useSeededForm(hoursData?.length ? hoursData : null, (horas) =>
     setHours(
       DAYS.map(
         (d) =>
-          hoursData.find((h) => h.dayOfWeek === d.value) || {
+          horas.find((h) => h.dayOfWeek === d.value) || {
             dayOfWeek: d.value,
             openTime: "08:00",
             closeTime: "18:00",
             active: false,
           }
       )
-    );
-  }, [hoursData]);
+    )
+  );
 
-  useEffect(() => {
-    if (!fidelizacion || nivelesSeeded.current) return;
-    nivelesSeeded.current = true;
-    setNiveles(fidelizacion.niveles);
-  }, [fidelizacion]);
-
-  useEffect(() => {
-    if (!facturacionGuardada || facturacionSeeded.current) return;
-    facturacionSeeded.current = true;
-    setFacturacion(facturacionGuardada);
-  }, [facturacionGuardada]);
-
-  useEffect(() => {
-    if (!reservasGuardadas || reservasSeeded.current) return;
-    reservasSeeded.current = true;
-    setReservas(reservasGuardadas);
-  }, [reservasGuardadas]);
+  useSeededForm(fidelizacion, (f) => setNiveles(f.niveles));
+  useSeededForm(facturacionGuardada, setFacturacion);
+  useSeededForm(reservasGuardadas, setReservas);
 
   const saveAccount = async () => {
     setSaving("account");

@@ -4,16 +4,23 @@
 // mas de uno.
 import { useRouter } from "next/navigation";
 import { Building2 } from "lucide-react";
+import { z } from "zod";
 import { useApi } from "@/lib/swr";
-import { useAuthStore, type Role } from "@/lib/store";
+import { useAuthStore } from "@/lib/store";
+import { ROLES } from "@/lib/auth";
 import { getDefaultPath } from "@/lib/permissions";
 
-interface Membresia {
-  id: string;
-  businessId: string;
-  businessName: string;
-  role: Role;
-}
+// De esta respuesta salen el negocio y el rol activos, asi que un cambio de
+// contrato aqui decide permisos: se valida antes de dejarla entrar.
+const membresiaSchema = z.object({
+  id: z.string(),
+  businessId: z.string(),
+  businessName: z.string(),
+  role: z.enum(ROLES),
+});
+const membresiasSchema = z.array(membresiaSchema);
+
+type Membresia = z.infer<typeof membresiaSchema>;
 
 /**
  * Cambia el negocio activo. Se oculta con una sola membresia: quien trabaja en
@@ -22,7 +29,11 @@ interface Membresia {
 export function BusinessSwitcher() {
   const router = useRouter();
   const { businessId, setNegocioActivo } = useAuthStore();
-  const { data: membresias } = useApi<Membresia[]>("/auth/users/memberships");
+  const { data: membresias } = useApi<Membresia[]>(
+    "/auth/users/memberships",
+    undefined,
+    membresiasSchema
+  );
 
   if (!membresias || membresias.length < 2) return null;
 

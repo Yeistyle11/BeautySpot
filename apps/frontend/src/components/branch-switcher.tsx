@@ -2,20 +2,26 @@
 
 // Selector de la sede sobre la que se trabaja, para negocios con varios locales.
 import { MapPin } from "lucide-react";
+import { z } from "zod";
 import { useApi, revalidateAll } from "@/lib/swr";
 import { useAuthStore } from "@/lib/store";
 
-interface Sede {
-  id: string;
-  name: string;
-}
+const sedeSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+const sedesSchema = z.array(sedeSchema);
+
+type Sede = z.infer<typeof sedeSchema>;
 
 /** Cambia la sede activa. Se oculta si el negocio tiene una sola sede. */
 export function BranchSwitcher() {
   const { branchId, role, setSedeActiva } = useAuthStore();
   // El listado de sedes no se pide para el rol CLIENT.
   const { data: sedes } = useApi<Sede[]>(
-    role && role !== "CLIENT" ? "/core/branches" : null
+    role && role !== "CLIENT" ? "/core/branches" : null,
+    undefined,
+    sedesSchema
   );
 
   if (!sedes || sedes.length < 2) return null;

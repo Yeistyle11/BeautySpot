@@ -1,7 +1,7 @@
 "use client";
 
 // Dialogo para mover una cita a otro hueco libre del mismo profesional.
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { z } from "zod";
 import { Clock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,13 +35,8 @@ export function RescheduleDialog({
   error,
 }: RescheduleDialogProps) {
   const hoy = toLocalDateKey(new Date());
-  const [fecha, setFecha] = useState("");
+  const [fecha, setFecha] = useState(appointment?.date ?? "");
   const [hora, setHora] = useState<string | null>(null);
-
-  useEffect(() => {
-    setFecha(appointment?.date ?? "");
-    setHora(null);
-  }, [appointment]);
 
   const duracion = useMemo(
     () =>

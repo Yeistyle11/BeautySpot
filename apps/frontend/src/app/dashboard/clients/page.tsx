@@ -462,6 +462,9 @@ export default function ClientsPage() {
             )}
 
             <FichaSection
+              // Remonta al cambiar de cliente: el dialogo no se desmonta entre
+              // uno y otro, y el borrador tiene que empezar de cero.
+              key={selectedClient.id}
               campos={campos ?? []}
               servicios={servicios ?? []}
               valores={selectedClient.ficha ?? {}}

@@ -1,7 +1,7 @@
 "use client";
 
 // Flujo de reserva publica: asistente por pasos (servicios, profesional, horario y datos) hasta confirmar la cita.
-import { useEffect, useRef, useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { mensajeDeError } from "@/lib/error-message";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -10,6 +10,7 @@ import { z } from "zod";
 import { apiPublic } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { useApiPublic, revalidatePrefix } from "@/lib/swr";
+import { useSeededForm } from "@/lib/use-seeded-form";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import {
   availabilitySlotSchema,
@@ -129,18 +130,13 @@ function PublicBookingPageInner() {
     setStartTime("");
   }, [date, selectedProfessional, totalDuration]);
 
-  // Los datos del usuario se copian al formulario una sola vez: si el store se
-  // rehidrata mas tarde, no debe pisar lo que ya haya corregido a mano.
-  const datosSembrados = useRef(false);
-  useEffect(() => {
-    if (!isAuthenticated || !user || datosSembrados.current) return;
-    datosSembrados.current = true;
+  useSeededForm(isAuthenticated ? user : null, (u) =>
     setGuest({
-      name: user.name || "",
-      email: user.email || "",
-      phone: user.phone || "",
-    });
-  }, [isAuthenticated, user]);
+      name: u.name || "",
+      email: u.email || "",
+      phone: u.phone || "",
+    })
+  );
 
   const toggleService = (id: string) => {
     setSelectedServices((prev) =>

@@ -1,7 +1,7 @@
 "use client";
 
 // Ficha del cliente: los campos que el negocio se haya definido en Ajustes.
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,9 +96,6 @@ export function FichaSection({
   puedeEditar,
 }: FichaSectionProps) {
   const [borrador, setBorrador] = useState<Record<string, unknown>>(valores);
-
-  // El cliente seleccionado cambia sin desmontar el diálogo.
-  useEffect(() => setBorrador(valores), [valores]);
 
   if (campos.length === 0) return null;
 

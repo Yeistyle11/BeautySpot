@@ -590,6 +590,9 @@ export default function AppointmentsPage() {
       )}
 
       <RescheduleDialog
+        // Remonta al cambiar de cita: la fecha y la hora del formulario salen
+        // de la cita que se esta moviendo.
+        key={reagendando?.id}
         open={!!reagendando}
         onClose={() => setReagendando(null)}
         appointment={reagendando}

@@ -1,7 +1,7 @@
 "use client";
 
 // Perfil del cliente: edicion de sus datos personales.
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { mensajeDeError } from "@/lib/error-message";
 import { useToast } from "@/components/ui/toast";
 import { useAuthStore } from "@/lib/store";
 import { useApi } from "@/lib/swr";
+import { useSeededForm } from "@/lib/use-seeded-form";
 import { Spinner } from "@/components/ui/spinner";
 import { CLASE_DE_COLOR, nivelSchema } from "@/lib/niveles";
 import { PROPORCION_PUNTOS_FIDELIDAD } from "@beautyspot/shared-constants";
@@ -51,20 +52,11 @@ export default function ClientProfilePage() {
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "" });
 
-  // Siembra el formulario una sola vez, con el perfil del backend o, en su
-  // defecto, con los datos de la sesion.
-  const seeded = useRef(false);
-
-  useEffect(() => {
-    if (seeded.current) return;
-    if (client) {
-      seeded.current = true;
-      setForm({ name: client.name, phone: client.phone || "" });
-    } else if (user) {
-      seeded.current = true;
-      setForm({ name: user.name || "", phone: user.phone || "" });
-    }
-  }, [client, user]);
+  // El perfil del backend manda; si el cliente reservo como invitado y no
+  // tiene ficha, sirven los datos de la sesion.
+  useSeededForm(client ?? user, (datos) =>
+    setForm({ name: datos.name || "", phone: datos.phone || "" })
+  );
 
   // Si core-service no tiene ficha del cliente (reservo como invitado), los
   // datos se guardan contra su usuario de auth-service.
