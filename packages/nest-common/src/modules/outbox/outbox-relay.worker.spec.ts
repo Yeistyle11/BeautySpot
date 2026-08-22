@@ -62,6 +62,21 @@ describe("OutboxRelayWorker", () => {
     jest.useRealTimers();
   });
 
+  /** Los cambios que el relay escribió para ese mensaje, se agrupe con otros o no. */
+  function cambiosDe(id: string): any {
+    const llamada = mockRepo.update.mock.calls.find(([criterio]: [any]) =>
+      (criterio.id.value as string[]).includes(id)
+    );
+    return llamada?.[1];
+  }
+
+  /** Ids que el relay borró en vez de marcar. */
+  function borrados(): string[] {
+    return mockRepo.delete.mock.calls
+      .filter(([criterio]: [any]) => criterio.id !== undefined)
+      .flatMap(([criterio]: [any]) => criterio.id.value as string[]);
+  }
+
   function makeMessage(overrides: Partial<any> = {}) {
     return {
       id: "msg-1",
@@ -148,8 +163,7 @@ describe("OutboxRelayWorker", () => {
         { amount: 100 },
         { eventId: "msg-1", correlationId: "agg-1" }
       );
-      expect(mockRepo.update).toHaveBeenCalledWith(
-        "msg-1",
+      expect(cambiosDe("msg-1")).toEqual(
         expect.objectContaining({
           status: OutboxStatus.PROCESSED,
           lastError: null,
@@ -164,8 +178,7 @@ describe("OutboxRelayWorker", () => {
 
       await worker.poll();
 
-      expect(mockRepo.update).toHaveBeenCalledWith(
-        "msg-2",
+      expect(cambiosDe("msg-2")).toEqual(
         expect.objectContaining({
           status: OutboxStatus.PENDING,
           lastError: "canal caído",
@@ -181,8 +194,7 @@ describe("OutboxRelayWorker", () => {
 
       await worker.poll();
 
-      expect(mockRepo.update).toHaveBeenCalledWith(
-        "msg-3",
+      expect(cambiosDe("msg-3")).toEqual(
         expect.objectContaining({
           status: OutboxStatus.DEAD,
           lastError: "canal caído",
@@ -200,7 +212,10 @@ describe("OutboxRelayWorker", () => {
       await worker.poll();
 
       expect(mockEventBus.emit).toHaveBeenCalledTimes(2);
-      expect(mockRepo.update).toHaveBeenCalledTimes(2);
+      // Los dos acaban igual, así que se anotan con un solo UPDATE.
+      expect(mockRepo.update).toHaveBeenCalledTimes(1);
+      const [criterio] = mockRepo.update.mock.calls[0];
+      expect(criterio.id.value).toEqual(["a", "b"]);
     });
 
     it("purga los mensajes ya publicados pasada la retención", async () => {
@@ -236,6 +251,63 @@ describe("OutboxRelayWorker", () => {
     });
   });
 
+  describe("reintentos con espera", () => {
+    it("aplaza el siguiente intento en vez de reintentar de inmediato", async () => {
+      const msg = makeMessage({ id: "msg-espera", attempts: 0 });
+      mockQb.getMany.mockResolvedValueOnce([msg]).mockResolvedValue([]);
+      mockEventBus.emit.mockRejectedValue(new Error("rabbit caído"));
+
+      const antes = Date.now();
+      await worker.poll();
+
+      const cambios = cambiosDe("msg-espera");
+      expect(cambios.status).toBe(OutboxStatus.PENDING);
+      expect(cambios.nextAttemptAt.getTime()).toBeGreaterThan(antes);
+    });
+
+    it("dobla la espera con cada intento fallido", async () => {
+      mockEventBus.emit.mockRejectedValue(new Error("rabbit caído"));
+
+      // attempts sube en el claim: estos entran como 1 y 3 intentos gastados.
+      mockQb.getMany
+        .mockResolvedValueOnce([
+          makeMessage({ id: "primero", attempts: 0 }),
+          makeMessage({ id: "cuarto", attempts: 2 }),
+        ])
+        .mockResolvedValue([]);
+
+      const ahora = Date.now();
+      await worker.poll();
+
+      const primera = cambiosDe("primero").nextAttemptAt.getTime() - ahora;
+      const cuarta = cambiosDe("cuarto").nextAttemptAt.getTime() - ahora;
+      expect(cuarta).toBeGreaterThan(primera);
+    });
+
+    it("no reclama los que todavía están esperando su turno", async () => {
+      mockQb.getMany.mockResolvedValue([]);
+
+      await worker.poll();
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining("nextAttemptAt"),
+        expect.objectContaining({ ahora: expect.any(Date) })
+      );
+    });
+
+    it("corta el sondeo aunque sigan saliendo lotes llenos", async () => {
+      // Un atasco no debe retener el pool: se drena en varios ciclos.
+      const lote = Array.from({ length: 50 }, (_, i) =>
+        makeMessage({ id: `m-${i}`, attempts: 0 })
+      );
+      mockQb.getMany.mockResolvedValue(lote);
+
+      await worker.poll();
+
+      expect(mockDataSource.transaction).toHaveBeenCalledTimes(20);
+    });
+  });
+
   describe("eventos que llevan un secreto en el payload", () => {
     it("borra la fila al publicarla, en vez de dejarla como PROCESSED", async () => {
       const msg = makeMessage({
@@ -248,11 +320,8 @@ describe("OutboxRelayWorker", () => {
       await worker.poll();
 
       expect(mockEventBus.emit).toHaveBeenCalledTimes(1);
-      expect(mockRepo.delete).toHaveBeenCalledWith("msg-secreto");
-      expect(mockRepo.update).not.toHaveBeenCalledWith(
-        "msg-secreto",
-        expect.objectContaining({ status: OutboxStatus.PROCESSED })
-      );
+      expect(borrados()).toEqual(["msg-secreto"]);
+      expect(cambiosDe("msg-secreto")).toBeUndefined();
     });
 
     it("vacía el payload del que muere tras agotar los intentos", async () => {
@@ -267,8 +336,7 @@ describe("OutboxRelayWorker", () => {
 
       await worker.poll();
 
-      expect(mockRepo.update).toHaveBeenCalledWith(
-        "msg-muerto",
+      expect(cambiosDe("msg-muerto")).toEqual(
         expect.objectContaining({
           status: OutboxStatus.DEAD,
           payload: {},
@@ -283,9 +351,7 @@ describe("OutboxRelayWorker", () => {
 
       await worker.poll();
 
-      const [, cambios] = mockRepo.update.mock.calls.find(
-        ([id]: [string]) => id === "msg-normal"
-      );
+      const cambios = cambiosDe("msg-normal");
       expect(cambios.status).toBe(OutboxStatus.DEAD);
       expect(cambios).not.toHaveProperty("payload");
     });
@@ -302,9 +368,7 @@ describe("OutboxRelayWorker", () => {
 
       await worker.poll();
 
-      const [, cambios] = mockRepo.update.mock.calls.find(
-        ([id]: [string]) => id === "msg-reintento"
-      );
+      const cambios = cambiosDe("msg-reintento");
       expect(cambios.status).toBe(OutboxStatus.PENDING);
       expect(cambios).not.toHaveProperty("payload");
     });

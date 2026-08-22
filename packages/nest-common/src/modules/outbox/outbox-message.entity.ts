@@ -24,6 +24,8 @@ export enum OutboxStatus {
 // TypeORM espera un `IDX_<hash>` y trata el índice de la migración como un
 // objeto ajeno: lo borraría y lo recrearía en cuanto alguien sincronizase.
 @Index("idx_outbox_messages_status_created_at", ["status", "createdAt"])
+// El relay reclama por estado y por cuándo toca volver a intentarlo.
+@Index("idx_outbox_messages_status_next_attempt", ["status", "nextAttemptAt"])
 export class OutboxMessageEntity {
   @PrimaryColumn("uuid")
   id!: string;
@@ -54,6 +56,13 @@ export class OutboxMessageEntity {
 
   @Column({ type: "timestamptz", name: "processed_at", nullable: true })
   processedAt!: Date | null;
+
+  /**
+   * Cuándo puede volver a intentarse tras un fallo. Vacío mientras no ha
+   * fallado nunca: un evento recién escrito sale en el primer sondeo.
+   */
+  @Column({ type: "timestamptz", name: "next_attempt_at", nullable: true })
+  nextAttemptAt!: Date | null;
 
   @BeforeInsert()
   /** Asigna el identificador antes de insertar la fila. */
