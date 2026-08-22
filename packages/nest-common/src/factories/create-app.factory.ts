@@ -59,8 +59,10 @@ function resolverDeVersiones(
       strict: false,
     }) as TokenVersionResolver;
   } catch {
-    // Esta versión de Nest lanza cuando el token no está registrado, que es el
-    // caso de los siete servicios que no poseen la tabla de usuarios.
+    // Nest lanza cuando el token no está registrado, que es el caso de los
+    // siete servicios que no poseen la tabla de usuarios. Que esto se pueda
+    // capturar depende de `abortOnError: false` al crear la aplicación: sin
+    // él, el propio `get` mata el proceso y no vuelve de aquí.
     return new HttpTokenVersionResolver(new InternalHttpClient(configService));
   }
 }
@@ -101,6 +103,11 @@ export async function createMicroserviceApp(
 
   const app = await NestFactory.create(AppModule as Type<unknown>, {
     logger: new StructuredLogger(),
+    // Sin esto, cualquier fallo dentro de la aplicación —incluido preguntar por
+    // un proveedor que este servicio no registra— llama a process.exit(1) por
+    // dentro y no hay forma de atenderlo. Con él, el error sube hasta
+    // bootstrapMicroservice, que decide: registrarlo y salir con código.
+    abortOnError: false,
   });
 
   const configService = app.get(ConfigService);
