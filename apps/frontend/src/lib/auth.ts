@@ -32,7 +32,7 @@ const jwtPayloadSchema = z
 
 export type JwtPayload = z.infer<typeof jwtPayloadSchema>;
 
-// Usuario que devuelven /auth/login y /auth/register, validado en runtime.
+// Usuario que devuelve /auth/login, validado en runtime.
 const userSchema = z.object({
   id: z.string(),
   email: z.string(),
@@ -43,8 +43,9 @@ const userSchema = z.object({
 });
 
 /**
- * Respuesta de /auth/login y /auth/register: sin tokens y con `session`, los
- * datos no sensibles que necesita la interfaz.
+ * Respuesta de /auth/login: sin tokens y con `session`, los datos no sensibles
+ * que necesita la interfaz. El alta no devuelve nada de esto —solo un mensaje—
+ * porque la cuenta no entra hasta confirmar el correo.
  */
 export const authResponseSchema = z.object({
   user: userSchema,
