@@ -203,6 +203,12 @@ describe("CatalogoTenantService", () => {
   });
 
   describe("reorder", () => {
+    /** Lo que devuelve TypeORM en un UPDATE: las filas y cuántas cambiaron. */
+    const resultadoDeUpdate = (ids: string[]) => [
+      ids.map((id) => ({ id })),
+      ids.length,
+    ];
+
     it("no consulta si no hay nada que reordenar", async () => {
       await service.reorder("negocio-1", []);
 
@@ -210,7 +216,9 @@ describe("CatalogoTenantService", () => {
     });
 
     it("aplica el orden de todos en una sola sentencia", async () => {
-      repo.manager.query.mockResolvedValue([{ id: "cat-1" }, { id: "cat-2" }]);
+      repo.manager.query.mockResolvedValue(
+        resultadoDeUpdate(["cat-1", "cat-2"])
+      );
 
       await service.reorder("negocio-1", [
         { id: "cat-1", sortOrder: 2 },
@@ -225,7 +233,7 @@ describe("CatalogoTenantService", () => {
     });
 
     it("acota la escritura al negocio", async () => {
-      repo.manager.query.mockResolvedValue([{ id: "cat-1" }]);
+      repo.manager.query.mockResolvedValue(resultadoDeUpdate(["cat-1"]));
 
       await service.reorder("negocio-1", [{ id: "cat-1", sortOrder: 1 }]);
 
@@ -234,10 +242,23 @@ describe("CatalogoTenantService", () => {
     });
 
     it("un id de otro negocio corta la reordenación entera", async () => {
-      repo.manager.query.mockResolvedValue([]);
+      repo.manager.query.mockResolvedValue(resultadoDeUpdate([]));
 
       await expect(
         service.reorder("negocio-1", [{ id: "ajeno", sortOrder: 1 }])
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("corta también cuando solo uno de los dos era del negocio", async () => {
+      // El caso que se colaba: al contar sobre lo que devuelve el UPDATE sin
+      // separar filas de afectadas, dos elementos siempre cuadraban.
+      repo.manager.query.mockResolvedValue(resultadoDeUpdate(["cat-1"]));
+
+      await expect(
+        service.reorder("negocio-1", [
+          { id: "cat-1", sortOrder: 1 },
+          { id: "ajeno", sortOrder: 2 },
+        ])
       ).rejects.toThrow(NotFoundException);
     });
   });

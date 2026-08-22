@@ -139,7 +139,7 @@ export abstract class CatalogoTenantService<T extends EntidadDeCatalogo> {
     // había casado: la sentencia por sí sola es atómica, pero el 404 llega
     // después de escribirla.
     await this.repo.manager.transaction(async (manager) => {
-      const filas = (await manager.query(
+      const crudo = (await manager.query(
         `UPDATE ${tabla} AS c
             SET "${columna("sortOrder")}" = nuevo.orden
            FROM (VALUES ${tuplas.join(", ")}) AS nuevo(id, orden)
@@ -148,6 +148,11 @@ export abstract class CatalogoTenantService<T extends EntidadDeCatalogo> {
        RETURNING c."${columna("id")}"`,
         parametros
       )) as unknown[];
+
+      // De un UPDATE, TypeORM devuelve [filas, afectadas]; de un SELECT, las
+      // filas sueltas. Contar sobre lo que llega sin distinguirlo daría dos
+      // siempre, que es como se colaba un id ajeno cuando la lista traía dos.
+      const filas = (Array.isArray(crudo[0]) ? crudo[0] : crudo) as unknown[];
 
       if (filas.length !== items.length) {
         throw new NotFoundException(`${this.textos.singular} no encontrada`);
