@@ -1,7 +1,7 @@
 "use client";
 
 // Flujo de reserva publica: asistente por pasos (servicios, profesional, horario y datos) hasta confirmar la cita.
-import { useEffect, useState, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { mensajeDeError } from "@/lib/error-message";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -87,7 +87,12 @@ function PublicBookingPageInner() {
   const [selectedProfessional, setSelectedProfessional] =
     useState(preselectedProfId);
   const [date, setDate] = useState("");
-  const [startTime, setStartTime] = useState("");
+  // La hora se guarda junto a la combinacion con la que se eligio, para poder
+  // derivar si sigue valiendo en vez de tener que borrarla desde un efecto.
+  const [horaElegida, setHoraElegida] = useState({
+    combinacion: "",
+    startTime: "",
+  });
   const [guest, setGuest] = useState<GuestDetails>({
     name: "",
     email: "",
@@ -125,10 +130,13 @@ function PublicBookingPageInner() {
     .filter((s) => s.available)
     .map((s) => s.startTime);
 
-  // Cambiar de fecha, profesional o servicios invalida la hora ya elegida.
-  useEffect(() => {
-    setStartTime("");
-  }, [date, selectedProfessional, totalDuration]);
+  // Cambiar de fecha, profesional o servicios invalida la hora ya elegida: el
+  // hueco de las 10:00 del martes no existe necesariamente el miercoles.
+  const combinacionDeHora = `${date}|${selectedProfessional}|${totalDuration}`;
+  const startTime =
+    horaElegida.combinacion === combinacionDeHora ? horaElegida.startTime : "";
+  const setStartTime = (valor: string) =>
+    setHoraElegida({ combinacion: combinacionDeHora, startTime: valor });
 
   useSeededForm(isAuthenticated ? user : null, (u) =>
     setGuest({

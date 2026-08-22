@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ZodType } from "zod";
 import { usePaginatedApi } from "./swr";
 import { useDebouncedValue } from "./use-debounced-value";
@@ -43,18 +43,23 @@ export function usePaginatedList<T>({
   limit = DEFAULT_PAGE_SIZE,
   search = "",
 }: PaginatedListParams<T>) {
-  const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search);
 
   // Los filtros se serializan para poder compararlos por valor: `params` suele
   // ser un objeto literal nuevo en cada render.
   const serializedParams = JSON.stringify(params ?? {});
 
-  // Cambiar la busqueda o un filtro reordena la coleccion entera: seguir en la
-  // pagina 5 mostraria un hueco vacio.
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch, serializedParams, limit]);
+  // La pagina se guarda junto a la consulta de la que salio. Cambiar la
+  // busqueda o un filtro reordena la coleccion entera, y al no coincidir ya la
+  // consulta se vuelve sola a la primera: seguir en la pagina 5 mostraria un
+  // hueco vacio.
+  const consulta = `${serializedParams}|${limit}|${debouncedSearch}`;
+  const [elegida, setElegida] = useState({ consulta, pagina: 1 });
+  const page = elegida.consulta === consulta ? elegida.pagina : 1;
+  const setPage = useCallback(
+    (pagina: number) => setElegida({ consulta, pagina }),
+    [consulta]
+  );
 
   const listKey = useMemo(
     () =>
@@ -69,16 +74,18 @@ export function usePaginatedList<T>({
 
   const { items, meta, isLoading, error, mutate } = usePaginatedApi<T>(
     listKey,
-    itemSchema
-  );
-
-  // Si el backend recorta la ultima pagina (por ejemplo al borrar el unico
-  // elemento que quedaba en ella), se retrocede en vez de dejar la vista vacia.
-  useEffect(() => {
-    if (meta && meta.totalPages > 0 && page > meta.totalPages) {
-      setPage(meta.totalPages);
+    itemSchema,
+    {
+      // Si el backend recorta la ultima pagina (por ejemplo al borrar el unico
+      // elemento que quedaba en ella), se retrocede en vez de dejar la vista
+      // vacia. Se hace al llegar la respuesta, que es cuando se sabe, y no
+      // desde un efecto que reaccione despues.
+      onSuccess: (datos) => {
+        const total = datos?.meta?.totalPages ?? 0;
+        if (total > 0 && page > total) setPage(total);
+      },
     }
-  }, [meta, page]);
+  );
 
   return {
     items,

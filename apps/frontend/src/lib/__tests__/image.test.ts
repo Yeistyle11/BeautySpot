@@ -10,7 +10,6 @@ function loadHelper(hosts: string) {
   jest.isolateModules(() => {
     // require() es necesario aqui: hay que reevaluar el modulo despues de
     // cambiar la variable de entorno, y un import estatico se cachea.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     mod = require("../image");
   });
   return mod!;

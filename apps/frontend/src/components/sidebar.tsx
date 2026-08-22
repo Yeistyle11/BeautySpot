@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -62,15 +62,14 @@ export function Sidebar() {
   const router = useRouter();
   const { user, role } = useAuthStore();
   const cerrarSesion = useLogout();
-  const [open, setOpen] = useState(false);
+  // El panel movil se guarda junto a la ruta en que se abrio. Navegar cambia la
+  // ruta y con eso deja de estar abierto, sin importar desde donde se navegue:
+  // si no, tapa la pagina recien abierta y obliga a cerrarlo a mano.
+  const [panel, setPanel] = useState({ abierto: false, ruta: pathname });
+  const open = panel.abierto && panel.ruta === pathname;
+  const setOpen = (abierto: boolean) => setPanel({ abierto, ruta: pathname });
 
   const pages = getPagesForRole(role);
-
-  // Navegar debe cerrar el panel en movil; si no, tapa la pagina recien
-  // abierta y obliga a cerrarlo a mano.
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
 
   const handleLogout = async () => {
     await cerrarSesion();

@@ -1,7 +1,7 @@
 "use client";
 
 // Pagina de gestion del perfil publico: pestanas para editar la ficha del negocio en el marketplace.
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,6 @@ import {
   type ConfigForm,
   type CreateForm,
   type DatosDelNegocio,
-  type GalleryImage,
   type Profile,
   type Review,
   type SectionItem,
@@ -90,7 +89,6 @@ export default function MarketplacePage() {
 
   const [configForm, setConfigForm] = useState<ConfigForm>(emptyConfigForm);
   const [sections, setSections] = useState<SectionItem[]>(defaultSections);
-  const [gallery, setGallery] = useState<GalleryImage[]>([]);
 
   useSeededForm(profile, (p) => {
     setConfigForm({
@@ -108,11 +106,10 @@ export default function MarketplacePage() {
     setSections(p.sectionConfig?.sections || defaultSections);
   });
 
-  // La galeria si sigue al servidor en cada recarga: se edita con acciones
-  // puntuales (agregar/quitar), no con un formulario abierto que pisar.
-  useEffect(() => {
-    if (profile) setGallery(profile.galleryImages || []);
-  }, [profile]);
+  // La galeria se lee del perfil en cada render: se edita con acciones puntuales
+  // que revalidan (agregar/quitar), no con un formulario abierto que pisar, asi
+  // que no necesita copia propia que mantener en sincronia.
+  const gallery = profile?.galleryImages ?? [];
 
   const [galleryDialog, setGalleryDialog] = useState(false);
   const [galleryForm, setGalleryForm] = useState<GalleryForm>(emptyGalleryForm);
