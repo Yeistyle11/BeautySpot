@@ -1,3 +1,4 @@
+import { Internal } from "@beautyspot/nest-common";
 import { Controller, Get, Query } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -13,6 +14,7 @@ export interface SedeResumida {
  * Endpoint interno (servicio-a-servicio) para que booking y payment comprueben
  * que la sede que reciben es del negocio de la petición.
  */
+@Internal()
 @Controller("internal/branches")
 export class InternalBranchesController {
   constructor(

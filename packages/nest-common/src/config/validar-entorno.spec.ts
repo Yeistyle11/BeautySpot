@@ -152,6 +152,39 @@ describe("validarEntorno", () => {
       );
     });
 
+    it("rechaza dos variables que deben diferir y traen el mismo valor", () => {
+      expect(() =>
+        validarEntorno(
+          { JWT_SECRET: "el-mismo", JWT_REFRESH_SECRET: "el-mismo" },
+          { distintos: [["JWT_SECRET", "JWT_REFRESH_SECRET"]] },
+          "auth"
+        )
+      ).toThrow(/JWT_SECRET y JWT_REFRESH_SECRET tienen el mismo valor/);
+    });
+
+    it("acepta el par cuando los valores difieren", () => {
+      expect(() =>
+        validarEntorno(
+          { JWT_SECRET: "uno", JWT_REFRESH_SECRET: "otro" },
+          { distintos: [["JWT_SECRET", "JWT_REFRESH_SECRET"]] },
+          "auth"
+        )
+      ).not.toThrow();
+    });
+
+    it("no duplica el aviso si una de las dos falta: ya lo dice su propia regla", () => {
+      expect(() =>
+        validarEntorno(
+          { JWT_SECRET: "uno" },
+          {
+            secretos: ["JWT_REFRESH_SECRET"],
+            distintos: [["JWT_SECRET", "JWT_REFRESH_SECRET"]],
+          },
+          "auth"
+        )
+      ).toThrow(/1 problema\(s\)[\s\S]*JWT_REFRESH_SECRET no está definida/);
+    });
+
     it("aplica el rigor de producción según NODE_ENV", () => {
       const entorno = { JWT_SECRET: "changeme" };
 

@@ -461,7 +461,8 @@ describe("BusinessProfilesService", () => {
         businessType: "barbería",
       });
 
-      expect(result).toEqual({ items: [mockBusinessProfile], total: 1 });
+      expect(result.data).toEqual([mockBusinessProfile]);
+      expect(result.meta.total).toBe(1);
       expect(qb.orderBy).toHaveBeenCalledWith("bp.rating", "DESC");
     });
 
@@ -480,7 +481,16 @@ describe("BusinessProfilesService", () => {
 
       await service.findPublished({ lat: 4.7, lng: -74.0, radius: 5 });
 
-      expect(qb.setParameters).toHaveBeenCalled();
+      // Filtro y orden comparten expresión y parámetros: el punto se pone una
+      // sola vez, con el andWhere del radio.
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining("<= :radius"),
+        expect.objectContaining({ lat: 4.7, lng: -74.0, radius: 5 })
+      );
+      expect(qb.orderBy).toHaveBeenCalledWith(
+        expect.stringContaining("acos"),
+        "ASC"
+      );
     });
   });
 

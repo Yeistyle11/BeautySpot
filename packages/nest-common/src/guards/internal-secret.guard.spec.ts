@@ -1,15 +1,24 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { ForbiddenException } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
 import { InternalSecretGuard } from "./internal-secret.guard";
+import { IS_INTERNAL_KEY } from "../decorators/internal.decorator";
 
 describe("InternalSecretGuard", () => {
   let guard: InternalSecretGuard;
   let mockConfigService: jest.Mocked<ConfigService>;
 
-  const mockExecutionContext = (url: string, secretHeader?: string) => {
+  const mockExecutionContext = (
+    url: string,
+    secretHeader?: string,
+    marcadoInterno = false
+  ) => {
+    const handler = marcadoInterno ? manejadorInterno : manejadorCorriente;
     const context = {
       getType: jest.fn().mockReturnValue("http"),
+      getHandler: jest.fn().mockReturnValue(handler),
+      getClass: jest.fn().mockReturnValue(class {}),
       switchToHttp: jest.fn().mockReturnValue({
         getRequest: jest.fn().mockReturnValue({
           url,
@@ -19,6 +28,12 @@ describe("InternalSecretGuard", () => {
     } as any;
     return context;
   };
+
+  /** Manejador con la marca que deja el decorador @Internal(). */
+  function manejadorInterno() {}
+  Reflect.defineMetadata(IS_INTERNAL_KEY, true, manejadorInterno);
+
+  function manejadorCorriente() {}
 
   beforeEach(async () => {
     mockConfigService = {
@@ -35,6 +50,7 @@ describe("InternalSecretGuard", () => {
           provide: ConfigService,
           useValue: mockConfigService,
         },
+        Reflector,
       ],
     }).compile();
 
@@ -48,6 +64,23 @@ describe("InternalSecretGuard", () => {
   });
 
   describe("canActivate", () => {
+    it("exige el secreto en un controlador marcado @Internal(), cuelgue donde cuelgue", () => {
+      // Renombrar la ruta no puede desproteger el endpoint.
+      const context = mockExecutionContext("/usuarios/sync", undefined, true);
+
+      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+    });
+
+    it("acepta el secreto correcto en un controlador marcado @Internal()", () => {
+      const context = mockExecutionContext(
+        "/usuarios/sync",
+        "internal-secret-123",
+        true
+      );
+
+      expect(guard.canActivate(context)).toBe(true);
+    });
+
     it("debería permitir acceso a rutas que no son /internal", () => {
       const context = mockExecutionContext("/api/public");
 

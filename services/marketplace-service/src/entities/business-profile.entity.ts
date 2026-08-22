@@ -78,8 +78,6 @@ export class BusinessProfileEntity extends TenantEntity {
 
   @Column({ default: false }) verified!: boolean;
 
-  // --- Campos de perfil inmersivo ---
-
   @Column({ type: "varchar", length: 80, nullable: true })
   tagline!: string;
 
@@ -112,5 +110,5 @@ export class BusinessProfileEntity extends TenantEntity {
   @Column({ type: "int", default: 0, name: "profile_completeness" })
   profileCompleteness!: number;
 
-  // --- Relaciones: se consultan por businessId sin FK ---
+  // Las relaciones se consultan por businessId, sin clave ajena.
 }

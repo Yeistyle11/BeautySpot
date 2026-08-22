@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { z } from "zod";
 import { useApiPublic } from "@/lib/swr";
+import type { PaginationMeta } from "@/lib/pagination";
 import { hrefSeguro } from "@/lib/url";
 
 import {
@@ -94,8 +95,8 @@ export default function BusinessProfile({
         portfolio: null,
       }));
   const { data: reviewsResp } = useApiPublic<{
-    items: Review[];
-    total: number;
+    data: Review[];
+    meta: PaginationMeta;
   }>(
     bid ? `/marketplace/reviews/business/${bid}?limit=10` : null,
     undefined,
@@ -107,7 +108,7 @@ export default function BusinessProfile({
     ratingDistributionSchema
   );
 
-  const reviews = reviewsResp?.items ?? [];
+  const reviews = reviewsResp?.data ?? [];
 
   if (loading) {
     return (

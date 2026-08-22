@@ -128,9 +128,15 @@ export class AvisosService {
     data?: Record<string, unknown>
   ): Promise<void> {
     const miembros = await this.equipoDelNegocio(businessId);
-    for (const userId of miembros) {
-      await this.avisarEnLaApp(userId, businessId, type, title, message, data);
-    }
+
+    // El aviso de cada uno son dos consultas -su preferencia y el alta-, y
+    // ninguno depende del anterior. En serie, un equipo de quince alargaba el
+    // consumo del evento por treinta idas y vueltas seguidas.
+    await Promise.all(
+      miembros.map((userId) =>
+        this.avisarEnLaApp(userId, businessId, type, title, message, data)
+      )
+    );
   }
 
   /** Encola el correo dejando su fallo en el log. */

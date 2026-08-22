@@ -1,4 +1,13 @@
-import { Controller, Post, Get, Body, Param, Query } from "@nestjs/common";
+import { Internal } from "@beautyspot/nest-common";
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Param,
+  Query,
+  ConflictException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ILike, In, Repository } from "typeorm";
 import {
@@ -8,15 +17,19 @@ import {
 } from "@beautyspot/shared-utils";
 import { Client } from "../../entities/client.entity";
 import { FindOrCreateClientDto } from "./dto/find-or-create-client.dto";
+import { MoverPuntosDto } from "./dto/mover-puntos.dto";
+import { ClientsService } from "../clients/clients.service";
 
 /** Tope de clientes que devuelve una búsqueda, para acotar el `IN` de booking. */
 const MAXIMO_CLIENTES_BUSCADOS = 200;
 
 /** Endpoint interno (servicio-a-servicio) para resolver el cliente de una reserva. */
+@Internal()
 @Controller("internal/clients")
 export class InternalClientsController {
   constructor(
-    @InjectRepository(Client) private readonly clientRepo: Repository<Client>
+    @InjectRepository(Client) private readonly clientRepo: Repository<Client>,
+    private readonly clients: ClientsService
   ) {}
 
   /** Devuelve el cliente que coincida por email o telefono, o lo crea. */
@@ -38,6 +51,54 @@ export class InternalClientsController {
       select: ["id", "loyaltyPoints"],
     });
     return cliente ? { loyaltyPoints: cliente.loyaltyPoints } : null;
+  }
+
+  /**
+   * Descuenta los puntos del cliente si le alcanzan y devuelve el saldo que le
+   * queda. Responde 409 si no llegan: quien cobra necesita saberlo antes de
+   * aplicar el descuento, no después.
+   */
+  @Post(":id/puntos/reservar")
+  async reservarPuntos(
+    @Param("id") id: string,
+    @Body() dto: MoverPuntosDto
+  ): Promise<{ loyaltyPoints: number }> {
+    const pudo = await this.clients.redeemLoyaltyPoints(
+      id,
+      dto.businessId,
+      dto.puntos
+    );
+    if (!pudo) {
+      throw new ConflictException(
+        "El cliente no tiene puntos suficientes o no pertenece a este negocio"
+      );
+    }
+    return this.saldoDe(id, dto.businessId);
+  }
+
+  /**
+   * Devuelve al cliente unos puntos ya reservados, cuando el cobro que los
+   * gastaba no llegó a registrarse.
+   */
+  @Post(":id/puntos/devolver")
+  async devolverPuntos(
+    @Param("id") id: string,
+    @Body() dto: MoverPuntosDto
+  ): Promise<{ loyaltyPoints: number }> {
+    await this.clients.addLoyaltyPoints(id, dto.businessId, dto.puntos);
+    return this.saldoDe(id, dto.businessId);
+  }
+
+  /** Saldo de puntos del cliente tras moverlo. */
+  private async saldoDe(
+    id: string,
+    businessId: string
+  ): Promise<{ loyaltyPoints: number }> {
+    const cliente = await this.clientRepo.findOne({
+      where: { id, businessId },
+      select: ["id", "loyaltyPoints"],
+    });
+    return { loyaltyPoints: cliente?.loyaltyPoints ?? 0 };
   }
 
   /**

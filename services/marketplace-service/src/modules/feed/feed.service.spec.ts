@@ -89,12 +89,26 @@ describe("FeedService", () => {
     service = module.get<FeedService>(FeedService);
   });
 
+  /** Una página del listado de perfiles, con el sobre que devuelve el servicio. */
+  function pagina(data: BusinessProfileEntity[]) {
+    return {
+      data,
+      meta: {
+        page: 1,
+        limit: 10,
+        total: data.length,
+        totalPages: data.length ? 1 : 0,
+        hasNext: false,
+        hasPrev: false,
+      },
+    };
+  }
+
   describe("getFeed", () => {
     it("debería retornar feed completo sin ubicación", async () => {
-      mockBusinessService.findPublished.mockResolvedValue({
-        items: [mockBusinessProfile],
-        total: 1,
-      });
+      mockBusinessService.findPublished.mockResolvedValue(
+        pagina([mockBusinessProfile])
+      );
       mockBusinessService.findTopRated.mockResolvedValue([mockBusinessProfile]);
       mockBusinessService.findRecent.mockResolvedValue([mockBusinessProfile]);
       mockProfessionalService.findTopRated.mockResolvedValue([
@@ -109,10 +123,7 @@ describe("FeedService", () => {
     });
 
     it("debería filtrar por ubicación si se proporciona", async () => {
-      mockBusinessService.findPublished.mockResolvedValue({
-        items: [],
-        total: 0,
-      });
+      mockBusinessService.findPublished.mockResolvedValue(pagina([]));
       mockBusinessService.findTopRated.mockResolvedValue([]);
       mockBusinessService.findRecent.mockResolvedValue([]);
       mockProfessionalService.findTopRated.mockResolvedValue([]);
@@ -132,10 +143,7 @@ describe("FeedService", () => {
     });
 
     it("no debería incluir secciones vacías", async () => {
-      mockBusinessService.findPublished.mockResolvedValue({
-        items: [],
-        total: 0,
-      });
+      mockBusinessService.findPublished.mockResolvedValue(pagina([]));
       mockBusinessService.findTopRated.mockResolvedValue([]);
       mockBusinessService.findRecent.mockResolvedValue([]);
       mockProfessionalService.findTopRated.mockResolvedValue([]);
@@ -153,10 +161,7 @@ describe("FeedService", () => {
           ["SPA", 2],
         ])
       );
-      mockBusinessService.findPublished.mockResolvedValue({
-        items: [],
-        total: 0,
-      });
+      mockBusinessService.findPublished.mockResolvedValue(pagina([]));
       mockBusinessService.findTopRated.mockResolvedValue([]);
       mockBusinessService.findRecent.mockResolvedValue([]);
       mockProfessionalService.findTopRated.mockResolvedValue([]);
@@ -178,10 +183,7 @@ describe("FeedService", () => {
     // la portada deja al local fuera de todos los filtros.
     it("ofrece una categoría por cada tipo de negocio que admite el alta", async () => {
       mockBusinessService.contarPorTipo.mockResolvedValue(new Map());
-      mockBusinessService.findPublished.mockResolvedValue({
-        items: [],
-        total: 0,
-      });
+      mockBusinessService.findPublished.mockResolvedValue(pagina([]));
       mockBusinessService.findTopRated.mockResolvedValue([]);
       mockBusinessService.findRecent.mockResolvedValue([]);
       mockProfessionalService.findTopRated.mockResolvedValue([]);

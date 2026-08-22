@@ -129,7 +129,6 @@ export class AnalyticsEventListeners {
         manager
       );
 
-      // Devuelve si era la primera visita del cliente en el negocio.
       const visita = await this.negocioMetrics.registrarVisita(
         businessId,
         clientId,

@@ -1,4 +1,8 @@
-import { paginate, PaginateParams } from "./pagination.helper";
+import {
+  paginate,
+  paginarQueryBuilder,
+  PaginateParams,
+} from "./pagination.helper";
 import { Repository } from "typeorm";
 
 describe("Pagination Helper", () => {
@@ -194,6 +198,76 @@ describe("Pagination Helper", () => {
 
       expect(result.meta.hasNext).toBe(false);
       expect(result.meta.hasPrev).toBe(true);
+    });
+  });
+
+  describe("paginarQueryBuilder", () => {
+    const params: PaginateParams = {
+      page: 2,
+      limit: 10,
+      offset: 10,
+      sort: "createdAt",
+      order: "DESC",
+    };
+
+    const datos = [{ id: "1" }, { id: "2" }];
+
+    /** Query builder de mentira que encadena y devuelve lo que se le diga. */
+    function queryBuilder(total: number) {
+      const qb: Record<string, jest.Mock> = {
+        skip: jest.fn(),
+        take: jest.fn(),
+        getManyAndCount: jest.fn().mockResolvedValue([datos, total]),
+      };
+      qb.skip.mockReturnValue(qb);
+      qb.take.mockReturnValue(qb);
+      return qb;
+    }
+
+    it("devuelve el mismo sobre que paginate", async () => {
+      const qb = queryBuilder(25);
+
+      const result = await paginarQueryBuilder(qb as never, params);
+
+      expect(result).toEqual({
+        data: datos,
+        meta: {
+          page: 2,
+          limit: 10,
+          total: 25,
+          totalPages: 3,
+          hasNext: true,
+          hasPrev: true,
+        },
+      });
+    });
+
+    it("acota la consulta a la página pedida", async () => {
+      const qb = queryBuilder(25);
+
+      await paginarQueryBuilder(qb as never, params);
+
+      expect(qb.skip).toHaveBeenCalledWith(10);
+      expect(qb.take).toHaveBeenCalledWith(10);
+    });
+
+    it("no toca el orden, que lo pone quien construye la consulta", async () => {
+      const qb = queryBuilder(2);
+
+      await paginarQueryBuilder(qb as never, params);
+
+      expect(qb.orderBy).toBeUndefined();
+    });
+
+    it("una página vacía no deja hasNext puesto", async () => {
+      const qb = queryBuilder(0);
+      qb.getManyAndCount.mockResolvedValue([[], 0]);
+
+      const result = await paginarQueryBuilder(qb as never, params);
+
+      expect(result.data).toEqual([]);
+      expect(result.meta.totalPages).toBe(0);
+      expect(result.meta.hasNext).toBe(false);
     });
   });
 });

@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { CatalogoTenantService } from "@beautyspot/nest-common";
 import { ServiceCategoryEntity } from "../../entities/service-category.entity";
-import { CatalogoTenantService } from "../../common/catalogo-tenant.service";
 
 /** CRUD de las categorías de servicios de un negocio, con orden y activación. */
 @Injectable()

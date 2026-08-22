@@ -33,6 +33,7 @@ export class BranchesController {
     Role.RECEPTIONIST,
     Role.PROFESSIONAL
   )
+  /** Sedes del negocio. */
   @Get()
   async findAll(@BusinessId() businessId: string) {
     return this.service.findByBusiness(businessId);

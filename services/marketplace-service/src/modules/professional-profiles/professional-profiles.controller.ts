@@ -5,7 +5,7 @@ import {
   UpdateProfessionalProfileDto,
   ToggleProfessionalVisibilityDto,
 } from "./dto/professional-profile.dto";
-import { Roles, Public, BusinessId } from "@beautyspot/nest-common";
+import { Roles, BusinessId, Internal } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 
 /** Endpoints con los que el negocio edita el perfil público de sus profesionales. */
@@ -41,8 +41,8 @@ export class ProfessionalProfilesController {
 }
 
 /** Endpoints internos con los que el core sincroniza los perfiles de profesionales. */
+@Internal()
 @Controller("internal/professional-profiles")
-@Public()
 export class InternalProfessionalProfilesController {
   constructor(private readonly service: ProfessionalProfilesService) {}
 

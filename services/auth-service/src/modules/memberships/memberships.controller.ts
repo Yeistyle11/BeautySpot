@@ -13,6 +13,7 @@ import {
   BusinessId,
   CurrentUser,
   SesionVerificable,
+  Internal,
 } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { CreateMembershipDto, UpdateRoleDto } from "./dto/membership.dto";
@@ -92,6 +93,7 @@ export class MembershipsController {
 }
 
 /** Endpoint interno (servicio-a-servicio) para crear membresías sin control de rol del llamante. */
+@Internal()
 @Controller("internal/memberships")
 export class InternalMembershipsController {
   constructor(private readonly membershipsService: MembershipsService) {}

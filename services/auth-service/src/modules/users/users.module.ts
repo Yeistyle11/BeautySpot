@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { OutboxModule, InternalHttpModule } from "@beautyspot/nest-common";
 import { UsersService } from "./users.service";
-import { UsersController } from "./users.controller";
+import { UsersController, InternalUsersController } from "./users.controller";
 import { User } from "../../entities/user.entity";
 import { Membership } from "../../entities/membership.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
@@ -13,7 +13,7 @@ import { AuditLog } from "../../entities/audit-log.entity";
     OutboxModule,
     InternalHttpModule,
   ],
-  controllers: [UsersController],
+  controllers: [UsersController, InternalUsersController],
   providers: [UsersService],
   exports: [UsersService],
 })

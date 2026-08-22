@@ -12,7 +12,8 @@ import {
   IsEnum,
 } from "class-validator";
 import { Type, Transform } from "class-transformer";
-import { ReviewStatus } from "../../../entities/review.entity";
+import { MAX_PAGE } from "@beautyspot/shared-utils";
+import { ReviewEntity, ReviewStatus } from "../../../entities/review.entity";
 import { ReviewReportReason } from "../../../entities/review-report.entity";
 
 /** Fotos que admite una reseña. */
@@ -68,7 +69,12 @@ export class RespondReviewDto {
 
 /** Filtros de listado de reseñas: página, estrellas, profesional y si tienen fotos. */
 export class ReviewQueryDto {
-  @IsOptional() @Type(() => Number) @IsNumber() @Min(1) page?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(MAX_PAGE)
+  page?: number;
 
   @IsOptional() @Type(() => Number) @IsNumber() @Min(1) @Max(50) limit?: number;
 
@@ -126,4 +132,46 @@ export class ReportReviewDto {
 export class ModerarReviewDto {
   @IsEnum(ReviewStatus, { message: "El estado no es válido" })
   status!: ReviewStatus;
+}
+
+/**
+ * Reseña tal y como se sirve al público: sin el vínculo con el usuario que la
+ * escribió, la cita que la originó ni el recuento de denuncias, que son
+ * internos del negocio y de la moderación.
+ */
+export interface ResenaPublica {
+  id: string;
+  businessId: string;
+  professionalId: string | null;
+  rating: number;
+  comment: string | null;
+  response: string | null;
+  respondedAt: Date | null;
+  editedAt: Date | null;
+  serviceName: string | null;
+  professionalName: string | null;
+  photos: string[] | null;
+  isVerified: boolean;
+  helpfulCount: number;
+  createdAt: Date;
+}
+
+/** Proyecta la reseña guardada a lo que se publica de ella. */
+export function aResenaPublica(review: ReviewEntity): ResenaPublica {
+  return {
+    id: review.id,
+    businessId: review.businessId,
+    professionalId: review.professionalId ?? null,
+    rating: review.rating,
+    comment: review.comment ?? null,
+    response: review.response,
+    respondedAt: review.respondedAt,
+    editedAt: review.editedAt,
+    serviceName: review.serviceName ?? null,
+    professionalName: review.professionalName ?? null,
+    photos: review.photos,
+    isVerified: review.isVerified,
+    helpfulCount: review.helpfulCount,
+    createdAt: review.createdAt,
+  };
 }

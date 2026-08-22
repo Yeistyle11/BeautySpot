@@ -12,7 +12,12 @@ import {
   CreateNotificationDto,
   QueryNotificationsDto,
 } from "./dto/create-notification.dto";
-import { Roles, CurrentUser, SkipBusinessScope } from "@beautyspot/nest-common";
+import {
+  Roles,
+  CurrentUser,
+  SkipBusinessScope,
+  Internal,
+} from "@beautyspot/nest-common";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import { Role } from "@beautyspot/shared-types";
 
@@ -74,6 +79,7 @@ export class NotificationsController {
  * Alta de notificaciones para otros microservicios, tras el secreto interno que
  * el gateway nunca reenvía: el destinatario viaja en el cuerpo.
  */
+@Internal()
 @Controller("internal/notifications")
 export class InternalNotificationsController {
   constructor(private readonly service: NotificationsService) {}

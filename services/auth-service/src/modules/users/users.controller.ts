@@ -6,6 +6,7 @@ import {
   Roles,
   BusinessId,
   SesionVerificable,
+  Internal,
 } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
@@ -24,8 +25,6 @@ class CambiarEstadoDto {
 @Controller("users")
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
-
-  // --- Perfil propio ---
 
   /** Devuelve el perfil del usuario autenticado. */
   @Get("me")
@@ -48,8 +47,6 @@ export class UsersController {
   async getMemberships(@CurrentUser("userId") userId: string) {
     return this.usersService.getUserMemberships(userId);
   }
-
-  // --- Admin: Gestion de staff del negocio ---
 
   /**
    * Lista todos los miembros del staff del negocio actual.
@@ -134,5 +131,23 @@ export class UsersController {
     @BusinessId() businessId: string
   ) {
     return this.usersService.toggleActive(userId, businessId, body.active);
+  }
+}
+
+/**
+ * Endpoint interno (servicio-a-servicio) que da la versión de token vigente.
+ *
+ * Los otros microservicios validan la revocación contra Redis, que es volátil;
+ * cuando la clave no está, preguntan aquí, que es donde vive el dato duradero.
+ */
+@Internal()
+@Controller("internal/users")
+export class InternalUsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  /** Versión de token del usuario; 0 si la cuenta ya no existe. */
+  @Get(":id/token-version")
+  async tokenVersion(@Param("id") userId: string) {
+    return { version: await this.usersService.versionDeToken(userId) };
   }
 }

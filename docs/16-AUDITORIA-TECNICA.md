@@ -113,8 +113,9 @@ No tocar sin motivo:
 - **Rotación de refresh con detección de reuso** (`auth.service.ts`): cada refresh
   lleva su `jti` y canjearlo lo retira del conjunto de vivos. Presentar uno ya
   gastado **revoca todas las sesiones del usuario**.
-- **Revocación inmediata de JWT**: `tokenVersion` en Redis comparado en cada
-  petición, en vez de una lista negra token a token.
+- **Revocación inmediata de JWT**: `tokenVersion` comparado en cada petición, en
+  vez de una lista negra token a token. Redis es la caché y auth-service la
+  fuente de verdad, así que perder la caché no revive un token revocado.
 - **Rate limit** (`rate-limit/rate-limit.guard.ts`): por IP **y por cuenta
   objetivo** en las rutas de credenciales, de modo que un ataque distribuido
   contra un mismo correo se frena aunque cada intento venga de otra IP. El

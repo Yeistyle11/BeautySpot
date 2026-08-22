@@ -47,6 +47,17 @@ describe("CuentaListeners", () => {
     },
   };
 
+  const mockRegistroDuplicadoEvent = {
+    eventType: "auth.registro.duplicado",
+    eventId: "evt-131",
+    correlationId: "corr-131",
+    timestamp: new Date(),
+    payload: {
+      email: "yatengo@example.com",
+      name: "Dueña de la cuenta",
+    },
+  };
+
   beforeEach(async () => {
     const entorno = await crearEntornoDeListeners();
     listeners = entorno.modulo.get(CuentaListeners);
@@ -139,6 +150,28 @@ describe("CuentaListeners", () => {
       await expect(
         listeners.handleEmailVerificationRequested(mockEmailVerificationEvent)
       ).rejects.toThrow();
+    });
+  });
+
+  describe("handleRegistroDuplicado", () => {
+    it("avisa al dueño de la cuenta y le da por dónde recuperarla", async () => {
+      await listeners.handleRegistroDuplicado(mockRegistroDuplicadoEvent);
+
+      expect(mockEmailService.queueRegistroDuplicado).toHaveBeenCalledWith(
+        "yatengo@example.com",
+        {
+          clientName: "Dueña de la cuenta",
+          recoveryLink: "http://localhost:8080/forgot-password",
+        }
+      );
+      expect(mockAmqpConnection.publish).toHaveBeenCalled();
+    });
+
+    it("no manda ningún enlace que abra la cuenta", async () => {
+      await listeners.handleRegistroDuplicado(mockRegistroDuplicadoEvent);
+
+      const [, datos] = mockEmailService.queueRegistroDuplicado.mock.calls[0];
+      expect(JSON.stringify(datos)).not.toContain("token");
     });
   });
 });

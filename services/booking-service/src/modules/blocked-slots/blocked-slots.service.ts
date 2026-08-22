@@ -90,14 +90,12 @@ export class BlockedSlotsService {
     await this.validar(businessId, bloqueo);
     const fechas = this.fechasDeLaSerie(bloqueo.date, repeticion, repetirHasta);
 
-    const conflictos: string[] = [];
-    for (const date of fechas) {
-      const choca = await this.citasQueChocan(businessId, professionalId, {
-        ...bloqueo,
-        date,
-      });
-      if (choca) conflictos.push(date);
-    }
+    const conflictos = await this.fechasQueChocan(
+      businessId,
+      professionalId,
+      fechas,
+      bloqueo
+    );
     if (conflictos.length > 0) {
       throw new BadRequestException(
         `Hay citas en ${conflictos.join(", ")}. Cancelalas o reasignalas antes de bloquear esos dias.`
@@ -204,29 +202,44 @@ export class BlockedSlotsService {
     }
   }
 
-  /** Si ese día hay alguna cita viva bajo la franja que se quiere bloquear. */
-  private async citasQueChocan(
+  /**
+   * De las fechas de la serie, cuáles tienen alguna cita viva bajo la franja
+   * que se quiere bloquear, en el orden en que se pidieron.
+   *
+   * Las trae todas de una consulta: bloquear "los martes hasta fin de año" son
+   * medio centenar de fechas, y preguntar por cada una era medio centenar de
+   * viajes a la base para responder a una sola llamada.
+   */
+  private async fechasQueChocan(
     businessId: string,
     professionalId: string,
-    data: { date: string; startTime: string; endTime: string }
-  ): Promise<boolean> {
+    fechas: string[],
+    franja: { startTime: string; endTime: string }
+  ): Promise<string[]> {
     const citas = await this.apptRepo.find({
       where: {
         businessId,
         professionalId,
-        date: data.date,
+        date: In(fechas),
         status: In(ESTADOS_VIVOS),
       },
     });
+
     // Compara contra la envolvente de la cita, limpieza incluida, y en escala
     // extendida: la de anoche va de 23:30 a "24:30".
-    return citas.some((c) =>
-      timesOverlap(
-        data.startTime,
-        data.endTime,
-        c.startTime,
-        finExtendido(c.startTime, c.ocupadoHasta ?? c.endTime)
-      )
+    const chocan = new Set(
+      citas
+        .filter((c) =>
+          timesOverlap(
+            franja.startTime,
+            franja.endTime,
+            c.startTime,
+            finExtendido(c.startTime, c.ocupadoHasta ?? c.endTime)
+          )
+        )
+        .map((c) => c.date)
     );
+
+    return fechas.filter((date) => chocan.has(date));
   }
 }

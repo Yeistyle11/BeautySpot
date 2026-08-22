@@ -12,6 +12,7 @@ import {
   cruzaMedianoche,
   finExtendido,
   horaDeReloj,
+  formatearDinero,
 } from "./index";
 
 describe("Shared Utils", () => {
@@ -351,5 +352,25 @@ describe("columnaSinTildes", () => {
 
     expect(sql).toContain("translate(lower(nombre)");
     expect(sql).toContain("á");
+  });
+
+  describe("formatearDinero", () => {
+    it("presenta pesos colombianos sin decimales", () => {
+      expect(formatearDinero(50000).replace(/ /g, " ")).toBe("$ 50.000");
+    });
+
+    it("respeta la moneda y el formato del negocio", () => {
+      const enEuros = formatearDinero(1500, {
+        currency: "EUR",
+        locale: "es-ES",
+      });
+
+      expect(enEuros).toContain("€");
+      expect(enEuros).toContain("1500".slice(0, 1));
+    });
+
+    it("un importe de cero se escribe, no se omite", () => {
+      expect(formatearDinero(0)).toContain("0");
+    });
   });
 });

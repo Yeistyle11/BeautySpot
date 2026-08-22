@@ -1,3 +1,4 @@
+import { Internal } from "@beautyspot/nest-common";
 import { Controller, Post, Body, BadRequestException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
@@ -23,6 +24,7 @@ export interface ServicioResuelto {
  * la duración de una cita con el catálogo real, en vez de con lo que envíe el
  * navegador.
  */
+@Internal()
 @Controller("internal/services")
 export class InternalServicesController {
   constructor(

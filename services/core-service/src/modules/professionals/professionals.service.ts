@@ -169,8 +169,6 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     await this.deactivate(professional.id, businessId);
   }
 
-  // --- Vinculacion con cuenta de usuario ---
-
   /** Vincula un profesional con una cuenta de usuario del auth-service. */
   async linkUser(
     id: string,
@@ -220,8 +218,6 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
   ): Promise<Professional | null> {
     return this.repo.findOne({ where: { userId, businessId, active: true } });
   }
-
-  // --- Helpers ---
 
   /**
    * Consulta a booking el historial de citas del profesional; si booking no

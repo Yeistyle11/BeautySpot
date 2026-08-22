@@ -1,11 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
-import * as nodemailer from "nodemailer";
-import * as handlebars from "handlebars";
 import * as fs from "fs";
-import * as path from "path";
+import { formatearDinero } from "@beautyspot/shared-utils";
+import { PlantillasService } from "./plantillas.service";
+import { SmtpTransport } from "./smtp.transport";
 
 type EmailPriority = "low" | "normal" | "high";
 
@@ -21,45 +20,17 @@ interface QueueEmailInput {
 }
 
 /**
- * Compone y envía los correos transaccionales con plantillas Handlebars y SMTP.
- * Ofrece envío directo y encolado (BullMQ) para cada tipo de correo del sistema.
+ * Compone los correos transaccionales del producto: qué plantilla lleva cada
+ * aviso y con qué asunto sale. Renderizar y entregar son de {@link
+ * PlantillasService} y {@link SmtpTransport}.
  */
 @Injectable()
 export class EmailService {
-  private transporter: nodemailer.Transporter;
-  private templates: Map<string, handlebars.TemplateDelegate>;
-
   constructor(
-    private readonly configService: ConfigService,
+    private readonly plantillas: PlantillasService,
+    private readonly smtp: SmtpTransport,
     @InjectQueue("emails") private readonly emailQueue: Queue
-  ) {
-    this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>("SMTP_HOST"),
-      port: parseInt(this.configService.get<string>("SMTP_PORT", "587")),
-      secure: this.configService.get<string>("SMTP_SECURE", "false") === "true",
-      auth: {
-        user: this.configService.get<string>("SMTP_USER"),
-        pass: this.configService.get<string>("SMTP_PASS"),
-      },
-    });
-    this.templates = new Map();
-    this.loadTemplates();
-  }
-
-  /** Compila y cachea todas las plantillas .hbs de la carpeta templates al arrancar. */
-  private loadTemplates() {
-    const templatesDir = path.join(__dirname, "templates");
-    if (!fs.existsSync(templatesDir)) return;
-
-    for (const file of fs
-      .readdirSync(templatesDir)
-      .filter((f) => f.endsWith(".hbs"))) {
-      const content = fs.readFileSync(path.join(templatesDir, file), "utf-8");
-      this.templates.set(file.replace(".hbs", ""), handlebars.compile(content));
-    }
-  }
-
-  // ─── Core send/queue ──────────────────────────────────────
+  ) {}
 
   /** Renderiza la plantilla indicada y envía el correo por SMTP de inmediato. */
   async sendEmail(
@@ -67,22 +38,13 @@ export class EmailService {
     templateName: string,
     context: Record<string, unknown> = {}
   ): Promise<{ messageId: string }> {
-    const template = this.templates.get(templateName);
-    if (!template) {
-      throw new Error(`Template ${templateName} not found`);
-    }
-
-    const html = template(context);
-    const info = await this.transporter.sendMail({
-      from: this.configService.get<string>("EMAIL_FROM"),
+    return this.smtp.enviar({
       to,
       subject:
         (context.subject as string | undefined) ||
         `BeautySpot - ${templateName}`,
-      html,
-      text: html.replace(/<[^>]*>/g, "").trim(),
+      html: this.plantillas.render(templateName, context),
     });
-    return { messageId: info.messageId };
   }
 
   /** Encola el correo en BullMQ para que el worker lo envíe de forma asíncrona. */
@@ -97,8 +59,6 @@ export class EmailService {
     });
     return { jobId: job.id! };
   }
-
-  // ─── Direct send methods ──────────────────────────────────
 
   /** Envía el correo de confirmación de una cita. */
   async sendAppointmentConfirmation(
@@ -189,22 +149,20 @@ export class EmailService {
   ): Promise<{ messageId: string }> {
     const context = {
       ...data,
-      amount: this.formatCurrency(data.amount),
+      amount: formatearDinero(data.amount),
       subject: `Factura #${data.invoiceNumber} - ${data.businessName}`,
     };
 
     if (pdfPath && fs.existsSync(pdfPath)) {
-      const info = await this.transporter.sendMail({
-        from: this.configService.get<string>("EMAIL_FROM"),
+      return this.smtp.enviar({
         to,
         subject: context.subject,
-        html: this.templates.get("invoice-generated")!(context),
+        html: this.plantillas.render("invoice-generated", context),
         text: "",
         attachments: [
           { filename: `Factura_${data.invoiceNumber}.pdf`, path: pdfPath },
         ],
       });
-      return { messageId: info.messageId };
     }
     return this.sendEmail(to, "invoice-generated", context);
   }
@@ -247,13 +205,11 @@ export class EmailService {
   ): Promise<void> {
     await this.sendEmail(to, "monthly-report", {
       ...data,
-      totalRevenue: this.formatCurrency(data.totalRevenue),
-      topServiceRevenue: this.formatCurrency(data.topServiceRevenue),
+      totalRevenue: formatearDinero(data.totalRevenue),
+      topServiceRevenue: formatearDinero(data.topServiceRevenue),
       subject: `Reporte mensual - ${data.businessName} (${data.month} ${data.year})`,
     });
   }
-
-  // ─── Queue methods (thin wrappers over queueEmail) ────────
 
   /**
    * Encola el acuse de la cita recien solicitada, distinto del correo de
@@ -382,7 +338,7 @@ export class EmailService {
     return this.queueEmail({
       to,
       template: "invoice-generated",
-      data: { ...data, amount: this.formatCurrency(data.amount) },
+      data: { ...data, amount: formatearDinero(data.amount) },
       subject: `Factura #${data.invoiceNumber} - ${data.businessName}`,
       priority: "normal",
       pdfPath,
@@ -464,6 +420,24 @@ export class EmailService {
     });
   }
 
+  /**
+   * Encola el aviso de que alguien intentó darse de alta con un correo que ya
+   * tiene cuenta. Va con prioridad alta: es un aviso de seguridad y quien lo
+   * recibe puede estar esperándolo delante de la pantalla.
+   */
+  async queueRegistroDuplicado(
+    to: string,
+    data: { clientName: string; recoveryLink: string }
+  ): Promise<{ jobId: string }> {
+    return this.queueEmail({
+      to,
+      template: "registro-duplicado",
+      data,
+      subject: "Ya tienes una cuenta en BeautySpot",
+      priority: "high",
+    });
+  }
+
   /** Encola el reporte mensual del negocio (prioridad baja). */
   async queueMonthlyReport(
     to: string,
@@ -483,20 +457,11 @@ export class EmailService {
       template: "monthly-report",
       data: {
         ...data,
-        totalRevenue: this.formatCurrency(data.totalRevenue),
-        topServiceRevenue: this.formatCurrency(data.topServiceRevenue),
+        totalRevenue: formatearDinero(data.totalRevenue),
+        topServiceRevenue: formatearDinero(data.topServiceRevenue),
       },
       subject: `Reporte mensual - ${data.businessName} (${data.month} ${data.year})`,
       priority: "low",
     });
-  }
-
-  /** Formatea un importe como moneda colombiana (COP) sin decimales. */
-  private formatCurrency(amount: number): string {
-    return new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      minimumFractionDigits: 0,
-    }).format(amount);
   }
 }

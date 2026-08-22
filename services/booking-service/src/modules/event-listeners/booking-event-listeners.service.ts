@@ -67,6 +67,10 @@ export class BookingEventListeners {
         `Error creando disponibilidad: ${errorMessage}`,
         errorStack
       );
+      // Se relanza para que el mensaje acabe en la cola de fallidos. Darlo por
+      // consumido dejaría al profesional sin disponibilidad semanal en
+      // silencio, y el negocio solo lo notaría al no poder agendar con él.
+      throw error instanceof Error ? error : new Error(errorMessage);
     }
   }
 }

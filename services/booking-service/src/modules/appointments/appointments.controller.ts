@@ -19,6 +19,7 @@ import {
   BusinessId,
   CurrentUser,
   SkipBusinessScope,
+  Internal,
 } from "@beautyspot/nest-common";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import {
@@ -227,8 +228,8 @@ export class AppointmentsController {
 }
 
 /** Endpoint interno para que otros servicios consulten el historial de citas de un profesional. */
+@Internal()
 @Controller("internal/appointments")
-@Public()
 export class InternalAppointmentsController {
   constructor(
     private readonly service: AppointmentsService,

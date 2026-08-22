@@ -1,4 +1,33 @@
-import { IsString, IsOptional, MaxLength, Matches } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  MaxLength,
+  Matches,
+  IsInt,
+  Min,
+  Max,
+} from "class-validator";
+import { Type } from "class-transformer";
+import { applyDecorators } from "@nestjs/common";
+import {
+  URL_PREFIRMADA_MAXIMO_SEGUNDOS,
+  URL_PREFIRMADA_MINIMO_SEGUNDOS,
+} from "@beautyspot/shared-constants";
+
+/**
+ * Validez pedida para una URL prefirmada, en segundos. Numérica y acotada: era
+ * texto libre, así que entraban tanto "999999999" como "abc", que llegaba a
+ * AWS convertido en NaN.
+ */
+function ValidezPedida() {
+  return applyDecorators(
+    IsOptional(),
+    Type(() => Number),
+    IsInt(),
+    Min(URL_PREFIRMADA_MINIMO_SEGUNDOS),
+    Max(URL_PREFIRMADA_MAXIMO_SEGUNDOS)
+  );
+}
 
 /** Datos para subir el logo de un negocio: id, tipo de imagen y nombre opcional. */
 export class UploadBusinessLogoDto {
@@ -57,10 +86,8 @@ export class GenerateUploadSignatureDto {
   @Matches(/^(image\/jpeg|image\/jpg|image\/png|image\/webp|image\/gif)$/)
   contentType: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(10)
-  expiresIn?: string;
+  @ValidezPedida()
+  expiresIn?: number;
 }
 
 /** Clave de S3 de la imagen y validez de la URL de lectura. */
@@ -69,8 +96,6 @@ export class PresignedUrlQueryDto {
   @MaxLength(500)
   key: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(10)
-  expiresIn?: string;
+  @ValidezPedida()
+  expiresIn?: number;
 }

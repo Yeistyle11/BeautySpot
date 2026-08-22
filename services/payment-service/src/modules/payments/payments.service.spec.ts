@@ -23,7 +23,7 @@ describe("PaymentsService", () => {
   let mockManager: any;
   let mockDataSource: any;
   let mockOutbox: jest.Mocked<OutboxService>;
-  let mockHttp: { pedir: jest.Mock };
+  let mockHttp: { pedir: jest.Mock; enviar: jest.Mock };
 
   const mockPayment: PaymentEntity = {
     id: "payment-123",
@@ -81,6 +81,8 @@ describe("PaymentsService", () => {
       pedir: jest
         .fn()
         .mockResolvedValue({ clientId: "client-123", totalAmount: 100 }),
+      // La reserva y la devolucion de puntos van por POST a core.
+      enviar: jest.fn().mockResolvedValue({ loyaltyPoints: 460 }),
     };
 
     const module = await Test.createTestingModule({
@@ -353,13 +355,10 @@ describe("PaymentsService", () => {
         mockRepo.create.mockReturnValue(mockPayment);
         mockManagerRepo.save.mockResolvedValue(mockPayment);
         mockRepo.findOne.mockResolvedValue(null);
-        mockHttp.pedir.mockImplementation((servicio: string) =>
-          Promise.resolve(
-            servicio === "core"
-              ? { loyaltyPoints: 500 }
-              : { clientId: "client-123", totalAmount: 100 }
-          )
-        );
+        mockHttp.pedir.mockResolvedValue({
+          clientId: "client-123",
+          totalAmount: 100,
+        });
       });
 
       // Lo que tiene que cuadrar con la cita es lo pagado más lo descontado.
@@ -373,7 +372,7 @@ describe("PaymentsService", () => {
         );
       });
 
-      it("descuenta los puntos por Outbox, en la misma transacción", async () => {
+      it("deja constancia del canje en el evento del cobro", async () => {
         await service.create("business-123", conPuntos);
 
         expect(mockOutbox.enqueue).toHaveBeenCalledWith(
@@ -389,14 +388,10 @@ describe("PaymentsService", () => {
         );
       });
 
+      // Core descuenta con la condicion dentro del UPDATE y responde 409 si el
+      // saldo no llega; aqui eso llega como fallo de la llamada.
       it("rechaza gastar más puntos de los que tiene el cliente", async () => {
-        mockHttp.pedir.mockImplementation((servicio: string) =>
-          Promise.resolve(
-            servicio === "core"
-              ? { loyaltyPoints: 10 }
-              : { clientId: "client-123", totalAmount: 100 }
-          )
-        );
+        mockHttp.enviar.mockRejectedValue(new Error("409"));
 
         await expect(service.create("business-123", conPuntos)).rejects.toThrow(
           BadRequestException
@@ -404,14 +399,59 @@ describe("PaymentsService", () => {
         expect(mockDataSource.transaction).not.toHaveBeenCalled();
       });
 
-      it("rechaza el canje si la ficha no es del negocio", async () => {
-        mockHttp.pedir.mockImplementation((servicio: string) =>
-          Promise.resolve(
-            servicio === "core"
-              ? null
-              : { clientId: "client-123", totalAmount: 100 }
-          )
+      it("reserva los puntos en core antes de escribir el cobro", async () => {
+        await service.create("business-123", conPuntos);
+
+        expect(mockHttp.enviar).toHaveBeenCalledWith(
+          "core",
+          "/internal/clients/client-123/puntos/reservar",
+          { businessId: "business-123", puntos: 40 }
         );
+      });
+
+      // Sin esto, un fallo posterior a la reserva deja al cliente sin puntos y
+      // sin el descuento por el que los gasto.
+      it("devuelve los puntos si el cobro no llega a escribirse", async () => {
+        mockDataSource.transaction.mockRejectedValue(new Error("base caída"));
+
+        await expect(service.create("business-123", conPuntos)).rejects.toThrow(
+          "base caída"
+        );
+        expect(mockHttp.enviar).toHaveBeenCalledWith(
+          "core",
+          "/internal/clients/client-123/puntos/devolver",
+          { businessId: "business-123", puntos: 40 }
+        );
+      });
+
+      // El reenvio del mismo intento devuelve el cobro que ya existe, que ya
+      // gasto sus puntos: los de este segundo intento vuelven a la ficha.
+      it("devuelve los puntos cuando el intento resulta ser un reenvío", async () => {
+        const previo = { ...mockPayment, solicitudId: "sol-1" } as never;
+        mockDataSource.transaction.mockRejectedValue({ code: "23505" });
+        // Solo la busqueda por solicitud encuentra algo: la que comprueba si la
+        // cita ya estaba cobrada tiene que seguir diciendo que no.
+        mockRepo.findOne.mockImplementation((opciones) =>
+          (opciones as { where?: { solicitudId?: string } })?.where?.solicitudId
+            ? Promise.resolve(previo)
+            : Promise.resolve(null)
+        );
+
+        const cobro = await service.create("business-123", {
+          ...conPuntos,
+          solicitudId: "sol-1",
+        });
+
+        expect(cobro).toBe(previo);
+        expect(mockHttp.enviar).toHaveBeenCalledWith(
+          "core",
+          "/internal/clients/client-123/puntos/devolver",
+          { businessId: "business-123", puntos: 40 }
+        );
+      });
+
+      it("rechaza el canje si la ficha no es del negocio", async () => {
+        mockHttp.enviar.mockRejectedValue(new Error("409"));
 
         await expect(service.create("business-123", conPuntos)).rejects.toThrow(
           BadRequestException

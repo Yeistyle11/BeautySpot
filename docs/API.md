@@ -109,7 +109,7 @@ Authorization: Bearer <access_token>
   al panel a quien acaba de ser rechazado.
 
 Las sesiones se pueden invalidar de forma inmediata en todos los servicios: el
-`tokenVersion` del usuario vive en Redis como fuente de verdad (ver
+`tokenVersion` del usuario se guarda en auth-service y se cachea en Redis (ver
 `docs/04-ARQUITECTURA.md`), así que un `logout` o un cambio de contraseña
 invalida los tokens ya emitidos sin esperar a que expiren.
 
@@ -236,6 +236,12 @@ Autenticación, usuarios, personal y membresías. Base de datos `beautyspot_auth
 | POST   | `/resend-verification` | PÚBLICA     | Reenvía el enlace de confirmación          |
 | GET    | `/me`                  | Autenticado | Usuario del token                          |
 
+`/register` responde `201` con `{ message }` **exista o no ya una cuenta con ese
+correo**: distinguir los dos casos delataría qué correos están registrados. Si
+ya existe no se crea nada y se le avisa por correo a su dueño, con el enlace
+para recuperar la contraseña. Tampoco devuelve el usuario creado: la cuenta no
+entra hasta confirmar el correo.
+
 ### Usuarios y personal — `/api/v1/auth/users`
 
 | Método | Ruta                  | Roles                     | Descripción                         |
@@ -265,6 +271,7 @@ Autenticación, usuarios, personal y membresías. Base de datos `beautyspot_auth
 | ------ | -------------------------------------------- | ------------------------------------------------ |
 | POST   | `/internal/memberships`                      | Crea membresía sin comprobar el rol del llamante |
 | GET    | `/internal/memberships/business/:businessId` | Quién trabaja en el negocio y con qué rol        |
+| GET    | `/internal/users/:id/token-version`          | Versión de token vigente, para validar sesiones  |
 
 ---
 
@@ -453,21 +460,23 @@ Controlador `@Public()`: sin token. Alimenta el marketplace y la reserva públic
 
 ### Internos
 
-| Método | Ruta                                | Descripción                                                                         |
-| ------ | ----------------------------------- | ----------------------------------------------------------------------------------- |
-| GET    | `/internal/businesses/resolve`      | Resuelve negocio por slug (lo usa el gateway)                                       |
-| POST   | `/internal/businesses`              | Crea negocio a petición de otro servicio                                            |
-| POST   | `/internal/businesses/names`        | Nombres de varios negocios, para etiquetar listas                                   |
-| POST   | `/internal/clients/find-or-create`  | Busca o crea cliente (reserva pública)                                              |
-| GET    | `/internal/clients/:id/puntos`      | Puntos disponibles, para quien vaya a canjearlos                                    |
-| GET    | `/internal/clients/by-user/:userId` | Fichas del usuario, una por negocio donde reservó                                   |
-| GET    | `/internal/clients/search`          | Ids que casan con un texto (búsqueda de citas)                                      |
-| GET    | `/internal/clients/names`           | Nombre de los clientes pedidos, acotado al negocio                                  |
-| GET    | `/internal/profiles/resolve`        | Resuelve perfiles                                                                   |
-| GET    | `/internal/branches`                | Sedes activas del negocio                                                           |
-| GET    | `/internal/business-hours`          | Horario semanal de apertura                                                         |
-| GET    | `/internal/business-hours/dia`      | Apertura de una fecha, ya resuelta contra los días especiales; lo consume la agenda |
-| POST   | `/internal/services/resolve`        | Precio y duración reales de los servicios de una cita                               |
+| Método | Ruta                                    | Descripción                                                                         |
+| ------ | --------------------------------------- | ----------------------------------------------------------------------------------- |
+| GET    | `/internal/businesses/resolve`          | Resuelve negocio por slug (lo usa el gateway)                                       |
+| POST   | `/internal/businesses`                  | Crea negocio a petición de otro servicio                                            |
+| POST   | `/internal/businesses/names`            | Nombres de varios negocios, para etiquetar listas                                   |
+| POST   | `/internal/clients/find-or-create`      | Busca o crea cliente (reserva pública)                                              |
+| GET    | `/internal/clients/:id/puntos`          | Puntos disponibles, para quien vaya a canjearlos                                    |
+| POST   | `/internal/clients/:id/puntos/reservar` | Descuenta los puntos si alcanzan; 409 si no                                         |
+| POST   | `/internal/clients/:id/puntos/devolver` | Devuelve unos puntos reservados por un cobro que no llegó a registrarse             |
+| GET    | `/internal/clients/by-user/:userId`     | Fichas del usuario, una por negocio donde reservó                                   |
+| GET    | `/internal/clients/search`              | Ids que casan con un texto (búsqueda de citas)                                      |
+| GET    | `/internal/clients/names`               | Nombre de los clientes pedidos, acotado al negocio                                  |
+| GET    | `/internal/profiles/resolve`            | Resuelve perfiles                                                                   |
+| GET    | `/internal/branches`                    | Sedes activas del negocio                                                           |
+| GET    | `/internal/business-hours`              | Horario semanal de apertura                                                         |
+| GET    | `/internal/business-hours/dia`          | Apertura de una fecha, ya resuelta contra los días especiales; lo consume la agenda |
+| POST   | `/internal/services/resolve`            | Precio y duración reales de los servicios de una cita                               |
 
 ---
 
@@ -506,10 +515,14 @@ las del panel, respetan la antelación mínima de cancelación del negocio.
 
 Roles a nivel de clase: **OWNER, ADMIN, PROFESSIONAL**.
 
-| Método | Ruta | Descripción                            |
-| ------ | ---- | -------------------------------------- |
-| GET    | `/`  | Disponibilidad semanal del profesional |
-| POST   | `/`  | Reemplaza la semana completa           |
+| Método | Ruta | Roles        | Descripción                            |
+| ------ | ---- | ------------ | -------------------------------------- |
+| GET    | `/`  | los de clase | Disponibilidad semanal del profesional |
+| POST   | `/`  | OWNER, ADMIN | Reemplaza la semana completa           |
+
+El profesional va en la URL y el token no permite comprobar que sea el suyo, así
+que reemplazar la semana queda en OWNER y ADMIN: si no, cualquiera del equipo
+podría reescribir la agenda de otro.
 
 Al crearse un profesional en core-service, booking recibe
 `core.professional.created` y le genera una disponibilidad por defecto de lunes a
@@ -719,15 +732,23 @@ estar ya repartido. También responde 409 si el negocio ya tiene perfil.
 
 | Método | Ruta      | Roles   | Descripción                       |
 | ------ | --------- | ------- | --------------------------------- |
-| GET    | `/search` | PÚBLICA | Búsqueda con filtros              |
+| GET    | `/search` | PÚBLICA | Búsqueda con filtros, paginada    |
 | GET    | `/feed`   | PÚBLICA | Feed de actividad del marketplace |
+
+`/search` devuelve `{ data, meta }` como el resto de listados. Con
+`type=all` la página trae seguidas la de negocios y la de profesionales, y
+`meta.total` es la suma de las dos.
+
+El texto (`q` y `city`) admite 100 caracteres, ignora tildes y mayúsculas, y la
+respuesta se cachea 60 segundos por combinación de filtros, igual que el feed:
+un perfil recién publicado puede tardar ese minuto en aparecer.
 
 ### Reseñas — `/api/v1/marketplace/reviews`
 
 | Método | Ruta                            | Roles        | Descripción                                   |
 | ------ | ------------------------------- | ------------ | --------------------------------------------- |
 | POST   | `/`                             | CLIENT       | Crea reseña; el negocio lo aporta la cita     |
-| GET    | `/business/:businessId`         | PÚBLICA      | Reseñas del negocio                           |
+| GET    | `/business/:businessId`         | PÚBLICA      | Reseñas del negocio, paginadas                |
 | GET    | `/business/:businessId/summary` | PÚBLICA      | Resumen y media de valoración                 |
 | GET    | `/mine`                         | CLIENT       | Las que ha escrito, paginadas                 |
 | GET    | `/appointment/:appointmentId`   | CLIENT       | Reseñas de una cita concreta                  |
@@ -741,6 +762,9 @@ estar ya repartido. También responde 409 si el negocio ya tiene perfil.
 | PATCH  | `/:id/moderar`                  | OWNER, ADMIN | Oculta o vuelve a publicar                    |
 | POST   | `/:id/helpful`                  | Autenticado  | Marca como útil; un voto por usuario          |
 | DELETE | `/:id/helpful`                  | Autenticado  | Quita la marca                                |
+
+Los dos listados públicos de reseñas devuelven `{ data, meta }` y sirven una
+proyección sin el cliente que la escribió, la cita ni el recuento de denuncias.
 
 Ocultar una reseña la retira del listado público, pero **sigue contando en la
 media y en el total** del negocio y del profesional. La moderación existe para
@@ -825,7 +849,8 @@ su trabajo cuenta en el periodo.
 
 | Método | Ruta                      | Roles   | Descripción                                      |
 | ------ | ------------------------- | ------- | ------------------------------------------------ |
-| GET    | `/health`                 | PÚBLICA | Estado del gateway y de los 7 servicios          |
+| GET    | `/health`                 | PÚBLICA | Salud del conjunto, sin desglose                 |
+| GET    | `/health/detalle`         | INTERNA | Estado servicio a servicio; exige el secreto     |
 | ALL    | `/api/v1/:service/*splat` | —       | Reenvía al microservicio bajo el circuit breaker |
 
 > La ruta comodín es `:service/*splat`, con el comodín **nombrado**: Express 5
@@ -846,18 +871,18 @@ segundos y vuelve a intentarlo."
 
 La API no es el único contrato entre servicios: hay 30 nombres de evento
 declarados como constantes en `packages/event-types/src/` —de los que hoy
-circulan 25; el detalle de quién publica y quién consume cada uno está en
+circulan 26; el detalle de quién publica y quién consume cada uno está en
 [04-ARQUITECTURA.md](04-ARQUITECTURA.md#71-catalogo-de-eventos)—. Siguen el
 patrón `{servicio}.{agregado}.{acción}`:
 
-| Familia          | Eventos                                                                                                                                          |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `auth.*`         | `user.registered`, `user.logged-in`, `password-reset.requested`, `email-verification.requested`, `membership.created`, `membership.role-changed` |
-| `core.*`         | `business.created`, `business.updated`, `professional.created`, `service.created`, `service.updated`, `client.created`, `client.birthday`        |
-| `booking.*`      | `appointment.created`, `.confirmed`, `.cancelled`, `.completed`, `.no-showed`, `.rescheduled`, `.reminder-due`                                   |
-| `payment.*`      | `payment.registered`, `invoice.generated`, `points.redeemed`, `refund.processed`, `cash.session.closed`                                          |
-| `marketplace.*`  | `review.created`, `review.updated`                                                                                                               |
-| `notification.*` | `email.queued`, `email.sent`, `email.failed`                                                                                                     |
+| Familia          | Eventos                                                                                                                                                                |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.*`         | `user.registered`, `registro.duplicado`, `user.logged-in`, `password-reset.requested`, `email-verification.requested`, `membership.created`, `membership.role-changed` |
+| `core.*`         | `business.created`, `business.updated`, `professional.created`, `service.created`, `service.updated`, `client.created`, `client.birthday`                              |
+| `booking.*`      | `appointment.created`, `.confirmed`, `.cancelled`, `.completed`, `.no-showed`, `.rescheduled`, `.reminder-due`                                                         |
+| `payment.*`      | `payment.registered`, `invoice.generated`, `points.redeemed`, `refund.processed`, `cash.session.closed`                                                                |
+| `marketplace.*`  | `review.created`, `review.updated`                                                                                                                                     |
+| `notification.*` | `email.queued`, `email.sent`, `email.failed`                                                                                                                           |
 
 Los servicios que publican eventos de forma crítica (auth, booking, core,
 marketplace y payment) usan el patrón **Transactional Outbox**: el evento se

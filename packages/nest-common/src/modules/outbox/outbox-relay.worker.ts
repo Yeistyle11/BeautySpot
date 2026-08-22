@@ -6,7 +6,8 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectDataSource } from "@nestjs/typeorm";
-import { DataSource, In, LessThan } from "typeorm";
+import { DataSource, In, LessThan, Repository } from "typeorm";
+import { EVENTOS_CON_SECRETO } from "@beautyspot/event-types";
 import { EventBusService } from "../event-bus/event-bus.service";
 import { OutboxMessageEntity, OutboxStatus } from "./outbox-message.entity";
 
@@ -18,6 +19,22 @@ const DEFAULT_RETENTION_DAYS = 7;
 const MS_POR_DIA = 24 * 60 * 60 * 1000;
 /** Cada cuántos sondeos se purgan los mensajes ya publicados. */
 const SONDEOS_ENTRE_PURGAS = 300;
+/** Lotes como mucho en un sondeo, para no monopolizar el pool con un atasco. */
+const MAXIMO_LOTES_POR_SONDEO = 20;
+/** Espera tras el primer fallo; se dobla en cada intento hasta el tope. */
+const RETRASO_BASE_MS = 5000;
+const RETRASO_MAXIMO_MS = 5 * 60 * 1000;
+
+/** Cómo terminó la publicación de un mensaje del lote. */
+interface ResultadoDePublicacion {
+  mensaje: OutboxMessageEntity;
+  error?: string;
+}
+
+/** Los campos que se escriben al anotar el desenlace de un mensaje. */
+type CambiosDeMensaje = Parameters<
+  Repository<OutboxMessageEntity>["update"]
+>[1];
 
 /**
  * Sondea periódicamente la tabla outbox y publica en RabbitMQ los eventos pendientes.
@@ -100,7 +117,8 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Reclama lotes de eventos pendientes y los publica; encadena lotes mientras
-   * salgan llenos, sin esperar al siguiente intervalo.
+   * salgan llenos, hasta el tope del sondeo. Un atasco grande se drena en
+   * varios ciclos en vez de retener las conexiones en uno solo.
    */
   async poll(): Promise<void> {
     if (this.running) return;
@@ -108,13 +126,16 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     try {
       await this.purgarSiToca();
 
-      let lleno = true;
-      while (lleno) {
+      for (let lote = 0; lote < MAXIMO_LOTES_POR_SONDEO; lote++) {
         const claimed = await this.claimBatch();
         if (claimed.length === 0) return;
         await this.publicarEnParalelo(claimed);
-        lleno = claimed.length === this.batchSize;
+        if (claimed.length < this.batchSize) return;
       }
+
+      this.logger.warn(
+        `El sondeo agotó sus ${MAXIMO_LOTES_POR_SONDEO} lotes; el resto se publica en el siguiente ciclo`
+      );
     } finally {
       this.running = false;
     }
@@ -149,16 +170,6 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /** Publica el lote en tramos, con varias publicaciones en vuelo a la vez. */
-  private async publicarEnParalelo(
-    mensajes: OutboxMessageEntity[]
-  ): Promise<void> {
-    for (let i = 0; i < mensajes.length; i += this.concurrency) {
-      const tramo = mensajes.slice(i, i + this.concurrency);
-      await Promise.all(tramo.map((mensaje) => this.processOne(mensaje)));
-    }
-  }
-
   /** Toma en exclusiva un lote de pendientes y les suma un intento. */
   private async claimBatch(): Promise<OutboxMessageEntity[]> {
     return this.dataSource.transaction(async (manager) => {
@@ -167,6 +178,10 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
         .createQueryBuilder("o")
         .where("o.status = :status", { status: OutboxStatus.PENDING })
         .andWhere("o.attempts < :max", { max: this.maxAttempts })
+        // Los que fallaron esperan su turno; los que nunca fallaron no tienen.
+        .andWhere("(o.nextAttemptAt IS NULL OR o.nextAttemptAt <= :ahora)", {
+          ahora: new Date(),
+        })
         .orderBy("o.createdAt", "ASC")
         .take(this.batchSize)
         .setLock("pessimistic_write")
@@ -185,54 +200,139 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  /** Publica un evento y lo marca como enviado, o anota el fallo. */
-  private async processOne(message: OutboxMessageEntity): Promise<void> {
+  /** Publica el lote en tramos, con varias publicaciones en vuelo a la vez. */
+  private async publicarEnParalelo(
+    mensajes: OutboxMessageEntity[]
+  ): Promise<void> {
+    const resultados: ResultadoDePublicacion[] = [];
+    for (let i = 0; i < mensajes.length; i += this.concurrency) {
+      const tramo = mensajes.slice(i, i + this.concurrency);
+      resultados.push(
+        ...(await Promise.all(
+          tramo.map((mensaje) => this.publicarUno(mensaje))
+        ))
+      );
+    }
+    await this.anotarResultados(resultados);
+  }
+
+  /** Publica un evento y cuenta cómo fue, sin tocar todavía la base. */
+  private async publicarUno(
+    message: OutboxMessageEntity
+  ): Promise<ResultadoDePublicacion> {
     try {
       // El id de la fila identifica el evento y se repite en cada reintento.
       await this.eventBus.emit(message.eventType, message.payload, {
         eventId: message.id,
         correlationId: message.aggregateId,
       });
-      await this.markProcessed(message.id);
+      return { mensaje: message };
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      await this.markFailed(message, errorMessage);
+      return {
+        mensaje: message,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
-  /** Marca el evento como publicado. */
-  private async markProcessed(id: string): Promise<void> {
-    await this.dataSource.getRepository(OutboxMessageEntity).update(id, {
-      status: OutboxStatus.PROCESSED,
-      processedAt: new Date(),
-      lastError: null,
-    });
-  }
-
-  /** Anota el fallo y devuelve el evento a pendiente, o lo da por muerto si agotó los intentos. */
-  private async markFailed(
-    message: OutboxMessageEntity,
-    errorMessage: string
+  /**
+   * Escribe el desenlace de todo el lote: publicados, a la espera de otro
+   * intento y muertos. Los mensajes se agrupan por el cambio que reciben, así
+   * que el caso corriente —todos bien, o todos mal por la misma razón— es un
+   * UPDATE y no uno por mensaje.
+   */
+  private async anotarResultados(
+    resultados: ResultadoDePublicacion[]
   ): Promise<void> {
     const repo = this.dataSource.getRepository(OutboxMessageEntity);
-    if (message.attempts >= this.maxAttempts) {
-      await repo.update(message.id, {
-        status: OutboxStatus.DEAD,
-        lastError: errorMessage,
-      });
-      this.logger.error(
-        `Outbox message ${message.id} marcado DEAD tras ${message.attempts} intentos: ${errorMessage}`
+    const ahora = new Date();
+    const aBorrar: string[] = [];
+    const grupos = new Map<
+      string,
+      { cambios: CambiosDeMensaje; ids: string[] }
+    >();
+
+    /** Suma el mensaje al grupo de los que reciben exactamente ese cambio. */
+    const agrupar = (cambios: CambiosDeMensaje, id: string): void => {
+      const clave = JSON.stringify(cambios);
+      const grupo = grupos.get(clave) ?? { cambios, ids: [] };
+      grupo.ids.push(id);
+      grupos.set(clave, grupo);
+    };
+
+    for (const { mensaje, error } of resultados) {
+      if (error === undefined) {
+        // Los que llevan un secreto se borran en vez de marcarse: entregado el
+        // enlace, conservar la fila hasta la purga dejaría el secreto legible
+        // en la base durante días, mucho más de lo que vive el propio enlace.
+        if (EVENTOS_CON_SECRETO.includes(mensaje.eventType)) {
+          aBorrar.push(mensaje.id);
+          continue;
+        }
+        agrupar(
+          {
+            status: OutboxStatus.PROCESSED,
+            processedAt: ahora,
+            lastError: null,
+          },
+          mensaje.id
+        );
+        continue;
+      }
+
+      if (mensaje.attempts >= this.maxAttempts) {
+        agrupar(
+          {
+            status: OutboxStatus.DEAD,
+            lastError: error,
+            // Un mensaje muerto se queda para que alguien lo mire, y el secreto
+            // de uno que nunca llegó a entregarse no debe quedarse con él.
+            ...(EVENTOS_CON_SECRETO.includes(mensaje.eventType)
+              ? { payload: {} }
+              : {}),
+          },
+          mensaje.id
+        );
+        this.logger.error(
+          `Outbox message ${mensaje.id} marcado DEAD tras ${mensaje.attempts} intentos: ${error}`
+        );
+        continue;
+      }
+
+      const proximo = this.proximoIntento(mensaje.attempts, ahora);
+      agrupar(
+        {
+          status: OutboxStatus.PENDING,
+          lastError: error,
+          nextAttemptAt: proximo,
+        },
+        mensaje.id
       );
-    } else {
-      await repo.update(message.id, {
-        status: OutboxStatus.PENDING,
-        lastError: errorMessage,
-      });
       this.logger.warn(
-        `Outbox message ${message.id} falló (intento ${message.attempts}/${this.maxAttempts}): ${errorMessage}`
+        `Outbox message ${mensaje.id} falló (intento ${mensaje.attempts}/${this.maxAttempts}), se reintenta a las ${proximo.toISOString()}: ${error}`
       );
     }
+
+    if (aBorrar.length > 0) {
+      await repo.delete({ id: In(aBorrar) });
+    }
+    for (const { cambios, ids } of grupos.values()) {
+      await repo.update({ id: In(ids) }, cambios);
+    }
+  }
+
+  /**
+   * Cuándo puede volver a intentarse un mensaje que acaba de fallar: la espera
+   * se dobla en cada intento hasta el tope. Sin ella, una caída de la cola
+   * consume los cinco intentos en unos segundos y da por muertos eventos que
+   * solo necesitaban esperar a que volviera.
+   */
+  private proximoIntento(intentos: number, ahora: Date): Date {
+    const espera = Math.min(
+      RETRASO_BASE_MS * 2 ** Math.max(0, intentos - 1),
+      RETRASO_MAXIMO_MS
+    );
+    return new Date(ahora.getTime() + espera);
   }
 
   /** Lee un número de la configuración, con valor por defecto si falta o no es válido. */

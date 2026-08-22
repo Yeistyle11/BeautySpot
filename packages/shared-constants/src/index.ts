@@ -3,12 +3,18 @@
 /** Tiempo máximo (ms) que el gateway espera la respuesta de un servicio antes de abortar. */
 export const PROXY_TIMEOUT_MS = 10_000;
 
-// ─── Rate Limiting ─────────────────────────────────────────────────
+// ─── Límite de peticiones ─────────────────────────────────────────────────
 
 /** Máximo de peticiones a rutas de autenticación por ventana (más estricto por seguridad). */
 export const RATE_LIMIT_AUTH_REQUESTS = 5;
 /** Máximo de peticiones a rutas generales por ventana. */
 export const RATE_LIMIT_GENERAL_REQUESTS = 100;
+/**
+ * Máximo de reservas públicas por ventana. Un invitado reserva una vez y se va;
+ * lo que este número corta es llenar la agenda de un salón con citas falsas,
+ * que además dispara un correo por cada una.
+ */
+export const RATE_LIMIT_RESERVA_PUBLICA_REQUESTS = 5;
 /** Duración (segundos) de la ventana deslizante del rate limiting. */
 export const RATE_LIMIT_WINDOW_SECONDS = 60;
 
@@ -90,6 +96,22 @@ export const IVA = 0.19;
 
 /** Validez (segundos) de las URLs prefirmadas de subida y descarga de imágenes. */
 export const URL_PREFIRMADA_SEGUNDOS = 3600;
+
+/**
+ * Lo más que puede pedirse que dure una URL prefirmada: un día. Quien tiene el
+ * enlace tiene la imagen mientras el enlace viva, así que la validez la acota
+ * el servidor y no quien la pide.
+ */
+export const URL_PREFIRMADA_MAXIMO_SEGUNDOS = 24 * 3600;
+
+/** Lo mínimo que tiene sentido pedir: por debajo, la subida no da tiempo. */
+export const URL_PREFIRMADA_MINIMO_SEGUNDOS = 60;
+
+/**
+ * Longitud máxima del texto de una búsqueda. Nadie escribe un nombre de salón
+ * de cien caracteres, y sin tope el texto entero entra en el LIKE.
+ */
+export const LONGITUD_MAXIMA_BUSQUEDA = 100;
 
 // ─── Validación de datos de contacto ───────────────────────────────
 

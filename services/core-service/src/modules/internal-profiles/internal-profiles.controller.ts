@@ -1,3 +1,4 @@
+import { Internal } from "@beautyspot/nest-common";
 import { Controller, Get, Query } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -64,6 +65,7 @@ export interface ProfileResolution {
  * Endpoint interno (protegido por InternalSecretGuard) que traduce ids de
  * cliente, profesional y negocio a sus nombres y datos de contacto.
  */
+@Internal()
 @Controller("internal/profiles")
 export class InternalProfilesController {
   constructor(

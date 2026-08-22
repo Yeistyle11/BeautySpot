@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import {
@@ -425,20 +424,31 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * Resta puntos de fidelidad al cliente, sin bajar de cero. Acepta un
-   * `manager` para correr dentro de la transaccion de quien llame.
+   * Descuenta los puntos al cliente si le alcanzan, en una sola sentencia, y
+   * dice si pudo. Leer el saldo y escribirlo después dejaría que dos canjes
+   * simultáneos pasaran ambos la comprobación y gastaran el mismo saldo dos
+   * veces, así que la condición viaja dentro del propio UPDATE.
    */
-  async subtractLoyaltyPoints(
+  async redeemLoyaltyPoints(
     id: string,
     businessId: string,
     points: number,
     manager?: EntityManager
-  ): Promise<void> {
-    const repo = manager ? manager.getRepository(Client) : this.repo;
-    const client = await repo.findOne({ where: { id, businessId } });
-    if (!client) throw new NotFoundException("Cliente no encontrado");
+  ): Promise<boolean> {
+    if (!Number.isInteger(points) || points <= 0) {
+      throw new BadRequestException("Los puntos a canjear no son válidos");
+    }
 
-    const newPoints = Math.max(0, client.loyaltyPoints - points);
-    await repo.update({ id, businessId }, { loyaltyPoints: newPoints });
+    const repo = manager ? manager.getRepository(Client) : this.repo;
+    const resultado = await repo
+      .createQueryBuilder()
+      .update(Client)
+      .set({ loyaltyPoints: () => `"loyalty_points" - ${points}` })
+      .where("id = :id", { id })
+      .andWhere("business_id = :businessId", { businessId })
+      .andWhere("loyalty_points >= :points", { points })
+      .execute();
+
+    return (resultado.affected ?? 0) > 0;
   }
 }

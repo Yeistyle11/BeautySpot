@@ -15,6 +15,12 @@ import { TransformInterceptor } from "../interceptors/transform.interceptor";
 import { InternalSecretGuard } from "../guards/internal-secret.guard";
 import { RedisCacheService } from "../cache/redis-cache.service";
 import { TokenVersionStore } from "../security/token-version.store";
+import {
+  TOKEN_VERSION_RESOLVER,
+  type TokenVersionResolver,
+} from "../security/token-version.resolver";
+import { HttpTokenVersionResolver } from "../security/http-token-version.resolver";
+import { InternalHttpClient } from "../http/internal-http.client";
 import { buildCorsOptions } from "./cors.options";
 import { requestContextMiddleware } from "../observability/request-context";
 import { StructuredLogger } from "../observability/structured.logger";
@@ -34,6 +40,30 @@ const REQUISITOS_COMUNES: RequisitosDeEntorno = {
   secretos: ["JWT_SECRET", "INTERNAL_API_SECRET"],
   urls: ["DATABASE_URL", "RABBITMQ_URL"],
 };
+
+/**
+ * Resolver autoritativo de versiones de token para el guard global.
+ *
+ * El guard se construye fuera del contenedor, así que el resolver hay que
+ * dárselo a mano: el que el servicio haya registrado —auth resuelve contra su
+ * propia tabla de usuarios— y, si no registró ninguno, uno que se lo pregunte a
+ * auth por HTTP interno. Sin esto el store nace ciego y una clave ausente en
+ * Redis se lee como "nunca revocado".
+ */
+function resolverDeVersiones(
+  app: { get: (token: symbol, opciones: { strict: boolean }) => unknown },
+  configService: ConfigService
+): TokenVersionResolver {
+  try {
+    return app.get(TOKEN_VERSION_RESOLVER, {
+      strict: false,
+    }) as TokenVersionResolver;
+  } catch {
+    // Esta versión de Nest lanza cuando el token no está registrado, que es el
+    // caso de los siete servicios que no poseen la tabla de usuarios.
+    return new HttpTokenVersionResolver(new InternalHttpClient(configService));
+  }
+}
 
 /** Nombre del paquete, para que el error diga qué servicio no arranca. */
 function nombreDelServicio(): string {
@@ -61,6 +91,10 @@ export async function createMicroserviceApp(
         ...(requisitos.secretos ?? []),
       ],
       urls: [...(REQUISITOS_COMUNES.urls ?? []), ...(requisitos.urls ?? [])],
+      distintos: [
+        ...(REQUISITOS_COMUNES.distintos ?? []),
+        ...(requisitos.distintos ?? []),
+      ],
     },
     nombreDelServicio()
   );
@@ -88,10 +122,13 @@ export async function createMicroserviceApp(
   const reflector = app.get(Reflector);
 
   const redisCache = new RedisCacheService(configService);
-  const tokenVersionStore = new TokenVersionStore(redisCache);
+  const tokenVersionStore = new TokenVersionStore(
+    redisCache,
+    resolverDeVersiones(app, configService)
+  );
 
   app.useGlobalGuards(
-    new InternalSecretGuard(configService),
+    new InternalSecretGuard(configService, reflector),
     new JwtAuthGuard(configService, reflector, tokenVersionStore),
     new BusinessScopeGuard(reflector),
     new RolesGuard(reflector)

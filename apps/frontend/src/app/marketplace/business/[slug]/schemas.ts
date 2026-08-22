@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginatedSchema } from "@/lib/pagination";
 
 // Los campos opcionales admiten null o ausencia.
 
@@ -149,10 +150,7 @@ export const reviewSchema = z.object({
 });
 export type Review = z.infer<typeof reviewSchema>;
 
-export const reviewsResponseSchema = z.object({
-  items: z.array(reviewSchema),
-  total: z.number(),
-});
+export const reviewsResponseSchema = paginatedSchema(reviewSchema);
 
 export const ratingDistributionSchema = z.object({
   5: z.number(),

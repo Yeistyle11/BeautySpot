@@ -2,11 +2,13 @@ import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { SearchService } from "./search.service";
+import { RedisCacheService } from "@beautyspot/nest-common";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
 import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
 
 describe("SearchService", () => {
   let service: SearchService;
+  let cache: { remember: jest.Mock };
   let mockBusinessRepo: jest.Mocked<Repository<BusinessProfileEntity>>;
   let mockProRepo: jest.Mocked<Repository<ProfessionalProfileEntity>>;
 
@@ -67,6 +69,18 @@ describe("SearchService", () => {
       createQueryBuilder: jest.fn(() => mockQueryBuilder),
     } as any;
 
+    // Caché que guarda de verdad, para poder comprobar que la segunda búsqueda
+    // igual no vuelve a la base.
+    const guardado = new Map<string, unknown>();
+    cache = {
+      remember: jest.fn(async (clave: string, _ttl: number, cargar: any) => {
+        if (guardado.has(clave)) return guardado.get(clave);
+        const valor = await cargar();
+        guardado.set(clave, valor);
+        return valor;
+      }),
+    };
+
     const module = await Test.createTestingModule({
       providers: [
         SearchService,
@@ -78,6 +92,7 @@ describe("SearchService", () => {
           provide: getRepositoryToken(ProfessionalProfileEntity),
           useValue: mockProRepo,
         },
+        { provide: RedisCacheService, useValue: cache },
       ],
     }).compile();
 
@@ -95,8 +110,8 @@ describe("SearchService", () => {
       const result = await service.search({});
 
       expect(result.type).toBe("business");
-      expect(result.items).toHaveLength(1);
-      expect(result.total).toBe(1);
+      expect(result.data).toHaveLength(1);
+      expect(result.meta.total).toBe(1);
     });
 
     it("debería buscar profesionales si type es professional", async () => {
@@ -109,7 +124,7 @@ describe("SearchService", () => {
       const result = await service.search({ type: "professional" });
 
       expect(result.type).toBe("professional");
-      expect(result.items).toHaveLength(1);
+      expect(result.data).toHaveLength(1);
       expect(mockProRepo.createQueryBuilder).toHaveBeenCalled();
     });
 
@@ -128,8 +143,8 @@ describe("SearchService", () => {
       const result = await service.search({ type: "all" });
 
       expect(result.type).toBe("all");
-      expect(result.items).toHaveLength(2);
-      expect(result.total).toBe(2);
+      expect(result.data).toHaveLength(2);
+      expect(result.meta.total).toBe(2);
     });
 
     it("debería limitar resultados a 50 máximo", async () => {
@@ -159,9 +174,22 @@ describe("SearchService", () => {
       await service.search({ q: "barber" });
 
       expect(qb.andWhere).toHaveBeenCalledWith(
-        expect.stringContaining("ILIKE"),
+        expect.stringContaining("translate(lower(bp.name)"),
         expect.any(Object)
       );
+    });
+
+    it("encuentra a quien lleva tilde escribiendo sin ella", async () => {
+      const qb = mockBusinessRepo.createQueryBuilder();
+      (qb.getManyAndCount as jest.Mock).mockResolvedValue([[], 0]);
+
+      await service.search({ q: "Perez" });
+
+      const [, parametros] = (qb.andWhere as jest.Mock).mock.calls.find(
+        ([sql]: [string]) => sql.includes("bp.name")
+      );
+      // El patrón viaja ya normalizado, como la columna con la que se compara.
+      expect(parametros.q).toBe("%perez%");
     });
 
     it("debería filtrar por ciudad", async () => {
@@ -171,8 +199,8 @@ describe("SearchService", () => {
       await service.search({ city: "Bogotá" });
 
       expect(qb.andWhere).toHaveBeenCalledWith(
-        "bp.city ILIKE :city",
-        expect.objectContaining({ city: expect.any(String) })
+        expect.stringContaining("translate(lower(bp.city)"),
+        expect.objectContaining({ city: "%bogota%" })
       );
     });
 
@@ -236,9 +264,41 @@ describe("SearchService", () => {
 
       expect(qb.innerJoin).toHaveBeenCalled();
       expect(qb.andWhere).toHaveBeenCalledWith(
-        "bp.city ILIKE :city",
+        expect.stringContaining("translate(lower(bp.city)"),
         expect.any(Object)
       );
+    });
+  });
+
+  describe("caché", () => {
+    it("no vuelve a la base con la misma búsqueda", async () => {
+      const qb = mockBusinessRepo.createQueryBuilder();
+      (qb.getManyAndCount as jest.Mock).mockResolvedValue([[], 0]);
+
+      await service.search({ q: "barber", page: 1 });
+      await service.search({ q: "barber", page: 1 });
+
+      expect(qb.getManyAndCount).toHaveBeenCalledTimes(1);
+    });
+
+    it("distingue las búsquedas que no son la misma", async () => {
+      const qb = mockBusinessRepo.createQueryBuilder();
+      (qb.getManyAndCount as jest.Mock).mockResolvedValue([[], 0]);
+
+      await service.search({ q: "barber", page: 1 });
+      await service.search({ q: "barber", page: 2 });
+
+      expect(qb.getManyAndCount).toHaveBeenCalledTimes(2);
+    });
+
+    it("comparte entrada entre visitantes de la misma zona", async () => {
+      const qb = mockBusinessRepo.createQueryBuilder();
+      (qb.getManyAndCount as jest.Mock).mockResolvedValue([[], 0]);
+
+      await service.search({ lat: 4.7112, lng: -74.0721 });
+      await service.search({ lat: 4.7118, lng: -74.0725 });
+
+      expect(qb.getManyAndCount).toHaveBeenCalledTimes(1);
     });
   });
 });

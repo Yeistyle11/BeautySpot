@@ -5,12 +5,13 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { Reflector } from "@nestjs/core";
 import { timingSafeEqual } from "crypto";
 import { esContextoHttp } from "./http-context";
+import { esRutaInterna } from "./internal-context";
 
 /** Header que transporta el secreto compartido en las llamadas internas entre servicios. */
 export const INTERNAL_API_SECRET_HEADER = "x-internal-secret";
-const INTERNAL_PATH_PREFIX = "/internal";
 
 /**
  * Protege los endpoints internos (`/internal/*`) exigiendo un secreto compartido.
@@ -19,15 +20,18 @@ const INTERNAL_PATH_PREFIX = "/internal";
  */
 @Injectable()
 export class InternalSecretGuard implements CanActivate {
-  constructor(private configService: ConfigService) {}
+  constructor(
+    private configService: ConfigService,
+    private reflector: Reflector
+  ) {}
 
   /** Deja pasar solo las rutas /internal que traen el secreto correcto. */
   canActivate(context: ExecutionContext): boolean {
     if (!esContextoHttp(context)) return true;
 
-    const request = context.switchToHttp().getRequest();
-    if (!request.url.startsWith(INTERNAL_PATH_PREFIX)) return true;
+    if (!esRutaInterna(context, this.reflector)) return true;
 
+    const request = context.switchToHttp().getRequest();
     const secret = request.headers[INTERNAL_API_SECRET_HEADER];
     const expected = this.configService.get<string>("INTERNAL_API_SECRET");
 

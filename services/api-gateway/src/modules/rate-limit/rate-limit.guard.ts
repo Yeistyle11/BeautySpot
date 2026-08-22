@@ -11,6 +11,7 @@ import { Request, Response } from "express";
 import {
   RATE_LIMIT_AUTH_REQUESTS,
   RATE_LIMIT_GENERAL_REQUESTS,
+  RATE_LIMIT_RESERVA_PUBLICA_REQUESTS,
   RATE_LIMIT_WINDOW_SECONDS,
 } from "@beautyspot/shared-constants";
 import { ConfigService } from "@nestjs/config";
@@ -35,6 +36,12 @@ interface Marca {
   espera: number;
 }
 
+/**
+ * Qué clase de tráfico es la petición, que decide con qué presupuesto se cuenta
+ * y qué pasa si Redis no responde.
+ */
+type Trafico = "credenciales" | "reservaPublica" | "general";
+
 /** Rutas que exponen credenciales y quedan bajo el límite estricto. */
 const RUTAS_DE_CREDENCIALES = [
   "/auth/login",
@@ -45,11 +52,19 @@ const RUTAS_DE_CREDENCIALES = [
   "/auth/resend-verification",
 ];
 
+/**
+ * Rutas públicas de escritura que no piden credenciales. Sin token no hay a
+ * quién imputar el abuso, y lo que crean —una cita en la agenda de un salón,
+ * más el correo que la anuncia— cuesta dinero a un tercero.
+ */
+const RUTAS_DE_RESERVA_PUBLICA = ["/booking/public/appointments"];
+
 @Injectable()
 export class RateLimitGuard implements CanActivate {
   private readonly logger = new Logger(RateLimitGuard.name);
 
   private readonly limiteCredenciales: number;
+  private readonly limiteReservaPublica: number;
   private readonly limiteGeneral: number;
   private readonly ventanaSegundos: number;
 
@@ -62,6 +77,11 @@ export class RateLimitGuard implements CanActivate {
       configService,
       "RATE_LIMIT_AUTH_MAX",
       RATE_LIMIT_AUTH_REQUESTS
+    );
+    this.limiteReservaPublica = this.numero(
+      configService,
+      "RATE_LIMIT_PUBLIC_BOOKING_MAX",
+      RATE_LIMIT_RESERVA_PUBLICA_REQUESTS
     );
     this.limiteGeneral = this.numero(
       configService,
@@ -92,25 +112,49 @@ export class RateLimitGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const response = context.switchToHttp().getResponse<Response>();
-    const isAuthRoute = this.isAuthRoute(request.path);
+    const trafico = this.traficoDe(request.path);
 
-    // En rutas de autenticacion se limita tambien por cuenta objetivo, no solo
-    // por IP.
-    const buckets = this.buildBuckets(request, isAuthRoute);
-    const limit = isAuthRoute ? this.limiteCredenciales : this.limiteGeneral;
+    // En credenciales se cuenta tambien por cuenta objetivo, y en la reserva
+    // publica por el contacto del invitado: contar solo por IP no sirve contra
+    // quien las rota.
+    const buckets = this.buildBuckets(request, trafico);
+    const limit = this.limiteDe(trafico);
 
-    // De los dos contadores manda el que va mas lleno.
+    // De los contadores manda el que va mas lleno.
     let usados = 0;
     let esperaSegundos = this.ventanaSegundos;
+    let sinContador = false;
 
     for (const bucket of buckets) {
       const marca = await this.hit(bucket);
-      if (marca === null) continue;
+      if (marca === null) {
+        sinContador = true;
+        continue;
+      }
 
       if (marca.count > usados) {
         usados = marca.count;
         esperaSegundos = marca.espera;
       }
+    }
+
+    // Sin Redis no hay forma de contar. En el trafico corriente se deja pasar,
+    // porque cerrar tumbaria el producto entero por una caida de la cache; en
+    // lo que se escribe sin token se cierra, que es donde no contar equivale a
+    // no tener limite.
+    if (sinContador && trafico !== "general") {
+      throw new HttpException(
+        {
+          success: false,
+          error: {
+            code: "RATE_LIMIT_UNAVAILABLE",
+            message:
+              "No podemos atender esta solicitud ahora mismo. Vuelve a intentarlo en unos minutos.",
+          },
+          statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+        },
+        HttpStatus.SERVICE_UNAVAILABLE
+      );
     }
 
     this.anotarCabeceras(response, limit, usados, esperaSegundos);
@@ -121,7 +165,7 @@ export class RateLimitGuard implements CanActivate {
           success: false,
           error: {
             code: "RATE_LIMIT_EXCEEDED",
-            message: this.mensajeDeEspera(isAuthRoute, esperaSegundos),
+            message: this.mensajeDeEspera(trafico, esperaSegundos),
           },
           statusCode: HttpStatus.TOO_MANY_REQUESTS,
         },
@@ -132,11 +176,19 @@ export class RateLimitGuard implements CanActivate {
     return true;
   }
 
+  /** Presupuesto de peticiones que le toca a cada clase de trafico. */
+  private limiteDe(trafico: Trafico): number {
+    if (trafico === "credenciales") return this.limiteCredenciales;
+    if (trafico === "reservaPublica") return this.limiteReservaPublica;
+    return this.limiteGeneral;
+  }
+
   /** Dice cuanto falta para poder reintentar. */
-  private mensajeDeEspera(esDeCredenciales: boolean, segundos: number): string {
-    const que = esDeCredenciales
-      ? "Demasiados intentos"
-      : "Demasiadas solicitudes";
+  private mensajeDeEspera(trafico: Trafico, segundos: number): string {
+    const que =
+      trafico === "credenciales"
+        ? "Demasiados intentos"
+        : "Demasiadas solicitudes";
     return `${que}. Espera ${segundos} ${
       segundos === 1 ? "segundo" : "segundos"
     } y vuelve a intentarlo.`;
@@ -162,26 +214,62 @@ export class RateLimitGuard implements CanActivate {
   }
 
   /**
-   * Indica si la ruta es de credenciales y le toca el limite estricto; deja
-   * fuera `/auth/refresh`.
+   * Clasifica la ruta para saber con que presupuesto se cuenta. `/auth/refresh`
+   * queda fuera de credenciales: la renueva quien ya tiene sesion.
    */
-  private isAuthRoute(path: string): boolean {
+  private traficoDe(path: string): Trafico {
     const normalizado = path.replace(/^(\/api\/v\d+\/[a-z]+)-service\//, "$1/");
-    return RUTAS_DE_CREDENCIALES.some((ruta) => normalizado.includes(ruta));
+
+    if (RUTAS_DE_CREDENCIALES.some((ruta) => normalizado.includes(ruta))) {
+      return "credenciales";
+    }
+    if (RUTAS_DE_RESERVA_PUBLICA.some((ruta) => normalizado.includes(ruta))) {
+      return "reservaPublica";
+    }
+    return "general";
   }
 
-  /** Contadores que se aplican a la petición: por IP y, en credenciales, por cuenta. */
-  private buildBuckets(request: Request, isAuthRoute: boolean): string[] {
+  /** Contadores que se aplican a la petición: por IP y por a quién señala. */
+  private buildBuckets(request: Request, trafico: Trafico): string[] {
     const ip = this.resolveIp(request);
-    const scope = isAuthRoute ? "auth" : "general";
-    const buckets = [`rate-limit:ip:${ip}:${scope}`];
+    const ambito = {
+      credenciales: "auth",
+      reservaPublica: "reserva",
+      general: "general",
+    }[trafico];
+    const buckets = [`rate-limit:ip:${ip}:${ambito}`];
 
-    if (isAuthRoute) {
+    if (trafico === "credenciales") {
       const email = this.extractEmail(request);
       if (email) buckets.push(`rate-limit:account:${email}`);
     }
 
+    if (trafico === "reservaPublica") {
+      const invitado = this.identidadDelInvitado(request);
+      if (invitado) buckets.push(`rate-limit:invitado:${invitado}`);
+    }
+
     return buckets;
+  }
+
+  /**
+   * Con qué se identifica al invitado que reserva: el correo primero, porque es
+   * el que recibe el aviso, y el teléfono si no lo dio. Sin ninguno de los dos
+   * solo queda el contador por IP.
+   */
+  private identidadDelInvitado(request: Request): string | null {
+    const body = request.body as
+      | { guestEmail?: unknown; guestPhone?: unknown }
+      | undefined;
+    if (!body) return null;
+
+    if (typeof body.guestEmail === "string" && body.guestEmail.trim()) {
+      return body.guestEmail.trim().toLowerCase();
+    }
+    if (typeof body.guestPhone === "string" && body.guestPhone.trim()) {
+      return body.guestPhone.replace(/\s+/g, "");
+    }
+    return null;
   }
 
   /** IP a la que se le imputa la petición. */
@@ -199,8 +287,9 @@ export class RateLimitGuard implements CanActivate {
   }
 
   /**
-   * Registra un impacto en el contador de la ventana. Devuelve el conteo o
-   * null si Redis no responde, y entonces la peticion pasa (fail-open).
+   * Registra un impacto en el contador de la ventana. Devuelve el conteo, o
+   * null si Redis no responde; quien llama decide entonces si la peticion pasa
+   * o se rechaza.
    */
   private async hit(key: string): Promise<Marca | null> {
     try {

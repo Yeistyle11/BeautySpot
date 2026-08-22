@@ -10,11 +10,13 @@ import { CreateSpecialDayDto } from "./dto/special-day.dto";
 export class SpecialDaysController {
   constructor(private readonly service: SpecialDaysService) {}
 
+  /** Festivos, vacaciones y jornadas con horario propio del negocio. */
   @Get()
   async findAll(@BusinessId() businessId: string) {
     return this.service.findByBusiness(businessId);
   }
 
+  /** Da de alta un día especial: un cierre o una jornada con horario propio. */
   @Post()
   async create(
     @BusinessId() businessId: string,
@@ -23,6 +25,7 @@ export class SpecialDaysController {
     return this.service.create(businessId, dto);
   }
 
+  /** Retira el día especial, con lo que ese día vuelve al horario semanal. */
   @Delete(":id")
   async remove(@Param("id") id: string, @BusinessId() businessId: string) {
     await this.service.remove(id, businessId);

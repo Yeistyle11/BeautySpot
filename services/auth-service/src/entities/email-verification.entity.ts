@@ -1,3 +1,4 @@
+import { Exclude } from "class-transformer";
 import { Entity, Column, JoinColumn, ManyToOne } from "typeorm";
 import { BaseEntity } from "@beautyspot/database";
 import { User } from "./user.entity";
@@ -8,6 +9,8 @@ export class EmailVerification extends BaseEntity {
   @Column({ type: "uuid", name: "user_id" })
   userId!: string;
 
+  /** Nunca sale en una respuesta: con el hash se identifica el enlace vivo. */
+  @Exclude()
   @Column({ unique: true, name: "token_hash" })
   tokenHash!: string;
 

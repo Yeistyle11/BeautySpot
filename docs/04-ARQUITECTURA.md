@@ -39,7 +39,7 @@ en desarrollo la infraestructura la levanta Docker Compose.
                             v
               +---------------------------------+
               |      API GATEWAY  :3000         |
-              |  rate limit · JWT+tokenVersion  |
+              |  rate limit · firma del JWT     |
               |  tenant · circuit breaker       |
               +----------------+----------------+
                                |  /api/v1/{servicio}/{ruta}
@@ -54,14 +54,13 @@ en desarrollo la infraestructura la levanta Docker Compose.
      v                         v                          v
   PostgreSQL 16            RabbitMQ                     Redis
   host :5433               beautyspot.events (topic)    sesiones revocadas,
-  7 bases, 1 motor,        + beautyspot.dlx             cache de tenant,
+  7 bases, 1 motor,        + beautyspot.dlx             cache de perfiles,
   1 usuario por base       1 cola por servicio/evento   rate limit
 ```
 
 Lo que este dibujo no dice y conviene saber: **en produccion delante del gateway
-hay un reverse proxy con certificado wildcard** para `*.beautyspot.co`, que es lo
-que hace posible la resolucion de tenant por subdominio. No esta en el
-repositorio; es parte del checklist de [../DEPLOY.md](../DEPLOY.md).
+hay un reverse proxy con certificado**, que no esta en el repositorio; es parte
+del checklist de [../DEPLOY.md](../DEPLOY.md).
 
 ---
 
@@ -76,8 +75,8 @@ una de ellas**:
    su propio prefijo y reenvia a `<SERVICE_URL><ruta>`. No conoce las rutas de
    los servicios ni hay tabla que mantener: si el nombre del servicio es valido,
    se reenvia lo que venga.
-2. **Autenticar**: valida el JWT y su `tokenVersion` contra Redis
-   (`AuthGatewayGuard`), de modo que un logout invalida los tokens ya emitidos.
+2. **Autenticar**: valida la firma y la expiracion del JWT (`AuthGatewayGuard`).
+   La revocacion por `tokenVersion` la comprueba cada microservicio (5.3).
 3. **Resolver el tenant**: saca el negocio del token y lo inyecta como
    `x-business-id`. **El cliente no puede falsificarlo**, porque la cabecera se
    construye a partir del token y no de la peticion entrante.
@@ -110,13 +109,14 @@ Navegador -> API Gateway (3000)
                   |
                   +-> 1. Rate limit (Redis)
                   +-> 2. Origen permitido (CSRF) en las peticiones con efecto
-                  +-> 3. Validar JWT + tokenVersion (salvo ruta @Public)
+                  +-> 3. Validar firma y expiracion del JWT (salvo ruta @Public)
                   +-> 4. Resolver el negocio del token
                   +-> 5. Reenviar con las cabeceras de arriba, bajo el breaker
                   +-> 6. Traducir el fallo: 5xx->502, timeout->504, caido->503
                   |
                   v
-              Microservicio: @Roles decide si el rol puede
+              Microservicio: tokenVersion decide si la sesion sigue viva
+                             y @Roles si el rol puede
 ```
 
 ---
@@ -215,9 +215,14 @@ fidelidad o a incrementar dos veces la metrica del dia.
 
 6. Notification Service consume ambos: bienvenida y enlace de confirmacion
 
-7. Respuesta al cliente: { user, message } — sin tokens; la cuenta no
+7. Respuesta al cliente: { message } — sin tokens ni usuario; la cuenta no
    entra hasta canjear el enlace en POST /api/v1/auth/verify-email
 ```
+
+Si el correo **ya tiene cuenta** no se crea nada, pero la respuesta es la misma:
+un 201 con el mismo mensaje. Distinguir los dos casos convierte el alta en una
+lista de qué correos estan registrados. Lo que cambia es el evento que sale -`auth.registro.duplicado` en vez del de confirmacion-, y con el un aviso al
+dueño de la cuenta con el enlace para recuperar la contraseña.
 
 ### 5.2 Login
 
@@ -259,14 +264,23 @@ manifiesta como un 401 en todo.
 
 2. AuthGatewayGuard verifica la firma (HS256 con JWT_SECRET) y la expiracion
 
-3. Compara payload.tokenVersion con la version vigente en Redis
-   - Distinta -> 401. Es lo que hace que un logout invalide de inmediato
-     los tokens ya emitidos, sin esperar a que expiren ni mantener una
-     lista negra token a token
-
-4. Reenvia authorization tal cual e inyecta x-business-id con el negocio
+3. Reenvia authorization tal cual e inyecta x-business-id con el negocio
    resuelto del token
 ```
+
+Quien comprueba la revocacion es cada microservicio, no el gateway: el
+`JwtAuthGuard` de `packages/nest-common` compara el `tokenVersion` del token con
+el vigente del usuario. Es lo que hace que un logout invalide de inmediato los
+tokens ya emitidos, sin esperar a que expiren ni mantener una lista negra token
+a token.
+
+**Redis es cache; la fuente de verdad es auth-service**, que guarda la version
+en su tabla `users`. Cuando la clave no esta en Redis -un FLUSHALL, un failover,
+una eviccion por maxmemory-, el guard la pide a auth por HTTP interno
+(`GET /internal/users/:id/token-version`) y repuebla la cache. Si tampoco se
+puede preguntar, la peticion pasa salvo en las rutas marcadas
+`@SesionVerificable()`, que responden 503: dejar leer un listado sin poder
+comprobar la revocacion es asumible, ejecutar una accion no.
 
 No se inyectan `X-User-Id`, `X-User-Role` ni `X-User-Memberships`: el servicio
 recibe el token entero y saca de el lo que necesita con `@CurrentUser()`.
@@ -307,9 +321,8 @@ BeautySpot utiliza **multi-tenancy logico** (base de datos compartida con aislam
 
 ### 6.2 Resolucion de tenant
 
-Hay **dos caminos**, y el que se usa en cada peticion del panel es el primero.
-
-**Desde el token** (`ProxyService.negocioDeLaPeticion`). El JWT trae `businessId`
+**Desde el token** (`ProxyService.negocioDeLaPeticion`), que es el unico camino.
+El JWT trae `businessId`
 y `businessIds`. Si el cliente pide un negocio concreto con `x-business-id`, se
 respeta **solo si tiene membresia en el**; si no, 403. Sin cabecera, se usa el
 suyo por defecto.
@@ -319,12 +332,13 @@ trabaja en dos sitios necesita decir en cual esta operando, y sin atender esa
 cabecera solo podria entrar al primero de su lista. Lo que no puede es pedir uno
 que no sea suyo.
 
-**Desde el subdominio** (`TenantService`), para lo que llega sin sesion:
-`{slug}.beautyspot.co` -> se busca `tenant:{slug}` en Redis y, si no esta, se
-pregunta a `GET /internal/businesses/resolve?slug=…` y se cachea **300 segundos**.
-Los subdominios `www` y `api` no cuentan como negocio.
+El resultado sale hacia el servicio como `x-business-id`.
 
-En los dos casos el resultado sale hacia el servicio como `x-business-id`.
+La resolucion **por subdominio** (`{slug}.beautyspot.co`) esta descrita en la
+vision de producto pero no existe en el codigo: el escaparate publico resuelve
+el negocio por su slug en la propia ruta (`/marketplace/business/{slug}`), sin
+necesitar tenant. Habia un `TenantService` en el gateway que nadie llegaba a
+llamar, y se retiro para no dar por hecha una funcionalidad que no corre.
 
 ### 6.3 Filtro obligatorio de businessId
 
@@ -364,12 +378,13 @@ el negocio, pero vive en la base de auth, junto a `users`.
 
 Los nombres canonicos viven en `packages/event-types/src/index.ts` (`EventNames`),
 compartidos por productores y consumidores para que nadie escriba la cadena a
-mano. Son **30 nombres declarados** con el patron `{servicio}.{agregado}.{accion}`,
-de los que hoy circulan 25.
+mano. Son **31 nombres declarados** con el patron `{servicio}.{agregado}.{accion}`,
+de los que hoy circulan 26.
 
 | Routing key                         | Publica          | Consume                       |
 | ----------------------------------- | ---------------- | ----------------------------- |
 | `auth.user.registered`              | Auth             | Notification                  |
+| `auth.registro.duplicado`           | Auth             | Notification                  |
 | `auth.user.logged-in`               | Auth             | —                             |
 | `auth.password-reset.requested`     | Auth             | Notification                  |
 | `auth.email-verification.requested` | Auth             | Notification                  |

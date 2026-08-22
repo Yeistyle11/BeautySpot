@@ -22,6 +22,23 @@ describe("HealthController del gateway", () => {
     const resultado = await new HealthController(config()).check();
 
     expect(resultado.status).toBe("healthy");
+  });
+
+  // El desglose dibuja la topología interna y señala qué servicio está caído:
+  // lo ve quien opera la plataforma, no cualquiera que pase por la ruta.
+  it("la salud pública no dice qué servicios hay ni cuál falla", async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true }) as never;
+
+    const resultado = await new HealthController(config()).check();
+
+    expect(resultado).not.toHaveProperty("services");
+  });
+
+  it("el detalle sí enumera cada servicio con su estado", async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true }) as never;
+
+    const resultado = await new HealthController(config()).detalle();
+
     expect(resultado.services).toEqual({ auth: "healthy", core: "healthy" });
   });
 
@@ -47,7 +64,7 @@ describe("HealthController del gateway", () => {
       .mockResolvedValueOnce({ ok: true })
       .mockResolvedValueOnce({ ok: false }) as never;
 
-    const resultado = await new HealthController(config()).check();
+    const resultado = await new HealthController(config()).detalle();
 
     expect(resultado.services.core).toBe("unhealthy");
     expect(resultado.status).toBe("degraded");
@@ -61,7 +78,7 @@ describe("HealthController del gateway", () => {
       .mockResolvedValueOnce({ ok: true })
       .mockRejectedValueOnce(new Error("ECONNREFUSED")) as never;
 
-    const resultado = await new HealthController(config()).check();
+    const resultado = await new HealthController(config()).detalle();
 
     expect(resultado.services.core).toBe("unreachable");
     expect(resultado.status).toBe("degraded");

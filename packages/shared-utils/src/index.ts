@@ -176,3 +176,30 @@ export function normalizarTelefono(telefono?: string | null): string {
 export function escapeLikePattern(input: string): string {
   return input.replace(/[%_\\]/g, "\\$&");
 }
+
+/**
+ * Moneda y formato con los que se presenta el dinero cuando el negocio no dice
+ * otra cosa. `business.currency` y `business.locale` guardan los suyos, pero
+ * hoy no llegan a quien imprime la factura ni a quien redacta el correo.
+ */
+export const MONEDA_POR_DEFECTO = "COP";
+export const LOCALE_POR_DEFECTO = "es-CO";
+
+/**
+ * Presenta un importe como dinero, sin decimales. Es la única forma en que el
+ * producto escribe una cifra de cara al cliente —el correo y el PDF de la
+ * factura—, así que vive aquí y no en cada uno.
+ */
+export function formatearDinero(
+  monto: number,
+  opciones: { currency?: string; locale?: string } = {}
+): string {
+  const { currency = MONEDA_POR_DEFECTO, locale = LOCALE_POR_DEFECTO } =
+    opciones;
+
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+  }).format(monto);
+}

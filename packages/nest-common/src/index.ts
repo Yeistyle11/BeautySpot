@@ -5,6 +5,11 @@ export { BusinessScopeGuard } from "./guards/business-scope.guard";
 export { RolesGuard } from "./guards/roles.guard";
 export { Public, IS_PUBLIC_KEY } from "./decorators/public.decorator";
 export {
+  Internal,
+  IS_INTERNAL_KEY,
+  PREFIJO_INTERNO,
+} from "./decorators/internal.decorator";
+export {
   SkipBusinessScope,
   SKIP_BUSINESS_SCOPE_KEY,
 } from "./decorators/skip-business-scope.decorator";
@@ -61,6 +66,12 @@ export type {
   OpcionesLlamada,
 } from "./http/internal-http.client";
 export { InternalHttpModule } from "./http/internal-http.module";
+export {
+  EsFechaSola,
+  EsDiaDelCalendario,
+} from "./decorators/es-fecha-sola.decorator";
+export { CatalogoTenantService } from "./database/catalogo-tenant.service";
+export type { EntidadDeCatalogo } from "./database/catalogo-tenant.service";
 export { TenantCrudService } from "./database/tenant-crud.service";
 export type { EntidadDeNegocio } from "./database/tenant-crud.service";
 export { ProcessedEventsPurgeWorker } from "./modules/idempotency/processed-events-purge.worker";
@@ -72,6 +83,7 @@ export {
 export type { VersionDeToken } from "./security/token-version.store";
 export { SecurityModule } from "./security/security.module";
 export { TOKEN_VERSION_RESOLVER } from "./security/token-version.resolver";
+export { HttpTokenVersionResolver } from "./security/http-token-version.resolver";
 export type { TokenVersionResolver } from "./security/token-version.resolver";
 export {
   createMicroserviceApp,
@@ -82,5 +94,6 @@ export { assertJwtSecret } from "./security/assert-jwt-secret";
 export { validarEntorno, problemasDelEntorno } from "./config/validar-entorno";
 export type { RequisitosDeEntorno, Entorno } from "./config/validar-entorno";
 export { withSerializableRetry } from "./database/serializable-retry";
+export { esViolacionDeUnicidad } from "./database/violacion-de-unicidad";
 export { ZonaDelNegocioService } from "./zona/zona-del-negocio.service";
 export { ZonaDelNegocioModule } from "./zona/zona-del-negocio.module";

@@ -1,3 +1,4 @@
+import { Internal } from "@beautyspot/nest-common";
 import { Controller, Get, Query } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -27,6 +28,7 @@ export interface AperturaDelDia {
 }
 
 /** Endpoint interno (servicio-a-servicio) con el horario de apertura del negocio. */
+@Internal()
 @Controller("internal/business-hours")
 export class InternalBusinessHoursController {
   constructor(

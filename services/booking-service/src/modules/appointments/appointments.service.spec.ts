@@ -169,9 +169,13 @@ describe("AppointmentsService", () => {
                 ...data,
                 generateId: () => {},
               })),
-              save: jest
-                .fn()
-                .mockResolvedValue({ id: "test-id", generateId: () => {} }),
+              // TypeORM devuelve la fila guardada, con todo lo que se le paso:
+              // el evento de la cita se arma con ella.
+              save: jest.fn(async (_entidad: unknown, datos: any) =>
+                Array.isArray(datos)
+                  ? datos
+                  : { id: "test-id", ...datos, generateId: () => {} }
+              ),
               findOne: jest.fn().mockResolvedValue({
                 id: "test-id",
                 appointmentServices: [],
@@ -644,6 +648,19 @@ describe("AppointmentsService", () => {
           "/internal/branches?businessId=business-123"
         );
         expect(mockDataSource.transaction).toHaveBeenCalled();
+      });
+
+      it("la sede viaja en el evento de la cita", async () => {
+        mockHttp.pedir.mockResolvedValue([{ id: "branch-123" }]);
+
+        await service.create("business-123", enSede);
+
+        expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            payload: expect.objectContaining({ branchId: "branch-123" }),
+          })
+        );
       });
 
       it("rechaza una sede que no es del negocio", async () => {

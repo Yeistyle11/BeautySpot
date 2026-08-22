@@ -110,8 +110,6 @@ export class ProfessionalsController {
     return { message: "Profesional eliminado" };
   }
 
-  // --- Vinculacion con cuenta de usuario ---
-
   /**
    * Vincula un profesional con una cuenta de usuario (auth-service).
    * Body: { userId: "uuid-del-usuario" }

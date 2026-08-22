@@ -1,6 +1,9 @@
 import { StructuredLogger } from "../observability/structured.logger";
 import { createMicroserviceApp } from "./create-app.factory";
 import { ValidationPipe } from "@nestjs/common";
+import { JwtAuthGuard } from "../guards/jwt-auth.guard";
+import { TOKEN_VERSION_RESOLVER } from "../security/token-version.resolver";
+import { HttpTokenVersionResolver } from "../security/http-token-version.resolver";
 
 jest.mock("@nestjs/core", () => ({
   NestFactory: {
@@ -58,7 +61,14 @@ describe("createAppFactory", () => {
     };
 
     mockApp = {
-      get: jest.fn().mockReturnValue(mockConfigService),
+      // El contenedor de los siete servicios que no poseen la tabla de
+      // usuarios no tiene resolver: Nest lanza al pedirlo.
+      get: jest.fn((token: unknown) => {
+        if (token === TOKEN_VERSION_RESOLVER) {
+          throw new Error("Nest could not find TOKEN_VERSION_RESOLVER");
+        }
+        return mockConfigService;
+      }),
       use: jest.fn().mockReturnThis(),
       enableCors: jest.fn().mockReturnThis(),
       enableShutdownHooks: jest.fn().mockReturnThis(),
@@ -222,10 +232,34 @@ describe("createAppFactory", () => {
   });
 
   describe("Global Guards", () => {
+    /** El store con el que se construyó el guard global de JWT. */
+    function storeDelGuard(): any {
+      const guards = mockApp.useGlobalGuards.mock.calls[0];
+      const jwt = guards.find((g: unknown) => g instanceof JwtAuthGuard);
+      return (jwt as any).tokenVersionStore;
+    }
+
     it("debería registrar guards globales", async () => {
       await createMicroserviceApp({} as any);
 
       expect(mockApp.useGlobalGuards).toHaveBeenCalled();
+    });
+
+    it("da al guard el resolver que el servicio registró", async () => {
+      const resolver = { load: jest.fn(), bump: jest.fn() };
+      mockApp.get = jest.fn((token: unknown) =>
+        token === TOKEN_VERSION_RESOLVER ? resolver : mockConfigService
+      );
+
+      await createMicroserviceApp({} as any);
+
+      expect(storeDelGuard().resolver).toBe(resolver);
+    });
+
+    it("pregunta a auth cuando el servicio no registró ninguno", async () => {
+      await createMicroserviceApp({} as any);
+
+      expect(storeDelGuard().resolver).toBeInstanceOf(HttpTokenVersionResolver);
     });
   });
 

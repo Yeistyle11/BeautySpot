@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectDataSource } from "@nestjs/typeorm";
-import { DataSource, In, IsNull, Between } from "typeorm";
+import { DataSource, IsNull } from "typeorm";
 import { OutboxService, ZonaDelNegocioService } from "@beautyspot/nest-common";
 import { instanteDe } from "@beautyspot/shared-utils";
 import { EventNames } from "@beautyspot/event-types";
@@ -35,6 +35,13 @@ type Ventana = keyof typeof VENTANAS;
 
 /** Qué hacer con un recordatorio pendiente en este ciclo. */
 type Decision = "esperar" | "emitir" | "descartar";
+
+/** Última cita atendida, por la que sigue la página siguiente. */
+interface Cursor {
+  fecha: string;
+  hora: string;
+  id: string;
+}
 
 /**
  * Sondea las citas proximas y publica `booking.appointment.reminder-due` al
@@ -99,39 +106,24 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
       const ahora = new Date();
       // El rango se abre un dia por cada lado: la fecha de la cita es hora de
       // pared y el corte fino lo hace `decidir`, ya con el huso resuelto.
-      const rango = Between(
-        this.aFecha(this.sumarHoras(ahora, -24)),
-        this.aFecha(this.sumarHoras(ahora, 48))
-      );
-      const estados = In([
-        AppointmentStatus.PENDING,
-        AppointmentStatus.CONFIRMED,
-      ]);
-      // Descartar en la consulta las citas con ambos avisos ya enviados: es el
-      // mismo predicado del índice parcial idx_appointments_recordatorios.
-      const where = [
-        { date: rango, status: estados, reminder24hSentAt: IsNull() },
-        { date: rango, status: estados, reminder1hSentAt: IsNull() },
-      ];
+      const desde = this.aFecha(this.sumarHoras(ahora, -24));
+      const hasta = this.aFecha(this.sumarHoras(ahora, 48));
 
+      let cursor: Cursor | null = null;
       for (let pagina = 0; pagina < MAXIMO_PAGINAS; pagina++) {
-        const candidatas = await this.dataSource
-          .getRepository(Appointment)
-          .find({
-            where,
-            // Los servicios viajan en el evento para que el correo nombre lo
-            // que se reservó y no un genérico "Servicio".
-            relations: { appointmentServices: true },
-            order: { date: "ASC", startTime: "ASC" },
-            take: MAXIMO_POR_SONDEO,
-            skip: pagina * MAXIMO_POR_SONDEO,
-          });
+        const candidatas = await this.paginaDeCandidatas(desde, hasta, cursor);
 
         for (const cita of candidatas) {
           await this.resolver(cita, ahora);
         }
 
         if (candidatas.length < MAXIMO_POR_SONDEO) return;
+        const ultima = candidatas[candidatas.length - 1];
+        cursor = {
+          fecha: ultima.date,
+          hora: ultima.startTime,
+          id: ultima.id,
+        };
       }
 
       this.logger.warn(
@@ -140,6 +132,50 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
     } finally {
       this.running = false;
     }
+  }
+
+  /**
+   * Página de citas que aún esperan algún aviso, desde donde se quedó la
+   * anterior.
+   *
+   * Avanza por cursor y no por OFFSET porque el propio worker va marcando las
+   * citas que atiende y esas salen del filtro: con OFFSET, la página siguiente
+   * se desplaza sobre un conjunto que ha encogido y se salta tantas citas como
+   * lleve marcadas. El orden por (fecha, hora, id) es el que hace el cursor
+   * inequívoco cuando dos citas coinciden a la misma hora.
+   */
+  private async paginaDeCandidatas(
+    desde: string,
+    hasta: string,
+    cursor: Cursor | null
+  ): Promise<Appointment[]> {
+    const qb = this.dataSource
+      .getRepository(Appointment)
+      .createQueryBuilder("cita")
+      // Los servicios viajan en el evento para que el correo nombre lo que se
+      // reservó y no un genérico "Servicio".
+      .leftJoinAndSelect("cita.appointmentServices", "servicio")
+      .where("cita.date BETWEEN :desde AND :hasta", { desde, hasta })
+      .andWhere("cita.status IN (:...estados)", {
+        estados: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+      })
+      // El mismo predicado del índice parcial idx_appointments_recordatorios.
+      .andWhere(
+        "(cita.reminder24hSentAt IS NULL OR cita.reminder1hSentAt IS NULL)"
+      )
+      .orderBy("cita.date", "ASC")
+      .addOrderBy("cita.startTime", "ASC")
+      .addOrderBy("cita.id", "ASC")
+      .take(MAXIMO_POR_SONDEO);
+
+    if (cursor) {
+      qb.andWhere(
+        "(cita.date, cita.startTime, cita.id) > (:fecha, :hora, :id)",
+        cursor
+      );
+    }
+
+    return qb.getMany();
   }
 
   /** Aplica a una cita lo que toque en cada uno de sus recordatorios pendientes. */

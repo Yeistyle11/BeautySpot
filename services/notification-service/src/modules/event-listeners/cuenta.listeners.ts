@@ -7,6 +7,7 @@ import {
   UserRegisteredEvent,
   PasswordResetRequestedEvent,
   EmailVerificationRequestedEvent,
+  RegistroDuplicadoEvent,
   EventNames,
   EVENTS_EXCHANGE,
   DEAD_LETTER_EXCHANGE,
@@ -16,8 +17,8 @@ import { EmailService } from "../emails/email.service";
 import { AvisosService } from "./avisos.service";
 
 /**
- * Correos de la cuenta: bienvenida, restablecer contrasena y confirmar el
- * correo. Los tres son solo correo.
+ * Correos de la cuenta: bienvenida, restablecer contrasena, confirmar el correo
+ * y avisar de un alta repetida. Los cuatro son solo correo.
  */
 @Injectable()
 export class CuentaListeners {
@@ -61,6 +62,53 @@ export class CuentaListeners {
       );
     } catch (error) {
       this.avisos.logError("bienvenida", error);
+    }
+  }
+
+  /**
+   * Avisa al dueño de una cuenta de que alguien intentó registrarse con su
+   * correo.
+   *
+   * El alta responde lo mismo exista o no la cuenta, así que este correo es lo
+   * único que distingue los dos casos, y lo recibe quien tiene derecho a
+   * saberlo: el dueño del buzón.
+   */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.AUTH_REGISTRO_DUPLICADO,
+    queue: nombreDeCola("notification", EventNames.AUTH_REGISTRO_DUPLICADO),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleRegistroDuplicado(event: RegistroDuplicadoEvent) {
+    const { email, name } = event.payload;
+
+    this.logger.log(
+      `Alta repetida sobre una cuenta existente: ${ocultarCorreo(email)}`
+    );
+
+    try {
+      await this.processedEvents.once(
+        event,
+        "notification:alta repetida",
+        async () => {
+          const { jobId } = await this.emailService.queueRegistroDuplicado(
+            email,
+            {
+              clientName: name,
+              recoveryLink: `${this.appUrl()}/forgot-password`,
+            }
+          );
+
+          await this.avisos.emitEmailQueuedEvent(
+            jobId,
+            email,
+            "registro-duplicado",
+            "Ya tienes una cuenta en BeautySpot"
+          );
+        }
+      );
+    } catch (error) {
+      this.avisos.logError("alta repetida", error);
     }
   }
 

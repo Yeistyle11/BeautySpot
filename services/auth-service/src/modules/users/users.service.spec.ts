@@ -166,6 +166,24 @@ describe("UsersService", () => {
     });
   });
 
+  describe("versionDeToken", () => {
+    it("lee la versión guardada en la tabla, no la de la caché", async () => {
+      mockUserRepository.findOne.mockResolvedValue({ tokenVersion: 3 });
+
+      await expect(service.versionDeToken("user-123")).resolves.toBe(3);
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
+        where: { id: "user-123" },
+        select: { id: true, tokenVersion: true },
+      });
+    });
+
+    it("da 0 para una cuenta que ya no existe", async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.versionDeToken("borrado")).resolves.toBe(0);
+    });
+  });
+
   describe("findByEmail", () => {
     it("debería retornar el usuario cuando existe", async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser);

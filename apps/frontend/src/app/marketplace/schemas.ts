@@ -1,6 +1,7 @@
 // Esquemas de las respuestas públicas del marketplace (feed y búsqueda), en un
 // módulo sin "use client" para que los use tanto la página como el componente.
 import { z } from "zod";
+import { paginatedSchema } from "@/lib/pagination";
 
 export const profileSchema = z.object({
   id: z.string(),
@@ -50,8 +51,5 @@ export const feedResponseSchema = z.object({
 });
 export type FeedResponse = z.infer<typeof feedResponseSchema>;
 
-export const searchResultSchema = z.object({
-  items: z.array(profileSchema),
-  total: z.number(),
-});
+export const searchResultSchema = paginatedSchema(profileSchema);
 export type SearchResult = z.infer<typeof searchResultSchema>;

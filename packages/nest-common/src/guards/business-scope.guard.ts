@@ -9,6 +9,7 @@ import { Reflector } from "@nestjs/core";
 import { Role } from "@beautyspot/shared-types";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 import { esContextoHttp } from "./http-context";
+import { esRutaInterna } from "./internal-context";
 import { SKIP_BUSINESS_SCOPE_KEY } from "../decorators/skip-business-scope.decorator";
 
 const UUID_REGEX =
@@ -41,9 +42,10 @@ export class BusinessScopeGuard implements CanActivate {
 
     if (!esContextoHttp(context)) return true;
 
+    if (esRutaInterna(context, this.reflector)) return true;
+
     const request = context.switchToHttp().getRequest();
-    if (request.url === "/health" || request.url.startsWith("/internal"))
-      return true;
+    if (request.url === "/health") return true;
 
     const businessId = request.headers["x-business-id"];
     if (!businessId || typeof businessId !== "string") {

@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository, DataSource, In } from "typeorm";
+import { Repository, DataSource, In, MoreThan } from "typeorm";
 import { ReviewsService } from "./reviews.service";
 import { ReviewEntity, ReviewStatus } from "../../entities/review.entity";
 import { ReviewReportReason } from "../../entities/review-report.entity";
@@ -65,6 +65,7 @@ describe("ReviewsService", () => {
       createQueryBuilder: jest.fn(),
       increment: jest.fn(),
       decrement: jest.fn(),
+      update: jest.fn(),
     } as any;
 
     mockHelpfulRepo = {
@@ -515,7 +516,26 @@ describe("ReviewsService", () => {
         "r.business_id = :businessId",
         { businessId: "business-123" }
       );
-      expect(result).toEqual({ items: reviews, total: 10 });
+      expect(result.data.map((r) => r.id)).toEqual(reviews.map((r) => r.id));
+      expect(result.meta.total).toBe(10);
+    });
+
+    it("no publica el cliente, la cita ni las denuncias de cada reseña", async () => {
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[mockReview], 1]),
+      } as any;
+      mockRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+
+      const result = await service.findByBusiness("business-123", {});
+
+      expect(result.data[0]).not.toHaveProperty("clientId");
+      expect(result.data[0]).not.toHaveProperty("appointmentId");
+      expect(result.data[0]).not.toHaveProperty("reportCount");
     });
 
     it("debería filtrar por rating", async () => {
@@ -619,7 +639,38 @@ describe("ReviewsService", () => {
 
       const result = await service.findById("review-123");
 
-      expect(result).toEqual(mockReview);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: mockReview.id,
+          rating: mockReview.rating,
+          comment: mockReview.comment,
+        })
+      );
+    });
+
+    // La ruta es publica: quien escribio la resena y sobre que cita no salen de
+    // aqui, ni el recuento de denuncias, que es de moderacion.
+    it("no publica el vínculo con el usuario, la cita ni las denuncias", async () => {
+      mockRepo.findOne.mockResolvedValue(mockReview);
+
+      const result = await service.findById("review-123");
+
+      expect(result).not.toHaveProperty("clientId");
+      expect(result).not.toHaveProperty("appointmentId");
+      expect(result).not.toHaveProperty("reportCount");
+    });
+
+    // Ocultar una resena la retira del escaparate; seguir sirviendola por su id
+    // dejaba la moderacion sin efecto para quien conserve el enlace.
+    it("solo busca entre las publicadas", async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.findById("review-123")).rejects.toThrow(
+        NotFoundException
+      );
+      expect(mockRepo.findOne).toHaveBeenCalledWith({
+        where: { id: "review-123", status: ReviewStatus.PUBLICADA },
+      });
     });
 
     it("debería lanzar NotFoundException si la reseña no existe", async () => {
@@ -930,16 +981,29 @@ describe("ReviewsService", () => {
     it("debería quitar marca helpful", async () => {
       mockHelpfulRepo.findOne.mockResolvedValue(mockHelpful);
       mockHelpfulRepo.remove.mockResolvedValue(mockHelpful);
-      mockRepo.decrement.mockResolvedValue({ affected: 1 } as any);
+      mockRepo.update.mockResolvedValue({ affected: 1 } as any);
 
       await service.unmarkHelpful("review-123", "user-123");
 
       expect(mockHelpfulRepo.remove).toHaveBeenCalledWith(mockHelpful);
-      expect(mockRepo.decrement).toHaveBeenCalledWith(
-        { id: "review-123" },
-        "helpfulCount",
-        1
+      expect(mockRepo.update).toHaveBeenCalledWith(
+        { id: "review-123", helpfulCount: MoreThan(0) },
+        expect.anything()
       );
+    });
+
+    // Restar sin mirar deja el recuento en negativo si se descuadra por
+    // cualquier motivo; la condicion viaja dentro del propio UPDATE.
+    it("no descuenta si el recuento ya está en cero", async () => {
+      mockHelpfulRepo.findOne.mockResolvedValue(mockHelpful);
+      mockHelpfulRepo.remove.mockResolvedValue(mockHelpful);
+      mockRepo.update.mockResolvedValue({ affected: 0 } as any);
+
+      await service.unmarkHelpful("review-123", "user-123");
+
+      const [criterio] = mockRepo.update.mock.calls[0];
+      expect(criterio).toMatchObject({ helpfulCount: MoreThan(0) });
+      expect(mockRepo.decrement).not.toHaveBeenCalled();
     });
 
     it("no debería hacer nada si el usuario no marcó helpful", async () => {
@@ -948,7 +1012,7 @@ describe("ReviewsService", () => {
       await service.unmarkHelpful("review-123", "user-123");
 
       expect(mockHelpfulRepo.remove).not.toHaveBeenCalled();
-      expect(mockRepo.decrement).not.toHaveBeenCalled();
+      expect(mockRepo.update).not.toHaveBeenCalled();
     });
   });
 

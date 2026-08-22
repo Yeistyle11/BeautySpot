@@ -3,13 +3,12 @@
 // Pagina de gestion del perfil publico: pestanas para editar la ficha del negocio en el marketplace.
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Megaphone, ExternalLink } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
-import { useApi } from "@/lib/swr";
+import { useApi, usePaginatedApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
@@ -81,20 +80,10 @@ export default function MarketplacePage() {
   const reviewsKey = businessId
     ? `/marketplace/reviews/business/${businessId}`
     : null;
-  const { data: reviewsData, mutate: mutateReviews } = useApi<
-    { items: Review[]; total: number } | Review[]
-  >(
+  const { items: reviews, mutate: mutateReviews } = usePaginatedApi<Review>(
     reviewsKey,
-    undefined,
-    // El endpoint devuelve el arreglo crudo o { items }, segun el servicio.
-    z.union([
-      z.object({ items: z.array(reviewSchema), total: z.number() }),
-      z.array(reviewSchema),
-    ])
+    reviewSchema
   );
-  const reviews: Review[] = Array.isArray(reviewsData)
-    ? reviewsData
-    : (reviewsData?.items ?? []);
 
   const [configForm, setConfigForm] = useState<ConfigForm>(emptyConfigForm);
   const [sections, setSections] = useState<SectionItem[]>(defaultSections);

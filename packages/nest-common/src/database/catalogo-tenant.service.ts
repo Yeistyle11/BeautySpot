@@ -109,23 +109,53 @@ export abstract class CatalogoTenantService<T extends EntidadDeCatalogo> {
     return this.findById(id, businessId);
   }
 
-  /** Aplica el nuevo orden a los elementos indicados en una transacción. */
+  /**
+   * Aplica el nuevo orden en una sola sentencia. Reordenar es arrastrar una
+   * lista entera, así que un UPDATE por elemento convertía un gesto de la
+   * interfaz en tantas idas y vueltas como elementos tuviera el catálogo.
+   *
+   * Si alguno de los ids no es del negocio no se actualiza, y entonces vuelven
+   * menos filas de las pedidas: la sentencia se deshace entera, porque media
+   * reordenación deja la lista en un orden que nadie eligió.
+   */
   async reorder(
     businessId: string,
     items: { id: string; sortOrder: number }[]
   ): Promise<void> {
     if (items.length === 0) return;
 
+    const tabla = this.repo.metadata.tablePath;
+    const columna = (propiedad: string): string =>
+      this.repo.metadata.findColumnWithPropertyName(propiedad)!.databaseName;
+
+    const parametros: unknown[] = [businessId];
+    const tuplas = items.map((item) => {
+      const primero = parametros.length + 1;
+      parametros.push(item.id, item.sortOrder);
+      return `($${primero}::uuid, $${primero + 1}::int)`;
+    });
+
+    // La sentencia va en transacción para que el rechazo deshaga lo que ya
+    // había casado: la sentencia por sí sola es atómica, pero el 404 llega
+    // después de escribirla.
     await this.repo.manager.transaction(async (manager) => {
-      const repo = manager.getRepository<T>(this.repo.target);
-      for (const item of items) {
-        const resultado = await repo.update(
-          { id: item.id, businessId } as FindOptionsWhere<T>,
-          { sortOrder: item.sortOrder } as never
-        );
-        if (!resultado.affected) {
-          throw new NotFoundException(`${this.textos.singular} no encontrada`);
-        }
+      const crudo = (await manager.query(
+        `UPDATE ${tabla} AS c
+            SET "${columna("sortOrder")}" = nuevo.orden
+           FROM (VALUES ${tuplas.join(", ")}) AS nuevo(id, orden)
+          WHERE c."${columna("id")}" = nuevo.id
+            AND c."${columna("businessId")}" = $1::uuid
+       RETURNING c."${columna("id")}"`,
+        parametros
+      )) as unknown[];
+
+      // De un UPDATE, TypeORM devuelve [filas, afectadas]; de un SELECT, las
+      // filas sueltas. Contar sobre lo que llega sin distinguirlo daría dos
+      // siempre, que es como se colaba un id ajeno cuando la lista traía dos.
+      const filas = (Array.isArray(crudo[0]) ? crudo[0] : crudo) as unknown[];
+
+      if (filas.length !== items.length) {
+        throw new NotFoundException(`${this.textos.singular} no encontrada`);
       }
     });
   }

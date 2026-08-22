@@ -1,3 +1,4 @@
+import { Internal } from "@beautyspot/nest-common";
 import { Controller, Post, Body, HttpCode, HttpStatus } from "@nestjs/common";
 import { EmailService } from "./email.service";
 import {
@@ -16,6 +17,7 @@ import {
  * Ruta bajo /internal/* protegida por InternalSecretGuard (x-internal-secret).
  * Solo servicios internos autorizados pueden disparar envíos de email.
  */
+@Internal()
 @Controller("internal/emails")
 export class EmailsController {
   constructor(private readonly emailService: EmailService) {}

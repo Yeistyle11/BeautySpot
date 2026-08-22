@@ -9,7 +9,7 @@ import { RemindersWorker } from "./reminders.worker";
 
 describe("RemindersWorker", () => {
   let worker: RemindersWorker;
-  let mockRepo: { find: jest.Mock };
+  let mockQb: Record<string, jest.Mock>;
   let mockManager: { update: jest.Mock };
   let mockOutbox: { enqueue: jest.Mock };
 
@@ -42,7 +42,16 @@ describe("RemindersWorker", () => {
   };
 
   beforeEach(async () => {
-    mockRepo = { find: jest.fn().mockResolvedValue([]) };
+    mockQb = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    };
+    const mockRepo = { createQueryBuilder: jest.fn(() => mockQb) };
     mockManager = { update: jest.fn().mockResolvedValue({ affected: 1 }) };
     mockOutbox = { enqueue: jest.fn().mockResolvedValue({}) };
 
@@ -78,16 +87,14 @@ describe("RemindersWorker", () => {
   it("debería acotar el sondeo a las citas con algún recordatorio pendiente", async () => {
     await worker.poll();
 
-    const [opciones] = mockRepo.find.mock.calls[0];
-    expect(opciones.take).toBe(1000);
-    expect(opciones.where).toEqual([
-      expect.objectContaining({ reminder24hSentAt: expect.anything() }),
-      expect.objectContaining({ reminder1hSentAt: expect.anything() }),
-    ]);
+    expect(mockQb.take).toHaveBeenCalledWith(1000);
+    expect(mockQb.andWhere).toHaveBeenCalledWith(
+      "(cita.reminder24hSentAt IS NULL OR cita.reminder1hSentAt IS NULL)"
+    );
   });
 
   it("debería publicar el recordatorio de 24h y marcar la cita", async () => {
-    mockRepo.find.mockResolvedValue([citaEn(24)]);
+    mockQb.getMany.mockResolvedValue([citaEn(24)]);
 
     await worker.poll();
 
@@ -112,7 +119,7 @@ describe("RemindersWorker", () => {
   });
 
   it("debería publicar el recordatorio de 1h", async () => {
-    mockRepo.find.mockResolvedValue([citaEn(1)]);
+    mockQb.getMany.mockResolvedValue([citaEn(1)]);
 
     await worker.poll();
 
@@ -126,7 +133,7 @@ describe("RemindersWorker", () => {
 
   it("recupera el aviso de 24h que se pasó con el worker caído", async () => {
     // A 6 h de la cita el aviso llega tarde, pero llega: antes se perdía.
-    mockRepo.find.mockResolvedValue([citaEn(6)]);
+    mockQb.getMany.mockResolvedValue([citaEn(6)]);
 
     await worker.poll();
 
@@ -139,7 +146,7 @@ describe("RemindersWorker", () => {
   });
 
   it("no debería repetir un recordatorio ya emitido", async () => {
-    mockRepo.find.mockResolvedValue([
+    mockQb.getMany.mockResolvedValue([
       citaEn(24, { reminder24hSentAt: new Date() }),
     ]);
 
@@ -149,7 +156,7 @@ describe("RemindersWorker", () => {
   });
 
   it("no avisa todavía de una cita que aún no llega al umbral", async () => {
-    mockRepo.find.mockResolvedValue([citaEn(30)]);
+    mockQb.getMany.mockResolvedValue([citaEn(30)]);
 
     await worker.poll();
 
@@ -159,7 +166,7 @@ describe("RemindersWorker", () => {
 
   it("descarta sin avisar los recordatorios que ya no aportan", async () => {
     // Media hora antes: el de 24 h lo releva el de 1 h, y el de 1 h sigue vivo.
-    mockRepo.find.mockResolvedValue([citaEn(0.5)]);
+    mockQb.getMany.mockResolvedValue([citaEn(0.5)]);
 
     await worker.poll();
 
@@ -168,7 +175,7 @@ describe("RemindersWorker", () => {
   });
 
   it("cierra los recordatorios de una cita que ya empezó, sin avisar", async () => {
-    mockRepo.find.mockResolvedValue([citaEn(-2)]);
+    mockQb.getMany.mockResolvedValue([citaEn(-2)]);
 
     await worker.poll();
 
@@ -178,7 +185,7 @@ describe("RemindersWorker", () => {
 
   it("no recuerda una cita reservada cuando el umbral ya había pasado", async () => {
     // Reservada con 3 h de margen: el cliente acaba de elegir esa hora.
-    mockRepo.find.mockResolvedValue([citaEn(2, {}, 3)]);
+    mockQb.getMany.mockResolvedValue([citaEn(2, {}, 3)]);
 
     await worker.poll();
 
@@ -186,7 +193,7 @@ describe("RemindersWorker", () => {
   });
 
   it("no debería encolar el evento si otra instancia marcó la cita antes", async () => {
-    mockRepo.find.mockResolvedValue([citaEn(24)]);
+    mockQb.getMany.mockResolvedValue([citaEn(24)]);
     mockManager.update.mockResolvedValue({ affected: 0 });
 
     await worker.poll();
@@ -196,17 +203,35 @@ describe("RemindersWorker", () => {
 
   it("sigue paginando mientras la página venga llena", async () => {
     const llena = Array.from({ length: 1000 }, () => citaEn(30));
-    mockRepo.find.mockResolvedValueOnce(llena).mockResolvedValueOnce([]);
+    mockQb.getMany.mockResolvedValueOnce(llena).mockResolvedValueOnce([]);
 
     await worker.poll();
 
-    expect(mockRepo.find).toHaveBeenCalledTimes(2);
-    expect(mockRepo.find.mock.calls[1][0].skip).toBe(1000);
+    expect(mockQb.getMany).toHaveBeenCalledTimes(2);
+  });
+
+  it("sigue por donde se quedó y no por posición", async () => {
+    // Las citas que atiende salen del filtro: avanzar por OFFSET se saltaría
+    // tantas como lleve marcadas.
+    const llena = Array.from({ length: 1000 }, () => citaEn(30));
+    llena[999] = citaEn(30, {
+      id: "ultima",
+      date: "2026-09-01",
+      startTime: "10:30",
+    });
+    mockQb.getMany.mockResolvedValueOnce(llena).mockResolvedValueOnce([]);
+
+    await worker.poll();
+
+    expect(mockQb.andWhere).toHaveBeenCalledWith(
+      "(cita.date, cita.startTime, cita.id) > (:fecha, :hora, :id)",
+      { fecha: "2026-09-01", hora: "10:30", id: "ultima" }
+    );
   });
 
   it("no debería solapar dos sondeos", async () => {
     let resolver: (v: unknown) => void = () => {};
-    mockRepo.find.mockReturnValue(
+    mockQb.getMany.mockReturnValue(
       new Promise((resolve) => {
         resolver = resolve;
       })
@@ -214,7 +239,7 @@ describe("RemindersWorker", () => {
 
     const primero = worker.poll();
     await worker.poll();
-    expect(mockRepo.find).toHaveBeenCalledTimes(1);
+    expect(mockQb.getMany).toHaveBeenCalledTimes(1);
 
     resolver([]);
     await primero;
