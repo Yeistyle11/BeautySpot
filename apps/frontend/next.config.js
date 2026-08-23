@@ -50,9 +50,15 @@ const apiOrigin = (() => {
 // Aun sin cubrir la inyeccion en linea, bloquea lo demas: scripts de otros
 // origenes, incrustar la aplicacion en un iframe ajeno, plugins, reescribir la
 // base de las URLs relativas y enviar formularios fuera del sitio.
+// React usa eval() en desarrollo para reconstruir las pilas de llamadas y demas
+// ayudas de depuracion; en produccion no lo usa nunca. Sin esto, el navegador
+// bloquea esas herramientas mientras se trabaja.
+const evalEnDesarrollo =
+  process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
+
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${evalEnDesarrollo}`,
   "style-src 'self' 'unsafe-inline'",
   // Los negocios alojan sus fotos donde quieren; la lista blanca real la aplica
   // el optimizador de imagenes con remotePatterns.
