@@ -123,7 +123,9 @@ export function CreatePaymentDialog({
         >
           <Input
             type="number"
-            min={0}
+            /* Un cobro de cero no existe, salvo cuando los puntos cubren el
+               resto: ahi el monto es lo que el cliente pone aparte. */
+            min={puntosUsados > 0 ? 0 : 1}
             placeholder="25000"
             value={form.amount}
             onChange={(e) => set({ amount: e.target.value })}
@@ -219,7 +221,7 @@ export function EditPaymentDialog({
         <Field label="Monto (COP)">
           <Input
             type="number"
-            min={0}
+            min={1}
             value={form.amount}
             onChange={(e) => set({ amount: e.target.value })}
             required
@@ -250,6 +252,17 @@ export function EditPaymentDialog({
             value={form.notes}
             onChange={(e) => set({ notes: e.target.value })}
             rows={2}
+          />
+        </Field>
+        <Field
+          label="Motivo de la corrección"
+          hint="Queda anotado en el cobro, junto a quién lo corrigió"
+        >
+          <Input
+            placeholder="Se tecleó 300.000 en vez de 30.000"
+            value={form.reason}
+            onChange={(e) => set({ reason: e.target.value })}
+            required
           />
         </Field>
         <div className="flex gap-3 pt-2">

@@ -18,6 +18,7 @@ import {
   IsUUID,
   Min,
   MaxLength,
+  IsPositive,
 } from "class-validator";
 import { Transform } from "class-transformer";
 import { PaymentMethod, PaymentStatus, Role } from "@beautyspot/shared-types";
@@ -89,6 +90,25 @@ class DailySummaryQueryDto {
 /** Nuevo estado a asignar a un pago. */
 class UpdateStatusDto {
   @IsEnum(PaymentStatus) status!: PaymentStatus;
+}
+
+/**
+ * Corrección de un cobro ya registrado. El motivo es obligatorio: la corrección
+ * queda escrita en el pago y sin él la traza no explica nada.
+ */
+class UpdatePaymentDto {
+  @IsOptional()
+  @IsNumber({}, { message: "El monto debe ser un número" })
+  @IsPositive({ message: "El monto tiene que ser mayor que cero" })
+  amount?: number;
+  @IsOptional()
+  @IsEnum(PaymentMethod, { message: "El método de pago no es válido" })
+  method?: PaymentMethod;
+  @IsOptional() @IsString() reference?: string;
+  @IsOptional() @IsString() notes?: string;
+  @IsString({ message: "Anota el motivo de la corrección" })
+  @MaxLength(500, { message: "El motivo no puede pasar de 500 caracteres" })
+  reason!: string;
 }
 
 /** Motivo e importe de una devolución; sin importe se devuelve el total. */
@@ -180,6 +200,21 @@ export class PaymentsController {
     @Body() dto: UpdateStatusDto
   ) {
     return this.service.updateStatus(id, businessId, dto.status);
+  }
+
+  /** Corrige un cobro mientras su caja siga abierta, dejando traza de quién y por qué. */
+  @Patch(":id")
+  @Roles(Role.OWNER, Role.ADMIN)
+  async update(
+    @Param("id") id: string,
+    @BusinessId() businessId: string,
+    @CurrentUser("userId") userId: string,
+    @Body() dto: UpdatePaymentDto
+  ) {
+    return this.service.correctPayment(id, businessId, {
+      ...dto,
+      editedBy: userId,
+    });
   }
 
   /** Reembolsa un pago (total o parcial) a nombre del usuario autenticado. */

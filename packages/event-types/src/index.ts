@@ -240,6 +240,28 @@ export interface PaymentRegisteredPayload {
 
 export type PaymentRegisteredEvent = IBaseEvent<PaymentRegisteredPayload>;
 
+/**
+ * Correccion de un cobro ya registrado. Lleva la diferencia ademas del importe
+ * nuevo porque quien agrega ingresos necesita ajustar lo que ya sumo, no
+ * volver a sumarlo; y lleva el dia del cobro original para no atribuir la
+ * correccion al dia en que se hizo.
+ */
+export interface PaymentCorrectedPayload {
+  paymentId: string;
+  businessId: string;
+  /** Dia del cobro corregido, en el huso del negocio (`YYYY-MM-DD`). */
+  date: string;
+  previousAmount: number;
+  amount: number;
+  /** `amount - previousAmount`: negativa cuando la correccion rebaja el cobro. */
+  difference: number;
+  method: PaymentMethod;
+  reason: string;
+  editedBy: string;
+}
+
+export type PaymentCorrectedEvent = IBaseEvent<PaymentCorrectedPayload>;
+
 /** Puntos que un cobro gastó de la ficha del cliente. */
 export interface PointsRedeemedPayload {
   paymentId: string;
@@ -390,6 +412,7 @@ export const EventNames = {
   PAYMENT_PAYMENT_REGISTERED: "payment.payment.registered",
   PAYMENT_INVOICE_GENERATED: "payment.invoice.generated",
   PAYMENT_POINTS_REDEEMED: "payment.points.redeemed",
+  PAYMENT_PAYMENT_CORRECTED: "payment.payment.corrected",
   PAYMENT_REFUND_PROCESSED: "payment.refund.processed",
   PAYMENT_CASH_SESSION_CLOSED: "payment.cash.session.closed",
 

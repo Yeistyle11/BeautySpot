@@ -587,12 +587,21 @@ Pagos manuales, facturas y caja. Base de datos `beautyspot_payment`. Usa el patr
 | GET    | `/daily-summary` | OWNER, ADMIN               | Resumen del día                   |
 | GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST | Detalle                           |
 | PATCH  | `/:id/status`    | OWNER, ADMIN               | Cambia el estado                  |
+| PATCH  | `/:id`           | OWNER, ADMIN               | Corrige el cobro                  |
 | POST   | `/:id/refund`    | OWNER, ADMIN               | Procesa devolución                |
 
 Un cobro puede llevar `appointmentId`: entonces el importe tiene que coincidir
 con el de la cita, esa cita no se puede cobrar dos veces mientras el cobro siga
 vivo, y el evento `payment.registered` sale con los servicios que se vendieron.
 Sin él es una venta suelta, con el importe tecleado a mano.
+
+`PATCH /:id` corrige un cobro ya registrado (importe, método, referencia o
+notas) y exige un `reason`, que queda escrito en el pago junto a quién y cuándo
+lo corrigió. Solo se admite mientras la sesión de caja que recogió el cobro siga
+abierta: cerrada la caja el arqueo ya está firmado, así que a partir de ahí la
+vía es `POST /:id/refund`. El movimiento de caja se ajusta en la misma
+transacción, y un cambio de importe emite `payment.payment.corrected` con la
+diferencia y el día del cobro original, para que las métricas no se descuadren.
 
 `GET /cobradas` acepta `appointmentIds` (lista separada por comas, máximo 100) y
 responde con los identificadores que ya tienen cobro. Booking no sabe de pagos,

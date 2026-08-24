@@ -219,6 +219,7 @@ export default function PaymentsPage() {
       method: p.method,
       reference: p.reference || "",
       notes: p.notes || "",
+      reason: "",
     });
     setEditDialog(true);
   };
@@ -233,6 +234,7 @@ export default function PaymentsPage() {
         method: editForm.method,
         reference: editForm.reference || undefined,
         notes: editForm.notes || undefined,
+        reason: editForm.reason,
       });
       setEditDialog(false);
       setEditId(null);

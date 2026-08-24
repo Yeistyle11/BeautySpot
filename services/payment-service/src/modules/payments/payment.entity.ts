@@ -73,6 +73,18 @@ export class PaymentEntity extends TenantEntity {
   @Column({ type: "uuid", name: "registered_by", nullable: true })
   registeredBy!: string;
 
+  /**
+   * Traza de la correccion de un cobro. Un importe mal tecleado se corrige
+   * mientras la caja que lo recogio sigue abierta, y queda escrito quien lo
+   * hizo y por que; cerrada la caja, la via es la devolucion.
+   */
+  @Column({ type: "timestamptz", name: "edited_at", nullable: true })
+  editedAt!: Date | null;
+  @Column({ type: "uuid", name: "edited_by", nullable: true })
+  editedBy!: string | null;
+  @Column({ type: "text", name: "edit_reason", nullable: true })
+  editReason!: string | null;
+
   @Column({ type: "timestamptz", name: "refunded_at", nullable: true })
   refundedAt!: Date | null;
   @Column({

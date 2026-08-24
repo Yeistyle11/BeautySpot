@@ -875,6 +875,162 @@ describe("PaymentsService", () => {
       expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
   });
+  describe("correctPayment", () => {
+    /**
+     * Un importe mal tecleado en el mostrador se corrige mientras la caja que
+     * lo recogio siga abierta; despues, la via es la devolucion.
+     */
+    const corregir = {
+      amount: 30000,
+      reason: "Se tecleó 300.000 en vez de 30.000",
+      editedBy: "user-999",
+    };
+
+    /** Movimiento de caja del cobro, en la sesion que se indique. */
+    function conCajaDelMovimiento(sesion: {
+      id: string;
+      closedAt: Date | null;
+    }) {
+      mockManagerRepo.findOne = jest.fn(async (opciones: any) => {
+        if (opciones?.where?.paymentId) {
+          return {
+            id: "mov-1",
+            cashSessionId: sesion.id,
+            type: CashMovementType.IN,
+          };
+        }
+        return sesion;
+      });
+    }
+
+    beforeEach(() => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockPayment,
+        amount: 300000,
+      } as any);
+      mockManagerRepo.findOneOrFail = jest
+        .fn()
+        .mockResolvedValue({ ...mockPayment, amount: 30000 });
+    });
+
+    it("corrige el importe y deja escrito quién y por qué", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: null });
+
+      await service.correctPayment("payment-123", "business-123", corregir);
+
+      expect(mockManagerRepo.update).toHaveBeenCalledWith(
+        { id: "payment-123", businessId: "business-123" },
+        expect.objectContaining({
+          amount: 30000,
+          editedBy: "user-999",
+          editReason: "Se tecleó 300.000 en vez de 30.000",
+          editedAt: expect.any(Date),
+        })
+      );
+    });
+
+    it("ajusta el movimiento de caja al importe corregido", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: null });
+
+      await service.correctPayment("payment-123", "business-123", corregir);
+
+      expect(mockManagerRepo.update).toHaveBeenCalledWith(
+        { id: "mov-1" },
+        { amount: 30000, method: PaymentMethod.CASH }
+      );
+    });
+
+    it("no corrige un cobro cuya caja ya se cerró", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: new Date() });
+
+      await expect(
+        service.correctPayment("payment-123", "business-123", corregir)
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("avisa de que la vía es la devolución cuando la caja está cerrada", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: new Date() });
+
+      await expect(
+        service.correctPayment("payment-123", "business-123", corregir)
+      ).rejects.toThrow(/devolución/);
+    });
+
+    it("solo corrige cobros completados", async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockPayment,
+        status: PaymentStatus.REFUNDED,
+      } as any);
+
+      await expect(
+        service.correctPayment("payment-123", "business-123", corregir)
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("avisa del cambio con la diferencia y el día del cobro original", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: null });
+
+      await service.correctPayment("payment-123", "business-123", corregir);
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        mockManager,
+        expect.objectContaining({
+          eventType: EventNames.PAYMENT_PAYMENT_CORRECTED,
+          payload: expect.objectContaining({
+            previousAmount: 300000,
+            amount: 30000,
+            difference: -270000,
+          }),
+        })
+      );
+    });
+
+    it("no avisa a nadie si el importe no cambió", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: null });
+
+      await service.correctPayment("payment-123", "business-123", {
+        notes: "Otra nota",
+        reason: "Corregir la nota",
+        editedBy: "user-999",
+      });
+
+      expect(mockOutbox.enqueue).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("cobro de cero", () => {
+    it("rechaza un cobro de cero sin puntos", async () => {
+      await expect(
+        service.create("business-123", {
+          clientId: "client-123",
+          amount: 0,
+          method: PaymentMethod.CASH,
+          registeredBy: "user-123",
+        })
+      ).rejects.toThrow(/mayor que cero/);
+    });
+
+    // Con puntos, `amount` es lo que el cliente pone de su bolsillo: que sea
+    // cero significa que el canje cubrio el servicio entero.
+    it("admite el cero cuando los puntos cubren el total", async () => {
+      mockHttp.pedir.mockResolvedValue({
+        clientId: "client-123",
+        totalAmount: 100,
+      });
+      mockRepo.create.mockReturnValue(mockPayment);
+      mockManagerRepo.save.mockResolvedValue(mockPayment);
+
+      await expect(
+        service.create("business-123", {
+          clientId: "client-123",
+          amount: 0,
+          method: PaymentMethod.CASH,
+          registeredBy: "user-123",
+          puntosUsados: 100,
+        })
+      ).resolves.toBeDefined();
+    });
+  });
 });
 
 describe("conceptoDelCobro", () => {

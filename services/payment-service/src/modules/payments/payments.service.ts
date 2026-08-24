@@ -17,7 +17,11 @@ import {
   InternalHttpClient,
   ZonaDelNegocioService,
 } from "@beautyspot/nest-common";
-import { diaSiguiente, instanteDe } from "@beautyspot/shared-utils";
+import {
+  diaSiguiente,
+  fechaDeHoyEn,
+  instanteDe,
+} from "@beautyspot/shared-utils";
 import { PaymentEntity } from "./payment.entity";
 import { CashSessionEntity } from "../cash-register/cash-session.entity";
 import { CashMovementEntity } from "../cash-register/cash-movement.entity";
@@ -95,6 +99,14 @@ export class PaymentsService {
   ): Promise<PaymentEntity> {
     const puntosUsados = data.puntosUsados ?? 0;
     const descuento = puntosUsados * VALOR_DEL_PUNTO;
+
+    // Un cobro de cero no es una operacion: o es un error de tecleo o es una
+    // cortesia, que merece su propio concepto. La excepcion es el canje, donde
+    // `amount` es lo que el cliente pone de su bolsillo y los puntos cubren el
+    // resto: ahi el cero es legitimo.
+    if (data.amount <= 0 && puntosUsados === 0) {
+      throw new BadRequestException("El monto tiene que ser mayor que cero");
+    }
 
     // Lo que se cobró solo lo sabe booking: payment guarda el importe, no el
     // detalle. Se toma de la misma consulta que ya valida la cita.
@@ -498,6 +510,156 @@ export class PaymentsService {
     }
 
     return { date, total, count, byMethod };
+  }
+
+  /**
+   * Corrige un cobro ya registrado: importe, metodo, referencia o notas.
+   *
+   * Solo se admite mientras la caja que recogio el cobro siga abierta. Cerrada
+   * la caja el arqueo ya esta firmado, y reescribir el importe lo descuadraria
+   * hacia atras sin que nadie lo note; a partir de ahi la via es la devolucion.
+   */
+  async correctPayment(
+    id: string,
+    businessId: string,
+    cambios: {
+      amount?: number;
+      method?: PaymentMethod;
+      reference?: string;
+      notes?: string;
+      reason: string;
+      editedBy: string;
+    }
+  ): Promise<PaymentEntity> {
+    const payment = await this.findById(id, businessId);
+    if (payment.status !== PaymentStatus.COMPLETED) {
+      throw new BadRequestException(
+        `Solo se puede corregir un cobro completado. Estado actual: ${payment.status}`
+      );
+    }
+
+    const importeAnterior = Number(payment.amount);
+    const importeNuevo = cambios.amount ?? importeAnterior;
+    const metodoNuevo = cambios.method ?? payment.method;
+    const zona = await this.zonas.de(businessId);
+    const diaDelCobro = fechaDeHoyEn(zona, payment.createdAt);
+
+    return this.dataSource.transaction(async (manager) => {
+      await this.ajustarCajaDeLaCorreccion(
+        manager,
+        businessId,
+        payment,
+        importeNuevo,
+        metodoNuevo,
+        cambios.editedBy
+      );
+
+      await manager.getRepository(PaymentEntity).update(
+        { id, businessId },
+        {
+          amount: importeNuevo,
+          method: metodoNuevo,
+          reference: cambios.reference ?? payment.reference,
+          notes: cambios.notes ?? payment.notes,
+          editedAt: new Date(),
+          editedBy: cambios.editedBy,
+          editReason: cambios.reason,
+        }
+      );
+
+      // Quien agrega ingresos ya sumo el importe viejo: necesita la diferencia
+      // y el dia del cobro original, no el dia en que se corrige.
+      if (importeNuevo !== importeAnterior) {
+        await this.outbox.enqueue(manager, {
+          eventType: EventNames.PAYMENT_PAYMENT_CORRECTED,
+          aggregateType: "payment",
+          aggregateId: payment.id,
+          payload: {
+            paymentId: payment.id,
+            businessId,
+            date: diaDelCobro,
+            previousAmount: importeAnterior,
+            amount: importeNuevo,
+            difference: importeNuevo - importeAnterior,
+            method: metodoNuevo,
+            reason: cambios.reason,
+            editedBy: cambios.editedBy,
+          },
+        });
+      }
+
+      return manager.getRepository(PaymentEntity).findOneOrFail({
+        where: { id, businessId },
+      });
+    });
+  }
+
+  /**
+   * Deja la caja contando lo mismo que el cobro corregido. El movimiento solo
+   * se toca si su sesion sigue abierta; si ya se arqueo, la correccion no
+   * procede.
+   */
+  private async ajustarCajaDeLaCorreccion(
+    manager: EntityManager,
+    businessId: string,
+    payment: PaymentEntity,
+    importeNuevo: number,
+    metodoNuevo: PaymentMethod,
+    editedBy: string
+  ): Promise<void> {
+    const movimientos = manager.getRepository(CashMovementEntity);
+    const movimiento = await movimientos.findOne({
+      where: { paymentId: payment.id, type: CashMovementType.IN },
+    });
+
+    if (movimiento) {
+      const sesion = await manager.getRepository(CashSessionEntity).findOne({
+        where: { id: movimiento.cashSessionId },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (sesion?.closedAt) {
+        throw new BadRequestException(
+          "Este cobro entró en una caja que ya se cerró: para corregirlo, registra una devolución"
+        );
+      }
+
+      // El dinero deja de pasar por el cajón: el movimiento sobra. Se puede
+      // borrar sin falsear nada porque la sesión aún no se ha arqueado.
+      if (metodoNuevo !== PaymentMethod.CASH) {
+        await movimientos.delete({ id: movimiento.id });
+        return;
+      }
+
+      await movimientos.update(
+        { id: movimiento.id },
+        { amount: importeNuevo, method: metodoNuevo }
+      );
+      return;
+    }
+
+    // No habia movimiento porque el cobro no era en efectivo; si ahora lo es,
+    // el dinero entra al cajon y la caja tiene que recogerlo.
+    if (metodoNuevo === PaymentMethod.CASH) {
+      const sesion = await this.cajaAbierta(
+        manager,
+        businessId,
+        payment.branchId,
+        metodoNuevo,
+        "corregir un cobro a efectivo"
+      );
+      if (!sesion) return;
+      await movimientos.save(
+        movimientos.create({
+          cashSessionId: sesion.id,
+          type: CashMovementType.IN,
+          amount: importeNuevo,
+          concept: "Corrección de cobro",
+          method: metodoNuevo,
+          paymentId: payment.id,
+          registeredBy: editedBy,
+        })
+      );
+    }
   }
 
   /**

@@ -71,6 +71,8 @@ export const emptyEditForm = {
   method: "",
   reference: "",
   notes: "",
+  /** Obligatorio: la correccion queda escrita en el cobro con su motivo. */
+  reason: "",
 };
 export type EditForm = typeof emptyEditForm;
 

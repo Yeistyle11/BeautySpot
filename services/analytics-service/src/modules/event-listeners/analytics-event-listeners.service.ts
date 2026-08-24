@@ -8,6 +8,7 @@ import {
   AppointmentCancelledEvent,
   AppointmentNoShowedEvent,
   PaymentRegisteredEvent,
+  PaymentCorrectedEvent,
   ClientCreatedEvent,
   ReviewCreatedEvent,
   EventNames,
@@ -237,6 +238,28 @@ export class AnalyticsEventListeners {
         businessId,
         hoy,
         { totalRevenue: amount, ventas: 1 },
+        manager
+      )
+    );
+  }
+
+  /** Ajusta los ingresos del día del cobro cuando este se corrige. */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.PAYMENT_PAYMENT_CORRECTED,
+    queue: nombreDeCola("analytics", EventNames.PAYMENT_PAYMENT_CORRECTED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handlePaymentCorrected(event: PaymentCorrectedEvent): Promise<void> {
+    this.logger.log(`Pago corregido: ${event.payload.paymentId}`);
+    const { businessId, date, difference } = event.payload;
+    // Se suma la diferencia sobre el día del cobro original, no sobre el día en
+    // que se corrige, y no se toca el contador de ventas: la venta es la misma.
+    await this.aplicar(event, "corrección de pago", (manager) =>
+      this.metricsService.incrementDailyMetric(
+        businessId,
+        date,
+        { totalRevenue: difference },
         manager
       )
     );
