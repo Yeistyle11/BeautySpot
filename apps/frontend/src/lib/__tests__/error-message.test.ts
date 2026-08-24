@@ -90,6 +90,47 @@ describe("mensajeDeError", () => {
     });
   });
 
+  // Los dos textos que la auditoria vio salir a pantalla, tal cual.
+  describe("texto crudo del framework", () => {
+    it("no muestra la ruta que Nest no encuentra", () => {
+      const error = new ApiError(
+        404,
+        "Cannot PATCH /payments/2b78cb37-30df-46b0-b907-f619083e7ae0"
+      );
+
+      const mensaje = mensajeDeError(error);
+
+      expect(mensaje).not.toContain("Cannot PATCH");
+      expect(mensaje).not.toContain("2b78cb37");
+      expect(mensaje).toContain("No se encontró");
+    });
+
+    it("no vuelca la lista de campos que el DTO no admite", () => {
+      const error = new ApiError(400, "Error de validación", [
+        "hours.0.property id should not exist",
+        "hours.1.property id should not exist",
+      ]);
+
+      const mensaje = mensajeDeError(
+        error,
+        "No se pudieron guardar los horarios"
+      );
+
+      expect(mensaje).not.toContain("should not exist");
+      expect(mensaje).not.toContain("hours.0");
+      expect(mensaje).toBe("No se pudieron guardar los horarios");
+    });
+
+    it("conserva los motivos redactados aunque vengan mezclados", () => {
+      const error = new ApiError(400, "Error de validación", [
+        "property businessId should not exist",
+        "El monto no puede ser negativo",
+      ]);
+
+      expect(mensajeDeError(error)).toBe("El monto no puede ser negativo");
+    });
+  });
+
   describe("errores del servidor (5xx)", () => {
     it("usa el texto propio aunque el backend mande el suyo", () => {
       const mensaje = mensajeDeError(

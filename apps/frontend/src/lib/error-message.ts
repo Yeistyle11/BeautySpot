@@ -21,6 +21,10 @@ const POR_ESTADO_CLIENTE: Record<number, string> = {
  * Traducen el código de estado, no lo que ha pasado.
  */
 const OPACOS = new Set([
+  // El propio backend la usa como titulo del 400: lo que informa son los
+  // detalles que la acompañan, no ella.
+  "error de validación",
+  "error de validacion",
   "bad request",
   "unauthorized",
   "forbidden",
@@ -31,6 +35,20 @@ const OPACOS = new Set([
   "service unavailable",
   "gateway timeout",
 ]);
+
+/**
+ * Respuesta de Nest cuando la ruta no existe: nombra el verbo y el camino
+ * interno. Al usuario no le dice nada y filtra identificadores del sistema.
+ */
+const RUTA_INEXISTENTE = /^Cannot [A-Z]+ \//;
+
+/**
+ * Errores de validacion que el backend no redacta: los emite el validador
+ * cuando el cuerpo trae campos que el DTO no admite. Significan un desajuste
+ * de contrato entre cliente y servidor, no algo que el usuario pueda corregir
+ * desde el formulario.
+ */
+const DETALLE_INTERNO = /should not exist$/;
 
 const GENERICO = "Ocurrió un error inesperado. Vuelve a intentarlo.";
 
@@ -51,11 +69,19 @@ export function mensajeDeError(error: unknown, respaldo = GENERICO): string {
     }
 
     // El backend enumera qué campos fallaron; el mensaje que los acompaña
-    // ("Error de validación") solo repite el código de estado.
-    if (error.detalles.length > 0) return error.detalles.join(". ");
+    // ("Error de validación") solo repite el código de estado. Los detalles sin
+    // redactar se descartan: nombran campos internos y llegan en inglés.
+    const detalles = error.detalles.filter((d) => !DETALLE_INTERNO.test(d));
+    if (detalles.length > 0) return detalles.join(". ");
 
     const mensaje = error.message?.trim();
-    if (mensaje && !OPACOS.has(mensaje.toLowerCase())) return mensaje;
+    if (
+      mensaje &&
+      !OPACOS.has(mensaje.toLowerCase()) &&
+      !RUTA_INEXISTENTE.test(mensaje)
+    ) {
+      return mensaje;
+    }
 
     return POR_ESTADO_CLIENTE[error.status] ?? respaldo;
   }
