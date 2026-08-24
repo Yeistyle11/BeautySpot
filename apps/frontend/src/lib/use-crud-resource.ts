@@ -1,3 +1,5 @@
+"use client";
+
 import { mutate as globalMutate } from "swr";
 import type { ZodType } from "zod";
 import { api } from "./api";

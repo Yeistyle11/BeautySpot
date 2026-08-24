@@ -1,3 +1,5 @@
+"use client";
+
 // Perfil publico de un negocio: compone las secciones activas y el acceso a reservar.
 import Link from "next/link";
 import Image from "next/image";
