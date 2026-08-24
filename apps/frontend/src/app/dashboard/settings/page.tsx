@@ -62,10 +62,11 @@ import {
   businessHourSchema,
   campoDeFichaSchema,
   servicioBreveSchema,
-  DAYS,
   defaultHours,
   type BusinessData,
   type BusinessHour,
+  type BusinessHourForm,
+  sembrarHorarios,
   type CampoDeFicha,
   type ServicioBreve,
   type Feedback,
@@ -161,7 +162,7 @@ export default function SettingsPage() {
   const [facturacion, setFacturacion] = useState<Facturacion>({});
   const [reservas, setReservas] = useState<Reservas>({});
   const [businessForm, setBusinessForm] = useState<Partial<BusinessData>>({});
-  const [hours, setHours] = useState<BusinessHour[]>(defaultHours);
+  const [hours, setHours] = useState<BusinessHourForm[]>(defaultHours);
   const [niveles, setNiveles] = useState<Nivel[]>([]);
 
   const loadingBiz = canSeeBusiness && !business;
@@ -184,18 +185,10 @@ export default function SettingsPage() {
 
   // Una respuesta vacia no siembra: los horarios se rellenan con el dia por
   // defecto y guardarlos asi sobreescribiria los del negocio con nada.
+  // Del tramo guardado se copian solo los campos que admite el DTO: la entidad
+  // llega con `id` y el validador del backend rechaza lo que le sobra.
   useSeededForm(hoursData?.length ? hoursData : null, (horas) =>
-    setHours(
-      DAYS.map(
-        (d) =>
-          horas.find((h) => h.dayOfWeek === d.value) || {
-            dayOfWeek: d.value,
-            openTime: "08:00",
-            closeTime: "18:00",
-            active: false,
-          }
-      )
-    )
+    setHours(sembrarHorarios(horas))
   );
 
   useSeededForm(fidelizacion, (f) => setNiveles(f.niveles));
@@ -390,7 +383,7 @@ export default function SettingsPage() {
 
   const updateHour = (
     dayOfWeek: number,
-    field: keyof BusinessHour,
+    field: keyof BusinessHourForm,
     value: string | boolean
   ) => {
     setHours((prev) =>

@@ -1,3 +1,4 @@
+import type { ClientForm } from "./client-form-dialog";
 import { z } from "zod";
 
 export const clientSchema = z.object({
@@ -34,6 +35,41 @@ export const servicioBreveSchema = z.object({
   name: z.string(),
 });
 export type ServicioBreve = z.infer<typeof servicioBreveSchema>;
+
+/** Lo que el PATCH de un cliente admite cambiar. */
+export interface CambiosDelCliente {
+  name?: string;
+  email?: string;
+  phone?: string;
+  notes?: string;
+  /** Vaciar el campo borra la fecha, asi que va `null` y no `undefined`. */
+  birthDate?: string | null;
+}
+
+/**
+ * Compara el formulario con la ficha que se cargo y devuelve solo lo que
+ * cambio. Enviar la ficha entera revertia en silencio lo que otra persona
+ * hubiera guardado mientras tanto: con dos pestanas abiertas, guardar el
+ * nombre devolvia el telefono a su valor viejo.
+ */
+export function cambiosDelCliente(
+  original: ClientForm,
+  actual: ClientForm
+): CambiosDelCliente {
+  const cambios: CambiosDelCliente = {};
+  if (actual.name !== original.name) cambios.name = actual.name;
+  if (actual.email !== original.email)
+    cambios.email = actual.email || undefined;
+  if (actual.phone !== original.phone)
+    cambios.phone = actual.phone || undefined;
+  if ((actual.notes ?? "") !== (original.notes ?? "")) {
+    cambios.notes = actual.notes || undefined;
+  }
+  if (actual.birthDate !== original.birthDate) {
+    cambios.birthDate = actual.birthDate || null;
+  }
+  return cambios;
+}
 
 export const CLIENTS_KEY = "/core/clients";
 export const CLIENT_FIELDS_KEY = "/core/client-fields";

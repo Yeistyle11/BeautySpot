@@ -45,6 +45,7 @@ import {
 } from "./client-form-dialog";
 import {
   clientSchema,
+  cambiosDelCliente,
   campoDeFichaSchema,
   servicioBreveSchema,
   CLIENTS_KEY,
@@ -82,6 +83,11 @@ export default function ClientsPage() {
 
   const [editDialog, setEditDialog] = useState(false);
   const [editForm, setEditForm] = useState<ClientForm>({
+    ...emptyClientForm,
+    notes: "",
+  });
+  // La ficha tal como se cargo, para enviar en el guardado solo lo modificado.
+  const [editOriginal, setEditOriginal] = useState<ClientForm>({
     ...emptyClientForm,
     notes: "",
   });
@@ -161,30 +167,35 @@ export default function ClientsPage() {
   };
 
   const openEdit = (client: Client) => {
-    setEditId(client.id);
-    setEditForm({
+    const cargado: ClientForm = {
       name: client.name,
       email: client.email || "",
       phone: client.phone || "",
       notes: client.notes || "",
       birthDate: client.birthDate || "",
-    });
+    };
+    setEditId(client.id);
+    setEditForm(cargado);
+    // Se guarda la ficha tal como se cargo para poder enviar despues solo lo
+    // que el usuario haya tocado.
+    setEditOriginal(cargado);
     setEditDialog(true);
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editId) return;
+    const cambios = cambiosDelCliente(editOriginal, editForm);
+    // Sin cambios no hay nada que mandar, y un PATCH vacio solo serviria para
+    // pisar la ficha con lo que esta pestana tenia cargado.
+    if (Object.keys(cambios).length === 0) {
+      setEditDialog(false);
+      setEditId(null);
+      return;
+    }
     setSavingEdit(true);
     try {
-      await updateClient(editId, {
-        name: editForm.name,
-        email: editForm.email || undefined,
-        phone: editForm.phone || undefined,
-        notes: editForm.notes || undefined,
-        // Vaciar el campo borra la fecha: va null, no undefined.
-        birthDate: editForm.birthDate || null,
-      });
+      await updateClient(editId, cambios);
       setEditDialog(false);
       setEditId(null);
       if (selectedClient?.id === editId) {
