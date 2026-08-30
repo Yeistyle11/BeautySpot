@@ -414,8 +414,9 @@ export class AvailabilityQueryService {
   }
 
   /**
-   * Minutos que cada profesional del negocio tiene disponibles ese día: su
-   * jornada, acotada a la apertura del negocio y descontados los bloqueos.
+   * Minutos que cada profesional del negocio tiene disponibles ese día del
+   * calendario: su jornada, acotada a la apertura y al propio día, y
+   * descontados los bloqueos.
    */
   async capacidadDelDia(
     businessId: string,
@@ -446,7 +447,10 @@ export class AvailabilityQueryService {
     }));
   }
 
-  /** Suma los minutos de los tramos, acotados por la apertura y sin bloqueos. */
+  /**
+   * Suma los minutos de los tramos, acotados por la apertura y por la
+   * medianoche, y sin bloqueos.
+   */
   private minutosDisponibles(
     tramos: Tramo[],
     apertura: Tramo[] | null,
@@ -456,11 +460,21 @@ export class AvailabilityQueryService {
 
     for (const tramo of tramos) {
       for (const trozo of this.recortar(tramo, apertura)) {
-        total += this.sinBloqueos(trozo, bloqueos);
+        total += this.sinBloqueos(this.hastaMedianoche(trozo), bloqueos);
       }
     }
 
     return total;
+  }
+
+  /**
+   * Parte del tramo anterior a la medianoche. La madrugada la aporta el
+   * arrastre del día siguiente, que ya la trae en su propia escala.
+   */
+  private hastaMedianoche(tramo: Tramo): Tramo {
+    if (timeToMinutes(tramo.endTime) <= MINUTOS_DEL_DIA) return tramo;
+
+    return { startTime: tramo.startTime, endTime: "24:00" };
   }
 
   /** Parte del tramo que cae dentro de la apertura; sin apertura, entero. */

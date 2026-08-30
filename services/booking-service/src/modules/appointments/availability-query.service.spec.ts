@@ -1102,6 +1102,89 @@ describe("AvailabilityQueryService", () => {
       ]);
     });
 
+    describe("negocio que cierra pasada la medianoche", () => {
+      // Viernes y sábado 20:00-02:00; domingo cerrado.
+      const VIERNES = "2024-01-19";
+      const SABADO = "2024-01-20";
+      const DOMINGO = "2024-01-21";
+
+      const turno = (dayOfWeek: number) =>
+        ({
+          ...mockAvailability,
+          professionalId: "pro-a",
+          dayOfWeek,
+          startTime: "20:00",
+          endTime: "02:00",
+        }) as unknown as Availability;
+
+      /** La noche abre viernes (5) y sábado (6); el resto está cerrado. */
+      const aperturaNocturna = (abiertos: string[]) =>
+        mockHorario.tramosDelDia.mockImplementation(
+          (_negocio: string, fecha: string) =>
+            Promise.resolve(
+              abiertos.includes(fecha)
+                ? [{ startTime: "20:00", endTime: "26:00" }]
+                : []
+            )
+        );
+
+      it("el viernes solo cuenta hasta la medianoche", async () => {
+        mockAvailRepo.find.mockResolvedValue([turno(5), turno(4)]);
+        aperturaNocturna([VIERNES]);
+
+        const capacidad = await service.capacidadDelDia(
+          "business-123",
+          VIERNES
+        );
+
+        expect(capacidad).toEqual([
+          { professionalId: "pro-a", minutosDisponibles: 240 },
+        ]);
+      });
+
+      it("el sábado suma su noche y la madrugada que arrastra el viernes", async () => {
+        mockAvailRepo.find.mockResolvedValue([turno(6), turno(5)]);
+        aperturaNocturna([VIERNES, SABADO]);
+
+        const capacidad = await service.capacidadDelDia("business-123", SABADO);
+
+        expect(capacidad).toEqual([
+          { professionalId: "pro-a", minutosDisponibles: 360 },
+        ]);
+      });
+
+      it("el domingo cerrado solo recibe la madrugada del sábado", async () => {
+        mockAvailRepo.find.mockResolvedValue([turno(6)]);
+        aperturaNocturna([SABADO]);
+
+        const capacidad = await service.capacidadDelDia(
+          "business-123",
+          DOMINGO
+        );
+
+        expect(capacidad).toEqual([
+          { professionalId: "pro-a", minutosDisponibles: 120 },
+        ]);
+      });
+
+      it("la semana no cuenta dos veces ninguna madrugada", async () => {
+        aperturaNocturna([VIERNES, SABADO]);
+        const minutos = async (fecha: string, turnos: Availability[]) => {
+          mockAvailRepo.find.mockResolvedValue(turnos);
+          const [pro] = await service.capacidadDelDia("business-123", fecha);
+          return pro?.minutosDisponibles ?? 0;
+        };
+
+        const semana =
+          (await minutos(VIERNES, [turno(5), turno(4)])) +
+          (await minutos(SABADO, [turno(6), turno(5)])) +
+          (await minutos(DOMINGO, [turno(6)]));
+
+        // Dos jornadas de seis horas: 720 minutos, ni uno más.
+        expect(semana).toBe(720);
+      });
+    });
+
     it("sin horarios activos ese día no consulta bloqueos", async () => {
       mockAvailRepo.find.mockResolvedValue([]);
 
