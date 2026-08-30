@@ -42,21 +42,28 @@ export class CapacidadWorker implements OnModuleInit, OnModuleDestroy {
     this.enabled = configService.get<string>("CAPACIDAD_ENABLED") !== "false";
   }
 
-  /** Arranca el sondeo periódico, salvo que esté desactivado por configuración. */
+  /**
+   * Materializa una vez al arrancar y deja el sondeo periódico, salvo que esté
+   * desactivado por configuración. La primera pasada no bloquea el arranque.
+   */
   onModuleInit(): void {
     if (!this.enabled) {
       this.logger.warn("Capacidad deshabilitada (CAPACIDAD_ENABLED=false)");
       return;
     }
-    this.timer = setInterval(() => {
-      this.materializar().catch((err: Error) => {
-        this.logger.error(
-          `Error al materializar la capacidad: ${err?.message}`,
-          err?.stack
-        );
-      });
-    }, this.intervalMs);
+    this.pasada();
+    this.timer = setInterval(() => this.pasada(), this.intervalMs);
     this.logger.log(`Capacidad de agenda iniciada (cada ${this.intervalMs}ms)`);
+  }
+
+  /** Una materialización cuyo fallo se registra y no se propaga. */
+  private pasada(): void {
+    this.materializar().catch((err: Error) => {
+      this.logger.error(
+        `Error al materializar la capacidad: ${err?.message}`,
+        err?.stack
+      );
+    });
   }
 
   /** Detiene el sondeo al parar el servicio. */

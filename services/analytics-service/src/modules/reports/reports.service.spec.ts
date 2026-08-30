@@ -70,7 +70,7 @@ describe("ReportsService", () => {
         totalAppointments: "18",
         completedAppointments: "15",
         ventas: "15",
-        revenueDeVentas: "90000",
+        diasDescuadrados: "0",
       };
       (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
         buildQueryBuilder(aggResult)
@@ -103,7 +103,7 @@ describe("ReportsService", () => {
           totalAppointments: "0",
           completedAppointments: "0",
           ventas: "0",
-          revenueDeVentas: "0",
+          diasDescuadrados: "0",
         })
       );
       mockDailyRepo.find.mockResolvedValue([]);
@@ -115,6 +115,48 @@ describe("ReportsService", () => {
       );
 
       expect(result.summary.avgTicket).toBeNull();
+    });
+
+    it("sin agregado que leer no inventa cifras", async () => {
+      (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
+        buildQueryBuilder(undefined)
+      );
+      mockDailyRepo.find.mockResolvedValue([]);
+
+      const result = await service.getRevenueReport(
+        "business-123",
+        "2026-06-15",
+        "2026-06-15"
+      );
+
+      expect(result.summary.totalRevenue).toBe(0);
+      expect(result.summary.avgTicket).toBeNull();
+      expect(result.summary.ticketDescuadrado).toBe(false);
+    });
+
+    // El reporte y el panel responden lo mismo: un dia con ingresos y sin
+    // ventas contadas deja el periodo sin ticket que publicar.
+    it("con las métricas descuadradas no publica ticket medio", async () => {
+      (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
+        buildQueryBuilder({
+          totalRevenue: "626000",
+          totalAppointments: "12",
+          completedAppointments: "12",
+          ventas: "5",
+          diasDescuadrados: "1",
+        })
+      );
+      mockDailyRepo.find.mockResolvedValue([]);
+
+      const result = await service.getRevenueReport(
+        "business-123",
+        "2026-06-01",
+        "2026-06-30"
+      );
+
+      expect(result.summary.totalRevenue).toBe(626000);
+      expect(result.summary.avgTicket).toBeNull();
+      expect(result.summary.ticketDescuadrado).toBe(true);
     });
   });
 

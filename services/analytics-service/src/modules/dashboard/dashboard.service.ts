@@ -5,7 +5,12 @@ import { DailyMetricEntity } from "../../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
 import { ZonaDelNegocioService } from "@beautyspot/nest-common";
 import { fechaDeHoy, fechaHaceDias } from "../../common/fecha";
-import { diasEntre, periodoAnterior, type Rango } from "../../common/rango.dto";
+import {
+  diasEntre,
+  periodoAnterior,
+  sumarDias,
+  type Rango,
+} from "../../common/rango.dto";
 
 /** Fila cruda del ranking, tal como la devuelve el agregado SQL. */
 interface TopProfessionalRow {
@@ -40,10 +45,18 @@ export interface CifrasDelPeriodo {
   newClients: number;
   returningClients: number;
   avgDailyRevenue: number;
-  /** Ingresos entre los cobros que los produjeron; nulo si no hubo ninguno. */
+  /**
+   * Ingresos entre los cobros que los produjeron; nulo si no hubo ninguno o si
+   * las métricas del periodo no cuadran.
+   */
   avgTicket: number | null;
-  /** Minutos vendidos sobre minutos disponibles, en porcentaje. */
-  ocupacion: number;
+  /** Días del periodo con ingresos y sin ventas contadas. */
+  ticketDescuadrado: boolean;
+  /**
+   * Minutos vendidos sobre minutos disponibles, en porcentaje; nulo mientras no
+   * haya capacidad materializada.
+   */
+  ocupacion: number | null;
 }
 
 /** Punto de la serie de ingresos que consume la gráfica del dashboard. */
@@ -142,11 +155,11 @@ export class DashboardService {
       .addSelect("COALESCE(SUM(m.new_clients), 0)", "newClients")
       .addSelect("COALESCE(SUM(m.returning_clients), 0)", "returningClients")
       .addSelect("COALESCE(SUM(m.ventas), 0)", "ventas")
-      // Solo los ingresos de los dias cuyas ventas estan contadas; los otros
-      // no aportan divisor.
+      // Dias con ingresos que ningun cobro contado explica: mientras los haya,
+      // el ticket medio no se puede promediar.
       .addSelect(
-        "COALESCE(SUM(m.total_revenue) FILTER (WHERE m.ventas > 0), 0)",
-        "revenueDeVentas"
+        "COUNT(*) FILTER (WHERE m.ventas = 0 AND m.total_revenue > 0)",
+        "diasDescuadrados"
       )
       .where("m.business_id = :businessId", { businessId })
       .andWhere("m.date BETWEEN :from AND :to", { from, to })
@@ -159,7 +172,7 @@ export class DashboardService {
         newClients: string;
         returningClients: string;
         ventas: string;
-        revenueDeVentas: string;
+        diasDescuadrados: string;
       }>();
 
     const agg = aggregates ?? {
@@ -171,7 +184,7 @@ export class DashboardService {
       newClients: "0",
       returningClients: "0",
       ventas: "0",
-      revenueDeVentas: "0",
+      diasDescuadrados: "0",
     };
     const totalRevenue = Number(agg.totalRevenue);
     const totalAppointments = Number(agg.totalAppointments);
@@ -181,7 +194,7 @@ export class DashboardService {
     const newClients = Number(agg.newClients);
     const returningClients = Number(agg.returningClients);
     const ventas = Number(agg.ventas);
-    const revenueDeVentas = Number(agg.revenueDeVentas);
+    const ticketDescuadrado = Number(agg.diasDescuadrados) > 0;
 
     return {
       from,
@@ -203,19 +216,26 @@ export class DashboardService {
       // Entre los días del periodo, no entre los que tuvieron movimiento:
       // es el promedio diario del negocio, no el de sus días activos.
       avgDailyRevenue: dias > 0 ? Math.round(totalRevenue / dias) : 0,
-      // Entre los cobros, no entre las citas atendidas. Sin cobros no hay
-      // ticket, y se responde nulo en vez de cero.
-      avgTicket: ventas > 0 ? Math.round(revenueDeVentas / ventas) : null,
+      // Entre los cobros, no entre las citas atendidas. Sin cobros que
+      // promediar, o con las metricas descuadradas, se responde nulo.
+      avgTicket:
+        ventas > 0 && !ticketDescuadrado
+          ? Math.round(totalRevenue / ventas)
+          : null,
+      ticketDescuadrado,
       ocupacion: await this.ocupacion(businessId, from, to),
     };
   }
 
-  /** Porcentaje de la agenda vendido en el periodo. */
+  /**
+   * Porcentaje de la agenda vendido en el periodo; nulo si no hay ni un minuto
+   * de capacidad materializado.
+   */
   private async ocupacion(
     businessId: string,
     from: string,
     to: string
-  ): Promise<number> {
+  ): Promise<number | null> {
     const [fila] = (await this.dataSource.query(
       `SELECT COALESCE(SUM(minutos_vendidos), 0) AS vendidos,
               COALESCE(SUM(minutos_disponibles), 0) AS disponibles
@@ -224,7 +244,10 @@ export class DashboardService {
       [businessId, from, to]
     )) as { vendidos: string; disponibles: string }[];
 
-    return this.percentage(Number(fila?.vendidos), Number(fila?.disponibles));
+    const disponibles = Number(fila?.disponibles ?? 0);
+    if (disponibles === 0) return null;
+
+    return this.percentage(Number(fila?.vendidos), disponibles);
   }
 
   /**
@@ -344,22 +367,33 @@ export class DashboardService {
     }));
   }
 
-  /** Serie diaria de ingresos de los últimos N días. */
+  /**
+   * Serie diaria de ingresos de los últimos N días, hoy incluido. Recorre el
+   * rango, de modo que un día sin actividad vale cero en vez de faltar.
+   */
   async getRevenueChart(
     businessId: string,
     days = 30
   ): Promise<RevenuePoint[]> {
-    const { today, from } = await this.dateRange(businessId, days);
+    const { today, from } = await this.dateRange(
+      businessId,
+      Math.max(days, 1) - 1
+    );
 
     const filas = await this.dailyRepo.find({
       where: { businessId, date: Between(from, today) },
       order: { date: "ASC" },
     });
+    const ingresosPorDia = new Map(
+      filas.map((fila) => [fila.date, fila.totalRevenue])
+    );
 
-    return filas.map((fila) => ({
-      date: fila.date,
-      revenue: fila.totalRevenue,
-    }));
+    const serie: RevenuePoint[] = [];
+    for (let date = from; date <= today; date = sumarDias(date, 1)) {
+      serie.push({ date, revenue: ingresosPorDia.get(date) ?? 0 });
+    }
+
+    return serie;
   }
 
   /**

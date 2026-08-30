@@ -43,6 +43,7 @@ import {
 } from "@/lib/schemas/kpis";
 import { PeriodPicker } from "./period-picker";
 import { MetricRow } from "./metric-row";
+import { textoDeOcupacion, textoDelTicket } from "./textos";
 import {
   filasDeProfesionales,
   ProfessionalsTable,
@@ -282,22 +283,18 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {/*
-                Sin cobros en el periodo no hay ticket que promediar, y un cero
-                ahi se lee como que el negocio no vende.
+                Un cero en estas dos se lee como que el negocio no vende o tiene
+                la agenda vacia, asi que cada motivo se dice con su nombre.
               */}
               <MetricRow
                 etiqueta="Ticket medio"
-                valor={
-                  data.periodo.avgTicket == null
-                    ? "Sin cobros aún"
-                    : formatCurrency(data.periodo.avgTicket)
-                }
+                valor={textoDelTicket(data.periodo)}
                 actual={data.periodo.avgTicket}
                 anterior={data.comparado?.avgTicket}
               />
               <MetricRow
                 etiqueta="Ocupación de agenda"
-                valor={`${data.periodo.ocupacion ?? 0}%`}
+                valor={textoDeOcupacion(data.periodo)}
                 actual={data.periodo.ocupacion}
                 anterior={data.comparado?.ocupacion}
               />
