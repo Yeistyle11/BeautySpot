@@ -14,6 +14,7 @@ import {
   escapeLikePattern,
   normalizarEmail,
   normalizarTelefono,
+  variantesDeTelefono,
 } from "@beautyspot/shared-utils";
 import { Client } from "../../entities/client.entity";
 import { FindOrCreateClientDto } from "./dto/find-or-create-client.dto";
@@ -187,10 +188,15 @@ export class InternalClientsController {
       if (byEmail) return byEmail;
     }
 
+    // Las formas equivalentes y no solo la canónica: quien reservó antes de
+    // canonizar tiene su teléfono guardado sin indicativo.
     const phone = normalizarTelefono(dto.phone);
     if (phone) {
       const byPhone = await this.clientRepo.findOne({
-        where: { businessId: dto.businessId, phone },
+        where: {
+          businessId: dto.businessId,
+          phone: In(variantesDeTelefono(phone)),
+        },
       });
       if (byPhone) return byPhone;
     }

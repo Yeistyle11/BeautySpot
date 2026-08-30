@@ -137,6 +137,72 @@ describe("ClientsService", () => {
       );
     });
 
+    // BS-020: el mismo móvil dictado con indicativo en el marketplace y sin él
+    // en el mostrador creaba dos fichas de la misma persona.
+    it("reconoce la ficha existente aunque el teléfono se escriba de otra forma", async () => {
+      mockRepo.findOne.mockResolvedValue(mockClient as any);
+
+      await expect(
+        service.create("business-123", {
+          name: "Ana",
+          phone: "+57 300 123 4567",
+        })
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it("coteja el teléfono contra sus formas equivalentes", async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockReturnValue(mockClient);
+      mockRepo.save.mockResolvedValue(mockClient);
+
+      await service.create("business-123", {
+        name: "Ana",
+        phone: "3009998877",
+      });
+
+      const criterios = (mockRepo.findOne.mock.calls[0][0] as any).where;
+      expect(criterios).toEqual([
+        {
+          businessId: "business-123",
+          phone: In([
+            "+573009998877",
+            "573009998877",
+            "00573009998877",
+            "3009998877",
+          ]),
+        },
+      ]);
+    });
+
+    it("guarda el teléfono canonizado", async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockReturnValue(mockClient);
+      mockRepo.save.mockResolvedValue(mockClient);
+
+      await service.create("business-123", {
+        name: "Ana",
+        phone: "00573009998877",
+      });
+
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ phone: "+573009998877" })
+      );
+    });
+
+    // El cotejo previo no separa dos altas simultáneas: eso lo hace el índice.
+    it("traduce el choque del índice único a un 409 en castellano", async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockReturnValue(mockClient);
+      mockRepo.save.mockRejectedValue({
+        code: "23505",
+        constraint: "uq_clients_telefono_por_negocio",
+      });
+
+      await expect(
+        service.create("business-123", { name: "Ana", phone: "3009998877" })
+      ).rejects.toThrow(ConflictException);
+    });
+
     it("debería propagar errores del repositorio", async () => {
       mockRepo.save.mockRejectedValue(new Error("Database error"));
 
@@ -379,7 +445,12 @@ describe("ClientsService", () => {
 
       const updatedClient = { ...mockClient, ...updateData } as any;
 
-      mockRepo.findOne.mockResolvedValue(updatedClient);
+      mockRepo.findOne
+        // La ficha que se va a tocar, para comprobar que no está suprimida.
+        .mockResolvedValueOnce(updatedClient)
+        // Ninguna otra ficha del negocio tiene ese teléfono.
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue(updatedClient);
       mockRepo.update.mockResolvedValue({ affected: 1 } as any);
 
       const result = await service.update(
@@ -407,6 +478,36 @@ describe("ClientsService", () => {
         service.update("client-123", "business-123", { name: "Otro" })
       ).rejects.toThrow(ConflictException);
       expect(mockRepo.update).not.toHaveBeenCalled();
+    });
+
+    // Editar el teléfono era la otra vía por la que la misma persona acababa
+    // con dos fichas: el alta cotejaba y la edición no.
+    it("rechaza el teléfono que ya tiene otra ficha del negocio", async () => {
+      mockRepo.findOne
+        .mockResolvedValueOnce(mockClient as any)
+        .mockResolvedValueOnce({ ...mockClient, id: "otra-ficha" } as any);
+
+      await expect(
+        service.update("client-123", "business-123", { phone: "3009998877" })
+      ).rejects.toThrow(ConflictException);
+      expect(mockRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("guarda el teléfono canonizado y no lo que se tecleó", async () => {
+      mockRepo.findOne
+        .mockResolvedValueOnce(mockClient as any)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue(mockClient as any);
+      mockRepo.update.mockResolvedValue({ affected: 1 } as any);
+
+      await service.update("client-123", "business-123", {
+        phone: "(300) 999 8877",
+      });
+
+      expect(mockRepo.update).toHaveBeenCalledWith(
+        { id: "client-123", businessId: "business-123" },
+        { phone: "+573009998877" }
+      );
     });
   });
 

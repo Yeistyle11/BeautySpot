@@ -8,10 +8,15 @@ import {
   TenantCrudService,
   OutboxService,
   InternalHttpClient,
+  esViolacionDeUnicidad,
 } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
-import { Repository, In, DataSource, EntityManager } from "typeorm";
-import { normalizarEmail, normalizarTelefono } from "@beautyspot/shared-utils";
+import { Repository, In, Not, DataSource, EntityManager } from "typeorm";
+import {
+  normalizarEmail,
+  normalizarTelefono,
+  variantesDeTelefono,
+} from "@beautyspot/shared-utils";
 import {
   nivelDePuntos,
   siguienteNivel,
@@ -79,7 +84,14 @@ export class ClientsService extends TenantCrudService<Client> {
     const client = this.repo.create({ ...data, ...contacto, businessId });
 
     return this.dataSource.transaction(async (manager) => {
-      const creado = await manager.getRepository(Client).save(client);
+      const creado = await manager
+        .getRepository(Client)
+        .save(client)
+        .catch((error: unknown) => {
+          // El cotejo de arriba no basta: entre la consulta y la escritura cabe
+          // otra alta con el mismo contacto, y es el índice único quien las separa.
+          throw this.comoChoqueDeContacto(error);
+        });
 
       await this.outbox.enqueue(manager, {
         eventType: EventNames.CORE_CLIENT_CREATED,
@@ -104,9 +116,14 @@ export class ClientsService extends TenantCrudService<Client> {
    */
   private async rechazarSiYaExiste(
     businessId: string,
-    contacto: { email?: string; phone?: string }
+    contacto: { email?: string; phone?: string },
+    excluirId?: string
   ): Promise<void> {
-    const existente = await this.buscarPorContacto(businessId, contacto);
+    const existente = await this.buscarPorContacto(
+      businessId,
+      contacto,
+      excluirId
+    );
     if (existente) {
       throw new ConflictException(
         `Ya existe un cliente con ese ${existente.email === contacto.email ? "correo" : "teléfono"}: ${existente.name}`
@@ -114,20 +131,51 @@ export class ClientsService extends TenantCrudService<Client> {
     }
   }
 
-  /** Ficha del negocio que coincide por correo o por teléfono, si la hay. */
+  /**
+   * Ficha del negocio que coincide por correo o por teléfono, si la hay. El
+   * teléfono se coteja contra todas sus formas equivalentes, porque las fichas
+   * anteriores a la canonización siguen guardadas sin indicativo.
+   */
   private async buscarPorContacto(
     businessId: string,
-    contacto: { email?: string; phone?: string }
+    contacto: { email?: string; phone?: string },
+    excluirId?: string
   ): Promise<Client | null> {
+    const otraFicha = excluirId ? { id: Not(excluirId) } : {};
     const criterios: Record<string, unknown>[] = [];
-    if (contacto.email) criterios.push({ businessId, email: contacto.email });
-    if (contacto.phone) criterios.push({ businessId, phone: contacto.phone });
+    if (contacto.email) {
+      criterios.push({ businessId, email: contacto.email, ...otraFicha });
+    }
+    if (contacto.phone) {
+      criterios.push({
+        businessId,
+        phone: In(variantesDeTelefono(contacto.phone)),
+        ...otraFicha,
+      });
+    }
     if (criterios.length === 0) return null;
 
     return this.repo.findOne({ where: criterios });
   }
 
-  /** Actualiza la ficha, salvo que ya se haya ejercido la supresión sobre ella. */
+  /**
+   * Traduce el choque del índice único de contacto al mismo 409 en castellano
+   * que da el cotejo previo; cualquier otro error sigue su camino.
+   */
+  private comoChoqueDeContacto(error: unknown): unknown {
+    if (!esViolacionDeUnicidad(error)) return error;
+
+    const porCorreo = error.constraint === "uq_clients_email_por_negocio";
+    return new ConflictException(
+      `Ya existe un cliente con ese ${porCorreo ? "correo" : "teléfono"} en este negocio`
+    );
+  }
+
+  /**
+   * Actualiza la ficha, salvo que ya se haya ejercido la supresión sobre ella.
+   * El contacto pasa por la misma canonización y el mismo cotejo que el alta:
+   * editar el teléfono es la otra vía por la que se duplica una persona.
+   */
   async update(
     id: string,
     businessId: string,
@@ -135,7 +183,15 @@ export class ClientsService extends TenantCrudService<Client> {
   ): Promise<Client> {
     await this.rechazarSiEstaAnonimizado(id, businessId);
     await this.validarFicha(businessId, data.ficha);
-    return super.update(id, businessId, data);
+
+    const contacto = normalizarContacto(data);
+    await this.rechazarSiYaExiste(businessId, contacto, id);
+
+    return super
+      .update(id, businessId, { ...data, ...contacto })
+      .catch((error: unknown) => {
+        throw this.comoChoqueDeContacto(error);
+      });
   }
 
   /**

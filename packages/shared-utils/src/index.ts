@@ -159,8 +159,27 @@ export function normalizarEmail(email?: string | null): string {
 }
 
 /**
- * Deja un telefono en su forma canonica para poder cotejarlo: solo digitos,
- * conservando el `+` inicial si lo trae.
+ * Indicativo que se le supone a un telefono escrito sin prefijo internacional.
+ * El producto opera hoy en Colombia, como `MONEDA_POR_DEFECTO` y el `locale`
+ * `es-CO`; el dia que haya negocios fuera, este es el unico sitio que cambia.
+ */
+export const INDICATIVO_POR_DEFECTO = "+57";
+
+/** Digitos de un numero nacional, ya sin indicativo. */
+const LONGITUD_NACIONAL = 10;
+
+/** El indicativo sin el `+`, que es como aparece dentro de los digitos. */
+const DIGITOS_DEL_INDICATIVO = INDICATIVO_POR_DEFECTO.slice(1);
+
+/**
+ * Deja un telefono en su forma canonica E.164 para poder cotejarlo: solo
+ * digitos tras un `+`, con el `00` resuelto y el indicativo puesto cuando el
+ * numero se escribio sin el. Sin esto, el mismo movil dictado con `+57` en el
+ * marketplace y sin indicativo en el mostrador son dos fichas distintas.
+ *
+ * Un numero mas largo que uno nacional y que no empieza por el indicativo se
+ * deja tal cual: es preferible no tocar un numero extranjero que inventarle un
+ * pais.
  */
 export function normalizarTelefono(telefono?: string | null): string {
   const texto = telefono?.trim() ?? "";
@@ -169,7 +188,33 @@ export function normalizarTelefono(telefono?: string | null): string {
   const digitos = texto.replace(/\D/g, "");
   if (!digitos) return "";
 
-  return texto.startsWith("+") ? `+${digitos}` : digitos;
+  if (texto.startsWith("+")) return `+${digitos}`;
+  if (digitos.startsWith("00")) return `+${digitos.slice(2)}`;
+  if (digitos.length <= LONGITUD_NACIONAL) {
+    return `${INDICATIVO_POR_DEFECTO}${digitos}`;
+  }
+  if (digitos.startsWith(DIGITOS_DEL_INDICATIVO)) return `+${digitos}`;
+
+  return digitos;
+}
+
+/**
+ * Formas equivalentes del mismo numero, para cotejarlo contra fichas guardadas
+ * antes de que se canonizara: la E.164, la de solo digitos, la del `00` y la
+ * nacional. Es lo que permite reconocer «3009998877» y «+573009998877» como la
+ * misma persona sin reescribir los datos existentes.
+ */
+export function variantesDeTelefono(telefono?: string | null): string[] {
+  const canonico = normalizarTelefono(telefono);
+  if (!canonico) return [];
+
+  const digitos = canonico.replace(/\D/g, "");
+  const variantes = new Set([canonico, digitos, `00${digitos}`]);
+  if (canonico.startsWith(INDICATIVO_POR_DEFECTO)) {
+    variantes.add(canonico.slice(INDICATIVO_POR_DEFECTO.length));
+  }
+
+  return [...variantes];
 }
 
 /** Escapa los comodines de SQL LIKE (%, _, \) para construir patrones ILIKE seguros. */
