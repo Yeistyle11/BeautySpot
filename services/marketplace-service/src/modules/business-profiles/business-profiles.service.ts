@@ -324,6 +324,9 @@ export class BusinessProfilesService {
         "El perfil debe tener nombre y slug para publicarse"
       );
     }
+    // Se sella la primera llegada al escaparate y no cada publicacion: retirar
+    // el perfil y volver a publicarlo no devuelve a nadie a «Recien llegados».
+    profile.publishedAt ??= new Date();
     profile.isPublished = true;
     return this.guardar(profile);
   }
@@ -441,16 +444,31 @@ export class BusinessProfilesService {
     return new Map(filas.map((f) => [f.tipo, Number(f.total)]));
   }
 
-  /** Devuelve los perfiles publicados mejor valorados. */
+  /**
+   * Devuelve los perfiles publicados mejor valorados. Quien no tiene ninguna
+   * reseña no está mejor calificado que nadie: sin este filtro un negocio
+   * estrenado competía en la sección con los que sí tienen notas.
+   */
   async findTopRated(limit: number): Promise<BusinessProfileEntity[]> {
-    return this.repo.find({
-      where: { active: true, isPublished: true },
-      order: { rating: "DESC" },
-      take: limit,
-    });
+    return (
+      this.repo
+        .createQueryBuilder("bp")
+        .where("bp.active = :active", { active: true })
+        .andWhere("bp.is_published = :published", { published: true })
+        .andWhere("bp.total_reviews > 0")
+        .orderBy("bp.rating", "DESC")
+        // A igual nota, manda quien la sostiene con más reseñas.
+        .addOrderBy("bp.total_reviews", "DESC")
+        .take(limit)
+        .getMany()
+    );
   }
 
-  /** Devuelve los perfiles publicados recientemente, priorizando los más completos. */
+  /**
+   * Devuelve los perfiles llegados al escaparate en los últimos días, del más
+   * reciente al más antiguo. Se mide por la fecha de publicación y no por la de
+   * creación de la fila, que es la del borrador.
+   */
   async findRecent(
     days: number,
     limit: number
@@ -462,8 +480,8 @@ export class BusinessProfilesService {
       .createQueryBuilder("bp")
       .where("bp.active = :active", { active: true })
       .andWhere("bp.is_published = :published", { published: true })
-      .andWhere("bp.created_at >= :since", { since })
-      .orderBy("bp.profile_completeness", "DESC")
+      .andWhere("bp.published_at >= :since", { since })
+      .orderBy("bp.published_at", "DESC")
       .take(limit)
       .getMany();
   }

@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { MoreThan, Repository } from "typeorm";
 import { ProfessionalProfilesService } from "./professional-profiles.service";
 import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
 import { NotFoundException } from "@nestjs/common";
@@ -288,11 +288,25 @@ describe("ProfessionalProfilesService", () => {
       const result = await service.findTopRated(10);
 
       expect(mockRepo.find).toHaveBeenCalledWith({
-        where: { active: true, visibleOnProfile: true },
+        where: {
+          active: true,
+          visibleOnProfile: true,
+          totalReviews: MoreThan(0),
+        },
         order: { rating: "DESC", totalReviews: "DESC" },
         take: 10,
       });
       expect(result).toEqual(topRated);
+    });
+
+    // Sin reseñas no hay valoración que destacar, igual que en los negocios.
+    it("deja fuera a quien no tiene ninguna reseña", async () => {
+      mockRepo.find.mockResolvedValue([]);
+
+      await service.findTopRated(10);
+
+      const [{ where }] = (mockRepo.find as jest.Mock).mock.calls[0];
+      expect(where.totalReviews).toEqual(MoreThan(0));
     });
   });
 
