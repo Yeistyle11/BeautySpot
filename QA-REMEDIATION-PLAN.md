@@ -543,11 +543,33 @@ en verde; `npm run test:coverage` **exit 0** — 186 suites, **2451 pruebas**.
 
 ---
 
-## Propuestas `[PM]` pendientes
+## Propuestas `[PM]`
 
-Pendiente de redactar al cerrar los lotes de QA. Cubrirá BS-002, BS-003, BS-005,
-BS-006, BS-013, BS-021, BS-024 (la regla de contacto obligatorio), BS-028 y BS-025
-en su versión completa (409 optimista).
+Redactadas en **[QA-PROPUESTAS-PM.md](QA-PROPUESTAS-PM.md)**: los nueve hallazgos
+que no son un fallo que corregir sino una función que falta — BS-002, BS-003,
+BS-005, BS-006, BS-013, BS-021, BS-024 (la regla de contacto obligatorio), BS-028
+y BS-025 en su versión completa (409 optimista), ordenados por impacto frente a
+coste y con lo que hay que decidir en cada uno.
+
+Al contrastarlas con el código aparecieron cuatro diferencias con lo que el
+informe suponía, dos de ellas determinantes:
+
+- **BS-006 ya está construido en el backend.** Existe `professional_services` con
+  `custom_price`/`custom_duration`, sus rutas en `/core/professionals/:id/services`
+  y la resolución por profesional en `/internal/services/resolve`, que la agenda
+  ya usa. Falta la pantalla. Y detrás asoma un fallo real: la reserva pública
+  enseña el precio del catálogo mientras booking cobra el efectivo, así que en
+  cuanto alguien use tarifas propias el marketplace mostrará un precio y el
+  negocio cobrará otro.
+- **BS-005 no tiene nada construido.** El `discount` que el informe da por rastro
+  en la entidad es un campo del payload del evento de canje de puntos; el
+  descuento comercial no se guarda en ninguna parte, así que era el más barato de
+  los tres y no lo es.
+- **BS-002** tiene más backend del que el informe apunta (devolución parcial y
+  contrapartida en caja), con dos límites que la pantalla debe respetar: la
+  ventana de 30 días y que la anulación por estado no toca la caja.
+- **BS-003** no puede configurar la tasa de impuesto: es la constante `IVA` de
+  `shared-constants`, no un ajuste del negocio.
 
 ## Hallazgos nuevos
 
