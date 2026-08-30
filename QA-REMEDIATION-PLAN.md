@@ -45,12 +45,12 @@ Los 28 hallazgos se reducen a 9 causas. Corregir la causa cierra todos sus halla
 | BS-011 | Media      | Métricas         | `CapacidadWorker` no materializa hasta la primera hora                                       | S        | Bajo   | 3    | ✅     |
 | BS-012 | Media      | Agenda           | G6 · el tramo que cruza medianoche se cuenta en dos días                                     | S        | Medio  | 3    | ✅     |
 | BS-010 | Media      | Dashboard        | G4 · la serie se arma con las filas existentes                                               | XS       | Bajo   | 3    | ✅     |
-| BS-020 | Media      | Clientes         | `normalizarTelefono` no reconcilia el prefijo internacional                                  | S        | Medio  | 4    | ⬜     |
+| BS-020 | Media      | Clientes         | `normalizarTelefono` no reconcilia el prefijo internacional                                  | S        | Medio  | 4    | ✅     |
 | BS-004 | Media      | Pagos            | G5 · `@Min(0)` admite el cobro de cero                                                       | XS       | Bajo   | 4    | ✅     |
-| BS-026 | Media      | Clientes         | G5 · `name` sin `trim` ni `@IsNotEmpty`                                                      | XS       | Bajo   | 4    | ⬜     |
-| BS-016 | Media      | Agenda           | G5 · `markNoShow` no comprueba la fecha; `complete` sí                                       | XS       | Bajo   | 4    | ⬜     |
+| BS-026 | Media      | Clientes         | G5 · `name` sin `trim` ni `@IsNotEmpty`                                                      | XS       | Bajo   | 4    | ✅     |
+| BS-016 | Media      | Agenda           | G5 · `markNoShow` no comprueba la fecha; `complete` sí                                       | XS       | Bajo   | 4    | ✅     |
 | BS-025 | Media      | Transversal      | G2 · el formulario envía todos los campos                                                    | S        | Bajo   | 4    | ✅     |
-| BS-024 | Media      | Marketplace      | Texto: promete un correo a quien no lo dejó (la regla es `[PM]`)                             | XS       | Bajo   | 4    | ⬜     |
+| BS-024 | Media      | Marketplace      | Texto: promete un correo a quien no lo dejó (la regla es `[PM]`)                             | XS       | Bajo   | 4    | ✅     |
 | BS-007 | Media      | Servicios        | Categoría del catálogo y campo libre `category` pintados igual                               | S        | Bajo   | 5    | ⬜     |
 | BS-017 | Media      | Agenda           | G7 · `CalendarView` no recibe bloqueos                                                       | S        | Bajo   | 5    | ⬜     |
 | BS-005 | Media      | Pagos            | Sin descuento, propina ni pago mixto                                                         | L        | —      | 6    | 📋     |
@@ -319,6 +319,107 @@ rango es comprobable: siete puntos del 10 al 16, con los huecos a cero.
 
 ---
 
+## Lote 4 — Las reglas que solo vivían en la pantalla ✅
+
+Tres de los cuatro son la misma causa **G5**: la interfaz respeta la regla y el
+servicio no, así que cualquier integración, reintento o llamada directa la salta.
+
+### BS-020 · El mismo teléfono con y sin prefijo país crea dos clientes ✅
+
+**Causa raíz.** `normalizarTelefono` quitaba separadores y conservaba el `+`,
+pero no reconciliaba el prefijo internacional: `+573009998877`,
+`00573009998877` y `3009998877` eran tres cadenas distintas y el cotejo comparaba
+por igualdad. Y `ClientsService.update` no normalizaba ni cotejaba nada, así que
+**editar** el teléfono esquivaba el control entero — la mitad del hallazgo que el
+informe no llegó a probar.
+
+**Corrección.** Tres piezas y media:
+
+- `normalizarTelefono` devuelve E.164: resuelve el `00`, respeta el `+` y aplica
+  `INDICATIVO_POR_DEFECTO` (`+57`, junto a `MONEDA_POR_DEFECTO`) cuando el número
+  se escribió sin él. Un número más largo que uno nacional y que no empieza por el
+  indicativo se deja como está: antes no tocar un número extranjero que
+  inventarle un país.
+- `variantesDeTelefono` (nueva) da las formas equivalentes del mismo número. Es
+  lo que hace innecesaria la migración de datos, que era la decisión tomada: una
+  ficha antigua guardada sin indicativo se sigue reconociendo.
+- El cotejo por variantes se aplica en los dos sitios que buscan por contacto:
+  `ClientsService.buscarPorContacto` y `findExistingClient` de la ruta interna,
+  que es la vía de la reserva pública.
+- `update` pasa por la misma canonización y el mismo cotejo que el alta,
+  excluyéndose a sí misma.
+
+**Índice único detrás del control** (cierra el hallazgo nuevo #4). El cotejo
+previo no separa dos altas simultáneas: entre la consulta y la escritura cabe
+otra transacción. Se añaden `uq_clients_email_por_negocio` y
+`uq_clients_telefono_por_negocio`, únicos parciales, en la entidad y en la
+migración —la doble declaración que exige el repo—, dejando fuera el nulo **y la
+cadena vacía**, que es lo que guarda la reserva pública del invitado sin
+contacto. El 23505 se traduce con `esViolacionDeUnicidad` al mismo 409 en
+castellano que ya daba el servicio.
+
+**Archivos tocados:** `packages/shared-utils/src/index.ts` (+ spec),
+`clients.service.ts` (+ spec), `internal-clients.controller.ts`,
+`client.entity.ts`, `migrations/1700000000016-ContactoUnicoPorNegocio.ts`
+(**nuevo**).
+
+**Cómo verificarlo:** `npx jest index` en `packages/shared-utils` y
+`npx jest clients.service` en core. Manual: alta con `3009998877` y segunda alta
+con `+57 300 999 8877` → 409; editar una ficha y ponerle el teléfono de otra →
+409, donde antes respondía 200.
+
+> Antes de aplicar la migración en un entorno con datos, comprobar que no haya
+> duplicados exactos ya guardados, o el `CREATE UNIQUE INDEX` falla:
+>
+> ```sql
+> SELECT business_id, phone, count(*) FROM clients
+> WHERE phone IS NOT NULL AND phone <> '' GROUP BY 1,2 HAVING count(*) > 1;
+> ```
+
+### BS-026 · Un nombre de solo espacios crea una ficha sin identidad ✅
+
+**Causa raíz.** `name` era `@IsString @MaxLength(200)`: `"   "` es una cadena
+válida.
+
+**Corrección.** Se recorta antes de validar y se exige no vacío, en el alta y en
+la edición. En el formulario, donde el `required` del campo se conformaba con
+espacios, el botón de guardar no se habilita sin nombre y lo que se envía va
+recortado — así, añadir espacios alrededor deja de contar como un cambio.
+
+**Archivos tocados:** `clients/dto/client.dto.ts` (+ spec),
+`clients/client-form-dialog.tsx`, `clients/page.tsx`, `clients/schemas.ts`
+(+ spec).
+
+### BS-016 · Se puede marcar «no asistió» una cita futura ✅
+
+**Causa raíz.** `markNoShow` validaba el estado pero no la fecha; `complete` sí
+la valida.
+
+**Corrección.** La misma comprobación que `complete`, con la zona horaria del
+negocio y su propio mensaje. La regla existía —el botón solo aparece cuando la
+cita ya empezó— pero vivía en el cliente, y de ella cuelgan la tasa de asistencia
+de los informes, el historial del cliente y el depósito por no-show previsto.
+
+**Archivos tocados:** `appointments.service.ts` (+ spec).
+
+### BS-024 · La confirmación promete un correo imposible ✅ (solo el texto)
+
+**Causa raíz.** El aviso era fijo: «Recibiras un correo de confirmacion», sin
+tildes y para todo el mundo, incluido quien reservó dejando solo el nombre.
+
+**Corrección.** El aviso depende de lo que el cliente dejó: el correo con su
+dirección, la llamada del negocio si solo dio teléfono, y si no dejó nada, que
+anote la fecha y la hora. Exigir un contacto para reservar sigue siendo propuesta
+`[PM]`.
+
+**Archivos tocados:** `book/booking-confirmation.tsx`, `book/page.tsx`,
+`book/__tests__/booking-confirmation.test.tsx` (**nuevo**).
+
+**Suite al cerrar el lote:** `npm run build`, `npm run lint` y `npm run type-check`
+en verde; `npm run test:coverage` **exit 0** — 185 suites, **2422 pruebas**.
+
+---
+
 ## Propuestas `[PM]` pendientes
 
 Pendiente de redactar al cerrar los lotes de QA. Cubrirá BS-002, BS-003, BS-005,
@@ -339,10 +440,11 @@ Detectados durante la remediación, no estaban en el informe.
    `@ValidateNested({ each: true })` sin garantía de forma. Pendiente de tu visto bueno.
 3. **`BusinessHourItemDto.openTime`/`closeTime`** son `@IsString @MaxLength(5)` sin
    patrón de hora; la validación real vive en el servicio (`business-hours.service.ts:83`).
-4. **Alta de clientes sin índice único detrás.** `rechazarSiYaExiste`
-   (`clients.service.ts` L102-113) comprueba y luego inserta, sin índice único que
-   lo respalde — el resto del repositorio usa insertar-y-traducir-el-23505
-   (`esViolacionDeUnicidad`). Dos altas simultáneas con el mismo teléfono se cuelan.
+4. **Alta de clientes sin índice único detrás.** `rechazarSiYaExiste` comprobaba
+   y luego insertaba, sin índice único que lo respaldara — el resto del repositorio
+   usa insertar-y-traducir-el-23505 (`esViolacionDeUnicidad`). Dos altas simultáneas
+   con el mismo teléfono se colaban. **Corregido** con BS-020, que es la mitad del
+   hallazgo que tenía que sostener la base de datos.
 5. **`PATCH /payments/:id/status` no toca la caja** (`payments.service.ts` L447-462):
    anular un pago en efectivo deja su entrada en el arqueo.
 6. **Analytics sella la métrica con el día de proceso, no con el del cobro**
