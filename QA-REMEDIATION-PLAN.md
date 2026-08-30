@@ -15,6 +15,8 @@ Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 pr
 | Rama    | Todo se acumula en `fix/tanda-22-next-16`; el PR lo abre el usuario          |
 | Esquema | Aprobadas 3 columnas aditivas en `payments` para la traza de BS-001          |
 | BS-012  | Los minutos de madrugada cuentan en el **día natural**, no en el de apertura |
+| BS-019  | Recepción pasa a poder **leer** el horario; escribirlo sigue en OWNER/ADMIN  |
+| BS-023  | Columna `published_at`: «Recién llegados» mide la llegada al escaparate      |
 
 ## Agrupación por causa raíz
 
@@ -51,19 +53,19 @@ Los 28 hallazgos se reducen a 9 causas. Corregir la causa cierra todos sus halla
 | BS-016 | Media      | Agenda           | G5 · `markNoShow` no comprueba la fecha; `complete` sí                                       | XS       | Bajo   | 4    | ✅     |
 | BS-025 | Media      | Transversal      | G2 · el formulario envía todos los campos                                                    | S        | Bajo   | 4    | ✅     |
 | BS-024 | Media      | Marketplace      | Texto: promete un correo a quien no lo dejó (la regla es `[PM]`)                             | XS       | Bajo   | 4    | ✅     |
-| BS-007 | Media      | Servicios        | Categoría del catálogo y campo libre `category` pintados igual                               | S        | Bajo   | 5    | ⬜     |
-| BS-017 | Media      | Agenda           | G7 · `CalendarView` no recibe bloqueos                                                       | S        | Bajo   | 5    | ⬜     |
+| BS-007 | Media      | Servicios        | Categoría del catálogo y campo libre `category` pintados igual                               | S        | Bajo   | 5    | ✅     |
+| BS-017 | Media      | Agenda           | G7 · `CalendarView` no recibe bloqueos                                                       | S        | Bajo   | 5    | ✅     |
 | BS-005 | Media      | Pagos            | Sin descuento, propina ni pago mixto                                                         | L        | —      | 6    | 📋     |
 | BS-006 | Media      | Servicios/Equipo | El precio no varía por profesional                                                           | L        | —      | 6    | 📋     |
 | BS-013 | Media      | Agenda           | No hay alta de walk-in retroactivo                                                           | M        | —      | 6    | 📋     |
 | BS-021 | Media      | Clientes         | No hay fusión de fichas                                                                      | M        | —      | 6    | 📋     |
 | BS-028 | Media      | Onboarding       | El tipo de negocio no siembra nada                                                           | S        | —      | 6    | 📋     |
-| BS-008 | Baja       | Caja             | El KPI «Total esperado» queda visible tras el modal                                          | XS       | Bajo   | 5    | ⬜     |
-| BS-014 | Baja       | Métricas         | G9 · cabeceras del CSV sin tildes; variación vacía                                           | XS       | Bajo   | 5    | ⬜     |
-| BS-018 | Baja       | Agenda           | Las citas solapadas no reparten el ancho                                                     | S        | Bajo   | 5    | ⬜     |
-| BS-019 | Baja       | Agenda           | G7 · `CalendarView` tiene su propio `weekOffset`                                             | S        | Bajo   | 5    | ⬜     |
-| BS-023 | Baja       | Marketplace      | G8 · `findRecent` ordena por completitud; `findTopRated` no exige reseñas                    | S        | Bajo   | 5    | ⬜     |
-| BS-027 | Baja       | Accesibilidad    | Las tarjetas usan `focus-within` en vez de `focus-visible`                                   | XS       | Bajo   | 5    | ⬜     |
+| BS-008 | Baja       | Caja             | El KPI «Total esperado» queda visible tras el modal                                          | XS       | Bajo   | 5    | ✅     |
+| BS-014 | Baja       | Métricas         | G9 · cabeceras del CSV sin tildes; variación vacía                                           | XS       | Bajo   | 5    | ✅     |
+| BS-018 | Baja       | Agenda           | Las citas solapadas no reparten el ancho                                                     | S        | Bajo   | 5    | ✅     |
+| BS-019 | Baja       | Agenda           | G7 · `CalendarView` tiene su propio `weekOffset`                                             | S        | Bajo   | 5    | ✅     |
+| BS-023 | Baja       | Marketplace      | G8 · `findRecent` ordena por completitud; `findTopRated` no exige reseñas                    | S        | Bajo   | 5    | ✅     |
+| BS-027 | Baja       | Accesibilidad    | Las tarjetas usan `focus-within` en vez de `focus-visible`                                   | XS       | Bajo   | 5    | ✅     |
 
 ---
 
@@ -417,6 +419,127 @@ anote la fecha y la hora. Exigir un contacto para reservar sigue siendo propuest
 
 **Suite al cerrar el lote:** `npm run build`, `npm run lint` y `npm run type-check`
 en verde; `npm run test:coverage` **exit 0** — 185 suites, **2422 pruebas**.
+
+---
+
+## Lote 5 — Lo que la pantalla cuenta mal ✅
+
+Ocho hallazgos menores por severidad, pero todos en pantallas de uso diario. Dos
+pedían una decisión que se tomó al empezar: abrir la lectura del horario a
+recepción, y guardar la fecha de publicación del perfil.
+
+### BS-017 · Los bloqueos no se veían en la vista Semana ✅
+
+**Causa raíz.** G7. La ruta `GET /booking/blocked-slots` solo servía un día, así
+que la página solo los pedía en la vista día y `CalendarView` ni los recibía. La
+semana es la pantalla con la que se responde al teléfono: la tarde de quien está
+de vacaciones se veía libre.
+
+**Corrección.** La ruta admite un `hasta` opcional (`Between`, mismo orden), la
+página pide los siete días cuando está en semana, y la rejilla pinta cada bloqueo
+sobre las franjas que ocupa —antes que las citas— con su motivo, de quién es y su
+horario en el `title`.
+
+**Archivos tocados:** `blocked-slots.{controller,service,dto}` (+ spec),
+`calendar-view.tsx`, `appointments/page.tsx`, `docs/API.md`.
+
+### BS-019 · Cambiar de vista perdía el día que estabas mirando ✅
+
+**Causa raíz.** G7. `CalendarView` llevaba su propio `weekOffset`, sin relación
+con el `dia` de la página que usa la vista día.
+
+**Corrección.** La semana se deriva de `date`, que ahora es un solo estado para
+las dos vistas; navegar de semana mueve ese día. Los helpers de fecha
+(`desplazarDia`, `fechasDeLaSemana`) viven en `lib/utils` y los comparten las dos
+vistas y la página, en vez de duplicarse.
+
+**El domingo cerrado**, que el informe agrupaba aquí: las dos vistas marcan como
+cerrados los días sin horario. Para eso `GET /core/business-hours` pasa a
+admitir **RECEPTIONIST** —leer a qué hora abre el negocio no es dato sensible y
+es quien atiende el teléfono la que lo necesita; escribirlo sigue siendo de dueño
+y administrador—. Sin horario cargado no se afirma que nada esté cerrado.
+
+**Archivos tocados:** `calendar-view.tsx`, `day-view.tsx`, `lib/utils.ts`,
+`appointments/page.tsx`, `business-hours.controller.ts`, `docs/API.md`,
+`__tests__/calendar-view.test.tsx` (**nuevo**).
+
+### BS-018 · Las citas solapadas se tapaban ✅
+
+**Causa raíz.** Cada cita se posicionaba con `inset-x-0.5`: todas ocupaban el
+ancho entero de la columna y la última pintada quedaba encima.
+
+**Corrección.** `repartirSolapes` agrupa las citas encadenadas por solape y
+reparte el ancho en tantas columnas como haga falta, reutilizando la que ya quedó
+libre. Es una función pura y se prueba como tal, además de por el render.
+
+**Archivos tocados:** `day-view.tsx` (+ spec).
+
+### BS-023 · El escaparate ordenaba por el criterio equivocado ✅
+
+**Causa raíz.** G8, en dos secciones. «Recién llegados» filtraba por
+`created_at` del perfil —la fila nace con el borrador, no al publicarse— y
+ordenaba por completitud, que no es la antigüedad de nadie; «Mejor calificados»
+no exigía reseñas, así que un negocio estrenado figuraba con la nota a cero.
+
+**Corrección.** Columna `published_at` (aditiva, con migración que sella los ya
+publicados con su `created_at`), escrita la primera vez que se publica: retirar
+el perfil y volver no devuelve a nadie a la sección. La sección filtra y ordena
+por ella. «Mejor calificados» exige al menos una reseña y desempata por número de
+reseñas; mismo criterio en los profesionales destacados, que tenían el mismo
+hueco. Y el rótulo recupera la tilde.
+
+> La lista de excepciones de `aislamiento-de-tenant.spec.ts` pierde la entrada de
+> `findTopRated`: al pasar a query builder, el barrido ya no la cuenta como
+> consulta sin filtro de negocio. La prueba que vigila las excepciones huérfanas
+> lo detectó sola.
+
+**Archivos tocados:** `business-profile.entity.ts`,
+`business-profiles.service.ts` (+ spec), `professional-profiles.service.ts`
+(+ spec), `feed.service.ts`, `migrations/1700000000011-PublicacionDelPerfil.ts`
+(**nuevo**), `aislamiento-de-tenant.spec.ts`.
+
+### BS-007 · Categoría y etiqueta heredada pintadas igual ✅
+
+**Causa raíz.** `CategoryBadge` ya las distinguía por variante, pero las dos
+seguían siendo insignias: el filtro contaba «Sin categoría (3)» sobre tarjetas
+que lucían una etiqueta bien visible.
+
+**Corrección.** La etiqueta heredada deja de tener forma de categoría: texto con
+su rótulo, diciendo que ese servicio no tiene categoría y cuál es la etiqueta. El
+componente es el mismo que usan las fichas del equipo, así que las dos pantallas
+quedan corregidas a la vez.
+
+**Archivos tocados:** `ui/category-badge.tsx` (+ spec).
+
+### BS-008 · El total esperado quedaba a la vista tras el modal ✅
+
+**Corrección.** Mientras el modal de cierre está abierto, la tarjeta oculta la
+cifra y dice por qué. El arqueo a ciegas es un control anti-fraude, y el modal ya
+hacía bien su parte.
+
+**Archivos tocados:** `cash-register/page.tsx`.
+
+### BS-014 · El CSV sin tildes y con la variación vacía ✅
+
+**Corrección.** Las cabeceras y los indicadores llevan sus tildes —el archivo ya
+llevaba BOM UTF-8 puesto a propósito para eso—, y la variación deja de ser una
+celda en blanco: «nuevo» cuando el indicador arranca de cero y un guion cuando no
+hay comparación posible.
+
+**Archivos tocados:** `analytics/export.ts` (+ spec).
+
+### BS-027 · Las tarjetas no mostraban el foco ✅
+
+**Causa raíz.** El anillo estaba en la tarjeta con `focus-within` y el botón que
+la abre se lo quitaba con `focus:outline-none`.
+
+**Corrección.** El anillo va en el botón y con `focus-visible`, como en el resto
+del panel; de paso deja de pintarse al hacer clic con el ratón.
+
+**Archivos tocados:** `clients/page.tsx`.
+
+**Suite al cerrar el lote:** `npm run build`, `npm run lint` y `npm run type-check`
+en verde; `npm run test:coverage` **exit 0** — 186 suites, **2451 pruebas**.
 
 ---
 
