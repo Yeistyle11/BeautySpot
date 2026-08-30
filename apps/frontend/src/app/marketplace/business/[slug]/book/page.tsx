@@ -236,6 +236,11 @@ function PublicBookingPageInner() {
         slug={slug}
         date={date}
         isAuthenticated={isAuthenticated}
+        contacto={
+          isAuthenticated && user
+            ? { email: user.email, phone: user.phone }
+            : { email: guest.email, phone: guest.phone }
+        }
       />
     );
   }
