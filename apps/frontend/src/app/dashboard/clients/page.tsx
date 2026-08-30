@@ -289,15 +289,18 @@ export default function ClientsPage() {
           clients.map((c) => (
             <Card
               key={c.id}
-              className="focus-within:ring-ring border-0 shadow-sm transition-shadow [contain-intrinsic-size:auto_140px] [content-visibility:auto] focus-within:ring-2 hover:shadow-md"
+              className="border-0 shadow-sm transition-shadow [contain-intrinsic-size:auto_140px] [content-visibility:auto] hover:shadow-md"
             >
               {/* La tarjeta entera abre la ficha, y es la unica via de acceso a
-                  ella: tiene que ser un boton para que llegue el teclado. */}
+                  ella: tiene que ser un boton para que llegue el teclado. El
+                  anillo va en el boton y con focus-visible, como el resto del
+                  panel: en la tarjeta y con focus-within se pintaba tambien al
+                  hacer clic con el raton, y no se veia al tabular. */}
               <button
                 type="button"
                 onClick={() => openDetail(c)}
                 aria-label={`Ver la ficha de ${c.name}`}
-                className="w-full cursor-pointer text-left focus:outline-none"
+                className="focus-visible:ring-ring w-full cursor-pointer rounded-xl text-left focus-visible:outline-none focus-visible:ring-2"
               >
                 <CardContent className="p-5">
                   <div className="flex items-center gap-3">
