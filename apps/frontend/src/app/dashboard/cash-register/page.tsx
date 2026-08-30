@@ -280,9 +280,23 @@ export default function CashRegisterPage() {
             <Card className="border-0 shadow-sm">
               <CardContent className="p-4">
                 <p className="text-muted-foreground text-xs">Total esperado</p>
-                <p className="text-primary text-xl font-bold">
-                  {formatCurrency(expectedTotal)}
-                </p>
+                {/* El arqueo es a ciegas: el modal no revela el esperado hasta
+                    que se escribe el conteo, y esta tarjeta quedaba legible
+                    detras. Un control que se lee de reojo no controla. */}
+                {closeDialog ? (
+                  <>
+                    <p className="text-muted-foreground text-xl font-bold">
+                      •••••
+                    </p>
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Oculto mientras cuentas el cajón
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-primary text-xl font-bold">
+                    {formatCurrency(expectedTotal)}
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>
