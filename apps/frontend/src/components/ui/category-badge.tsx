@@ -14,8 +14,9 @@ interface CategoryBadgeProps {
 }
 
 /**
- * Categoria de un servicio o de un profesional, distinguiendo la categoria
- * real de la etiqueta heredada, que es solo texto de la ficha.
+ * Categoria de un servicio o de un profesional. La categoria del catalogo se
+ * pinta como insignia; la etiqueta heredada, como texto con su rotulo, para que
+ * no se lea como una clasificacion que el filtro no reconoce.
  */
 export function CategoryBadge({
   nombre,
@@ -39,13 +40,15 @@ export function CategoryBadge({
     );
   }
 
+  // Sin forma de insignia: pintada como una categoría, el dueño ve sus fichas
+  // clasificadas, intenta filtrar por ellas y el filtro dice «Sin categoría».
+  // Como texto con su rótulo se lee por lo que es, una etiqueta de la ficha.
   return (
-    <Badge
-      variant="outline"
-      className={cn("text-muted-foreground border-dashed", className)}
+    <p
+      className={cn("text-muted-foreground text-xs", className)}
       title={`"${nombre}" es una etiqueta antigua y no se puede filtrar por ella. Crea la categoría para poder usarla.`}
     >
-      {nombre}
-    </Badge>
+      Sin categoría · etiqueta: {nombre}
+    </p>
   );
 }
