@@ -122,24 +122,28 @@ profesional** de la cita.
 Lo que falta es la pantalla: la ficha del profesional no muestra qué servicios
 presta ni permite darles tarifa propia.
 
-**Y hay un fallo real escondido detrás.** La reserva pública lista los servicios
-con `GET /core/public/businesses/:id/services`, que devuelve el **precio del
-catálogo** y no acepta profesional; el cliente elige servicio (paso 1) y luego
-profesional (paso 2), pero el precio que ve no se vuelve a resolver. Booking, al
-crear la cita, cobra el precio **efectivo** del par. Es decir: en cuanto alguien
-use tarifas propias, el marketplace enseñará un precio y el negocio cobrará otro.
+**Había un fallo real escondido detrás, ya corregido.** La reserva pública
+listaba los servicios con el precio del catálogo y sin aceptar profesional,
+mientras booking cobraba el efectivo del par: en cuanto alguien usara tarifas
+propias, el escaparate enseñaría un precio y el negocio cobraría otro, y la
+duración —de la que salen los huecos ofrecidos— tenía el mismo desajuste.
+`GET /core/public/businesses/:id/services` admite ahora `professionalId` y
+devuelve la tarifa de ese profesional; sin él marca los servicios cuyo precio
+depende de quién atienda, que la reserva y la ficha pública pintan como «desde».
+La regla de la tarifa efectiva vive en `PreciosService`, compartida con la ruta
+interna, para que las dos no puedan discrepar.
 
 **Propuesta.**
 
 1. En Equipo, una sección «Servicios que presta» con precio y duración propios
    opcionales por servicio. Sin tocar backend.
-2. Que la ruta pública admita `professionalId` y devuelva el precio efectivo, y
-   que el paso 3 de la reserva recalcule el total con el profesional ya elegido.
-   Con «cualquier profesional», el rango o el precio del catálogo, y decirlo.
+2. ~~Que la ruta pública devuelva el precio efectivo.~~ **Hecho**, junto con el
+   «desde» de la ficha pública y el aviso del resumen cuando se reserva con
+   «cualquier profesional».
 
-**Qué hay que decidir.** Qué se enseña en la ficha pública del negocio cuando el
-mismo servicio tiene tres precios: el más bajo con un «desde», el rango, o el del
-catálogo. Es una decisión comercial, no técnica.
+**Qué hay que decidir.** Si el «desde» del escaparate basta o se prefiere enseñar
+el rango de precios del servicio; hoy se muestra el del catálogo como punto de
+partida. Es una decisión comercial, no técnica.
 
 **Cómo se sabe que sirvió.** Un salón con escalafón deja de tener que duplicar
 servicios («Corte senior», «Corte junior»), y la rentabilidad por servicio vuelve
