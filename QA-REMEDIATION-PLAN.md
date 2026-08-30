@@ -7,13 +7,14 @@ Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 pr
 
 ## Decisiones tomadas
 
-| Tema    | Decisión                                                                    |
-| ------- | --------------------------------------------------------------------------- |
-| BS-001  | Implementar `PATCH /payments/:id` con traza y ajuste del movimiento de caja |
-| BS-025  | Solo enviar los campos modificados (el 409 optimista queda como propuesta)  |
-| BS-020  | Normalizar a E.164 de aquí en adelante, **sin** migración de datos          |
-| Rama    | Todo se acumula en `fix/tanda-22-next-16`; el PR lo abre el usuario         |
-| Esquema | Aprobadas 3 columnas aditivas en `payments` para la traza de BS-001         |
+| Tema    | Decisión                                                                     |
+| ------- | ---------------------------------------------------------------------------- |
+| BS-001  | Implementar `PATCH /payments/:id` con traza y ajuste del movimiento de caja  |
+| BS-025  | Solo enviar los campos modificados (el 409 optimista queda como propuesta)   |
+| BS-020  | Normalizar a E.164 de aquí en adelante, **sin** migración de datos           |
+| Rama    | Todo se acumula en `fix/tanda-22-next-16`; el PR lo abre el usuario          |
+| Esquema | Aprobadas 3 columnas aditivas en `payments` para la traza de BS-001          |
+| BS-012  | Los minutos de madrugada cuentan en el **día natural**, no en el de apertura |
 
 ## Agrupación por causa raíz
 
@@ -38,12 +39,12 @@ Los 28 hallazgos se reducen a 9 causas. Corregir la causa cierra todos sus halla
 | BS-022 | Bloqueante | Marketplace      | G1 · `business-profile.tsx` ejecuta 5 `useApiPublic` sin `"use client"` (lo quitó `62cde4f`) | XS       | Bajo   | 1    | ✅     |
 | BS-015 | Alta       | Configuración    | G2 · el formulario siembra con la entidad y la reenvía; el DTO rechaza los campos de más     | S        | Bajo   | 2    | ✅     |
 | BS-001 | Alta       | Pagos            | Ruta `PATCH /payments/:id` inexistente                                                       | M        | Medio  | 2    | ✅     |
-| BS-009 | Alta       | Métricas         | G4 · numerador filtrado por `ventas > 0`, denominador sin filtrar                            | M        | Medio  | 3    | ⬜     |
+| BS-009 | Alta       | Métricas         | G4 · numerador filtrado por `ventas > 0`, denominador sin filtrar                            | M        | Medio  | 3    | ✅     |
 | BS-002 | Alta       | Pagos            | Falta pantalla; `POST /:id/refund` ya existe                                                 | M        | —      | 6    | 📋     |
 | BS-003 | Alta       | Facturación      | Falta pantalla; backend completo con PDF                                                     | M        | —      | 6    | 📋     |
-| BS-011 | Media      | Métricas         | `CapacidadWorker` no materializa hasta la primera hora                                       | S        | Bajo   | 3    | ⬜     |
-| BS-012 | Media      | Agenda           | G6 · el tramo que cruza medianoche se cuenta en dos días                                     | S        | Medio  | 3    | ⬜     |
-| BS-010 | Media      | Dashboard        | G4 · la serie se arma con las filas existentes                                               | XS       | Bajo   | 3    | ⬜     |
+| BS-011 | Media      | Métricas         | `CapacidadWorker` no materializa hasta la primera hora                                       | S        | Bajo   | 3    | ✅     |
+| BS-012 | Media      | Agenda           | G6 · el tramo que cruza medianoche se cuenta en dos días                                     | S        | Medio  | 3    | ✅     |
+| BS-010 | Media      | Dashboard        | G4 · la serie se arma con las filas existentes                                               | XS       | Bajo   | 3    | ✅     |
 | BS-020 | Media      | Clientes         | `normalizarTelefono` no reconcilia el prefijo internacional                                  | S        | Medio  | 4    | ⬜     |
 | BS-004 | Media      | Pagos            | G5 · `@Min(0)` admite el cobro de cero                                                       | XS       | Bajo   | 4    | ✅     |
 | BS-026 | Media      | Clientes         | G5 · `name` sin `trim` ni `@IsNotEmpty`                                                      | XS       | Bajo   | 4    | ⬜     |
@@ -209,6 +210,115 @@ compilación de producción del frontend) y `npm run test:coverage` **exit 0** �
 
 ---
 
+## Lote 3 — Que las cifras no mientan ✅
+
+Los cuatro se resumen en lo mismo: la métrica prefiere publicar un número
+plausible antes que admitir que no lo tiene.
+
+### BS-012 · La capacidad cuenta dos veces la madrugada ✅
+
+**Decisión previa.** El informe admitía dos reglas —atribuir la madrugada al día
+de apertura o al día natural— y proponía la primera. Se implementa la **segunda**,
+porque es la que el resto del sistema ya aplica: `calcularFranjas`
+(`availability-query.service.ts:536`) descarta los inicios pasada la medianoche y
+los ofrece bajo el día siguiente, así que una cita de la jornada del viernes a las
+00:30 se guarda con fecha **sábado** y `minutos_vendidos` —el numerador de la
+ocupación— cae en sábado. Con la regla del día de apertura el denominador del
+sábado dejaría fuera esa madrugada mientras el numerador la incluye, y la
+ocupación podría pasar del 100 %.
+
+**Causa raíz.** `capacidadDelDia` mezclaba las dos escalas: contaba la jornada
+propia con `finExtendido` (hasta las "26:00") **y además** le sumaba el arrastre
+del día anterior. Los minutos de madrugada entraban dos veces.
+
+**Corrección.** `minutosDisponibles` recorta cada trozo en la medianoche
+(`hastaMedianoche`). La madrugada la sigue aportando el arrastre del día que la
+abre, una sola vez.
+
+| Día (horario Vi–Sá 20:00–02:00, Do cerrado) | Antes | Ahora |
+| ------------------------------------------- | ----- | ----- |
+| Lunes 09:00–20:00                           | 660   | 660   |
+| Viernes                                     | 360   | 240   |
+| Sábado                                      | 480   | 360   |
+| Domingo (cerrado, con la madrugada del sáb) | 120   | 120   |
+| **Semana**                                  | 3.600 | 3.360 |
+
+El viernes y el domingo se apartan de la tabla del informe justo por la regla
+elegida: la semana suma los 3.360 minutos reales en los dos casos, y lo que
+cambia es en qué día cae cada madrugada.
+
+**Archivos tocados:** `booking-service/.../availability-query.service.ts`,
+`availability-query.service.spec.ts`.
+
+**Cómo verificarlo:** `cd services/booking-service && npx jest availability-query`.
+Comprobado que las tres pruebas nuevas de la barbería nocturna fallan si se quita
+el recorte; la de la semana entera es la que fija los 720 minutos de las dos
+jornadas.
+
+### BS-011 · «Ocupación de agenda» siempre 0 % ✅
+
+**Causa raíz.** `CapacidadWorker` solo materializaba dentro de un `setInterval` de
+una hora, sin pasada en `onModuleInit`: un servicio que se reinicia antes nunca
+llegaba a escribir en `capacity_daily`.
+
+**Corrección.** `onModuleInit` hace una primera pasada (`pasada()`, cuyo fallo se
+registra y no se propaga, para no tumbar el arranque) y deja el intervalo. Y la
+ocupación deja de ser un cero mudo: `ocupacion` responde `null` cuando no hay ni
+un minuto de capacidad materializada, y la pantalla escribe «Sin datos aún» en vez
+de «0 %», que es lo que el informe pedía distinguir.
+
+**Archivos tocados:** `capacidad.worker.ts`, `dashboard.service.ts`,
+`analytics/textos.ts` (**nuevo**), `analytics/page.tsx`, `lib/schemas/kpis.ts`, y
+los `.spec` de los tres primeros más `analytics/__tests__/textos.test.ts`
+(**nuevo**).
+
+### BS-009 · El ticket medio publica una cifra falsa ✅
+
+**Causa raíz.** El numerador filtraba por `ventas > 0`
+(`SUM(total_revenue) FILTER (WHERE m.ventas > 0)`), así que un día con ingresos
+cuyo contador de ventas se quedó a cero —un consumidor caído, un reproceso— salía
+del cálculo **en silencio**. Los $471.000 del 12-ago desaparecían y el ticket
+quedaba en $31.000 en vez de $52.167.
+
+**Corrección.** El filtro desaparece: el ticket es `totalRevenue / ventas` sobre
+el periodo entero. Y el descuadre deja de esconderse — la consulta cuenta los
+`diasDescuadrados` (`COUNT(*) FILTER (WHERE m.ventas = 0 AND m.total_revenue > 0)`)
+y, mientras haya alguno, `avgTicket` responde `null` con `ticketDescuadrado: true`.
+La pantalla lo dice con palabras: «Sin calcular: hay ingresos sin cobro asociado»,
+que es distinto de «Sin cobros aún».
+
+El mismo criterio se aplica en las dos superficies que lo publican, `dashboard`
+(el panel y Reportes) y `reports/revenue`, para que no puedan discrepar.
+
+**Archivos tocados:** `dashboard.service.ts`, `reports.service.ts`, sus `.spec`,
+`analytics/textos.ts`, `lib/schemas/kpis.ts`.
+
+**Nota.** Esto hace visible el descuadre, no lo repara. La causa que lo produce
+sigue anotada como hallazgo nuevo #6 (analytics sella la métrica con el día de
+proceso, no con el del cobro) y no se ha tocado en este lote.
+
+### BS-010 · «Ingresos últimos 7 días» se salta los días sin fila ✅
+
+**Causa raíz.** Dos fallos en `getRevenueChart`. La serie se armaba mapeando las
+filas encontradas, así que un día sin actividad no tenía fila y desaparecía del
+eje; y el rango pedía `fechaHaceDias(zona, days)`, que con `days = 7` abre una
+ventana de **ocho** días —de ahí la barra del 15-ago.
+
+**Corrección.** El rango es `days - 1` hacia atrás, hoy incluido, y la serie
+recorre el rango rellenando con cero los días sin fila.
+
+**Archivos tocados:** `dashboard.service.ts`, `dashboard.service.spec.ts`.
+
+**Cómo verificarlo:** `cd services/analytics-service && npx jest dashboard.service`.
+Las tres pruebas de `getRevenueChart` fijan la fecha del sistema, de modo que el
+rango es comprobable: siete puntos del 10 al 16, con los huecos a cero.
+
+**Suite al cerrar el lote:** `npm run build` en verde y `npm run test:coverage`
+**exit 0** — 184 suites, **2401 pruebas**, cobertura 92.37 sentencias /
+93.60 líneas / 82.53 funciones / 81.56 ramas, por encima de los cuatro pisos.
+
+---
+
 ## Propuestas `[PM]` pendientes
 
 Pendiente de redactar al cerrar los lotes de QA. Cubrirá BS-002, BS-003, BS-005,
@@ -254,3 +364,9 @@ Anotada, **no corregida** (fuera del alcance de los hallazgos).
 - **`collectCoverageFrom` del frontend solo mide `src/lib/**`\*\*: las páginas y
   componentes no suman ni restan cobertura, así que las correcciones de interfaz no
   quedan protegidas por la puerta de cobertura.
+- **`coverage/coverage-summary.json` queda obsoleto y engaña.** Los
+  `coverageReporters` de la raíz son `json, lcov, text, clover`, sin
+  `json-summary`, así que ese fichero no se regenera: el que hay en `coverage/`
+  es de una corrida antigua y leerlo para comprobar la puerta da cifras falsas.
+  Las buenas salen de `coverage-final.json` o del propio código de salida de
+  `npm run test:coverage`, que es quien decide.
