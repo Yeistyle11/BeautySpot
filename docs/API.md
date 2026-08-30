@@ -345,18 +345,25 @@ por clave en `business_config`.
 
 Roles a nivel de clase: **OWNER, ADMIN, SUPER_ADMIN**.
 
-| Método | Ruta                       | Descripción                   |
-| ------ | -------------------------- | ----------------------------- |
-| POST   | `/`                        | Crea profesional              |
-| GET    | `/`                        | Lista profesionales           |
-| GET    | `/:id`                     | Detalle                       |
-| PATCH  | `/:id`                     | Actualiza                     |
-| DELETE | `/:id`                     | Elimina                       |
-| POST   | `/:id/services`            | Asigna un servicio            |
-| GET    | `/:id/services`            | Servicios que presta          |
-| DELETE | `/:id/services/:serviceId` | Quita un servicio             |
-| PATCH  | `/:id/link-user`           | Vincula una cuenta de usuario |
-| PATCH  | `/:id/unlink-user`         | Desvincula la cuenta          |
+| Método | Ruta                       | Descripción                           |
+| ------ | -------------------------- | ------------------------------------- |
+| POST   | `/`                        | Crea profesional                      |
+| GET    | `/`                        | Lista profesionales                   |
+| GET    | `/:id`                     | Detalle                               |
+| PATCH  | `/:id`                     | Actualiza                             |
+| DELETE | `/:id`                     | Elimina                               |
+| POST   | `/:id/services`            | Asigna un servicio o cambia su tarifa |
+| GET    | `/:id/services`            | Servicios que presta                  |
+| DELETE | `/:id/services/:serviceId` | Quita un servicio                     |
+| PATCH  | `/:id/link-user`           | Vincula una cuenta de usuario         |
+| PATCH  | `/:id/unlink-user`         | Desvincula la cuenta                  |
+
+`POST /:id/services` es idempotente: sobre un servicio ya asignado cambia su
+tarifa en vez de fallar contra el único (profesional, servicio). `customPrice` y
+`customDuration` son opcionales y **se vacían al omitirlos**, que es como se dice
+que ese profesional cobra y dura lo del catálogo. La agenda y el escaparate leen
+esa tarifa por `/internal/services/resolve` y por
+`/public/businesses/:id/services?professionalId=`.
 
 ### Servicios — `/api/v1/core/services`
 

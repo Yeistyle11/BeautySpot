@@ -8,6 +8,7 @@ import { Professional } from "../../entities/professional.entity";
 import { ProfessionalService } from "../../entities/professional-service.entity";
 import { Service } from "../../entities/service.entity";
 import {
+  ConflictException,
   NotFoundException,
   BadRequestException,
   ServiceUnavailableException,
@@ -81,6 +82,7 @@ describe("ProfessionalsService", () => {
       create: jest.fn(),
       save: jest.fn(),
       find: jest.fn(),
+      findOne: jest.fn().mockResolvedValue(null),
       delete: jest.fn(),
     } as any;
 
@@ -335,12 +337,54 @@ describe("ProfessionalsService", () => {
 
       await service.assignService("prof-123", "service-123", "business-123");
 
+      // Nulos y no `undefined`: cobrar lo del catálogo se expresa vaciando la
+      // tarifa propia, y `undefined` dejaría la que hubiera.
       expect(mockPsRepo.create).toHaveBeenCalledWith({
         professionalId: "prof-123",
         serviceId: "service-123",
-        customPrice: undefined,
-        customDuration: undefined,
+        customPrice: null,
+        customDuration: null,
       });
+    });
+
+    // Cambiar la tarifa de un servicio ya asignado es lo habitual, y crear
+    // otra fila chocaba con el único (profesional, servicio).
+    it("cambia la tarifa del servicio que ya tenía asignado", async () => {
+      mockRepo.findOne.mockResolvedValue(mockProfessional);
+      mockPsRepo.findOne.mockResolvedValue({
+        ...mockProfessionalService,
+        id: "ps-1",
+        customPrice: 60000,
+        customDuration: 45,
+        generateId: () => {},
+      } as ProfessionalService);
+      mockPsRepo.create.mockReturnValue(mockProfessionalService);
+      mockPsRepo.save.mockResolvedValue(mockProfessionalService);
+
+      await service.assignService(
+        "prof-123",
+        "service-123",
+        "business-123",
+        80000
+      );
+
+      expect(mockPsRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "ps-1",
+          customPrice: 80000,
+          customDuration: null,
+        })
+      );
+    });
+
+    it("traduce el choque de dos asignaciones a la vez", async () => {
+      mockRepo.findOne.mockResolvedValue(mockProfessional);
+      mockPsRepo.create.mockReturnValue(mockProfessionalService);
+      mockPsRepo.save.mockRejectedValue({ code: "23505" });
+
+      await expect(
+        service.assignService("prof-123", "service-123", "business-123")
+      ).rejects.toThrow(ConflictException);
     });
 
     it("debería lanzar NotFoundException si el profesional no pertenece al business", async () => {

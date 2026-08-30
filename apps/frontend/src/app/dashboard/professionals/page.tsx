@@ -1,6 +1,7 @@
 "use client";
 
-// Pagina del equipo: lista de profesionales con alta, edicion, detalle, horario y baja.
+// Pagina del equipo: lista de profesionales con alta, edicion, detalle,
+// horario, servicios que presta y baja.
 import { useState, useMemo, useCallback, useRef } from "react";
 import { mensajeDeError } from "@/lib/error-message";
 import dynamic from "next/dynamic";
@@ -21,16 +22,22 @@ import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { ProCard } from "./pro-card";
 import Link from "next/link";
 import {
+  cambiosDeTarifas,
   categorySchema,
   DAYS_MAP,
+  filasDeTarifas,
   TRAMO_POR_DEFECTO,
   emptyForm,
   professionalSchema,
+  servicioDelCatalogoSchema,
+  tarifaSchema,
   toProfessionalPayload,
   type AvailabilitySlot,
   type Category,
   type DayHours,
+  type FilaDeTarifa,
   type Professional,
+  type ServicioDelCatalogo,
 } from "./schemas";
 
 // Los tres dialogos estan cerrados mientras se navega la lista, que es lo
@@ -51,9 +58,14 @@ const ScheduleDialog = dynamic(
   () => import("./schedule-dialog").then((m) => m.ScheduleDialog),
   { ssr: false }
 );
+const ServicesDialog = dynamic(
+  () => import("./services-dialog").then((m) => m.ServicesDialog),
+  { ssr: false }
+);
 
 const PROFESSIONALS_KEY = "/core/professionals";
 const CATEGORIES_KEY = "/core/categories";
+const SERVICES_KEY = "/core/services";
 
 /** Semana sin ningun tramo. */
 function semanaVacia(): Record<number, DayHours> {
@@ -133,6 +145,15 @@ export default function ProfessionalsPage() {
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
 
+  const [servicesDialog, setServicesDialog] = useState(false);
+  const [servicesPro, setServicesPro] = useState<Professional | null>(null);
+  const [servicios, setServicios] = useState<ServicioDelCatalogo[]>([]);
+  const [filas, setFilas] = useState<FilaDeTarifa[]>([]);
+  const [filasCargadas, setFilasCargadas] = useState<FilaDeTarifa[]>([]);
+  const [cargandoTarifas, setCargandoTarifas] = useState(false);
+  const [savingServices, setSavingServices] = useState(false);
+  const [servicesError, setServicesError] = useState("");
+
   // De quien es la ultima peticion de horario en vuelo. Abrir dos profesionales
   // seguidos lanza dos peticiones, y la primera puede contestar despues: al
   // volver se compara contra esta ref y la respuesta que ya no toca se descarta.
@@ -194,6 +215,85 @@ export default function ProfessionalsPage() {
       setScheduleError(mensajeDeError(err));
     } finally {
       setSavingSchedule(false);
+    }
+  };
+
+  // De quien es la ultima peticion de tarifas en vuelo, por el mismo motivo
+  // que en los horarios: abrir dos fichas seguidas puede contestar al reves.
+  const tarifasPedidasPara = useRef<string | null>(null);
+
+  /**
+   * Abre el diálogo de servicios de un profesional. Las dos mitades se piden a
+   * la vez —el catálogo del negocio y lo que ya tiene asignado— porque las
+   * filas solo se pueden armar con las dos.
+   */
+  const openServices = useCallback((p: Professional) => {
+    setServicesPro(p);
+    setServicesDialog(true);
+    setServicesError("");
+    setCargandoTarifas(true);
+    setFilas([]);
+    setFilasCargadas([]);
+    tarifasPedidasPara.current = p.id;
+
+    Promise.all([
+      api.get<unknown>(SERVICES_KEY),
+      api.get<unknown>(`/core/professionals/${p.id}/services`),
+    ])
+      .then(([catalogo, asignados]) => {
+        if (tarifasPedidasPara.current !== p.id) return;
+        // Un servicio dado de baja no se ofrece para asignar; el que ya lo
+        // tuviera asignado lo conserva hasta que alguien lo quite.
+        const activos = z
+          .array(servicioDelCatalogoSchema)
+          .parse(catalogo)
+          .filter((s) => s.active);
+        const iniciales = filasDeTarifas(
+          activos,
+          z.array(tarifaSchema).parse(asignados)
+        );
+        setServicios(activos);
+        setFilas(iniciales);
+        setFilasCargadas(iniciales);
+        setCargandoTarifas(false);
+      })
+      .catch((err) => {
+        if (tarifasPedidasPara.current !== p.id) return;
+        logger.error(err);
+        setServicesError(mensajeDeError(err));
+        setCargandoTarifas(false);
+      });
+  }, []);
+
+  const saveServices = async () => {
+    if (!servicesPro) return;
+    const cambios = cambiosDeTarifas(filasCargadas, filas);
+
+    // Sin cambios no se llama al servidor: reasignar lo mismo escribiría en la
+    // ficha de todos modos.
+    if (cambios.asignar.length === 0 && cambios.quitar.length === 0) {
+      setServicesDialog(false);
+      return;
+    }
+
+    setSavingServices(true);
+    setServicesError("");
+    try {
+      const ruta = `/core/professionals/${servicesPro.id}/services`;
+      // En serie y no en paralelo: son pocas y así el primer fallo deja el
+      // resto sin tocar, en vez de a medias sin saber por dónde iba.
+      for (const asignacion of cambios.asignar) {
+        await api.post(ruta, asignacion);
+      }
+      for (const serviceId of cambios.quitar) {
+        await api.delete(`${ruta}/${serviceId}`);
+      }
+      setServicesDialog(false);
+    } catch (err) {
+      logger.error(err);
+      setServicesError(mensajeDeError(err));
+    } finally {
+      setSavingServices(false);
     }
   };
 
@@ -277,6 +377,7 @@ export default function ProfessionalsPage() {
       onEdit={startEdit}
       onDelete={setDeleteConfirm}
       onSchedule={openSchedule}
+      onServices={openServices}
     />
   );
 
@@ -400,6 +501,19 @@ export default function ProfessionalsPage() {
         ? Quedará marcado como inactivo; si tiene citas pendientes, la acción
         será rechazada.
       </ConfirmDialog>
+
+      <ServicesDialog
+        open={servicesDialog}
+        onClose={() => setServicesDialog(false)}
+        onSave={saveServices}
+        professional={servicesPro}
+        servicios={servicios}
+        filas={filas}
+        onChange={setFilas}
+        saving={savingServices}
+        cargando={cargandoTarifas}
+        error={servicesError}
+      />
 
       <ScheduleDialog
         open={scheduleDialog}

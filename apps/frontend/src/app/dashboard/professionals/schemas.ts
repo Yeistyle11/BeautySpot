@@ -24,6 +24,109 @@ export const categorySchema = z.object({
 });
 export type Category = z.infer<typeof categorySchema>;
 
+/** Servicio del catálogo del negocio, con su precio y duración de referencia. */
+export const servicioDelCatalogoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  price: z.number(),
+  duration: z.number(),
+  active: z.boolean(),
+});
+export type ServicioDelCatalogo = z.infer<typeof servicioDelCatalogoSchema>;
+
+/**
+ * Servicio asignado a un profesional. Las tarifas propias son opcionales: sin
+ * ellas presta el servicio al precio y la duración del catálogo.
+ */
+export const tarifaSchema = z.object({
+  serviceId: z.string(),
+  customPrice: z.number().nullish(),
+  customDuration: z.number().nullish(),
+});
+export type Tarifa = z.infer<typeof tarifaSchema>;
+
+/** Fila del diálogo: un servicio del catálogo y lo que el profesional le hace. */
+export interface FilaDeTarifa {
+  serviceId: string;
+  presta: boolean;
+  /** Vacío = lo del catálogo. Son texto porque salen de un input. */
+  precio: string;
+  duracion: string;
+}
+
+/** Estado inicial del diálogo: el catálogo cruzado con lo ya asignado. */
+export function filasDeTarifas(
+  servicios: ServicioDelCatalogo[],
+  asignados: Tarifa[]
+): FilaDeTarifa[] {
+  const porServicio = new Map(asignados.map((t) => [t.serviceId, t]));
+
+  return servicios.map((servicio) => {
+    const tarifa = porServicio.get(servicio.id);
+    return {
+      serviceId: servicio.id,
+      presta: Boolean(tarifa),
+      precio: tarifa?.customPrice != null ? String(tarifa.customPrice) : "",
+      duracion:
+        tarifa?.customDuration != null ? String(tarifa.customDuration) : "",
+    };
+  });
+}
+
+/** Lo que hay que mandar al backend para dejar el estado como está en pantalla. */
+export interface CambiosDeTarifas {
+  asignar: {
+    serviceId: string;
+    customPrice?: number;
+    customDuration?: number;
+  }[];
+  quitar: string[];
+}
+
+/** Un número que el usuario escribió, o `undefined` si dejó el campo vacío. */
+function cifra(texto: string): number | undefined {
+  const limpio = texto.trim();
+  if (!limpio) return undefined;
+  const valor = Number(limpio);
+  return Number.isFinite(valor) && valor >= 0 ? valor : undefined;
+}
+
+/**
+ * Compara las filas con las que se cargaron y devuelve solo lo que cambió: a
+ * quién asignar (o reasignar con otra tarifa) y a quién quitar. Sin esto,
+ * guardar reenviaría el catálogo entero en cada vuelta.
+ */
+export function cambiosDeTarifas(
+  original: FilaDeTarifa[],
+  actual: FilaDeTarifa[]
+): CambiosDeTarifas {
+  const antes = new Map(original.map((f) => [f.serviceId, f]));
+  const cambios: CambiosDeTarifas = { asignar: [], quitar: [] };
+
+  for (const fila of actual) {
+    const previa = antes.get(fila.serviceId);
+
+    if (!fila.presta) {
+      if (previa?.presta) cambios.quitar.push(fila.serviceId);
+      continue;
+    }
+
+    const igual =
+      previa?.presta &&
+      previa.precio.trim() === fila.precio.trim() &&
+      previa.duracion.trim() === fila.duracion.trim();
+    if (igual) continue;
+
+    cambios.asignar.push({
+      serviceId: fila.serviceId,
+      customPrice: cifra(fila.precio),
+      customDuration: cifra(fila.duracion),
+    });
+  }
+
+  return cambios;
+}
+
 export interface AvailabilitySlot {
   dayOfWeek: number;
   active: boolean;
