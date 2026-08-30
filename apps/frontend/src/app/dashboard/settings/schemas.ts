@@ -119,8 +119,35 @@ export const facturacionSchema = z.object({
   nit: z.string().nullish(),
   direccionFiscal: z.string().nullish(),
   serie: z.string().nullish(),
+  /** Impuesto con el que se factura, en porcentaje. */
+  tasaDeImpuesto: z.number().nullish(),
 });
 export type Facturacion = z.infer<typeof facturacionSchema>;
+
+/** Lo que se aplica si el negocio no fija el suyo: el IVA colombiano. */
+export const TASA_DE_IMPUESTO_POR_DEFECTO = 19;
+
+/**
+ * Lo que se manda al guardar los datos fiscales. La tasa se escribe en un
+ * input, asi que llega como texto: vacia significa «el de por defecto», y no
+ * cero, que es una decision distinta —facturar sin impuesto— y hay que
+ * escribirla.
+ */
+export function facturacionParaGuardar(
+  facturacion: Facturacion,
+  tasa: string
+): Facturacion {
+  const limpia = tasa.trim();
+  const numero = Number(limpia);
+
+  return {
+    ...facturacion,
+    tasaDeImpuesto:
+      limpia && Number.isFinite(numero) && numero >= 0 && numero <= 100
+        ? numero
+        : undefined,
+  };
+}
 
 export const FACTURACION_KEY = "/core/business-config/facturacion";
 

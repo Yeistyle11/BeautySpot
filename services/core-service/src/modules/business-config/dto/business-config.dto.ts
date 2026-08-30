@@ -9,6 +9,7 @@ import {
   IsString,
   IsNumber,
   Matches,
+  Max,
   MaxLength,
   Min,
   Validate,
@@ -50,6 +51,17 @@ export class FacturacionDto {
     message: "La serie admite hasta 10 letras o números, sin espacios",
   })
   serie?: string;
+
+  /**
+   * Impuesto que se aplica al facturar, en porcentaje. Sin él se aplica el IVA
+   * colombiano. Cada factura congela el tipo con el que se emitió, así que
+   * cambiarlo no toca las ya emitidas.
+   */
+  @IsOptional()
+  @IsNumber({}, { message: "La tasa de impuesto tiene que ser un número" })
+  @Min(0, { message: "La tasa de impuesto no puede ser negativa" })
+  @Max(100, { message: "La tasa de impuesto no puede pasar del 100 %" })
+  tasaDeImpuesto?: number;
 }
 
 /** Reglas de reserva y cancelación del negocio. */

@@ -70,6 +70,7 @@ import {
   type CampoDeFicha,
   type ServicioBreve,
   type Feedback,
+  facturacionParaGuardar,
   facturacionSchema,
   reservasSchema,
   diaEspecialSchema,
@@ -160,6 +161,7 @@ export default function SettingsPage() {
   );
 
   const [facturacion, setFacturacion] = useState<Facturacion>({});
+  const [tasaDeImpuesto, setTasaDeImpuesto] = useState("");
   const [reservas, setReservas] = useState<Reservas>({});
   const [businessForm, setBusinessForm] = useState<Partial<BusinessData>>({});
   const [hours, setHours] = useState<BusinessHourForm[]>(defaultHours);
@@ -192,7 +194,11 @@ export default function SettingsPage() {
   );
 
   useSeededForm(fidelizacion, (f) => setNiveles(f.niveles));
-  useSeededForm(facturacionGuardada, setFacturacion);
+  useSeededForm(facturacionGuardada, (f) => {
+    setFacturacion(f);
+    // La tasa se edita aparte porque es texto: un input vacio no es un cero.
+    setTasaDeImpuesto(f.tasaDeImpuesto != null ? String(f.tasaDeImpuesto) : "");
+  });
   useSeededForm(reservasGuardadas, setReservas);
 
   const saveAccount = async () => {
@@ -319,7 +325,10 @@ export default function SettingsPage() {
   const saveFacturacion = async () => {
     setSaving("billing");
     try {
-      await api.patch(FACTURACION_KEY, facturacion);
+      await api.patch(
+        FACTURACION_KEY,
+        facturacionParaGuardar(facturacion, tasaDeImpuesto)
+      );
       await mutateFacturacion();
       toast.exito("Datos de facturación actualizados");
     } catch (err) {
@@ -511,6 +520,8 @@ export default function SettingsPage() {
             <BillingTab
               facturacion={facturacion}
               onChange={setFacturacion}
+              tasa={tasaDeImpuesto}
+              onTasaChange={setTasaDeImpuesto}
               onSave={saveFacturacion}
               saving={saving === "billing"}
             />

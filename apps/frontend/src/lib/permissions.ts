@@ -79,6 +79,14 @@ export const PAGES: PageAccess[] = [
     roles: ["OWNER", "ADMIN", "RECEPTIONIST"],
   },
   {
+    // Recepción las consulta y descarga; emitirlas y cambiarles el estado es de
+    // dueño y administrador, como en el backend.
+    path: "/dashboard/invoices",
+    label: "Facturas",
+    icon: "Receipt",
+    roles: ["OWNER", "ADMIN", "RECEPTIONIST"],
+  },
+  {
     path: "/dashboard/analytics",
     label: "Reportes",
     icon: "BarChart3",
@@ -160,6 +168,8 @@ export const ACTIONS = {
   payments_create: ["OWNER", "ADMIN", "RECEPTIONIST"],
   payments_edit: ["OWNER", "ADMIN"],
   payments_void: ["OWNER", "ADMIN"],
+  invoices_create: ["OWNER", "ADMIN"],
+  invoices_status: ["OWNER", "ADMIN"],
   cash_register_open: ["OWNER", "ADMIN", "RECEPTIONIST"],
   cash_register_close: ["OWNER", "ADMIN"],
   marketplace_edit: ["OWNER", "ADMIN"],

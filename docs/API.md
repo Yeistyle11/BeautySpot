@@ -643,6 +643,18 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 | PATCH  | `/:id/status`   | OWNER, ADMIN               | Cambia el estado              |
 | GET    | `/:id/pdf`      | OWNER, ADMIN               | Descarga el PDF               |
 
+`POST /` emite de dos maneras. Con **`paymentId`**, la factura sale de un cobro
+completado: el cliente y las líneas se toman de él —los servicios de su cita, o
+una sola línea si es un cobro suelto— y el importe cobrado es el **total**, con
+el impuesto dentro, así que la base se calcula descontándolo y la factura cuadra
+al peso con lo que se pagó. Con **`clientId` + `items`** se factura a mano y el
+impuesto se suma sobre las líneas. Un cobro se factura una vez
+(`uq_invoices_cobro`, que deja fuera las anuladas): repetirlo responde 409.
+
+El tipo impositivo sale de `facturacion.tasaDeImpuesto` del negocio (en
+porcentaje; sin configurar, el IVA colombiano) y **cada factura lo congela**: una
+factura de ayer no se reimprime con el impuesto de mañana.
+
 ### Caja — `/api/v1/payment/cash-register`
 
 Roles a nivel de clase: **OWNER, ADMIN, RECEPTIONIST**.

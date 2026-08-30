@@ -1,19 +1,34 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
-import { EventNames } from "@beautyspot/event-types";
+import {
+  InternalHttpClient,
+  OutboxService,
+  esViolacionDeUnicidad,
+} from "@beautyspot/nest-common";
+import { EventNames, ServicioDeLaCita } from "@beautyspot/event-types";
 import { Between, In, Repository, DataSource, EntityManager } from "typeorm";
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { InvoiceEntity } from "./invoice.entity";
 import { InvoiceItemEntity } from "./invoice-item.entity";
-import { InvoiceStatus, IPaginatedResponse } from "@beautyspot/shared-types";
+import {
+  InvoiceStatus,
+  IPaginatedResponse,
+  PaymentStatus,
+} from "@beautyspot/shared-types";
+import { PaymentEntity } from "../payments/payment.entity";
 import { IVA } from "@beautyspot/shared-constants";
 import { CreateInvoiceDto } from "./dto/invoice.dto";
 import { PdfService } from "./pdf/pdf.service";
+
+/** Redondea a céntimos, que es la escala con la que se guarda el dinero. */
+function redondear(importe: number): number {
+  return Math.round(importe * 100) / 100;
+}
 
 /** Serie de numeración de quien no la haya configurado. */
 const SERIE_POR_DEFECTO = "INV";
@@ -25,6 +40,20 @@ const TRANSICIONES_DE_FACTURA: Record<InvoiceStatus, InvoiceStatus[]> = {
   [InvoiceStatus.PAID]: [],
   [InvoiceStatus.CANCELLED]: [],
 };
+
+/** Lo que la agenda sabe del cobro de una cita. */
+interface CobroDeCita {
+  clientId: string;
+  totalAmount: number;
+  services?: ServicioDeLaCita[];
+}
+
+/** Datos fiscales con los que se emite: la serie y el tipo aplicado. */
+interface DatosFiscales {
+  serie: string;
+  /** En tanto por uno, que es como se guarda en la factura. */
+  tasa: number;
+}
 
 /**
  * Lo que devuelve `/internal/profiles/resolve` del core-service, acotado a lo
@@ -42,6 +71,8 @@ interface ProfileResolution {
       razonSocial?: string;
       direccionFiscal?: string;
       serie?: string;
+      /** Impuesto con el que factura el negocio, en porcentaje. */
+      tasaDeImpuesto?: number;
     };
   } | null;
 }
@@ -54,6 +85,8 @@ export class InvoicesService {
     private readonly invoiceRepo: Repository<InvoiceEntity>,
     @InjectRepository(InvoiceItemEntity)
     private readonly itemRepo: Repository<InvoiceItemEntity>,
+    @InjectRepository(PaymentEntity)
+    private readonly paymentRepo: Repository<PaymentEntity>,
     private readonly pdfService: PdfService,
     private readonly dataSource: DataSource,
     private readonly outbox: OutboxService,
@@ -68,41 +101,49 @@ export class InvoicesService {
     const date = dto.date || new Date().toISOString().split("T")[0];
     const dueDate = dto.dueDate || this.getDefaultDueDate();
 
-    let subtotal = 0;
-    const items = dto.items.map((item) => {
-      const itemTotal = Number(item.quantity) * Number(item.unitPrice);
-      subtotal += itemTotal;
-      return this.itemRepo.create({
-        description: item.description,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        total: itemTotal,
-      });
-    });
+    // La serie y el tipo salen de los datos fiscales del negocio, en una sola
+    // consulta y fuera de la transacción: hablar con otro servicio con la
+    // transacción abierta alarga los bloqueos de la secuencia.
+    const fiscales = await this.datosFiscalesDe(businessId);
 
-    // El impuesto y el tipo aplicado se calculan y se guardan al emitir.
-    const tax = Math.round(subtotal * IVA * 100) / 100;
-    const total = subtotal + tax;
+    const emision = dto.paymentId
+      ? await this.desdeElCobro(businessId, dto.paymentId, fiscales.tasa)
+      : this.deLasLineas(dto, fiscales.tasa);
 
     // El numero se reserva dentro de la misma transaccion que la factura, de
     // modo que la serie no deja huecos.
     return this.dataSource.transaction(async (manager) => {
       const invoice = manager.getRepository(InvoiceEntity).create({
         businessId,
-        clientId: dto.clientId,
-        number: await this.generateInvoiceNumber(businessId, manager),
+        clientId: emision.clientId,
+        paymentId: dto.paymentId ?? null,
+        number: await this.generateInvoiceNumber(
+          businessId,
+          fiscales.serie,
+          manager
+        ),
         date,
         dueDate,
-        subtotal,
-        taxRate: IVA,
-        tax,
-        total,
+        subtotal: emision.subtotal,
+        taxRate: fiscales.tasa,
+        tax: emision.tax,
+        total: emision.total,
         notes: dto.notes,
         status: InvoiceStatus.DRAFT,
-        items,
+        items: emision.items,
       });
 
-      const guardada = await manager.getRepository(InvoiceEntity).save(invoice);
+      const guardada = await manager
+        .getRepository(InvoiceEntity)
+        .save(invoice)
+        .catch((error: unknown) => {
+          // El cobro ya se facturó: lo separa el índice, porque entre la
+          // comprobación y la escritura cabe otra emisión.
+          if (esViolacionDeUnicidad(error)) {
+            throw new ConflictException("Ese cobro ya tiene una factura");
+          }
+          throw error;
+        });
 
       await this.outbox.enqueue(manager, {
         eventType: EventNames.PAYMENT_INVOICE_GENERATED,
@@ -127,6 +168,137 @@ export class InvoicesService {
 
       return guardada;
     });
+  }
+
+  /**
+   * Factura escrita a mano: los precios de las líneas son la base y el
+   * impuesto se suma encima.
+   */
+  private deLasLineas(dto: CreateInvoiceDto, tasa: number) {
+    if (!dto.clientId || !dto.items?.length) {
+      throw new BadRequestException(
+        "Hace falta el cliente y al menos una línea, o el cobro del que sale la factura"
+      );
+    }
+
+    let subtotal = 0;
+    const items = dto.items.map((item) => {
+      const itemTotal = Number(item.quantity) * Number(item.unitPrice);
+      subtotal += itemTotal;
+      return this.itemRepo.create({
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        total: itemTotal,
+      });
+    });
+
+    const tax = redondear(subtotal * tasa);
+    return {
+      clientId: dto.clientId,
+      items,
+      subtotal,
+      tax,
+      total: subtotal + tax,
+    };
+  }
+
+  /**
+   * Factura de un cobro ya registrado. Lo que se cobró en el mostrador es el
+   * **total**, con el impuesto dentro: sumárselo encima haría que la factura
+   * pidiera más de lo que el cliente ya pagó. Así que se hace el camino
+   * inverso —la base sale de descontar el impuesto— y el total de la factura
+   * coincide siempre, al peso, con el importe cobrado.
+   */
+  private async desdeElCobro(
+    businessId: string,
+    paymentId: string,
+    tasa: number
+  ) {
+    const cobro = await this.paymentRepo.findOne({
+      where: { id: paymentId, businessId },
+    });
+    if (!cobro) throw new NotFoundException("Cobro no encontrado");
+    if (cobro.status !== PaymentStatus.COMPLETED) {
+      throw new BadRequestException(
+        "Solo se factura un cobro completado: este está " + cobro.status
+      );
+    }
+
+    const yaFacturado = await this.invoiceRepo.exists({
+      where: {
+        businessId,
+        paymentId,
+        status: In([
+          InvoiceStatus.DRAFT,
+          InvoiceStatus.SENT,
+          InvoiceStatus.PAID,
+        ]),
+      },
+    });
+    if (yaFacturado) {
+      throw new ConflictException("Ese cobro ya tiene una factura");
+    }
+
+    const total = Number(cobro.amount);
+    const lineas = await this.lineasDelCobro(businessId, cobro, total);
+
+    // La base de cada línea se redondea, y el impuesto se calcula por
+    // diferencia: así los céntimos del redondeo no descuadran el total.
+    let subtotal = 0;
+    const items = lineas.map((linea) => {
+      const base = redondear(linea.importe / (1 + tasa));
+      subtotal += base;
+      return this.itemRepo.create({
+        description: linea.descripcion,
+        quantity: 1,
+        unitPrice: base,
+        total: base,
+      });
+    });
+    subtotal = redondear(subtotal);
+
+    return {
+      clientId: cobro.clientId,
+      items,
+      subtotal,
+      tax: redondear(total - subtotal),
+      total,
+    };
+  }
+
+  /**
+   * Qué se le factura al cliente por ese cobro. Si el cobro viene de una cita,
+   * sus servicios; si no —un cobro suelto—, una sola línea con el importe,
+   * porque el pago no guarda el detalle de lo que se vendió.
+   */
+  private async lineasDelCobro(
+    businessId: string,
+    cobro: PaymentEntity,
+    total: number
+  ): Promise<{ descripcion: string; importe: number }[]> {
+    if (!cobro.appointmentId) {
+      return [{ descripcion: "Servicios prestados", importe: total }];
+    }
+
+    const cita = await this.http.pedirONulo<CobroDeCita | null>(
+      "booking",
+      `/internal/appointments/${cobro.appointmentId}/cobro?businessId=${businessId}`
+    );
+    const servicios = cita?.services ?? [];
+
+    // Los precios de la cita solo sirven si suman lo cobrado: un descuento o
+    // un canje de puntos los deja por encima, y la factura tiene que cuadrar
+    // con lo que se pagó.
+    const suma = redondear(servicios.reduce((t, s) => t + Number(s.price), 0));
+    if (servicios.length === 0 || suma !== redondear(total)) {
+      return [{ descripcion: "Servicios prestados", importe: total }];
+    }
+
+    return servicios.map((servicio) => ({
+      descripcion: servicio.name,
+      importe: Number(servicio.price),
+    }));
   }
 
   /** Lista las facturas del negocio con sus líneas, filtradas por estado y fecha, paginadas. */
@@ -302,10 +474,10 @@ export class InvoicesService {
    */
   private async generateInvoiceNumber(
     businessId: string,
+    serie: string,
     manager: EntityManager
   ): Promise<string> {
     const year = new Date().getFullYear();
-    const serie = await this.serieDelNegocio(businessId);
 
     const [{ last_number: siguiente }] = (await manager.query(
       `INSERT INTO invoice_sequences (business_id, serie, year, last_number)
@@ -319,15 +491,28 @@ export class InvoicesService {
     return `${serie}-${year}-${String(siguiente).padStart(6, "0")}`;
   }
 
-  /** Serie con la que numera el negocio, tomada de sus datos fiscales. */
-  private async serieDelNegocio(businessId: string): Promise<string> {
+  /**
+   * Serie y tipo impositivo con los que factura el negocio. Sin datos fiscales
+   * configurados, la serie por defecto y el IVA colombiano.
+   */
+  private async datosFiscalesDe(businessId: string): Promise<DatosFiscales> {
     const perfil = await this.http.pedirONulo<ProfileResolution>(
       "core",
       `/internal/profiles/resolve?businessId=${businessId}`
     );
-    const serie = perfil?.business?.facturacion?.serie?.trim();
+    const facturacion = perfil?.business?.facturacion;
+    const serie = facturacion?.serie?.trim();
+    const porcentaje = facturacion?.tasaDeImpuesto;
 
-    return serie ? serie.toUpperCase() : SERIE_POR_DEFECTO;
+    return {
+      serie: serie ? serie.toUpperCase() : SERIE_POR_DEFECTO,
+      // El negocio la escribe en porcentaje; la factura la guarda en tanto por
+      // uno, que es como la lee el PDF.
+      tasa:
+        typeof porcentaje === "number" && porcentaje >= 0
+          ? porcentaje / 100
+          : IVA,
+    };
   }
 
   /** Fecha de vencimiento por defecto: 30 días desde hoy. */
