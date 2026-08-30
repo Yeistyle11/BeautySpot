@@ -67,6 +67,20 @@ describe("catálogos del flujo de reserva", () => {
     expect(serviceSchema.safeParse(servicio).success).toBe(true);
   });
 
+  // Sin profesional elegido el precio del catalogo es un «desde»: la agenda
+  // cobrara la tarifa de quien atienda.
+  it("recoge la marca de precio variable cuando la trae", () => {
+    const servicio = {
+      id: "4a28a25f-5168-4d8b-a8fd-51dc5f9f33e6",
+      name: "Corte básico",
+      price: 30000,
+      duration: 30,
+      precioVariable: true,
+    };
+
+    expect(serviceSchema.parse(servicio).precioVariable).toBe(true);
+  });
+
   it("acepta un profesional sin foto y sin perfil enlazado", () => {
     const profesional = {
       id: "3b2a1c0d-9e8f-4a7b-6c5d-4e3f2a1b0c9d",

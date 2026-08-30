@@ -21,6 +21,8 @@ interface GuestDetailsStepProps {
   startTime: string;
   totalDuration: number;
   totalAmount: number;
+  /** Con «cualquier profesional», el total depende de a quien le toque. */
+  precioPorConfirmar?: boolean;
   /** Usuario con sesion iniciada; si existe, no se piden datos de invitado. */
   user: { name: string; email: string } | null;
   guest: GuestDetails;
@@ -38,6 +40,7 @@ export function GuestDetailsStep({
   startTime,
   totalDuration,
   totalAmount,
+  precioPorConfirmar,
   user,
   guest,
   onGuestChange,
@@ -69,8 +72,17 @@ export function GuestDetailsStep({
           </p>
           <p>
             <span className="font-medium">Total:</span>{" "}
+            {precioPorConfirmar ? "desde " : ""}
             {formatCurrency(totalAmount)}
           </p>
+          {/* Sin profesional elegido, el negocio asigna uno al reservar y con
+              el la tarifa: prometer un total exacto seria inventarselo. */}
+          {precioPorConfirmar && (
+            <p className="text-muted-foreground">
+              Al elegir «cualquier profesional», el precio final depende de
+              quién te atienda.
+            </p>
+          )}
         </div>
 
         {user ? (

@@ -55,13 +55,6 @@ function PublicBookingPageInner() {
     profileResponseSchema
   );
   const profile: Profile | undefined = profileResponse?.profile;
-  const { data: rawServices } = useApiPublic<Service[]>(
-    profile?.businessId
-      ? `/core/public/businesses/${profile.businessId}/services`
-      : null,
-    undefined,
-    z.array(serviceSchema)
-  );
   const { data: rawProfessionals } = useApiPublic<Professional[]>(
     profile?.businessId
       ? `/core/public/businesses/${profile.businessId}/professionals`
@@ -70,10 +63,6 @@ function PublicBookingPageInner() {
     z.array(professionalSchema)
   );
 
-  const services = (rawServices ?? []).map((s) => ({
-    ...s,
-    price: Number(s.price),
-  }));
   // El perfil publico y el profesional son entidades distintas; para reservar
   // hace falta el id del profesional, no el del perfil.
   const professionals = (rawProfessionals ?? []).map((p) => ({
@@ -102,6 +91,34 @@ function PublicBookingPageInner() {
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [error, setError] = useState("");
 
+  const isAnyProfessional = selectedProfessional === "any";
+
+  // Los servicios se piden con la tarifa del profesional elegido: la agenda
+  // cobra el precio del par servicio-profesional, asi que enseñar el del
+  // catalogo era prometer un precio y cobrar otro. La duracion tambien es la
+  // suya, y de ella salen los huecos que se ofrecen.
+  const serviciosKey = profile?.businessId
+    ? `/core/public/businesses/${profile.businessId}/services` +
+      (selectedProfessional && !isAnyProfessional
+        ? `?professionalId=${selectedProfessional}`
+        : "")
+    : null;
+  const { data: rawServices } = useApiPublic<Service[]>(
+    serviciosKey,
+    undefined,
+    z.array(serviceSchema)
+  );
+
+  const services = (rawServices ?? []).map((s) => ({
+    ...s,
+    price: Number(s.price),
+  }));
+
+  // Con «cualquier profesional» el precio aun no esta decidido: lo elige el
+  // servidor al reservar, y con el la tarifa.
+  const precioPorConfirmar =
+    isAnyProfessional && services.some((s) => s.precioVariable);
+
   const selectedServiceData = services.filter((s) =>
     selectedServices.includes(s.id)
   );
@@ -113,7 +130,6 @@ function PublicBookingPageInner() {
 
   // Con "cualquier profesional" la disponibilidad se pide del negocio entero, que
   // devuelve la union de las agendas; con uno concreto, solo la suya.
-  const isAnyProfessional = selectedProfessional === "any";
   const alcanceSlots = isAnyProfessional
     ? `businessId=${profile?.businessId}`
     : `professionalId=${selectedProfessional}`;
@@ -319,6 +335,7 @@ function PublicBookingPageInner() {
           startTime={startTime}
           totalDuration={totalDuration}
           totalAmount={totalAmount}
+          precioPorConfirmar={precioPorConfirmar}
           user={isAuthenticated && user ? user : null}
           guest={guest}
           onGuestChange={setGuest}

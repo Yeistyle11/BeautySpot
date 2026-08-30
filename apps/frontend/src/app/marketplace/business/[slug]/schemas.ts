@@ -80,6 +80,8 @@ export const servicioPublicoSchema = z.object({
   category: z.string().nullish(),
   price: z.number(),
   duration: z.number(),
+  /** Hay profesionales con tarifa propia: el del catalogo es un «desde». */
+  precioVariable: z.boolean().nullish(),
 });
 export type ServicioPublico = z.infer<typeof servicioPublicoSchema>;
 

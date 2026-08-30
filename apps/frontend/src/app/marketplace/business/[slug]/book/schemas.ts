@@ -20,6 +20,11 @@ export const serviceSchema = z.object({
   name: z.string(),
   price: z.number(),
   duration: z.number(),
+  /**
+   * El precio depende del profesional y todavia no hay ninguno elegido: lo que
+   * se enseña es el del catalogo, y se dice «desde».
+   */
+  precioVariable: z.boolean().nullish(),
 });
 export type Service = z.infer<typeof serviceSchema>;
 

@@ -1,10 +1,26 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { escapeLikePattern } from "@beautyspot/shared-utils";
 import { Business } from "../../entities/business.entity";
 import { Service } from "../../entities/service.entity";
 import { Professional } from "../../entities/professional.entity";
+import { PreciosService } from "../precios/precios.service";
+
+/** Servicio tal como lo ve quien reserva desde el escaparate. */
+export interface ServicioPublico {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  duration: number;
+  category: string;
+  /**
+   * El precio depende de con quién se atienda y todavía no hay profesional
+   * elegido: lo que se enseña es el del catálogo, y se dice «desde».
+   */
+  precioVariable?: boolean;
+}
 
 /**
  * Consultas públicas (sin autenticación) de negocios, servicios y profesionales,
@@ -18,7 +34,8 @@ export class PublicService {
     @InjectRepository(Service)
     private readonly serviceRepo: Repository<Service>,
     @InjectRepository(Professional)
-    private readonly proRepo: Repository<Professional>
+    private readonly proRepo: Repository<Professional>,
+    private readonly precios: PreciosService
   ) {}
 
   /** Lista negocios activos con filtro opcional por nombre y ciudad (máx. 50). */
@@ -71,12 +88,90 @@ export class PublicService {
     return business;
   }
 
-  /** Lista los servicios activos de un negocio para su perfil público. */
-  async getBusinessServices(businessId: string) {
-    return this.serviceRepo.find({
+  /**
+   * Lista los servicios activos de un negocio para su perfil público, con el
+   * precio y la duración que de verdad se van a aplicar.
+   *
+   * Con profesional elegido se resuelve su tarifa, que es la que la agenda
+   * cobrará; sin él el precio aún no está decidido —el servidor elige
+   * profesional al reservar—, así que se devuelve el del catálogo marcando
+   * cuáles pueden variar.
+   */
+  async getBusinessServices(
+    businessId: string,
+    professionalId?: string
+  ): Promise<ServicioPublico[]> {
+    const servicios = await this.serviceRepo.find({
       where: { businessId, active: true },
-      select: ["id", "name", "description", "price", "duration", "category"],
+      select: [
+        "id",
+        "name",
+        "description",
+        "price",
+        "duration",
+        "category",
+        "procesadoDesde",
+        "procesadoMinutos",
+        "bufferDespues",
+      ],
     });
+
+    const ids = servicios.map((s) => s.id);
+
+    if (professionalId) {
+      await this.exigirProfesionalDelNegocio(businessId, professionalId);
+      const tarifas = await this.precios.tarifasDe(ids, professionalId);
+
+      return servicios.map((servicio) => {
+        const efectivo = this.precios.resolver(
+          servicio,
+          tarifas.get(servicio.id)
+        );
+        return {
+          ...this.comoPublico(servicio),
+          price: efectivo.price,
+          duration: efectivo.duration,
+        };
+      });
+    }
+
+    const variables = await this.precios.idsConTarifaPropia(ids);
+
+    return servicios.map((servicio) => ({
+      ...this.comoPublico(servicio),
+      precioVariable: variables.has(servicio.id),
+    }));
+  }
+
+  /** Los campos del servicio que se publican, sin los del reparto de agenda. */
+  private comoPublico(servicio: Service): ServicioPublico {
+    return {
+      id: servicio.id,
+      name: servicio.name,
+      description: servicio.description,
+      price: servicio.price,
+      duration: servicio.duration,
+      category: servicio.category,
+    };
+  }
+
+  /**
+   * Corta la tarifa de un profesional de otro negocio: la ruta es pública y el
+   * identificador llega del navegador.
+   */
+  private async exigirProfesionalDelNegocio(
+    businessId: string,
+    professionalId: string
+  ): Promise<void> {
+    const suyo = await this.proRepo.findOne({
+      where: { id: professionalId, businessId, active: true },
+      select: ["id"],
+    });
+    if (!suyo) {
+      throw new BadRequestException(
+        "El profesional indicado no es de este negocio"
+      );
+    }
   }
 
   /** Lista los profesionales activos de un negocio para su perfil público. */

@@ -20,10 +20,16 @@ export class PublicController {
     return this.publicService.getBusinessBySlug(slug);
   }
 
-  /** Lista los servicios públicos de un negocio. */
+  /**
+   * Lista los servicios públicos de un negocio. Con `professionalId`, con la
+   * tarifa de ese profesional, que es la que se cobrará.
+   */
   @Get("businesses/:id/services")
-  async getBusinessServices(@Param("id") businessId: string) {
-    return this.publicService.getBusinessServices(businessId);
+  async getBusinessServices(
+    @Param("id") businessId: string,
+    @Query("professionalId") professionalId?: string
+  ) {
+    return this.publicService.getBusinessServices(businessId, professionalId);
   }
 
   /** Lista los profesionales públicos de un negocio. */

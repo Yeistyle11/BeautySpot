@@ -4,6 +4,7 @@ import { BadRequestException } from "@nestjs/common";
 import { InternalServicesController } from "./internal-services.controller";
 import { Service } from "../../entities/service.entity";
 import { ProfessionalService } from "../../entities/professional-service.entity";
+import { PreciosService } from "../precios/precios.service";
 
 const TINTE = "11111111-1111-4111-8111-111111111111";
 const CORTE = "22222222-2222-4222-8222-222222222222";
@@ -43,6 +44,9 @@ describe("InternalServicesController", () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [InternalServicesController],
       providers: [
+        // La regla de la tarifa va de verdad: lo que se prueba aqui es que la
+        // ruta interna resuelve lo mismo que ve el escaparate.
+        PreciosService,
         { provide: getRepositoryToken(Service), useValue: mockServiceRepo },
         {
           provide: getRepositoryToken(ProfessionalService),

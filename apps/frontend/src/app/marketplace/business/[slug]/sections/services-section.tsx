@@ -46,7 +46,13 @@ export function ServicesSection({
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold">{formatCurrency(s.price)}</p>
+                  {/* Con tarifas por profesional, la ficha publica no puede
+                      prometer un precio: el del catalogo es el punto de
+                      partida. */}
+                  <p className="font-semibold">
+                    {s.precioVariable ? "desde " : ""}
+                    {formatCurrency(s.price)}
+                  </p>
                   <Link href={`/marketplace/business/${slug}/book`}>
                     <Button size="sm" variant="outline" className="mt-2">
                       Reservar

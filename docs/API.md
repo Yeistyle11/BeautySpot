@@ -462,6 +462,13 @@ Controlador `@Public()`: sin token. Alimenta el marketplace y la reserva públic
 | GET    | `/businesses/:id/services`      | Servicios del negocio     |
 | GET    | `/businesses/:id/professionals` | Profesionales del negocio |
 
+`/businesses/:id/services` admite `?professionalId=`, y entonces devuelve el
+**precio y la duración de ese profesional**, que son los que la agenda aplicará
+al reservar. Sin él, los del catálogo, marcando con `precioVariable` los
+servicios que algún profesional cobra o dura distinto: hasta que hay profesional
+elegido, el precio del catálogo es un «desde» y no una promesa. Un
+`professionalId` de otro negocio responde 400.
+
 ### Internos
 
 | Método | Ruta                                    | Descripción                                                                         |
