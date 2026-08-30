@@ -51,6 +51,25 @@ export function toLocalDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/** Suma (o resta) dias a una fecha "YYYY-MM-DD", en horario local. */
+export function desplazarDia(date: string, dias: number): string {
+  // El mediodia evita que el cambio de horario de verano corra un dia.
+  const d = new Date(`${date}T12:00:00`);
+  d.setDate(d.getDate() + dias);
+  return toLocalDateKey(d);
+}
+
+/**
+ * Los siete dias de la semana que contiene esa fecha, de lunes a domingo.
+ * `getDay()` numera el domingo como 0, que aqui cierra la semana en vez de
+ * abrirla.
+ */
+export function fechasDeLaSemana(date: string): string[] {
+  const dia = new Date(`${date}T12:00:00`).getDay();
+  const lunes = desplazarDia(date, dia === 0 ? -6 : 1 - dia);
+  return Array.from({ length: 7 }, (_, i) => desplazarDia(lunes, i));
+}
+
 /**
  * Indica si una cita ("YYYY-MM-DD" + "HH:MM") ya ha empezado.
  *

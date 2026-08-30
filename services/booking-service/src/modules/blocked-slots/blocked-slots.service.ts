@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { In, Repository, MoreThanOrEqual } from "typeorm";
+import { Between, In, Repository, MoreThanOrEqual } from "typeorm";
 import {
   esFechaPasadaEn,
   esHoraValida,
@@ -63,10 +63,18 @@ export class BlockedSlotsService {
   }
 
   /** Bloqueos de todo el equipo un día concreto, para pintarlos en la agenda. */
-  async findByDate(businessId: string, date: string): Promise<BlockedSlot[]> {
+  async findByDate(
+    businessId: string,
+    date: string,
+    hasta?: string
+  ): Promise<BlockedSlot[]> {
     return this.repo.find({
-      where: { businessId, date },
-      order: { startTime: "ASC" },
+      // La vista semana pide siete dias de una vez; sin rango, el dia suelto.
+      where: {
+        businessId,
+        date: hasta && hasta > date ? Between(date, hasta) : date,
+      },
+      order: { date: "ASC", startTime: "ASC" },
     });
   }
 

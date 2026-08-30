@@ -10,6 +10,7 @@ import {
   timeToMinutes,
 } from "@beautyspot/shared-utils";
 import {
+  desplazarDia,
   formatCurrency,
   formatTime,
   haComenzado,
@@ -36,6 +37,8 @@ interface DayViewProps {
   clientNames: Record<string, string>;
   /** Bloqueos del día de todo el equipo, para pintarlos sobre la rejilla. */
   bloqueos?: BloqueoDeAgenda[];
+  /** Dias de la semana (0 domingo … 6 sabado) en los que el negocio abre. */
+  diasAbiertos?: number[];
   /** Bloquear desde un hueco; sin este prop la rejilla no es pulsable. */
   onBloquearHueco?: (professionalId: string, hora: string) => void;
 }
@@ -96,13 +99,6 @@ function nombreDeProfesional(
   return professionals.find((p) => p.id === id)?.name ?? "otro profesional";
 }
 
-/** Suma un dia a una fecha `YYYY-MM-DD`. */
-function desplazarDia(date: string, dias: number): string {
-  const d = new Date(date + "T12:00:00");
-  d.setDate(d.getDate() + dias);
-  return toLocalDateKey(d);
-}
-
 /** Bloque de una cita en la columna de un profesional, en horas de pared. */
 interface BloqueDeCita {
   appt: Appointment;
@@ -116,6 +112,62 @@ interface BloqueDeCita {
   finDeCliente: string;
   /** La cita se reparte entre varios profesionales. */
   compartida: boolean;
+}
+
+/** Un bloque con el sitio que le toca cuando comparte franja con otros. */
+export interface BloqueRepartido {
+  bloque: BloqueDeCita;
+  /** Columna que ocupa dentro de su grupo de solape, empezando en cero. */
+  columna: number;
+  /** Columnas en que se parte el grupo al que pertenece. */
+  columnas: number;
+}
+
+/**
+ * Reparte el ancho de la columna entre las citas que se solapan. Sin esto la
+ * segunda se dibuja encima de la primera y tapa su nombre — justo en el caso
+ * que hace valioso el tiempo de procesado, que es vender el hueco del tinte a
+ * otra clienta.
+ *
+ * Cada grupo de citas encadenadas por solape se parte en tantas columnas como
+ * haga falta, y cada cita entra en la primera columna que ya haya quedado
+ * libre a su hora.
+ */
+export function repartirSolapes(bloques: BloqueDeCita[]): BloqueRepartido[] {
+  const ordenados = [...bloques].sort(
+    (a, b) => timeToMinutes(a.inicio) - timeToMinutes(b.inicio)
+  );
+
+  const repartidos: BloqueRepartido[] = [];
+  let grupo: BloqueRepartido[] = [];
+  // Fin de cada columna del grupo en curso, para saber cual ha quedado libre.
+  let finDeColumna: number[] = [];
+  let finDelGrupo = -1;
+
+  const cerrarGrupo = () => {
+    for (const entrada of grupo) entrada.columnas = finDeColumna.length;
+    repartidos.push(...grupo);
+    grupo = [];
+    finDeColumna = [];
+    finDelGrupo = -1;
+  };
+
+  for (const bloque of ordenados) {
+    const inicio = timeToMinutes(bloque.inicio);
+    const fin = timeToMinutes(bloque.fin);
+
+    // Nada de lo que hay en el grupo llega hasta aqui: empieza uno nuevo.
+    if (inicio >= finDelGrupo) cerrarGrupo();
+
+    const columna = finDeColumna.findIndex((libre) => libre <= inicio);
+    const elegida = columna === -1 ? finDeColumna.length : columna;
+    finDeColumna[elegida] = fin;
+    finDelGrupo = Math.max(finDelGrupo, fin);
+    grupo.push({ bloque, columna: elegida, columnas: finDeColumna.length });
+  }
+  cerrarGrupo();
+
+  return repartidos;
 }
 
 /** Lineas de la cita en la forma que entiende el reparto de agenda. */
@@ -169,6 +221,7 @@ export function DayView({
   canCancel,
   clientNames,
   bloqueos = [],
+  diasAbiertos,
   onBloquearHueco,
 }: DayViewProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -190,6 +243,16 @@ export function DayView({
     }
     return mapa;
   }, [delDia]);
+
+  // Las citas que comparten franja se reparten el ancho de la columna en vez
+  // de taparse.
+  const repartoPorColumna = useMemo(() => {
+    const mapa = new Map<string, BloqueRepartido[]>();
+    for (const [professionalId, bloques] of bloquesPorProfesional) {
+      mapa.set(professionalId, repartirSolapes(bloques));
+    }
+    return mapa;
+  }, [bloquesPorProfesional]);
 
   const bloqueosPorProfesional = useMemo(() => {
     const mapa = new Map<string, BloqueoDeAgenda[]>();
@@ -224,6 +287,10 @@ export function DayView({
   }, [bloquesPorProfesional, professionals]);
 
   const esHoy = date === toLocalDateKey(new Date());
+  // Sin horario cargado no se afirma que el negocio este cerrado.
+  const cerrado = diasAbiertos
+    ? !diasAbiertos.includes(new Date(`${date}T12:00:00`).getDay())
+    : false;
   const etiqueta = new Date(date + "T12:00:00").toLocaleDateString("es-CO", {
     weekday: "long",
     day: "numeric",
@@ -261,6 +328,13 @@ export function DayView({
         <span className="ml-2 text-sm font-medium first-letter:uppercase">
           {etiqueta}
         </span>
+        {/* El negocio cerrado se dibujaba con la rejilla de cualquier otro dia,
+            sin decir en ninguna parte que ese dia no se abre. */}
+        {cerrado && (
+          <span className="bg-muted text-muted-foreground rounded px-2 py-0.5 text-xs font-medium">
+            Cerrado
+          </span>
+        )}
       </div>
 
       {columnas.length === 0 ? (
@@ -335,16 +409,22 @@ export function DayView({
                   />
                 ))}
 
-                {(bloquesPorProfesional.get(p.id) ?? []).map((bloque) => (
+                {(repartoPorColumna.get(p.id) ?? []).map((reparto) => (
                   <BloqueCita
-                    key={`${bloque.appt.id}-${bloque.professionalId}`}
-                    bloque={bloque}
+                    key={`${reparto.bloque.appt.id}-${reparto.bloque.professionalId}`}
+                    bloque={reparto.bloque}
+                    columna={reparto.columna}
+                    columnas={reparto.columnas}
                     horaInicio={horaInicio}
-                    seleccionada={selectedId === bloque.appt.id}
-                    cliente={clientNames[bloque.appt.clientId] || "Cliente"}
+                    seleccionada={selectedId === reparto.bloque.appt.id}
+                    cliente={
+                      clientNames[reparto.bloque.appt.clientId] || "Cliente"
+                    }
                     onSelect={() =>
                       setSelectedId(
-                        selectedId === bloque.appt.id ? null : bloque.appt.id
+                        selectedId === reparto.bloque.appt.id
+                          ? null
+                          : reparto.bloque.appt.id
                       )
                     }
                   />
@@ -473,12 +553,16 @@ function BloqueoPintado({
 /** Cita en la columna: el contorno abarca su duración y dentro van los tramos ocupados. */
 function BloqueCita({
   bloque,
+  columna,
+  columnas,
   horaInicio,
   seleccionada,
   cliente,
   onSelect,
 }: {
   bloque: BloqueDeCita;
+  columna: number;
+  columnas: number;
   horaInicio: number;
   seleccionada: boolean;
   cliente: string;
@@ -499,12 +583,20 @@ function BloqueCita({
     ),
   }));
 
+  // Sola ocupa la columna entera; compartiendo franja, la parte que le toca.
+  const ancho = 100 / columnas;
+
   return (
     <button
       onClick={onSelect}
       aria-pressed={seleccionada}
-      className={`absolute inset-x-0.5 rounded border border-dashed text-left ${seleccionada ? "ring-primary z-10 ring-2" : ""}`}
-      style={{ top: arriba, height: alto }}
+      className={`absolute rounded border border-dashed text-left ${seleccionada ? "ring-primary z-10 ring-2" : ""}`}
+      style={{
+        top: arriba,
+        height: alto,
+        left: `calc(${columna * ancho}% + 2px)`,
+        width: `calc(${ancho}% - 4px)`,
+      }}
     >
       {ocupados.map((tramo, i) => (
         <span

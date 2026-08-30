@@ -27,7 +27,7 @@ import {
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
-import { toLocalDateKey } from "@/lib/utils";
+import { fechasDeLaSemana, toLocalDateKey } from "@/lib/utils";
 import { useApi, paginatedSchema, revalidatePrefix } from "@/lib/swr";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { usePaginatedList } from "@/lib/use-paginated-list";
@@ -44,6 +44,7 @@ import {
   toBlockedSlotPayload,
   type BlockedSlot,
 } from "../blocked-slots/schemas";
+import { businessHourSchema, type BusinessHour } from "../settings/schemas";
 import {
   CompleteAppointmentDialog,
   emptyPaymentDraft,
@@ -132,13 +133,35 @@ export default function AppointmentsPage() {
     search: viewMode === "list" ? search : "",
   });
 
-  // Los bloqueos solo hacen falta en la vista dia, que es la unica que los
-  // pinta y la unica desde la que se crean.
+  // La vista dia pide los bloqueos de ese dia; la semana, los de los siete,
+  // que es lo que le faltaba para no pintar como libre la tarde de quien esta
+  // de vacaciones. La lista no los necesita.
   const puedeBloquear = canDo(role, "blocked_slots_create");
+  const semana = useMemo(() => fechasDeLaSemana(dia), [dia]);
+  const bloqueosKey =
+    viewMode === "day"
+      ? `/booking/blocked-slots?date=${dia}`
+      : viewMode === "calendar"
+        ? `/booking/blocked-slots?date=${semana[0]}&hasta=${semana[6]}`
+        : null;
   const { data: bloqueos, mutate: recargarBloqueos } = useApi<BlockedSlot[]>(
-    viewMode === "day" ? `/booking/blocked-slots?date=${dia}` : null,
+    bloqueosKey,
     undefined,
     z.array(blockedSlotSchema)
+  );
+
+  // El horario del negocio, para marcar como cerrados los dias sin apertura.
+  const { data: horarios } = useApi<BusinessHour[]>(
+    "/core/business-hours",
+    undefined,
+    z.array(businessHourSchema)
+  );
+  const diasAbiertos = useMemo(
+    () =>
+      horarios
+        ? [...new Set(horarios.filter((h) => h.active).map((h) => h.dayOfWeek))]
+        : undefined,
+    [horarios]
   );
 
   const [bloqueoForm, setBloqueoForm] = useState(emptyBlockedSlotForm);
@@ -531,6 +554,7 @@ export default function AppointmentsPage() {
                 canCancel={canDo(role, "appointments_cancel")}
                 clientNames={clientMap}
                 bloqueos={bloqueos ?? []}
+                diasAbiertos={diasAbiertos}
                 onBloquearHueco={puedeBloquear ? abrirBloqueo : undefined}
               />
             )}
@@ -546,6 +570,8 @@ export default function AppointmentsPage() {
             ) : (
               <CalendarView
                 appointments={appointments}
+                date={dia}
+                onDateChange={setDia}
                 onComplete={openCompleteDialog}
                 onConfirm={handleConfirm}
                 onCancel={handleCancel}
@@ -553,6 +579,9 @@ export default function AppointmentsPage() {
                 canConfirm={canDo(role, "appointments_confirm")}
                 canCancel={canDo(role, "appointments_cancel")}
                 clientNames={clientMap}
+                bloqueos={bloqueos ?? []}
+                nombresDeProfesional={professionalMap}
+                diasAbiertos={diasAbiertos}
               />
             )}
           </CardContent>

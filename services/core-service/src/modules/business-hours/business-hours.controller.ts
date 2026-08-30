@@ -21,7 +21,13 @@ import {
 export class BusinessHoursController {
   constructor(private readonly service: BusinessHoursService) {}
 
-  /** Devuelve el horario del negocio (o de una sede concreta). */
+  /**
+   * Devuelve el horario del negocio (o de una sede concreta). Lo lee tambien
+   * recepcion: la agenda marca como cerrados los dias sin horario, y es quien
+   * atiende el telefono la que necesita verlo. Cambiarlo sigue siendo de dueño
+   * y administrador.
+   */
+  @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Get()
   async findAll(
     @BusinessId() businessId: string,

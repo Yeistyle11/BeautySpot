@@ -311,12 +311,16 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 
 | Método | Ruta              | Descripción                                             |
 | ------ | ----------------- | ------------------------------------------------------- |
-| GET    | `/`               | Horario semanal del negocio                             |
+| GET    | `/`               | Horario semanal del negocio (+ **RECEPTIONIST**)        |
 | PUT    | `/`               | Reemplaza el horario completo (upsert)                  |
 | PATCH  | `/:id`            | Actualiza un tramo                                      |
 | GET    | `/especiales`     | Días especiales declarados, del más próximo             |
 | POST   | `/especiales`     | Declara un festivo, unas vacaciones o un horario propio |
 | DELETE | `/especiales/:id` | Retira un día especial                                  |
+
+La lectura del horario semanal admite además a **RECEPTIONIST**: la agenda marca
+como cerrados los días sin horario y es recepción quien responde al teléfono.
+Cambiarlo sigue siendo cosa de dueño y administrador.
 
 Un **día especial** es un rango de fechas con motivo que manda sobre el horario
 de la semana: `closed: true` cierra el negocio esos días, y con `closed: false`
@@ -542,11 +546,15 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 ### Bloqueos del día — `/api/v1/booking/blocked-slots`
 
 Roles a nivel de clase: **OWNER, ADMIN, RECEPTIONIST**. Los bloqueos de todo el
-equipo un día concreto, que es lo que pinta la vista día de la agenda.
+equipo, que es lo que pintan las vistas día y semana de la agenda.
 
-| Método | Ruta      | Descripción                 |
-| ------ | --------- | --------------------------- |
-| GET    | `/?date=` | Bloqueos del equipo ese día |
+| Método | Ruta             | Descripción                                       |
+| ------ | ---------------- | ------------------------------------------------- |
+| GET    | `/?date=`        | Bloqueos del equipo ese día                       |
+| GET    | `/?date=&hasta=` | Bloqueos del equipo en el rango, `hasta` incluido |
+
+`hasta` es opcional y lo usa la vista semana para traerse los siete días de una
+vez; sin él se devuelven los de `date`.
 
 `POST` responde siempre con **una lista** de bloqueos, también cuando se crea uno
 solo. Con `repeticion` (`DIARIA` o `SEMANAL`) hace falta `repetirHasta`, y se

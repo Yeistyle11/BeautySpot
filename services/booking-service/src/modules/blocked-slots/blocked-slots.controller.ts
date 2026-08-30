@@ -24,13 +24,13 @@ import {
 export class BlockedSlotsDelDiaController {
   constructor(private readonly service: BlockedSlotsService) {}
 
-  /** Bloqueos del negocio en una fecha, de todos sus profesionales. */
+  /** Bloqueos del negocio en una fecha o en un rango, de todos sus profesionales. */
   @Get()
   async findByDate(
     @BusinessId() businessId: string,
     @Query() query: BlockedSlotsDelDiaDto
   ) {
-    return this.service.findByDate(businessId, query.date);
+    return this.service.findByDate(businessId, query.date, query.hasta);
   }
 }
 
