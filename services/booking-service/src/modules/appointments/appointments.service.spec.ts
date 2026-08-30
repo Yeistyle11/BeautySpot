@@ -1160,7 +1160,12 @@ describe("AppointmentsService", () => {
 
   describe("markNoShow", () => {
     it("debería marcar una cita como no asistida", async () => {
-      mockApptRepo.findOne.mockResolvedValue(mockAppointment);
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        // Ya empezada: a una cita que no ha llegado nadie puede faltar.
+        ...dentroDeMinutos(-30),
+        generateId: () => {},
+      } as any);
       mockApptRepo.update.mockResolvedValue({ affected: 1 } as any);
 
       await service.markNoShow("appt-123", "business-123");
@@ -1186,6 +1191,22 @@ describe("AppointmentsService", () => {
       await expect(
         service.markNoShow("appt-123", "business-123")
       ).rejects.toThrow(BadRequestException);
+    });
+
+    // La regla vivía solo en la pantalla, que esconde el botón hasta que la
+    // cita empieza; el servicio aceptaba el plantón de una cita futura y con él
+    // ensuciaba la tasa de asistencia y el historial del cliente.
+    it("no deja plantar una cita que todavía no ha empezado", async () => {
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        ...dentroDeMinutos(30),
+        generateId: () => {},
+      } as any);
+
+      await expect(
+        service.markNoShow("appt-123", "business-123")
+      ).rejects.toThrow("La cita todavía no ha empezado");
+      expect(mockManager.update).not.toHaveBeenCalled();
     });
   });
 

@@ -530,6 +530,14 @@ export class AppointmentsService {
         "Solo se puede marcar no-show en citas pendientes o confirmadas"
       );
     }
+    // Nadie falta a una cita que aun no ha empezado: el planton ensucia la tasa
+    // de asistencia del informe y mancha el historial del cliente.
+    const zona = await this.zonas.de(businessId);
+    if (!esInstantePasadoEn(zona, appt.date, appt.startTime)) {
+      throw new BadRequestException(
+        "La cita todavía no ha empezado: no se puede marcar como no asistida"
+      );
+    }
     await this.dataSource.transaction(async (manager) => {
       await manager.update(
         Appointment,
