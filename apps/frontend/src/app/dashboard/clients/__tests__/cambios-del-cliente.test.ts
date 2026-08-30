@@ -56,4 +56,16 @@ describe("cambiosDelCliente", () => {
 
     expect(cambiosDelCliente(sinNotas, { ...CARGADO, notes: "" })).toEqual({});
   });
+
+  it("manda el nombre sin los espacios de los extremos", () => {
+    const editado = { ...CARGADO, name: "  Ana Ruiz  " };
+
+    expect(cambiosDelCliente(CARGADO, editado)).toEqual({ name: "Ana Ruiz" });
+  });
+
+  it("añadir espacios alrededor del nombre no es un cambio", () => {
+    const editado = { ...CARGADO, name: `  ${CARGADO.name}  ` };
+
+    expect(cambiosDelCliente(CARGADO, editado)).toEqual({});
+  });
 });

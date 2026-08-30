@@ -105,6 +105,9 @@ export function ClientFormDialog({
             label={submitLabel}
             pendingLabel="Guardando..."
             pending={saving}
+            // El `required` del campo se conforma con espacios, y una ficha sin
+            // nombre no se reconoce en el listado ni se encuentra buscando.
+            disabled={!form.name.trim()}
           />
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar

@@ -129,7 +129,7 @@ export default function ClientsPage() {
     setSavingCreate(true);
     try {
       await createClient({
-        name: createForm.name,
+        name: createForm.name.trim(),
         email: createForm.email || undefined,
         phone: createForm.phone || undefined,
         birthDate: createForm.birthDate || undefined,

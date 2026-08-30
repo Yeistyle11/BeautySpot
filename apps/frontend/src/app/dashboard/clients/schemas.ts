@@ -57,7 +57,11 @@ export function cambiosDelCliente(
   actual: ClientForm
 ): CambiosDelCliente {
   const cambios: CambiosDelCliente = {};
-  if (actual.name !== original.name) cambios.name = actual.name;
+  // El nombre viaja recortado: los espacios de los extremos no distinguen a
+  // nadie y un nombre que solo son espacios deja la ficha sin identidad.
+  if (actual.name.trim() !== original.name.trim()) {
+    cambios.name = actual.name.trim();
+  }
   if (actual.email !== original.email)
     cambios.email = actual.email || undefined;
   if (actual.phone !== original.phone)
