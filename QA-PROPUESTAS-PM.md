@@ -16,7 +16,7 @@ en `QA-REMEDIATION-PLAN.md`.
 
 | ID     | Qué falta                                   | Backend                    | Interfaz  | Esfuerzo | Orden |
 | ------ | ------------------------------------------- | -------------------------- | --------- | -------- | ----- |
-| BS-003 | Pantalla de facturas y tasa de impuesto     | Hecho, salvo la tasa ⚠️    | Todo      | M        | 1     |
+| BS-003 | Pantalla de facturas y tasa de impuesto     | Hecho                      | **Hecha** | —        | ✅    |
 | BS-002 | Devolver o anular un cobro                  | Hecho, más de lo que decía | Todo      | S        | 2     |
 | BS-006 | Precio y duración por profesional           | Hecho                      | **Hecha** | —        | ✅    |
 | BS-028 | Sembrar el negocio nuevo según su tipo      | Falta                      | Poca      | M        | 4     |
@@ -28,12 +28,12 @@ en `QA-REMEDIATION-PLAN.md`.
 
 El orden es de impacto comercial frente a coste. Los tres primeros comparten un
 rasgo que los pone arriba: **la función ya está construida y pagada en el
-backend, y lo único que falta es la pantalla que la alcance**. BS-006 ya la
-tiene.
+backend, y lo único que falta es la pantalla que la alcance**. BS-003 y BS-006 ya
+la tienen; queda BS-002.
 
 ---
 
-## 1 · BS-003 · Facturas: emitir, listar y descargar
+## 1 · BS-003 · Facturas: emitir, listar y descargar ✅ (implementado)
 
 **Qué hay hoy.** El módulo entero. `invoices.controller.ts` expone `POST /`
 (OWNER/ADMIN), `GET /`, `GET /:id`, `PATCH /:id/status` y **`GET /:id/pdf`**, con
@@ -50,26 +50,24 @@ leída directamente por `invoices.service.ts`. Configuración → Facturación g
 razón social, NIT, dirección fiscal y serie, y ahí acaba. Un negocio exento, o
 uno que facture con otro tipo, hoy no puede.
 
-**Propuesta.**
+**Hecho.** Pantalla «Facturas» en el panel —listado con filtros por estado,
+detalle con el desglose congelado, PDF y cambio de estado ofreciendo solo las
+transiciones que el servicio acepta—, emisión desde un cobro (`paymentId` en el
+DTO y columna, con índice único que impide facturarlo dos veces) y la tasa
+configurable en Configuración → Facturación, que admite el cero.
 
-1. Pantalla «Facturas» en el panel: listado paginado con su estado, detalle,
-   cambio de estado y descarga del PDF. Es CRUD de lectura sobre rutas que ya
-   responden; `use-paginated-list` lo cubre casi entero.
-2. Emitir desde un cobro. `CreateInvoiceDto` pide `clientId` + `items`, sin
-   referencia al pago, así que hay dos caminos: que la pantalla componga las
-   líneas desde el cobro elegido (sin tocar backend, pero la factura no queda
-   ligada al pago), o añadir `paymentId` al DTO y que el servicio arme las líneas
-   (una columna más, y la trazabilidad cobro↔factura, que es lo que se querrá
-   cuando alguien pregunte «¿esta factura de qué cobro salió?»). **Recomendamos
-   la segunda.**
-3. Campo de tasa de impuesto en Configuración → Facturación (`FacturacionDto`),
-   con `IVA` como valor por defecto para no cambiarle el tipo a nadie. La factura
-   la sigue congelando al emitir, así que las ya emitidas no se mueven.
+Al emitir desde un cobro apareció algo que la propuesta no había visto: **lo
+cobrado en el mostrador lleva el impuesto dentro**. Sumárselo encima habría hecho
+que la factura pidiera más de lo que el cliente ya pagó, así que la base se
+calcula descontándolo y el impuesto sale por diferencia; el total coincide al
+peso con lo cobrado. Y si los precios de la cita no suman lo cobrado —un
+descuento, un canje de puntos— se emite una sola línea antes que publicar un
+desglose que no cuadra.
 
-**Qué hay que decidir.** Si se factura por cobro o si se permite agrupar varios
-en una factura; si el estado de la factura lo puede tocar recepción o solo
-dueño/administrador; qué pasa al devolver un cobro que ya se facturó (nota de
-crédito, anular la factura, o nada por ahora).
+**Qué queda por decidir.** Si se permite agrupar varios cobros en una factura
+(hoy es uno a uno) y qué pasa al devolver un cobro ya facturado: nota de crédito,
+anular la factura, o nada por ahora. Facturar a mano, sin cobro detrás, sigue
+siendo posible por API pero no tiene pantalla.
 
 **Cómo se sabe que sirvió.** Un salón con NIT puede cerrar el mes sin salirse del
 producto. Hoy no puede empezarlo.
