@@ -14,21 +14,22 @@ en `QA-REMEDIATION-PLAN.md`.
 
 ## Resumen
 
-| ID     | Qué falta                                   | Backend                    | Interfaz | Esfuerzo | Orden |
-| ------ | ------------------------------------------- | -------------------------- | -------- | -------- | ----- |
-| BS-003 | Pantalla de facturas y tasa de impuesto     | Hecho, salvo la tasa ⚠️    | Todo     | M        | 1     |
-| BS-002 | Devolver o anular un cobro                  | Hecho, más de lo que decía | Todo     | S        | 2     |
-| BS-006 | Precio y duración por profesional           | **Ya está hecho** ⚠️       | Todo     | S        | 3     |
-| BS-028 | Sembrar el negocio nuevo según su tipo      | Falta                      | Poca     | M        | 4     |
-| BS-024 | Exigir un contacto en la reserva pública    | Una regla en el DTO        | Poca     | XS       | 5     |
-| BS-013 | Alta de walk-in retroactivo                 | Falta el concepto          | Media    | M        | 6     |
-| BS-021 | Fusión de fichas duplicadas                 | Falta, y cruza 4 servicios | Media    | L        | 7     |
-| BS-005 | Descuento, propina y pago mixto             | Falta entero ⚠️            | Media    | L        | 8     |
-| BS-025 | Aviso de edición simultánea (409 optimista) | Una comprobación por ruta  | Poca     | M        | 9     |
+| ID     | Qué falta                                   | Backend                    | Interfaz  | Esfuerzo | Orden |
+| ------ | ------------------------------------------- | -------------------------- | --------- | -------- | ----- |
+| BS-003 | Pantalla de facturas y tasa de impuesto     | Hecho, salvo la tasa ⚠️    | Todo      | M        | 1     |
+| BS-002 | Devolver o anular un cobro                  | Hecho, más de lo que decía | Todo      | S        | 2     |
+| BS-006 | Precio y duración por profesional           | Hecho                      | **Hecha** | —        | ✅    |
+| BS-028 | Sembrar el negocio nuevo según su tipo      | Falta                      | Poca      | M        | 4     |
+| BS-024 | Exigir un contacto en la reserva pública    | Una regla en el DTO        | Poca      | XS       | 5     |
+| BS-013 | Alta de walk-in retroactivo                 | Falta el concepto          | Media     | M        | 6     |
+| BS-021 | Fusión de fichas duplicadas                 | Falta, y cruza 4 servicios | Media     | L        | 7     |
+| BS-005 | Descuento, propina y pago mixto             | Falta entero ⚠️            | Media     | L        | 8     |
+| BS-025 | Aviso de edición simultánea (409 optimista) | Una comprobación por ruta  | Poca      | M        | 9     |
 
 El orden es de impacto comercial frente a coste. Los tres primeros comparten un
 rasgo que los pone arriba: **la función ya está construida y pagada en el
-backend, y lo único que falta es la pantalla que la alcance**.
+backend, y lo único que falta es la pantalla que la alcance**. BS-006 ya la
+tiene.
 
 ---
 
@@ -107,7 +108,7 @@ compensando cobros malos, que es lo que hoy descuadra los informes de ingresos.
 
 ---
 
-## 3 · BS-006 · Precio y duración por profesional
+## 3 · BS-006 · Precio y duración por profesional ✅ (implementado)
 
 ⚠️ **El informe se equivoca aquí, y a favor: ya está construido.** Existe la
 entidad `professional_services` (`professional_id`, `service_id`,
@@ -119,8 +120,12 @@ entidad `professional_services` (`professional_id`, `service_id`,
 ventana de procesado siga cabiendo. La agenda ya pide una resolución **por cada
 profesional** de la cita.
 
-Lo que falta es la pantalla: la ficha del profesional no muestra qué servicios
-presta ni permite darles tarifa propia.
+Lo que faltaba era la pantalla, **y ya está**: la ficha del profesional gana
+«Servicios», con el catálogo del negocio, un interruptor por servicio y precio y
+duración propios opcionales sobre el valor del catálogo. Asignar es ahora
+idempotente —cambiar la tarifa de un servicio ya asignado chocaba contra el
+único (profesional, servicio) y salía como error del servidor— y dejar los
+campos en blanco significa cobrar y durar lo del catálogo.
 
 **Había un fallo real escondido detrás, ya corregido.** La reserva pública
 listaba los servicios con el precio del catálogo y sin aceptar profesional,
@@ -133,17 +138,14 @@ depende de quién atienda, que la reserva y la ficha pública pintan como «desd
 La regla de la tarifa efectiva vive en `PreciosService`, compartida con la ruta
 interna, para que las dos no puedan discrepar.
 
-**Propuesta.**
+**Qué queda.** Nada de ingeniería, una decisión comercial: si el «desde» del
+escaparate basta o se prefiere enseñar el rango de precios del servicio. Hoy se
+muestra el del catálogo como punto de partida.
 
-1. En Equipo, una sección «Servicios que presta» con precio y duración propios
-   opcionales por servicio. Sin tocar backend.
-2. ~~Que la ruta pública devuelva el precio efectivo.~~ **Hecho**, junto con el
-   «desde» de la ficha pública y el aviso del resumen cuando se reserva con
-   «cualquier profesional».
-
-**Qué hay que decidir.** Si el «desde» del escaparate basta o se prefiere enseñar
-el rango de precios del servicio; hoy se muestra el del catálogo como punto de
-partida. Es una decisión comercial, no técnica.
+Y una pregunta de producto que la pantalla deja servida: hoy asignar servicios es
+**opcional** —un profesional sin ninguno asignado sigue pudiendo atenderlos
+todos, al precio del catálogo—. Si en algún momento se quiere que la agenda solo
+ofrezca a quien presta el servicio, esa es otra regla y hay que decidirla.
 
 **Cómo se sabe que sirvió.** Un salón con escalafón deja de tener que duplicar
 servicios («Corte senior», «Corte junior»), y la rentabilidad por servicio vuelve
