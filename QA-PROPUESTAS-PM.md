@@ -21,7 +21,7 @@ en `QA-REMEDIATION-PLAN.md`.
 | BS-006 | Precio y duración por profesional           | Hecho                      | **Hecha** | —        | ✅    |
 | BS-028 | Sembrar el negocio nuevo según su tipo      | Falta                      | Poca      | M        | 4     |
 | BS-024 | Exigir un contacto en la reserva pública    | Una regla en el DTO        | Poca      | XS       | 5     |
-| BS-013 | Alta de walk-in retroactivo                 | Falta el concepto          | Media     | M        | 6     |
+| BS-013 | Alta de walk-in retroactivo                 | Hecho                      | **Hecha** | —        | ✅    |
 | BS-021 | Fusión de fichas duplicadas                 | Falta, y cruza 4 servicios | Media     | L        | 7     |
 | BS-005 | Descuento, propina y pago mixto             | Falta entero ⚠️            | Media     | L        | 8     |
 | BS-025 | Aviso de edición simultánea (409 optimista) | Una comprobación por ruta  | Poca      | M        | 9     |
@@ -212,7 +212,7 @@ la víspera.
 
 ---
 
-## 6 · BS-013 · Alta de walk-in
+## 6 · BS-013 · Alta de walk-in ✅ (implementado)
 
 **Qué hay hoy.** `AppointmentsService.create` rechaza el pasado
 (`esInstantePasadoEn` → «No se puede agendar una cita en el pasado»), y el
@@ -223,15 +223,20 @@ cuándo ocurrió, o cobrar sin cita —y entonces el cobro queda desligado del
 servicio y del profesional, que es exactamente por qué «Rentabilidad por
 servicio» e «Ingresos por profesional» se quedan sin datos.
 
-**Propuesta.** Un alta de walk-in que acepte una hora ya pasada **del día en
-curso**, nazca directamente como atendida (`COMPLETED`, con su
-`completedAt` real) y encadene el cobro en el mismo paso. No es una reserva y no
-pasa por la validación de disponibilidad: el hueco ya se ocupó, en la silla.
+**Hecho.** `POST /booking/appointments/walk-in`: sin fecha —la pone el servicio,
+y solo admite el día en curso del negocio—, con una hora ya pasada, y sin pasar
+por la disponibilidad ni por el control de solapes, porque el hueco no se pide,
+ya se ocupó en la silla. Nace `COMPLETED`, con su hora de inicio real y sus
+puntos, y publica los eventos de cita creada **y** atendida, que es lo que hace
+que las métricas cuenten. En la agenda, un botón propio con la hora de ahora ya
+puesta y el cobro en el mismo paso; el efectivo se comprueba contra la caja
+abierta **antes** de registrar nada, para no dejar la cita anotada y el cobro
+sin hacer.
 
-**Qué hay que decidir.** Hasta dónde llega el «pasado» admisible: el día en curso
-es lo defendible; abrirlo a ayer convierte la agenda en un registro editable y
-deja la puerta a maquillar métricas. Y si el walk-in puede solaparse con una cita
-existente —en la práctica ocurre— o si hay que avisar.
+Las dos decisiones que la propuesta dejaba abiertas, resueltas: **solo el día en
+curso** —el de ayer tiene su arqueo cerrado y sus informes mirados— y **el solape
+se admite**, porque rechazarlo obligaría a mentir con la hora para poder anotarlo
+y la agenda ya sabe pintar citas solapadas repartiendo el ancho (BS-018).
 
 **Cómo se sabe que sirvió.** Las métricas por profesional y por servicio dejan de
 estar vacías en negocios donde media clientela entra sin cita.
