@@ -2,6 +2,7 @@ import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { BusinessUpdatedEvent } from "@beautyspot/event-types";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
+import { ReviewEntity } from "../../entities/review.entity";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { MarketplaceEventListeners } from "./marketplace-event-listeners.service";
 
@@ -18,6 +19,8 @@ const evento = (changes: Record<string, unknown>): BusinessUpdatedEvent => ({
 describe("MarketplaceEventListeners", () => {
   let listeners: MarketplaceEventListeners;
   let update: jest.Mock;
+  /** Reasignación de reseñas al fusionar dos fichas. */
+  const actualizarResenas = jest.fn().mockResolvedValue({ affected: 2 });
 
   beforeEach(async () => {
     update = jest.fn().mockResolvedValue({ affected: 1 });
@@ -32,6 +35,10 @@ describe("MarketplaceEventListeners", () => {
         {
           provide: BusinessProfilesService,
           useValue: { invalidarCache: jest.fn().mockResolvedValue(undefined) },
+        },
+        {
+          provide: getRepositoryToken(ReviewEntity),
+          useValue: { update: actualizarResenas },
         },
       ],
     }).compile();
@@ -84,5 +91,25 @@ describe("MarketplaceEventListeners", () => {
     await expect(
       listeners.handleBusinessUpdated(evento({ name: "Salón Aurora" }))
     ).resolves.toBeUndefined();
+  });
+
+  describe("handleClientMerged", () => {
+    // Las resenas viven en marketplace; si no se reasignan, la ficha buena
+    // pierde las opiniones que esa persona dejo con la otra.
+    it("las reseñas de la ficha absorbida pasan a la que sobrevive", async () => {
+      await listeners.handleClientMerged({
+        eventId: "evt-fusion",
+        payload: {
+          businessId: "biz-1",
+          supervivienteId: "c-buena",
+          absorbidoId: "c-duplicada",
+        },
+      } as never);
+
+      expect(actualizarResenas).toHaveBeenCalledWith(
+        { businessId: "biz-1", clientId: "c-duplicada" },
+        { clientId: "c-buena" }
+      );
+    });
   });
 });

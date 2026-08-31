@@ -19,6 +19,7 @@ import {
 describe("ClientsService", () => {
   let service: ClientsService;
   let mockRepo: jest.Mocked<Repository<Client>>;
+  let mockAliasQb: { where: jest.Mock; andWhere: jest.Mock; getOne: jest.Mock };
   let mockOutbox: { enqueue: jest.Mock };
   let mockCamposRepo: jest.Mocked<Repository<CampoDeFicha>>;
   let mockConfig: { leer: jest.Mock };
@@ -42,6 +43,10 @@ describe("ClientsService", () => {
     active: true,
     ficha: null,
     anonymizedAt: null,
+    mergedIntoId: null,
+    mergedAt: null,
+    aliasEmails: null,
+    aliasPhones: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     business: {} as any,
@@ -49,6 +54,14 @@ describe("ClientsService", () => {
   };
 
   beforeEach(async () => {
+    // El cotejo por alias consulta con un query builder; por defecto no
+    // encuentra ninguna ficha que haya heredado ese contacto.
+    mockAliasQb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+
     mockRepo = {
       create: jest.fn(),
       save: jest.fn(),
@@ -57,6 +70,7 @@ describe("ClientsService", () => {
       findAndCount: jest.fn().mockResolvedValue([[], 0]),
       update: jest.fn(),
       increment: jest.fn(),
+      createQueryBuilder: jest.fn(() => mockAliasQb),
     } as any;
 
     // Sin campos definidos, la ficha no se valida contra nada.
@@ -902,6 +916,169 @@ describe("ClientsService", () => {
       );
 
       expect(mockRepo.findAndCount).toHaveBeenCalled();
+    });
+  });
+
+  describe("fusionar", () => {
+    /** Ficha con lo justo para fusionar, sobre el fixture del negocio. */
+    const ficha = (extra: Partial<Client>): Client =>
+      ({ ...mockClient, ...extra, generateId: () => {} }) as Client;
+
+    const SUPERVIVIENTE = "client-123";
+    const ABSORBIDO = "client-456";
+
+    /** Deja las dos fichas que la fusión va a leer. */
+    const conFichas = (
+      superviviente: Partial<Client>,
+      absorbido: Partial<Client>
+    ) => {
+      mockRepo.findOne.mockImplementation((opciones: any) => {
+        const id = opciones?.where?.id;
+        if (id === SUPERVIVIENTE)
+          return Promise.resolve(
+            ficha({ id: SUPERVIVIENTE, ...superviviente })
+          );
+        if (id === ABSORBIDO)
+          return Promise.resolve(ficha({ id: ABSORBIDO, ...absorbido }));
+        return Promise.resolve(null);
+      });
+      mockRepo.save.mockImplementation((c: any) => Promise.resolve(c));
+      mockRepo.update.mockResolvedValue({ affected: 1 } as never);
+    };
+
+    /** La ficha tal como quedó guardada. */
+    const guardada = () => mockRepo.save.mock.calls[0][0] as Client;
+
+    it("suma los puntos: son saldo del cliente, no de la ficha", async () => {
+      conFichas({ loyaltyPoints: 100 }, { loyaltyPoints: 250 });
+
+      await service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO);
+
+      expect(guardada().loyaltyPoints).toBe(350);
+    });
+
+    // El contacto viejo tiene que seguir llevando a la ficha buena: si no, la
+    // siguiente reserva por el telefono de siempre abre otro duplicado.
+    it("hereda como alias el contacto de la absorbida", async () => {
+      conFichas(
+        { email: "ana@correo.co", phone: "+573001112233" },
+        { email: "ana.trabajo@correo.co", phone: "+573009998877" }
+      );
+
+      await service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO);
+
+      expect(guardada().aliasEmails).toContain("ana.trabajo@correo.co");
+      expect(guardada().aliasPhones).toContain("+573009998877");
+    });
+
+    it("rellena lo que la superviviente tiene vacío", async () => {
+      conFichas(
+        { email: "", documento: "", birthDate: null },
+        {
+          email: "ana@correo.co",
+          documento: "1020304050",
+          birthDate: "1990-05-02",
+        }
+      );
+
+      await service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO);
+
+      expect(guardada()).toMatchObject({
+        email: "ana@correo.co",
+        documento: "1020304050",
+        birthDate: "1990-05-02",
+      });
+    });
+
+    // La alergia anotada en la ficha buena no la pisa un hueco de la otra.
+    it("combina la ficha configurable sin pisar lo que ya había", async () => {
+      conFichas(
+        { ficha: { alergias: "Ninguna", piel: "" } },
+        { ficha: { alergias: "Tinte", piel: "Mixta", formula: "6.0 + 20 vol" } }
+      );
+
+      await service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO);
+
+      expect(guardada().ficha).toEqual({
+        alergias: "Ninguna",
+        piel: "Mixta",
+        formula: "6.0 + 20 vol",
+      });
+    });
+
+    it("marca la absorbida y la retira de la cartera", async () => {
+      conFichas({}, {});
+
+      await service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO);
+
+      expect(mockRepo.update).toHaveBeenCalledWith(
+        { id: ABSORBIDO, businessId: "business-123" },
+        expect.objectContaining({
+          mergedIntoId: SUPERVIVIENTE,
+          active: false,
+        })
+      );
+    });
+
+    // Lo que cuelga de la absorbida en los otros servicios lo reasigna cada uno
+    // al consumir el evento.
+    it("publica la fusión para que los demás reasignen lo suyo", async () => {
+      conFichas({}, {});
+
+      await service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO);
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: "core.client.merged",
+          payload: {
+            businessId: "business-123",
+            supervivienteId: SUPERVIVIENTE,
+            absorbidoId: ABSORBIDO,
+          },
+        })
+      );
+    });
+
+    // Dos cuentas distintas pueden ser dos personas, y fusionarlas dejaria a
+    // alguien viendo en su portal las citas de otro.
+    it("rechaza fusionar fichas de dos cuentas distintas", async () => {
+      conFichas({ userId: "user-1" }, { userId: "user-2" });
+
+      await expect(
+        service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO)
+      ).rejects.toThrow("cuenta distinta");
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("admite fusionar cuando solo una tiene cuenta", async () => {
+      conFichas({ userId: null }, { userId: "user-2" });
+
+      await service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO);
+
+      expect(guardada().userId).toBe("user-2");
+    });
+
+    it("no fusiona una ficha con los datos suprimidos", async () => {
+      conFichas({}, { anonymizedAt: new Date() });
+
+      await expect(
+        service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO)
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it("no fusiona dos veces la misma ficha", async () => {
+      conFichas({}, { mergedIntoId: "otra" });
+
+      await expect(
+        service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO)
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it("una ficha no se fusiona consigo misma", async () => {
+      await expect(
+        service.fusionar("business-123", SUPERVIVIENTE, SUPERVIVIENTE)
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

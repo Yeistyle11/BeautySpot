@@ -161,6 +161,9 @@ export const ACTIONS = {
   service_categories_delete: ["OWNER", "ADMIN"],
   clients_create: ["OWNER", "ADMIN", "RECEPTIONIST"],
   clients_edit: ["OWNER", "ADMIN", "RECEPTIONIST"],
+  // Como la supresión de datos: es irreversible y mezcla dos historiales,
+  // incluida la ficha de alergias.
+  clients_merge: ["OWNER", "ADMIN"],
   appointments_create: ["OWNER", "ADMIN", "RECEPTIONIST"],
   appointments_confirm: ["OWNER", "ADMIN", "PROFESSIONAL"],
   appointments_cancel: ["OWNER", "ADMIN", "RECEPTIONIST"],

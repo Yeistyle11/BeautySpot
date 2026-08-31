@@ -20,6 +20,7 @@ import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import {
   ClientNamesDto,
   CreateClientDto,
+  FusionarClienteDto,
   UpdateClientDto,
 } from "./dto/client.dto";
 
@@ -123,6 +124,20 @@ export class ClientsController {
    * Ejerce el derecho de supresión sobre un cliente: vacía sus datos personales
    * y deja la ficha de baja, conservando el historial de citas y facturas.
    */
+  /**
+   * Fusiona otra ficha en esta. Como la supresión de datos: es irreversible y
+   * mezcla dos historiales, incluida la ficha de alergias.
+   */
+  @Roles(Role.OWNER, Role.ADMIN)
+  @Post(":id/merge")
+  async merge(
+    @Param("id") id: string,
+    @BusinessId() businessId: string,
+    @Body() dto: FusionarClienteDto
+  ) {
+    return this.service.fusionar(businessId, id, dto.absorbidoId);
+  }
+
   @Roles(Role.OWNER, Role.ADMIN)
   @Post(":id/anonymize")
   async anonymize(@Param("id") id: string, @BusinessId() businessId: string) {

@@ -155,3 +155,9 @@ export class UpdateClientDto {
   @IsOptional() @IsObject() ficha?: Record<string, unknown>;
   @IsOptional() @IsBoolean() active?: boolean;
 }
+
+/** La otra ficha del mismo cliente, la que se absorbe. */
+export class FusionarClienteDto {
+  @IsUUID("4", { message: "La ficha a fusionar no es válida" })
+  absorbidoId!: string;
+}

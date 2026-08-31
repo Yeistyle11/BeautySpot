@@ -11,7 +11,14 @@ import {
   esViolacionDeUnicidad,
 } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
-import { Repository, In, Not, DataSource, EntityManager } from "typeorm";
+import {
+  Repository,
+  In,
+  Not,
+  Brackets,
+  DataSource,
+  EntityManager,
+} from "typeorm";
 import {
   normalizarEmail,
   normalizarTelefono,
@@ -155,7 +162,54 @@ export class ClientsService extends TenantCrudService<Client> {
     }
     if (criterios.length === 0) return null;
 
-    return this.repo.findOne({ where: criterios });
+    const porContacto = await this.repo.findOne({ where: criterios });
+    if (porContacto) return porContacto;
+
+    // Y por los contactos heredados de una ficha fusionada: quien reserve con
+    // el teléfono viejo debe caer en la ficha buena, no abrir otra.
+    return this.buscarPorAlias(businessId, contacto, excluirId);
+  }
+
+  /**
+   * Ficha que heredó ese correo o ese teléfono al absorber a otra. El alias es
+   * una lista corta por ficha, así que se compara en SQL con `LIKE` sobre la
+   * columna de texto que TypeORM usa para `simple-array`.
+   */
+  private async buscarPorAlias(
+    businessId: string,
+    contacto: { email?: string; phone?: string },
+    excluirId?: string
+  ): Promise<Client | null> {
+    const valores = [
+      ...(contacto.email
+        ? [{ columna: "alias_emails", v: [contacto.email] }]
+        : []),
+      ...(contacto.phone
+        ? [{ columna: "alias_phones", v: variantesDeTelefono(contacto.phone) }]
+        : []),
+    ];
+    if (valores.length === 0) return null;
+
+    const qb = this.repo
+      .createQueryBuilder("c")
+      .where("c.business_id = :businessId", { businessId });
+    if (excluirId) qb.andWhere("c.id <> :excluirId", { excluirId });
+
+    qb.andWhere(
+      new Brackets((donde) => {
+        valores.forEach(({ columna, v }, i) => {
+          v.forEach((valor, j) => {
+            const clave = `alias${i}_${j}`;
+            donde.orWhere(
+              `string_to_array(coalesce(c.${columna}, ''), ',') @> ARRAY[:${clave}]`,
+              { [clave]: valor }
+            );
+          });
+        });
+      })
+    );
+
+    return qb.getOne();
   }
 
   /**
@@ -260,6 +314,134 @@ export class ClientsService extends TenantCrudService<Client> {
       default:
         if (typeof valor !== "string") invalido("tiene que ser texto");
     }
+  }
+
+  /**
+   * Fusiona dos fichas del mismo cliente en la que sobrevive. Los duplicados
+   * aparecen en cualquier cartera —la misma persona da otro teléfono, se apunta
+   * con el correo del trabajo, o se teclea mal un nombre— y sin fusión el salón
+   * se queda con dos historiales a medias: en un centro estético eso parte la
+   * ficha de alergias y la fórmula de color, que es información con la que se
+   * trabaja sobre la piel de alguien.
+   *
+   * Es definitiva. Lo que cuelga de la absorbida en los otros servicios lo
+   * reasigna cada uno al consumir `core.client.merged`.
+   */
+  async fusionar(
+    businessId: string,
+    supervivienteId: string,
+    absorbidoId: string
+  ): Promise<Client> {
+    if (supervivienteId === absorbidoId) {
+      throw new BadRequestException("Una ficha no se fusiona consigo misma");
+    }
+
+    const [superviviente, absorbido] = await Promise.all([
+      this.findById(supervivienteId, businessId),
+      this.findById(absorbidoId, businessId),
+    ]);
+
+    for (const ficha of [superviviente, absorbido]) {
+      if (ficha.anonymizedAt) {
+        throw new ConflictException(
+          "Una ficha con los datos suprimidos no se puede fusionar"
+        );
+      }
+      if (ficha.mergedIntoId) {
+        throw new ConflictException("Esa ficha ya se fusionó con otra");
+      }
+    }
+
+    // Dos cuentas distintas pueden ser dos personas, y el producto no puede
+    // saberlo: fusionarlas dejaria a alguien viendo en su portal las citas de
+    // otro, que es peor que un duplicado.
+    if (
+      superviviente.userId &&
+      absorbido.userId &&
+      superviviente.userId !== absorbido.userId
+    ) {
+      throw new ConflictException(
+        "Cada ficha está vinculada a una cuenta distinta: revísalas antes de fusionarlas"
+      );
+    }
+
+    const fusionada = this.combinar(superviviente, absorbido);
+
+    return this.dataSource.transaction(async (manager) => {
+      const guardada = await manager.getRepository(Client).save(fusionada);
+
+      await manager.getRepository(Client).update(
+        { id: absorbidoId, businessId },
+        {
+          mergedIntoId: supervivienteId,
+          mergedAt: new Date(),
+          // Deja de aparecer en la cartera; la fila se conserva porque el
+          // historial viejo la referencia.
+          active: false,
+        }
+      );
+
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.CORE_CLIENT_MERGED,
+        aggregateType: "client",
+        aggregateId: supervivienteId,
+        payload: { businessId, supervivienteId, absorbidoId },
+      });
+
+      return guardada;
+    });
+  }
+
+  /**
+   * La ficha superviviente con lo que aporta la absorbida. Lo que el
+   * superviviente ya tiene manda; lo que tiene vacío se rellena, y su contacto
+   * viejo se conserva como alias para que las reservas futuras por él caigan
+   * aquí.
+   */
+  private combinar(superviviente: Client, absorbido: Client): Client {
+    const aliasEmails = new Set([
+      ...(superviviente.aliasEmails ?? []),
+      ...(absorbido.aliasEmails ?? []),
+    ]);
+    const aliasPhones = new Set([
+      ...(superviviente.aliasPhones ?? []),
+      ...(absorbido.aliasPhones ?? []),
+    ]);
+    if (absorbido.email && absorbido.email !== superviviente.email) {
+      aliasEmails.add(absorbido.email);
+    }
+    if (absorbido.phone && absorbido.phone !== superviviente.phone) {
+      aliasPhones.add(absorbido.phone);
+    }
+
+    superviviente.email = superviviente.email || absorbido.email;
+    superviviente.phone = superviviente.phone || absorbido.phone;
+    superviviente.documento = superviviente.documento || absorbido.documento;
+    superviviente.birthDate = superviviente.birthDate ?? absorbido.birthDate;
+    superviviente.userId = superviviente.userId ?? absorbido.userId;
+    superviviente.notes = [superviviente.notes, absorbido.notes]
+      .filter(Boolean)
+      .join("\n");
+    superviviente.tags = [
+      ...new Set([...(superviviente.tags ?? []), ...(absorbido.tags ?? [])]),
+    ];
+    // Los puntos son saldo del cliente, no de la ficha: se suman.
+    superviviente.loyaltyPoints += absorbido.loyaltyPoints;
+    superviviente.noShowCount += absorbido.noShowCount;
+    // Campo a campo, conservando lo que ya hay: la alergia anotada en la ficha
+    // buena no la pisa un hueco de la otra.
+    superviviente.ficha = {
+      ...(absorbido.ficha ?? {}),
+      ...Object.fromEntries(
+        Object.entries(superviviente.ficha ?? {}).filter(
+          ([, valor]) => valor !== null && valor !== undefined && valor !== ""
+        )
+      ),
+    };
+    superviviente.aliasEmails = [...aliasEmails];
+    superviviente.aliasPhones = [...aliasPhones];
+
+    return superviviente;
   }
 
   /**

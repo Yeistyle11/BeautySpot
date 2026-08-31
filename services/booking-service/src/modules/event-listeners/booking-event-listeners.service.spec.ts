@@ -4,6 +4,8 @@ import type { IBaseEvent } from "@beautyspot/event-types";
 import { ProcessedEventsStore } from "@beautyspot/nest-common";
 import { BookingEventListeners } from "./booking-event-listeners.service";
 import { AvailabilityService } from "../availability/availability.service";
+import { Appointment } from "../../entities/appointment.entity";
+import { getRepositoryToken } from "@nestjs/typeorm";
 
 /** Envuelve un payload en la forma de evento del bus para los tests. */
 function makeEvent<T>(payload: T): IBaseEvent<T> {
@@ -17,6 +19,9 @@ function makeEvent<T>(payload: T): IBaseEvent<T> {
 }
 
 describe("BookingEventListeners", () => {
+  /** Reasignación de citas al fusionar dos fichas. */
+  const reasignarCitas = jest.fn().mockResolvedValue({ affected: 3 });
+
   let service: BookingEventListeners;
   let mockAvailabilityService: jest.Mocked<AvailabilityService>;
   let logSpy: jest.SpyInstance;
@@ -34,6 +39,10 @@ describe("BookingEventListeners", () => {
     const module = await Test.createTestingModule({
       providers: [
         BookingEventListeners,
+        {
+          provide: getRepositoryToken(Appointment),
+          useValue: { update: reasignarCitas },
+        },
         {
           provide: AvailabilityService,
           useValue: mockAvailabilityService,
@@ -159,6 +168,26 @@ describe("BookingEventListeners", () => {
       expect(errorSpy).toHaveBeenCalledWith(
         "Error creando disponibilidad: Error desconocido",
         undefined
+      );
+    });
+  });
+
+  describe("handleClientMerged", () => {
+    // La agenda es lo primero que se mira: si las citas viejas se quedan en la
+    // ficha absorbida, el historial de la buena miente por defecto.
+    it("las citas de la ficha absorbida pasan a la que sobrevive", async () => {
+      await service.handleClientMerged({
+        eventId: "evt-fusion",
+        payload: {
+          businessId: "biz-1",
+          supervivienteId: "c-buena",
+          absorbidoId: "c-duplicada",
+        },
+      } as never);
+
+      expect(reasignarCitas).toHaveBeenCalledWith(
+        { businessId: "biz-1", clientId: "c-duplicada" },
+        { clientId: "c-buena" }
       );
     });
   });

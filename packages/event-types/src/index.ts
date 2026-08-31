@@ -139,6 +139,21 @@ export interface ClientCreatedPayload {
 
 export type ClientCreatedEvent = IBaseEvent<ClientCreatedPayload>;
 
+/**
+ * Dos fichas del mismo cliente que pasan a ser una. Quien guarde algo con el
+ * `absorbidoId` lo reasigna al superviviente: la ficha absorbida se conserva
+ * marcada, pero deja de recibir historial.
+ */
+export interface ClientMergedPayload {
+  businessId: string;
+  /** Ficha que se conserva y se queda con todo. */
+  supervivienteId: string;
+  /** Ficha fusionada, que ya no debe tener nada colgando. */
+  absorbidoId: string;
+}
+
+export type ClientMergedEvent = IBaseEvent<ClientMergedPayload>;
+
 /** Cliente que cumple años hoy en la zona horaria de su negocio. */
 export interface ClientBirthdayPayload {
   clientId: string;
@@ -400,6 +415,7 @@ export const EventNames = {
   CORE_SERVICE_UPDATED: "core.service.updated",
   CORE_CLIENT_CREATED: "core.client.created",
   CORE_CLIENT_BIRTHDAY: "core.client.birthday",
+  CORE_CLIENT_MERGED: "core.client.merged",
 
   BOOKING_APPOINTMENT_CREATED: "booking.appointment.created",
   BOOKING_APPOINTMENT_CONFIRMED: "booking.appointment.confirmed",

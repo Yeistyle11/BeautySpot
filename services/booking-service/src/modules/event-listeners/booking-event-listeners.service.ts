@@ -1,6 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { RabbitSubscribe } from "@golevelup/nestjs-rabbitmq";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
 import {
+  ClientMergedEvent,
   ProfessionalCreatedEvent,
   EventNames,
   EVENTS_EXCHANGE,
@@ -9,6 +12,7 @@ import {
 } from "@beautyspot/event-types";
 import { ProcessedEventsStore } from "@beautyspot/nest-common";
 import { AvailabilityService } from "../availability/availability.service";
+import { Appointment } from "../../entities/appointment.entity";
 
 /** Escucha eventos de RabbitMQ que afectan a las reservas (altas, pagos y recordatorios). */
 @Injectable()
@@ -17,7 +21,9 @@ export class BookingEventListeners {
 
   constructor(
     private readonly availabilityService: AvailabilityService,
-    private readonly processedEvents: ProcessedEventsStore
+    private readonly processedEvents: ProcessedEventsStore,
+    @InjectRepository(Appointment)
+    private readonly apptRepo: Repository<Appointment>
   ) {}
 
   /**
@@ -72,5 +78,30 @@ export class BookingEventListeners {
       // silencio, y el negocio solo lo notaría al no poder agendar con él.
       throw error instanceof Error ? error : new Error(errorMessage);
     }
+  }
+
+  /**
+   * Dos fichas del mismo cliente pasaron a ser una: las citas de la absorbida
+   * quedan colgando de la ficha buena, que es donde el negocio va a mirar el
+   * historial.
+   */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.CORE_CLIENT_MERGED,
+    queue: nombreDeCola("booking", EventNames.CORE_CLIENT_MERGED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleClientMerged(event: ClientMergedEvent): Promise<void> {
+    const { businessId, supervivienteId, absorbidoId } = event.payload;
+
+    // Reasignar es idempotente: una reentrega no encuentra ya nada que mover.
+    const { affected } = await this.apptRepo.update(
+      { businessId, clientId: absorbidoId },
+      { clientId: supervivienteId }
+    );
+
+    this.logger.log(
+      `Fusión de clientes ${absorbidoId} → ${supervivienteId}: ${affected ?? 0} las citas reasignadas`
+    );
   }
 }

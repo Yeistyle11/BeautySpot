@@ -460,4 +460,102 @@ describe("AnalyticsEventListeners", () => {
       );
     });
   });
+
+  describe("handleClientMerged", () => {
+    /** El evento de fusión tal como lo publica core. */
+    const fusion = {
+      eventId: "evt-fusion",
+      payload: {
+        businessId: "biz-1",
+        supervivienteId: "c-buena",
+        absorbidoId: "c-duplicada",
+      },
+    } as never;
+
+    /** Historial agregado de una ficha. */
+    const metrica = (extra: Record<string, unknown>) => ({
+      visitas: 0,
+      gasto: 0,
+      primeraVisita: "2026-01-01",
+      ultimaVisita: "2026-01-01",
+      ...extra,
+    });
+
+    let repo: {
+      findOne: jest.Mock;
+      update: jest.Mock;
+      save: jest.Mock;
+      delete: jest.Mock;
+    };
+
+    beforeEach(() => {
+      repo = {
+        findOne: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
+        save: jest.fn().mockResolvedValue(undefined),
+        delete: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      (managerFalso as unknown as { getRepository: unknown }).getRepository =
+        () => repo;
+    });
+
+    // La tabla tiene una fila por cliente y negocio: reasignar sin mas
+    // chocaria con el unico, y sumar dos veces inflaria las visitas.
+    it("suma las dos filas en la del superviviente", async () => {
+      repo.findOne
+        .mockResolvedValueOnce(
+          metrica({
+            visitas: 3,
+            gasto: 150000,
+            primeraVisita: "2026-03-01",
+            ultimaVisita: "2026-08-01",
+          })
+        )
+        .mockResolvedValueOnce(
+          metrica({
+            visitas: 2,
+            gasto: 80000,
+            primeraVisita: "2026-01-15",
+            ultimaVisita: "2026-09-01",
+          })
+        );
+
+      await service.handleClientMerged(fusion);
+
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          visitas: 5,
+          gasto: 230000,
+          // La primera visita de las dos, y la ultima de las dos.
+          primeraVisita: "2026-01-15",
+          ultimaVisita: "2026-09-01",
+        })
+      );
+      expect(repo.delete).toHaveBeenCalledWith({
+        businessId: "biz-1",
+        clientId: "c-duplicada",
+      });
+    });
+
+    it("si la buena no tenía historial, se reasigna el de la otra", async () => {
+      repo.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(metrica({ visitas: 2 }));
+
+      await service.handleClientMerged(fusion);
+
+      expect(repo.update).toHaveBeenCalledWith(
+        { businessId: "biz-1", clientId: "c-duplicada" },
+        { clientId: "c-buena" }
+      );
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it("sin historial de la absorbida no hay nada que mover", async () => {
+      await service.handleClientMerged(fusion);
+
+      expect(repo.save).not.toHaveBeenCalled();
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+  });
 });

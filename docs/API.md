@@ -420,7 +420,23 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 | PATCH  | `/me`            | CLIENT                                   | Sus datos personales; 404 si reservó de invitado |
 | GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST               | Detalle                                          |
 | PATCH  | `/:id`           | OWNER, ADMIN, RECEPTIONIST               | Actualiza                                        |
+| POST   | `/:id/merge`     | OWNER, ADMIN                             | Fusiona otra ficha del mismo cliente en esta     |
 | POST   | `/:id/anonymize` | OWNER, ADMIN                             | Derecho de supresión; conserva citas y facturas  |
+
+**Fusionar es definitivo.** `POST /:id/merge` recibe `{ absorbidoId }` y deja la
+ficha de la ruta con todo: suma los puntos, rellena lo que tenga vacío, combina
+la ficha configurable sin pisar lo que ya había y hereda como **alias** el
+teléfono y el correo de la absorbida, de modo que una reserva futura hecha con
+el contacto viejo cae en la ficha buena. La absorbida no se borra —el historial
+la referencia— sino que queda marcada (`merged_into_id`) y fuera de la cartera.
+Se rechaza si alguna está anonimizada, si ya se fusionó, o si **cada una está
+vinculada a una cuenta de usuario distinta**: pueden ser dos personas, y
+fusionarlas dejaría a alguien viendo en su portal las citas de otro.
+
+Lo que cuelga de la absorbida en los demás servicios lo reasigna cada uno al
+consumir `core.client.merged`: las citas (booking), los cobros y las facturas
+(payment), las reseñas (marketplace) y el historial agregado (analytics, que
+además **suma** las dos filas porque tiene una por cliente y negocio).
 
 `GET /me` devuelve además `nivel` y `siguienteNivel`, resueltos en el servidor
 contra la escala de `business-config/fidelizacion`, que el cliente no puede leer.

@@ -3,15 +3,13 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { ConfigService } from "@nestjs/config";
 import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { EVENTS_EXCHANGE, DEAD_LETTER_EXCHANGE } from "@beautyspot/event-types";
-import { BookingEventListeners } from "./booking-event-listeners.service";
-import { AvailabilityModule } from "../availability/availability.module";
-import { Appointment } from "../../entities/appointment.entity";
+import { PaymentEntity } from "../payments/payment.entity";
+import { InvoiceEntity } from "../invoices/invoice.entity";
+import { PaymentEventListeners } from "./payment-event-listeners.service";
 
 @Module({
   imports: [
-    AvailabilityModule,
-    // Las citas de la ficha absorbida se reasignan al fusionar dos clientes.
-    TypeOrmModule.forFeature([Appointment]),
+    TypeOrmModule.forFeature([PaymentEntity, InvoiceEntity]),
     RabbitMQModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -24,8 +22,11 @@ import { Appointment } from "../../entities/appointment.entity";
       }),
     }),
   ],
-  providers: [BookingEventListeners],
-  exports: [BookingEventListeners],
+  providers: [PaymentEventListeners],
+  exports: [PaymentEventListeners],
 })
-/** Registra los listeners de eventos de RabbitMQ del booking-service. */
-export class BookingEventListenersModule {}
+/**
+ * Registra los listeners de RabbitMQ del payment-service. Hasta la fusion de
+ * clientes este servicio solo publicaba eventos; ahora tambien consume.
+ */
+export class PaymentEventListenersModule {}

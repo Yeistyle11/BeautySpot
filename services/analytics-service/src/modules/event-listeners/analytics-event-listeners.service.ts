@@ -10,6 +10,7 @@ import {
   PaymentRegisteredEvent,
   PaymentCorrectedEvent,
   ClientCreatedEvent,
+  ClientMergedEvent,
   ReviewCreatedEvent,
   EventNames,
   IBaseEvent,
@@ -22,6 +23,7 @@ import { MetricsService } from "../metrics/metrics.service";
 import { NegocioMetricsService } from "../metrics/negocio-metrics.service";
 import { ZonaDelNegocioService } from "@beautyspot/nest-common";
 import { fechaDeHoy } from "../../common/fecha";
+import { ClientMetricEntity } from "../../entities/client-metric.entity";
 
 /**
  * Acumula las metricas diarias y por profesional a partir de los eventos de
@@ -314,5 +316,56 @@ export class AnalyticsEventListeners {
         stack
       );
     }
+  }
+
+  /**
+   * Dos fichas del mismo cliente pasaron a ser una. Aquí no basta con
+   * reasignar: el historial agregado tiene una fila por cliente y negocio, así
+   * que las dos se suman en la del superviviente —visitas y gasto— y las fechas
+   * se estiran a la primera y la última de las dos. Si solo existía la de la
+   * absorbida, se reasigna sin más.
+   */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.CORE_CLIENT_MERGED,
+    queue: nombreDeCola("analytics", EventNames.CORE_CLIENT_MERGED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleClientMerged(event: ClientMergedEvent): Promise<void> {
+    const { businessId, supervivienteId, absorbidoId } = event.payload;
+
+    await this.aplicar(event, "fusion", async (manager) => {
+      const repo = manager.getRepository(ClientMetricEntity);
+      const [superviviente, absorbido] = await Promise.all([
+        repo.findOne({ where: { businessId, clientId: supervivienteId } }),
+        repo.findOne({ where: { businessId, clientId: absorbidoId } }),
+      ]);
+
+      if (!absorbido) return;
+
+      if (!superviviente) {
+        await repo.update(
+          { businessId, clientId: absorbidoId },
+          { clientId: supervivienteId }
+        );
+        return;
+      }
+
+      superviviente.visitas += absorbido.visitas;
+      superviviente.gasto += absorbido.gasto;
+      superviviente.primeraVisita =
+        absorbido.primeraVisita < superviviente.primeraVisita
+          ? absorbido.primeraVisita
+          : superviviente.primeraVisita;
+      superviviente.ultimaVisita =
+        absorbido.ultimaVisita > superviviente.ultimaVisita
+          ? absorbido.ultimaVisita
+          : superviviente.ultimaVisita;
+
+      await repo.save(superviviente);
+      // La fila de la absorbida ya no cuenta nada: sumarla otra vez duplicaría
+      // las visitas de esa persona.
+      await repo.delete({ businessId, clientId: absorbidoId });
+    });
   }
 }

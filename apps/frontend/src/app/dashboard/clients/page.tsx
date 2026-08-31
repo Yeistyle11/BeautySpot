@@ -25,6 +25,7 @@ import {
   Edit,
   Trash2,
   Users,
+  Merge,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
@@ -43,6 +44,7 @@ import {
   emptyClientForm,
   type ClientForm,
 } from "./client-form-dialog";
+import { MergeDialog } from "./merge-dialog";
 import {
   clientSchema,
   cambiosDelCliente,
@@ -95,6 +97,10 @@ export default function ClientsPage() {
   const [savingEdit, setSavingEdit] = useState(false);
 
   const [clienteASuprimir, setClienteASuprimir] = useState<Client | null>(null);
+  const [fusionCon, setFusionCon] = useState<Client | null>(null);
+  const [absorbidoId, setAbsorbidoId] = useState("");
+  const [fusionando, setFusionando] = useState(false);
+  const [fusionError, setFusionError] = useState("");
   const [suprimiendo, setSuprimiendo] = useState(false);
 
   const { data: campos } = useApi<CampoDeFicha[] | null>(
@@ -141,6 +147,32 @@ export default function ClientsPage() {
       toast.error(mensajeDeError(err));
     } finally {
       setSavingCreate(false);
+    }
+  };
+
+  const openFusion = (client: Client) => {
+    setFusionCon(client);
+    setAbsorbidoId("");
+    setFusionError("");
+  };
+
+  const fusionar = async () => {
+    if (!fusionCon || !absorbidoId) return;
+    setFusionando(true);
+    setFusionError("");
+    try {
+      await api.post(`/core/clients/${fusionCon.id}/merge`, { absorbidoId });
+      setFusionCon(null);
+      setSelectedClient(null);
+      await recargarClientes();
+      toast.exito("Fichas fusionadas");
+    } catch (err) {
+      logger.error(err);
+      // El motivo se lee en el diálogo: dos cuentas distintas o una ficha ya
+      // fusionada piden revisar antes de reintentar.
+      setFusionError(mensajeDeError(err));
+    } finally {
+      setFusionando(false);
     }
   };
 
@@ -397,6 +429,15 @@ export default function ClientsPage() {
                       >
                         <Edit className="mr-1 h-3 w-3" /> Editar
                       </Button>
+                      {canDo(role, "clients_merge") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openFusion(selectedClient)}
+                        >
+                          <Merge className="mr-1 h-3 w-3" /> Fusionar
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="ghost"
@@ -490,6 +531,22 @@ export default function ClientsPage() {
         submitLabel="Guardar cambios"
         saving={savingEdit}
         conNotas
+      />
+
+      <MergeDialog
+        open={fusionCon !== null}
+        onClose={() => setFusionCon(null)}
+        onFusionar={fusionar}
+        superviviente={fusionCon}
+        // Cualquier otra ficha viva de la cartera: los duplicados no siempre
+        // comparten contacto, que es justo por lo que hacen falta.
+        candidatos={clients.filter(
+          (c) => c.id !== fusionCon?.id && !c.anonymizedAt
+        )}
+        absorbidoId={absorbidoId}
+        onAbsorbidoChange={setAbsorbidoId}
+        saving={fusionando}
+        error={fusionError}
       />
 
       <ConfirmDialog
