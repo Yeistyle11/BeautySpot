@@ -20,7 +20,7 @@ en `QA-REMEDIATION-PLAN.md`.
 | BS-002 | Devolver un cobro                           | Hecho                      | **Hecha** | —        | ✅    |
 | BS-006 | Precio y duración por profesional           | Hecho                      | **Hecha** | —        | ✅    |
 | BS-028 | Sembrar el negocio nuevo según su tipo      | Hecho                      | **Hecha** | —        | ✅    |
-| BS-024 | Exigir un contacto en la reserva pública    | Una regla en el DTO        | Poca      | XS       | 5     |
+| BS-024 | Exigir un contacto en la reserva pública    | Hecho                      | **Hecha** | —        | ✅    |
 | BS-013 | Alta de walk-in retroactivo                 | Hecho                      | **Hecha** | —        | ✅    |
 | BS-021 | Fusión de fichas duplicadas                 | Falta, y cruza 4 servicios | Media     | L        | 7     |
 | BS-005 | Descuento, propina y pago mixto             | Falta entero ⚠️            | Media     | L        | 8     |
@@ -190,7 +190,7 @@ Servicios, Categorías, Equipo y Horarios antes.
 
 ---
 
-## 5 · BS-024 · Exigir un contacto en la reserva pública
+## 5 · BS-024 · Exigir un contacto en la reserva pública ✅ (implementado)
 
 **Qué hay hoy.** `PublicBookingDto` pide `guestName` y deja `guestEmail` y
 `guestPhone` como opcionales, los dos. Una reserva sin ningún dato de contacto se
@@ -198,17 +198,23 @@ acepta y crea una ficha en la cartera del negocio con los dos campos vacíos. El
 texto de la confirmación ya se corrigió y no promete un correo imposible; lo que
 queda es la regla.
 
-**Propuesta.** Exigir **teléfono o correo**, uno de los dos, en el DTO —una
-validación de grupo, no dos `@IsOptional`— y en el formulario, cambiando las
-etiquetas «(opcional)» por una que diga qué hace falta. Es la propuesta más
-barata del documento.
+**Hecho.** Hace falta teléfono **o** correo, uno de los dos, en el formulario
+—que lo dice antes de pedirlo y no habilita el botón hasta tenerlo— y en el DTO.
+De paso, el teléfono del invitado se valida con el mismo formato que la ficha de
+cliente, que es de donde sale: un número mal formado no se coteja con nada, y de
+ese cotejo depende que la misma persona no acabe con dos fichas (BS-020).
 
-**Qué hay que decidir.** Si se exige de verdad. Pedir un dato más en un formulario
-público **cuesta reservas**: hay quien abandona. La defensa contra el no-show vale
-más que esas reservas —una cita sin forma de confirmar ni recolocar es media
-cita—, pero es una decisión de negocio con un coste medible, no una obviedad.
-Conviene medirla: si el abandono sube más de lo esperado, la alternativa es
-exigirlo solo cuando la reserva es a más de 24 horas vista.
+> Un detalle que casi se cuela: la regla cuelga del **nombre** y no del correo,
+> porque `@IsOptional` se salta todos los validadores de su propiedad cuando el
+> valor no llega. Colgada del correo se habría desactivado justo en la reserva
+> que no trae ninguno —el caso entero del hallazgo—. Hay prueba de eso.
+
+**Qué queda por decidir, y hay que medirlo.** Exigir un dato más en un
+formulario público cuesta alguna reserva: hay quien abandona. La defensa contra
+el no-show vale más que eso, pero si el abandono sube más de lo esperado la
+alternativa es exigirlo solo cuando la reserva es a más de 24 horas vista —a la
+de dentro de dos horas se le puede esperar sin poder avisar; a la del jueves que
+viene, no—.
 
 **Cómo se sabe que sirvió.** Deja de haber fichas sin nombre ni contacto en la
 cartera —que además son indeduplicables, ver BS-021— y el negocio puede confirmar
