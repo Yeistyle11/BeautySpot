@@ -1,4 +1,5 @@
 import {
+  datosDeReservaCompletos,
   profileResponseSchema,
   profileSchema,
   serviceSchema,
@@ -108,5 +109,34 @@ describe("catálogos del flujo de reserva", () => {
 describe("pasos de la reserva", () => {
   it("numera los cuatro pasos", () => {
     expect(BOOKING_STEPS.map((s) => s.n)).toEqual([1, 2, 3, 4]);
+  });
+});
+
+describe("datosDeReservaCompletos", () => {
+  const conNombre = { name: "Ana Gómez", email: "", phone: "" };
+
+  // Sin teléfono ni correo el negocio recibe un nombre y nada más: no puede
+  // confirmar la víspera ni recolocar el hueco si el cliente cancela.
+  it("el nombre solo no basta para reservar", () => {
+    expect(datosDeReservaCompletos(conNombre)).toBe(false);
+  });
+
+  it("con correo o con teléfono, cualquiera de los dos, sí", () => {
+    expect(
+      datosDeReservaCompletos({ ...conNombre, email: "ana@correo.co" })
+    ).toBe(true);
+    expect(
+      datosDeReservaCompletos({ ...conNombre, phone: "+573001234567" })
+    ).toBe(true);
+  });
+
+  it("un contacto de solo espacios no es un contacto", () => {
+    expect(datosDeReservaCompletos({ ...conNombre, email: "   " })).toBe(false);
+  });
+
+  it("sin nombre tampoco se reserva", () => {
+    expect(
+      datosDeReservaCompletos({ name: "  ", email: "ana@correo.co", phone: "" })
+    ).toBe(false);
   });
 });

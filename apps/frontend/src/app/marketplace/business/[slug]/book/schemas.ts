@@ -47,6 +47,22 @@ export interface BookingConfirmation {
   [key: string]: unknown;
 }
 
+/**
+ * Lo que hace falta para reservar. Al menos una via de contacto: sin telefono
+ * ni correo el negocio no puede confirmar la vispera, ni avisar de un retraso,
+ * ni recolocar el hueco si el cliente cancela, y el cliente no puede recuperar
+ * su cita porque no dejo rastro con el que identificarse.
+ */
+export function datosDeReservaCompletos(guest: {
+  name: string;
+  email: string;
+  phone: string;
+}): boolean {
+  return Boolean(
+    guest.name.trim() && (guest.email.trim() || guest.phone.trim())
+  );
+}
+
 export const BOOKING_STEPS = [
   { n: 1, label: "Servicios" },
   { n: 2, label: "Profesional" },

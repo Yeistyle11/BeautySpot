@@ -598,6 +598,13 @@ nombra los días en conflicto.
 | ------ | --------------- | ------- | ---------------------------------------- |
 | POST   | `/appointments` | PÚBLICA | Reserva desde el marketplace, sin cuenta |
 
+La reserva exige **al menos una vía de contacto**: `guestEmail` o `guestPhone`,
+uno de los dos. Sin ninguno el negocio recibe un nombre y nada más —no puede
+confirmar la víspera, ni avisar de un retraso, ni recolocar el hueco si el
+cliente cancela— y el cliente no puede recuperar su cita porque no dejó rastro
+con el que identificarse. El teléfono se valida con el mismo formato que la
+ficha de cliente, que es de donde sale.
+
 ### Internos
 
 | Método | Ruta                                                              | Descripción                            |
