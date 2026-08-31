@@ -1,7 +1,7 @@
 "use client";
 
 // Pagina de clientes: alta, edicion y listado de la base de clientes del negocio.
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { api } from "@/lib/api";
 import { useApi, paginatedSchema } from "@/lib/swr";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { usePaginatedCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
@@ -46,6 +47,7 @@ import {
 } from "./client-form-dialog";
 import { MergeDialog } from "./merge-dialog";
 import {
+  clavePosiblesDuplicados,
   clientSchema,
   cambiosDelCliente,
   campoDeFichaSchema,
@@ -80,6 +82,16 @@ export default function ClientsPage() {
   const [createDialog, setCreateDialog] = useState(false);
   const [createForm, setCreateForm] = useState<ClientForm>(emptyClientForm);
   const [savingCreate, setSavingCreate] = useState(false);
+  // Fichas que podrían ser la misma persona, mientras se teclea el nombre. El
+  // contacto repetido ya lo rechaza el servidor; esto atrapa al duplicado que
+  // no comparte ninguno, que es el que acaba pidiendo una fusión.
+  const nombreTecleado = useDebouncedValue(createForm.name);
+  const { data: parecidas } = useApi(
+    createDialog ? clavePosiblesDuplicados(nombreTecleado) : null,
+    undefined,
+    paginatedSchema(clientSchema)
+  );
+  const posiblesDuplicados = useMemo(() => parecidas?.data ?? [], [parecidas]);
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
@@ -383,6 +395,11 @@ export default function ClientsPage() {
         title="Nuevo cliente"
         submitLabel="Crear cliente"
         saving={savingCreate}
+        posiblesDuplicados={posiblesDuplicados}
+        onAbrirFicha={(cliente) => {
+          setCreateDialog(false);
+          openDetail(cliente);
+        }}
       />
 
       <Dialog

@@ -77,3 +77,25 @@ export function cambiosDelCliente(
 
 export const CLIENTS_KEY = "/core/clients";
 export const CLIENT_FIELDS_KEY = "/core/client-fields";
+
+/** Fichas parecidas que se enseñan al dar de alta; más serían ruido. */
+export const POSIBLES_DUPLICADOS = 5;
+
+/** Desde cuántas letras del nombre tiene sentido buscar parecidos. */
+const LETRAS_MINIMAS = 3;
+
+/**
+ * Consulta con la que se buscan fichas que puedan ser la misma persona
+ * mientras se teclea el alta, o `null` si todavía no hay con qué buscar.
+ *
+ * El contacto repetido ya lo rechaza el servidor; esto es para el otro
+ * duplicado, el que no comparte teléfono ni correo: la misma persona con el
+ * nombre escrito de otra manera. La búsqueda del listado ignora tildes y
+ * mayúsculas, así que «Ana Gomez» encuentra a «Ana Gómez».
+ */
+export function clavePosiblesDuplicados(nombre: string): string | null {
+  const limpio = nombre.trim();
+  if (limpio.length < LETRAS_MINIMAS) return null;
+
+  return `${CLIENTS_KEY}?search=${encodeURIComponent(limpio)}&limit=${POSIBLES_DUPLICADOS}`;
+}

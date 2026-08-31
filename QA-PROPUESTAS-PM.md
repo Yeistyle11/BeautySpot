@@ -289,9 +289,13 @@ Las tres decisiones, tomadas: **definitiva** con el aviso en el diálogo antes d
 pulsar; **dueño y administrador**, como la supresión de datos; y **se rechaza**
 cuando cada ficha tiene una cuenta de usuario distinta.
 
-**Qué queda.** El complemento barato que la propuesta apuntaba: **avisar del
-posible duplicado en el momento del alta**, aprovechando que la búsqueda ya sabe
-encontrarlos. Evita más fusiones de las que resuelve la fusión, y no está hecho.
+**Y el complemento barato, también hecho:** el alta avisa de las fichas
+parecidas mientras se teclea el nombre, con su contacto y un acceso para abrir la
+que ya existe en vez de crear la segunda. No bloquea —dos personas pueden
+llamarse igual— y se apoya en la búsqueda que ya ignora tildes y mayúsculas, así
+que «Ana Gomez» encuentra a «Ana Gómez». El contacto repetido lo sigue rechazando
+el servidor; esto atrapa al duplicado que no comparte ninguno, que es justo el
+que acababa pidiendo una fusión.
 
 **Cómo se sabe que sirvió.** En un centro estético, que la ficha de alergias y la
 fórmula de color de una clienta dejen de estar partidas en dos historiales a
