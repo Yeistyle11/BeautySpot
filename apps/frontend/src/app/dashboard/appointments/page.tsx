@@ -23,6 +23,7 @@ import {
   List,
   CalendarDays,
   Columns3,
+  UserPlus,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
@@ -34,6 +35,7 @@ import { usePaginatedList } from "@/lib/use-paginated-list";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { AppointmentForm } from "./appointment-form";
+import { WalkInDialog } from "./walk-in-dialog";
 import { AppointmentCard } from "./appointment-card";
 import { RescheduleDialog } from "./reschedule-dialog";
 import { BlockedSlotFormDialog } from "../blocked-slots/blocked-slot-form-dialog";
@@ -58,11 +60,14 @@ import {
   clientSchema,
   CLIENTS_KEY,
   emptyForm,
+  emptyWalkInForm,
+  horaActual,
   MOTIVOS_DE_CANCELACION,
   professionalSchema,
   PROFESSIONALS_KEY,
   serviceSchema,
   SERVICES_KEY,
+  walkInParaEnviar,
   type Appointment,
   type AppointmentForm as FormValues,
   type Client,
@@ -110,6 +115,11 @@ export default function AppointmentsPage() {
 
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [walkInDialog, setWalkInDialog] = useState(false);
+  const [walkInForm, setWalkInForm] = useState(emptyWalkInForm);
+  const [walkInServicios, setWalkInServicios] = useState<string[]>([]);
+  const [savingWalkIn, setSavingWalkIn] = useState(false);
+  const [walkInError, setWalkInError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "day" | "calendar">("list");
@@ -408,6 +418,63 @@ export default function AppointmentsPage() {
     }
   };
 
+  const openWalkIn = () => {
+    // Se propone la hora de ahora: lo normal es anotarlo recién atendido.
+    setWalkInForm({ ...emptyWalkInForm, startTime: horaActual() });
+    setWalkInServicios([]);
+    setWalkInError("");
+    setWalkInDialog(true);
+  };
+
+  const handleWalkIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingWalkIn(true);
+    setWalkInError("");
+    try {
+      // El cobro en efectivo exige caja abierta; se comprueba antes de
+      // registrar nada, para no dejar la cita anotada y el cobro sin hacer.
+      if (walkInForm.cobrar && walkInForm.metodo === "CASH") {
+        const caja = await api.get<{ id: string } | null>(
+          "/payment/cash-register/active"
+        );
+        if (!caja) {
+          setWalkInError(
+            "No hay una caja abierta: ábrela antes de cobrar en efectivo"
+          );
+          return;
+        }
+      }
+
+      const cita = await api.post<Appointment>(
+        `${APPOINTMENTS_KEY}/walk-in`,
+        walkInParaEnviar(walkInForm, walkInServicios, asignaciones)
+      );
+
+      if (walkInForm.cobrar) {
+        await api.post("/payment/payments", {
+          appointmentId: cita.id,
+          clientId: cita.clientId,
+          amount: cita.totalAmount,
+          method: walkInForm.metodo,
+          reference: walkInForm.referencia || undefined,
+        });
+      }
+
+      setWalkInDialog(false);
+      await recargar();
+      await revalidatePrefix("/payment/payments");
+      await revalidatePrefix("/payment/cash-register");
+      toast.exito("Walk-in registrado");
+    } catch (err) {
+      logger.error(err);
+      // El motivo se lee en el diálogo: el aviso flotante se lo llevaría y hay
+      // que corregir algo antes de reintentar.
+      setWalkInError(mensajeDeError(err));
+    } finally {
+      setSavingWalkIn(false);
+    }
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -471,6 +538,11 @@ export default function AppointmentsPage() {
                 </FilterChip>
               ))}
             </div>
+            {canDo(role, "appointments_create") && (
+              <Button variant="outline" onClick={openWalkIn}>
+                <UserPlus className="mr-2 h-4 w-4" /> Walk-in
+              </Button>
+            )}
             {canDo(role, "appointments_create") && (
               <Button onClick={() => setShowForm(!showForm)}>
                 {showForm ? (
@@ -652,6 +724,27 @@ export default function AppointmentsPage() {
         onPaymentChange={setPayment}
         onComplete={handleCompleteWithPayment}
         pending={completingAction}
+      />
+
+      <WalkInDialog
+        open={walkInDialog}
+        onClose={() => setWalkInDialog(false)}
+        onSubmit={handleWalkIn}
+        form={walkInForm}
+        onChange={setWalkInForm}
+        professionals={professionals ?? []}
+        clients={clients ?? []}
+        services={services ?? []}
+        selectedServices={walkInServicios}
+        onToggleService={(id) =>
+          setWalkInServicios((previos) =>
+            previos.includes(id)
+              ? previos.filter((s) => s !== id)
+              : [...previos, id]
+          )
+        }
+        saving={savingWalkIn}
+        error={walkInError}
       />
 
       <BlockedSlotFormDialog

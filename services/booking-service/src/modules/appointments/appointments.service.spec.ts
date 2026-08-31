@@ -1899,4 +1899,107 @@ describe("AppointmentsService", () => {
       expect(resultado).toEqual({ clientIds: [], truncado: false });
     });
   });
+
+  describe("registrarWalkIn", () => {
+    /** Los datos con los que el mostrador anota a quien acaba de atender. */
+    const walkIn = {
+      professionalId: "prof-123",
+      clientId: "client-123",
+      serviceIds: [SERVICIO_CORTE],
+      startTime: dentroDeMinutos(-45).startTime,
+      createdBy: "user-1",
+    };
+
+    beforeEach(() => {
+      mockHttp.enviar.mockResolvedValue([CORTE]);
+      // Sin jornada y con la agenda ocupada: un alta normal fallaria por las
+      // dos cosas, y el walk-in no las consulta.
+      mockAvailRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([mockAppointment]);
+    });
+
+    /** El objeto con el que se creó la cita del walk-in. */
+    const citaCreada = () =>
+      (mockManager.create as jest.Mock).mock.calls.find(
+        ([entidad]: [unknown]) => entidad === Appointment
+      )?.[1];
+
+    it("nace atendida, no pendiente: ya ocurrió", async () => {
+      await service.registrarWalkIn("business-123", walkIn);
+
+      expect(citaCreada()).toMatchObject({
+        status: AppointmentStatus.COMPLETED,
+        completedAt: expect.any(Date),
+      });
+    });
+
+    it("guarda la hora a la que se atendió, no la de cuando se anota", async () => {
+      await service.registrarWalkIn("business-123", walkIn);
+
+      expect(citaCreada()).toMatchObject({
+        startTime: walkIn.startTime,
+        startedAt: expect.any(Date),
+      });
+    });
+
+    it("suma los puntos de fidelidad, como completar una cita", async () => {
+      await service.registrarWalkIn("business-123", walkIn);
+
+      // El 10 % del importe, que es lo que otorga completar.
+      expect(citaCreada()).toMatchObject({
+        pointsEarned: Math.round(CORTE.price * 0.1),
+      });
+    });
+
+    // Es lo que hace que «Rentabilidad por servicio» e «Ingresos por
+    // profesional» dejen de estar vacíos donde media clientela entra sin cita.
+    it("publica el evento de cita atendida", async () => {
+      await service.registrarWalkIn("business-123", walkIn);
+
+      const eventos = mockOutbox.enqueue.mock.calls.map(
+        ([, evento]: [unknown, { eventType: string }]) => evento.eventType
+      );
+      expect(eventos).toEqual([
+        EventNames.BOOKING_APPOINTMENT_CREATED,
+        EventNames.BOOKING_APPOINTMENT_COMPLETED,
+      ]);
+    });
+
+    // No es una reserva: el hueco no se pide, ya se ocupó en la silla. Un alta
+    // normal con esta misma agenda se rechaza.
+    it("se registra aunque no haya jornada y la franja esté ocupada", async () => {
+      await expect(
+        service.registrarWalkIn("business-123", walkIn)
+      ).resolves.toBeDefined();
+
+      await expect(
+        service.create("business-123", {
+          ...walkIn,
+          date: FECHA_CITA,
+          startTime: "10:00",
+        })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("una hora que aún no ha llegado no es un walk-in", async () => {
+      await expect(
+        service.registrarWalkIn("business-123", {
+          ...walkIn,
+          startTime: dentroDeMinutos(60).startTime,
+        })
+      ).rejects.toThrow("esa hora aún no ha llegado");
+    });
+
+    it("congela el precio del catálogo en la línea", async () => {
+      await service.registrarWalkIn("business-123", walkIn);
+
+      const linea = (mockManager.create as jest.Mock).mock.calls.find(
+        ([entidad]: [unknown]) => entidad === AppointmentServiceEntity
+      )?.[1];
+      expect(linea).toMatchObject({
+        serviceName: CORTE.name,
+        price: CORTE.price,
+      });
+    });
+  });
 });

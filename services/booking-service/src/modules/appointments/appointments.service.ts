@@ -33,6 +33,7 @@ import {
   calculateEndTime,
   escapeLikePattern,
   esInstantePasadoEn,
+  fechaDeHoyEn,
   duracionDeCliente,
   finDeOcupacion,
   horaDeReloj,
@@ -367,6 +368,124 @@ export class AppointmentsService {
         return result!;
       })
     );
+
+    return appointment;
+  }
+
+  /**
+   * Registra un walk-in: alguien que entró sin cita, ya se atendió y se anota
+   * después, cuando hay un hueco en el mostrador.
+   *
+   * No es una reserva y por eso no pasa por la disponibilidad ni por el control
+   * de solapes: el hueco no se está pidiendo, ya se ocupó, en la silla. Nace
+   * atendida, con sus puntos de fidelidad, y publica el mismo evento que
+   * completar una cita, que es lo que hace que las métricas por profesional y
+   * por servicio dejen de estar vacías en un negocio donde media clientela
+   * entra sin cita.
+   *
+   * Solo admite una hora ya pasada **del día en curso**: el día de ayer tiene su
+   * arqueo cerrado y sus informes mirados, y reescribirlo es otra cosa.
+   */
+  async registrarWalkIn(
+    businessId: string,
+    data: {
+      professionalId: string;
+      clientId: string;
+      serviceIds: string[];
+      startTime: string;
+      notes?: string;
+      branchId?: string;
+      createdBy?: string;
+      asignaciones?: { serviceId: string; professionalId: string }[];
+    }
+  ): Promise<Appointment> {
+    await this.validarSede(businessId, data.branchId);
+
+    const zona = await this.zonas.de(businessId);
+    const date = fechaDeHoyEn(zona);
+    if (!esInstantePasadoEn(zona, date, data.startTime)) {
+      throw new BadRequestException(
+        "Un walk-in se registra después de atenderlo: esa hora aún no ha llegado"
+      );
+    }
+
+    const lineas = await this.lineasDeLaCita(
+      businessId,
+      data.serviceIds,
+      data.professionalId,
+      new Map(
+        (data.asignaciones ?? []).map((a) => [a.serviceId, a.professionalId])
+      )
+    );
+    const totalAmount = lineas.reduce((sum, s) => sum + s.price, 0);
+    const endTime = calculateEndTime(data.startTime, duracionDeCliente(lineas));
+    const ocupadoHasta = finDeOcupacion(data.startTime, lineas);
+    const pointsEarned = Math.round(totalAmount * PROPORCION_PUNTOS_FIDELIDAD);
+
+    const appointment = await this.dataSource.transaction(async (manager) => {
+      const created = manager.create(Appointment, {
+        businessId,
+        branchId: data.branchId,
+        clientId: data.clientId,
+        professionalId: data.professionalId,
+        date,
+        startTime: data.startTime,
+        endTime: horaDeReloj(endTime),
+        ocupadoHasta: horaDeReloj(ocupadoHasta),
+        totalAmount,
+        notes: data.notes,
+        createdBy: data.createdBy,
+        status: AppointmentStatus.COMPLETED,
+        // Se atendió a su hora, no cuando alguien tuvo tiempo de anotarlo.
+        startedAt: instanteDe(zona, date, data.startTime),
+        completedAt: new Date(),
+        pointsEarned,
+      });
+      const saved = await manager.save(Appointment, created);
+
+      const apptServices = lineas.map((linea) =>
+        manager.create(AppointmentServiceEntity, {
+          appointmentId: saved.id,
+          serviceId: linea.id,
+          serviceName: linea.name,
+          price: linea.price,
+          duration: linea.duration,
+          orden: linea.orden,
+          procesadoDesde: linea.procesadoDesde,
+          procesadoMinutos: linea.procesadoMinutos,
+          bufferDespues: linea.bufferDespues,
+          professionalId: linea.professionalId,
+        })
+      );
+      await manager.save(AppointmentServiceEntity, apptServices);
+
+      const servicios = serviciosDelEvento(apptServices);
+      // Los dos eventos: nace y se da por atendida en el mismo acto, y quien
+      // escucha uno u otro tiene que ver lo mismo que en una cita normal.
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.BOOKING_APPOINTMENT_CREATED,
+        aggregateType: "appointment",
+        aggregateId: saved.id,
+        payload: {
+          ...cuerpoDeCita(saved, businessId, { services: servicios }),
+        },
+      });
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.BOOKING_APPOINTMENT_COMPLETED,
+        aggregateType: "appointment",
+        aggregateId: saved.id,
+        payload: {
+          ...cuerpoDeCita(saved, businessId, { services: servicios }),
+          pointsEarned,
+        },
+      });
+
+      const result = await manager.findOne(Appointment, {
+        where: { id: saved.id },
+        relations: ["appointmentServices"],
+      });
+      return result!;
+    });
 
     return appointment;
   }

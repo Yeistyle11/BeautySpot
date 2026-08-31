@@ -28,6 +28,7 @@ import {
   CancelMineDto,
   RescheduleDto,
   AvailabilityQueryDto,
+  WalkInDto,
 } from "./dto/appointment.dto";
 
 /** Endpoints de gestión de citas del negocio (crear, listar y transiciones de estado). */
@@ -48,6 +49,22 @@ export class AppointmentsController {
     @Body() dto: CreateAppointmentDto
   ) {
     return this.service.create(businessId, {
+      ...dto,
+      branchId: dto.branchId ?? branchId,
+      createdBy: userId,
+    });
+  }
+
+  /** Registra un walk-in ya atendido: nace completado y con sus puntos. */
+  @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
+  @Post("walk-in")
+  async walkIn(
+    @BusinessId() businessId: string,
+    @BranchId() branchId: string | undefined,
+    @CurrentUser("userId") userId: string,
+    @Body() dto: WalkInDto
+  ) {
+    return this.service.registrarWalkIn(businessId, {
       ...dto,
       branchId: dto.branchId ?? branchId,
       createdBy: userId,

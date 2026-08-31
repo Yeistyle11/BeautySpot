@@ -508,6 +508,7 @@ patrón **Outbox** para publicar eventos de forma fiable.
 | Método | Ruta              | Roles                                    | Descripción               |
 | ------ | ----------------- | ---------------------------------------- | ------------------------- |
 | POST   | `/`               | OWNER, ADMIN, RECEPTIONIST               | Crea cita                 |
+| POST   | `/walk-in`        | OWNER, ADMIN, RECEPTIONIST               | Registra un walk-in       |
 | GET    | `/`               | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Lista citas (paginado)    |
 | GET    | `/availability`   | Autenticado                              | Huecos disponibles        |
 | GET    | `/:id`            | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Detalle                   |
@@ -517,6 +518,14 @@ patrón **Outbox** para publicar eventos de forma fiable.
 | POST   | `/:id/cancel`     | OWNER, ADMIN, RECEPTIONIST               | Cancela con motivo        |
 | POST   | `/:id/no-show`    | OWNER, ADMIN, PROFESSIONAL               | Marca no presentado       |
 | PATCH  | `/:id/reschedule` | OWNER, ADMIN, RECEPTIONIST               | Reprograma                |
+
+Un **walk-in** es quien entró sin cita, ya se atendió y se anota después. No es
+una reserva: no lleva fecha —la pone el servicio, que solo admite el día en curso
+del negocio—, exige una hora **ya pasada**, y no pasa por la disponibilidad ni
+por el control de solapes, porque el hueco no se está pidiendo, ya se ocupó.
+Nace `COMPLETED`, con sus puntos de fidelidad, y publica los eventos de cita
+creada **y** atendida, que es lo que hace que las métricas por profesional y por
+servicio cuenten lo que se atiende sin cita.
 
 Las rutas `/mine/*` son las del portal del cliente: el destinatario sale del
 token y no del negocio, así que llevan `@SkipBusinessScope()`. A diferencia de
