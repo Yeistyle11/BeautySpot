@@ -19,7 +19,7 @@ en `QA-REMEDIATION-PLAN.md`.
 | BS-003 | Pantalla de facturas y tasa de impuesto     | Hecho                      | **Hecha** | —        | ✅    |
 | BS-002 | Devolver un cobro                           | Hecho                      | **Hecha** | —        | ✅    |
 | BS-006 | Precio y duración por profesional           | Hecho                      | **Hecha** | —        | ✅    |
-| BS-028 | Sembrar el negocio nuevo según su tipo      | Falta                      | Poca      | M        | 4     |
+| BS-028 | Sembrar el negocio nuevo según su tipo      | Hecho                      | **Hecha** | —        | ✅    |
 | BS-024 | Exigir un contacto en la reserva pública    | Una regla en el DTO        | Poca      | XS       | 5     |
 | BS-013 | Alta de walk-in retroactivo                 | Hecho                      | **Hecha** | —        | ✅    |
 | BS-021 | Fusión de fichas duplicadas                 | Falta, y cruza 4 servicios | Media     | L        | 7     |
@@ -160,7 +160,7 @@ a comparar peras con peras.
 
 ---
 
-## 4 · BS-028 · Sembrar el negocio nuevo según su tipo
+## 4 · BS-028 · Sembrar el negocio nuevo según su tipo ✅ (implementado)
 
 **Qué hay hoy.** El tipo se pide al crear el negocio, se guarda y viaja en el
 evento `core.business.created` (`businessType` va en el payload). No siembra
@@ -168,18 +168,22 @@ nada: un spa nace con 0 servicios, 0 categorías, 0 profesionales y 0 tramos
 horarios, y con el mismo menú de quince entradas que una barbería. El catálogo de
 tipos ya existe en `TIPOS_DE_NEGOCIO` (barbería, salón, spa, belleza).
 
-**Propuesta.** Una plantilla por tipo con un puñado de servicios típicos —nombre,
-duración y precio orientativo—, las categorías propias del sector y un horario de
-apertura razonable. Se aplica al crear el negocio, dentro de la misma
-transacción, y el alta ofrece **«empezar en blanco»** para quien no la quiera.
-Todo editable y borrable después, sin ninguna marca que distinga lo sembrado de
-lo escrito a mano: en cuanto el dueño lo toca, es suyo.
+**Hecho.** Una plantilla por tipo —servicios típicos con duración y precio
+orientativo, categorías de servicio y de profesional, y un horario de apertura—
+que se aplica en la misma transacción que el alta: o nace entero o no nace. Nada
+se marca como sembrado: en cuanto el dueño lo toca es suyo, y puede borrarlo
+entero. El alta ofrece **empezar en blanco**, y un tipo sin plantilla no siembra
+nada sin que el alta falle.
 
-**Qué hay que decidir.** El contenido de las cuatro plantillas, que es trabajo de
-producto y no de ingeniería: qué diez servicios definen una barbería colombiana,
-qué precios orientativos no ofenden, qué horario. Y si se siembra también un
-profesional con el nombre del dueño, que es lo que hace falta para que la agenda
-sea usable el primer día.
+**Qué queda por decidir, y es de producto.** El contenido: los precios son
+referencias del mercado colombiano puestas para que haya algo defendible el
+primer día, no una postura comercial. Viven en un solo archivo
+(`plantillas-por-tipo.ts`), cambiarlos no toca ningún negocio ya creado, y
+merecen una pasada de alguien que venda en el sector.
+
+Se sembró **sin profesional**: una ficha con el nombre de una persona real en un
+salón donde el dueño no atiende molesta más que una silla vacía. Si se quiere,
+es una línea más en la plantilla.
 
 **Cómo se sabe que sirvió.** El dueño llega a su primera cita sin pasar por
 Servicios, Categorías, Equipo y Horarios antes.
