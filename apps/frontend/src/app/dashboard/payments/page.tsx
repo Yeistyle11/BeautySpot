@@ -23,14 +23,20 @@ import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { PaymentSummaryCards } from "./payment-summary";
 import { PaymentCard } from "./payment-card";
-import { CreatePaymentDialog, EditPaymentDialog } from "./payment-dialogs";
+import {
+  CreatePaymentDialog,
+  EditPaymentDialog,
+  RefundDialog,
+} from "./payment-dialogs";
 import {
   citaCobrableSchema,
   clientSchema,
   CLIENTS_KEY,
   COBRADAS_KEY,
   dailySummarySchema,
+  devolucionParaEnviar,
   emptyCreateForm,
+  emptyDevolucionForm,
   emptyEditForm,
   METHOD_FILTERS,
   METHOD_LABELS,
@@ -92,6 +98,11 @@ export default function PaymentsPage() {
   };
 
   const [editDialog, setEditDialog] = useState(false);
+  const [refundDialog, setRefundDialog] = useState(false);
+  const [refundPayment, setRefundPayment] = useState<Payment | null>(null);
+  const [refundForm, setRefundForm] = useState(emptyDevolucionForm);
+  const [savingRefund, setSavingRefund] = useState(false);
+  const [refundError, setRefundError] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditForm>(emptyEditForm);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -212,6 +223,38 @@ export default function PaymentsPage() {
     }
   };
 
+  const openRefund = (p: Payment) => {
+    setRefundPayment(p);
+    setRefundForm(emptyDevolucionForm);
+    setRefundError("");
+    setRefundDialog(true);
+  };
+
+  const handleRefund = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!refundPayment) return;
+    setSavingRefund(true);
+    setRefundError("");
+    try {
+      await api.post(
+        `/payment/payments/${refundPayment.id}/refund`,
+        devolucionParaEnviar(refundForm)
+      );
+      setRefundDialog(false);
+      setRefundPayment(null);
+      await revalidatePrefix(PAYMENTS_KEY);
+      // El efectivo devuelto sale del cajón: el arqueo cambia con él.
+      await revalidatePrefix("/payment/cash-register");
+    } catch (err) {
+      logger.error(err);
+      // El motivo se lee donde se pulsó: sin caja abierta o fuera de plazo, el
+      // servicio explica por qué y el aviso flotante se lo llevaría.
+      setRefundError(mensajeDeError(err));
+    } finally {
+      setSavingRefund(false);
+    }
+  };
+
   const openEdit = (p: Payment) => {
     setEditId(p.id);
     setEditForm({
@@ -322,6 +365,8 @@ export default function PaymentsPage() {
               key={p.id}
               payment={p}
               canEdit={canDo(role, "payments_edit")}
+              canRefund={canDo(role, "payments_refund")}
+              onRefund={openRefund}
               onEdit={openEdit}
               clientName={p.clientId ? clientMap[p.clientId] : undefined}
             />
@@ -340,6 +385,17 @@ export default function PaymentsPage() {
         citasPorCobrar={citasPorCobrar}
         clients={clients ?? []}
         saving={savingCreate}
+      />
+
+      <RefundDialog
+        open={refundDialog}
+        onClose={() => setRefundDialog(false)}
+        onSubmit={handleRefund}
+        payment={refundPayment}
+        form={refundForm}
+        onChange={setRefundForm}
+        saving={savingRefund}
+        error={refundError}
       />
 
       <EditPaymentDialog

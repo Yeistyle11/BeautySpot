@@ -1,6 +1,6 @@
 "use client";
 
-// Dialogos para registrar y editar un pago (metodo, monto y notas).
+// Dialogos para registrar, editar y devolver un pago.
 import { Banknote, CreditCard, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -12,7 +12,15 @@ import { Dialog } from "@/components/ui/dialog";
 import { RadioGroup } from "@/components/ui/radio-group";
 import { VALOR_DEL_PUNTO } from "@beautyspot/shared-constants";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
-import type { CitaCobrable, Client, CreateForm, EditForm } from "./schemas";
+import {
+  devolucionCompleta,
+  type CitaCobrable,
+  type Client,
+  type CreateForm,
+  type DevolucionForm,
+  type EditForm,
+  type Payment,
+} from "./schemas";
 import { nombreDelMetodo } from "@/lib/metodos-de-pago";
 
 export const PAYMENT_METHOD_OPTIONS = [
@@ -270,6 +278,124 @@ export function EditPaymentDialog({
             label="Guardar cambios"
             pendingLabel="Guardando..."
             pending={saving}
+          />
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+interface RefundDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (e: React.FormEvent) => void;
+  /** Cobro que se devuelve; de él salen el importe y el método. */
+  payment: Payment | null;
+  form: DevolucionForm;
+  onChange: (form: DevolucionForm) => void;
+  saving: boolean;
+  /** Motivo por el que el servicio rechazó la devolución. */
+  error?: string;
+}
+
+/**
+ * Devolución de un cobro, total o parcial. Hasta ahora la única salida era
+ * dejar el cobro malo y compensarlo con un movimiento de caja suelto, sin
+ * trazabilidad y descuadrando los informes de ingresos.
+ */
+export function RefundDialog({
+  open,
+  onClose,
+  onSubmit,
+  payment,
+  form,
+  onChange,
+  saving,
+  error,
+}: RefundDialogProps) {
+  if (!payment) return null;
+
+  const set = (patch: Partial<DevolucionForm>) =>
+    onChange({ ...form, ...patch });
+  const cobrado = payment.amount;
+
+  return (
+    <Dialog open={open} onClose={onClose} title="Devolver un cobro">
+      <form onSubmit={onSubmit} className="space-y-4">
+        {error && (
+          <p role="alert" className="text-destructive text-sm">
+            {error}
+          </p>
+        )}
+
+        <p className="text-muted-foreground text-sm">
+          Se cobraron <strong>{formatCurrency(cobrado)}</strong> en{" "}
+          {nombreDelMetodo(payment.method).toLowerCase()} el{" "}
+          {formatDate(payment.createdAt.slice(0, 10))}.
+        </p>
+
+        <div
+          className="space-y-2"
+          role="group"
+          aria-labelledby="refund-alcance"
+        >
+          <p id="refund-alcance" className="text-sm font-medium">
+            Cuánto se devuelve
+          </p>
+          <RadioGroup
+            options={[
+              { value: "total", label: `Todo (${formatCurrency(cobrado)})` },
+              { value: "parcial", label: "Una parte" },
+            ]}
+            value={form.alcance}
+            onChange={(alcance) => set({ alcance })}
+            label="Cuánto se devuelve"
+          />
+        </div>
+
+        {form.alcance === "parcial" && (
+          <Field label="Importe a devolver (COP)">
+            <Input
+              type="number"
+              min={1}
+              max={cobrado}
+              value={form.importe}
+              onChange={(e) => set({ importe: e.target.value })}
+              required
+            />
+          </Field>
+        )}
+
+        {payment.method === "CASH" && (
+          // El efectivo sale del cajón: sin caja abierta el servicio lo
+          // rechaza, y es mejor decirlo antes de intentarlo.
+          <p className="text-muted-foreground bg-muted/50 rounded-lg p-3 text-sm">
+            El efectivo se descuenta de la caja abierta. Si no hay ninguna,
+            ábrela antes de devolver.
+          </p>
+        )}
+
+        <Field
+          label="Motivo"
+          hint="Queda anotado en el cobro, junto a quién lo devolvió"
+        >
+          <Input
+            placeholder="El tinte salió mal y se le devolvió el dinero"
+            value={form.motivo}
+            onChange={(e) => set({ motivo: e.target.value })}
+            required
+          />
+        </Field>
+
+        <div className="flex gap-3 pt-2">
+          <SubmitButton
+            label="Devolver"
+            pendingLabel="Devolviendo..."
+            pending={saving}
+            disabled={!devolucionCompleta(form, cobrado)}
           />
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar

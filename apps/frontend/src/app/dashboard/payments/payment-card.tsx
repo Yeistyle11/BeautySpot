@@ -6,13 +6,19 @@ import {
   CreditCard,
   DollarSign,
   Edit,
+  RotateCcw,
   Smartphone,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDateTimeStamp } from "@/lib/utils";
-import { METHOD_LABELS, STATUS_LABELS, type Payment } from "./schemas";
+import {
+  estadoDeDevolucion,
+  METHOD_LABELS,
+  STATUS_LABELS,
+  type Payment,
+} from "./schemas";
 
 const METHOD_ICONS: Record<
   string,
@@ -23,6 +29,9 @@ interface PaymentCardProps {
   payment: Payment;
   canEdit: boolean;
   onEdit: (payment: Payment) => void;
+  /** Devolver es de dueño y administrador, como en el servicio. */
+  canRefund: boolean;
+  onRefund: (payment: Payment) => void;
   /** Nombre del cliente; el pago solo guarda su id. */
   clientName?: string;
 }
@@ -32,10 +41,14 @@ export function PaymentCard({
   payment,
   canEdit,
   onEdit,
+  canRefund,
+  onRefund,
   clientName,
 }: PaymentCardProps) {
   const Icon = METHOD_ICONS[payment.method] || DollarSign;
   const amount = formatCurrency(payment.amount);
+  const devolucion = estadoDeDevolucion(payment);
+  const devuelto = payment.refundAmount ?? 0;
 
   return (
     <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
@@ -70,6 +83,14 @@ export function PaymentCard({
                   </span>
                 )}
               </div>
+              {/* Una devolución parcial deja el cobro vivo por el resto: sin
+                  decir cuánto volvió, la cifra de arriba engaña. */}
+              {devuelto > 0 && (
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Devuelto {formatCurrency(devuelto)}
+                  {payment.refundReason ? ` · ${payment.refundReason}` : ""}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -81,6 +102,16 @@ export function PaymentCard({
                 aria-label={`Editar el pago de ${amount}`}
               >
                 <Edit className="text-muted-foreground h-4 w-4" />
+              </Button>
+            )}
+            {canRefund && devolucion.puede && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onRefund(payment)}
+                aria-label={`Devolver el pago de ${amount}`}
+              >
+                <RotateCcw className="text-muted-foreground h-4 w-4" />
               </Button>
             )}
             <Badge variant="secondary">

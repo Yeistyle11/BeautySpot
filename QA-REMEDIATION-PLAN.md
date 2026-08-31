@@ -590,8 +590,13 @@ Detectados durante la remediación, no estaban en el informe.
    usa insertar-y-traducir-el-23505 (`esViolacionDeUnicidad`). Dos altas simultáneas
    con el mismo teléfono se colaban. **Corregido** con BS-020, que es la mitad del
    hallazgo que tenía que sostener la base de datos.
-5. **`PATCH /payments/:id/status` no toca la caja** (`payments.service.ts` L447-462):
-   anular un pago en efectivo deja su entrada en el arqueo.
+5. ~~**`PATCH /payments/:id/status` no toca la caja**: anular un pago en efectivo
+   deja su entrada en el arqueo.~~ **No es alcanzable, y el hallazgo estaba mal
+   planteado.** Un cobro nace `COMPLETED` —`CreatePaymentDto` no admite estado— y
+   `TRANSICIONES_DE_PAGO[COMPLETED]` está vacío: un cobro completado no se puede
+   anular por esa ruta. La única transición que acepta es `PENDING → CANCELLED`,
+   y un cobro pendiente no se puede crear. La ruta es hoy **código muerto**;
+   deshacer un cobro es devolverlo, y la devolución sí mueve la caja.
 6. **Analytics sella la métrica con el día de proceso, no con el del cobro**
    (`analytics-event-listeners.service.ts` L223-241 usa `hoyPara(businessId)`). Un
    evento reprocesado al día siguiente cuenta en el día equivocado: es una vía

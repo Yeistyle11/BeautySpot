@@ -167,7 +167,9 @@ export const ACTIONS = {
   appointments_reschedule: ["OWNER", "ADMIN", "RECEPTIONIST"],
   payments_create: ["OWNER", "ADMIN", "RECEPTIONIST"],
   payments_edit: ["OWNER", "ADMIN"],
-  payments_void: ["OWNER", "ADMIN"],
+  // Devolver, no anular: un cobro completado no admite cambio de estado en el
+  // servicio, así que la devolución es la única forma de deshacerlo.
+  payments_refund: ["OWNER", "ADMIN"],
   invoices_create: ["OWNER", "ADMIN"],
   invoices_status: ["OWNER", "ADMIN"],
   cash_register_open: ["OWNER", "ADMIN", "RECEPTIONIST"],

@@ -17,7 +17,7 @@ en `QA-REMEDIATION-PLAN.md`.
 | ID     | Qué falta                                   | Backend                    | Interfaz  | Esfuerzo | Orden |
 | ------ | ------------------------------------------- | -------------------------- | --------- | -------- | ----- |
 | BS-003 | Pantalla de facturas y tasa de impuesto     | Hecho                      | **Hecha** | —        | ✅    |
-| BS-002 | Devolver o anular un cobro                  | Hecho, más de lo que decía | Todo      | S        | 2     |
+| BS-002 | Devolver un cobro                           | Hecho                      | **Hecha** | —        | ✅    |
 | BS-006 | Precio y duración por profesional           | Hecho                      | **Hecha** | —        | ✅    |
 | BS-028 | Sembrar el negocio nuevo según su tipo      | Falta                      | Poca      | M        | 4     |
 | BS-024 | Exigir un contacto en la reserva pública    | Una regla en el DTO        | Poca      | XS       | 5     |
@@ -28,8 +28,8 @@ en `QA-REMEDIATION-PLAN.md`.
 
 El orden es de impacto comercial frente a coste. Los tres primeros comparten un
 rasgo que los pone arriba: **la función ya está construida y pagada en el
-backend, y lo único que falta es la pantalla que la alcance**. BS-003 y BS-006 ya
-la tienen; queda BS-002.
+backend, y lo único que falta es la pantalla que la alcance**. Los tres ya la
+tienen.
 
 ---
 
@@ -74,32 +74,41 @@ producto. Hoy no puede empezarlo.
 
 ---
 
-## 2 · BS-002 · Devolver y anular un cobro
+## 2 · BS-002 · Devolver un cobro ✅ (implementado)
 
 **Qué hay hoy.** Más de lo que el informe apunta. `POST /payments/:id/refund`
 admite **devolución parcial** (`refundAmount`), exige que el cobro esté
 `COMPLETED`, registra la **contrapartida en la caja abierta**
 (`registrarSalidaEnCaja`) dentro de la misma transacción, guarda motivo y quién
-la hizo, y publica el evento para analytics. `PATCH /payments/:id/status` anula.
+la hizo, y publica el evento para analytics.
 
-⚠️ **Dos detalles que la pantalla tiene que respetar.** Hay una **ventana de 30
-días** (`REFUND_WINDOW_DAYS`, constante local de `payments.service.ts`): pasada,
-la ruta responde 400 y el botón debe decirlo antes de que alguien lo pulse. Y la
-anulación por estado **no toca la caja** (hallazgo nuevo #5 del plan de
-remediación): anular un cobro en efectivo deja su entrada en el arqueo. Mientras
-eso siga así, la interfaz no debería ofrecer «anular» para cobros en efectivo, o
-se corrige antes.
+⚠️ **Anular no existe, y el hallazgo nuevo #5 estaba mal planteado.** Se anotó
+que `PATCH /payments/:id/status` no toca la caja y que por tanto anular un cobro
+en efectivo dejaba su entrada en el arqueo. Al construir la pantalla resultó que
+ese camino no se puede recorrer: un cobro nace `COMPLETED` —`CreatePaymentDto` no
+admite estado— y `TRANSICIONES_DE_PAGO[COMPLETED]` está vacío, así que un cobro
+completado no admite cambio de estado. La única transición que la ruta acepta es
+`PENDING → CANCELLED`, y un cobro pendiente no se puede crear. **Deshacer un
+cobro es devolverlo**, y eso sí mueve la caja.
 
-**Propuesta.** Un diálogo por fila que resuelva los dos casos del mostrador:
-**corregir** el importe mientras la caja sigue abierta (ya existe, BS-001) y
-**devolver** —total o parcial, con motivo— cuando ya no. El listado muestra el
-cobro devuelto con su estado propio y el importe devuelto, para que no se lea
-como un cobro vivo.
+**Hecho.** «Devolver» por fila en Pagos, total o parcial y con motivo
+obligatorio. El listado muestra lo devuelto y su motivo bajo el importe —una
+devolución parcial deja el cobro vivo por el resto, y sin decir cuánto volvió la
+cifra de arriba engaña— y deja de ofrecer la acción sobre lo ya devuelto.
 
-**Qué hay que decidir.** Quién puede devolver: recepción abre la puerta a que se
-devuelva dinero sin supervisión; solo dueño/administrador convierte cada
-devolución en una interrupción. Y si los 30 días son la política que se quiere o
-un número que quedó puesto.
+Dos límites del servicio que la pantalla dice **antes** de que alguien pulse: la
+**ventana de 30 días** (`REFUND_WINDOW_DAYS`), pasada la cual la acción no se
+ofrece, y que **el efectivo sale de la caja abierta** —sin ninguna abierta el
+servicio responde 400, así que el diálogo lo advierte al devolver en efectivo y,
+si aun así ocurre, el motivo se lee donde se pulsó y no en un aviso que se va
+solo—.
+
+En el catálogo de permisos, `payments_void` pasa a `payments_refund`: prometía
+una anulación que el backend no admite.
+
+**Qué queda por decidir.** Quién puede devolver: hoy dueño y administrador, como
+el backend; abrirlo a recepción es dejar que se devuelva dinero sin supervisión.
+Y si los 30 días son la política que se quiere o un número que quedó puesto.
 
 **Cómo se sabe que sirvió.** Deja de haber movimientos de caja sueltos
 compensando cobros malos, que es lo que hoy descuadra los informes de ingresos.
@@ -341,5 +350,5 @@ recoger al planificar:
 - **La fidelización funciona y nadie la está contando.** Los puntos se acumulan
   solos y hay niveles configurables, pero en el panel del negocio no aparecen
   fuera de Configuración. Es una función de retención ya construida y sin
-  escaparate — el mismo patrón que BS-002, BS-003 y BS-006, que son cuatro de los
-  nueve hallazgos de este documento.
+  escaparate — el mismo patrón que BS-002, BS-003 y BS-006, ya resueltos, que con
+  ella son cuatro de los nueve hallazgos de este documento.
