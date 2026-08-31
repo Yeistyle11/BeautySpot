@@ -41,7 +41,8 @@ export class BusinessesController {
     @Body() dto: CreateBusinessDto,
     @CurrentUser("userId") userId: string
   ) {
-    return this.service.createWithOwner(dto, userId);
+    const { sembrar, ...negocio } = dto;
+    return this.service.createWithOwner(negocio, userId, { sembrar });
   }
 
   @Roles(
@@ -132,6 +133,7 @@ export class InternalBusinessesController {
   /** Crea un negocio a petición de otro microservicio (p. ej. al registrarse). */
   @Post()
   async create(@Body() dto: CreateBusinessDto) {
-    return this.service.create(dto);
+    const { sembrar, ...negocio } = dto;
+    return this.service.create(negocio, "", { sembrar });
   }
 }

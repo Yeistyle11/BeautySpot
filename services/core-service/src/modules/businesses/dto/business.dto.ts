@@ -33,6 +33,11 @@ export class CreateBusinessDto {
   @IsOptional() @IsString() @MaxLength(10) currency?: string;
   @IsOptional() @IsString() @MaxLength(10) locale?: string;
   @IsOptional() @IsString() @MaxLength(50) businessType?: string;
+  /**
+   * Ausente o `true`, el negocio nace con el catálogo y el horario típicos de
+   * su tipo. `false` lo deja en blanco.
+   */
+  @IsOptional() @IsBoolean() sembrar?: boolean;
 }
 
 /** Campos editables de un negocio, incluido su estado activo (todos opcionales). */

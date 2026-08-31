@@ -305,6 +305,13 @@ Roles a nivel de clase: **OWNER, ADMIN, SUPER_ADMIN**.
 | PATCH  | `/:id` | Actualiza        |
 | DELETE | `/:id` | Desactiva        |
 
+El alta **siembra el negocio según su `businessType`**: los servicios típicos de
+su sector con duración y precio orientativos, las categorías de servicio y de
+profesional, y un horario de apertura. Va en la misma transacción que el negocio
+—o nace entero o no nace— y nada queda marcado como sembrado: se edita y se borra
+como lo escrito a mano. `sembrar: false` en el cuerpo lo deja en blanco, y un
+tipo sin plantilla no siembra nada sin que el alta falle.
+
 ### Horarios — `/api/v1/core/business-hours`
 
 Roles a nivel de clase: **OWNER, ADMIN**.

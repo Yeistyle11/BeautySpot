@@ -8,11 +8,15 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { OutboxService, InternalHttpClient } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
-import { In, Repository, DataSource } from "typeorm";
+import { In, Repository, DataSource, EntityManager } from "typeorm";
 import { Business } from "../../entities/business.entity";
 import { Branch } from "../../entities/branch.entity";
 import { Service } from "../../entities/service.entity";
 import { Professional } from "../../entities/professional.entity";
+import { ServiceCategoryEntity } from "../../entities/service-category.entity";
+import { ProfessionalCategoryEntity } from "../../entities/category.entity";
+import { BusinessHours } from "../../entities/business-hours.entity";
+import { plantillaDe, type PlantillaDeNegocio } from "./plantillas-por-tipo";
 import {
   generateSlug,
   parsePaginationQuery,
@@ -42,8 +46,15 @@ export class BusinessesService {
     private readonly http: InternalHttpClient
   ) {}
 
-  /** Crea un negocio generando un slug único a partir del nombre. */
-  async create(data: Partial<Business>, creadoPor = ""): Promise<Business> {
+  /**
+   * Crea un negocio generando un slug único a partir del nombre, y lo siembra
+   * según su tipo salvo que se pida en blanco.
+   */
+  async create(
+    data: Partial<Business>,
+    creadoPor = "",
+    opciones: { sembrar?: boolean } = {}
+  ): Promise<Business> {
     const slug = generateSlug(data.name!);
     const existing = await this.repo.findOne({ where: { slug } });
     if (existing) {
@@ -51,9 +62,14 @@ export class BusinessesService {
     }
 
     const business = this.repo.create({ ...data, slug });
+    // Sembrar es lo normal; empezar en blanco, una decisión de quien da de alta.
+    const plantilla =
+      opciones.sembrar === false ? null : plantillaDe(data.businessType);
 
     return this.dataSource.transaction(async (manager) => {
       const creado = await manager.getRepository(Business).save(business);
+
+      if (plantilla) await this.sembrar(manager, creado.id, plantilla);
 
       await this.outbox.enqueue(manager, {
         eventType: EventNames.CORE_BUSINESS_CREATED,
@@ -73,14 +89,72 @@ export class BusinessesService {
   }
 
   /**
+   * Deja el negocio nuevo con catálogo y horario, en la misma transacción que
+   * su alta: o nace entero o no nace. Nada de lo sembrado se marca como tal —el
+   * dueño lo edita y lo borra como si lo hubiera escrito él, porque en cuanto
+   * lo toca es suyo.
+   */
+  private async sembrar(
+    manager: EntityManager,
+    businessId: string,
+    plantilla: PlantillaDeNegocio
+  ): Promise<void> {
+    const categorias = await manager.getRepository(ServiceCategoryEntity).save(
+      plantilla.categoriasDeServicio.map((name, orden) =>
+        manager.getRepository(ServiceCategoryEntity).create({
+          businessId,
+          name,
+          sortOrder: orden,
+        })
+      )
+    );
+    const porNombre = new Map(categorias.map((c) => [c.name, c]));
+
+    await manager
+      .getRepository(ProfessionalCategoryEntity)
+      .save(
+        plantilla.categoriasDeProfesional.map((name, orden) =>
+          manager
+            .getRepository(ProfessionalCategoryEntity)
+            .create({ businessId, name, sortOrder: orden })
+        )
+      );
+
+    await manager.getRepository(Service).save(
+      plantilla.servicios.map((servicio) =>
+        manager.getRepository(Service).create({
+          businessId,
+          name: servicio.name,
+          description: "",
+          price: servicio.price,
+          duration: servicio.duration,
+          // El nombre y el vínculo con la categoría: la ficha enseña el
+          // nombre y el filtro del panel usa el identificador.
+          category: servicio.category,
+          categoryId: porNombre.get(servicio.category)?.id,
+        })
+      )
+    );
+
+    await manager
+      .getRepository(BusinessHours)
+      .save(
+        plantilla.horario.map((tramo) =>
+          manager.getRepository(BusinessHours).create({ businessId, ...tramo })
+        )
+      );
+  }
+
+  /**
    * Alta de negocio por parte de quien lo va a regentar: crea el negocio y
    * pide a auth-service su membresia de OWNER.
    */
   async createWithOwner(
     data: Partial<Business>,
-    ownerId: string
+    ownerId: string,
+    opciones: { sembrar?: boolean } = {}
   ): Promise<Business> {
-    const creado = await this.create(data, ownerId);
+    const creado = await this.create(data, ownerId, opciones);
 
     try {
       await this.http.enviar("auth", "/internal/memberships", {
