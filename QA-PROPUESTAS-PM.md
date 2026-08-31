@@ -14,17 +14,17 @@ en `QA-REMEDIATION-PLAN.md`.
 
 ## Resumen
 
-| ID     | Qué falta                                   | Backend                    | Interfaz  | Esfuerzo | Orden |
-| ------ | ------------------------------------------- | -------------------------- | --------- | -------- | ----- |
-| BS-003 | Pantalla de facturas y tasa de impuesto     | Hecho                      | **Hecha** | —        | ✅    |
-| BS-002 | Devolver un cobro                           | Hecho                      | **Hecha** | —        | ✅    |
-| BS-006 | Precio y duración por profesional           | Hecho                      | **Hecha** | —        | ✅    |
-| BS-028 | Sembrar el negocio nuevo según su tipo      | Hecho                      | **Hecha** | —        | ✅    |
-| BS-024 | Exigir un contacto en la reserva pública    | Hecho                      | **Hecha** | —        | ✅    |
-| BS-013 | Alta de walk-in retroactivo                 | Hecho                      | **Hecha** | —        | ✅    |
-| BS-021 | Fusión de fichas duplicadas                 | Falta, y cruza 4 servicios | Media     | L        | 7     |
-| BS-005 | Descuento, propina y pago mixto             | Falta entero ⚠️            | Media     | L        | 8     |
-| BS-025 | Aviso de edición simultánea (409 optimista) | Una comprobación por ruta  | Poca      | M        | 9     |
+| ID     | Qué falta                                   | Backend                   | Interfaz  | Esfuerzo | Orden |
+| ------ | ------------------------------------------- | ------------------------- | --------- | -------- | ----- |
+| BS-003 | Pantalla de facturas y tasa de impuesto     | Hecho                     | **Hecha** | —        | ✅    |
+| BS-002 | Devolver un cobro                           | Hecho                     | **Hecha** | —        | ✅    |
+| BS-006 | Precio y duración por profesional           | Hecho                     | **Hecha** | —        | ✅    |
+| BS-028 | Sembrar el negocio nuevo según su tipo      | Hecho                     | **Hecha** | —        | ✅    |
+| BS-024 | Exigir un contacto en la reserva pública    | Hecho                     | **Hecha** | —        | ✅    |
+| BS-013 | Alta de walk-in retroactivo                 | Hecho                     | **Hecha** | —        | ✅    |
+| BS-021 | Fusión de fichas duplicadas                 | Hecho                     | **Hecha** | —        | ✅    |
+| BS-005 | Descuento, propina y pago mixto             | Falta entero ⚠️           | Media     | L        | 8     |
+| BS-025 | Aviso de edición simultánea (409 optimista) | Una comprobación por ruta | Poca      | M        | 9     |
 
 El orden es de impacto comercial frente a coste. Los tres primeros comparten un
 rasgo que los pone arriba: **la función ya está construida y pagada en el
@@ -253,7 +253,7 @@ estar vacías en negocios donde media clientela entra sin cita.
 
 ---
 
-## 7 · BS-021 · Fusión de fichas duplicadas
+## 7 · BS-021 · Fusión de fichas duplicadas ✅ (implementado)
 
 **Qué hay hoy.** Nada. Las acciones de la ficha son editar y suprimir datos. Con
 BS-020 corregido —el mismo teléfono con y sin indicativo ya no crea dos fichas—
@@ -266,23 +266,32 @@ del trabajo, un nombre mal tecleado.
 `client_metrics` (analytics), además de lo que guarda core: puntos de fidelidad,
 ficha configurable, etiquetas y el vínculo con la cuenta de usuario.
 
-**Propuesta.** Core hace la fusión sobre la ficha superviviente —suma los puntos,
-combina la ficha configurable campo a campo con el criterio de conservar lo no
-vacío, une las etiquetas y conserva el teléfono y el correo del absorbido como
-**alias**, para que una reserva futura por cualquiera de los dos caiga en la
-ficha buena— y publica un evento nuevo, `core.client.merged`, con las dos ids.
-Cada servicio reasigna lo suyo al consumirlo. La ficha absorbida no se borra: se
-marca como fusionada y apunta a la superviviente, porque citas y facturas viejas
-la referencian y tienen que seguir cuadrando.
+**Hecho.** `POST /core/clients/:id/merge` deja la ficha de la ruta con todo:
+suma los puntos, rellena lo que tenga vacío, combina la ficha configurable sin
+pisar lo que ya había y hereda como **alias** el teléfono y el correo de la
+absorbida —el cotejo de duplicados los mira, así que la siguiente reserva con el
+contacto viejo cae en la ficha buena—. La absorbida queda marcada y fuera de la
+cartera, no borrada.
 
-Conviene el complemento barato: **avisar del posible duplicado en el momento del
-alta**, aprovechando que la búsqueda ya sabe encontrarlos. Evita más fusiones de
-las que resuelve la fusión.
+Cada servicio reasigna lo suyo al consumir `core.client.merged`: citas, cobros y
+facturas, reseñas e historial agregado. Dos cosas que aparecieron al hacerlo:
 
-**Qué hay que decidir.** Si la fusión es reversible (mucho más cara) o
-definitiva con confirmación explícita. Quién puede fusionar. Y qué se hace con
-dos fichas que tienen cuenta de usuario distinta, que es el caso feo: son dos
-personas o una con dos cuentas, y el producto no puede saberlo.
+- **Analytics no puede reasignar, tiene que sumar.** `client_metrics` guarda una
+  fila por cliente y negocio, con índice único: mover la de la absorbida chocaría
+  contra la de la superviviente, y quedarse con las dos contaría dos veces las
+  visitas de la misma persona. Se suman visitas y gasto, y las fechas se estiran
+  a la primera y la última de las dos.
+- **payment-service estrena consumidor.** Hasta ahora solo publicaba eventos, así
+  que hubo que montarle el módulo de escucha; es el único de los cuatro que no lo
+  tenía.
+
+Las tres decisiones, tomadas: **definitiva** con el aviso en el diálogo antes de
+pulsar; **dueño y administrador**, como la supresión de datos; y **se rechaza**
+cuando cada ficha tiene una cuenta de usuario distinta.
+
+**Qué queda.** El complemento barato que la propuesta apuntaba: **avisar del
+posible duplicado en el momento del alta**, aprovechando que la búsqueda ya sabe
+encontrarlos. Evita más fusiones de las que resuelve la fusión, y no está hecho.
 
 **Cómo se sabe que sirvió.** En un centro estético, que la ficha de alergias y la
 fórmula de color de una clienta dejen de estar partidas en dos historiales a
