@@ -13,6 +13,7 @@ const clienteDeLaApi = {
   loyaltyPoints: 120,
   notes: null,
   active: true,
+  updatedAt: "2026-08-31T10:00:00.000Z",
 };
 
 describe("clientSchema", () => {

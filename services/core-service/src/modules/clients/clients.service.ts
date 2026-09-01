@@ -229,11 +229,16 @@ export class ClientsService extends TenantCrudService<Client> {
    * Actualiza la ficha, salvo que ya se haya ejercido la supresión sobre ella.
    * El contacto pasa por la misma canonización y el mismo cotejo que el alta:
    * editar el teléfono es la otra vía por la que se duplica una persona.
+   *
+   * Con `updatedAtEsperado` la escritura se rechaza si la ficha cambió desde
+   * que quien edita la cargó: en el mostrador la misma ficha se abre a la vez
+   * en varios sitios.
    */
   async update(
     id: string,
     businessId: string,
-    data: Partial<Client>
+    data: Partial<Client>,
+    updatedAtEsperado?: Date
   ): Promise<Client> {
     await this.rechazarSiEstaAnonimizado(id, businessId);
     await this.validarFicha(businessId, data.ficha);
@@ -242,7 +247,7 @@ export class ClientsService extends TenantCrudService<Client> {
     await this.rechazarSiYaExiste(businessId, contacto, id);
 
     return super
-      .update(id, businessId, { ...data, ...contacto })
+      .update(id, businessId, { ...data, ...contacto }, updatedAtEsperado)
       .catch((error: unknown) => {
         throw this.comoChoqueDeContacto(error);
       });

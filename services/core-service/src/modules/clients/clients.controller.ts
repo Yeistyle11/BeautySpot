@@ -109,7 +109,11 @@ export class ClientsController {
     return this.service.findById(id, businessId);
   }
 
-  /** Actualiza los datos de un cliente. */
+  /**
+   * Actualiza los datos de un cliente. La versión que traiga el cuerpo no es un
+   * campo de la ficha: es con lo que se comprueba que nadie la haya tocado
+   * mientras tanto.
+   */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Patch(":id")
   async update(
@@ -117,7 +121,13 @@ export class ClientsController {
     @BusinessId() businessId: string,
     @Body() dto: UpdateClientDto
   ) {
-    return this.service.update(id, businessId, dto);
+    const { updatedAt, ...cambios } = dto;
+    return this.service.update(
+      id,
+      businessId,
+      cambios,
+      updatedAt ? new Date(updatedAt) : undefined
+    );
   }
 
   /**

@@ -482,6 +482,30 @@ describe("ClientsService", () => {
       expect(result.phone).toBe("+573009876543");
     });
 
+    it("con la versión cargada avisa en vez de pisar lo que otra persona guardó", async () => {
+      const cargada = new Date("2026-08-31T10:00:00.000Z");
+      const enTransaccion = {
+        findOne: jest.fn().mockResolvedValue({
+          ...mockClient,
+          updatedAt: new Date("2026-08-31T10:05:00.000Z"),
+        }),
+        update: jest.fn(),
+      };
+      (mockRepo as any).target = "Client";
+      (mockRepo as any).manager = {
+        transaction: (cb: (m: unknown) => unknown) =>
+          cb({ getRepository: () => enTransaccion }),
+      };
+      mockRepo.findOne
+        .mockResolvedValueOnce(mockClient as any)
+        .mockResolvedValueOnce(null);
+
+      await expect(
+        service.update("client-123", "business-123", { name: "Otro" }, cargada)
+      ).rejects.toThrow(ConflictException);
+      expect(enTransaccion.update).not.toHaveBeenCalled();
+    });
+
     it("no deja reescribir una ficha ya suprimida", async () => {
       mockRepo.findOne.mockResolvedValue({
         ...mockClient,

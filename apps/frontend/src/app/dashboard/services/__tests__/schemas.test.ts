@@ -51,6 +51,25 @@ describe("toServicePayload: procesado y limpieza", () => {
 
     expect(payload.bufferDespues).toBe(10);
   });
+
+  // El formulario manda el precio y la duración enteros: sin la versión de
+  // partida, guardar devuelve en silencio la tarifa que otro acaba de cambiar.
+  it("manda la versión con la que se abrió el formulario", () => {
+    const payload = toServicePayload(
+      base,
+      CATEGORIAS,
+      true,
+      "2026-08-31T10:00:00.000Z"
+    );
+
+    expect(payload).toMatchObject({ updatedAt: "2026-08-31T10:00:00.000Z" });
+  });
+
+  it("sin versión no manda el campo, que no es un dato del servicio", () => {
+    expect(toServicePayload(base, CATEGORIAS, true)).not.toHaveProperty(
+      "updatedAt"
+    );
+  });
 });
 
 describe("serviceSchema", () => {
@@ -63,6 +82,7 @@ describe("serviceSchema", () => {
     category: null,
     categoryId: null,
     active: true,
+    updatedAt: "2026-08-31T10:00:00.000Z",
   };
 
   it("acepta un servicio sin reparto, que es como llegan los de siempre", () => {

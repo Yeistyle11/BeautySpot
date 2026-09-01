@@ -384,6 +384,11 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 | PATCH  | `/:id` | OWNER, ADMIN                             | Actualiza       |
 | DELETE | `/:id` | OWNER, ADMIN                             | Elimina         |
 
+El `PATCH` admite `updatedAt`, que no es un campo del servicio: es la versión
+con la que se cargó. Si viene y el servicio ya cambió, la escritura se rechaza
+con **409** y código `EDICION_SIMULTANEA` en vez de pisar lo que otra persona
+acabe de guardar. Sin él se escribe sin cotejar, como siempre.
+
 ### Categorías de servicio — `/api/v1/core/service-categories`
 
 | Método | Ruta          | Roles                                                 |
@@ -419,9 +424,15 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 | GET    | `/me`            | CLIENT                                   | Su ficha, con el nivel de fidelidad resuelto     |
 | PATCH  | `/me`            | CLIENT                                   | Sus datos personales; 404 si reservó de invitado |
 | GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST               | Detalle                                          |
-| PATCH  | `/:id`           | OWNER, ADMIN, RECEPTIONIST               | Actualiza                                        |
+| PATCH  | `/:id`           | OWNER, ADMIN, RECEPTIONIST               | Actualiza; admite `updatedAt` para cotejar       |
 | POST   | `/:id/merge`     | OWNER, ADMIN                             | Fusiona otra ficha del mismo cliente en esta     |
 | POST   | `/:id/anonymize` | OWNER, ADMIN                             | Derecho de supresión; conserva citas y facturas  |
+
+**Guardar sobre una ficha que cambió avisa.** El `PATCH /:id` admite
+`updatedAt`, que no es un campo de la ficha sino la versión con la que se cargó.
+Si viene y la ficha ya cambió, se responde **409** con código
+`EDICION_SIMULTANEA` —distinto del 409 del contacto repetido— en vez de dejar
+que la última escritura gane en silencio. Sin él se escribe sin cotejar.
 
 **Fusionar es definitivo.** `POST /:id/merge` recibe `{ absorbidoId }` y deja la
 ficha de la ruta con todo: suma los puntos, rellena lo que tenga vacío, combina

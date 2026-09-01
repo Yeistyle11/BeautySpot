@@ -6,6 +6,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { AvisoDeConflicto } from "@/components/ui/aviso-de-conflicto";
 // Solo el tipo: `schemas` importa de aqui `ClientForm`, y ambos lados se borran
 // al compilar, asi que el ciclo no llega al paquete.
 import type { Client } from "./schemas";
@@ -41,6 +42,11 @@ interface ClientFormDialogProps {
   posiblesDuplicados?: Client[];
   /** Abre una de esas fichas en vez de crear otra. */
   onAbrirFicha?: (cliente: Client) => void;
+  /** Motivo por el que la ficha no se guardó: alguien la cambió mientras tanto. */
+  conflicto?: string;
+  /** Trae la ficha guardada sin cerrar el formulario. */
+  onRecargar?: () => void;
+  recargando?: boolean;
 }
 
 /**
@@ -59,6 +65,9 @@ export function ClientFormDialog({
   conNotas,
   posiblesDuplicados = [],
   onAbrirFicha,
+  conflicto,
+  onRecargar,
+  recargando,
 }: ClientFormDialogProps) {
   return (
     <Dialog open={open} onClose={onClose} title={title}>
@@ -156,6 +165,13 @@ export function ClientFormDialog({
               rows={3}
             />
           </Field>
+        )}
+        {conflicto && onRecargar && (
+          <AvisoDeConflicto
+            mensaje={conflicto}
+            onRecargar={onRecargar}
+            recargando={recargando}
+          />
         )}
         <div className="flex gap-3 pt-2">
           <SubmitButton

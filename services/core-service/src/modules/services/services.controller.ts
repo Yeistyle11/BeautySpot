@@ -44,14 +44,24 @@ export class ServicesController {
     return this.service.findById(id, businessId);
   }
 
-  /** Actualiza un servicio. */
+  /**
+   * Actualiza un servicio. La versión que traiga el cuerpo no es un campo del
+   * servicio: es con lo que se comprueba que nadie lo haya tocado mientras
+   * tanto.
+   */
   @Patch(":id")
   async update(
     @Param("id") id: string,
     @BusinessId() businessId: string,
     @Body() dto: UpdateServiceDto
   ) {
-    return this.service.update(id, businessId, dto);
+    const { updatedAt, ...cambios } = dto;
+    return this.service.update(
+      id,
+      businessId,
+      cambios,
+      updatedAt ? new Date(updatedAt) : undefined
+    );
   }
 
   /** Da de baja un servicio del catálogo. */

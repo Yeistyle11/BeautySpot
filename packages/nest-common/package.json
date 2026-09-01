@@ -15,6 +15,7 @@
   "dependencies": {
     "@beautyspot/database": "*",
     "@beautyspot/event-types": "*",
+    "@beautyspot/shared-constants": "*",
     "@beautyspot/shared-types": "*",
     "@beautyspot/shared-utils": "*",
     "@nestjs/common": "^11.1.28",

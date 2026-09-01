@@ -14,6 +14,8 @@ export const clientSchema = z.object({
   /** Valores de la ficha configurable, indexados por id de campo. */
   ficha: z.record(z.string(), z.unknown()).nullish(),
   anonymizedAt: z.string().nullish(),
+  /** Versión con la que se cargó la ficha; el guardado la devuelve para cotejar. */
+  updatedAt: z.string(),
 });
 export type Client = z.infer<typeof clientSchema>;
 
@@ -38,6 +40,12 @@ export type ServicioBreve = z.infer<typeof servicioBreveSchema>;
 
 /** Lo que el PATCH de un cliente admite cambiar. */
 export interface CambiosDelCliente {
+  /**
+   * Versión de la ficha al abrir el formulario. No es un campo que se guarde:
+   * es con lo que el servidor comprueba que nadie la haya tocado mientras
+   * tanto, y sin ella la última escritura gana en silencio.
+   */
+  updatedAt?: string;
   name?: string;
   email?: string;
   phone?: string;

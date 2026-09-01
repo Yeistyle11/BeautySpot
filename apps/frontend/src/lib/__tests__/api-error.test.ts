@@ -1,5 +1,7 @@
+import { CODIGO_EDICION_SIMULTANEA } from "@beautyspot/shared-constants";
 import {
   ApiError,
+  esConflictoDeEdicion,
   isApiError,
   isAuthError,
   isNotFoundError,
@@ -24,5 +26,27 @@ describe("api-error", () => {
     expect(isNotFoundError(new ApiError(500, "boom"))).toBe(false);
     expect(isNotFoundError(new Error("boom"))).toBe(false);
     expect(isNotFoundError(null)).toBe(false);
+  });
+
+  // Los dos son 409 y se resuelven de manera opuesta: uno recargando y el otro
+  // corrigiendo el formulario, así que el estado por sí solo no basta.
+  it("separa el choque de ediciones del dato que ya existe", () => {
+    const simultanea = new ApiError(
+      409,
+      "Otra persona guardó cambios",
+      [],
+      CODIGO_EDICION_SIMULTANEA
+    );
+    const repetido = new ApiError(
+      409,
+      "Ya existe ese teléfono",
+      [],
+      "CONFLICT"
+    );
+
+    expect(esConflictoDeEdicion(simultanea)).toBe(true);
+    expect(esConflictoDeEdicion(repetido)).toBe(false);
+    expect(esConflictoDeEdicion(new ApiError(409, "sin código"))).toBe(false);
+    expect(esConflictoDeEdicion(new Error("boom"))).toBe(false);
   });
 });

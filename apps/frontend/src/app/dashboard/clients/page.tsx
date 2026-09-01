@@ -31,6 +31,7 @@ import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { api } from "@/lib/api";
+import { esConflictoDeEdicion } from "@/lib/api-error";
 import { useApi, paginatedSchema } from "@/lib/swr";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { usePaginatedCrudResource } from "@/lib/use-crud-resource";
@@ -107,6 +108,13 @@ export default function ClientsPage() {
   });
   const [editId, setEditId] = useState<string | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  // Version de la ficha al abrir el formulario. Viaja en el guardado para que
+  // el servidor avise si otra persona la cambio mientras tanto, en vez de
+  // dejar que la ultima escritura gane sin que nadie se entere.
+  const [editVersion, setEditVersion] = useState<string | null>(null);
+  const [conflictoEdicion, setConflictoEdicion] = useState("");
+  const [conflictoFicha, setConflictoFicha] = useState("");
+  const [recargando, setRecargando] = useState(false);
 
   const [clienteASuprimir, setClienteASuprimir] = useState<Client | null>(null);
   const [fusionCon, setFusionCon] = useState<Client | null>(null);
@@ -127,16 +135,41 @@ export default function ClientsPage() {
   );
   const [guardandoFicha, setGuardandoFicha] = useState(false);
 
-  const handleSaveFicha = async (ficha: Record<string, unknown>) => {
-    if (!selectedClient) return;
-    setGuardandoFicha(true);
+  /** Trae del servidor la ficha tal como esta guardada ahora mismo. */
+  const recargarCliente = async (id: string): Promise<Client | null> => {
+    setRecargando(true);
     try {
-      await updateClient(selectedClient.id, { ficha });
-      setSelectedClient({ ...selectedClient, ficha });
-      toast.exito("Ficha guardada");
+      const fresca = clientSchema.parse(await api.get(`${CLIENTS_KEY}/${id}`));
+      await recargarClientes();
+      if (selectedClient?.id === id) setSelectedClient(fresca);
+      return fresca;
     } catch (err) {
       logger.error(err);
       toast.error(mensajeDeError(err));
+      return null;
+    } finally {
+      setRecargando(false);
+    }
+  };
+
+  const handleSaveFicha = async (ficha: Record<string, unknown>) => {
+    if (!selectedClient) return;
+    setGuardandoFicha(true);
+    setConflictoFicha("");
+    try {
+      const guardado = clientSchema.parse(
+        await updateClient(selectedClient.id, {
+          ficha,
+          updatedAt: selectedClient.updatedAt,
+        })
+      );
+      // Con la version nueva, guardar dos veces seguidas no choca consigo mismo.
+      setSelectedClient(guardado);
+      toast.exito("Ficha guardada");
+    } catch (err) {
+      logger.error(err);
+      if (esConflictoDeEdicion(err)) setConflictoFicha(mensajeDeError(err));
+      else toast.error(mensajeDeError(err));
     } finally {
       setGuardandoFicha(false);
     }
@@ -210,20 +243,37 @@ export default function ClientsPage() {
     }
   };
 
+  /** Los campos del formulario, tal como se leen de una ficha. */
+  const comoFormulario = (client: Client): ClientForm => ({
+    name: client.name,
+    email: client.email || "",
+    phone: client.phone || "",
+    notes: client.notes || "",
+    birthDate: client.birthDate || "",
+  });
+
   const openEdit = (client: Client) => {
-    const cargado: ClientForm = {
-      name: client.name,
-      email: client.email || "",
-      phone: client.phone || "",
-      notes: client.notes || "",
-      birthDate: client.birthDate || "",
-    };
+    const cargado = comoFormulario(client);
     setEditId(client.id);
     setEditForm(cargado);
     // Se guarda la ficha tal como se cargo para poder enviar despues solo lo
     // que el usuario haya tocado.
     setEditOriginal(cargado);
+    setEditVersion(client.updatedAt);
+    setConflictoEdicion("");
     setEditDialog(true);
+  };
+
+  /** Cambia lo escrito por lo que hay guardado, dejando el formulario abierto. */
+  const recargarEnEdicion = async () => {
+    if (!editId) return;
+    const fresca = await recargarCliente(editId);
+    if (!fresca) return;
+    const cargada = comoFormulario(fresca);
+    setEditForm(cargada);
+    setEditOriginal(cargada);
+    setEditVersion(fresca.updatedAt);
+    setConflictoEdicion("");
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
@@ -238,21 +288,23 @@ export default function ClientsPage() {
       return;
     }
     setSavingEdit(true);
+    setConflictoEdicion("");
     try {
-      await updateClient(editId, cambios);
+      const guardada = clientSchema.parse(
+        await updateClient(editId, {
+          ...cambios,
+          updatedAt: editVersion ?? undefined,
+        })
+      );
       setEditDialog(false);
       setEditId(null);
-      if (selectedClient?.id === editId) {
-        setSelectedClient({
-          ...selectedClient,
-          name: editForm.name,
-          email: editForm.email || null,
-          phone: editForm.phone || null,
-        });
-      }
+      if (selectedClient?.id === editId) setSelectedClient(guardada);
     } catch (err) {
       logger.error(err);
-      toast.error(mensajeDeError(err));
+      // El formulario se queda abierto con lo escrito: hay algo que decidir, y
+      // un aviso que se va solo no da tiempo a decidirlo.
+      if (esConflictoDeEdicion(err)) setConflictoEdicion(mensajeDeError(err));
+      else toast.error(mensajeDeError(err));
     } finally {
       setSavingEdit(false);
     }
@@ -480,12 +532,20 @@ export default function ClientsPage() {
             <FichaSection
               // Remonta al cambiar de cliente: el dialogo no se desmonta entre
               // uno y otro, y el borrador tiene que empezar de cero.
-              key={selectedClient.id}
+              // Y al recargar: la version nueva remonta el borrador con lo
+              // que hay guardado, que es lo que el aviso promete.
+              key={`${selectedClient.id}-${selectedClient.updatedAt}`}
               campos={campos ?? []}
               servicios={servicios ?? []}
               valores={selectedClient.ficha ?? {}}
               onSave={handleSaveFicha}
               saving={guardandoFicha}
+              conflicto={conflictoFicha}
+              onRecargar={() => {
+                setConflictoFicha("");
+                void recargarCliente(selectedClient.id);
+              }}
+              recargando={recargando}
               puedeEditar={
                 canDo(role, "clients_edit") && !selectedClient.anonymizedAt
               }
@@ -548,6 +608,9 @@ export default function ClientsPage() {
         submitLabel="Guardar cambios"
         saving={savingEdit}
         conNotas
+        conflicto={conflictoEdicion}
+        onRecargar={() => void recargarEnEdicion()}
+        recargando={recargando}
       />
 
       <MergeDialog

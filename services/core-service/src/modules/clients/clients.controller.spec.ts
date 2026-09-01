@@ -149,7 +149,28 @@ describe("ClientsController", () => {
 
     await controller.update("cli-1", NEGOCIO, dto);
 
-    expect(service.update).toHaveBeenCalledWith("cli-1", NEGOCIO, dto);
+    expect(service.update).toHaveBeenCalledWith(
+      "cli-1",
+      NEGOCIO,
+      dto,
+      undefined
+    );
+  });
+
+  it("la versión cargada no se guarda: es con lo que se coteja", async () => {
+    const dto = {
+      notes: "alérgico al amoníaco",
+      updatedAt: "2026-08-31T10:00:00.000Z",
+    };
+
+    await controller.update("cli-1", NEGOCIO, dto);
+
+    expect(service.update).toHaveBeenCalledWith(
+      "cli-1",
+      NEGOCIO,
+      { notes: "alérgico al amoníaco" },
+      new Date("2026-08-31T10:00:00.000Z")
+    );
   });
 
   it("ejerce el derecho de supresión sobre una ficha", async () => {

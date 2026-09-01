@@ -4,6 +4,7 @@ import {
   IsOptional,
   Min,
   IsBoolean,
+  IsDateString,
   MaxLength,
   IsUUID,
 } from "class-validator";
@@ -53,4 +54,15 @@ export class UpdateServiceDto {
   @IsOptional() @IsNumber() @Min(0) procesadoDesde?: number | null;
   @IsOptional() @IsNumber() @Min(1) procesadoMinutos?: number | null;
   @IsOptional() @IsNumber() @Min(0) bufferDespues?: number;
+  /**
+   * Marca de la versión que se cargó al abrir el formulario. Si viene y el
+   * servicio ya cambió, la escritura se rechaza en vez de pisar lo que otra
+   * persona guardó mientras tanto.
+   */
+  @IsOptional()
+  @IsDateString(
+    {},
+    { message: "La versión del servicio no es una fecha válida" }
+  )
+  updatedAt?: string;
 }

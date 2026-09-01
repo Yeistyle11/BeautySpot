@@ -14,6 +14,8 @@ export const serviceSchema = z.object({
   /** Limpieza posterior, en la que sigue ocupado sin cliente delante. */
   bufferDespues: z.number().nullish(),
   active: z.boolean(),
+  /** Versión con la que se cargó el servicio; el guardado la devuelve para cotejar. */
+  updatedAt: z.string(),
 });
 export type Service = z.infer<typeof serviceSchema>;
 
@@ -63,7 +65,14 @@ export const CATEGORIES_KEY = "/core/service-categories";
 export function toServicePayload(
   form: ServiceForm,
   categorias: ServiceCategory[],
-  incluirActivo = false
+  incluirActivo = false,
+  /**
+   * Versión con la que se abrió el formulario. No es un campo del servicio: es
+   * con lo que el servidor comprueba que nadie lo haya tocado mientras tanto.
+   * El formulario manda el precio y la duración enteros, así que sin ella
+   * guardar devuelve en silencio la tarifa que otra persona acaba de cambiar.
+   */
+  updatedAt?: string
 ) {
   // La categoria es la entidad que se elige en el desplegable; `category`
   // guarda su nombre, que es lo que lee el escaparate publico.
@@ -85,6 +94,7 @@ export function toServicePayload(
     procesadoMinutos: aMinutos(form.procesadoMinutos),
     bufferDespues: aMinutos(form.bufferDespues),
     ...(incluirActivo ? { active: form.active } : {}),
+    ...(updatedAt ? { updatedAt } : {}),
   };
 }
 

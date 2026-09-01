@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Dialog } from "@/components/ui/dialog";
+import { AvisoDeConflicto } from "@/components/ui/aviso-de-conflicto";
 import type { ServiceForm, ServiceCategory } from "./schemas";
 
 interface ServiceFormDialogProps {
@@ -20,6 +21,11 @@ interface ServiceFormDialogProps {
   onSubmit: (e: React.FormEvent) => void;
   guardando: boolean;
   categorias: ServiceCategory[];
+  /** Motivo por el que no se guardó: alguien cambió el servicio mientras tanto. */
+  conflicto?: string;
+  /** Trae el servicio guardado sin cerrar el formulario. */
+  onRecargar?: () => void;
+  recargando?: boolean;
 }
 
 /**
@@ -35,6 +41,9 @@ export function ServiceFormDialog({
   onSubmit,
   guardando,
   categorias,
+  conflicto,
+  onRecargar,
+  recargando,
 }: ServiceFormDialogProps) {
   const set = (cambios: Partial<ServiceForm>) =>
     onFormChange({ ...form, ...cambios });
@@ -152,6 +161,13 @@ export function ServiceFormDialog({
               {form.active ? "Servicio activo" : "Servicio inactivo"}
             </Label>
           </div>
+        )}
+        {conflicto && onRecargar && (
+          <AvisoDeConflicto
+            mensaje={conflicto}
+            onRecargar={onRecargar}
+            recargando={recargando}
+          />
         )}
         <div className="flex gap-3 pt-2">
           <Button type="submit" disabled={guardando}>

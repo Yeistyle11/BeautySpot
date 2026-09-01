@@ -104,6 +104,32 @@ describe("api.request", () => {
     expect(error.detalles).toEqual([]);
   });
 
+  // El backend distingue con `code` dos fallos que comparten estado; sin
+  // llevarlo al error, el navegador solo ve dos 409 iguales.
+  it("conserva el código con el que el backend distingue el fallo", async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse(409, {
+        error: { code: "EDICION_SIMULTANEA", message: "Otra persona guardó" },
+      })
+    );
+
+    const error = (await api.get("/x").catch((e: unknown) => e)) as ApiError;
+
+    expect(error.codigo).toBe("EDICION_SIMULTANEA");
+  });
+
+  it("deja el código a null cuando la respuesta no lo trae", async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        jsonResponse(409, { error: { message: "Ya existe" } })
+      );
+
+    const error = (await api.get("/x").catch((e: unknown) => e)) as ApiError;
+
+    expect(error.codigo).toBeNull();
+  });
+
   it("no revienta cuando la respuesta de error no es JSON", async () => {
     global.fetch = jest.fn().mockResolvedValue(htmlResponse(502));
 

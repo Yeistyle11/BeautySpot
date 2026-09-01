@@ -1,3 +1,4 @@
+import { CODIGO_EDICION_SIMULTANEA } from "@beautyspot/shared-constants";
 import { z } from "zod";
 import { ApiError } from "../api-error";
 import { mensajeDeError } from "../error-message";
@@ -40,6 +41,22 @@ describe("mensajeDeError", () => {
         expect(mensaje).not.toBe(seco);
       }
     );
+
+    // El texto genérico del 409 habla de un dato repetido, que no es lo que
+    // pasa cuando dos personas editan a la vez.
+    it("respeta el motivo redactado del choque de ediciones", () => {
+      const mensaje = mensajeDeError(
+        new ApiError(
+          409,
+          "Otra persona guardó cambios mientras editabas. Recarga para ver cómo ha quedado.",
+          [],
+          CODIGO_EDICION_SIMULTANEA
+        )
+      );
+
+      expect(mensaje).toContain("Otra persona guardó cambios");
+      expect(mensaje).not.toContain("ya existe");
+    });
 
     it("ignora las mayúsculas al reconocer la frase seca", () => {
       expect(mensajeDeError(new ApiError(403, "forbidden"))).toContain(

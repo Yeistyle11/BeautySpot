@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
+import { AvisoDeConflicto } from "@/components/ui/aviso-de-conflicto";
 import type { CampoDeFicha, ServicioBreve } from "./schemas";
 
 interface FichaSectionProps {
@@ -17,6 +18,11 @@ interface FichaSectionProps {
   onSave: (ficha: Record<string, unknown>) => Promise<void>;
   saving: boolean;
   puedeEditar: boolean;
+  /** Motivo por el que la ficha no se guardó: alguien la cambió mientras tanto. */
+  conflicto?: string;
+  /** Trae la ficha guardada sin cerrar el detalle. */
+  onRecargar?: () => void;
+  recargando?: boolean;
 }
 
 /** Un control por campo, según el tipo que el negocio le haya dado. */
@@ -94,6 +100,9 @@ export function FichaSection({
   onSave,
   saving,
   puedeEditar,
+  conflicto,
+  onRecargar,
+  recargando,
 }: FichaSectionProps) {
   const [borrador, setBorrador] = useState<Record<string, unknown>>(valores);
 
@@ -141,6 +150,15 @@ export function FichaSection({
         {generales.map(pintar)}
         {porServicio.map(pintar)}
       </div>
+      {conflicto && onRecargar && (
+        <div className="mt-4">
+          <AvisoDeConflicto
+            mensaje={conflicto}
+            onRecargar={onRecargar}
+            recargando={recargando}
+          />
+        </div>
+      )}
       {puedeEditar && (
         <Button
           size="sm"

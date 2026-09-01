@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsArray,
   IsBoolean,
+  IsDateString,
   IsEmail,
   IsObject,
   IsUUID,
@@ -154,6 +155,17 @@ export class UpdateClientDto {
    */
   @IsOptional() @IsObject() ficha?: Record<string, unknown>;
   @IsOptional() @IsBoolean() active?: boolean;
+  /**
+   * Marca de la versión que se cargó al abrir el formulario. Si viene y la
+   * ficha ya cambió, la escritura se rechaza en vez de pisar lo que otra
+   * persona guardó mientras tanto.
+   */
+  @IsOptional()
+  @IsDateString(
+    {},
+    { message: "La versión de la ficha no es una fecha válida" }
+  )
+  updatedAt?: string;
 }
 
 /** La otra ficha del mismo cliente, la que se absorbe. */
