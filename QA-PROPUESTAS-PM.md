@@ -1,9 +1,9 @@
 # Propuestas de producto — QA-REPORT-BeautySpot-2026-08-22
 
 Los nueve hallazgos del informe marcados `[PM]`: los que no son un fallo que
-corregir sino una función que falta, y por tanto una decisión de producto. Nada
-de esto está implementado; este documento es lo que hay que decidir antes de
-implementarlo.
+corregir sino una función que falta, y por tanto una decisión de producto. Ocho
+están decididos y construidos; **el único que sigue siendo una decisión abierta
+es BS-005**, y su ficha es lo que hay que decidir antes de implementarlo.
 
 Cada propuesta trae **lo que hay hoy verificado contra el código**, no lo que el
 informe suponía. Cuatro veces no coinciden, y en dos de ellas la diferencia
@@ -14,22 +14,22 @@ en `QA-REMEDIATION-PLAN.md`.
 
 ## Resumen
 
-| ID     | Qué falta                                   | Backend                   | Interfaz  | Esfuerzo | Orden |
-| ------ | ------------------------------------------- | ------------------------- | --------- | -------- | ----- |
-| BS-003 | Pantalla de facturas y tasa de impuesto     | Hecho                     | **Hecha** | —        | ✅    |
-| BS-002 | Devolver un cobro                           | Hecho                     | **Hecha** | —        | ✅    |
-| BS-006 | Precio y duración por profesional           | Hecho                     | **Hecha** | —        | ✅    |
-| BS-028 | Sembrar el negocio nuevo según su tipo      | Hecho                     | **Hecha** | —        | ✅    |
-| BS-024 | Exigir un contacto en la reserva pública    | Hecho                     | **Hecha** | —        | ✅    |
-| BS-013 | Alta de walk-in retroactivo                 | Hecho                     | **Hecha** | —        | ✅    |
-| BS-021 | Fusión de fichas duplicadas                 | Hecho                     | **Hecha** | —        | ✅    |
-| BS-005 | Descuento, propina y pago mixto             | Falta entero ⚠️           | Media     | L        | 8     |
-| BS-025 | Aviso de edición simultánea (409 optimista) | Una comprobación por ruta | Poca      | M        | 9     |
+| ID     | Qué falta                                   | Backend         | Interfaz  | Esfuerzo | Orden |
+| ------ | ------------------------------------------- | --------------- | --------- | -------- | ----- |
+| BS-003 | Pantalla de facturas y tasa de impuesto     | Hecho           | **Hecha** | —        | ✅    |
+| BS-002 | Devolver un cobro                           | Hecho           | **Hecha** | —        | ✅    |
+| BS-006 | Precio y duración por profesional           | Hecho           | **Hecha** | —        | ✅    |
+| BS-028 | Sembrar el negocio nuevo según su tipo      | Hecho           | **Hecha** | —        | ✅    |
+| BS-024 | Exigir un contacto en la reserva pública    | Hecho           | **Hecha** | —        | ✅    |
+| BS-013 | Alta de walk-in retroactivo                 | Hecho           | **Hecha** | —        | ✅    |
+| BS-021 | Fusión de fichas duplicadas                 | Hecho           | **Hecha** | —        | ✅    |
+| BS-005 | Descuento, propina y pago mixto             | Falta entero ⚠️ | Media     | L        | 8     |
+| BS-025 | Aviso de edición simultánea (409 optimista) | Hecho           | **Hecha** | —        | ✅    |
 
-El orden es de impacto comercial frente a coste. Los tres primeros comparten un
-rasgo que los pone arriba: **la función ya está construida y pagada en el
-backend, y lo único que falta es la pantalla que la alcance**. Los tres ya la
-tienen.
+El orden era de impacto comercial frente a coste. Los tres primeros compartían un
+rasgo que los ponía arriba —**la función ya estaba construida y pagada en el
+backend, y solo faltaba la pantalla que la alcanzara**—, y hoy la tienen. Queda
+BS-005, el único que había que construir entero.
 
 ---
 
@@ -340,26 +340,28 @@ descuento lo puede aplicar recepción o necesita permiso.
 
 ---
 
-## 9 · BS-025 · Aviso de edición simultánea
+## 9 · BS-025 · Aviso de edición simultánea ✅ (implementado)
 
-**Qué hay hoy.** La versión mínima, ya en producción: la ficha de cliente envía
-**solo los campos modificados** (`cambiosDelCliente`), así que guardar el nombre
-desde una pestaña vieja ya no revierte el teléfono que otra acaba de guardar. El
-choque queda acotado a que dos personas toquen **el mismo campo**, y en ese caso
-la última sigue ganando en silencio.
+**Qué hay.** Control de concurrencia optimista en **la ficha de cliente y los
+servicios**: el formulario manda el `updatedAt` con el que cargó y el servicio
+responde **409** si la fila ya cambió, con un aviso dentro del propio formulario
+y un botón para recargar. El cotejo vive en `TenantCrudService.update`, así que
+es un solo sitio para las dos entidades: lee la fila bloqueada dentro de una
+transacción, compara y solo entonces escribe.
 
-**Propuesta.** Control de concurrencia optimista: el cliente envía el `updatedAt`
-que cargó, el servicio compara y responde **409** si ya no coincide, ofreciendo
-recargar. La columna existe en todas las entidades (`BaseEntity`) y `ApiError` ya
-lleva el `status`, así que la interfaz puede distinguir el 409 de cualquier otro
-error sin tocar el cliente HTTP.
+**La decisión de alcance, tomada.** Se cubren enteras las dos pantallas donde
+varias personas editan lo mismo —incluido el guardado de la ficha configurable,
+que manda el objeto completo—, y se dejan fuera la configuración del negocio, las
+categorías y `PATCH /clients/me`, que tienen un solo editor. Hacerlo a medias
+dentro de una misma pantalla era lo que había que evitar: el usuario aprende que
+el producto avisa y confía en que avisará siempre.
 
-**Qué hay que decidir.** Es transversal, y ahí está el coste: hacerlo en Clientes
-es media tarde, hacerlo en todo el panel son muchas rutas y muchos formularios, y
-hacerlo a medias es peor que no hacerlo —el usuario aprende que el producto avisa
-y confía en que avisará siempre—. La decisión es **dónde duele de verdad**: la
-ficha de cliente y la de servicios (precios) son candidatas; la configuración del
-negocio, que edita una sola persona, probablemente no.
+**Dos cosas que aparecieron al construirlo.** Que la marca no se puede comparar
+en SQL —la columna guarda microsegundos y al navegador llegan milisegundos, así
+que el `WHERE` daría conflicto siempre—, y que el 409 necesitaba código propio
+(`EDICION_SIMULTANEA`) para no confundirse con el del contacto repetido, que ya
+existía en la misma pantalla y se resuelve al revés: uno recargando, el otro
+corrigiendo.
 
 **Cómo se sabe que sirvió.** Nadie se entera de que el teléfono era el viejo
 cuando ya está llamando al cliente.

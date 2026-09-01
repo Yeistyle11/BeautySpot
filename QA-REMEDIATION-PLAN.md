@@ -7,16 +7,16 @@ Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 pr
 
 ## Decisiones tomadas
 
-| Tema    | Decisión                                                                     |
-| ------- | ---------------------------------------------------------------------------- |
-| BS-001  | Implementar `PATCH /payments/:id` con traza y ajuste del movimiento de caja  |
-| BS-025  | Solo enviar los campos modificados (el 409 optimista queda como propuesta)   |
-| BS-020  | Normalizar a E.164 de aquí en adelante, **sin** migración de datos           |
-| Rama    | Todo se acumula en `fix/tanda-22-next-16`; el PR lo abre el usuario          |
-| Esquema | Aprobadas 3 columnas aditivas en `payments` para la traza de BS-001          |
-| BS-012  | Los minutos de madrugada cuentan en el **día natural**, no en el de apertura |
-| BS-019  | Recepción pasa a poder **leer** el horario; escribirlo sigue en OWNER/ADMIN  |
-| BS-023  | Columna `published_at`: «Recién llegados» mide la llegada al escaparate      |
+| Tema    | Decisión                                                                          |
+| ------- | --------------------------------------------------------------------------------- |
+| BS-001  | Implementar `PATCH /payments/:id` con traza y ajuste del movimiento de caja       |
+| BS-025  | Los campos modificados primero; el 409 optimista después, en clientes y servicios |
+| BS-020  | Normalizar a E.164 de aquí en adelante, **sin** migración de datos                |
+| Rama    | Todo se acumula en `fix/tanda-22-next-16`; el PR lo abre el usuario               |
+| Esquema | Aprobadas 3 columnas aditivas en `payments` para la traza de BS-001               |
+| BS-012  | Los minutos de madrugada cuentan en el **día natural**, no en el de apertura      |
+| BS-019  | Recepción pasa a poder **leer** el horario; escribirlo sigue en OWNER/ADMIN       |
+| BS-023  | Columna `published_at`: «Recién llegados» mide la llegada al escaparate           |
 
 ## Agrupación por causa raíz
 
@@ -42,8 +42,8 @@ Los 28 hallazgos se reducen a 9 causas. Corregir la causa cierra todos sus halla
 | BS-015 | Alta       | Configuración    | G2 · el formulario siembra con la entidad y la reenvía; el DTO rechaza los campos de más     | S        | Bajo   | 2    | ✅     |
 | BS-001 | Alta       | Pagos            | Ruta `PATCH /payments/:id` inexistente                                                       | M        | Medio  | 2    | ✅     |
 | BS-009 | Alta       | Métricas         | G4 · numerador filtrado por `ventas > 0`, denominador sin filtrar                            | M        | Medio  | 3    | ✅     |
-| BS-002 | Alta       | Pagos            | Falta pantalla; `POST /:id/refund` ya existe                                                 | M        | —      | 6    | 📋     |
-| BS-003 | Alta       | Facturación      | Falta pantalla; backend completo con PDF                                                     | M        | —      | 6    | 📋     |
+| BS-002 | Alta       | Pagos            | Falta pantalla; `POST /:id/refund` ya existe                                                 | M        | —      | 6    | ✅     |
+| BS-003 | Alta       | Facturación      | Falta pantalla; backend completo con PDF                                                     | M        | —      | 6    | ✅     |
 | BS-011 | Media      | Métricas         | `CapacidadWorker` no materializa hasta la primera hora                                       | S        | Bajo   | 3    | ✅     |
 | BS-012 | Media      | Agenda           | G6 · el tramo que cruza medianoche se cuenta en dos días                                     | S        | Medio  | 3    | ✅     |
 | BS-010 | Media      | Dashboard        | G4 · la serie se arma con las filas existentes                                               | XS       | Bajo   | 3    | ✅     |
@@ -56,10 +56,10 @@ Los 28 hallazgos se reducen a 9 causas. Corregir la causa cierra todos sus halla
 | BS-007 | Media      | Servicios        | Categoría del catálogo y campo libre `category` pintados igual                               | S        | Bajo   | 5    | ✅     |
 | BS-017 | Media      | Agenda           | G7 · `CalendarView` no recibe bloqueos                                                       | S        | Bajo   | 5    | ✅     |
 | BS-005 | Media      | Pagos            | Sin descuento, propina ni pago mixto                                                         | L        | —      | 6    | 📋     |
-| BS-006 | Media      | Servicios/Equipo | El precio no varía por profesional                                                           | L        | —      | 6    | 📋     |
-| BS-013 | Media      | Agenda           | No hay alta de walk-in retroactivo                                                           | M        | —      | 6    | 📋     |
-| BS-021 | Media      | Clientes         | No hay fusión de fichas                                                                      | M        | —      | 6    | 📋     |
-| BS-028 | Media      | Onboarding       | El tipo de negocio no siembra nada                                                           | S        | —      | 6    | 📋     |
+| BS-006 | Media      | Servicios/Equipo | El precio no varía por profesional                                                           | L        | —      | 6    | ✅     |
+| BS-013 | Media      | Agenda           | No hay alta de walk-in retroactivo                                                           | M        | —      | 6    | ✅     |
+| BS-021 | Media      | Clientes         | No hay fusión de fichas                                                                      | M        | —      | 6    | ✅     |
+| BS-028 | Media      | Onboarding       | El tipo de negocio no siembra nada                                                           | S        | —      | 6    | ✅     |
 | BS-008 | Baja       | Caja             | El KPI «Total esperado» queda visible tras el modal                                          | XS       | Bajo   | 5    | ✅     |
 | BS-014 | Baja       | Métricas         | G9 · cabeceras del CSV sin tildes; variación vacía                                           | XS       | Bajo   | 5    | ✅     |
 | BS-018 | Baja       | Agenda           | Las citas solapadas no reparten el ancho                                                     | S        | Bajo   | 5    | ✅     |
@@ -137,19 +137,52 @@ vuelva a colarse. La regla queda fuera del componente y por tanto es probable.
 de forma fallan si la función devuelve la entidad guardada tal cual. Manual:
 guardar horarios, recargar y **volver a guardar**.
 
-### BS-025 · Dos ediciones a la vez ✅ (versión mínima acordada)
+### BS-025 · Dos ediciones a la vez ✅
 
 **Causa raíz.** Misma que BS-015 vista del otro lado: la ficha de cliente enviaba
 todos los campos, así que guardar desde una pestaña con datos viejos revertía en
 silencio lo que otra persona acababa de guardar.
 
-**Corrección.** `openEdit` guarda la ficha tal como se cargó y `cambiosDelCliente`
-compara para enviar solo lo modificado; sin cambios no se llama al servidor. El
-choque queda acotado al mismo campo. La detección de conflicto con 409 sigue como
-propuesta.
+**Corrección, en dos pasos.** Primero la versión mínima: `openEdit` guarda la
+ficha tal como se cargó y `cambiosDelCliente` compara para enviar solo lo
+modificado; sin cambios no se llama al servidor. Eso acotó el choque al mismo
+campo, donde la última escritura seguía ganando en silencio.
 
-**Archivos tocados:** `clients/schemas.ts` (`cambiosDelCliente`), `clients/page.tsx`,
-`clients/__tests__/cambios-del-cliente.test.ts` (**nuevo**).
+Después la detección de conflicto, que era el resto del hallazgo: el formulario
+manda el `updatedAt` con el que cargó, `TenantCrudService.update` lo coteja con
+la fila bloqueada dentro de una transacción y responde **409** si ya no coincide.
+Alcance decidido: **la ficha de cliente y los servicios**, enteros —también el
+guardado de la ficha configurable, que manda el objeto completo—; la
+configuración del negocio, que edita una sola persona, se queda fuera a
+propósito, igual que las categorías (`CatalogoTenantService` tiene su propio
+`update`) y `PATCH /clients/me`.
+
+Tres decisiones que no se ven en el diff:
+
+- **La marca se compara en JavaScript, no en un `WHERE updated_at = …`.** La
+  columna es `timestamptz` (microsegundos) y lo que viaja al navegador y vuelve
+  llega en milisegundos: el `WHERE` daría 409 siempre en las filas con
+  microsegundos. Los dos lados se comparan tras el mismo redondeo del driver.
+- **El 409 lleva código propio** (`EDICION_SIMULTANEA`, en `shared-constants`
+  porque lo escribe el backend y lo lee el navegador). El otro 409, el del
+  contacto repetido, se resuelve corrigiendo el formulario; este, recargando.
+- **El aviso va dentro del formulario, no en un toast.** El que se va solo deja
+  a quien guardaba sin saber qué pasó con lo que escribió, y aquí hay algo que
+  decidir: lo escrito sigue en pantalla hasta que se pulsa Recargar.
+
+**Archivos tocados:** `nest-common/database/tenant-crud.service.ts` (+ spec),
+`shared-constants/index.ts`, `core-service` clientes y servicios (controlador,
+servicio y DTO de cada uno, + specs),
+`core-service/src/test/edicion-simultanea.int-test.ts` (**nuevo**),
+`lib/api-error.ts`, `lib/api.ts`, `components/ui/aviso-de-conflicto.tsx`
+(**nuevo**), `clients/` y `services/` (schemas, página y diálogo de cada uno),
+`clients/__tests__/aviso-de-edicion-simultanea.test.tsx` (**nuevo**) y las
+pruebas de `lib` de las tres funciones tocadas.
+
+**Cómo verificarlo:** `npm run test:int --workspace @beautyspot/core-service`
+(`edicion-simultanea`) es el que demuestra lo de la precisión contra Postgres.
+Manual: la misma ficha en dos pestañas, guardar el teléfono en una y el nombre
+en la otra.
 
 ### BS-001 · «Editar pago» llamaba a una ruta que no existe ✅
 
