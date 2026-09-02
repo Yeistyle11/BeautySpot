@@ -3,11 +3,17 @@ import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository, DataSource } from "typeorm";
 import { PaymentsService, conceptoDelCobro } from "./payments.service";
 import { PaymentEntity } from "./payment.entity";
-import { NotFoundException, BadRequestException } from "@nestjs/common";
 import {
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from "@nestjs/common";
+import {
+  METODO_MIXTO,
   PaymentMethod,
   PaymentStatus,
   CashMovementType,
+  Role,
 } from "@beautyspot/shared-types";
 import {
   InternalHttpClient,
@@ -63,6 +69,12 @@ describe("PaymentsService", () => {
       // consulta y crea sobre las entidades de arqueo.
       findOne: jest.fn().mockResolvedValue({ id: "cash-session-1" }),
       create: jest.fn((data) => data),
+      // Las lineas del cobro: la devolucion mira por ellas cuanto entro en
+      // efectivo.
+      find: jest
+        .fn()
+        .mockResolvedValue([{ method: PaymentMethod.CASH, amount: 100 }]),
+      delete: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     mockManager = {
       getRepository: jest.fn().mockReturnValue(mockManagerRepo),
@@ -124,6 +136,12 @@ describe("PaymentsService", () => {
         businessId: "business-123",
         puntosUsados: 0,
         descuento: 0,
+        descuentoComercial: 0,
+        motivoDescuento: null,
+        propina: 0,
+        // Un cobro de un solo medio guarda igualmente su linea: la caja y el
+        // arqueo leen de ahi.
+        splits: [{ method: PaymentMethod.CASH, amount: 100 }],
       });
       // el save ocurre a traves del repositorio del manager (dentro de la tx)
       expect(mockManagerRepo.save).toHaveBeenCalledWith(mockPayment);
@@ -274,7 +292,162 @@ describe("PaymentsService", () => {
       mockManagerRepo.findOne.mockResolvedValue(null);
 
       await expect(service.create("business-123", data)).resolves.toBeDefined();
-      expect(mockManagerRepo.create).not.toHaveBeenCalled();
+      // Se escribe la linea del cobro, pero ningun movimiento de caja: sin
+      // caja abierta, la tarjeta entra igual y el efectivo no.
+      expect(mockManagerRepo.create).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: CashMovementType.IN })
+      );
+    });
+
+    describe("descuento, propina y reparto", () => {
+      /** Alta de 100 con lo que se le indique encima. */
+      const alta = (extra: Record<string, unknown>) => ({
+        clientId: "client-123",
+        amount: 100,
+        method: PaymentMethod.CASH,
+        registeredBy: "user-123",
+        ...extra,
+      });
+
+      beforeEach(() => {
+        mockRepo.create.mockReturnValue(mockPayment);
+        mockManagerRepo.save.mockResolvedValue(mockPayment);
+      });
+
+      // El descuento sale del margen del negocio: quien esta en el mostrador
+      // cobra, pero no decide regalar.
+      it("recepción no puede descontar", async () => {
+        await expect(
+          service.create(
+            "business-123",
+            alta({
+              descuentoComercial: 20,
+              motivoDescuento: "cliente fiel",
+              rol: Role.RECEPTIONIST,
+            })
+          )
+        ).rejects.toThrow(ForbiddenException);
+      });
+
+      it("un descuento sin motivo no dice qué se regaló", async () => {
+        await expect(
+          service.create(
+            "business-123",
+            alta({ descuentoComercial: 20, rol: Role.ADMIN })
+          )
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it("guarda el descuento del dueño con su motivo", async () => {
+        await service.create(
+          "business-123",
+          alta({
+            descuentoComercial: 20,
+            motivoDescuento: "  promoción del martes  ",
+            rol: Role.OWNER,
+          })
+        );
+
+        expect(mockRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            descuentoComercial: 20,
+            motivoDescuento: "promoción del martes",
+          })
+        );
+      });
+
+      // La propina entra al cajon con el cobro, asi que la linea suma las dos
+      // cosas; lo que no hace es engordar la venta.
+      it("la propina viaja en la línea pero no en el importe", async () => {
+        await service.create("business-123", alta({ propina: 15 }));
+
+        expect(mockRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            amount: 100,
+            propina: 15,
+            splits: [{ method: PaymentMethod.CASH, amount: 115 }],
+          })
+        );
+      });
+
+      it("reparte el cobro entre dos medios y lo marca como mixto", async () => {
+        await service.create(
+          "business-123",
+          alta({
+            metodos: [
+              { method: PaymentMethod.CASH, amount: 40 },
+              { method: PaymentMethod.CARD, amount: 60 },
+            ],
+          })
+        );
+
+        expect(mockRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            method: METODO_MIXTO,
+            splits: [
+              { method: PaymentMethod.CASH, amount: 40 },
+              { method: PaymentMethod.CARD, amount: 60 },
+            ],
+          })
+        );
+      });
+
+      it("no acepta un reparto que no cuadra con el cobro", async () => {
+        await expect(
+          service.create(
+            "business-123",
+            alta({
+              propina: 10,
+              metodos: [
+                { method: PaymentMethod.CASH, amount: 40 },
+                { method: PaymentMethod.CARD, amount: 60 },
+              ],
+            })
+          )
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it("no acepta el mismo medio dos veces", async () => {
+        await expect(
+          service.create(
+            "business-123",
+            alta({
+              metodos: [
+                { method: PaymentMethod.CASH, amount: 40 },
+                { method: PaymentMethod.CASH, amount: 60 },
+              ],
+            })
+          )
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      // El arqueo desglosa por medio y solo cuadra el cajon contra el
+      // efectivo: cada parte necesita su movimiento.
+      it("deja un movimiento de caja por cada medio", async () => {
+        await service.create(
+          "business-123",
+          alta({
+            metodos: [
+              { method: PaymentMethod.CASH, amount: 40 },
+              { method: PaymentMethod.CARD, amount: 60 },
+            ],
+          })
+        );
+
+        const movimientos = mockManagerRepo.create.mock.calls
+          .map(([datos]: [Record<string, unknown>]) => datos)
+          .filter((datos: any) => datos.type === CashMovementType.IN);
+        expect(movimientos).toEqual([
+          expect.objectContaining({
+            method: PaymentMethod.CASH,
+            amount: 40,
+          }),
+          expect.objectContaining({
+            method: PaymentMethod.CARD,
+            amount: 60,
+          }),
+        ]);
+      });
     });
 
     describe("cobro asociado a una cita", () => {
@@ -303,6 +476,20 @@ describe("PaymentsService", () => {
             "/internal/appointments/appointment-123/cobro"
           )
         );
+      });
+
+      // La cita vale 100: con 20 de descuento el cliente paga 80, y el cuadre
+      // tiene que contar lo que se regalo igual que cuenta los puntos.
+      it("cuadra con la cita contando el descuento concedido", async () => {
+        await expect(
+          service.create("business-123", {
+            ...conCita,
+            amount: 80,
+            descuentoComercial: 20,
+            motivoDescuento: "promoción del martes",
+            rol: Role.OWNER,
+          })
+        ).resolves.toBeDefined();
       });
 
       it("rechaza un importe distinto al de la cita", async () => {
@@ -601,6 +788,27 @@ describe("PaymentsService", () => {
       await expect(
         service.findById("non-existent", "business-123")
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("correctPayment", () => {
+    // Esta via reescribe un importe y un medio. Un cobro repartido tiene
+    // varias partes y varios movimientos de caja detras.
+    it("no corrige un cobro repartido entre varios medios", async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockPayment,
+        status: PaymentStatus.COMPLETED,
+        method: METODO_MIXTO,
+      } as any);
+
+      await expect(
+        service.correctPayment("payment-123", "business-123", {
+          amount: 120,
+          reason: "importe mal tecleado",
+          editedBy: "user-123",
+        })
+      ).rejects.toThrow(BadRequestException);
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
     });
   });
 

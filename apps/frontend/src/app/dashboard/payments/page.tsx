@@ -31,6 +31,7 @@ import {
 import {
   citaCobrableSchema,
   clientSchema,
+  cobroParaEnviar,
   CLIENTS_KEY,
   COBRADAS_KEY,
   dailySummarySchema,
@@ -52,6 +53,9 @@ import {
 export default function PaymentsPage() {
   const toast = useToast();
   const { role } = useAuthStore();
+  // El descuento sale del margen del negocio, asi que la pantalla solo se lo
+  // ofrece a quien el servidor se lo va a admitir.
+  const puedeDescontar = role === "OWNER" || role === "ADMIN";
   const [filterMethod, setFilterMethod] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -200,17 +204,10 @@ export default function PaymentsPage() {
     cobrando.current = true;
     setSavingCreate(true);
     try {
-      await api.post("/payment/payments", {
-        clientId: createForm.clientId,
-        appointmentId: createForm.appointmentId || undefined,
-        amount: parseFloat(createForm.amount),
-        method: createForm.method,
-        reference: createForm.reference || undefined,
-        notes: createForm.notes || undefined,
-        // Sin canje no se manda el campo: el backend exige al menos un punto.
-        puntosUsados: Number(createForm.puntosUsados) || undefined,
-        solicitudId: solicitudId.current || undefined,
-      });
+      await api.post(
+        "/payment/payments",
+        cobroParaEnviar(createForm, solicitudId.current)
+      );
       setCreateDialog(false);
       setCreateForm(emptyCreateForm);
       await revalidatePrefix(PAYMENTS_KEY);
@@ -385,6 +382,7 @@ export default function PaymentsPage() {
         citasPorCobrar={citasPorCobrar}
         clients={clients ?? []}
         saving={savingCreate}
+        puedeDescontar={puedeDescontar}
       />
 
       <RefundDialog

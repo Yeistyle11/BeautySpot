@@ -2,7 +2,7 @@ import { validate } from "class-validator";
 import { plainToInstance } from "class-transformer";
 import { CitasCobradasDto, PaymentsController } from "./payments.controller";
 import { PaymentsService } from "./payments.service";
-import { PaymentMethod } from "@beautyspot/shared-types";
+import { PaymentMethod, Role } from "@beautyspot/shared-types";
 
 /** El DTO tal y como lo arma el ValidationPipe a partir del query string. */
 function desdeLaQuery(appointmentIds: unknown): CitasCobradasDto {
@@ -77,7 +77,7 @@ describe("PaymentsController", () => {
       method: PaymentMethod.CARD,
     } as never;
 
-    await controller.create(NEGOCIO, SEDE, CAJERO, dto);
+    await controller.create(NEGOCIO, SEDE, CAJERO, Role.ADMIN, dto);
 
     expect(service.create).toHaveBeenCalledWith(NEGOCIO, {
       clientId: "cli-1",
@@ -85,6 +85,7 @@ describe("PaymentsController", () => {
       method: PaymentMethod.CARD,
       branchId: SEDE,
       registeredBy: CAJERO,
+      rol: Role.ADMIN,
     });
   });
 

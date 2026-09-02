@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import {
@@ -23,18 +24,27 @@ import {
   instanteDe,
 } from "@beautyspot/shared-utils";
 import { PaymentEntity } from "./payment.entity";
+import { PaymentSplitEntity } from "./payment-split.entity";
 import { CashSessionEntity } from "../cash-register/cash-session.entity";
 import { CashMovementEntity } from "../cash-register/cash-movement.entity";
 import {
+  METODO_MIXTO,
+  MetodoDeCobro,
   PaymentMethod,
   PaymentStatus,
   CashMovementType,
   IPaginatedResponse,
+  Role,
 } from "@beautyspot/shared-types";
 import { esViolacionDeUnicidad, OutboxService } from "@beautyspot/nest-common";
 import { paginate, PaginateParams } from "@beautyspot/database";
 import { EventNames, ServicioDeLaCita } from "@beautyspot/event-types";
 import { VALOR_DEL_PUNTO } from "@beautyspot/shared-constants";
+
+/** Redondea a céntimos, que es la escala con la que se guarda el dinero. */
+function redondearAPesos(importe: number): number {
+  return Math.round(importe * 100) / 100;
+}
 
 /** Días desde el pago dentro de los que se admite un reembolso. */
 const REFUND_WINDOW_DAYS = 30;
@@ -87,10 +97,32 @@ export class PaymentsService {
       branchId?: string;
       puntosUsados?: number;
       solicitudId?: string;
+      descuentoComercial?: number;
+      motivoDescuento?: string;
+      propina?: number;
+      metodos?: { method: PaymentMethod; amount: number }[];
+      rol?: Role;
     }
   ): Promise<PaymentEntity> {
     const puntosUsados = data.puntosUsados ?? 0;
     const descuento = puntosUsados * VALOR_DEL_PUNTO;
+    const descuentoComercial = data.descuentoComercial ?? 0;
+    const propina = data.propina ?? 0;
+
+    // El descuento sale del margen del negocio, asi que lo concede quien
+    // responde por el. Recepcion cobra, pero no regala.
+    if (descuentoComercial > 0 && data.rol === Role.RECEPTIONIST) {
+      throw new ForbiddenException(
+        "Solo el dueño o un administrador pueden aplicar un descuento"
+      );
+    }
+    if (descuentoComercial > 0 && !data.motivoDescuento?.trim()) {
+      throw new BadRequestException(
+        "Escribe el motivo del descuento: sin él no se sabe qué se regaló"
+      );
+    }
+
+    const splits = this.repartoDelCobro(data, propina);
 
     // Un cobro de cero no es una operacion: o es un error de tecleo o es una
     // cortesia, que merece su propio concepto. La excepcion es el canje, donde
@@ -107,7 +139,7 @@ export class PaymentsService {
       services = await this.validarContraLaCita(
         businessId,
         data.appointmentId,
-        data.amount + descuento
+        data.amount + descuento + descuentoComercial
       );
     }
 
@@ -124,7 +156,8 @@ export class PaymentsService {
         data,
         puntosUsados,
         descuento,
-        services
+        services,
+        splits
       );
     } catch (error) {
       // El cobro no llegó a escribirse, así que los puntos reservados vuelven a
@@ -153,7 +186,8 @@ export class PaymentsService {
     data: Parameters<PaymentsService["create"]>[1],
     puntosUsados: number,
     descuento: number,
-    services: ServicioDeLaCita[] | undefined
+    services: ServicioDeLaCita[] | undefined,
+    splits: { method: PaymentMethod; amount: number }[]
   ): Promise<PaymentEntity> {
     return this.dataSource.transaction(async (manager) => {
       const payment = this.repo.create({
@@ -161,6 +195,18 @@ export class PaymentsService {
         businessId,
         puntosUsados,
         descuento,
+        descuentoComercial: data.descuentoComercial ?? 0,
+        motivoDescuento: data.motivoDescuento?.trim() || null,
+        propina: data.propina ?? 0,
+        // Las lineas se guardan con el cobro; el `cascade` de insercion las
+        // escribe con el id que acaba de recibir.
+        splits: splits.map((linea) =>
+          manager.getRepository(PaymentSplitEntity).create(linea)
+        ),
+        method:
+          splits.length > 1
+            ? (METODO_MIXTO as MetodoDeCobro)
+            : splits[0].method,
       });
       const savedPayment = await manager
         .getRepository(PaymentEntity)
@@ -170,6 +216,7 @@ export class PaymentsService {
         manager,
         businessId,
         savedPayment,
+        splits,
         services
       );
 
@@ -183,7 +230,10 @@ export class PaymentsService {
           appointmentId: savedPayment.appointmentId,
           clientId: savedPayment.clientId,
           amount: Number(savedPayment.amount),
+          propina: Number(savedPayment.propina),
           method: savedPayment.method,
+          metodos: splits,
+          date: await this.diaDelCobro(businessId, savedPayment.createdAt),
           services,
         },
       });
@@ -207,6 +257,49 @@ export class PaymentsService {
 
       return savedPayment;
     });
+  }
+
+  /**
+   * Las lineas del cobro: las que vengan, o una sola con el medio indicado.
+   *
+   * Suman el importe mas la propina, que es el dinero que entra de verdad; el
+   * cuadre se comprueba aqui y no en el DTO porque depende de los dos campos.
+   */
+  private repartoDelCobro(
+    data: Parameters<PaymentsService["create"]>[1],
+    propina: number
+  ): { method: PaymentMethod; amount: number }[] {
+    const total = redondearAPesos(data.amount + propina);
+
+    if (!data.metodos?.length) {
+      return [{ method: data.method, amount: total }];
+    }
+
+    const repartido = redondearAPesos(
+      data.metodos.reduce((suma, linea) => suma + linea.amount, 0)
+    );
+    if (repartido !== total) {
+      throw new BadRequestException(
+        `El reparto suma $${repartido} y el cobro es de $${total}: revisa las partes`
+      );
+    }
+
+    const medios = new Set(data.metodos.map((linea) => linea.method));
+    if (medios.size !== data.metodos.length) {
+      throw new BadRequestException(
+        "Cada medio de pago va una sola vez en el reparto"
+      );
+    }
+
+    return data.metodos.map((linea) => ({
+      method: linea.method,
+      amount: redondearAPesos(linea.amount),
+    }));
+  }
+
+  /** Dia del cobro en el huso del negocio, para quien agrega por dia. */
+  private async diaDelCobro(businessId: string, cuando: Date): Promise<string> {
+    return fechaDeHoyEn(await this.zonas.de(businessId), cuando);
   }
 
   /**
@@ -333,27 +426,34 @@ export class PaymentsService {
     manager: EntityManager,
     businessId: string,
     payment: PaymentEntity,
+    splits: { method: PaymentMethod; amount: number }[],
     services?: ServicioDeLaCita[]
   ): Promise<void> {
     const session = await this.cajaAbierta(
       manager,
       businessId,
       payment.branchId,
-      payment.method,
+      splits.some((linea) => linea.method === PaymentMethod.CASH),
       "registrar un pago en efectivo"
     );
     if (!session) return;
 
-    await manager.getRepository(CashMovementEntity).save(
-      manager.getRepository(CashMovementEntity).create({
-        cashSessionId: session.id,
-        type: CashMovementType.IN,
-        amount: Number(payment.amount),
-        concept: conceptoDelCobro(services),
-        method: payment.method,
-        paymentId: payment.id,
-        registeredBy: payment.registeredBy,
-      })
+    // Un movimiento por linea: el arqueo desglosa por medio y solo cuadra el
+    // cajon contra el efectivo, asi que un cobro repartido tiene que llegarle
+    // separado.
+    const movimientos = manager.getRepository(CashMovementEntity);
+    await movimientos.save(
+      splits.map((linea) =>
+        movimientos.create({
+          cashSessionId: session.id,
+          type: CashMovementType.IN,
+          amount: linea.amount,
+          concept: conceptoDelCobro(services),
+          method: linea.method,
+          paymentId: payment.id,
+          registeredBy: payment.registeredBy,
+        })
+      )
     );
   }
 
@@ -365,7 +465,7 @@ export class PaymentsService {
     manager: EntityManager,
     businessId: string,
     branchId: string | null,
-    method: PaymentMethod,
+    hayEfectivo: boolean,
     accion: string
   ): Promise<CashSessionEntity | null> {
     // Se bloquea la fila mientras dure la transacción del cobro: sin esto, un
@@ -377,7 +477,7 @@ export class PaymentsService {
     });
     if (session) return session;
 
-    if (method === PaymentMethod.CASH) {
+    if (hayEfectivo) {
       throw new BadRequestException(
         `No hay una caja abierta: abre la caja antes de ${accion}`
       );
@@ -393,11 +493,17 @@ export class PaymentsService {
     amount: number,
     refundedBy: string
   ): Promise<void> {
+    // Del cajon solo puede salir lo que entro en efectivo: de un cobro
+    // repartido se devuelve por caja esa parte, y el resto por donde entro.
+    const enEfectivo = await this.efectivoDelCobro(manager, payment);
+    if (enEfectivo <= 0) return;
+    const salida = Math.min(amount, enEfectivo);
+
     const session = await this.cajaAbierta(
       manager,
       businessId,
       payment.branchId,
-      payment.method,
+      true,
       "reembolsar en efectivo"
     );
     if (!session) return;
@@ -406,13 +512,26 @@ export class PaymentsService {
       manager.getRepository(CashMovementEntity).create({
         cashSessionId: session.id,
         type: CashMovementType.OUT,
-        amount,
+        amount: salida,
         concept: `Reembolso ${payment.id}`,
-        method: payment.method,
+        method: PaymentMethod.CASH,
         paymentId: payment.id,
         registeredBy: refundedBy,
       })
     );
+  }
+
+  /** Lo que entro en efectivo en un cobro, mirando sus lineas. */
+  private async efectivoDelCobro(
+    manager: EntityManager,
+    payment: PaymentEntity
+  ): Promise<number> {
+    const lineas = await manager.getRepository(PaymentSplitEntity).find({
+      where: { paymentId: payment.id },
+    });
+    return lineas
+      .filter((linea) => linea.method === PaymentMethod.CASH)
+      .reduce((suma, linea) => suma + Number(linea.amount), 0);
   }
 
   /** Lista los pagos del negocio con filtros (método, estado, rango de fechas) y paginación. */
@@ -508,6 +627,14 @@ export class PaymentsService {
         `Solo se puede corregir un cobro completado. Estado actual: ${payment.status}`
       );
     }
+    // Esta via corrige un importe y un medio, que es lo que el formulario
+    // ofrece. Un cobro repartido tiene varias partes y varios movimientos de
+    // caja: reescribirlo desde aqui dejaria el arqueo contando otra cosa.
+    if (payment.method === METODO_MIXTO) {
+      throw new BadRequestException(
+        "Un cobro repartido entre varios medios no se corrige: registra una devolución y vuelve a cobrarlo"
+      );
+    }
 
     const importeAnterior = Number(payment.amount);
     const importeNuevo = cambios.amount ?? importeAnterior;
@@ -524,6 +651,18 @@ export class PaymentsService {
         metodoNuevo,
         cambios.editedBy
       );
+
+      // La linea del cobro es de donde leen la caja y el arqueo: se corrige
+      // con el.
+      await manager
+        .getRepository(PaymentSplitEntity)
+        .update(
+          { paymentId: id },
+          {
+            amount: importeNuevo + Number(payment.propina),
+            method: metodoNuevo,
+          }
+        );
 
       await manager.getRepository(PaymentEntity).update(
         { id, businessId },
@@ -615,7 +754,7 @@ export class PaymentsService {
         manager,
         businessId,
         payment.branchId,
-        metodoNuevo,
+        true,
         "corregir un cobro a efectivo"
       );
       if (!sesion) return;

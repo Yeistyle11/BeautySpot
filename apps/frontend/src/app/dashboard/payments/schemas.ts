@@ -15,6 +15,15 @@ export const paymentSchema = z.object({
   /** Lo devuelto, que puede ser parte de lo cobrado. */
   refundAmount: z.number().nullish(),
   refundReason: z.string().nullish(),
+  /** Rebaja concedida por el negocio, con su motivo. */
+  descuentoComercial: z.number().nullish(),
+  motivoDescuento: z.string().nullish(),
+  /** Propina, que entró con el cobro pero no es ingreso del negocio. */
+  propina: z.number().nullish(),
+  /** Reparto por medio cuando el cobro entró por más de uno. */
+  splits: z
+    .array(z.object({ method: z.string(), amount: z.number() }))
+    .nullish(),
 });
 export type Payment = z.infer<typeof paymentSchema>;
 
@@ -58,6 +67,12 @@ export const citaCobrableSchema = z.object({
 });
 export type CitaCobrable = z.infer<typeof citaCobrableSchema>;
 
+/** Una parte del cobro: cuánto entra por ese medio. Importes como texto del formulario. */
+export interface LineaDeCobro {
+  method: string;
+  amount: string;
+}
+
 export const emptyCreateForm = {
   clientId: "",
   /** Cita que se cobra; vacío es una venta suelta, sin cita detrás. */
@@ -68,8 +83,68 @@ export const emptyCreateForm = {
   notes: "",
   /** Puntos de fidelidad que el cliente gasta en este cobro. */
   puntosUsados: "",
+  /** Rebaja que concede el negocio, con su motivo; solo la ofrece a quien puede. */
+  descuentoComercial: "",
+  motivoDescuento: "",
+  /** Propina, que se cobra encima del importe. */
+  propina: "",
+  /** Reparto entre varios medios; vacío cobra todo por `method`. */
+  metodos: [] as LineaDeCobro[],
 };
 export type CreateForm = typeof emptyCreateForm;
+
+/** Lo que entra en el cobro: los servicios más la propina. */
+export function totalDelCobro(form: CreateForm): number {
+  return redondear((Number(form.amount) || 0) + (Number(form.propina) || 0));
+}
+
+/**
+ * Lo que falta por repartir entre los medios elegidos. Negativo cuando se
+ * asignó de más; cero cuando cuadra, que es lo que el servidor exige.
+ */
+export function faltaPorRepartir(form: CreateForm): number {
+  const asignado = form.metodos.reduce(
+    (suma, linea) => suma + (Number(linea.amount) || 0),
+    0
+  );
+  return redondear(totalDelCobro(form) - asignado);
+}
+
+/** Redondea a céntimos, que es como se guarda el dinero. */
+function redondear(importe: number): number {
+  return Math.round(importe * 100) / 100;
+}
+
+/**
+ * Cuerpo del alta de cobro. Los campos que el formulario deja vacíos no se
+ * mandan: el servidor distingue «no lo pongo» de un cero.
+ */
+export function cobroParaEnviar(
+  form: CreateForm,
+  solicitudId?: string
+): Record<string, unknown> {
+  const reparto = form.metodos.filter((linea) => Number(linea.amount) > 0);
+  return {
+    clientId: form.clientId,
+    appointmentId: form.appointmentId || undefined,
+    amount: parseFloat(form.amount),
+    method: form.method,
+    reference: form.reference || undefined,
+    notes: form.notes || undefined,
+    // Sin canje no se manda el campo: el backend exige al menos un punto.
+    puntosUsados: Number(form.puntosUsados) || undefined,
+    descuentoComercial: Number(form.descuentoComercial) || undefined,
+    motivoDescuento: form.motivoDescuento.trim() || undefined,
+    propina: Number(form.propina) || undefined,
+    metodos: reparto.length
+      ? reparto.map((linea) => ({
+          method: linea.method,
+          amount: Number(linea.amount),
+        }))
+      : undefined,
+    solicitudId: solicitudId || undefined,
+  };
+}
 
 /**
  * Días desde el cobro dentro de los que el servicio admite una devolución. Es

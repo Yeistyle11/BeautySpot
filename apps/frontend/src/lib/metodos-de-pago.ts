@@ -6,6 +6,8 @@ export const ETIQUETAS_DE_METODO: Record<string, string> = {
   CARD: "Datáfono",
   TRANSFER: "Transferencia",
   OTHER: "Otro",
+  /** El cobro se repartio entre varios; el detalle esta en sus lineas. */
+  MIXED: "Mixto",
 };
 
 /** Nombre del metodo, o el codigo tal cual si llega uno que no conocemos. */

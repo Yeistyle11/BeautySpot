@@ -40,9 +40,23 @@ export class AnalyticsEventListeners {
     private readonly zonas: ZonaDelNegocioService
   ) {}
 
-  /** Día en curso en el huso de ese negocio. */
-  private async hoyPara(businessId: string): Promise<string> {
-    return fechaDeHoy(await this.zonas.de(businessId));
+  /**
+   * Dia al que pertenece un evento, en el huso del negocio: el que trae su
+   * carga si lo trae, y si no el instante en que se emitio.
+   *
+   * Nunca el dia en que se procesa. Los eventos se reentregan, y un consumidor
+   * que se cae y vuelve al dia siguiente sumaria en el dia equivocado.
+   */
+  private async diaDelEvento(
+    businessId: string,
+    event: IBaseEvent<unknown>,
+    dia?: string
+  ): Promise<string> {
+    if (dia) return dia;
+    return fechaDeHoy(
+      await this.zonas.de(businessId),
+      new Date(event.timestamp)
+    );
   }
 
   /**
@@ -233,12 +247,14 @@ export class AnalyticsEventListeners {
   })
   async handlePaymentRegistered(event: PaymentRegisteredEvent): Promise<void> {
     this.logger.log(`Pago registrado: ${event.payload.paymentId}`);
+    // La propina no entra: no es ingreso del negocio, sino dinero que pasa por
+    // el hacia el profesional.
     const { businessId, amount } = event.payload;
-    const hoy = await this.hoyPara(businessId);
+    const dia = await this.diaDelEvento(businessId, event, event.payload.date);
     await this.aplicar(event, "pago", (manager) =>
       this.metricsService.incrementDailyMetric(
         businessId,
-        hoy,
+        dia,
         { totalRevenue: amount, ventas: 1 },
         manager
       )
@@ -277,7 +293,7 @@ export class AnalyticsEventListeners {
   async handleReviewCreated(event: ReviewCreatedEvent): Promise<void> {
     this.logger.log(`Reseña creada: ${event.payload.reviewId}`);
     const { businessId, professionalId, rating } = event.payload;
-    const hoy = await this.hoyPara(businessId);
+    const hoy = await this.diaDelEvento(businessId, event);
     await this.aplicar(event, "reseña", (manager) =>
       this.metricsService.setProfessionalRating(
         businessId,

@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDateTimeStamp } from "@/lib/utils";
+import { nombreDelMetodo } from "@/lib/metodos-de-pago";
 import {
   estadoDeDevolucion,
   METHOD_LABELS,
@@ -49,6 +50,9 @@ export function PaymentCard({
   const amount = formatCurrency(payment.amount);
   const devolucion = estadoDeDevolucion(payment);
   const devuelto = payment.refundAmount ?? 0;
+  const descuento = payment.descuentoComercial ?? 0;
+  const propina = payment.propina ?? 0;
+  const reparto = payment.splits ?? [];
 
   return (
     <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
@@ -83,6 +87,31 @@ export function PaymentCard({
                   </span>
                 )}
               </div>
+              {/* El importe de arriba son los servicios: lo que se regaló, lo
+                  que se dejó de propina y por dónde entró el dinero se dicen
+                  aparte, o el cobro no se puede reconstruir mirándolo. */}
+              {(descuento > 0 || propina > 0 || reparto.length > 1) && (
+                <p className="text-muted-foreground mt-1 text-sm">
+                  {[
+                    descuento > 0 &&
+                      `Descuento ${formatCurrency(descuento)}${
+                        payment.motivoDescuento
+                          ? ` · ${payment.motivoDescuento}`
+                          : ""
+                      }`,
+                    propina > 0 && `Propina ${formatCurrency(propina)}`,
+                    reparto.length > 1 &&
+                      reparto
+                        .map(
+                          (linea) =>
+                            `${nombreDelMetodo(linea.method)} ${formatCurrency(linea.amount)}`
+                        )
+                        .join(" + "),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
               {/* Una devolución parcial deja el cobro vivo por el resto: sin
                   decir cuánto volvió, la cifra de arriba engaña. */}
               {devuelto > 0 && (

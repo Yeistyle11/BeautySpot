@@ -1,4 +1,4 @@
-import { PaymentMethod } from "@beautyspot/shared-types";
+import { MetodoDeCobro, PaymentMethod } from "@beautyspot/shared-types";
 
 /** Contrato base de todos los eventos que viajan por el bus (RabbitMQ). */
 export interface IBaseEvent<T = unknown> {
@@ -240,12 +240,27 @@ export interface PaymentRegisteredPayload {
   businessId: string;
   appointmentId?: string;
   clientId: string;
+  /** Lo cobrado por los servicios, sin la propina. */
   amount: number;
   /**
-   * Tipado con el enum y no con `string`: quien lo compare contra un literal
-   * que el enum no produce no compila.
+   * Propina, que no es ingreso del negocio: entra con el cobro y sale para el
+   * profesional, asi que quien agrega ventas no la suma.
    */
-  method: PaymentMethod;
+  propina?: number;
+  /**
+   * Dia del cobro en el huso del negocio (`YYYY-MM-DD`). Quien agrega por dia
+   * lo necesita: un evento reprocesado -una redelivery, un consumidor que se
+   * cayo y vuelve- se atribuiria si no al dia en que se proceso.
+   */
+  date?: string;
+  /**
+   * Tipado con el enum y no con `string`: quien lo compare contra un literal
+   * que el enum no produce no compila. `MIXED` cuando el cobro se repartio,
+   * y entonces el detalle esta en `metodos`.
+   */
+  method: MetodoDeCobro;
+  /** Reparto del cobro por medio, cuando entro por mas de uno. */
+  metodos?: { method: PaymentMethod; amount: number }[];
   /**
    * Lo que se cobró, resuelto contra la cita. Falta en los cobros sueltos, que
    * no llevan cita detrás: entonces el recibo solo puede dar el importe.

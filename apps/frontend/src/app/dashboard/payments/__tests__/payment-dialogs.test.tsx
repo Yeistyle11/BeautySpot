@@ -18,8 +18,17 @@ const CITAS = [
 ] as CitaCobrable[];
 
 /** Monta el diálogo con el cliente ya elegido, que es cuando ofrece citas. */
-function pintar(citas: CitaCobrable[], onChange = jest.fn()) {
-  const form: CreateForm = { ...emptyCreateForm, clientId: "cli-1" };
+function pintar(
+  citas: CitaCobrable[],
+  onChange = jest.fn(),
+  extra: Partial<CreateForm> = {},
+  puedeDescontar = true
+) {
+  const form: CreateForm = {
+    ...emptyCreateForm,
+    clientId: "cli-1",
+    ...extra,
+  };
   render(
     <CreatePaymentDialog
       open
@@ -30,6 +39,7 @@ function pintar(citas: CitaCobrable[], onChange = jest.fn()) {
       clients={CLIENTES}
       citasPorCobrar={citas}
       saving={false}
+      puedeDescontar={puedeDescontar}
     />
   );
   return onChange;
@@ -76,5 +86,64 @@ describe("CreatePaymentDialog", () => {
     pintar([]);
 
     expect(screen.queryByLabelText("Cita")).not.toBeInTheDocument();
+  });
+});
+
+describe("descuento, propina y reparto", () => {
+  // El servidor responde 403 a un descuento de recepcion: la pantalla no se lo
+  // ofrece siquiera.
+  it("no ofrece el descuento a quien no puede concederlo", () => {
+    pintar([], jest.fn(), {}, false);
+
+    expect(screen.queryByLabelText(/Descuento/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Propina/)).toBeInTheDocument();
+  });
+
+  it("pide el motivo en cuanto hay descuento", () => {
+    pintar([], jest.fn(), { descuentoComercial: "5000" });
+
+    expect(screen.getByLabelText(/Motivo del descuento/)).toBeInTheDocument();
+  });
+
+  it("dice cuánto falta por repartir y no deja enviar hasta que cuadre", () => {
+    pintar([], jest.fn(), {
+      amount: "100000",
+      metodos: [{ method: "CASH", amount: "40000" }],
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Falta repartir/);
+    expect(
+      screen.getByRole("button", { name: /Registrar pago/ })
+    ).toBeDisabled();
+  });
+
+  it("deja enviar cuando el reparto suma el cobro y la propina", () => {
+    pintar([], jest.fn(), {
+      amount: "100000",
+      propina: "10000",
+      metodos: [
+        { method: "CASH", amount: "40000" },
+        { method: "CARD", amount: "70000" },
+      ],
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Repartido/);
+    expect(
+      screen.getByRole("button", { name: /Registrar pago/ })
+    ).toBeEnabled();
+  });
+
+  it("abrir el reparto siembra la primera parte con el total", () => {
+    const onChange = pintar([], jest.fn(), { amount: "50000" });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Pagar con varios métodos" })
+    );
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metodos: [{ method: "CASH", amount: "50000" }],
+      })
+    );
   });
 });

@@ -431,6 +431,61 @@ describe("AnalyticsEventListeners", () => {
         managerFalso
       );
     });
+
+    // Un evento se reentrega, y el consumidor puede volver al dia siguiente:
+    // el ingreso pertenece al dia del cobro, no al de su proceso.
+    it("suma en el día del cobro aunque se procese más tarde", async () => {
+      const event = {
+        eventType: "payment.payment.registered",
+        timestamp: new Date("2026-08-20T15:00:00.000Z"),
+        eventId: "evt-6-bis",
+        correlationId: "corr-6",
+        payload: {
+          paymentId: "pay-124",
+          businessId: "biz-333",
+          clientId: "client-333",
+          amount: 50000,
+          method: "CASH",
+          date: "2026-08-20",
+        },
+      } as any;
+
+      await service.handlePaymentRegistered(event);
+
+      expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
+        "biz-333",
+        "2026-08-20",
+        { totalRevenue: 50000, ventas: 1 },
+        managerFalso
+      );
+    });
+
+    // Los cobros emitidos antes de que el evento llevara el dia siguen
+    // llegando: se fechan con el instante en que se emitieron.
+    it("sin día en la carga, se fecha con el instante del evento", async () => {
+      const event = {
+        eventType: "payment.payment.registered",
+        timestamp: new Date("2026-08-20T15:00:00.000Z"),
+        eventId: "evt-6-ter",
+        correlationId: "corr-6",
+        payload: {
+          paymentId: "pay-125",
+          businessId: "biz-333",
+          clientId: "client-333",
+          amount: 10000,
+          method: "CASH",
+        },
+      } as any;
+
+      await service.handlePaymentRegistered(event);
+
+      expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
+        "biz-333",
+        "2026-08-20",
+        { totalRevenue: 10000, ventas: 1 },
+        managerFalso
+      );
+    });
   });
 
   describe("handleReviewCreated", () => {

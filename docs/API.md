@@ -662,9 +662,28 @@ Pagos manuales, facturas y caja. Base de datos `beautyspot_payment`. Usa el patr
 | POST   | `/:id/refund`    | OWNER, ADMIN               | Procesa devolución                |
 
 Un cobro puede llevar `appointmentId`: entonces el importe tiene que coincidir
-con el de la cita, esa cita no se puede cobrar dos veces mientras el cobro siga
-vivo, y el evento `payment.registered` sale con los servicios que se vendieron.
-Sin él es una venta suelta, con el importe tecleado a mano.
+con el de la cita —contando lo que rebajen los puntos y el descuento
+concedido—, esa cita no se puede cobrar dos veces mientras el cobro siga vivo, y
+el evento `payment.registered` sale con los servicios que se vendieron. Sin él
+es una venta suelta, con el importe tecleado a mano.
+
+`amount` es lo cobrado por los servicios. Encima puede llevar:
+
+- **`descuentoComercial`** con su **`motivoDescuento`**, que es obligatorio. Lo
+  aplican solo OWNER y ADMIN: recepción cobra, pero no descuenta, y su intento
+  responde 403. Es distinto del descuento por canje de puntos, que sale de
+  `puntosUsados`; el negocio necesita saber cuánto regaló por cada vía.
+- **`propina`**, que se suma a lo que entra pero no es ingreso del negocio: no
+  cuenta como venta ni se factura. Se atribuye al profesional de la cita.
+- **`metodos`**, el reparto del cobro entre varios medios («20.000 en efectivo y
+  el resto con tarjeta»), como lista de `{ method, amount }` de hasta cuatro
+  entradas sin repetir medio. Tiene que sumar `amount` + `propina`. Cuando
+  viene, el cobro se guarda con `method: "MIXED"` y el detalle en sus líneas;
+  la caja recibe un movimiento por medio, de modo que el arqueo solo cuadra el
+  cajón contra la parte en efectivo.
+
+`PATCH /:id` no corrige un cobro repartido: tiene varias partes y varios
+movimientos de caja detrás, así que la vía es la devolución.
 
 `PATCH /:id` corrige un cobro ya registrado (importe, método, referencia o
 notas) y exige un `reason`, que queda escrito en el pago junto a quién y cuándo
