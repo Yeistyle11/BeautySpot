@@ -632,8 +632,10 @@ Detectados durante la remediación, no estaban en el informe.
    planteado.** Un cobro nace `COMPLETED` —`CreatePaymentDto` no admite estado— y
    `TRANSICIONES_DE_PAGO[COMPLETED]` está vacío: un cobro completado no se puede
    anular por esa ruta. La única transición que acepta es `PENDING → CANCELLED`,
-   y un cobro pendiente no se puede crear. La ruta es hoy **código muerto**;
+   y un cobro pendiente no se puede crear. Era **código muerto**;
    deshacer un cobro es devolverlo, y la devolución sí mueve la caja.
+   **Retirada**, con su DTO, el método del servicio, el catálogo de transiciones
+   que solo él usaba y su fila en `docs/API.md`.
 6. **Analytics sella la métrica con el día de proceso, no con el del cobro**
    (`analytics-event-listeners.service.ts` L223-241 usa `hoyPara(businessId)`). Un
    evento reprocesado al día siguiente cuenta en el día equivocado: es una vía
