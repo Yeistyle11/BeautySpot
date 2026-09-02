@@ -654,15 +654,13 @@ export class PaymentsService {
 
       // La linea del cobro es de donde leen la caja y el arqueo: se corrige
       // con el.
-      await manager
-        .getRepository(PaymentSplitEntity)
-        .update(
-          { paymentId: id },
-          {
-            amount: importeNuevo + Number(payment.propina),
-            method: metodoNuevo,
-          }
-        );
+      await manager.getRepository(PaymentSplitEntity).update(
+        { paymentId: id },
+        {
+          amount: importeNuevo + Number(payment.propina),
+          method: metodoNuevo,
+        }
+      );
 
       await manager.getRepository(PaymentEntity).update(
         { id, businessId },

@@ -45,18 +45,24 @@ describe("BusinessHourItemDto", () => {
 
 describe("UpdateBusinessHoursDto", () => {
   it("no exige las horas, pero las comprueba cuando vienen", async () => {
-    expect(await erroresDe(UpdateBusinessHoursDto, {}, "closeTime")).toEqual([]);
+    expect(await erroresDe(UpdateBusinessHoursDto, {}, "closeTime")).toEqual(
+      []
+    );
     expect(
-      await erroresDe(UpdateBusinessHoursDto, { closeTime: "tarde" }, "closeTime")
+      await erroresDe(
+        UpdateBusinessHoursDto,
+        { closeTime: "tarde" },
+        "closeTime"
+      )
     ).toEqual(["Se espera una hora con formato HH:MM"]);
   });
 });
 
 describe("BatchUpsertDto", () => {
   it("acepta la lista de tramos", async () => {
-    expect(await erroresDe(BatchUpsertDto, { hours: [TRAMO] }, "hours")).toEqual(
-      []
-    );
+    expect(
+      await erroresDe(BatchUpsertDto, { hours: [TRAMO] }, "hours")
+    ).toEqual([]);
   });
 
   // Sin @IsArray, un objeto suelto se colaba: @ValidateNested({ each: true })
@@ -69,8 +75,8 @@ describe("BatchUpsertDto", () => {
 
   it("rechaza un reemplazo desmedido", async () => {
     const muchos = Array.from({ length: 501 }, () => TRAMO);
-    expect(
-      await erroresDe(BatchUpsertDto, { hours: muchos }, "hours")
-    ).toEqual(["El horario no admite mas de 500 tramos"]);
+    expect(await erroresDe(BatchUpsertDto, { hours: muchos }, "hours")).toEqual(
+      ["El horario no admite mas de 500 tramos"]
+    );
   });
 });

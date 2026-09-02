@@ -13,17 +13,17 @@ en `QA-REMEDIATION-PLAN.md`.
 
 ## Resumen
 
-| ID     | Qué falta                                   | Backend         | Interfaz  | Esfuerzo | Orden |
-| ------ | ------------------------------------------- | --------------- | --------- | -------- | ----- |
-| BS-003 | Pantalla de facturas y tasa de impuesto     | Hecho           | **Hecha** | —        | ✅    |
-| BS-002 | Devolver un cobro                           | Hecho           | **Hecha** | —        | ✅    |
-| BS-006 | Precio y duración por profesional           | Hecho           | **Hecha** | —        | ✅    |
-| BS-028 | Sembrar el negocio nuevo según su tipo      | Hecho           | **Hecha** | —        | ✅    |
-| BS-024 | Exigir un contacto en la reserva pública    | Hecho           | **Hecha** | —        | ✅    |
-| BS-013 | Alta de walk-in retroactivo                 | Hecho           | **Hecha** | —        | ✅    |
-| BS-021 | Fusión de fichas duplicadas                 | Hecho           | **Hecha** | —        | ✅    |
-| BS-005 | Descuento, propina y pago mixto             | Hecho ⚠️        | **Hecha** | —        | ✅    |
-| BS-025 | Aviso de edición simultánea (409 optimista) | Hecho           | **Hecha** | —        | ✅    |
+| ID     | Qué falta                                   | Backend  | Interfaz  | Esfuerzo | Orden |
+| ------ | ------------------------------------------- | -------- | --------- | -------- | ----- |
+| BS-003 | Pantalla de facturas y tasa de impuesto     | Hecho    | **Hecha** | —        | ✅    |
+| BS-002 | Devolver un cobro                           | Hecho    | **Hecha** | —        | ✅    |
+| BS-006 | Precio y duración por profesional           | Hecho    | **Hecha** | —        | ✅    |
+| BS-028 | Sembrar el negocio nuevo según su tipo      | Hecho    | **Hecha** | —        | ✅    |
+| BS-024 | Exigir un contacto en la reserva pública    | Hecho    | **Hecha** | —        | ✅    |
+| BS-013 | Alta de walk-in retroactivo                 | Hecho    | **Hecha** | —        | ✅    |
+| BS-021 | Fusión de fichas duplicadas                 | Hecho    | **Hecha** | —        | ✅    |
+| BS-005 | Descuento, propina y pago mixto             | Hecho ⚠️ | **Hecha** | —        | ✅    |
+| BS-025 | Aviso de edición simultánea (409 optimista) | Hecho    | **Hecha** | —        | ✅    |
 
 El orden era de impacto comercial frente a coste. Los tres primeros compartían un
 rasgo que los ponía arriba —**la función ya estaba construida y pagada en el
