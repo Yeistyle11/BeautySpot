@@ -1139,6 +1139,57 @@ describe("PaymentsService", () => {
 
       expect(mockOutbox.enqueue).not.toHaveBeenCalled();
     });
+
+    // El cobro se tecleo como efectivo y era con datafono: el dinero nunca
+    // paso por el cajon, asi que su movimiento sobra. Se puede borrar porque
+    // la sesion sigue abierta y todavia no se ha arqueado.
+    it("borra el movimiento cuando el cobro deja de ser en efectivo", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: null });
+
+      await service.correctPayment("payment-123", "business-123", {
+        ...corregir,
+        method: PaymentMethod.CARD,
+      });
+
+      expect(mockManagerRepo.delete).toHaveBeenCalledWith({ id: "mov-1" });
+      expect(mockManagerRepo.update).not.toHaveBeenCalledWith(
+        { id: "mov-1" },
+        expect.anything()
+      );
+    });
+
+    // Al reves: era con datafono y resulta que fue en efectivo. No habia
+    // movimiento y ahora el cajon tiene que recogerlo.
+    it("crea el movimiento cuando el cobro pasa a ser en efectivo", async () => {
+      // Sin movimiento del cobro, pero con caja abierta que lo reciba.
+      mockManagerRepo.findOne = jest.fn(async (opciones: any) =>
+        opciones?.where?.paymentId
+          ? null
+          : { id: "cash-session-1", closedAt: null }
+      );
+
+      await service.correctPayment("payment-123", "business-123", {
+        ...corregir,
+        method: PaymentMethod.CASH,
+      });
+
+      expect(mockManagerRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cashSessionId: "cash-session-1",
+          type: CashMovementType.IN,
+          amount: 30000,
+          method: PaymentMethod.CASH,
+        })
+      );
+    });
+
+    it("no corrige un cobro que entró en una caja ya cerrada", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: new Date() });
+
+      await expect(
+        service.correctPayment("payment-123", "business-123", corregir)
+      ).rejects.toThrow(/caja que ya se cerró/);
+    });
   });
 
   describe("cobro de cero", () => {
