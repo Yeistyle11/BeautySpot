@@ -636,10 +636,13 @@ Detectados durante la remediación, no estaban en el informe.
    deshacer un cobro es devolverlo, y la devolución sí mueve la caja.
    **Retirada**, con su DTO, el método del servicio, el catálogo de transiciones
    que solo él usaba y su fila en `docs/API.md`.
-6. **Analytics sella la métrica con el día de proceso, no con el del cobro**
-   (`analytics-event-listeners.service.ts` L223-241 usa `hoyPara(businessId)`). Un
-   evento reprocesado al día siguiente cuenta en el día equivocado: es una vía
-   plausible del descuadre que produce BS-009.
+6. **Analytics sellaba la métrica con el día de proceso, no con el del cobro**
+   (`analytics-event-listeners.service.ts` usaba `hoyPara(businessId)`). Un
+   evento reprocesado al día siguiente contaba en el día equivocado: es una vía
+   plausible del descuadre que produce BS-009. **Corregido**: el cobro viaja con
+   su `date` —igual que ya hacía la corrección— y lo que no lo traiga se fecha
+   con el instante en que se emitió el evento, nunca con el de su proceso. La
+   reseña, que no lleva fecha propia, se fecha también por el evento.
 
 ## Deuda técnica detectada
 

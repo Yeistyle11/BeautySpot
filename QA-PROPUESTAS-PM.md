@@ -1,9 +1,8 @@
 # Propuestas de producto — QA-REPORT-BeautySpot-2026-08-22
 
 Los nueve hallazgos del informe marcados `[PM]`: los que no son un fallo que
-corregir sino una función que falta, y por tanto una decisión de producto. Ocho
-están decididos y construidos; **el único que sigue siendo una decisión abierta
-es BS-005**, y su ficha es lo que hay que decidir antes de implementarlo.
+corregir sino una función que falta, y por tanto una decisión de producto. **Los
+nueve están decididos y construidos.**
 
 Cada propuesta trae **lo que hay hoy verificado contra el código**, no lo que el
 informe suponía. Cuatro veces no coinciden, y en dos de ellas la diferencia
@@ -23,13 +22,13 @@ en `QA-REMEDIATION-PLAN.md`.
 | BS-024 | Exigir un contacto en la reserva pública    | Hecho           | **Hecha** | —        | ✅    |
 | BS-013 | Alta de walk-in retroactivo                 | Hecho           | **Hecha** | —        | ✅    |
 | BS-021 | Fusión de fichas duplicadas                 | Hecho           | **Hecha** | —        | ✅    |
-| BS-005 | Descuento, propina y pago mixto             | Falta entero ⚠️ | Media     | L        | 8     |
+| BS-005 | Descuento, propina y pago mixto             | Hecho ⚠️        | **Hecha** | —        | ✅    |
 | BS-025 | Aviso de edición simultánea (409 optimista) | Hecho           | **Hecha** | —        | ✅    |
 
 El orden era de impacto comercial frente a coste. Los tres primeros compartían un
 rasgo que los ponía arriba —**la función ya estaba construida y pagada en el
-backend, y solo faltaba la pantalla que la alcanzara**—, y hoy la tienen. Queda
-BS-005, el único que había que construir entero.
+backend, y solo faltaba la pantalla que la alcanzara**—, y hoy la tienen. BS-005
+era el único que había que construir entero, y se construyó el último.
 
 ---
 
@@ -303,18 +302,18 @@ medias. Ese es el riesgo real, y no es de datos.
 
 ---
 
-## 8 · BS-005 · Descuento, propina y pago mixto
+## 8 · BS-005 · Descuento, propina y pago mixto ✅ (implementado)
 
-**Qué hay hoy.** El cobro admite cliente, importe, **un** método y notas.
+**Qué había.** El cobro admitía cliente, importe, **un** método y notas.
 
 ⚠️ **Corrección al informe, y en contra.** El informe daba el descuento por medio
 construido («`discount` aparece en `payment.entity.ts`») y lo proponía como el
-más barato de los tres. No es así: en la entidad no hay ninguna columna de
-descuento. El único `discount` del servicio es un campo del **payload del evento
-de canje de puntos**, que traduce puntos a pesos (`puntosUsados * VALOR_DEL_PUNTO`)
-para quien lleve la cuenta de la fidelización. El descuento comercial —la
-promoción del martes, el 10 % del cliente fiel— no se guarda en ninguna parte, y
-la propuesta necesita migración igual que las otras dos.
+más barato de los tres. No era así. Hay una columna `descuento` en la entidad,
+pero es **lo que rebajaron los puntos canjeados** (`puntosUsados *
+VALOR_DEL_PUNTO`), y el `discount` del servicio es ese mismo importe en el
+payload del evento de canje. El descuento comercial —la promoción del martes, el
+10 % del cliente fiel— no se guardaba en ninguna parte, así que necesitaba
+migración igual que los otros dos.
 
 **Propuesta, por orden de coste/beneficio.**
 
@@ -333,10 +332,26 @@ la propuesta necesita migración igual que las otras dos.
    sobre todo con datáfono, porque el dinero entra al negocio y hay que sacarlo
    para el profesional; sin esto, o se le regala al negocio o se apunta en papel.
 
-**Qué hay que decidir.** Si se hacen los tres o solo el descuento. Si la propina
-se liquida por profesional —y entonces hace falta saber a quién va, lo que la
-encadena con las comisiones, que están documentadas como ausentes—. Y si el
-descuento lo puede aplicar recepción o necesita permiso.
+**Lo decidido, y lo construido.** Los tres.
+
+- **Descuento comercial** en columna propia, con motivo obligatorio, separado del
+  de puntos para que el negocio sepa cuánto regaló por cada vía. Lo conceden
+  OWNER y ADMIN; a recepción el servidor le responde 403 y la pantalla ni le
+  ofrece el campo.
+- **Propina** en su columna, atribuida al profesional de la cita. No es ingreso:
+  no suma a las ventas ni entra en la factura, pero sí en el cajón cuando se deja
+  en efectivo. Sin liquidación ni acumulado, que es lo que encadenaría con las
+  comisiones.
+- **Pago mixto** en líneas hijas (`payment_splits`), que suman el importe más la
+  propina. El cobro se marca `MIXED` y la caja recibe **un movimiento por medio**,
+  de modo que el arqueo sigue cuadrando el cajón solo contra el efectivo sin
+  tocarlo. `MIXED` no entra en el catálogo de los movimientos: por el cajón el
+  dinero pasa por un medio concreto.
+
+Lo que **no** entra: corregir un cobro repartido con `PATCH /:id` —tiene varias
+partes y varios movimientos detrás, así que la vía es la devolución— y el
+«Método de Pago» del PDF de factura, que sigue siendo un guion fijo porque nunca
+llegó a rellenarse.
 
 ---
 
