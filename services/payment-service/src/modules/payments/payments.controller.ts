@@ -87,11 +87,6 @@ class DailySummaryQueryDto {
   @EsFechaSola() date!: string;
 }
 
-/** Nuevo estado a asignar a un pago. */
-class UpdateStatusDto {
-  @IsEnum(PaymentStatus) status!: PaymentStatus;
-}
-
 /**
  * Corrección de un cobro ya registrado. El motivo es obligatorio: la corrección
  * queda escrita en el pago y sin él la traza no explica nada.
@@ -189,17 +184,6 @@ export class PaymentsController {
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   async findById(@Param("id") id: string, @BusinessId() businessId: string) {
     return this.service.findById(id, businessId);
-  }
-
-  /** Cambia el estado de un pago. */
-  @Patch(":id/status")
-  @Roles(Role.OWNER, Role.ADMIN)
-  async updateStatus(
-    @Param("id") id: string,
-    @BusinessId() businessId: string,
-    @Body() dto: UpdateStatusDto
-  ) {
-    return this.service.updateStatus(id, businessId, dto.status);
   }
 
   /** Corrige un cobro mientras su caja siga abierta, dejando traza de quién y por qué. */

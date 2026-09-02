@@ -653,12 +653,11 @@ Pagos manuales, facturas y caja. Base de datos `beautyspot_payment`. Usa el patr
 
 | Método | Ruta             | Roles                      | Descripción                       |
 | ------ | ---------------- | -------------------------- | --------------------------------- |
-| POST   | `/`              | ADMIN, RECEPTIONIST        | Registra pago                     |
+| POST   | `/`              | OWNER, ADMIN, RECEPTIONIST | Registra pago                     |
 | GET    | `/`              | OWNER, ADMIN, RECEPTIONIST | Lista pagos (paginado)            |
 | GET    | `/cobradas`      | OWNER, ADMIN, RECEPTIONIST | De unas citas, cuáles ya se cobró |
 | GET    | `/daily-summary` | OWNER, ADMIN               | Resumen del día                   |
 | GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST | Detalle                           |
-| PATCH  | `/:id/status`    | OWNER, ADMIN               | Cambia el estado                  |
 | PATCH  | `/:id`           | OWNER, ADMIN               | Corrige el cobro                  |
 | POST   | `/:id/refund`    | OWNER, ADMIN               | Procesa devolución                |
 

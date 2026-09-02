@@ -46,14 +46,6 @@ interface CobroDeCita {
   services?: ServicioDeLaCita[];
 }
 
-/** Estados a los que puede pasar un pago desde cada estado. */
-const TRANSICIONES_DE_PAGO: Record<PaymentStatus, PaymentStatus[]> = {
-  [PaymentStatus.PENDING]: [PaymentStatus.COMPLETED, PaymentStatus.CANCELLED],
-  [PaymentStatus.COMPLETED]: [],
-  [PaymentStatus.REFUNDED]: [],
-  [PaymentStatus.CANCELLED]: [],
-};
-
 /**
  * Que se vendio, para el listado de movimientos de caja; el cliente se
  * resuelve al leer y no se copia aqui.
@@ -450,27 +442,6 @@ export class PaymentsService {
     const payment = await this.repo.findOne({ where: { id, businessId } });
     if (!payment) throw new NotFoundException("Pago no encontrado");
     return payment;
-  }
-
-  /**
-   * Cambia el estado de un pago siguiendo las transiciones permitidas;
-   * `REFUNDED` no esta entre ellas, vive en {@link refundPayment}.
-   */
-  async updateStatus(
-    id: string,
-    businessId: string,
-    status: PaymentStatus
-  ): Promise<PaymentEntity> {
-    const payment = await this.findById(id, businessId);
-
-    if (!TRANSICIONES_DE_PAGO[payment.status].includes(status)) {
-      throw new BadRequestException(
-        `Un pago ${payment.status} no puede pasar a ${status}`
-      );
-    }
-
-    await this.repo.update({ id, businessId }, { status });
-    return this.findById(id, businessId);
   }
 
   /**
