@@ -613,11 +613,15 @@ Detectados durante la remediación, no estaban en el informe.
    de cliente, así que hereda la directiva; pero el primer server component que lo
    importe reproduce el bloqueante. **Corregido** junto a BS-022, ya que es
    literalmente lo que el informe pedía barrer.
-2. **`BatchUpsertDto.hours`** (`core-service/.../business-hours.dto.ts` L45-49) no
-   declara `@IsArray()` ni `@ArrayMaxSize`. Un `hours` que no sea array entra en
-   `@ValidateNested({ each: true })` sin garantía de forma. Pendiente de tu visto bueno.
-3. **`BusinessHourItemDto.openTime`/`closeTime`** son `@IsString @MaxLength(5)` sin
-   patrón de hora; la validación real vive en el servicio (`business-hours.service.ts:83`).
+2. **`BatchUpsertDto.hours`** no declaraba `@IsArray()` ni `@ArrayMaxSize`. Un
+   `hours` que no fuera array entraba en `@ValidateNested({ each: true })` sin
+   garantía de forma: la validación de cada elemento no encuentra nada que
+   recorrer y da el campo por bueno. **Corregido**, con un tope de 500 tramos.
+3. **`BusinessHourItemDto.openTime`/`closeTime`** eran `@IsString @MaxLength(5)`
+   sin patrón de hora, así que cualquier cadena de cinco caracteres llegaba al
+   servicio. **Corregido**: el DTO exige la forma `HH:MM` y el rango se queda en
+   `business-hours.service.ts:83`, que es quien distingue la apertura (hasta
+   23:59) del cierre (hasta 24:00, el día completo) y explica cada caso.
 4. **Alta de clientes sin índice único detrás.** `rechazarSiYaExiste` comprobaba
    y luego insertaba, sin índice único que lo respaldara — el resto del repositorio
    usa insertar-y-traducir-el-23505 (`esViolacionDeUnicidad`). Dos altas simultáneas
