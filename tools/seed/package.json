@@ -1,0 +1,30 @@
+{
+  "name": "@beautyspot/seed",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Siembra el entorno de desarrollo con dos negocios, sus cuentas por rol y actividad suficiente para probar agenda, caja y métricas",
+  "scripts": {
+    "seed": "ts-node src/index.ts",
+    "seed:comprobar": "ts-node src/comprobar.ts",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@beautyspot/database": "*",
+    "@beautyspot/nest-common": "*",
+    "@beautyspot/shared-constants": "*",
+    "@beautyspot/shared-types": "*",
+    "@beautyspot/shared-utils": "*",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "pg": "^8.13.1",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^0.3.20"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.17.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  }
+}
