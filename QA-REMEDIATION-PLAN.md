@@ -55,7 +55,7 @@ Los 28 hallazgos se reducen a 9 causas. Corregir la causa cierra todos sus halla
 | BS-024 | Media      | Marketplace      | Texto: promete un correo a quien no lo dejó (la regla es `[PM]`)                             | XS       | Bajo   | 4    | ✅     |
 | BS-007 | Media      | Servicios        | Categoría del catálogo y campo libre `category` pintados igual                               | S        | Bajo   | 5    | ✅     |
 | BS-017 | Media      | Agenda           | G7 · `CalendarView` no recibe bloqueos                                                       | S        | Bajo   | 5    | ✅     |
-| BS-005 | Media      | Pagos            | Sin descuento, propina ni pago mixto                                                         | L        | —      | 6    | 📋     |
+| BS-005 | Media      | Pagos            | Sin descuento, propina ni pago mixto                                                         | L        | —      | 6    | ✅     |
 | BS-006 | Media      | Servicios/Equipo | El precio no varía por profesional                                                           | L        | —      | 6    | ✅     |
 | BS-013 | Media      | Agenda           | No hay alta de walk-in retroactivo                                                           | M        | —      | 6    | ✅     |
 | BS-021 | Media      | Clientes         | No hay fusión de fichas                                                                      | M        | —      | 6    | ✅     |
