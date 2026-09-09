@@ -70,11 +70,20 @@ export function ProfessionalDetailDialog({
                 <Badge className="mt-1">{professional.category}</Badge>
               )}
               <div className="mt-2 flex items-center gap-2">
-                <Star className="fill-rating text-rating h-4 w-4" />
-                <span className="text-sm">
-                  {Number(professional.rating).toFixed(1)} (
-                  {professional.totalReviews} reseñas)
-                </span>
+                {/* Sin resenas no se pone nota: un «0.0» se leeria como la peor. */}
+                {Number(professional.rating) > 0 ? (
+                  <>
+                    <Star className="fill-rating text-rating h-4 w-4" />
+                    <span className="text-sm">
+                      {Number(professional.rating).toFixed(1)} (
+                      {professional.totalReviews} reseñas)
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-muted-foreground text-sm">
+                    Sin reseñas todavía
+                  </span>
+                )}
                 <Badge variant={professional.active ? "default" : "secondary"}>
                   {professional.active ? "Activo" : "Inactivo"}
                 </Badge>

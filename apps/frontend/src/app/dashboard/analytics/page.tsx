@@ -370,6 +370,15 @@ export default function AnalyticsPage() {
           recurso="los reportes"
           onReintentar={() => void recargar()}
         />
+      ) : !consultable ? (
+        // Con el periodo invertido no se ha preguntado nada, asi que decir «no
+        // hay datos» contradice al aviso del selector: sugiere que el periodo
+        // vale y que el negocio esta vacio.
+        <EmptyState
+          icon={TrendingUp}
+          titulo="Elige un periodo válido"
+          descripcion="La fecha de inicio tiene que ser anterior a la de fin para poder calcular el reporte."
+        />
       ) : (
         <EmptyState
           icon={TrendingUp}

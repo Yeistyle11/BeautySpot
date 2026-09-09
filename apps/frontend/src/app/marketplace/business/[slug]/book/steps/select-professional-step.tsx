@@ -82,7 +82,7 @@ export function SelectProfessionalStep({
             <div>
               <p className="font-medium">Cualquier profesional</p>
               <p className="text-muted-foreground text-sm">
-                Se asignara el primero disponible
+                Se asignará el primero disponible
               </p>
             </div>
           </button>

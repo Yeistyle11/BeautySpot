@@ -83,12 +83,17 @@ export const ProCard = memo(function ProCard({
               color={categoryColor ?? undefined}
               className="mt-0.5 text-xs"
             />
-            <div className="mt-1 flex items-center gap-1">
-              <Star className="fill-rating text-rating h-3.5 w-3.5" />
-              <span className="text-muted-foreground text-sm">
-                {Number(p.rating).toFixed(1)} ({p.totalReviews})
-              </span>
-            </div>
+            {/* Sin resenas no se pone nota: un «0.0» se lee como la peor de
+                todas, que es lo contrario de lo que significa. El escaparate ya
+                lo hace asi. */}
+            {Number(p.rating) > 0 && (
+              <div className="mt-1 flex items-center gap-1">
+                <Star className="fill-rating text-rating h-3.5 w-3.5" />
+                <span className="text-muted-foreground text-sm">
+                  {Number(p.rating).toFixed(1)} ({p.totalReviews})
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
