@@ -6,14 +6,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
-import {
-  Repository,
-  DataSource,
-  EntityManager,
-  Between,
-  In,
-  IsNull,
-} from "typeorm";
+import { Repository, DataSource, EntityManager, In, IsNull } from "typeorm";
 import {
   InternalHttpClient,
   ZonaDelNegocioService,
@@ -22,6 +15,7 @@ import {
   diaSiguiente,
   fechaDeHoyEn,
   instanteDe,
+  repartirProporcional,
 } from "@beautyspot/shared-utils";
 import { PaymentEntity } from "./payment.entity";
 import { PaymentSplitEntity } from "./payment-split.entity";
@@ -37,7 +31,7 @@ import {
   Role,
 } from "@beautyspot/shared-types";
 import { esViolacionDeUnicidad, OutboxService } from "@beautyspot/nest-common";
-import { paginate, PaginateParams } from "@beautyspot/database";
+import { paginarQueryBuilder, PaginateParams } from "@beautyspot/database";
 import { EventNames, ServicioDeLaCita } from "@beautyspot/event-types";
 import { VALOR_DEL_PUNTO } from "@beautyspot/shared-constants";
 
@@ -546,14 +540,36 @@ export class PaymentsService {
     },
     pagination: PaginateParams
   ): Promise<IPaginatedResponse<PaymentEntity>> {
-    const where: Record<string, unknown> = { businessId };
-    if (filters.branchId) where.branchId = filters.branchId;
-    if (filters.method) where.method = filters.method;
-    if (filters.status) where.status = filters.status;
-    if (filters.from && filters.to) {
-      where.createdAt = Between(new Date(filters.from), new Date(filters.to));
+    const qb = this.repo
+      .createQueryBuilder("p")
+      .where("p.business_id = :businessId", { businessId })
+      .orderBy("p.created_at", "DESC");
+
+    if (filters.branchId) {
+      qb.andWhere("p.branch_id = :branchId", { branchId: filters.branchId });
     }
-    return paginate(this.repo, pagination, { where });
+    if (filters.status) {
+      qb.andWhere("p.status = :status", { status: filters.status });
+    }
+    if (filters.from && filters.to) {
+      qb.andWhere("p.created_at BETWEEN :from AND :to", {
+        from: new Date(filters.from),
+        to: new Date(filters.to),
+      });
+    }
+    // Un cobro repartido vale `MIXED` en su columna, asi que filtrar por
+    // igualdad lo escondia de los tres medios concretos aunque una de sus
+    // lineas fuera justo la que se busca.
+    if (filters.method) {
+      qb.andWhere(
+        `(p.method = :method OR EXISTS (
+            SELECT 1 FROM payment_splits s
+            WHERE s.payment_id = p.id AND s.method = :method))`,
+        { method: filters.method }
+      );
+    }
+
+    return paginarQueryBuilder(qb, pagination);
   }
 
   /** Obtiene un pago del negocio por id; lanza 404 si no existe. */
@@ -564,8 +580,14 @@ export class PaymentsService {
   }
 
   /**
-   * Resumen de pagos completados de un dia, agregado por metodo y sumado en
-   * SQL.
+   * Resumen de los cobros completados de un dia, desglosado por medio.
+   *
+   * El desglose sale de las lineas del reparto y no de `payments.method`, que
+   * en un cobro repartido vale `MIXED`: agrupar por esa columna dejaba los tres
+   * medios en cero mientras el total no lo estaba, y el filtro por medio ocultaba
+   * el cobro entero. La venta de cada medio es su parte proporcional del importe
+   * —las lineas llevan la propina dentro y el importe no—, asi que el desglose
+   * suma siempre el total.
    */
   async getDailySummary(businessId: string, date: string, branchId?: string) {
     // El día va de medianoche a medianoche en el huso del negocio, con el fin
@@ -574,11 +596,9 @@ export class PaymentsService {
     const start = instanteDe(zona, date, "00:00");
     const end = instanteDe(zona, diaSiguiente(date), "00:00");
 
-    const rows = await this.repo
+    const cobros = await this.repo
       .createQueryBuilder("p")
-      .select("p.method", "method")
-      .addSelect("SUM(p.amount)", "total")
-      .addSelect("COUNT(*)", "count")
+      .leftJoinAndSelect("p.splits", "s")
       .where("p.business_id = :businessId", { businessId })
       .andWhere("p.status = :status", { status: PaymentStatus.COMPLETED })
       .andWhere("p.created_at >= :start AND p.created_at < :end", {
@@ -586,20 +606,29 @@ export class PaymentsService {
         end,
       })
       .andWhere(branchId ? "p.branch_id = :branchId" : "TRUE", { branchId })
-      .groupBy("p.method")
-      .getRawMany<{ method: string; total: string; count: string }>();
+      .getMany();
 
     const byMethod: Record<string, number> = {};
     let total = 0;
-    let count = 0;
-    for (const row of rows) {
-      const amount = Number(row.total);
-      byMethod[row.method] = amount;
-      total += amount;
-      count += Number(row.count);
+
+    for (const cobro of cobros) {
+      const importe = Number(cobro.amount);
+      total += importe;
+
+      const lineas = cobro.splits?.length
+        ? cobro.splits
+        : [{ method: cobro.method, amount: importe }];
+      const ventas = repartirProporcional(
+        importe,
+        lineas.map((linea) => Number(linea.amount))
+      );
+
+      lineas.forEach((linea, i) => {
+        byMethod[linea.method] = (byMethod[linea.method] ?? 0) + ventas[i];
+      });
     }
 
-    return { date, total, count, byMethod };
+    return { date, total, count: cobros.length, byMethod };
   }
 
   /**

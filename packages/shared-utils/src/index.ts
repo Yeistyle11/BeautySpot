@@ -248,3 +248,40 @@ export function formatearDinero(
     minimumFractionDigits: 0,
   }).format(monto);
 }
+
+/**
+ * Reparte un importe entre varias partes en proporción a sus pesos, en pesos
+ * enteros y **sumando exactamente el importe**: lo que se pierde al redondear
+ * se le devuelve a las partes con el resto más grande.
+ *
+ * Es lo que permite desglosar un cobro repartido por medio de pago sin que el
+ * desglose deje de cuadrar con el total. El caso que lo obliga es la propina:
+ * las líneas del reparto la llevan dentro y las ventas no, así que la venta de
+ * cada medio es su parte proporcional del importe cobrado.
+ *
+ * Con todos los pesos a cero el importe se reparte por igual, que es lo único
+ * que se puede hacer sin proporción de la que tirar.
+ */
+export function repartirProporcional(total: number, pesos: number[]): number[] {
+  if (pesos.length === 0) return [];
+
+  const suma = pesos.reduce((acc, peso) => acc + peso, 0);
+  const cuotas = pesos.map((peso) =>
+    suma === 0 ? total / pesos.length : (total * peso) / suma
+  );
+
+  const partes = cuotas.map(Math.floor);
+  let restante = total - partes.reduce((acc, parte) => acc + parte, 0);
+
+  // El sobrante se reparte de mayor a menor resto, que es el criterio que menos
+  // se desvía de la proporción exacta.
+  const porResto = cuotas
+    .map((cuota, indice) => ({ indice, resto: cuota - Math.floor(cuota) }))
+    .sort((a, b) => b.resto - a.resto);
+
+  for (let i = 0; restante > 0 && i < porResto.length; i++, restante--) {
+    partes[porResto[i].indice] += 1;
+  }
+
+  return partes;
+}

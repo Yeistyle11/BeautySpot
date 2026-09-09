@@ -693,8 +693,26 @@ describe("PaymentsService", () => {
       order: "DESC" as const,
     };
 
+    /** El listado se arma con query builder: necesita un join contra las líneas. */
+    const mockListado = (filas: unknown[], total = filas.length) => {
+      const qb: Record<string, jest.Mock> = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([filas, total]),
+      };
+      mockRepo.createQueryBuilder.mockReturnValue(qb as never);
+      return qb;
+    };
+
+    /** Condiciones SQL que el listado acabó pidiendo. */
+    const condiciones = (qb: Record<string, jest.Mock>) =>
+      qb.andWhere.mock.calls.map(([sql]) => String(sql)).join(" | ");
+
     it("devuelve una página con metadatos de paginación", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[mockPayment], 1]);
+      const qb = mockListado([mockPayment], 1);
 
       const result = await service.findByBusiness(
         "business-123",
@@ -702,21 +720,20 @@ describe("PaymentsService", () => {
         pagination
       );
 
-      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { businessId: "business-123" },
-          skip: 0,
-          take: 20,
-          order: { createdAt: "DESC" },
-        })
-      );
+      expect(qb.where).toHaveBeenCalledWith("p.business_id = :businessId", {
+        businessId: "business-123",
+      });
+      expect(qb.skip).toHaveBeenCalledWith(0);
+      expect(qb.take).toHaveBeenCalledWith(20);
       expect(result.data).toEqual([mockPayment]);
       expect(result.meta.total).toBe(1);
       expect(result.meta.page).toBe(1);
     });
 
-    it("debería filtrar por método", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[mockPayment], 1]);
+    // Un cobro repartido vale MIXED en su columna, así que el filtro tiene que
+    // mirar también sus líneas o esconde el cobro de los tres medios concretos.
+    it("al filtrar por método alcanza también las líneas del reparto", async () => {
+      const qb = mockListado([mockPayment]);
 
       await service.findByBusiness(
         "business-123",
@@ -724,15 +741,16 @@ describe("PaymentsService", () => {
         pagination
       );
 
-      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { businessId: "business-123", method: PaymentMethod.CASH },
-        })
-      );
+      const sql = condiciones(qb);
+      expect(sql).toContain("p.method = :method");
+      expect(sql).toContain("payment_splits");
+      expect(qb.andWhere).toHaveBeenCalledWith(expect.any(String), {
+        method: PaymentMethod.CASH,
+      });
     });
 
     it("debería filtrar por estado", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[mockPayment], 1]);
+      const qb = mockListado([mockPayment]);
 
       await service.findByBusiness(
         "business-123",
@@ -740,18 +758,13 @@ describe("PaymentsService", () => {
         pagination
       );
 
-      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            businessId: "business-123",
-            status: PaymentStatus.COMPLETED,
-          },
-        })
-      );
+      expect(qb.andWhere).toHaveBeenCalledWith("p.status = :status", {
+        status: PaymentStatus.COMPLETED,
+      });
     });
 
     it("debería filtrar por rango de fechas", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[mockPayment], 1]);
+      const qb = mockListado([mockPayment]);
 
       await service.findByBusiness(
         "business-123",
@@ -759,14 +772,7 @@ describe("PaymentsService", () => {
         pagination
       );
 
-      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            businessId: "business-123",
-            createdAt: expect.any(Object),
-          },
-        })
-      );
+      expect(condiciones(qb)).toContain("p.created_at BETWEEN :from AND :to");
     });
   });
 
@@ -813,21 +819,18 @@ describe("PaymentsService", () => {
   });
 
   describe("getDailySummary", () => {
-    const mockQueryBuilder = (rows: unknown[]) => ({
-      select: jest.fn().mockReturnThis(),
-      addSelect: jest.fn().mockReturnThis(),
+    const mockQueryBuilder = (cobros: unknown[]) => ({
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      groupBy: jest.fn().mockReturnThis(),
-      getRawMany: jest.fn().mockResolvedValue(rows),
+      getMany: jest.fn().mockResolvedValue(cobros),
     });
 
-    it("agrega por método vía SQL (SUM/COUNT + GROUP BY)", async () => {
-      // pg devuelve SUM/COUNT como strings; el servicio los convierte a number.
+    it("agrupa por el medio de cada cobro", async () => {
       mockRepo.createQueryBuilder.mockReturnValue(
         mockQueryBuilder([
-          { method: "CASH", total: "50", count: "1" },
-          { method: "CARD", total: "30", count: "1" },
+          { amount: 50, method: "CASH", splits: [] },
+          { amount: 30, method: "CARD", splits: [] },
         ]) as any
       );
 
@@ -840,6 +843,58 @@ describe("PaymentsService", () => {
       expect(result.total).toBe(80);
       expect(result.count).toBe(2);
       expect(result.byMethod).toEqual({ CASH: 50, CARD: 30 });
+    });
+
+    // El cobro repartido vale MIXED en su columna: agrupar por ella dejaba los
+    // tres medios en cero mientras el total no lo estaba.
+    it("desglosa el cobro repartido por sus líneas, no como MIXTO", async () => {
+      mockRepo.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder([
+          {
+            amount: 50000,
+            method: "MIXED",
+            splits: [
+              { method: "CASH", amount: 30000 },
+              { method: "CARD", amount: 20000 },
+            ],
+          },
+        ]) as any
+      );
+
+      const result = await service.getDailySummary(
+        "business-123",
+        "2024-01-15"
+      );
+
+      expect(result.total).toBe(50000);
+      expect(result.byMethod).toEqual({ CASH: 30000, CARD: 20000 });
+      expect(result.byMethod.MIXED).toBeUndefined();
+    });
+
+    // Las líneas llevan la propina dentro y el importe no, así que la venta de
+    // cada medio es su parte proporcional: el desglose suma siempre el total.
+    it("descuenta la propina del desglose y sigue cuadrando", async () => {
+      mockRepo.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder([
+          {
+            amount: 50000,
+            method: "MIXED",
+            splits: [
+              { method: "CASH", amount: 30000 },
+              { method: "CARD", amount: 25000 },
+            ],
+          },
+        ]) as any
+      );
+
+      const result = await service.getDailySummary(
+        "business-123",
+        "2024-01-15"
+      );
+
+      const sumado = Object.values(result.byMethod).reduce((a, b) => a + b, 0);
+      expect(sumado).toBe(result.total);
+      expect(result.byMethod).toEqual({ CASH: 27273, CARD: 22727 });
     });
 
     it("debería retornar resumen vacío si no hay pagos", async () => {

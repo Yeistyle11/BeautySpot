@@ -17,6 +17,7 @@ import {
   finExtendido,
   horaDeReloj,
   formatearDinero,
+  repartirProporcional,
 } from "./index";
 
 describe("Shared Utils", () => {
@@ -427,5 +428,36 @@ describe("columnaSinTildes", () => {
     it("un importe de cero se escribe, no se omite", () => {
       expect(formatearDinero(0)).toContain("0");
     });
+  });
+});
+
+describe("repartirProporcional", () => {
+  it("reparte sin resto cuando la proporcion es exacta", () => {
+    expect(repartirProporcional(50000, [30000, 20000])).toEqual([30000, 20000]);
+  });
+
+  it("suma siempre el total aunque la proporcion no sea exacta", () => {
+    const partes = repartirProporcional(50000, [30000, 25000]);
+    expect(partes.reduce((a, b) => a + b, 0)).toBe(50000);
+    // La propina de 5.000 sale de las dos partes segun su peso.
+    expect(partes).toEqual([27273, 22727]);
+  });
+
+  it("da el sobrante a la parte con el resto mayor", () => {
+    const partes = repartirProporcional(10, [1, 1, 1]);
+    expect(partes.reduce((a, b) => a + b, 0)).toBe(10);
+    expect(partes).toEqual([4, 3, 3]);
+  });
+
+  it("con una sola parte le da el total entero", () => {
+    expect(repartirProporcional(45000, [45000])).toEqual([45000]);
+  });
+
+  it("reparte por igual cuando no hay proporcion de la que tirar", () => {
+    expect(repartirProporcional(9, [0, 0])).toEqual([5, 4]);
+  });
+
+  it("no reparte nada sin partes", () => {
+    expect(repartirProporcional(1000, [])).toEqual([]);
   });
 });

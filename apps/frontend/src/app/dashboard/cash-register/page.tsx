@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate, formatTimeStamp } from "@/lib/utils";
+import { nombreDelMetodo } from "@/lib/metodos-de-pago";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
@@ -40,7 +41,7 @@ import {
   ACTIVE_KEY,
   HISTORY_KEY,
   type CashSession,
-  type CashMovement,
+  type CashSummary,
 } from "./schemas";
 
 const movementTypeOptions = [
@@ -82,12 +83,13 @@ export default function CashRegisterPage() {
   const movementsKey = activeSession?.id
     ? `/payment/cash-register/${activeSession.id}/summary`
     : null;
-  const { data: summary } = useApi<{ movements: CashMovement[] } | null>(
+  const { data: summary } = useApi<CashSummary | null>(
     movementsKey,
     undefined,
     cashSummarySchema.nullable()
   );
   const movements = useMemo(() => summary?.movements ?? [], [summary]);
+  const arqueo = summary?.summary;
   const loading = loadingActive;
 
   const [openDialog, setOpenDialog] = useState(false);
@@ -166,20 +168,22 @@ export default function CashRegisterPage() {
     }
   };
 
-  const { totalIn, totalOut } = useMemo(
-    () =>
-      movements.reduce(
-        (acc, m) => {
-          if (m.type === "IN") acc.totalIn += m.amount;
-          else acc.totalOut += m.amount;
-          return acc;
-        },
-        { totalIn: 0, totalOut: 0 }
-      ),
-    [movements]
-  );
+  // El arqueo lo hace el servicio, que es quien sabe que un movimiento con
+  // datafono deja rastro para el desglose pero no pone dinero en el cajon.
+  // Rehacer aqui la suma contaba esa parte como efectivo y exigia justificar un
+  // descuadre que no existia.
+  const totalIn = arqueo?.totalIn ?? 0;
+  const totalOut = arqueo?.totalOut ?? 0;
   const openingAmt = activeSession?.openingAmount ?? 0;
-  const expectedTotal = openingAmt + totalIn - totalOut;
+  const expectedTotal = arqueo?.expectedTotal ?? openingAmt;
+  const desglose = useMemo(
+    () =>
+      Object.entries(arqueo?.porMetodo ?? {})
+        .map(([metodo, { entradas }]) => ({ metodo, entradas }))
+        .filter((linea) => linea.entradas > 0)
+        .sort((a, b) => b.entradas - a.entradas),
+    [arqueo]
+  );
   // Descuadre del arqueo mientras se teclea: negativo falta, positivo sobra.
   const diferenciaCierre =
     closeAmount === "" || Number.isNaN(Number(closeAmount))
@@ -300,6 +304,37 @@ export default function CashRegisterPage() {
               </CardContent>
             </Card>
           </div>
+
+          {desglose.length > 0 && (
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-4">
+                <p className="text-muted-foreground text-xs">
+                  Entradas por medio de cobro
+                </p>
+                {/* Solo el efectivo esta en el cajon; el resto se cuadra contra
+                    el datafono o el banco. Un cobro repartido aporta a dos
+                    lineas, que es para lo que se guarda por separado. */}
+                {closeDialog ? (
+                  <p className="text-muted-foreground mt-2 text-sm">
+                    Oculto mientras cuentas el cajón
+                  </p>
+                ) : (
+                  <ul className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    {desglose.map(({ metodo, entradas }) => (
+                      <li key={metodo} className="flex justify-between gap-2">
+                        <span className="text-muted-foreground text-sm">
+                          {nombreDelMetodo(metodo)}
+                        </span>
+                        <span className="text-sm font-medium">
+                          {formatCurrency(entradas)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex gap-3">
             <Button onClick={() => setMovementDialog(true)}>

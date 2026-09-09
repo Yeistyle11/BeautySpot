@@ -25,13 +25,36 @@ export const cashMovementSchema = z.object({
    * anota a mano y en las fichas suprimidas por derecho de supresión.
    */
   clientName: z.string().nullish(),
+  /** Medio del cobro que lo originó; ausente en lo que se anota a mano. */
+  method: z.string().nullish(),
   createdAt: z.string(),
 });
 export type CashMovement = z.infer<typeof cashMovementSchema>;
 
+/** Entradas y salidas acumuladas de un medio de cobro. */
+export const porMetodoSchema = z.record(
+  z.string(),
+  z.object({ entradas: z.number(), salidas: z.number() })
+);
+export type PorMetodo = z.infer<typeof porMetodoSchema>;
+
 export const cashSummarySchema = z.object({
   movements: z.array(cashMovementSchema),
+  /**
+   * El arqueo que hace el backend. `expectedTotal` cuenta solo el efectivo y lo
+   * anotado a mano, que es el dinero que de verdad hay en el cajón: la parte de
+   * un cobro repartido que se pagó con datáfono deja movimiento para el
+   * desglose, pero nunca entra en el conteo.
+   */
+  summary: z.object({
+    totalIn: z.number(),
+    totalOut: z.number(),
+    movementCount: z.number(),
+    porMetodo: porMetodoSchema,
+    expectedTotal: z.number(),
+  }),
 });
+export type CashSummary = z.infer<typeof cashSummarySchema>;
 
 export const ACTIVE_KEY = "/payment/cash-register/active";
 export const HISTORY_KEY = "/payment/cash-register/history";

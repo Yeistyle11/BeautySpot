@@ -502,7 +502,11 @@ export function RefundDialog({
         <p className="text-muted-foreground text-sm">
           Se cobraron <strong>{formatCurrency(cobrado)}</strong> en{" "}
           {nombreDelMetodo(payment.method).toLowerCase()} el{" "}
-          {formatDate(payment.createdAt.slice(0, 10))}.
+          {/* El instante entero, no sus diez primeros caracteres: recortar el
+              ISO da el dia en UTC, y a las diez de la noche en Colombia ya es
+              el siguiente. El listado formatea en hora local y las dos
+              superficies se contradecian sobre el mismo cobro. */}
+          {formatDate(payment.createdAt)}.
         </p>
 
         <div

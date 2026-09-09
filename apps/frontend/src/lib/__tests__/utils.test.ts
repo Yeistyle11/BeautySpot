@@ -44,6 +44,24 @@ describe("formatDate con timestamp ISO completo", () => {
     const result = formatDate("2026-03-15T23:00:00.000Z");
     expect(result).toContain("2026");
   });
+
+  // El modal de devolucion recortaba el ISO a sus diez primeros caracteres, que
+  // es el dia en UTC: en Colombia, un cobro de las diez de la noche salia
+  // fechado un dia despues que en el listado. Las dos superficies tienen que
+  // nombrar el mismo dia, sea cual sea la zona en la que se lea.
+  it("nombra el mismo dia que el listado para un mismo instante", () => {
+    const instantes = [
+      "2026-09-05T03:18:00.000Z",
+      "2026-09-04T23:59:00.000Z",
+      "2026-09-05T12:00:00.000Z",
+    ];
+
+    for (const instante of instantes) {
+      const enElModal = formatDate(instante);
+      const enElListado = formatDateTimeStamp(instante);
+      expect(enElListado.startsWith(enElModal)).toBe(true);
+    }
+  });
 });
 
 describe("formatTime", () => {
