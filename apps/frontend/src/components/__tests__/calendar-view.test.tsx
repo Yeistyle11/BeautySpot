@@ -110,4 +110,53 @@ describe("CalendarView", () => {
 
     expect(screen.getByText("Corte")).toBeInTheDocument();
   });
+  // Una rejilla fija de 7 a 18 dejaba fuera a la barbería que abre de noche: la
+  // semana entera salía vacía, con aspecto de disponible, aunque el dato
+  // llegara. No había fila donde dibujarlo.
+  describe("franja de horas", () => {
+    const citaNocturna = {
+      ...cita,
+      id: "appt-noche",
+      startTime: "21:00",
+      endTime: "21:45",
+    } as unknown as Appointment;
+
+    it("pinta la cita de las nueve de la noche", () => {
+      render(
+        <CalendarView
+          appointments={[citaNocturna]}
+          date={MARTES}
+          onDateChange={jest.fn()}
+          onComplete={jest.fn()}
+          onConfirm={jest.fn()}
+          onCancel={jest.fn()}
+          onNoShow={jest.fn()}
+          canConfirm
+          canCancel
+          clientNames={{ "client-1": "María" }}
+        />
+      );
+
+      expect(screen.getByText("9:00 pm")).toBeInTheDocument();
+      expect(screen.getByText("María")).toBeInTheDocument();
+    });
+
+    it("llega a la madrugada cuando el negocio cierra a las dos", () => {
+      pintar({
+        horarios: [{ openTime: "20:00", closeTime: "02:00", active: true }],
+      });
+
+      // El cierre es del día siguiente: la rejilla tiene que ofrecer la una.
+      expect(screen.getByText("1:00 am")).toBeInTheDocument();
+    });
+
+    it("pinta el bloqueo nocturno que la franja fija ocultaba", () => {
+      pintar({
+        bloqueos: [{ ...bloqueo, startTime: "21:00", endTime: "23:00" }],
+      });
+
+      // De 21:00 a 23:00: una franja por hora, como el bloqueo de la tarde.
+      expect(screen.getAllByText("QA-bloqueo de prueba")).toHaveLength(2);
+    });
+  });
 });

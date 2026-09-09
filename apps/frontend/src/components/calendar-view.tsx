@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { timeToMinutes } from "@beautyspot/shared-utils";
+import { franjaDeHoras, type HorarioDelNegocio } from "@/lib/franja-horaria";
 import {
   desplazarDia,
   fechasDeLaSemana,
@@ -38,12 +39,13 @@ interface CalendarViewProps {
   nombresDeProfesional?: Record<string, string>;
   /** Dias de la semana (0 domingo … 6 sabado) en los que el negocio abre. */
   diasAbiertos?: number[];
+  /** Horario del negocio, para que la rejilla llegue hasta donde se atiende. */
+  horarios?: HorarioDelNegocio[];
 }
 
 /** Estados desde los que la cita todavia puede anularse. */
 const ANULABLES = ["PENDING", "CONFIRMED"];
 
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 7); // 7:00 - 18:00
 const DAYS_ES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
 
 /**
@@ -73,6 +75,7 @@ export function CalendarView({
   bloqueos = [],
   nombresDeProfesional = {},
   diasAbiertos,
+  horarios,
 }: CalendarViewProps) {
   // Se guarda el id y no la cita: el detalle tiene que reflejar el estado que
   // acaba de revalidar SWR, no la copia que habia al hacer clic.
@@ -84,6 +87,24 @@ export function CalendarView({
   const weekDates = useMemo(() => fechasDeLaSemana(date), [date]);
 
   const todayKey = toLocalDateKey(new Date());
+
+  // La rejilla se estira hasta donde haya algo que pintar. Con una franja fija
+  // de 7 a 18, un negocio nocturno veia la semana entera vacia —con aspecto de
+  // disponible— aunque el dato llegara: no habia fila donde dibujarlo.
+  const horas = useMemo(
+    () =>
+      franjaDeHoras(
+        [
+          ...appointments.map((a) => ({
+            inicio: a.startTime,
+            fin: a.endTime,
+          })),
+          ...bloqueos.map((b) => ({ inicio: b.startTime, fin: b.endTime })),
+        ],
+        horarios
+      ),
+    [appointments, bloqueos, horarios]
+  );
 
   // Indice por dia y hora de inicio: la rejilla son 84 celdas y sin el cada una
   // recorreria la lista entera de citas.
@@ -179,7 +200,7 @@ export function CalendarView({
             })}
           </div>
 
-          {HOURS.map((hour) => (
+          {horas.map((hour) => (
             <div
               key={hour}
               className="border-border/50 grid grid-cols-[60px_repeat(7,1fr)] border-b"

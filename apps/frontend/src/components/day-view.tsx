@@ -17,6 +17,7 @@ import {
   toLocalDateKey,
 } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
+import { franjaDeHoras } from "@/lib/franja-horaria";
 import type {
   Appointment,
   Professional,
@@ -58,33 +59,7 @@ const ANULABLES = ["PENDING", "CONFIRMED"];
 /** Minutos en que se parte cada hora al pulsar un hueco. */
 const MEDIAS_HORAS = ["00", "30"];
 
-/** Franja de jornada que se pinta cuando las citas no piden más. */
-const HORA_INICIO_MINIMA = 7;
-const HORA_FIN_MINIMA = 21;
 const ALTO_HORA = 64;
-
-/**
- * Franja de horas que hay que pintar para que quepan todas las citas y
- * bloqueos del dia, incluidos los de madrugada.
- */
-function franjaDelDia(
-  bloques: BloqueDeCita[],
-  bloqueos: { inicio: string; fin: string }[] = []
-): number[] {
-  let desde = HORA_INICIO_MINIMA;
-  let hasta = HORA_FIN_MINIMA;
-
-  const tramos = [
-    ...bloques.map((b) => ({ inicio: b.inicio, fin: b.fin })),
-    ...bloqueos,
-  ];
-  for (const tramo of tramos) {
-    desde = Math.min(desde, Math.floor(timeToMinutes(tramo.inicio) / 60));
-    hasta = Math.max(hasta, Math.ceil(timeToMinutes(tramo.fin) / 60));
-  }
-
-  return Array.from({ length: hasta - desde }, (_, i) => i + desde);
-}
 
 /** Pixeles desde el borde superior de la rejilla que corresponden a una hora. */
 function aPixeles(hora: string, horaInicio: number): number {
@@ -266,10 +241,12 @@ export function DayView({
 
   const horas = useMemo(
     () =>
-      franjaDelDia(
-        Array.from(bloquesPorProfesional.values()).flat(),
-        bloqueos.map((b) => ({ inicio: b.startTime, fin: b.endTime }))
-      ),
+      franjaDeHoras([
+        ...Array.from(bloquesPorProfesional.values())
+          .flat()
+          .map((b) => ({ inicio: b.inicio, fin: b.fin })),
+        ...bloqueos.map((b) => ({ inicio: b.startTime, fin: b.endTime })),
+      ]),
     [bloquesPorProfesional, bloqueos]
   );
   const horaInicio = horas[0];

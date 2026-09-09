@@ -53,6 +53,19 @@ const ESTADOS_REAGENDABLES: AppointmentStatus[] = [
   AppointmentStatus.CONFIRMED,
 ];
 
+/**
+ * Estados desde los que todavía se puede cancelar. Los demás son finales: una
+ * cita atendida, ya cancelada o marcada como plantón no se deshace cancelándola
+ * después. El no-show sostiene la política de plantones —el aviso al mostrador,
+ * el histórico del cliente— y borrarlo así lo dejaba desincronizado del contador
+ * de la ficha, que sí se queda.
+ */
+const ESTADOS_CANCELABLES: AppointmentStatus[] = [
+  AppointmentStatus.PENDING,
+  AppointmentStatus.CONFIRMED,
+  AppointmentStatus.IN_PROGRESS,
+];
+
 /** Servicio tal y como lo devuelve el catálogo del core-service. */
 interface ServicioResuelto {
   id: string;
@@ -591,10 +604,7 @@ export class AppointmentsService {
     opciones: { esCliente: boolean } = { esCliente: false }
   ): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
-    if (
-      appt.status === AppointmentStatus.COMPLETED ||
-      appt.status === AppointmentStatus.CANCELLED
-    ) {
+    if (!ESTADOS_CANCELABLES.includes(appt.status)) {
       throw new BadRequestException(
         `No se puede cancelar una cita en estado ${appt.status}`
       );

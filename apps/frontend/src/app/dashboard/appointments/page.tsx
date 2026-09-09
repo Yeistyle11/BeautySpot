@@ -187,14 +187,16 @@ export default function AppointmentsPage() {
     undefined,
     z.array(professionalSchema)
   );
-  // Servicios y clientes solo hacen falta con el formulario abierto.
+  // Servicios y clientes solo hacen falta con un formulario abierto, y los dos
+  // que los piden son el de nueva cita y el de walk-in.
+  const necesitaCatalogos = showForm || walkInDialog;
   const { data: services } = useApi<Service[]>(
-    showForm ? SERVICES_KEY : null,
+    necesitaCatalogos ? SERVICES_KEY : null,
     undefined,
     z.array(serviceSchema)
   );
   const { data: clientsPage } = useApi(
-    showForm ? CLIENTS_KEY : null,
+    necesitaCatalogos ? CLIENTS_KEY : null,
     undefined,
     paginatedSchema(clientSchema)
   );
@@ -654,6 +656,7 @@ export default function AppointmentsPage() {
                 bloqueos={bloqueos ?? []}
                 nombresDeProfesional={professionalMap}
                 diasAbiertos={diasAbiertos}
+                horarios={horarios}
               />
             )}
           </CardContent>

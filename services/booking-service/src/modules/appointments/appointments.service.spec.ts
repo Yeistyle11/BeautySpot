@@ -995,6 +995,30 @@ describe("AppointmentsService", () => {
   });
 
   describe("cancel", () => {
+    // El no-show sostiene la politica de plantones: si se puede borrar
+    // cancelando la cita despues, deja de ser un registro. Y el contador de la
+    // ficha no se deshace, asi que las dos superficies se contradecian.
+    it.each([
+      AppointmentStatus.NO_SHOW,
+      AppointmentStatus.COMPLETED,
+      AppointmentStatus.CANCELLED,
+    ])("no cancela una cita en estado %s", async (status) => {
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        status,
+        generateId: () => {},
+      } as any);
+
+      await expect(
+        service.cancel("appt-123", "business-123", {
+          tipo: CancelReason.NEGOCIO_CANCELA,
+          nota: "QA",
+        })
+      ).rejects.toThrow(`No se puede cancelar una cita en estado ${status}`);
+
+      expect(mockOutbox.enqueue).not.toHaveBeenCalled();
+    });
+
     it("debería cancelar una cita con política de 2 horas", async () => {
       const futureDate = new Date();
       futureDate.setHours(futureDate.getHours() + 3);

@@ -561,6 +561,11 @@ Nace `COMPLETED`, con sus puntos de fidelidad, y publica los eventos de cita
 creada **y** atendida, que es lo que hace que las métricas por profesional y por
 servicio cuenten lo que se atiende sin cita.
 
+Solo se cancela lo que sigue vivo: `PENDING`, `CONFIRMED` o `IN_PROGRESS`. Una
+cita atendida, ya cancelada o marcada como **no presentado** responde 400 —el
+no-show es el registro que sostiene la política de plantones, y cancelarla
+después lo borraba del informe sin deshacer el contador de la ficha—.
+
 Las rutas `/mine/*` son las del portal del cliente: el destinatario sale del
 token y no del negocio, así que llevan `@SkipBusinessScope()`. A diferencia de
 las del panel, respetan la antelación mínima de cancelación del negocio.
