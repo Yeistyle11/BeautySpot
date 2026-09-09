@@ -20,8 +20,11 @@ import {
   EntityManager,
 } from "typeorm";
 import {
+  columnaSinTildes,
+  escapeLikePattern,
   normalizarEmail,
   normalizarTelefono,
+  sinTildes,
   variantesDeTelefono,
 } from "@beautyspot/shared-utils";
 import {
@@ -30,7 +33,12 @@ import {
   NIVELES_FIDELIDAD_POR_DEFECTO,
   type NivelDeFidelidad,
 } from "@beautyspot/shared-constants";
-import { contieneTexto, paginate, PaginateParams } from "@beautyspot/database";
+import {
+  contieneTexto,
+  paginarQueryBuilder,
+  paginate,
+  PaginateParams,
+} from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
 import {
   BusinessConfigService,
@@ -489,21 +497,58 @@ export class ClientsService extends TenantCrudService<Client> {
     }
   }
 
-  /** Lista los clientes activos del negocio, con búsqueda por nombre/email/teléfono y paginación. */
+  /**
+   * Lista los clientes activos del negocio, con paginación y búsqueda por
+   * nombre, correo o teléfono.
+   *
+   * El término se normaliza como en el alta antes de consultar: comparar el
+   * texto crudo hacía que `3101112233` encontrara la ficha guardada con
+   * `+573101112233` pero no al revés, y el prefijo internacional es justo el
+   * formato que sale del móvil y de WhatsApp.
+   *
+   * Mira además los alias que deja una fusión, que es lo que el propio diálogo
+   * promete: el teléfono y el correo de la ficha absorbida tienen que seguir
+   * encontrando a la superviviente, o la recepcionista vuelve a crear el
+   * duplicado que acababa de unir.
+   */
   async findByBusiness(
     businessId: string,
     search: string | undefined,
     pagination: PaginateParams
   ): Promise<IPaginatedResponse<Client>> {
-    const base = { businessId, active: true };
-    const where = search
-      ? [
-          { ...base, name: contieneTexto(search) },
-          { ...base, email: contieneTexto(search) },
-          { ...base, phone: contieneTexto(search) },
-        ]
-      : base;
-    return paginate(this.repo, pagination, { where, order: { name: "ASC" } });
+    const qb = this.repo
+      .createQueryBuilder("c")
+      .where("c.business_id = :businessId", { businessId })
+      .andWhere("c.active = true")
+      .orderBy("c.name", "ASC");
+
+    if (search) {
+      const patron = `%${escapeLikePattern(sinTildes(search))}%`;
+      const telefonos = variantesDeTelefono(search);
+
+      qb.andWhere(
+        new Brackets((donde) => {
+          for (const columna of ["c.name", "c.email", "c.phone"]) {
+            donde.orWhere(`${columnaSinTildes(columna)} LIKE :patron`, {
+              patron,
+            });
+          }
+          donde.orWhere(
+            `string_to_array(coalesce(c.alias_emails, ''), ',') @> ARRAY[:correo]`,
+            { correo: search }
+          );
+          telefonos.forEach((telefono, i) => {
+            const clave = `telefono${i}`;
+            donde.orWhere(
+              `c.phone = :${clave} OR string_to_array(coalesce(c.alias_phones, ''), ',') @> ARRAY[:${clave}]`,
+              { [clave]: telefono }
+            );
+          });
+        })
+      );
+    }
+
+    return paginarQueryBuilder(qb, pagination);
   }
 
   /**

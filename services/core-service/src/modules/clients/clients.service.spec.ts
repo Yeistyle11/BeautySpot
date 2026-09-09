@@ -235,8 +235,37 @@ describe("ClientsService", () => {
       order: "ASC" as const,
     };
 
+    /** El listado se arma con query builder: mezcla LIKE con arrays de alias. */
+    const mockListado = (filas: unknown[], total = filas.length) => {
+      const donde = { orWhere: jest.fn().mockReturnThis() };
+      const qb: Record<string, jest.Mock> = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn((arg) => {
+          // Las condiciones de búsqueda llegan agrupadas en un Brackets.
+          if (
+            typeof arg === "object" &&
+            arg !== null &&
+            "whereFactory" in arg
+          ) {
+            (arg as { whereFactory: (q: unknown) => void }).whereFactory(donde);
+          }
+          return qb;
+        }),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([filas, total]),
+      };
+      mockRepo.createQueryBuilder.mockReturnValue(qb as never);
+      return { qb, donde };
+    };
+
+    /** Condiciones que acabó pidiendo el OR de búsqueda. */
+    const condiciones = (donde: { orWhere: jest.Mock }) =>
+      donde.orWhere.mock.calls.map(([sql]) => String(sql)).join(" | ");
+
     it("devuelve una página de clientes activos con meta", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[mockClient], 1]);
+      const { qb } = mockListado([mockClient], 1);
 
       const result = await service.findByBusiness(
         "business-123",
@@ -244,20 +273,17 @@ describe("ClientsService", () => {
         pagination
       );
 
-      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { businessId: "business-123", active: true },
-          order: { name: "ASC" },
-          skip: 0,
-          take: 20,
-        })
-      );
+      expect(qb.where).toHaveBeenCalledWith("c.business_id = :businessId", {
+        businessId: "business-123",
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith("c.active = true");
+      expect(qb.orderBy).toHaveBeenCalledWith("c.name", "ASC");
       expect(result.data).toEqual([mockClient]);
       expect(result.meta.total).toBe(1);
     });
 
     it("debería buscar clientes por nombre/email/teléfono (OR)", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[mockClient], 1]);
+      const { donde } = mockListado([mockClient], 1);
 
       const result = await service.findByBusiness(
         "business-123",
@@ -265,28 +291,59 @@ describe("ClientsService", () => {
         pagination
       );
 
-      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.arrayContaining([
-            expect.objectContaining({ name: expect.any(Object) }),
-            expect.objectContaining({ email: expect.any(Object) }),
-            expect.objectContaining({ phone: expect.any(Object) }),
-          ]),
-        })
-      );
+      const sql = condiciones(donde);
+      expect(sql).toContain("c.name");
+      expect(sql).toContain("c.email");
+      expect(sql).toContain("c.phone");
       expect(result.data).toEqual([mockClient]);
     });
 
+    // La fusión rellena los alias justamente para que el teléfono y el correo
+    // de la ficha absorbida sigan encontrando a la superviviente.
+    it("busca también en los alias que deja una fusión", async () => {
+      const { donde } = mockListado([mockClient]);
+
+      await service.findByBusiness("business-123", "3015550001", pagination);
+
+      const sql = condiciones(donde);
+      expect(sql).toContain("alias_emails");
+      expect(sql).toContain("alias_phones");
+    });
+
+    // `3101112233` es subcadena de `+573101112233`, pero no al revés: buscar con
+    // el prefijo internacional —el que sale del móvil— perdía fichas.
+    it("normaliza el teléfono buscado a todas sus variantes", async () => {
+      const { donde } = mockListado([mockClient]);
+
+      await service.findByBusiness(
+        "+573101112233",
+        "+573101112233",
+        pagination
+      );
+
+      const buscados = donde.orWhere.mock.calls
+        .map(([, params]) => params)
+        .filter(Boolean)
+        .flatMap((params) => Object.values(params as Record<string, string>));
+
+      expect(buscados).toEqual(expect.arrayContaining(["+573101112233"]));
+      expect(buscados).toEqual(expect.arrayContaining(["3101112233"]));
+    });
+
     it("debería manejar caracteres especiales en búsqueda", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[mockClient], 1]);
+      const { donde } = mockListado([mockClient], 1);
 
       await service.findByBusiness("business-123", "Juan%", pagination);
 
-      expect(mockRepo.findAndCount).toHaveBeenCalled();
+      // El comodín llega escapado, no como patrón.
+      const escapados = donde.orWhere.mock.calls
+        .map(([, params]) => (params as { patron?: string })?.patron)
+        .filter(Boolean);
+      expect(escapados[0]).toContain("\%");
     });
 
     it("devuelve una página vacía si no hay clientes", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[], 0]);
+      mockListado([], 0);
 
       const result = await service.findByBusiness(
         "business-123",
