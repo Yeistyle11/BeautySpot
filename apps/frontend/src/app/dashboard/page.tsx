@@ -19,6 +19,7 @@ import {
 import {
   formatCurrency,
   formatDayMonth,
+  formatPorcentaje,
   formatTime,
   toLocalDateKey,
 } from "@/lib/utils";
@@ -249,7 +250,7 @@ export default function DashboardPage() {
                 <CheckCircle className="h-4 w-4" /> Tasa completado
               </div>
               <p className="mt-1 text-xl font-bold">
-                {kpiData.periodo.completionRate.toFixed(1)}%
+                {formatPorcentaje(kpiData.periodo.completionRate)}
               </p>
             </CardContent>
           </Card>

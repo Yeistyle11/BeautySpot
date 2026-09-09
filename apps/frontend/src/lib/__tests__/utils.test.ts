@@ -3,6 +3,7 @@ import {
   formatAniosExperiencia,
   formatCurrency,
   formatDate,
+  formatPorcentaje,
   formatTime,
   toLocalDateKey,
   formatDateTime,
@@ -28,6 +29,25 @@ describe("formatCurrency", () => {
 
   it("formatea cero correctamente", () => {
     expect(formatCurrency(0)).toContain("0");
+  });
+});
+
+describe("formatPorcentaje", () => {
+  it("escribe el decimal solo cuando lo tiene", () => {
+    expect(formatPorcentaje(7)).toBe("7%");
+    expect(formatPorcentaje(6.7)).toBe("6.7%");
+  });
+
+  // El panel anadia un decimal fijo que siempre era `.0`, sugiriendo una
+  // exactitud que el dato no tenia; Reportes imprimia el numero crudo.
+  it("no promete una exactitud que el dato no tiene", () => {
+    expect(formatPorcentaje(7)).not.toBe("7.0%");
+    expect(formatPorcentaje(66.66666666666667)).toBe("66.7%");
+  });
+
+  it("escribe el cero y el cien sin adornos", () => {
+    expect(formatPorcentaje(0)).toBe("0%");
+    expect(formatPorcentaje(100)).toBe("100%");
   });
 });
 

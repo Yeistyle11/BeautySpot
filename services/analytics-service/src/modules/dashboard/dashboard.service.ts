@@ -11,6 +11,7 @@ import {
   sumarDias,
   type Rango,
 } from "../../common/rango.dto";
+import { porcentaje } from "../../common/porcentaje";
 
 /** Fila cruda del ranking, tal como la devuelve el agregado SQL. */
 interface TopProfessionalRow {
@@ -205,12 +206,9 @@ export class DashboardService {
       completedAppointments,
       cancelledAppointments,
       noShowAppointments,
-      completionRate: this.percentage(completedAppointments, totalAppointments),
-      cancellationRate: this.percentage(
-        cancelledAppointments,
-        totalAppointments
-      ),
-      noShowRate: this.percentage(noShowAppointments, totalAppointments),
+      completionRate: porcentaje(completedAppointments, totalAppointments),
+      cancellationRate: porcentaje(cancelledAppointments, totalAppointments),
+      noShowRate: porcentaje(noShowAppointments, totalAppointments),
       newClients,
       returningClients,
       // Entre los días del periodo, no entre los que tuvieron movimiento:
@@ -247,7 +245,7 @@ export class DashboardService {
     const disponibles = Number(fila?.disponibles ?? 0);
     if (disponibles === 0) return null;
 
-    return this.percentage(Number(fila?.vendidos), disponibles);
+    return porcentaje(Number(fila?.vendidos), disponibles);
   }
 
   /**
@@ -280,10 +278,7 @@ export class DashboardService {
     return {
       clientes: fila?.clientes ?? 0,
       recurrentes: fila?.recurrentes ?? 0,
-      tasaDeRetorno: this.percentage(
-        fila?.recurrentes ?? 0,
-        fila?.clientes ?? 0
-      ),
+      tasaDeRetorno: porcentaje(fila?.recurrentes ?? 0, fila?.clientes ?? 0),
       diasEntreVisitas: Math.round(Number(fila?.dias_entre_visitas ?? 0)),
     };
   }
@@ -413,10 +408,5 @@ export class DashboardService {
     const today = fechaDeHoy(zona);
     const from = fechaHaceDias(zona, days);
     return { today, from, thirtyDaysAgo: from, dias: days };
-  }
-
-  /** Porcentaje entero de `part` sobre `total`; 0 si el total es cero. */
-  private percentage(part: number, total: number): number {
-    return total > 0 ? Math.round((part / total) * 100) : 0;
   }
 }

@@ -234,8 +234,10 @@ describe("ReportsService", () => {
       expect(result.summary.completed).toBe(23);
       expect(result.summary.cancelled).toBe(4);
       expect(result.summary.noShow).toBe(3);
-      expect(result.completionRate).toBe(77);
-      expect(result.cancellationRate).toBe(13);
+      // Con un decimal: 23/30, 4/30 y 3/30. El entero las aplastaba y borraba
+      // el movimiento que la tasa sirve para vigilar.
+      expect(result.completionRate).toBe(76.7);
+      expect(result.cancellationRate).toBe(13.3);
       expect(result.noShowRate).toBe(10);
     });
 

@@ -105,9 +105,10 @@ describe("DashboardService", () => {
       });
       expect(result.periodo.totalRevenue).toBe(1100000);
       expect(result.periodo.totalAppointments).toBe(22);
-      expect(result.periodo.completionRate).toBe(82);
-      expect(result.periodo.cancellationRate).toBe(9);
-      expect(result.periodo.noShowRate).toBe(9);
+      // Con un decimal: 18/22 y 2/22 cada una.
+      expect(result.periodo.completionRate).toBe(81.8);
+      expect(result.periodo.cancellationRate).toBe(9.1);
+      expect(result.periodo.noShowRate).toBe(9.1);
       // El promedio se reparte entre los 30 días del periodo, no entre los que
       // tuvieron movimiento: 1.100.000 / 30.
       expect(result.periodo.avgDailyRevenue).toBe(36667);

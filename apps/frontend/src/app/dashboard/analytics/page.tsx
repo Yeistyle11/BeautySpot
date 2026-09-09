@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatPorcentaje } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
@@ -221,7 +221,7 @@ export default function AnalyticsPage() {
               />
               <MetricRow
                 etiqueta="Tasa completado"
-                valor={`${data.periodo.completionRate}%`}
+                valor={formatPorcentaje(data.periodo.completionRate)}
                 actual={data.periodo.completionRate}
                 anterior={data.comparado?.completionRate}
               />
@@ -263,7 +263,7 @@ export default function AnalyticsPage() {
                 <>
                   <MetricRow
                     etiqueta="Tasa de retorno (histórico)"
-                    valor={`${retencion.tasaDeRetorno}%`}
+                    valor={formatPorcentaje(retencion.tasaDeRetorno)}
                   />
                   <MetricRow
                     etiqueta="Vuelven cada (histórico)"

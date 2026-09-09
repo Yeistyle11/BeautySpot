@@ -15,6 +15,19 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+/**
+ * Presenta una tasa como porcentaje, con un decimal solo cuando lo tiene: 7 %
+ * se escribe «7%» y 6,7 % se escribe «6.7%».
+ *
+ * Es la unica forma en que el producto escribe una tasa. El panel le anadia un
+ * decimal fijo que siempre era `.0` —sugiriendo una exactitud que el dato no
+ * tenia— mientras Reportes imprimia el numero crudo, asi que la misma cifra
+ * salia distinta en dos pantallas.
+ */
+export function formatPorcentaje(valor: number): string {
+  return `${Number(valor.toFixed(1))}%`;
+}
+
 /** Formatea una fecha "YYYY-MM-DD" o ISO como "5 mar 2026" en locale es-CO. */
 export function formatDate(date: string): string {
   // Las fechas sin hora ("YYYY-MM-DD") se parsean como medianoche UTC; sin

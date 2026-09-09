@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { ETIQUETAS_DE_METODO } from "@/lib/metodos-de-pago";
 import { formatCurrency, formatDateTimeStamp } from "@/lib/utils";
+import { mensajeDeError } from "@/lib/error-message";
 import type { CobroFacturable } from "./schemas";
 
 interface EmitirDialogProps {
@@ -16,6 +17,8 @@ interface EmitirDialogProps {
   /** Nombre de cada cliente por id; el cobro solo trae el identificador. */
   clientes: Record<string, string>;
   cargando: boolean;
+  /** Fallo al pedir los cobros; distinto de que no haya ninguno. */
+  errorAlCargar?: unknown;
   emitiendo: string | null;
   error?: string;
 }
@@ -33,6 +36,7 @@ export function EmitirDialog({
   cobros,
   clientes,
   cargando,
+  errorAlCargar,
   emitiendo,
   error,
 }: EmitirDialogProps) {
@@ -53,6 +57,13 @@ export function EmitirDialog({
         {cargando ? (
           <p className="text-muted-foreground py-6 text-center text-sm">
             Cargando cobros...
+          </p>
+        ) : errorAlCargar ? (
+          // Un fallo al pedirlos no es «no hay ninguno»: presentarlo como lista
+          // vacía dejaba la facturación inservible sin que nadie lo reportara,
+          // porque el dueño concluía que aún no tenía nada que facturar.
+          <p role="alert" className="text-destructive py-6 text-center text-sm">
+            No se pudieron cargar los cobros. {mensajeDeError(errorAlCargar)}
           </p>
         ) : cobros.length === 0 ? (
           <p className="text-muted-foreground py-6 text-center text-sm">

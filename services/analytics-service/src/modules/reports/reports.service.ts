@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, Between } from "typeorm";
 import { DailyMetricEntity } from "../../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
+import { porcentaje } from "../../common/porcentaje";
 
 /** Fila agregada por profesional para el reporte: citas, ingresos, valoración y días activos. */
 interface ProfessionalAggRow {
@@ -149,15 +150,10 @@ export class ReportsService {
     return {
       period: { from, to },
       summary: { total, completed, cancelled, noShow },
-      completionRate: this.percentage(completed, total),
-      cancellationRate: this.percentage(cancelled, total),
-      noShowRate: this.percentage(noShow, total),
+      completionRate: porcentaje(completed, total),
+      cancellationRate: porcentaje(cancelled, total),
+      noShowRate: porcentaje(noShow, total),
       daily,
     };
-  }
-
-  /** Porcentaje entero de `part` sobre `total`; 0 si el total es cero. */
-  private percentage(part: number, total: number): number {
-    return total > 0 ? Math.round((part / total) * 100) : 0;
   }
 }

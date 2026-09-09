@@ -3,7 +3,6 @@
 // Pagina de facturas del negocio: listado con filtros, detalle, PDF, cambio de
 // estado y emision desde un cobro.
 import { useMemo, useState } from "react";
-import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,7 @@ import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Download, Plus, Receipt } from "lucide-react";
 import { api } from "@/lib/api";
-import { useApi, revalidatePrefix } from "@/lib/swr";
+import { useApi, paginatedSchema, revalidatePrefix } from "@/lib/swr";
 import { usePaginatedList } from "@/lib/use-paginated-list";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
@@ -68,26 +67,31 @@ export default function InvoicesPage() {
   });
 
   // Los nombres de los clientes se piden aparte: la factura solo trae su id.
-  const { data: clientesData } = useApi<Client[]>(
+  // Las dos rutas son paginadas, así que llegan envueltas en { data, meta };
+  // validarlas como un array plano hacía fallar el parseo y dejaba la lista
+  // vacía, que en pantalla se leía como «todavía no hay nada que facturar».
+  const { data: clientesPage } = useApi(
     CLIENTS_KEY,
     undefined,
-    z.array(clientSchema)
+    paginatedSchema(clientSchema)
   );
   const clientes = useMemo(() => {
     const mapa: Record<string, string> = {};
-    (clientesData ?? []).forEach((c) => {
+    (clientesPage?.data ?? []).forEach((c: Client) => {
       mapa[c.id] = c.name;
     });
     return mapa;
-  }, [clientesData]);
+  }, [clientesPage]);
 
   // Los cobros solo hacen falta con el diálogo abierto.
-  const { data: cobrosData, isLoading: cargandoCobros } = useApi<
-    CobroFacturable[]
-  >(
+  const {
+    data: cobrosPage,
+    isLoading: cargandoCobros,
+    error: errorCobros,
+  } = useApi(
     emitirDialog ? COBROS_KEY : null,
     undefined,
-    z.array(cobroFacturableSchema)
+    paginatedSchema(cobroFacturableSchema)
   );
 
   const descargar = async (invoice: Invoice) => {
@@ -240,9 +244,10 @@ export default function InvoicesPage() {
         open={emitirDialog}
         onClose={() => setEmitirDialog(false)}
         onEmitir={emitir}
-        cobros={cobrosData ?? []}
+        cobros={cobrosPage?.data ?? []}
         clientes={clientes}
         cargando={cargandoCobros}
+        errorAlCargar={errorCobros}
         emitiendo={emitiendo}
         error={errorAlEmitir}
       />

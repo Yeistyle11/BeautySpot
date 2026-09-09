@@ -2,7 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { useAuthStore } from "@/lib/store";
 import { InvoiceDetailDialog } from "../invoice-detail-dialog";
 import { EmitirDialog } from "../emitir-dialog";
+import { paginatedSchema } from "@/lib/pagination";
 import {
+  cobroFacturableSchema,
   invoiceSchema,
   porcentajeDeImpuesto,
   SIGUIENTES_ESTADOS,
@@ -122,6 +124,45 @@ describe("InvoiceDetailDialog", () => {
   });
 });
 
+// La pantalla validaba `/payment/payments` como un array plano, pero es una ruta
+// paginada: el parseo fallaba, SWR dejaba los datos en undefined y el dialogo lo
+// pintaba como «No hay cobros completados que facturar», asi que no se podia
+// emitir ni una factura y el fallo se disfrazaba de estado vacio.
+describe("contrato de la lista de cobros facturables", () => {
+  const COBRO = {
+    id: "pay-1",
+    amount: 119000,
+    method: "CASH",
+    status: "COMPLETED",
+    createdAt: "2026-08-30T15:00:00.000Z",
+    clientId: "client-1",
+  };
+  const META = {
+    page: 1,
+    limit: 50,
+    total: 1,
+    totalPages: 1,
+    hasNext: false,
+    hasPrev: false,
+  };
+
+  it("acepta el sobre { data, meta } que devuelve la ruta paginada", () => {
+    const pagina = paginatedSchema(cobroFacturableSchema).parse({
+      data: [COBRO],
+      meta: META,
+    });
+
+    expect(pagina.data).toHaveLength(1);
+    expect(pagina.meta.total).toBe(1);
+  });
+
+  it("no acepta un array plano, que es lo que se validaba antes", () => {
+    expect(() =>
+      paginatedSchema(cobroFacturableSchema).parse([COBRO])
+    ).toThrow();
+  });
+});
+
 describe("EmitirDialog", () => {
   const COBRO = {
     id: "pay-1",
@@ -180,6 +221,18 @@ describe("EmitirDialog", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Ese cobro ya tiene una factura"
     );
+  });
+  // Un fallo al pedir los cobros no es «no hay ninguno»: confundirlos dejaba la
+  // facturacion inservible sin que nadie lo reportara.
+  it("distingue un fallo de carga de una lista vacia", () => {
+    pintarEmitir({ cobros: [], errorAlCargar: new Error("boom") });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /No se pudieron cargar los cobros/
+    );
+    expect(
+      screen.queryByText(/No hay cobros completados/)
+    ).not.toBeInTheDocument();
   });
 });
 
