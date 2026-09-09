@@ -4,7 +4,10 @@ import { Appointment } from "../../entities/appointment.entity";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 import { Availability } from "../../entities/availability.entity";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
-import { PublicBookingController } from "./public-booking.controller";
+import {
+  MiReservaController,
+  PublicBookingController,
+} from "./public-booking.controller";
 import { PublicBookingService } from "./public-booking.service";
 import { AppointmentsModule } from "../appointments/appointments.module";
 
@@ -18,8 +21,8 @@ import { AppointmentsModule } from "../appointments/appointments.module";
     ]),
     AppointmentsModule,
   ],
-  controllers: [PublicBookingController],
+  controllers: [PublicBookingController, MiReservaController],
   providers: [PublicBookingService],
 })
-/** Cablea el endpoint público de reservas para invitados del marketplace. */
+/** Cablea las reservas del marketplace: la de invitado y la del cliente con sesión. */
 export class PublicBookingModule {}

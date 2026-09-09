@@ -570,12 +570,23 @@ Las rutas `/mine/*` son las del portal del cliente: el destinatario sale del
 token y no del negocio, así que llevan `@SkipBusinessScope()`. A diferencia de
 las del panel, respetan la antelación mínima de cancelación del negocio.
 
-| Método | Ruta                   | Roles  | Descripción              |
-| ------ | ---------------------- | ------ | ------------------------ |
-| GET    | `/mine`                | CLIENT | Sus citas                |
-| GET    | `/mine/:id`            | CLIENT | Detalle de una cita suya |
-| POST   | `/mine/:id/cancel`     | CLIENT | Cancela una cita suya    |
-| PATCH  | `/mine/:id/reschedule` | CLIENT | Reagenda una cita suya   |
+| Método | Ruta                   | Roles  | Descripción                 |
+| ------ | ---------------------- | ------ | --------------------------- |
+| POST   | `/mine`                | CLIENT | Reserva desde el escaparate |
+| GET    | `/mine`                | CLIENT | Sus citas                   |
+| GET    | `/mine/:id`            | CLIENT | Detalle de una cita suya    |
+| POST   | `/mine/:id/cancel`     | CLIENT | Cancela una cita suya       |
+| PATCH  | `/mine/:id/reschedule` | CLIENT | Reagenda una cita suya      |
+
+`POST /mine` es la reserva del escaparate hecha **con la sesión iniciada**, y es
+la que liga la ficha del negocio a la cuenta de quien reserva. De ese vínculo
+cuelga el resto del portal: sin él la ficha queda con `user_id` a NULL, _Mis
+Citas_ y _Mis Facturas_ salen vacías y **no se puede reseñar**, porque una
+reseña exige una cita del propio usuario. El cuerpo es el mismo de la reserva
+pública, pero **el usuario sale del token y nunca del cuerpo**: enviar un
+`userId` se rechaza, igual que en la ruta pública, porque aceptarlo dejaría
+reservar a nombre de otro. Sin sesión se sigue usando
+`POST /booking/public/appointments`, que reserva como invitado.
 
 ### Disponibilidad — `/api/v1/booking/professionals/:professionalId/availability`
 
