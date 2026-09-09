@@ -1,4 +1,9 @@
-# Propuestas de producto — QA-REPORT-BeautySpot-2026-08-22
+# Propuestas de producto — BeautySpot
+
+Dos campañas: la de **2026-08-22**, con nueve propuestas ya construidas, y la de
+**2026-09-04**, con tres mejoras aún por decidir (al final del documento).
+
+## Campaña 2026-08-22
 
 Los nueve hallazgos del informe marcados `[PM]`: los que no son un fallo que
 corregir sino una función que falta, y por tanto una decisión de producto. **Los
@@ -397,3 +402,81 @@ recoger al planificar:
   fuera de Configuración. Es una función de retención ya construida y sin
   escaparate — el mismo patrón que BS-002, BS-003 y BS-006, ya resueltos, que con
   ella son cuatro de los nueve hallazgos de este documento.
+
+---
+
+## Campaña 2026-09-04
+
+La campaña de septiembre no trajo hallazgos marcados `[PM]`: sus 15 defectos son
+todos fallos que corregir, y están cerrados en `QA-REMEDIATION-PLAN.md`. Lo que
+sí trajo son **tres mejoras de producto**, que son decisiones, no defectos, y por
+eso viven aquí sin implementar.
+
+Como en la campaña anterior, cada una dice **lo que hay hoy verificado contra el
+código**, no lo que el informe supuso.
+
+### Resumen
+
+| #   | Mejora                                     | Impacto  | Esfuerzo | Estado       |
+| --- | ------------------------------------------ | -------- | -------- | ------------ |
+| P-1 | Buscador en el selector de cliente         | **Alto** | S        | 📋 propuesta |
+| P-2 | Explicar los ingresos no atribuibles       | Medio    | XS       | 📋 propuesta |
+| P-3 | Avisar cuando el descuento supera al cobro | Medio    | XS       | 📋 propuesta |
+
+### P-1 · Buscador en el selector de cliente 📋
+
+**Lo que hay hoy.** En _Agenda_ y en _Pagos_ el cliente se elige en un `<select>`
+plano que carga la cartera entera y solo se recorre con el desplegable. La
+pantalla de _Clientes_ **sí** tiene un buscador bueno —tolerante a tildes y
+mayúsculas, y desde esta tanda también a los alias de una fusión y a cualquier
+formato del teléfono (BS-033, BS-034)—, así que la capacidad existe y está
+probada; lo que no se ha hecho es llevarla a donde más se usa.
+
+**Por qué importa.** Es el punto en el que el producto deja de ser usable justo
+cuando el negocio empieza a valer como cliente: con 3.000 fichas —un salón de
+tres años— cobrar exige bajar por una lista de 3.000 nombres con la clienta
+delante esperando. Y arrastra un coste de red que hoy no se ve, porque el
+`<select>` pide la cartera completa cada vez que se abre el formulario.
+
+**Coste.** S. El endpoint ya pagina y ya busca; el trabajo es un componente de
+selección con búsqueda, reutilizable en las dos pantallas.
+
+### P-2 · Explicar los ingresos no atribuibles 📋
+
+**Lo que hay hoy.** El informe del periodo muestra «Total del periodo $686.000»
+junto a «Ana Restrepo · $30.000» sin decir que la diferencia son cobros sin cita.
+Los números **son correctos** —la atribución por profesional cuadra con el conteo
+manual—, pero un dueño puede leer que su mejor profesional aporta el 4 % del
+negocio.
+
+**Nota.** Parte de ese vacío lo alimentaba **BS-035**: con el walk-in roto, la
+clientela sin cita volvía a registrarse como cobro suelto. Corregido ese fallo,
+la diferencia debería encogerse sola, así que conviene volver a medirla antes de
+decidir el tamaño de la mejora.
+
+**Propuesta.** Una fila «Sin profesional asignado · $656.000» en el ranking, para
+que deje de parecer roto.
+
+**Coste.** XS.
+
+### P-3 · Avisar cuando el descuento supera al cobro 📋
+
+**Lo que hay hoy.** Se acepta un descuento de $50.000 sobre un cobro de $10.000.
+El cálculo es correcto y está bien modelado: el importe es lo que se cobró y el
+descuento es una anotación de margen, así que el total del día subió solo
+$10.000. El descuento ya exige motivo escrito y lo concede solo el dueño o un
+administrador, nunca recepción (BS-005).
+
+**Lo que falta.** Nada relaciona las dos cifras, así que el margen declarado se
+puede falsear sin que salte nada.
+
+**Propuesta.** Un aviso —no un bloqueo— cuando el descuento supere al importe
+cobrado. Que sea aviso y no regla es deliberado: hay cortesías legítimas que
+superan el cobro, y convertirlo en error dejaría al mostrador sin salida.
+
+**Coste.** XS.
+
+### Lo que no está aquí
+
+El **responsive** que el informe no pudo medir no es una propuesta de producto:
+es cobertura de QA pendiente. Queda anotado en `QA-REMEDIATION-PLAN.md`.

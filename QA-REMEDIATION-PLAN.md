@@ -1,7 +1,11 @@
-# Plan de remediación — QA-REPORT-BeautySpot-2026-08-22
+# Plan de remediación — BeautySpot
 
-Rama de trabajo: `fix/tanda-22-next-16` (PR #99). Origen: `QA-REPORT-BeautySpot-2026-08-22.md`,
-28 hallazgos (1 bloqueante, 5 altos, 15 medios, 7 bajos).
+Rama de trabajo: `fix/tanda-22-next-16` (PR #99). Dos campañas, en orden:
+
+1. **`QA-REPORT-BeautySpot-2026-08-22`** — 28 hallazgos `BS-001`…`BS-028`
+   (1 bloqueante, 5 altos, 15 medios, 7 bajos). Cerrada.
+2. **`QA-REPORT-BeautySpot-2026-09-04`** — 15 hallazgos `BS-029`…`BS-043`
+   (7 altos, 7 medios, 1 bajo). Al final del documento.
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 propuesta `[PM]` (no se implementa) · ❓ necesita aclaración
 
@@ -664,3 +668,278 @@ Anotada, **no corregida** (fuera del alcance de los hallazgos).
   es de una corrida antigua y leerlo para comprobar la puerta da cifras falsas.
   Las buenas salen de `coverage-final.json` o del propio código de salida de
   `npm run test:coverage`, que es quien decide.
+
+---
+
+# Campaña 2026-09-04 — `BS-029`…`BS-043`
+
+Origen: `QA-REPORT-BeautySpot-2026-09-04.md`, ocho fases contra el navegador.
+15 hallazgos: **7 Alta, 7 Media, 1 Baja**. Ninguna brecha de aislamiento ni de
+permisos: la matriz de los seis roles es la que el producto declara.
+
+El patrón que ordena la campaña es que **lo que falla está en el borde de
+presentación, no en el cálculo**. El backend hace su parte y la pantalla
+descarta el resultado (BS-036), no recibe los datos (BS-030, BS-035), no tiene
+sitio donde pintarlos (BS-041) o los rotula mal (BS-043). Las dos excepciones
+—BS-042 y el desglose del cobro repartido— sí son de backend.
+
+## Correcciones al informe
+
+Dos cosas que el informe daba por ciertas y el repositorio contradice:
+
+1. **BS-031 no es una doble declaración incompleta.** `payment.entity.ts:37-40`
+   **sí** declara `@Check("CHK_payments_method", …)` con `MIXED`, igual que la
+   migración, así que un volumen nuevo nace bien. El `CHECK` viejo sobrevivía
+   solo en un volumen de desarrollo anterior, porque `synchronize` no recrea una
+   restricción que ya existe. No faltaba declararlo: faltaba que el 23514 no se
+   tradujera a 500 y que alguna prueba registrara un cobro repartido.
+2. **BS-032 era peor de lo descrito.** Reportes pintaba la tasa **cruda**, así
+   que quitar el redondeo del backend sin tocar el frontend habría mostrado
+   `66.66666666666667%`. Los dos lados iban juntos.
+
+## Decisiones tomadas
+
+| Tema    | Decisión                                                                                            |
+| ------- | --------------------------------------------------------------------------------------------------- |
+| BS-042  | Ruta autenticada `POST /booking/appointments/mine`; el usuario sale **del token**, nunca del cuerpo |
+| BS-043  | El correo enseña el **motivo tipificado**; la nota se queda en el historial interno                 |
+| BS-038  | `NO_SHOW` es terminal en `cancel`; no se añade acción de rectificar                                 |
+| BS-037  | `byMethod` cuenta la **venta** por medio, prorrateando la propina con reparto entero que cuadra     |
+| Alcance | El **responsive** queda fuera: necesita emulación de dispositivo, que este entorno no da            |
+
+## Agrupación por causa raíz
+
+| Causa                                                                        | Hallazgos      |
+| ---------------------------------------------------------------------------- | -------------- |
+| H1 · La pantalla rehace un cálculo que el backend ya le entrega              | BS-036         |
+| H2 · Respuesta paginada validada como array plano, y el fallo pintado vacío  | BS-030         |
+| H3 · Petición condicionada al estado del formulario equivocado               | BS-035         |
+| H4 · El `Input` compartido no blinda el campo numérico                       | BS-040         |
+| H5 · La rejilla de la semana tiene la franja de horas fija                   | BS-041         |
+| H6 · El reparto no llega a las superficies que agrupan por `payments.method` | BS-037         |
+| H7 · La entrada sin validar llega cruda hasta Postgres                       | BS-039, BS-031 |
+| H8 · La búsqueda de clientes ni normaliza el término ni mira los alias       | BS-033, BS-034 |
+| H9 · `cancel` usa lista negra donde el resto usa lista blanca                | BS-038         |
+| H10 · El correo toma el campo equivocado y no formatea                       | BS-043         |
+| H11 · Un instante UTC crudo en una superficie que las demás localizan        | BS-029         |
+| H12 · Precisión perdida en el backend y formato divergente en dos pantallas  | BS-032         |
+| H13 · No hay ruta autenticada de reserva para el cliente                     | BS-042         |
+
+## Tablero
+
+| ID     | Sev   | Módulo         | Causa | Esfuerzo | Lote | Estado |
+| ------ | ----- | -------------- | ----- | -------- | ---- | ------ |
+| BS-040 | Alta  | Caja / Pagos   | H4    | XS       | 1    | ✅     |
+| BS-039 | Media | Transversal    | H7    | M        | 1    | ✅     |
+| BS-031 | Alta  | Pagos          | H7    | S        | 1    | ✅     |
+| BS-036 | Alta  | Caja           | H1    | S        | 2    | ✅     |
+| BS-037 | Media | Pagos          | H6    | M        | 2    | ✅     |
+| BS-029 | Media | Pagos          | H11   | XS       | 2    | ✅     |
+| BS-035 | Alta  | Agenda         | H3    | XS       | 3    | ✅     |
+| BS-041 | Alta  | Agenda         | H5    | M        | 3    | ✅     |
+| BS-038 | Media | Agenda         | H9    | XS       | 3    | ✅     |
+| BS-033 | Media | Clientes       | H8    | S        | 4    | ✅     |
+| BS-034 | Media | Clientes       | H8    | S        | 4    | ✅     |
+| BS-030 | Alta  | Facturación    | H2    | S        | 5    | ✅     |
+| BS-032 | Baja  | Métricas       | H12   | S        | 5    | ✅     |
+| BS-042 | Alta  | Marketplace    | H13   | L        | 6    | ✅     |
+| BS-043 | Media | Notificaciones | H10   | M        | 7    | ✅     |
+
+## Lote 1 — Transversal ✅
+
+### BS-040 · La rueda del ratón cambia los importes ✅
+
+Un `input[type=number]` enfocado trata la rueda como un tick del selector, así
+que bajar por la página para pulsar _Cerrar caja_ —la única forma de cerrarla—
+restaba pesos al conteo sin que nadie lo tecleara. El `Input` compartido suelta
+el foco al girar la rueda, lo que cubre **los 22 campos de dinero** de una vez y
+los que vengan. Encadena el `onWheel` que le pasen, para no pisar a quien lo use.
+
+### BS-039 · Un id mal formado responde 500 ✅
+
+Dos capas, porque el hallazgo es de clase:
+
+- `ParseUUIDPipe` en los parámetros que son identificadores, en **18
+  controladores** de booking, core y payment. Quedan fuera a propósito los
+  `@Param("slug")` de `businesses` y `public`, y el `publicId` de `images`, que
+  es una clave de S3.
+- Como red de seguridad, el filtro compartido traduce ahora **22P02 → 400**
+  («El identificador no es válido») y **23514 → 400** nombrando la restricción,
+  junto a `esViolacionDeUnicidad`. Un `QueryFailedError` no es `HttpException`,
+  así que caía al 500 genérico.
+
+### BS-031 · El pago mixto responde 500 ✅
+
+Ver _Correcciones al informe_: no había nada que declarar. Lo que faltaba era la
+traducción del 23514 (arriba, que hace legible el rechazo) y **una prueba de
+integración que registre un cobro repartido contra Postgres real** —
+`cobro-repartido.int-test.ts`: `MIXED` admitido, dos líneas en `payment_splits` y
+un solo movimiento de efectivo en el cajón—. Es lo único que lo habría detectado.
+
+## Lote 2 — Caja y pagos ✅
+
+### BS-036 · El cobro repartido descuadra la caja ✅
+
+El backend hacía lo correcto: `getSessionSummary` ya devolvía `expectedTotal`
+contando **solo** el efectivo y lo anotado a mano, más `porMetodo`. La pantalla
+descartaba ese cálculo y rehacía la suma de todos los movimientos sin mirar el
+medio, así que la parte con datáfono entraba en el cajón y el arqueo exigía
+justificar un descuadre de $20.000 que no existía. Ahora consume el arqueo del
+servicio y **enseña el desglose por medio**, que es para lo que se guarda un
+movimiento por línea. El desglose se oculta mientras se cuenta, como el resto
+del arqueo ciego.
+
+### BS-037 · El día con un cobro repartido queda sin desglose ✅
+
+`getDailySummary` agrupaba por `p.method`, que en un reparto vale `MIXED`: los
+tres medios salían a cero mientras el total no lo estaba, y el filtro _Efectivo_
+escondía el cobro entero. Ahora el desglose sale de las líneas del reparto y el
+filtro las alcanza con un `EXISTS` sobre `payment_splits`.
+
+Las líneas llevan la propina dentro y el importe no, así que la venta de cada
+medio es **su parte proporcional del importe**, repartida en pesos enteros con
+`repartirProporcional` (mayor resto, en `shared-utils`): el desglose suma
+siempre el total por construcción, y un cobro de un solo método da exactamente
+lo de antes.
+
+### BS-029 · La fecha del cobro cambia entre el listado y el modal ✅
+
+El modal de devolución recortaba el ISO a sus diez primeros caracteres, que es
+el día **en UTC**: pasadas las siete de la tarde en Colombia fechaba el cobro un
+día después que el listado. `formatDate` ya acepta el instante entero.
+
+## Lote 3 — Agenda ✅
+
+### BS-035 · El walk-in abre sin clientes ni servicios ✅
+
+Las dos peticiones se condicionaban a `showForm`, que es el formulario de _nueva
+cita_; el walk-in usa `walkInDialog` y se quedó fuera de esa cuenta. Con la
+clave en `null`, SWR no devuelve ni lo cacheado, así que el diálogo salía con el
+desplegable vacío y total en $0. El único rodeo era abrir antes la nueva cita y
+no cerrarla.
+
+### BS-041 · La vista Semana acaba a las 18:00 ✅
+
+`calendar-view` fijaba `HOURS = 7…18` mientras `day-view` la calculaba, así que
+una barbería que abre de 20:00 a 02:00 veía **la semana entera en blanco** —con
+aspecto de disponible— aunque el dato llegase: no había fila donde dibujarlo.
+
+El cálculo se extrae a `lib/franja-horaria.ts` —en `lib/` a propósito, que es
+donde mide la puerta de cobertura del frontend—, lo comparten las dos vistas y
+ahora **también lo abre el horario del negocio**, contando la madrugada como
+continuación del mismo día (un cierre menor o igual que la apertura es del día
+siguiente, la convención que ya usa `hora-de-cierre`).
+
+### BS-038 · Una cita `NO_SHOW` se puede cancelar ✅
+
+`cancel` era la única transición escrita como **lista negra**
+(`COMPLETED`/`CANCELLED`), así que aceptaba un no-show: el plantón desaparecía
+del informe mientras el contador de la ficha seguía en pie, y las dos
+superficies se contradecían sin que se supiera cuál mentía. Pasa a lista blanca
+(`PENDING`, `CONFIRMED`, `IN_PROGRESS`), como confirmar, completar y el propio
+no-show. Se decidió **no** añadir una acción de rectificar.
+
+## Lote 4 — Clientes ✅
+
+### BS-033 · Buscar con `+57` pierde fichas ✅ · BS-034 · Los alias de una fusión no encuentran a nadie ✅
+
+Los dos son el mismo `OR` de `findByBusiness`, que comparaba el texto crudo con
+`ILIKE` sobre `name`, `email` y `phone`:
+
+- El término se normaliza ahora con `variantesDeTelefono()`, como ya hacía el
+  alta. `3101112233` es subcadena de `+573101112233` pero no al revés, y el
+  prefijo internacional es justo el formato que sale del móvil y de WhatsApp.
+- La búsqueda mira `alias_emails` y `alias_phones`, que es lo que la fusión
+  acaba de rellenar y lo que **el propio diálogo promete por escrito**. Sin eso
+  la recepcionista volvía a crear el duplicado que acababa de unir.
+
+Cubierto además con un `int-test` sobre una ficha fusionada: el `@>` de arrays
+solo lo confirma Postgres.
+
+## Lote 5 — Facturación y métricas ✅
+
+### BS-030 · No se puede emitir ninguna factura ✅
+
+`/payment/payments` y `/core/clients` son rutas **paginadas** y se validaban con
+`z.array(...)`: el parseo fallaba, SWR dejaba los datos en `undefined` y el
+diálogo lo pintaba como «No hay cobros completados que facturar». Con 15 cobros
+delante no se podía emitir ni una factura.
+
+Además del schema, lo que hacía invisible el defecto: el `error` de esos hooks
+no se leía nunca, así que **un incumplimiento de contrato se presentaba como
+lista vacía** y el dueño concluía que aún no tenía nada que facturar. El diálogo
+distingue ahora las dos cosas, apoyándose en que `mensajeDeError` ya reconoce el
+`ZodError`.
+
+### BS-032 · La tasa de completado se redondea a entero ✅
+
+El helper `percentage` estaba duplicado en dashboard y reports, los dos con
+`Math.round`. Unificado en `common/porcentaje.ts` y con **un decimal**: el entero
+borraba justo el movimiento que la tasa sirve para vigilar (una caída del 92,4 %
+al 91,6 % se leía «92 % → 92 %»). Afecta también a `cancellationRate`,
+`noShowRate`, `ocupacion` y `tasaDeRetorno`.
+
+En el frontend, `formatPorcentaje` en `lib/utils.ts` lo escribe igual en las dos
+pantallas y en el CSV, con decimal solo cuando lo hay.
+
+## Lote 6 — El área del cliente ✅
+
+### BS-042 · El cliente que reserva con su cuenta no ve la reserva ✅
+
+Reservar desde el escaparate con sesión iba por la ruta pública, que **a
+propósito** no acepta el id del usuario. La cita quedaba ligada a la ficha
+correcta, pero esa ficha nacía con `user_id` a NULL, y como `/appointments/mine`
+resuelve por usuario, el panel salía en cero. De ahí colgaba todo el portal:
+_Mis Citas_, _Mis Facturas_, cancelar y reagendar, y **las reseñas** —se exige
+una cita del propio usuario, así que ningún cliente podía escribir ninguna, que
+es lo que explica las 0 reseñas del escaparate y lo que dejaba **H-038 sin poder
+verificarse**—.
+
+Se añade `POST /booking/appointments/mine` (`@Roles(CLIENT)`,
+`@SkipBusinessScope()`), que toma el usuario **del token** y lo pasa al
+`find-or-create` del core, que ya sabía vincular la ficha sin pisar un vínculo
+existente. Reutiliza `PublicBookingService` en vez de duplicarlo. El escaparate
+la usa cuando hay sesión y sigue reservando por la pública como invitado.
+`docs/API.md` actualizado en el mismo cambio.
+
+## Lote 7 — Notificaciones ✅
+
+### BS-043 · El correo de cancelación manda la nota interna ✅
+
+Tres defectos en el mismo correo:
+
+1. **El «Motivo» era la nota interna.** El producto le pide al personal una nota
+   «para el historial» y luego se la mandaba al cliente: quien escriba «la
+   clienta ya nos plantó dos veces» estaba redactando, sin saberlo, el correo que
+   iba a recibir esa clienta. El evento ya llevaba `cancelReasonType`, traducido
+   y pensado justo para enseñarse, y el listener ni lo desestructuraba. La
+   redacción de cara al cliente vive ahora en `shared-types`
+   (`motivoParaElCliente`), separada del desplegable del personal porque las dos
+   audiencias no leen lo mismo.
+2. **«Fecha cancelación» era la fecha de la cita.** El evento lleva ahora
+   `cancelledAt` —el mismo instante que se escribe en la fila— y la plantilla
+   distingue «Fecha de la cita» de «Cancelada el».
+3. **Fechas en formato técnico.** Las plantillas interpolaban `2026-08-25` y
+   `20:00`, que es como viajan por el bus. El servicio no registraba ningún
+   ayudante de Handlebars; ahora tiene los de fecha y hora, aplicados a los cinco
+   correos de agenda, así que dicen «5 de sept de 2026, 8:00 pm» como el panel.
+   Los avisos in-app del mismo listener también.
+
+## Deuda visual ✅
+
+Toda la anotada en el informe, en un solo cambio: la fecha ISO de _Bloqueos_,
+las dos tildes del escaparate («asignará», «Estás»), el «⭐ 0.0 (0)» de un
+profesional sin reseñas —la lección de BS-014, ya aplicada al CSV y al
+escaparate— y el estado vacío de _Reportes_ que contradecía al aviso de periodo
+inválido.
+
+## Lo que queda fuera
+
+- **Responsive**: el informe no pudo medirlo (la ventana no baja de 1536 px) y
+  esta tanda tampoco lo aborda. Necesita emulación de dispositivo. Es lo primero
+  que habría que retomar: una recepcionista trabaja con tablet.
+- Las tres **mejoras de producto** del informe (buscador en el selector de
+  cliente, explicar los ingresos no atribuibles, relacionar descuento e importe)
+  son decisiones de producto, no defectos: van a `QA-PROPUESTAS-PM.md`.
+- Las observaciones 2, 3, 5 y 6 del informe siguen en seguimiento; la 4 se cerró
+  al abrirse como BS-040.
