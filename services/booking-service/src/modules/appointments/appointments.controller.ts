@@ -184,28 +184,40 @@ export class AppointmentsController {
   /** Obtiene una cita por id. */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
   @Get(":id")
-  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+  async findById(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.findById(id, businessId);
   }
 
   /** Confirma una cita pendiente. */
   @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL)
   @Post(":id/confirm")
-  async confirm(@Param("id") id: string, @BusinessId() businessId: string) {
+  async confirm(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.confirm(id, businessId);
   }
 
   /** Marca el inicio del servicio de una cita confirmada. */
   @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL)
   @Post(":id/start")
-  async start(@Param("id") id: string, @BusinessId() businessId: string) {
+  async start(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.startService(id, businessId);
   }
 
   /** Completa la cita y otorga los puntos de fidelidad. */
   @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL)
   @Post(":id/complete")
-  async complete(@Param("id") id: string, @BusinessId() businessId: string) {
+  async complete(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.complete(id, businessId);
   }
 
@@ -213,7 +225,7 @@ export class AppointmentsController {
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Post(":id/cancel")
   async cancel(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @CurrentUser("userId") userId: string,
     @Body() dto: CancelDto
@@ -228,7 +240,10 @@ export class AppointmentsController {
   /** Marca la cita como "no asistió". */
   @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL)
   @Post(":id/no-show")
-  async noShow(@Param("id") id: string, @BusinessId() businessId: string) {
+  async noShow(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.markNoShow(id, businessId);
   }
 
@@ -236,7 +251,7 @@ export class AppointmentsController {
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Patch(":id/reschedule")
   async reschedule(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Body() dto: RescheduleDto
   ) {
@@ -256,7 +271,7 @@ export class InternalAppointmentsController {
   /** Indica si un profesional tiene historial de citas (usado antes de eliminarlo). */
   @Get("professional/:professionalId/has-history")
   async professionalHasHistory(
-    @Param("professionalId") professionalId: string,
+    @Param("professionalId", ParseUUIDPipe) professionalId: string,
     @Query("businessId") businessId: string
   ) {
     return this.service.professionalHasHistory(professionalId, businessId);
@@ -268,7 +283,7 @@ export class InternalAppointmentsController {
    */
   @Get("professional/:professionalId/client-ids")
   async clientIdsAtendidos(
-    @Param("professionalId") professionalId: string,
+    @Param("professionalId", ParseUUIDPipe) professionalId: string,
     @Query("businessId") businessId: string
   ) {
     return this.service.clientIdsAtendidosPor(professionalId, businessId);
@@ -286,7 +301,7 @@ export class InternalAppointmentsController {
   /** Datos de cobro de una cita del negocio: importe, estado y cliente. */
   @Get(":appointmentId/cobro")
   async datosDeCobro(
-    @Param("appointmentId") appointmentId: string,
+    @Param("appointmentId", ParseUUIDPipe) appointmentId: string,
     @Query("businessId") businessId: string
   ) {
     return this.service.datosDeCobro(appointmentId, businessId);
@@ -295,7 +310,7 @@ export class InternalAppointmentsController {
   /** Indica si un usuario puede reseñar una cita (usada por el marketplace). */
   @Get(":appointmentId/resenable")
   async citaResenable(
-    @Param("appointmentId") appointmentId: string,
+    @Param("appointmentId", ParseUUIDPipe) appointmentId: string,
     @Query("userId") userId: string,
     @Query("businessId") businessId: string
   ) {

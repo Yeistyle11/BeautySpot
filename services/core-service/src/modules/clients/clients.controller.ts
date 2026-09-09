@@ -1,12 +1,13 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Patch,
-  Param,
-  Body,
-  Query,
   NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
 } from "@nestjs/common";
 import { ClientsService } from "./clients.service";
 import {
@@ -105,7 +106,10 @@ export class ClientsController {
    */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Get(":id")
-  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+  async findById(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.findById(id, businessId);
   }
 
@@ -117,7 +121,7 @@ export class ClientsController {
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Patch(":id")
   async update(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Body() dto: UpdateClientDto
   ) {
@@ -141,7 +145,7 @@ export class ClientsController {
   @Roles(Role.OWNER, Role.ADMIN)
   @Post(":id/merge")
   async merge(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Body() dto: FusionarClienteDto
   ) {
@@ -150,7 +154,10 @@ export class ClientsController {
 
   @Roles(Role.OWNER, Role.ADMIN)
   @Post(":id/anonymize")
-  async anonymize(@Param("id") id: string, @BusinessId() businessId: string) {
+  async anonymize(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.anonymize(id, businessId);
   }
 }

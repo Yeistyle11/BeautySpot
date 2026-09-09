@@ -1,10 +1,11 @@
 import {
+  Body,
   Controller,
   Get,
-  Put,
-  Patch,
   Param,
-  Body,
+  ParseUUIDPipe,
+  Patch,
+  Put,
   Query,
 } from "@nestjs/common";
 import { BusinessHoursService } from "./business-hours.service";
@@ -48,7 +49,7 @@ export class BusinessHoursController {
   /** Actualiza un tramo horario concreto. */
   @Patch(":id")
   async update(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Body() dto: UpdateBusinessHoursDto
   ) {

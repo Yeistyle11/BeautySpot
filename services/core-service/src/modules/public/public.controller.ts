@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from "@nestjs/common";
+import { Controller, Get, Param, ParseUUIDPipe, Query } from "@nestjs/common";
 import { Public } from "@beautyspot/nest-common";
 import { PublicService } from "./public.service";
 
@@ -26,7 +26,7 @@ export class PublicController {
    */
   @Get("businesses/:id/services")
   async getBusinessServices(
-    @Param("id") businessId: string,
+    @Param("id", ParseUUIDPipe) businessId: string,
     @Query("professionalId") professionalId?: string
   ) {
     return this.publicService.getBusinessServices(businessId, professionalId);
@@ -34,7 +34,9 @@ export class PublicController {
 
   /** Lista los profesionales públicos de un negocio. */
   @Get("businesses/:id/professionals")
-  async getBusinessProfessionals(@Param("id") businessId: string) {
+  async getBusinessProfessionals(
+    @Param("id", ParseUUIDPipe) businessId: string
+  ) {
     return this.publicService.getBusinessProfessionals(businessId);
   }
 }

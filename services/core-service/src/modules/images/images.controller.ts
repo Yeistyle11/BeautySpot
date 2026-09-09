@@ -1,16 +1,17 @@
 import {
+  BadRequestException,
   Controller,
-  Post,
   Delete,
+  ForbiddenException,
   Get,
-  Query,
-  Param,
   HttpCode,
   HttpStatus,
-  UseInterceptors,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
   UploadedFile,
-  BadRequestException,
-  ForbiddenException,
+  UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
@@ -105,7 +106,7 @@ export class ImagesController {
   @Post("businesses/:businessId/logo-upload")
   @UseInterceptors(SUBIDA_DE_IMAGEN)
   async uploadBusinessLogo(
-    @Param("businessId") businessId: string,
+    @Param("businessId", ParseUUIDPipe) businessId: string,
     @CurrentUser("role") role: string,
     @BusinessId() tenantBusinessId: string,
     @UploadedFile() file: Express.Multer.File
@@ -135,7 +136,7 @@ export class ImagesController {
   @Post("professionals/:professionalId/photo-upload")
   @UseInterceptors(SUBIDA_DE_IMAGEN)
   async uploadProfessionalPhoto(
-    @Param("professionalId") professionalId: string,
+    @Param("professionalId", ParseUUIDPipe) professionalId: string,
     @CurrentUser("role") role: string,
     @BusinessId() tenantBusinessId: string,
     @UploadedFile() file: Express.Multer.File
@@ -165,7 +166,7 @@ export class ImagesController {
   @Post("services/:serviceId/image-upload")
   @UseInterceptors(SUBIDA_DE_IMAGEN)
   async uploadServiceImage(
-    @Param("serviceId") serviceId: string,
+    @Param("serviceId", ParseUUIDPipe) serviceId: string,
     @CurrentUser("role") role: string,
     @BusinessId() tenantBusinessId: string,
     @UploadedFile() file: Express.Multer.File

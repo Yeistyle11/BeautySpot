@@ -1,11 +1,12 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
   Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
 } from "@nestjs/common";
 import { BranchesService } from "./branches.service";
 import { Roles, BusinessId } from "@beautyspot/nest-common";
@@ -41,14 +42,17 @@ export class BranchesController {
 
   /** Obtiene una sede por id. */
   @Get(":id")
-  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+  async findById(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.findById(id, businessId);
   }
 
   /** Actualiza una sede. */
   @Patch(":id")
   async update(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Body() dto: UpdateBranchDto
   ) {
@@ -57,7 +61,10 @@ export class BranchesController {
 
   /** Da de baja una sede. */
   @Delete(":id")
-  async deactivate(@Param("id") id: string, @BusinessId() businessId: string) {
+  async deactivate(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     await this.service.deactivate(id, businessId);
     return { message: "Sucursal desactivada" };
   }

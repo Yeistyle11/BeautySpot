@@ -1,11 +1,12 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
   Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
   Query,
 } from "@nestjs/common";
 import { BusinessesService } from "./businesses.service";
@@ -84,7 +85,7 @@ export class BusinessesController {
   async findById(
     @BusinessId() businessId: string,
     @CurrentUser("role") role: Role,
-    @Param("id") id: string
+    @Param("id", ParseUUIDPipe) id: string
   ) {
     return this.service.findById(id, businessId, role);
   }
@@ -94,7 +95,7 @@ export class BusinessesController {
   async update(
     @BusinessId() businessId: string,
     @CurrentUser("role") role: Role,
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: UpdateBusinessDto
   ) {
     return this.service.update(id, dto, businessId, role);
@@ -105,7 +106,7 @@ export class BusinessesController {
   async deactivate(
     @BusinessId() businessId: string,
     @CurrentUser("role") role: Role,
-    @Param("id") id: string
+    @Param("id", ParseUUIDPipe) id: string
   ) {
     await this.service.deactivate(id, businessId, role);
     return { message: "Negocio desactivado" };

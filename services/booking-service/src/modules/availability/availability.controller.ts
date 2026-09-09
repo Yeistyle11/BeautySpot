@@ -1,4 +1,11 @@
-import { Controller, Get, Post, Param, Body } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+} from "@nestjs/common";
 import { AvailabilityService } from "./availability.service";
 import { Roles, BusinessId } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
@@ -13,7 +20,7 @@ export class AvailabilityController {
   /** Devuelve la disponibilidad semanal del profesional. */
   @Get()
   async get(
-    @Param("professionalId") professionalId: string,
+    @Param("professionalId", ParseUUIDPipe) professionalId: string,
     @BusinessId() businessId: string
   ) {
     return this.service.findByProfessional(businessId, professionalId);
@@ -28,7 +35,7 @@ export class AvailabilityController {
   @Roles(Role.OWNER, Role.ADMIN)
   @Post()
   async replace(
-    @Param("professionalId") professionalId: string,
+    @Param("professionalId", ParseUUIDPipe) professionalId: string,
     @BusinessId() businessId: string,
     @Body() dto: ReplaceAvailabilityDto
   ) {

@@ -4,7 +4,17 @@ import { cn } from "@/lib/utils";
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, ...props }, ref) => {
+  ({ className, type, onWheel, ...props }, ref) => {
+    // Un input numerico enfocado trata la rueda como un tick del selector, asi
+    // que bajar por la pagina para alcanzar el boton cambia el importe sin que
+    // nadie lo teclee. Soltar el foco desplaza la pagina y deja la cifra quieta.
+    const alGirarLaRueda = (event: React.WheelEvent<HTMLInputElement>) => {
+      if (type === "number" && event.currentTarget === document.activeElement) {
+        event.currentTarget.blur();
+      }
+      onWheel?.(event);
+    };
+
     return (
       <input
         type={type}
@@ -16,6 +26,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           className
         )}
         ref={ref}
+        onWheel={alGirarLaRueda}
         {...props}
       />
     );

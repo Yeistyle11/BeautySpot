@@ -1,12 +1,13 @@
 import { Internal } from "@beautyspot/nest-common";
 import {
-  Controller,
-  Post,
-  Get,
   Body,
-  Param,
-  Query,
   ConflictException,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ILike, In, Repository } from "typeorm";
@@ -44,7 +45,7 @@ export class InternalClientsController {
   /** Puntos de fidelidad disponibles del cliente, para quien vaya a canjearlos. */
   @Get(":id/puntos")
   async puntos(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Query("businessId") businessId: string
   ): Promise<{ loyaltyPoints: number } | null> {
     const cliente = await this.clientRepo.findOne({
@@ -61,7 +62,7 @@ export class InternalClientsController {
    */
   @Post(":id/puntos/reservar")
   async reservarPuntos(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: MoverPuntosDto
   ): Promise<{ loyaltyPoints: number }> {
     const pudo = await this.clients.redeemLoyaltyPoints(
@@ -83,7 +84,7 @@ export class InternalClientsController {
    */
   @Post(":id/puntos/devolver")
   async devolverPuntos(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: MoverPuntosDto
   ): Promise<{ loyaltyPoints: number }> {
     await this.clients.addLoyaltyPoints(id, dto.businessId, dto.puntos);
@@ -127,7 +128,9 @@ export class InternalClientsController {
 
   /** Lista los clientes vinculados a un usuario, uno por cada negocio donde reservó. */
   @Get("by-user/:userId")
-  async findByUser(@Param("userId") userId: string): Promise<Client[]> {
+  async findByUser(
+    @Param("userId", ParseUUIDPipe) userId: string
+  ): Promise<Client[]> {
     return this.clientRepo.find({ where: { userId } });
   }
 

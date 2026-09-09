@@ -7,6 +7,10 @@ import {
   Logger,
 } from "@nestjs/common";
 import { Response } from "express";
+import {
+  esIdentificadorInvalido,
+  esViolacionDeCatalogo,
+} from "../database/errores-de-postgres";
 
 /**
  * Filtro global que normaliza cualquier excepción a un cuerpo de error uniforme
@@ -14,6 +18,10 @@ import { Response } from "express";
  *
  * Traduce los errores de validación (mensajes en arreglo) y los estados HTTP más
  * comunes a códigos estables, y solo registra en el log los fallos 5xx.
+ *
+ * Traduce también los errores del driver que delatan una entrada inválida —el
+ * identificador que no es un UUID, el valor fuera de un catálogo—, que sin
+ * regla propia se registrarían como fallos del servidor.
  */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -42,7 +50,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let code = "INTERNAL_ERROR";
     let details: Record<string, string[]> | undefined;
 
-    if (exception instanceof HttpException) {
+    if (esIdentificadorInvalido(exception)) {
+      statusCode = HttpStatus.BAD_REQUEST;
+      code = "VALIDATION_ERROR";
+      message = "El identificador no es válido";
+    } else if (esViolacionDeCatalogo(exception)) {
+      statusCode = HttpStatus.BAD_REQUEST;
+      code = "VALIDATION_ERROR";
+      message = exception.constraint
+        ? `El valor enviado no está admitido (${exception.constraint})`
+        : "El valor enviado no está admitido";
+    } else if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
       const exResponse = exception.getResponse();
       let codigoPropio: string | undefined;

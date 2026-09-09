@@ -317,4 +317,65 @@ describe("HttpExceptionFilter", () => {
       expect(jsonCall.success).toBe(false);
     });
   });
+  describe("catch - errores del driver de Postgres", () => {
+    it("traduce el 22P02 a un 400 que nombra el identificador", () => {
+      const response = mockResponse();
+      const host = createMockArgumentsHost(response);
+
+      filter.catch({ code: "22P02" }, host);
+
+      expect(response.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
+      expect(response.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: "VALIDATION_ERROR",
+            message: "El identificador no es válido",
+          }),
+        })
+      );
+    });
+
+    it("traduce el 23514 a un 400 que nombra la restricción", () => {
+      const response = mockResponse();
+      const host = createMockArgumentsHost(response);
+
+      filter.catch({ code: "23514", constraint: "CHK_payments_method" }, host);
+
+      expect(response.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
+      expect(response.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: "VALIDATION_ERROR",
+            message: "El valor enviado no está admitido (CHK_payments_method)",
+          }),
+        })
+      );
+    });
+
+    it("responde sin nombrarla cuando el error no la trae", () => {
+      const response = mockResponse();
+      const host = createMockArgumentsHost(response);
+
+      filter.catch({ code: "23514" }, host);
+
+      expect(response.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            message: "El valor enviado no está admitido",
+          }),
+        })
+      );
+    });
+
+    it("deja en 500 el resto de errores de la base", () => {
+      const response = mockResponse();
+      const host = createMockArgumentsHost(response);
+
+      filter.catch({ code: "23505" }, host);
+
+      expect(response.status).toHaveBeenCalledWith(
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    });
+  });
 });

@@ -1,10 +1,11 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Patch,
   Param,
-  Body,
+  ParseUUIDPipe,
+  Patch,
+  Post,
   Query,
 } from "@nestjs/common";
 import { PaymentsService } from "./payments.service";
@@ -229,7 +230,10 @@ export class PaymentsController {
   /** Obtiene un pago por id. */
   @Get(":id")
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
-  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+  async findById(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.findById(id, businessId);
   }
 
@@ -237,7 +241,7 @@ export class PaymentsController {
   @Patch(":id")
   @Roles(Role.OWNER, Role.ADMIN)
   async update(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @CurrentUser("userId") userId: string,
     @Body() dto: UpdatePaymentDto
@@ -252,7 +256,7 @@ export class PaymentsController {
   @Post(":id/refund")
   @Roles(Role.OWNER, Role.ADMIN)
   async refund(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @CurrentUser("userId") userId: string,
     @Body() body: DevolucionDto
