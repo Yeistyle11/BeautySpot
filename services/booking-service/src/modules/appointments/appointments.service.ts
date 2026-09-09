@@ -620,6 +620,9 @@ export class AppointmentsService {
       );
     }
 
+    // El mismo instante en la fila y en el evento: son la misma cancelación.
+    const cancelledAt = new Date();
+
     await this.dataSource.transaction(async (manager) => {
       await manager.update(
         Appointment,
@@ -629,7 +632,7 @@ export class AppointmentsService {
           cancelReason: motivo.nota ?? null,
           cancelReasonType: motivo.tipo,
           cancelledBy: motivo.canceladaPor ?? null,
-          cancelledAt: new Date(),
+          cancelledAt,
         }
       );
       await this.outbox.enqueue(manager, {
@@ -641,6 +644,9 @@ export class AppointmentsService {
           cancelReason: motivo.nota,
           cancelReasonType: motivo.tipo,
           cancelledBy: motivo.canceladaPor,
+          // El instante de la cancelación, que no es la fecha de la cita: el
+          // aviso las rotulaba con el mismo valor.
+          cancelledAt: cancelledAt.toISOString(),
         },
       });
     });

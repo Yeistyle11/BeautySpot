@@ -46,7 +46,11 @@ describe("AgendaListeners", () => {
       startTime: "10:00",
       endTime: "11:00",
       totalAmount: 80000,
-      cancelReason: "Cliente solicitó cancelación",
+      // La nota que el personal escribe «para el historial», y el motivo
+      // tipificado, que es el que se le puede enseñar al cliente.
+      cancelReason: "la clienta ya nos planto dos veces",
+      cancelReasonType: "PROFESIONAL_NO_DISPONIBLE",
+      cancelledAt: "2026-09-05T15:00:00.000Z",
       date: "2024-12-25",
     },
   };
@@ -439,25 +443,52 @@ describe("AgendaListeners", () => {
         "juan@example.com",
         expect.objectContaining({
           clientName: "Juan Cliente",
-          reason: "Cliente solicitó cancelación",
+          reason: "El profesional no está disponible",
         })
       );
     });
 
-    it("debería usar motivo por defecto cuando no se proporciona", async () => {
-      const eventWithoutReason = {
-        ...mockAppointmentCancelledEvent,
-        payload: {
-          ...mockAppointmentCancelledEvent.payload,
-          cancelReason: undefined,
-        },
-      };
+    // El producto le pide al personal una nota «para el historial» y luego se la
+    // mandaba al cliente bajo el rótulo «Motivo»: una recepcionista que escriba
+    // «la clienta ya nos plantó dos veces» estaba redactando, sin saberlo, el
+    // correo que iba a recibir esa clienta.
+    it("no le manda al cliente la nota interna", async () => {
+      await listeners.handleAppointmentCancelled(mockAppointmentCancelledEvent);
 
-      await listeners.handleAppointmentCancelled(eventWithoutReason);
+      const [, datos] =
+        mockEmailService.queueAppointmentCancelled.mock.calls[0];
+      expect(JSON.stringify(datos)).not.toContain("nos planto dos veces");
+    });
+
+    // La cita era del 25 de diciembre y se canceló el 5 de septiembre: el correo
+    // rotulaba la fecha de la cita como «Fecha cancelación».
+    it("distingue la fecha de la cita de la de la cancelación", async () => {
+      await listeners.handleAppointmentCancelled(mockAppointmentCancelledEvent);
 
       expect(mockEmailService.queueAppointmentCancelled).toHaveBeenCalledWith(
         "juan@example.com",
-        expect.objectContaining({ reason: "Sin motivo" })
+        expect.objectContaining({
+          appointmentDate: "2024-12-25",
+          appointmentTime: "10:00",
+          cancelledDate: "2026-09-05T15:00:00.000Z",
+        })
+      );
+    });
+
+    it("dice algo sensato cuando el motivo tipificado no viene", async () => {
+      const sinTipo = {
+        ...mockAppointmentCancelledEvent,
+        payload: {
+          ...mockAppointmentCancelledEvent.payload,
+          cancelReasonType: undefined,
+        },
+      };
+
+      await listeners.handleAppointmentCancelled(sinTipo);
+
+      expect(mockEmailService.queueAppointmentCancelled).toHaveBeenCalledWith(
+        "juan@example.com",
+        expect.objectContaining({ reason: "Sin motivo especificado" })
       );
     });
 

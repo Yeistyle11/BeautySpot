@@ -8,3 +8,6 @@ Thumbs.db
 # Informes de QA, ignorados tambien en git: no se formatean ni bloquean el CI.
 docs/QA-HALLAZGOS.md
 docs/15-AUDITORIA-QA-PM.md
+QA-REPORT-BeautySpot-*.md
+QA-HALLAZGOS-BEAUTYSPOT.md
+QA-PROMPT-BeautySpot.md

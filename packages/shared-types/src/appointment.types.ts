@@ -25,3 +25,31 @@ export enum CancelReason {
   DUPLICADA = "DUPLICADA",
   OTRO = "OTRO",
 }
+
+/**
+ * Cómo se le explica al cliente por qué se canceló su cita.
+ *
+ * Está redactado desde su lado, que es distinto del desplegable con el que el
+ * personal elige el motivo: al cliente le importa saber si la culpa fue suya,
+ * del negocio o del profesional. Vive aquí porque lo escribe el correo y lo
+ * ofrece el panel, y una sola redacción evita que las dos superficies digan
+ * cosas distintas del mismo motivo.
+ */
+export const MOTIVO_PARA_EL_CLIENTE: Record<CancelReason, string> = {
+  [CancelReason.CLIENTE_CANCELA]: "Cancelaste la cita",
+  [CancelReason.NEGOCIO_CANCELA]: "El negocio canceló la cita",
+  [CancelReason.PROFESIONAL_NO_DISPONIBLE]: "El profesional no está disponible",
+  [CancelReason.DUPLICADA]: "La cita estaba duplicada",
+  [CancelReason.OTRO]: "Otro motivo",
+};
+
+/**
+ * Motivo tipificado, redactado para el cliente. Nunca devuelve la nota interna:
+ * ese texto se escribe «para el historial» y no está pensado para salir del
+ * negocio.
+ */
+export function motivoParaElCliente(motivo?: string | null): string {
+  return (
+    MOTIVO_PARA_EL_CLIENTE[motivo as CancelReason] ?? "Sin motivo especificado"
+  );
+}

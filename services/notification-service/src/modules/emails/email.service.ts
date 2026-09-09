@@ -308,7 +308,12 @@ export class EmailService {
       clientName: string;
       professionalName: string;
       serviceName: string;
+      /** Fecha y hora de la cita que se cancela. */
+      appointmentDate: string;
+      appointmentTime: string;
+      /** Cuándo se canceló, que no es cuándo era la cita. */
       cancelledDate: string;
+      /** Motivo tipificado y redactado para el cliente, nunca la nota interna. */
       reason: string;
       businessName: string;
     }

@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import * as handlebars from "handlebars";
 import { promises as fs } from "fs";
 import * as path from "path";
+import { fechaEnCastellano, horaEnCastellano } from "./fechas-en-castellano";
 
 /** Carpeta desde la que se cargan las plantillas compiladas junto al código. */
 const CARPETA = path.join(__dirname, "templates");
@@ -19,8 +20,21 @@ export class PlantillasService implements OnModuleInit {
   private readonly logger = new Logger(PlantillasService.name);
   private readonly plantillas = new Map<string, handlebars.TemplateDelegate>();
 
+  /**
+   * Formatea fechas y horas dentro de las plantillas: `{{fecha date}}` y
+   * `{{hora startTime}}`. Sin ellos, los correos escribían los valores tal como
+   * viajan por el bus (`2026-08-25`, `20:00`), que no es como el producto le
+   * habla al cliente en ninguna otra parte.
+   */
+  private registrarAyudantes(): void {
+    handlebars.registerHelper("fecha", fechaEnCastellano);
+    handlebars.registerHelper("hora", horaEnCastellano);
+  }
+
   /** Compila todas las `.hbs` de la carpeta; sin ellas no se arranca. */
   async onModuleInit(): Promise<void> {
+    this.registrarAyudantes();
+
     let ficheros: string[];
     try {
       ficheros = (await fs.readdir(CARPETA)).filter((f) => f.endsWith(".hbs"));

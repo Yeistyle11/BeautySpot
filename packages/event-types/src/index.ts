@@ -206,9 +206,11 @@ export type AppointmentCancelledEvent = IBaseEvent<
   AppointmentCreatedPayload & {
     /** Nota libre de quien cancela. */
     cancelReason?: string;
-    /** Motivo tipificado, del enum `CancelReason`. */
+    /** Motivo tipificado, del enum `CancelReason`. Es el que se le enseña al cliente. */
     cancelReasonType?: string;
     cancelledBy?: string;
+    /** Instante en que se canceló, que no es la fecha de la cita. */
+    cancelledAt?: string;
   }
 >;
 export type AppointmentCompletedEvent = IBaseEvent<
