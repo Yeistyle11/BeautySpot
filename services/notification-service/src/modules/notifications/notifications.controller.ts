@@ -22,11 +22,9 @@ import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import { Role } from "@beautyspot/shared-types";
 
 /**
- * Endpoints de las notificaciones in-app del usuario autenticado.
- *
- * El destinatario sale siempre del token, así que el negocio sólo acota el
- * listado: quien lo envíe verá sus notificaciones de ese negocio y quien no —el
- * cliente final, que no pertenece a ninguno— las verá todas.
+ * Endpoints de las notificaciones in-app del usuario autenticado. El
+ * destinatario sale del token y el negocio sólo acota el listado: el cliente
+ * final, que no pertenece a ninguno, las ve todas.
  */
 @Controller("notifications")
 @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL, Role.CLIENT)
@@ -59,13 +57,11 @@ export class NotificationsController {
     return this.service.getUnreadCount(userId, businessId);
   }
 
-  /** Marca una notificación como leída. */
   @Post(":id/read")
   markAsRead(@Param("id") id: string, @CurrentUser("userId") userId: string) {
     return this.service.markAsRead(id, userId);
   }
 
-  /** Marca todas las notificaciones del usuario como leídas. */
   @Post("mark-all-read")
   markAllAsRead(
     @CurrentUser("userId") userId: string,
@@ -84,7 +80,6 @@ export class NotificationsController {
 export class InternalNotificationsController {
   constructor(private readonly service: NotificationsService) {}
 
-  /** Crea una notificación a petición de otro microservicio. */
   @Post()
   create(@Body() dto: CreateNotificationDto) {
     return this.service.create(dto);

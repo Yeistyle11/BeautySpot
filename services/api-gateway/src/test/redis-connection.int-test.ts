@@ -1,12 +1,9 @@
 import Redis from "ioredis";
 
 /**
- * Smoke test de integración: el api-gateway no tiene base de datos propia, así
- * que su dependencia de infraestructura es Redis (rate limiting, caché de
- * tenants y lista de sesiones revocadas). Verifica que puede conectarse al
- * Redis de test de docker-compose.test.yml, vía las REDIS_* de .env.test.
- *
- * Requiere la infraestructura de test levantada; se ejecuta con `npm run test:int`.
+ * Smoke test de integración: el api-gateway no tiene base propia, así que su
+ * dependencia de infraestructura es Redis (rate limiting, caché de tenants y
+ * sesiones revocadas). Comprueba que conecta con el de test (`test:int`).
  */
 describe("Integración: conexión a Redis de test", () => {
   let redis: Redis;

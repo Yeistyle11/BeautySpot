@@ -18,10 +18,9 @@ export interface HorarioDelNegocio {
 }
 
 /**
- * Minutos de cierre contando la madrugada como continuación del mismo día: un
- * negocio que abre a las 20:00 y cierra a las 02:00 cierra en el minuto 1560,
- * no en el 120. Es la misma convención que usa el selector de hora de cierre, y
- * la que deja que la rejilla pinte «24:30» como las 12:30 am.
+ * Minutos de cierre contando la madrugada como continuación del mismo día: quien
+ * abre a las 20:00 y cierra a las 02:00 cierra en el minuto 1560. Es la
+ * convención del selector de cierre, y la que pinta «24:30» como 12:30 am.
  */
 function cierreEnMinutos(horario: HorarioDelNegocio): number {
   const apertura = timeToMinutes(horario.openTime);
@@ -31,10 +30,8 @@ function cierreEnMinutos(horario: HorarioDelNegocio): number {
 
 /**
  * Horas que hay que pintar para que quepa todo lo que hay que enseñar: las
- * citas, los bloqueos y la jornada que el negocio declara.
- *
- * Sin el horario, una rejilla fija deja fuera al negocio que abre de noche y le
- * enseña una semana vacía con aspecto de disponible, que es peor que no servir.
+ * citas, los bloqueos y la jornada que el negocio declara. Sin el horario, una
+ * rejilla fija deja fuera al negocio que abre de noche.
  */
 export function franjaDeHoras(
   tramos: Tramo[],

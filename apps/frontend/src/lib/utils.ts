@@ -17,12 +17,8 @@ export function formatCurrency(amount: number): string {
 
 /**
  * Presenta una tasa como porcentaje, con un decimal solo cuando lo tiene: 7 %
- * se escribe «7%» y 6,7 % se escribe «6.7%».
- *
- * Es la unica forma en que el producto escribe una tasa. El panel le anadia un
- * decimal fijo que siempre era `.0` —sugiriendo una exactitud que el dato no
- * tenia— mientras Reportes imprimia el numero crudo, asi que la misma cifra
- * salia distinta en dos pantallas.
+ * se escribe «7%» y 6,7 % se escribe «6.7%». Es la unica forma en que el
+ * producto escribe una tasa, en el panel y en Reportes.
  */
 export function formatPorcentaje(valor: number): string {
   return `${Number(valor.toFixed(1))}%`;
@@ -84,11 +80,9 @@ export function fechasDeLaSemana(date: string): string[] {
 }
 
 /**
- * Indica si una cita ("YYYY-MM-DD" + "HH:MM") ya ha empezado.
- *
- * Compara las cadenas tal cual, lo que solo funciona con ese formato exacto y
- * con las horas rellenadas a dos digitos; una hora "9:00" se ordenaria despues
- * de "10:00". Ambos lados se toman en hora local, sin zona horaria.
+ * Indica si una cita ("YYYY-MM-DD" + "HH:MM") ya ha empezado. Compara las
+ * cadenas tal cual, asi que exige ese formato con las horas a dos digitos: un
+ * "9:00" se ordenaria despues de "10:00". Ambos lados van en hora local.
  */
 export function haComenzado(date: string, startTime: string): boolean {
   const ahora = new Date();

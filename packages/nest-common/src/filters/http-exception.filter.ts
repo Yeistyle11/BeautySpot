@@ -13,15 +13,9 @@ import {
 } from "../database/errores-de-postgres";
 
 /**
- * Filtro global que normaliza cualquier excepción a un cuerpo de error uniforme
- * ({ success:false, error:{ code, message, details }, statusCode, timestamp }).
- *
- * Traduce los errores de validación (mensajes en arreglo) y los estados HTTP más
- * comunes a códigos estables, y solo registra en el log los fallos 5xx.
- *
- * Traduce también los errores del driver que delatan una entrada inválida —el
- * identificador que no es un UUID, el valor fuera de un catálogo—, que sin
- * regla propia se registrarían como fallos del servidor.
+ * Filtro global que normaliza cualquier excepción al sobre de error uniforme,
+ * registra solo los 5xx y traduce a 4xx lo que el driver delata como entrada
+ * inválida: el id que no es UUID, el valor fuera de catálogo.
  */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {

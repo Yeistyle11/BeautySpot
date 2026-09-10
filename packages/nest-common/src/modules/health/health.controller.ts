@@ -10,7 +10,6 @@ export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 
   @Get()
-  /** Informa del estado del servicio y de sus dependencias. */
   async check(
     @Res({ passthrough: true }) res: Response
   ): Promise<ResultadoSalud> {

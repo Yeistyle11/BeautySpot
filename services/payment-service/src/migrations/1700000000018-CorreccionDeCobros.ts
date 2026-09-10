@@ -1,15 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Traza de la corrección de un cobro.
- *
- * Un importe mal tecleado en el mostrador —300.000 por 30.000— no tenía
- * remedio: el listado ofrecía un botón de editar que llamaba a una ruta
- * inexistente. Corregirlo tiene que dejar constancia de quién lo hizo y por
- * qué, igual que ya la deja una devolución.
- *
- * Las tres columnas van vacías en los cobros que nadie ha corregido, que son
- * todos los que existen hoy.
+ * Traza de la corrección de un cobro: quién la hizo y por qué, igual que la
+ * deja una devolución. Las tres columnas van vacías en los cobros que nadie ha
+ * corregido.
  */
 export class CorreccionDeCobros1700000000018 implements MigrationInterface {
   name = "CorreccionDeCobros1700000000018";

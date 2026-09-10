@@ -2,12 +2,8 @@ import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
  * Fecha en la que el perfil llegó al escaparate, que es lo que mide «Recién
- * llegados». Antes la sección filtraba por la fecha de creación de la fila, que
- * nace con el borrador: un negocio podía publicarse hoy y no aparecer nunca
- * entre los recién llegados porque su borrador era de hace meses.
- *
- * Los ya publicados se sellan con su fecha de creación, que es la única
- * aproximación que hay: no se guardó en ninguna parte cuándo se publicaron.
+ * llegados»; la de creación de la fila nace con el borrador. Los ya publicados
+ * se sellan con esa fecha, que es la única aproximación que hay.
  */
 export class PublicacionDelPerfil1700000000011 implements MigrationInterface {
   name = "PublicacionDelPerfil1700000000011";

@@ -234,9 +234,8 @@ describe("createAppFactory", () => {
   describe("arranque", () => {
     it("no deja que Nest mate el proceso por su cuenta", async () => {
       // Nest envuelve los métodos de la aplicación en una zona cuyo cierre por
-      // defecto es process.exit(1): preguntar por un proveedor que el servicio
-      // no registra mataba el arranque sin pasar por ningún catch. Con esto el
-      // error sube hasta bootstrapMicroservice, que lo registra y sale.
+      // defecto es process.exit(1). Con `abortOnError: false` el error sube
+      // hasta bootstrapMicroservice, que lo registra y sale.
       await createMicroserviceApp({} as any);
 
       expect(NestFactoryMock.create).toHaveBeenCalledWith(

@@ -12,11 +12,9 @@ const NEGOCIO = "11111111-1111-4111-8111-111111111111";
 const SERVICIO = "cccccccc-cccc-4ccc-8ccc-ccccccccccc1";
 
 /**
- * Comprueba contra Postgres real que guardar con una versión vieja se rechaza
- * (`npm run test:int`). El test unitario no puede: lo que aquí se demuestra es
- * que la marca sobrevive al viaje por la base —`timestamptz` guarda
- * microsegundos y el driver los devuelve en milisegundos—, así que dos personas
- * editando a la vez chocan, pero una sola guardando dos veces no.
+ * Comprueba contra Postgres real que guardar con una versión vieja se rechaza:
+ * la marca sobrevive al viaje por la base —`timestamptz` guarda microsegundos y
+ * el driver los da en milisegundos— (`npm run test:int`).
  */
 describe("Integración: dos ediciones a la vez", () => {
   let dataSource: DataSource;

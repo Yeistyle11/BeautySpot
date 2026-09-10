@@ -52,9 +52,8 @@ export class UsersService {
 
   /**
    * Versión de token guardada del usuario, leída de la tabla y no de la caché:
-   * es la respuesta que los demás servicios usan para comprobar una revocación
-   * cuando Redis no tiene el dato. Un usuario que ya no existe da 0, que es lo
-   * mismo que una cuenta que nunca revocó nada.
+   * es la que consultan los demás servicios cuando Redis no tiene el dato. Un
+   * usuario que ya no existe da 0, como quien nunca revocó nada.
    */
   async versionDeToken(id: string): Promise<number> {
     const row = await this.userRepository.findOne({

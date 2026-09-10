@@ -86,7 +86,6 @@ export class ReviewsController {
     );
   }
 
-  /** Reseñas de una cita concreta. */
   @Get("appointment/:appointmentId")
   @Roles(Role.CLIENT)
   @SkipBusinessScope()
@@ -96,7 +95,6 @@ export class ReviewsController {
     return this.service.findByAppointment(appointmentId);
   }
 
-  /** Obtiene una reseña por id. */
   @Get(":id")
   @Public()
   async findById(@Param("id", ParseUUIDPipe) id: string) {
@@ -127,7 +125,6 @@ export class ReviewsController {
     return { deleted: true };
   }
 
-  /** Publica la respuesta del negocio a una reseña. */
   @Post(":id/respond")
   @Roles(Role.OWNER, Role.ADMIN)
   async respond(
@@ -138,7 +135,6 @@ export class ReviewsController {
     return this.service.respond(id, businessId, dto.response);
   }
 
-  /** Reescribe la respuesta del negocio. */
   @Patch(":id/respond")
   @Roles(Role.OWNER, Role.ADMIN)
   async editarRespuesta(
@@ -170,7 +166,6 @@ export class ReviewsController {
     return this.service.denunciar(id, userId, dto);
   }
 
-  /** Oculta o vuelve a publicar una reseña del negocio. */
   @Patch(":id/moderar")
   @Roles(Role.OWNER, Role.ADMIN)
   async moderar(
@@ -192,7 +187,6 @@ export class ReviewsController {
     return { marked: true };
   }
 
-  /** Quita el voto de "útil" de una reseña. */
   @Delete(":id/helpful")
   @SkipBusinessScope()
   async unmarkHelpful(

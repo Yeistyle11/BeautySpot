@@ -2,10 +2,9 @@ import { cambiosDelCliente } from "../schemas";
 import type { ClientForm } from "../client-form-dialog";
 
 /**
- * Dos personas sobre la misma ficha: el formulario enviaba todos los campos,
- * asi que guardar el nombre desde una pestana vieja devolvia el telefono al
- * valor que esa pestana tenia cargado y el cambio de la otra se perdia sin
- * aviso. Enviar solo lo modificado acota el choque al mismo campo.
+ * Dos personas sobre la misma ficha: enviar solo lo modificado acota el choque
+ * al mismo campo, en vez de que guardar el nombre desde una pestana vieja
+ * devuelva el telefono al valor que esa pestana tenia cargado.
  */
 
 const CARGADO: ClientForm = {
@@ -26,8 +25,8 @@ describe("cambiosDelCliente", () => {
   });
 
   it("no reenvía el teléfono que esta pestaña no tocó", () => {
-    // Es el escenario del informe: B guardó un teléfono nuevo y A, que sigue
-    // mostrando el viejo, guarda el nombre. El teléfono no debe viajar.
+    // B guardó un teléfono nuevo y A, que sigue mostrando el viejo, guarda el
+    // nombre. El teléfono no debe viajar.
     const editado = { ...CARGADO, name: "Otro nombre" };
 
     expect(cambiosDelCliente(CARGADO, editado)).not.toHaveProperty("phone");

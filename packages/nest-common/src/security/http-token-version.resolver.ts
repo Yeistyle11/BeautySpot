@@ -10,12 +10,8 @@ interface RespuestaDeVersion {
 
 /**
  * TokenVersionResolver de los servicios que no son dueños de la tabla de
- * usuarios: pregunta a auth por HTTP interno.
- *
- * Con él, perder la clave de Redis deja de reactivar un token revocado en todo
- * el sistema y no solo en auth. La llamada no se hace en cada petición:
- * TokenVersionStore consulta Redis primero y solo baja aquí cuando falta el
- * dato, y repuebla la caché con lo que reciba.
+ * usuarios: pregunta a auth por HTTP interno. No va en cada petición, solo
+ * cuando falta el dato en Redis, y lo que reciba repuebla la caché.
  */
 @Injectable()
 export class HttpTokenVersionResolver implements TokenVersionResolver {

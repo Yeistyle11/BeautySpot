@@ -1,15 +1,7 @@
 /**
- * Reloj del negocio.
- *
- * Las citas guardan `date` (columna `date`) y `startTime` (`HH:mm`) como hora de
- * pared del local, sin huso: una cita de las 10:00 son las 10:00 allí, viva
- * donde viva el servidor.
- *
- * La lógica vive en `@beautyspot/shared-utils`, compartida con analytics y
- * payment. Aquí quedan los envoltorios que usan el huso **por defecto**, para lo
- * que no tiene un negocio al que preguntar. Todo lo que sí conoce su
- * `businessId` —agenda, reservas, reagendado, recordatorios— resuelve el huso
- * con `ZonaDelNegocioService`.
+ * Reloj del negocio: las citas guardan `date` y `startTime` como hora de pared
+ * del local. Aquí quedan los envoltorios del huso por defecto; lo que conoce su
+ * `businessId` resuelve el huso con `ZonaDelNegocioService`.
  */
 import {
   ahoraEnLaZona,

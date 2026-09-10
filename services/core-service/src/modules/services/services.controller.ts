@@ -20,7 +20,6 @@ import { CreateServiceDto, UpdateServiceDto } from "./dto/service.dto";
 export class ServicesController {
   constructor(private readonly service: ServicesService) {}
 
-  /** Crea un servicio en el catálogo del negocio. */
   @Post()
   async create(
     @BusinessId() businessId: string,
@@ -39,7 +38,6 @@ export class ServicesController {
     return this.service.findByBusiness(businessId, active === "true");
   }
 
-  /** Obtiene un servicio por id. */
   @Get(":id")
   async findById(
     @Param("id", ParseUUIDPipe) id: string,
@@ -68,7 +66,6 @@ export class ServicesController {
     );
   }
 
-  /** Da de baja un servicio del catálogo. */
   @Delete(":id")
   async remove(
     @Param("id", ParseUUIDPipe) id: string,

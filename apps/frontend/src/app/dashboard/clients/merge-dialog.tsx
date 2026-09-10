@@ -28,9 +28,7 @@ function contactoDe(cliente: Client): string {
 }
 
 /**
- * Fusion de dos fichas del mismo cliente. Los duplicados aparecen en cualquier
- * cartera —la misma persona da otro telefono, se apunta con el correo del
- * trabajo, o se teclea mal un nombre— y sin fusion el salon se queda con dos
+ * Fusion de dos fichas del mismo cliente. Sin ella el salon se queda con dos
  * historiales a medias: en un centro estetico eso parte la ficha de alergias y
  * la formula de color.
  */

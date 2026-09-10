@@ -1,14 +1,7 @@
 /**
- * Fuente autoritativa y duradera de la versión de token de un usuario.
- *
- * TokenVersionStore usa Redis como caché de lectura, pero Redis es volátil:
- * un FLUSHALL, un failover o una evicción por maxmemory devolvería todas las
- * versiones a cero y revalidaría tokens ya revocados. El servicio que posee la
- * tabla de usuarios (auth-service) implementa esta interfaz sobre su base de
- * datos para que la revocación sobreviva a la pérdida de Redis.
- *
- * Los servicios que no la proveen operan solo con Redis: su ventana de riesgo
- * queda acotada a la vigencia del access token (15m por defecto).
+ * Fuente autoritativa y duradera de la versión de token de un usuario: auth la
+ * implementa sobre su base, de modo que la revocación sobreviva a Redis. Quien
+ * no la provee opera solo con la caché, con la ventana del access token.
  */
 export interface TokenVersionResolver {
   /** Lee la versión persistida del usuario. Devuelve 0 si el usuario no existe. */

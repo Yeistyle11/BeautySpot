@@ -22,10 +22,9 @@ export const galleryImageSchema = z.object({
 });
 export type GalleryImage = z.infer<typeof galleryImageSchema>;
 
-// Se aceptan como cadena suelta a proposito: si el schema exigiera una URL
-// valida, un enlace mal tecleado por el negocio tumbaria el perfil entero en vez
-// de un solo enlace. El filtro de protocolo se aplica al pintarlos, con
-// hrefSeguro (lib/url.ts).
+// Se aceptan como cadena suelta a proposito: exigir una URL valida haria que un
+// enlace mal tecleado tumbara el perfil entero. El filtro de protocolo se aplica
+// al pintarlos, con hrefSeguro (lib/url.ts).
 export const socialLinksSchema = z.object({
   instagram: z.string().nullish(),
   facebook: z.string().nullish(),
@@ -87,9 +86,8 @@ export type ServicioPublico = z.infer<typeof servicioPublicoSchema>;
 
 /**
  * Profesional tal como lo publica
- * `GET /core/public/businesses/:id/professionals`. Es la ficha de trabajo, sin
- * los adornos del escaparate (relato, portafolio), y sirve de respaldo cuando
- * el negocio aún no ha personalizado su equipo en el marketplace.
+ * `GET /core/public/businesses/:id/professionals`: la ficha de trabajo, sin los
+ * adornos del escaparate, que sirve de respaldo hasta que el negocio lo edite.
  */
 export const profesionalPublicoSchema = z.object({
   id: z.string(),

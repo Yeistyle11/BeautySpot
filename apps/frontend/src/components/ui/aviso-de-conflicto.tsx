@@ -11,10 +11,9 @@ interface AvisoDeConflictoProps {
 }
 
 /**
- * Va dentro del formulario y no en un aviso efimero: el que se va solo deja a
- * quien guardaba sin saber que paso con lo que escribio, y aqui hay algo que
- * decidir. Lo escrito sigue en pantalla hasta que se pulsa Recargar, que es lo
- * que lo cambia por la version guardada.
+ * Va dentro del formulario y no en un aviso efimero: aqui hay algo que decidir,
+ * y lo escrito sigue en pantalla hasta que se pulsa Recargar, que es lo que lo
+ * cambia por la version guardada.
  */
 export function AvisoDeConflicto({
   mensaje,

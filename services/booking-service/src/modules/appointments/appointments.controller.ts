@@ -181,7 +181,6 @@ export class AppointmentsController {
     );
   }
 
-  /** Obtiene una cita por id. */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
   @Get(":id")
   async findById(
@@ -191,7 +190,6 @@ export class AppointmentsController {
     return this.service.findById(id, businessId);
   }
 
-  /** Confirma una cita pendiente. */
   @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL)
   @Post(":id/confirm")
   async confirm(
@@ -237,7 +235,6 @@ export class AppointmentsController {
     });
   }
 
-  /** Marca la cita como "no asistió". */
   @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL)
   @Post(":id/no-show")
   async noShow(
@@ -247,7 +244,6 @@ export class AppointmentsController {
     return this.service.markNoShow(id, businessId);
   }
 
-  /** Reagenda la cita a una nueva fecha/hora. */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Patch(":id/reschedule")
   async reschedule(

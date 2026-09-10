@@ -42,13 +42,8 @@ export async function paginate<T extends ObjectLiteral>(
 
 /**
  * Pagina una consulta ya construida con el query builder y devuelve el mismo
- * sobre que {@link paginate}. Existe porque `paginate` solo acepta un
- * repositorio: sin esto, todo listado que necesite un `join`, un filtro
- * calculado o un orden por distancia acaba reescribiendo la paginación a mano,
- * y con ella el sobre de la respuesta.
- *
- * El orden lo pone quien construye la consulta, que es el único que sabe si
- * ordena por una columna o por una expresión.
+ * sobre que {@link paginate}, que solo acepta repositorios. El orden lo pone
+ * quien construye la consulta, que sabe si ordena por columna o por expresion.
  */
 export async function paginarQueryBuilder<T extends ObjectLiteral>(
   qb: SelectQueryBuilder<T>,

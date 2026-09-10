@@ -17,17 +17,9 @@ function acumular<T>(mapa: Map<string, T>, clave: string, inicial: () => T): T {
 }
 
 /**
- * Las métricas agregadas del panel.
- *
- * En marcha las construye analytics-service escuchando el bus, evento a
- * evento; la siembra escribe directamente en la base, así que las calcula aquí
- * a partir de las mismas citas y cobros que acaba de sembrar. Salen por
- * construcción cuadradas con ellos, que es lo que importa para poder mirar el
- * panel y contrastarlo con la agenda.
- *
- * Los criterios son los del servicio, no otros: el ingreso es lo que entró por
- * cobros —sin la propina, que no es del negocio—, `ventas` cuenta cobros y no
- * citas, y la métrica se fecha por el día del cobro y no por el de proceso.
+ * Las métricas agregadas del panel. En marcha las construye analytics-service
+ * evento a evento; aquí se calculan de las citas y cobros recién sembrados, con
+ * sus mismos criterios: ingreso sin propina y fechado por el día del cobro.
  */
 export async function sembrarAnalytics(
   dataSource: DataSource,

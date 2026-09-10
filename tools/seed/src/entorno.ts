@@ -19,10 +19,9 @@ export const SERVICIOS = [
 export type Servicio = (typeof SERVICIOS)[number];
 
 /**
- * Lee el `DATABASE_URL` de un servicio de su propio `.env`, que es el mismo
- * fichero del que lo lee el servicio al arrancar. No se toca `process.env`: son
- * seis servicios con seis bases distintas y `dotenv` no pisa lo ya cargado, así
- * que la primera lectura ganaría para todas.
+ * Lee el `DATABASE_URL` de un servicio de su propio `.env`, el mismo del que lo
+ * lee al arrancar. No se toca `process.env`: son seis bases distintas y `dotenv`
+ * no pisa lo ya cargado, así que la primera lectura ganaría para todas.
  */
 function urlDeLaBase(servicio: Servicio): string {
   const ruta = join(RAIZ, "services", `${servicio}-service`, ".env");
@@ -62,9 +61,8 @@ function exigirBaseLocal(servicio: Servicio, url: string, forzar: boolean) {
 
 /**
  * Abre una conexión por base. `synchronize` deriva el esquema de las entidades,
- * que es exactamente lo que hace cada servicio fuera de producción
- * (`createTypeOrmModuleOptions`), así que la siembra también funciona sobre un
- * volumen recién creado, sin haber arrancado antes los servicios.
+ * igual que hace cada servicio fuera de producción, así que la siembra funciona
+ * sobre un volumen recién creado sin arrancar los servicios.
  */
 export async function conectar(
   servicio: Servicio,

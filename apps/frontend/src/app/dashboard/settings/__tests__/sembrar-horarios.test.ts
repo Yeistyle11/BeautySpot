@@ -1,10 +1,9 @@
 import { DAYS, sembrarHorarios, type BusinessHour } from "../schemas";
 
 /**
- * El horario del negocio se guardaba una sola vez: el formulario se sembraba
- * con las entidades tal como llegan de la API y las reenviaba enteras, con su
- * `id`, que el validador del backend rechaza. Estas pruebas fijan que lo
- * sembrado tenga exactamente la forma que admite BusinessHourItemDto.
+ * Fija que lo que siembra el formulario del horario tenga exactamente la forma
+ * que admite BusinessHourItemDto: la entidad llega con `id` y el validador del
+ * backend rechaza cualquier campo de mas.
  */
 
 const SABADO: BusinessHour = {

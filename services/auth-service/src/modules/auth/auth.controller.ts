@@ -41,7 +41,6 @@ export class AuthController {
     return this.authService.verifyEmail(dto.token);
   }
 
-  /** Reenvía el correo de confirmación. */
   @Public()
   @Post("resend-verification")
   @HttpCode(HttpStatus.OK)
@@ -81,7 +80,6 @@ export class AuthController {
     return this.authService.resetPassword(dto);
   }
 
-  /** Cambia la contraseña del usuario autenticado. */
   @SkipBusinessScope()
   @SesionVerificable()
   @Post("change-password")
@@ -93,7 +91,6 @@ export class AuthController {
     return this.authService.changePassword(userId, dto);
   }
 
-  /** Cierra la sesión del usuario autenticado. */
   @SkipBusinessScope()
   @Post("logout")
   @HttpCode(HttpStatus.OK)
@@ -101,7 +98,6 @@ export class AuthController {
     return this.authService.logout(userId);
   }
 
-  /** Devuelve el perfil del usuario autenticado. */
   @SkipBusinessScope()
   @Get("me")
   async getMe(@CurrentUser("userId") userId: string) {

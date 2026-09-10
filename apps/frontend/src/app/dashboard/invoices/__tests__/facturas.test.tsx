@@ -124,10 +124,9 @@ describe("InvoiceDetailDialog", () => {
   });
 });
 
-// La pantalla validaba `/payment/payments` como un array plano, pero es una ruta
-// paginada: el parseo fallaba, SWR dejaba los datos en undefined y el dialogo lo
-// pintaba como «No hay cobros completados que facturar», asi que no se podia
-// emitir ni una factura y el fallo se disfrazaba de estado vacio.
+// `/payment/payments` es una ruta paginada: validarla como un array plano deja
+// los datos en undefined y el dialogo lo pinta como «No hay cobros completados
+// que facturar», con lo que el fallo se disfraza de estado vacio.
 describe("contrato de la lista de cobros facturables", () => {
   const COBRO = {
     id: "pay-1",
@@ -222,8 +221,8 @@ describe("EmitirDialog", () => {
       "Ese cobro ya tiene una factura"
     );
   });
-  // Un fallo al pedir los cobros no es «no hay ninguno»: confundirlos dejaba la
-  // facturacion inservible sin que nadie lo reportara.
+  // Un fallo al pedir los cobros no es «no hay ninguno»: confundirlos deja la
+  // facturacion inservible sin que nadie lo note.
   it("distingue un fallo de carga de una lista vacia", () => {
     pintarEmitir({ cobros: [], errorAlCargar: new Error("boom") });
 

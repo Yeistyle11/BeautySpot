@@ -7,9 +7,9 @@ const MOTIVO =
   "Otra persona guardó cambios mientras editabas. Recarga para ver cómo ha quedado.";
 
 /**
- * Lo que el hallazgo pedía: que la segunda persona en guardar se entere. El
- * aviso vive dentro del formulario, no en uno de los que se van solos, porque
- * hay algo que decidir; y lo escrito sigue en pantalla hasta que se recarga.
+ * La segunda persona en guardar tiene que enterarse. El aviso vive dentro del
+ * formulario, no en uno de los que se van solos, porque hay algo que decidir; y
+ * lo escrito sigue en pantalla hasta que se recarga.
  */
 describe("aviso de edición simultánea", () => {
   it("la ficha de cliente lo enseña sin cerrar el formulario ni perder lo escrito", () => {

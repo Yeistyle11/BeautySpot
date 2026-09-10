@@ -48,10 +48,9 @@ export interface BookingConfirmation {
 }
 
 /**
- * Lo que hace falta para reservar. Al menos una via de contacto: sin telefono
- * ni correo el negocio no puede confirmar la vispera, ni avisar de un retraso,
- * ni recolocar el hueco si el cliente cancela, y el cliente no puede recuperar
- * su cita porque no dejo rastro con el que identificarse.
+ * Lo que hace falta para reservar. Al menos una via de contacto: sin telefono ni
+ * correo el negocio no puede confirmar ni recolocar el hueco, y el cliente no
+ * puede recuperar su cita porque no dejo con que identificarse.
  */
 export function datosDeReservaCompletos(guest: {
   name: string;

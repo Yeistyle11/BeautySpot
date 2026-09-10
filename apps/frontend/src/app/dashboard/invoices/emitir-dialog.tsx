@@ -25,9 +25,8 @@ interface EmitirDialogProps {
 
 /**
  * Emitir una factura es elegir el cobro que la origina: el importe, el cliente
- * y los servicios salen de él, en vez de teclear otra vez lo que ya está en el
- * sistema. Así la factura queda ligada al cobro y se puede responder de dónde
- * salió cada una.
+ * y los servicios salen de él, así que la factura queda ligada al cobro y se
+ * puede responder de dónde salió cada una.
  */
 export function EmitirDialog({
   open,
@@ -60,8 +59,7 @@ export function EmitirDialog({
           </p>
         ) : errorAlCargar ? (
           // Un fallo al pedirlos no es «no hay ninguno»: presentarlo como lista
-          // vacía dejaba la facturación inservible sin que nadie lo reportara,
-          // porque el dueño concluía que aún no tenía nada que facturar.
+          // vacía deja al dueño concluyendo que aún no tiene nada que facturar.
           <p role="alert" className="text-destructive py-6 text-center text-sm">
             No se pudieron cargar los cobros. {mensajeDeError(errorAlCargar)}
           </p>

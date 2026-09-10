@@ -17,10 +17,9 @@ export class ProcessedEventsStore {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
   /**
-   * Marca el evento y ejecuta `trabajo` en la misma transacción, sólo si este
-   * handler no lo había procesado.
-   *
-   * @returns true si se aplicó, false si ya estaba procesado.
+   * Marca el evento y ejecuta `trabajo` en la misma transacción, solo si este
+   * handler no lo había procesado. Devuelve true si se aplicó y false si ya
+   * estaba procesado.
    */
   async once(
     evento: EventoEntrante,

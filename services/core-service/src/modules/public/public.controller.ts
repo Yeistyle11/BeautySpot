@@ -14,7 +14,6 @@ export class PublicController {
     return this.publicService.listBusinesses(q, city);
   }
 
-  /** Devuelve el perfil público de un negocio por su slug. */
   @Get("businesses/slug/:slug")
   async getBusinessBySlug(@Param("slug") slug: string) {
     return this.publicService.getBusinessBySlug(slug);
@@ -32,7 +31,6 @@ export class PublicController {
     return this.publicService.getBusinessServices(businessId, professionalId);
   }
 
-  /** Lista los profesionales públicos de un negocio. */
   @Get("businesses/:id/professionals")
   async getBusinessProfessionals(
     @Param("id", ParseUUIDPipe) businessId: string

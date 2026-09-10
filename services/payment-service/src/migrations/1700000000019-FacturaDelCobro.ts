@@ -1,11 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Enlaza la factura con el cobro del que salió, que es lo que permite responder
- * de qué cobro nació cada factura y, al revés, si un cobro ya se facturó.
- *
- * El índice deja fuera las anuladas: volver a emitir es la única forma de
- * corregir una factura mal emitida, y con el número ya consumido.
+ * Enlaza la factura con el cobro del que salió, para poder responder de qué
+ * cobro nació cada factura y si un cobro ya se facturó. El índice deja fuera
+ * las anuladas: reemitir es la única forma de corregir una factura.
  */
 export class FacturaDelCobro1700000000019 implements MigrationInterface {
   name = "FacturaDelCobro1700000000019";

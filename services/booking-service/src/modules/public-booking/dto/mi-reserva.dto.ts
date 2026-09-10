@@ -16,15 +16,9 @@ import { EsFechaSola } from "@beautyspot/nest-common";
 import { EsHoraDelDia } from "../../../common/es-hora-del-dia.decorator";
 
 /**
- * Datos de una reserva hecha desde el escaparate con la sesión iniciada.
- *
- * **No lleva `userId` a propósito**, igual que la reserva de invitado: quien
- * reserva sale del token. Aceptarlo aquí dejaría reservar a nombre de otro, que
- * es justo el agujero que la ruta pública cierra.
- *
- * El contacto tampoco es obligatorio: el nombre y el correo de la cuenta ya los
- * conoce el sistema, así que estos campos solo sirven para corregir con qué
- * datos quiere que le avisen.
+ * Datos de una reserva del escaparate con la sesión iniciada. No lleva `userId`
+ * a propósito: quien reserva sale del token. El contacto tampoco es
+ * obligatorio, solo sirve para corregir con qué datos quiere que le avisen.
  */
 export class MiReservaDto {
   @IsUUID() businessId!: string;

@@ -139,11 +139,8 @@ export class AuthService {
 
   /**
    * Avisa al dueño de la cuenta de que alguien ha intentado darse de alta con
-   * su correo, y le recuerda por dónde se recupera una contraseña.
-   *
-   * Es lo que permite responder lo mismo exista o no la cuenta: quien prueba
-   * correos no aprende nada, y quien olvidó que ya tenía cuenta recibe la
-   * salida en el mismo sitio donde la esperaba.
+   * su correo y le recuerda por dónde se recupera una contraseña. Es lo que
+   * permite responder lo mismo exista o no la cuenta.
    */
   private async avisarDeAltaRepetida(user: User): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
@@ -380,11 +377,9 @@ export class AuthService {
   }
 
   /**
-   * Restablece la contraseña a partir de un token de recuperación.
-   *
-   * Consume el token usado y anula los demás pendientes del usuario, para que
-   * una cadena de solicitudes no deje varios tokens válidos en circulación.
-   * Al terminar revoca las sesiones abiertas incrementando la versión de token.
+   * Restablece la contraseña a partir de un token de recuperación. Consume el
+   * usado y anula los demás pendientes, para que una cadena de solicitudes no
+   * deje varios válidos, y revoca las sesiones abiertas.
    */
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
     const reset = await this.passwordResetRepository.findOne({
@@ -487,10 +482,8 @@ export class AuthService {
 
   /**
    * Valida credenciales y devuelve el usuario con sus membresías cargadas.
-   *
    * Compara siempre contra un hash —el real o uno señuelo— para que el tiempo
-   * de respuesta no revele si el email existe: un retorno temprano sin ejecutar
-   * bcrypt permitiría enumerar cuentas midiendo la latencia.
+   * de respuesta no permita enumerar cuentas.
    */
   private async validateUser(email: string, password: string): Promise<User> {
     const user = await this.userRepository.findOne({

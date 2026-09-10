@@ -2,11 +2,8 @@ import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
  * Deja el correo y el teléfono de los clientes en la forma canónica con la que
- * el alta los coteja: correo en minúsculas y teléfono solo con dígitos,
- * conservando el `+` inicial.
- *
- * Sin esto, una ficha guardada como "+57 300 123 4567" no casaría con la misma
- * persona reservando de nuevo, y se duplicaría.
+ * el alta los coteja: correo en minúsculas y teléfono solo con dígitos, con el
+ * `+` inicial. Sin ello, "+57 300 123 4567" no casa con la misma persona.
  */
 export class NormalizarContactoDeClientes1700000000006 implements MigrationInterface {
   name = "NormalizarContactoDeClientes1700000000006";

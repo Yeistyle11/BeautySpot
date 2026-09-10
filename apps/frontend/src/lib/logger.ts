@@ -1,10 +1,8 @@
 const isDev = process.env.NODE_ENV !== "production";
 
-// Para errores de negocio ya manejados (formularios, mutaciones fallidas):
-// util de depuracion en desarrollo, silencioso en produccion. Los error
-// boundaries (app/error.tsx, app/global-error.tsx, etc.) usan console.error
-// directo a proposito -- esos SI deben sobrevivir en produccion (ver
-// next.config.js: removeConsole.exclude: ["error"]).
+// Para errores de negocio ya manejados (formularios, mutaciones fallidas): util
+// de depuracion en desarrollo, silencioso en produccion. Los error boundaries
+// usan console.error directo, que si sobrevive en produccion.
 export const logger = {
   error: (...args: unknown[]) => {
     if (isDev) console.error(...args);

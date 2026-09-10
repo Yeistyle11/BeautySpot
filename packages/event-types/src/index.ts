@@ -55,11 +55,9 @@ export type EmailVerificationRequestedEvent =
   IBaseEvent<EmailVerificationRequestedPayload>;
 
 /**
- * Alguien intentó darse de alta con un correo que ya tiene cuenta.
- *
- * El alta responde lo mismo exista o no la cuenta, para no revelar qué correos
- * están registrados; este aviso es lo que le dice a su dueño lo que ha pasado y
- * le da la salida, que es recuperar la contraseña.
+ * Alguien intentó darse de alta con un correo que ya tiene cuenta. El alta
+ * responde lo mismo exista o no, así que este aviso es lo que se lo dice a su
+ * dueño y le ofrece la salida: recuperar la contraseña.
  */
 export interface RegistroDuplicadoPayload {
   email: string;
@@ -146,9 +144,7 @@ export type ClientCreatedEvent = IBaseEvent<ClientCreatedPayload>;
  */
 export interface ClientMergedPayload {
   businessId: string;
-  /** Ficha que se conserva y se queda con todo. */
   supervivienteId: string;
-  /** Ficha fusionada, que ya no debe tener nada colgando. */
   absorbidoId: string;
 }
 
@@ -180,8 +176,7 @@ export interface AppointmentCreatedPayload {
   appointmentId: string;
   businessId: string;
   /**
-   * Sede donde se atiende. Opcional porque los eventos ya encolados no lo
-   * llevan: se empezó a enviar después de que la cita tuviera sede.
+   * Sede donde se atiende. Opcional: un evento ya encolado puede no llevarla.
    */
   branchId?: string;
   clientId: string;
@@ -273,10 +268,9 @@ export interface PaymentRegisteredPayload {
 export type PaymentRegisteredEvent = IBaseEvent<PaymentRegisteredPayload>;
 
 /**
- * Correccion de un cobro ya registrado. Lleva la diferencia ademas del importe
- * nuevo porque quien agrega ingresos necesita ajustar lo que ya sumo, no
- * volver a sumarlo; y lleva el dia del cobro original para no atribuir la
- * correccion al dia en que se hizo.
+ * Correccion de un cobro ya registrado. Lleva la diferencia además del importe
+ * nuevo -quien agrega ingresos ajusta lo sumado, no lo vuelve a sumar- y el dia
+ * del cobro original, para no atribuir la correccion al dia en que se hizo.
  */
 export interface PaymentCorrectedPayload {
   paymentId: string;
@@ -459,9 +453,8 @@ export const EventNames = {
 
 /**
  * Eventos cuyo payload transporta un secreto de un solo uso: el enlace de
- * restablecimiento de contraseña y el de confirmación de correo. El relay borra
- * su fila del outbox en cuanto los publica, en lugar de conservarla hasta la
- * purga, para que el secreto no siga legible en la base después de entregarse.
+ * contraseña y el de confirmacion de correo. El relay borra su fila del outbox
+ * al publicarlos, para que el secreto no siga legible en la base.
  */
 export const EVENTOS_CON_SECRETO: readonly string[] = [
   EventNames.AUTH_PASSWORD_RESET_REQUESTED,

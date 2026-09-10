@@ -67,7 +67,6 @@ const PROFESSIONALS_KEY = "/core/professionals";
 const CATEGORIES_KEY = "/core/categories";
 const SERVICES_KEY = "/core/services";
 
-/** Semana sin ningun tramo. */
 function semanaVacia(): Record<number, DayHours> {
   return Object.fromEntries(DAYS_MAP.map((d) => [d.value, []]));
 }

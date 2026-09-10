@@ -151,8 +151,8 @@ describe("ClientsService", () => {
       );
     });
 
-    // BS-020: el mismo móvil dictado con indicativo en el marketplace y sin él
-    // en el mostrador creaba dos fichas de la misma persona.
+    // El mismo móvil dictado con indicativo en el marketplace y sin él en el
+    // mostrador es una sola persona, no dos fichas.
     it("reconoce la ficha existente aunque el teléfono se escriba de otra forma", async () => {
       mockRepo.findOne.mockResolvedValue(mockClient as any);
 
@@ -784,9 +784,9 @@ describe("ClientsService", () => {
     });
   });
 
-  // El descuento decide el importe de un cobro, asi que la condicion tiene que
-  // ir dentro del UPDATE: leer el saldo y escribirlo despues dejaba que dos
-  // canjes simultaneos gastaran el mismo.
+  // El descuento decide el importe de un cobro, asi que la condicion va dentro
+  // del UPDATE: leer el saldo y escribirlo despues deja que dos canjes
+  // simultaneos gasten el mismo.
   describe("redeemLoyaltyPoints", () => {
     /** Constructor de consulta que dice cuantas filas tocó el UPDATE. */
     function updateQueQueda(affected: number) {
@@ -913,7 +913,7 @@ describe("ClientsService", () => {
       expect(mockRepo.findAndCount).not.toHaveBeenCalled();
     });
 
-    // El hallazgo en una línea: ni la cartera entera ni los datos personales.
+    // Ni la cartera entera ni los datos personales.
     it("acota a los clientes atendidos y solo devuelve id y nombre", async () => {
       await service.findByBusinessParaProfesional(
         "business-123",

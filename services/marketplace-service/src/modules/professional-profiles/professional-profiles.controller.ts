@@ -13,7 +13,6 @@ import { Role } from "@beautyspot/shared-types";
 export class ProfessionalProfilesController {
   constructor(private readonly service: ProfessionalProfilesService) {}
 
-  /** Actualiza el perfil público de un profesional. */
   @Put(":professionalId")
   @Roles(Role.OWNER, Role.ADMIN)
   async updateProfile(

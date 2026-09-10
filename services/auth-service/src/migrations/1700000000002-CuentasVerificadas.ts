@@ -1,10 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Añade la confirmación de correo y el bloqueo por intentos fallidos.
- *
- * Las cuentas que ya existen quedan marcadas como verificadas: nunca recibieron
- * el correo de confirmación y exigírselo ahora las dejaría fuera.
+ * Añade la confirmación de correo y el bloqueo por intentos fallidos. Las
+ * cuentas que ya existen quedan marcadas como verificadas: nunca recibieron el
+ * correo de confirmación y exigírselo las dejaría fuera.
  */
 export class CuentasVerificadas1700000000002 implements MigrationInterface {
   name = "CuentasVerificadas1700000000002";

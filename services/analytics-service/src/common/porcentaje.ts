@@ -2,13 +2,9 @@
 const DECIMALES = 1;
 
 /**
- * Porcentaje de `part` sobre `total`, con un decimal; 0 si el total es cero.
- *
- * Redondear a entero borraba justo el movimiento que la tasa sirve para
- * vigilar: en un salón con trescientas citas al mes, una caída del 92,4 % al
- * 91,6 % se leía como «92 % → 92 %», es decir, no se veía. El decimal es
- * también lo que evita que dos pantallas del mismo producto den «7 %» y «7.0 %»
- * para el mismo dato.
+ * Porcentaje de `part` sobre `total`, con un decimal; 0 si el total es cero. El
+ * decimal es lo que deja ver el movimiento que la tasa vigila —del 92,4 % al
+ * 91,6 %— y lo que evita que dos pantallas den «7 %» y «7.0 %».
  */
 export function porcentaje(part: number, total: number): number {
   if (total <= 0) return 0;

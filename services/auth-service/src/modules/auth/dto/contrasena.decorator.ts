@@ -33,9 +33,8 @@ function NoEsContrasenaComun(): PropertyDecorator {
 
 /**
  * Reglas de una contraseña nueva, iguales en registro, cambio y recuperación.
- *
- * Solo se aplican a las contraseñas que se fijan a partir de ahora: las ya
- * guardadas son hashes y no se pueden reevaluar.
+ * Solo alcanzan a las que se fijan desde ahora: las guardadas son hashes y no
+ * se pueden reevaluar.
  */
 export function EsContrasenaValida(): PropertyDecorator {
   return applyDecorators(

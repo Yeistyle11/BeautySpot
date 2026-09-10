@@ -90,12 +90,8 @@ export class PublicService {
 
   /**
    * Lista los servicios activos de un negocio para su perfil público, con el
-   * precio y la duración que de verdad se van a aplicar.
-   *
-   * Con profesional elegido se resuelve su tarifa, que es la que la agenda
-   * cobrará; sin él el precio aún no está decidido —el servidor elige
-   * profesional al reservar—, así que se devuelve el del catálogo marcando
-   * cuáles pueden variar.
+   * precio y la duración que se van a aplicar. Con profesional elegido va su
+   * tarifa; sin él, la del catálogo marcando cuáles pueden variar.
    */
   async getBusinessServices(
     businessId: string,

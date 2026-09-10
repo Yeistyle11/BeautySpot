@@ -41,10 +41,8 @@ const emptyForm = {
 };
 
 /**
- * Comprueba el formulario antes de enviarlo.
- *
- * Es propia y no la del navegador, para que los mensajes sean los mismos que
- * en el resto de la aplicación.
+ * Comprueba el formulario antes de enviarlo. Es propia y no la del navegador,
+ * para que los mensajes sean los mismos que en el resto de la aplicación.
  */
 function validar(form: typeof emptyForm, modo: ModoAuth): string {
   if (!form.email.trim()) return "Escribe tu email";

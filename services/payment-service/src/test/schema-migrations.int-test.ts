@@ -5,9 +5,8 @@ import { entities } from "../orm-entities";
 
 /**
  * Comprueba contra Postgres real que las migraciones reproducen el esquema que
- * TypeORM deduce de las entidades: `createSchemaBuilder().log()` no devuelve
- * ninguna sentencia pendiente.
- * Requiere la infraestructura levantada; se ejecuta con `npm run test:int`.
+ * TypeORM deduce de las entidades: `createSchemaBuilder().log()` no deja ninguna
+ * sentencia pendiente. Requiere la infraestructura levantada (`npm run test:int`).
  */
 describe("Integración: las migraciones reproducen el esquema de las entidades", () => {
   let dataSource: DataSource;

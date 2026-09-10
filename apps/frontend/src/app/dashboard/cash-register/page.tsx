@@ -169,9 +169,8 @@ export default function CashRegisterPage() {
   };
 
   // El arqueo lo hace el servicio, que es quien sabe que un movimiento con
-  // datafono deja rastro para el desglose pero no pone dinero en el cajon.
-  // Rehacer aqui la suma contaba esa parte como efectivo y exigia justificar un
-  // descuadre que no existia.
+  // datafono deja rastro para el desglose pero no pone dinero en el cajon:
+  // rehacer aqui la suma exige justificar un descuadre que no existe.
   const totalIn = arqueo?.totalIn ?? 0;
   const totalOut = arqueo?.totalOut ?? 0;
   const openingAmt = activeSession?.openingAmount ?? 0;

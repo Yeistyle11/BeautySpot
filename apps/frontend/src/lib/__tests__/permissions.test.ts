@@ -34,10 +34,9 @@ describe("canAccess", () => {
   });
 
   it("resuelve el prefijo mas especifico cuando hay paths solapados (client vs clients)", () => {
-    // "/dashboard/clients" empieza con "/dashboard/client", asi que ambas
-    // entradas de PAGES matchean por startsWith; debe ganar la mas larga
-    // (/dashboard/clients, roles OWNER/ADMIN/RECEPTIONIST) y no la mas
-    // corta (/dashboard/client, solo CLIENT), sin importar el orden en PAGES.
+    // "/dashboard/clients" empieza con "/dashboard/client", asi que las dos
+    // entradas de PAGES casan por startsWith: gana la mas larga, sea cual sea el
+    // orden en que esten declaradas.
     expect(canAccess("RECEPTIONIST", "/dashboard/clients")).toBe(true);
     expect(canAccess("CLIENT", "/dashboard/clients")).toBe(false);
   });

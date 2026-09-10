@@ -42,9 +42,8 @@ export const cashSummarySchema = z.object({
   movements: z.array(cashMovementSchema),
   /**
    * El arqueo que hace el backend. `expectedTotal` cuenta solo el efectivo y lo
-   * anotado a mano, que es el dinero que de verdad hay en el cajón: la parte de
-   * un cobro repartido que se pagó con datáfono deja movimiento para el
-   * desglose, pero nunca entra en el conteo.
+   * anotado a mano, que es el dinero que hay en el cajón: la parte de un cobro
+   * repartido pagada con datáfono deja movimiento, pero no entra en el conteo.
    */
   summary: z.object({
     totalIn: z.number(),

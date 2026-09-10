@@ -11,7 +11,6 @@ export class BranchesService extends TenantCrudService<Branch> {
     super(repo, "Sucursal no encontrada");
   }
 
-  /** Crea una sede dentro del negocio indicado. */
   async create(businessId: string, data: Partial<Branch>): Promise<Branch> {
     const branch = this.repo.create({ ...data, businessId });
     return this.repo.save(branch);

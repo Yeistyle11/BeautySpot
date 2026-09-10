@@ -2,12 +2,8 @@ import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
  * Fusión de dos fichas del mismo cliente. La absorbida no se borra —sus citas y
- * facturas la referencian y tienen que seguir cuadrando— sino que queda marcada
- * apuntando a la superviviente.
- *
- * Los alias son el contacto que traía la absorbida: el cotejo de duplicados los
- * mira, de modo que una reserva futura hecha con el teléfono viejo cae en la
- * ficha buena en vez de abrir otra.
+ * facturas la referencian— sino que queda marcada apuntando a la superviviente,
+ * y su contacto pasa a alias para que una reserva por él caiga en la buena.
  */
 export class FusionDeClientes1700000000017 implements MigrationInterface {
   name = "FusionDeClientes1700000000017";

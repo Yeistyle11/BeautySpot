@@ -44,9 +44,8 @@ const RUTA_INEXISTENTE = /^Cannot [A-Z]+ \//;
 
 /**
  * Errores de validacion que el backend no redacta: los emite el validador
- * cuando el cuerpo trae campos que el DTO no admite. Significan un desajuste
- * de contrato entre cliente y servidor, no algo que el usuario pueda corregir
- * desde el formulario.
+ * cuando el cuerpo trae campos que el DTO no admite. Son un desajuste de
+ * contrato, no algo que el usuario pueda corregir desde el formulario.
  */
 const DETALLE_INTERNO = /should not exist$/;
 

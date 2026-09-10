@@ -33,10 +33,8 @@ const FECHA = (() => {
 
 /**
  * Comprueba contra Postgres real que la reserva del escaparate hecha con sesión
- * queda ligada al usuario y aparece en *Mis Citas* (`npm run test:int`).
- *
- * Es el circuito que estaba roto: la ficha quedaba con `user_id` a NULL, así
- * que el panel del cliente salía siempre vacío y ninguna reseña era posible.
+ * queda ligada al usuario y aparece en *Mis Citas*, que es lo que habilita
+ * cancelar, reagendar y reseñar (`npm run test:int`).
  */
 describe("Integración: la reserva con sesión aparece en el panel del cliente", () => {
   let dataSource: DataSource;
@@ -152,7 +150,6 @@ describe("Integración: la reserva con sesión aparece en el panel del cliente",
     fichasPorUsuario = {};
     vinculado = undefined;
     // Disponibilidad los siete días, para que la fecha elegida siempre valga.
-    //
     // `create` es necesario: el id lo asigna el @BeforeInsert de BaseEntity, que
     // sólo se ejecuta sobre instancias de la entidad.
     const disponibilidades = dataSource.getRepository(Availability);

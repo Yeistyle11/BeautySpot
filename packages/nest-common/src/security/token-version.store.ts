@@ -17,15 +17,9 @@ export type VersionDeToken =
   | { conocida: false };
 
 /**
- * Controla la invalidación global de los JWT de un usuario.
- *
- * Cada token lleva la versión vigente en el momento de emitirse; el guard la
- * compara contra la almacenada aquí y rechaza el token si difieren. Incrementar
- * la versión revoca de golpe todas las sesiones del usuario en todos los
- * microservicios (logout, cambio de contraseña, cambio de rol o membresía).
- *
- * Redis actúa como caché; cuando hay un TokenVersionResolver inyectado, la BD
- * es la fuente de verdad y la revocación sobrevive a la pérdida de Redis.
+ * Controla la invalidación global de los JWT de un usuario: cada token lleva
+ * la versión con la que se emitió y el guard rechaza el que no la iguale.
+ * Redis es la caché; con un TokenVersionResolver inyectado, la BD manda.
  */
 @Injectable()
 export class TokenVersionStore {
@@ -40,17 +34,14 @@ export class TokenVersionStore {
     private readonly resolver?: TokenVersionResolver
   ) {}
 
-  /** Clave en Redis donde vive la versión de token del usuario. */
   private key(userId: string): string {
     return `${TOKEN_VERSION_KEY_PREFIX}:${userId}`;
   }
 
   /**
-   * Devuelve la versión de token vigente del usuario.
-   *
-   * Intenta Redis primero. Ante un fallo de caché consulta al resolver
-   * autoritativo (si existe) y repuebla Redis, de modo que un flush de Redis no
-   * reactive tokens previamente revocados.
+   * Versión vigente del usuario. Intenta Redis y, ante un fallo, consulta al
+   * resolver autoritativo y repuebla la caché, de modo que un flush de Redis
+   * no reactive tokens revocados.
    */
   async getVersion(userId: string): Promise<number> {
     const resultado = await this.consultarVersion(userId);
@@ -58,10 +49,8 @@ export class TokenVersionStore {
   }
 
   /**
-   * Como {@link getVersion}, pero diciendo si el dato se pudo averiguar.
-   *
-   * Lo usa el guard para decidir qué hacer cuando no hay forma de comprobar la
-   * revocación: dejar pasar una lectura es asumible, ejecutar una acción no.
+   * Como {@link getVersion}, pero diciendo si el dato se pudo averiguar. El
+   * guard deja pasar una lectura sin comprobar, una acción no.
    */
   async consultarVersion(userId: string): Promise<VersionDeToken> {
     const cached = await this.readCache(userId);
@@ -89,10 +78,9 @@ export class TokenVersionStore {
   }
 
   /**
-   * Incrementa la versión del usuario, revocando todos sus tokens ya emitidos.
-   *
-   * Con resolver, la BD manda y Redis se actualiza con el valor resultante; si
-   * la escritura en Redis falla, la siguiente lectura la reconstruye desde BD.
+   * Incrementa la versión del usuario, revocando sus tokens ya emitidos. Con
+   * resolver la BD manda; si falla el escribir en Redis, la siguiente lectura
+   * lo reconstruye desde ella.
    */
   async bumpVersion(userId: string): Promise<number> {
     if (this.resolver) {

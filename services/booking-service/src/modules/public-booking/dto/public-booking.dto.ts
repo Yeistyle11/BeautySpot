@@ -19,11 +19,9 @@ import { EsFechaSola } from "@beautyspot/nest-common";
 import { EsHoraDelDia } from "../../../common/es-hora-del-dia.decorator";
 
 /**
- * Al menos una via de contacto. Sin telefono ni correo el negocio recibe un
- * nombre y nada mas: no puede confirmar la vispera, ni avisar de un retraso, ni
- * recolocar el hueco si el cliente cancela —y el no-show es el mayor coste de
- * una barberia—. El cliente tampoco puede recuperar su cita, porque no dejo
- * rastro con el que identificarse.
+ * Al menos una via de contacto. Sin telefono ni correo el negocio no puede
+ * confirmar la vispera, avisar de un retraso ni recolocar el hueco, y el
+ * cliente no puede recuperar su cita porque no dejo con que identificarse.
  */
 @ValidatorConstraint({ name: "hayContacto" })
 class HayContacto implements ValidatorConstraintInterface {
@@ -57,10 +55,9 @@ export class PublicBookingDto {
   @EsHoraDelDia() startTime!: string;
   @IsOptional() @IsString() notes?: string;
   /**
-   * La regla del contacto cuelga del nombre, que es el campo que siempre
-   * viene: `@IsOptional` se salta **todos** los validadores de su propiedad
-   * cuando el valor no llega, y colgarla del correo la habría desactivado justo
-   * en la reserva que no trae ninguno.
+   * La regla del contacto cuelga del nombre, que es el campo que siempre viene:
+   * `@IsOptional` se salta todos los validadores de su propiedad cuando el valor
+   * no llega, y en el correo quedaría desactivada justo donde hace falta.
    */
   @Validate(HayContacto)
   @IsString({ message: "Escribe tu nombre para reservar" })

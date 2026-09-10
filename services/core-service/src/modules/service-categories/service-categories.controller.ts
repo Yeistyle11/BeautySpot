@@ -22,7 +22,6 @@ import { Role } from "@beautyspot/shared-types";
 export class ServiceCategoriesController {
   constructor(private readonly service: ServiceCategoriesService) {}
 
-  /** Crea una categoría de servicio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post()
   async create(
@@ -76,7 +75,6 @@ export class ServiceCategoriesController {
     Role.PROFESSIONAL,
     Role.RECEPTIONIST
   )
-  /** Obtiene una categoría de servicio por id. */
   @Roles(
     Role.OWNER,
     Role.ADMIN,
@@ -84,7 +82,6 @@ export class ServiceCategoriesController {
     Role.PROFESSIONAL,
     Role.RECEPTIONIST
   )
-  /** Una categoría de servicio del negocio. */
   @Get(":id")
   async findById(
     @Param("id", ParseUUIDPipe) id: string,
@@ -93,7 +90,6 @@ export class ServiceCategoriesController {
     return this.service.findById(id, businessId);
   }
 
-  /** Actualiza una categoría de servicio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Patch(":id")
   async update(
@@ -104,7 +100,6 @@ export class ServiceCategoriesController {
     return this.service.update(id, businessId, dto);
   }
 
-  /** Da de baja una categoría de servicio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Delete(":id")
   async remove(
@@ -125,7 +120,6 @@ export class ServiceCategoriesController {
     return this.service.toggleActive(id, businessId);
   }
 
-  /** Aplica un nuevo orden a las categorías de servicio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post("reorder")
   async reorder(

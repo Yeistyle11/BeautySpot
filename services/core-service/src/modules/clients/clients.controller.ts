@@ -30,7 +30,6 @@ import {
 export class ClientsController {
   constructor(private readonly service: ClientsService) {}
 
-  /** Registra un cliente nuevo en el negocio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Post()
   async create(@BusinessId() businessId: string, @Body() dto: CreateClientDto) {
@@ -135,10 +134,6 @@ export class ClientsController {
   }
 
   /**
-   * Ejerce el derecho de supresión sobre un cliente: vacía sus datos personales
-   * y deja la ficha de baja, conservando el historial de citas y facturas.
-   */
-  /**
    * Fusiona otra ficha en esta. Como la supresión de datos: es irreversible y
    * mezcla dos historiales, incluida la ficha de alergias.
    */
@@ -152,6 +147,10 @@ export class ClientsController {
     return this.service.fusionar(businessId, id, dto.absorbidoId);
   }
 
+  /**
+   * Ejerce el derecho de supresión sobre un cliente: vacía sus datos personales
+   * y deja la ficha de baja, conservando el historial de citas y facturas.
+   */
   @Roles(Role.OWNER, Role.ADMIN)
   @Post(":id/anonymize")
   async anonymize(

@@ -186,9 +186,8 @@ export default function SettingsPage() {
   );
 
   // Una respuesta vacia no siembra: los horarios se rellenan con el dia por
-  // defecto y guardarlos asi sobreescribiria los del negocio con nada.
-  // Del tramo guardado se copian solo los campos que admite el DTO: la entidad
-  // llega con `id` y el validador del backend rechaza lo que le sobra.
+  // defecto y guardarlos asi sobreescribiria los del negocio con nada. Del tramo
+  // guardado se copian solo los campos que admite el DTO.
   useSeededForm(hoursData?.length ? hoursData : null, (horas) =>
     setHours(sembrarHorarios(horas))
   );

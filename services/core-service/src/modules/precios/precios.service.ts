@@ -19,12 +19,8 @@ export interface ServicioResuelto {
 
 /**
  * Tarifa efectiva de un servicio: la del catálogo, salvo que el profesional que
- * lo atiende tenga la suya.
- *
- * Vive aquí y no dentro de un controlador porque la aplican dos sitios que
- * tienen que coincidir: lo que el escaparate le enseña al cliente y lo que la
- * agenda le cobra. Enseñar un precio y cobrar otro es la manera más rápida de
- * perder a alguien en el mostrador.
+ * lo atiende tenga la suya. Vive aquí porque la aplican dos sitios que tienen
+ * que coincidir: lo que el escaparate enseña y lo que la agenda cobra.
  */
 @Injectable()
 export class PreciosService {

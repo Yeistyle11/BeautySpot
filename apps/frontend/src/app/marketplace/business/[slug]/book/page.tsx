@@ -93,10 +93,9 @@ function PublicBookingPageInner() {
 
   const isAnyProfessional = selectedProfessional === "any";
 
-  // Los servicios se piden con la tarifa del profesional elegido: la agenda
-  // cobra el precio del par servicio-profesional, asi que enseñar el del
-  // catalogo era prometer un precio y cobrar otro. La duracion tambien es la
-  // suya, y de ella salen los huecos que se ofrecen.
+  // Los servicios se piden con la tarifa del profesional elegido: la agenda cobra
+  // el precio del par servicio-profesional, y la duracion tambien es la suya, que
+  // es de donde salen los huecos que se ofrecen.
   const serviciosKey = profile?.businessId
     ? `/core/public/businesses/${profile.businessId}/services` +
       (selectedProfessional && !isAnyProfessional
@@ -196,10 +195,8 @@ function PublicBookingPageInner() {
       };
 
       // Con sesión, la reserva va por la ruta autenticada: es la que liga la
-      // ficha del negocio a la cuenta, y sin ella reservar con cuenta daba lo
-      // mismo que reservar como invitado —el panel del cliente salía vacío y no
-      // podía cancelar, reagendar ni reseñar—. El id del usuario sale del
-      // token, nunca del cuerpo.
+      // ficha del negocio a la cuenta, y de ahí salen *Mis Citas* y el poder
+      // cancelar, reagendar o reseñar. El id del usuario sale del token.
       const result = isAuthenticated
         ? await api.post<Confirmation>("/booking/appointments/mine", body)
         : await apiPublic.post<Confirmation>(

@@ -69,7 +69,6 @@ export class RefreshTokenStore {
     }
   }
 
-  /** Retira todos los refresh vivos de un usuario. */
   async revocarTodos(userId: string): Promise<void> {
     try {
       await this.client.del(this.clave(userId));
@@ -80,7 +79,6 @@ export class RefreshTokenStore {
     }
   }
 
-  /** Cierra la conexión al parar el servicio. */
   onModuleDestroy(): void {
     this.client.disconnect();
   }

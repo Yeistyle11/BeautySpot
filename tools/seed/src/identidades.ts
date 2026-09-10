@@ -7,16 +7,9 @@ import { createHash } from "crypto";
 const ESPACIO = "beautyspot.seed.v1";
 
 /**
- * UUID estable a partir de un nombre: la misma etiqueta da siempre el mismo
- * identificador, corra la siembra donde corra y las veces que corra.
- *
- * Es lo que hace la siembra repetible sin borrar nada: la segunda pasada
- * escribe sobre las mismas filas en lugar de duplicarlas, y lo que se apunte a
- * mano en un documento de QA —un id de negocio en una prueba de aislamiento—
- * sigue valiendo mañana.
- *
- * Construido como un UUID de versión 5 (SHA-1 sobre el nombre), que es
- * exactamente para esto.
+ * UUID estable a partir de un nombre, de versión 5 (SHA-1 sobre el nombre): la
+ * misma etiqueta da siempre el mismo identificador. Es lo que hace la siembra
+ * repetible sin borrar nada, y lo que deja apuntar un id en un documento de QA.
  */
 export function idDe(nombre: string): string {
   const resumen = createHash("sha1").update(`${ESPACIO}:${nombre}`).digest();
@@ -34,10 +27,9 @@ export function idDe(nombre: string): string {
 }
 
 /**
- * Generador pseudoaleatorio determinista (mulberry32). La siembra reparte
- * citas, importes y valoraciones con él y no con `Math.random`, para que dos
- * ejecuciones produzcan el mismo escenario: un fallo que aparece con estos
- * datos se le puede pedir a otra persona sin adjuntarle un volcado.
+ * Generador pseudoaleatorio determinista (mulberry32). La siembra reparte citas,
+ * importes y valoraciones con él y no con `Math.random`, para que dos
+ * ejecuciones produzcan el mismo escenario.
  */
 export function generador(semilla: string): () => number {
   let estado = createHash("sha1").update(semilla).digest().readUInt32BE(0);

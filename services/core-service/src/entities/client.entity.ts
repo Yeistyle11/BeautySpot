@@ -7,9 +7,8 @@ import { Business } from "./business.entity";
 @Index(["businessId", "email"])
 @Index(["businessId", "phone"])
 // Una persona, una ficha: el cotejo previo del alta no basta porque entre la
-// consulta y la escritura cabe otra transaccion. La reserva publica guarda
-// cadena vacia cuando el invitado no deja contacto, asi que el indice tiene que
-// dejar fuera tanto el nulo como el vacio.
+// consulta y la escritura cabe otra transaccion. El indice deja fuera el nulo y
+// la cadena vacia, que es lo que guarda la reserva del invitado sin contacto.
 @Index("uq_clients_email_por_negocio", ["businessId", "email"], {
   unique: true,
   where: '"email" IS NOT NULL AND "email" <> \'\'',

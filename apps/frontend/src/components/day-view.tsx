@@ -99,14 +99,9 @@ export interface BloqueRepartido {
 }
 
 /**
- * Reparte el ancho de la columna entre las citas que se solapan. Sin esto la
- * segunda se dibuja encima de la primera y tapa su nombre — justo en el caso
- * que hace valioso el tiempo de procesado, que es vender el hueco del tinte a
- * otra clienta.
- *
- * Cada grupo de citas encadenadas por solape se parte en tantas columnas como
- * haga falta, y cada cita entra en la primera columna que ya haya quedado
- * libre a su hora.
+ * Reparte el ancho de la columna entre las citas que se solapan, para que la
+ * segunda no tape el nombre de la primera. Cada grupo encadenado por solape se
+ * parte en columnas, y cada cita entra en la primera libre a su hora.
  */
 export function repartirSolapes(bloques: BloqueDeCita[]): BloqueRepartido[] {
   const ordenados = [...bloques].sort(

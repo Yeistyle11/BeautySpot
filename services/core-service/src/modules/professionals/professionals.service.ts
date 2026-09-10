@@ -48,7 +48,6 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     await this.categories.findById(categoryId, businessId);
   }
 
-  /** Da de alta un profesional en el negocio. */
   async create(
     businessId: string,
     data: Partial<Professional>
@@ -111,10 +110,9 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     await this.findById(professionalId, businessId);
     await this.validarServicio(serviceId, businessId);
 
-    // Asignar es idempotente: cambiar la tarifa de un servicio ya asignado es
-    // lo habitual, y crear otra fila chocaría con el único (professional,
-    // service). Los nulos son deliberados: cobrar lo del catálogo se expresa
-    // vaciando la tarifa propia, no borrando la asignación.
+    // Asignar es idempotente: cambiar la tarifa de un servicio ya asignado es lo
+    // habitual y otra fila chocaría con el único (professional, service). Cobrar
+    // lo del catálogo se expresa vaciando la tarifa propia, no borrando la fila.
     const existente = await this.psRepo.findOne({
       where: { professionalId, serviceId },
     });
@@ -148,7 +146,6 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     }
   }
 
-  /** Quita la asignación de un servicio a un profesional. */
   async removeServiceAssignment(
     professionalId: string,
     serviceId: string,
@@ -159,7 +156,6 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     await this.psRepo.delete({ professionalId, serviceId });
   }
 
-  /** Lista los servicios que presta un profesional. */
   async getServices(
     professionalId: string,
     businessId: string
@@ -213,7 +209,6 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     return this.findById(id, businessId);
   }
 
-  /** Desvincula la cuenta de usuario de un profesional. */
   async unlinkUser(id: string, businessId: string): Promise<Professional> {
     const professional = await this.findById(id, businessId);
 

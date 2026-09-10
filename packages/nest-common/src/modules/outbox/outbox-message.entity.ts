@@ -65,7 +65,6 @@ export class OutboxMessageEntity {
   nextAttemptAt!: Date | null;
 
   @BeforeInsert()
-  /** Asigna el identificador antes de insertar la fila. */
   generateId(): void {
     if (!this.id) {
       this.id = uuidv4();

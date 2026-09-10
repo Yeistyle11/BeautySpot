@@ -24,16 +24,9 @@ export class PublicBookingController {
 }
 
 /**
- * Reserva del escaparate con la sesión iniciada.
- *
- * Es la que liga la ficha del negocio a la cuenta de quien reserva, y sin ella
- * el área del cliente queda vacía: reservar con cuenta daba exactamente lo
- * mismo que reservar como invitado, así que *Mis Citas* salía a cero y ningún
- * cliente podía cancelar, reagendar ni reseñar nada.
- *
- * Va aparte de la ruta pública porque el vínculo tiene que salir del token: la
- * pública no acepta un `userId` en el cuerpo a propósito, y aceptarlo dejaría
- * reservar a nombre de otro.
+ * Reserva del escaparate con la sesión iniciada: liga la ficha del negocio a la
+ * cuenta de quien reserva, y de ahí salen *Mis Citas* y el poder cancelar,
+ * reagendar o reseñar. Va aparte porque el vínculo sale del token.
  */
 @Controller("appointments")
 export class MiReservaController {

@@ -1,8 +1,7 @@
 /**
- * Fechas de la siembra. Todo el escenario transcurre en `America/Bogota`, que
- * es la zona por defecto de un negocio (`Business.timezone`), y Colombia no
- * cambia la hora: por eso el desfase puede escribirse fijo y una fecha suelta
- * no necesita más contexto para volverse instante.
+ * Fechas de la siembra. Todo el escenario transcurre en `America/Bogota`, la
+ * zona por defecto de un negocio, y Colombia no cambia la hora: por eso el
+ * desfase se escribe fijo y una fecha suelta basta para volverse instante.
  */
 
 const DESFASE_BOGOTA = "-05:00";

@@ -70,7 +70,6 @@ export class BusinessesController {
     Role.PROFESSIONAL,
     Role.RECEPTIONIST
   )
-  /** Obtiene un negocio por su slug. */
   @Get("slug/:slug")
   async findBySlug(
     @BusinessId() businessId: string,
@@ -80,7 +79,6 @@ export class BusinessesController {
     return this.service.findBySlug(slug, businessId, role);
   }
 
-  /** Obtiene un negocio por su id. */
   @Get(":id")
   async findById(
     @BusinessId() businessId: string,
@@ -90,7 +88,6 @@ export class BusinessesController {
     return this.service.findById(id, businessId, role);
   }
 
-  /** Actualiza los datos de un negocio. */
   @Patch(":id")
   async update(
     @BusinessId() businessId: string,
@@ -101,7 +98,6 @@ export class BusinessesController {
     return this.service.update(id, dto, businessId, role);
   }
 
-  /** Da de baja un negocio. */
   @Delete(":id")
   async deactivate(
     @BusinessId() businessId: string,

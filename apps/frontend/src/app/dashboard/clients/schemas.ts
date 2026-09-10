@@ -56,9 +56,8 @@ export interface CambiosDelCliente {
 
 /**
  * Compara el formulario con la ficha que se cargo y devuelve solo lo que
- * cambio. Enviar la ficha entera revertia en silencio lo que otra persona
- * hubiera guardado mientras tanto: con dos pestanas abiertas, guardar el
- * nombre devolvia el telefono a su valor viejo.
+ * cambio, para no revertir en silencio lo que otra persona haya guardado
+ * mientras tanto.
  */
 export function cambiosDelCliente(
   original: ClientForm,
@@ -93,13 +92,9 @@ export const POSIBLES_DUPLICADOS = 5;
 const LETRAS_MINIMAS = 3;
 
 /**
- * Consulta con la que se buscan fichas que puedan ser la misma persona
- * mientras se teclea el alta, o `null` si todavía no hay con qué buscar.
- *
- * El contacto repetido ya lo rechaza el servidor; esto es para el otro
- * duplicado, el que no comparte teléfono ni correo: la misma persona con el
- * nombre escrito de otra manera. La búsqueda del listado ignora tildes y
- * mayúsculas, así que «Ana Gomez» encuentra a «Ana Gómez».
+ * Consulta con la que se buscan fichas que puedan ser la misma persona mientras
+ * se teclea el alta, o `null` si aún no hay con qué buscar. Es para el duplicado
+ * que no comparte contacto: el mismo nombre escrito de otra manera.
  */
 export function clavePosiblesDuplicados(nombre: string): string | null {
   const limpio = nombre.trim();

@@ -24,9 +24,7 @@ const CLIENTE_A = "33333333-3333-4333-8333-333333333333";
 const CLIENTE_B = "44444444-4444-4444-8444-444444444444";
 /**
  * Fecha futura calculada, no escrita a mano: el servicio rechaza agendar en el
- * pasado, así que una constante fija caduca sola y tumba la suite el día que el
- * calendario la alcanza. Se deriva del mismo reloj que usa esa validación para
- * que test y código no puedan discrepar. El día de la semana da igual: el
+ * pasado y una constante fija caduca sola. El día de la semana da igual, el
  * `beforeEach` da disponibilidad los siete.
  */
 const FECHA = (() => {
@@ -159,10 +157,9 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
     await dataSource.query(
       'TRUNCATE TABLE "appointment_services", "appointments", "availabilities", "blocked_slots" CASCADE'
     );
-    // El profesional atiende todos los días de 09:00 a 18:00.
-    //
-    // `create` es necesario: el id lo asigna el @BeforeInsert de BaseEntity, que
-    // sólo se ejecuta sobre instancias de la entidad.
+    // El profesional atiende todos los días de 09:00 a 18:00. `create` es
+    // necesario: el id lo asigna el @BeforeInsert de BaseEntity, que sólo se
+    // ejecuta sobre instancias de la entidad.
     const disponibilidades = dataSource.getRepository(Availability);
     await disponibilidades.save(
       Array.from({ length: 7 }, (_, dia) =>

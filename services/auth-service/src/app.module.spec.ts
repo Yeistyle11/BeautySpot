@@ -70,11 +70,9 @@ const dataSourceMock = {
 class MockPersistenceModule {}
 
 /**
- * Regresión: AuthService, UsersService y MembershipsService inyectan
- * TokenVersionStore, que durante un tiempo no estuvo registrado en ningún
- * módulo. Los tests unitarios lo mockeaban, así que el fallo solo aparecía al
- * arrancar el servicio de verdad. Aquí se compila el grafo de DI real para que
- * una dependencia sin registrar rompa la suite.
+ * Compila el grafo de inyección real, para que una dependencia sin registrar
+ * rompa la suite: AuthService, UsersService y MembershipsService inyectan
+ * TokenVersionStore, y los unitarios lo mockean sin llegar a comprobarlo.
  */
 describe("AppModule (grafo de inyección)", () => {
   it("resuelve TokenVersionStore para los servicios que lo consumen", async () => {

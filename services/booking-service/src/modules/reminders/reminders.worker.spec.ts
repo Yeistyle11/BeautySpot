@@ -132,7 +132,7 @@ describe("RemindersWorker", () => {
   });
 
   it("recupera el aviso de 24h que se pasó con el worker caído", async () => {
-    // A 6 h de la cita el aviso llega tarde, pero llega: antes se perdía.
+    // A 6 h de la cita el aviso llega tarde, pero llega.
     mockQb.getMany.mockResolvedValue([citaEn(6)]);
 
     await worker.poll();

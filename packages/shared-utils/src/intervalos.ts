@@ -32,7 +32,6 @@ export interface OcupacionDeProfesional {
   fin: string;
 }
 
-/** Ordena las líneas por su posición dentro de la cita. */
 function porOrden(a: LineaDeAgenda, b: LineaDeAgenda): number {
   return a.orden - b.orden;
 }
@@ -208,7 +207,6 @@ export function diaAnteriorDeLaSemana(dayOfWeek: number): number {
   return (dayOfWeek + 6) % 7;
 }
 
-/** Devuelve los minutos desde medianoche como "HH:MM". */
 function minutosAHora(minutos: number): string {
   const h = Math.floor(minutos / 60);
   const m = minutos % 60;

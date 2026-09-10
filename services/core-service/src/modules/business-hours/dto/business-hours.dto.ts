@@ -14,10 +14,9 @@ import {
 import { Type } from "class-transformer";
 
 /**
- * Forma de una hora: cuatro digitos y dos puntos. El rango se comprueba en el
- * servicio, que distingue la apertura (hasta 23:59) del cierre (hasta 24:00,
- * el dia completo) y explica cada caso; aqui solo se descarta lo que no tiene
- * forma de hora.
+ * Forma de una hora: cuatro digitos y dos puntos. El rango lo comprueba el
+ * servicio, que distingue la apertura (hasta 23:59) del cierre (hasta 24:00) y
+ * explica cada caso.
  */
 const FORMATO_DE_HORA = /^\d{2}:\d{2}$/;
 

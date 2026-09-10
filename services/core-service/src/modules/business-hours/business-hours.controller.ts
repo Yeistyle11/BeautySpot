@@ -24,9 +24,8 @@ export class BusinessHoursController {
 
   /**
    * Devuelve el horario del negocio (o de una sede concreta). Lo lee tambien
-   * recepcion: la agenda marca como cerrados los dias sin horario, y es quien
-   * atiende el telefono la que necesita verlo. Cambiarlo sigue siendo de dueño
-   * y administrador.
+   * recepcion, que es quien atiende el telefono y necesita ver que dias estan
+   * cerrados. Cambiarlo sigue siendo de dueño y administrador.
    */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Get()
@@ -37,7 +36,6 @@ export class BusinessHoursController {
     return this.service.findByBusiness(businessId, branchId);
   }
 
-  /** Reemplaza el horario completo del negocio. */
   @Put()
   async batchUpsert(
     @BusinessId() businessId: string,
@@ -46,7 +44,6 @@ export class BusinessHoursController {
     return this.service.batchUpsert(businessId, dto.hours);
   }
 
-  /** Actualiza un tramo horario concreto. */
   @Patch(":id")
   async update(
     @Param("id", ParseUUIDPipe) id: string,

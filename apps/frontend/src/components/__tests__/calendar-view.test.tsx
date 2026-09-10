@@ -110,9 +110,8 @@ describe("CalendarView", () => {
 
     expect(screen.getByText("Corte")).toBeInTheDocument();
   });
-  // Una rejilla fija de 7 a 18 dejaba fuera a la barbería que abre de noche: la
-  // semana entera salía vacía, con aspecto de disponible, aunque el dato
-  // llegara. No había fila donde dibujarlo.
+  // Una rejilla fija de 7 a 18 deja fuera a la barbería que abre de noche: sin
+  // fila donde dibujar la cita, la semana sale vacía con aspecto de disponible.
   describe("franja de horas", () => {
     const citaNocturna = {
       ...cita,

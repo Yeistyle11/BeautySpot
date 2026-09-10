@@ -1,18 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Descuento comercial, propina y reparto del cobro entre varios medios.
- *
- * El cobro solo sabía de un importe y un medio. El descuento que concedía el
- * negocio no se guardaba en ninguna parte —la columna `descuento` que ya
- * existe es lo que rebajaron los puntos canjeados, otra cosa—, la propina se
- * apuntaba en papel o se le regalaba al negocio, y «20.000 en efectivo y el
- * resto con tarjeta» obligaba a inventar dos cobros sueltos que hacían mentir
- * al conteo de ventas del día.
- *
- * Las columnas nuevas van a cero en los cobros que ya existen, y a cada uno se
- * le escribe su línea de reparto con el medio y el importe que ya tenía, para
- * que la caja y el arqueo lean de un solo sitio.
+ * Descuento comercial, propina y reparto del cobro entre varios medios. El
+ * comercial es distinto de `descuento`, que es lo que rebajan los puntos. Los
+ * cobros que ya existen van a cero y reciben su línea con el medio que tenían.
  */
 export class DescuentoPropinaYPagoMixto1700000000020 implements MigrationInterface {
   name = "DescuentoPropinaYPagoMixto1700000000020";

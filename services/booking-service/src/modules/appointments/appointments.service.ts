@@ -56,9 +56,7 @@ const ESTADOS_REAGENDABLES: AppointmentStatus[] = [
 /**
  * Estados desde los que todavía se puede cancelar. Los demás son finales: una
  * cita atendida, ya cancelada o marcada como plantón no se deshace cancelándola
- * después. El no-show sostiene la política de plantones —el aviso al mostrador,
- * el histórico del cliente— y borrarlo así lo dejaba desincronizado del contador
- * de la ficha, que sí se queda.
+ * después, y el contador de plantones de la ficha se queda como está.
  */
 const ESTADOS_CANCELABLES: AppointmentStatus[] = [
   AppointmentStatus.PENDING,
@@ -84,15 +82,9 @@ interface LineaDeCita extends ServicioResuelto {
 }
 
 /**
- * Cuerpo comun de los eventos de una cita. Los seis —alta, confirmacion,
- * atendida, cancelacion, ausencia y cambio de hora— describen la misma cita, y
- * escribirlo en cada uno hacia que anadir un campo pidiera seis ediciones
- * iguales; olvidar una no rompia la compilacion, porque los campos son
- * opcionales, y el evento salia incompleto hasta que faltaba un dato en
- * analytics.
- *
- * `cambios` es para lo que el evento sabe mejor que la fila: al reagendar, la
- * fecha y la hora nuevas todavia no estan escritas.
+ * Cuerpo comun de los eventos de una cita: los seis describen la misma cita y
+ * se arma en un solo sitio. `cambios` lleva lo que el evento sabe mejor que la
+ * fila, como la fecha nueva de un reagendado, que todavia no esta escrita.
  */
 function cuerpoDeCita(
   appt: Appointment,
@@ -199,8 +191,7 @@ export class AppointmentsService {
     }
 
     // Una llamada por profesional, porque el precio y la duracion dependen de
-    // quien atiende, pero todas a la vez: en serie, una cita repartida entre
-    // varios profesionales sumaba un viaje a core detras de otro.
+    // quien atiende, pero todas a la vez y no en serie.
     const porProfesionalResueltos = await Promise.all(
       [...porProfesional].map(([profesional, ids]) =>
         this.resolverServicios(businessId, ids, profesional)
@@ -386,18 +377,9 @@ export class AppointmentsService {
   }
 
   /**
-   * Registra un walk-in: alguien que entró sin cita, ya se atendió y se anota
-   * después, cuando hay un hueco en el mostrador.
-   *
-   * No es una reserva y por eso no pasa por la disponibilidad ni por el control
-   * de solapes: el hueco no se está pidiendo, ya se ocupó, en la silla. Nace
-   * atendida, con sus puntos de fidelidad, y publica el mismo evento que
-   * completar una cita, que es lo que hace que las métricas por profesional y
-   * por servicio dejen de estar vacías en un negocio donde media clientela
-   * entra sin cita.
-   *
-   * Solo admite una hora ya pasada **del día en curso**: el día de ayer tiene su
-   * arqueo cerrado y sus informes mirados, y reescribirlo es otra cosa.
+   * Registra un walk-in: entró sin cita, se atendió y se anota después. No pasa
+   * por disponibilidad ni por solapes, nace atendida y publica los eventos de
+   * una cita completada. Solo admite una hora ya pasada del día en curso.
    */
   async registrarWalkIn(
     businessId: string,
@@ -503,7 +485,6 @@ export class AppointmentsService {
     return appointment;
   }
 
-  /** Pasa la cita a confirmada. */
   async confirm(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
     if (appt.status !== AppointmentStatus.PENDING) {
@@ -527,7 +508,6 @@ export class AppointmentsService {
     return this.findById(id, businessId);
   }
 
-  /** Marca que el servicio ha empezado. */
   async startService(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
     if (appt.status !== AppointmentStatus.CONFIRMED) {
@@ -644,8 +624,7 @@ export class AppointmentsService {
           cancelReason: motivo.nota,
           cancelReasonType: motivo.tipo,
           cancelledBy: motivo.canceladaPor,
-          // El instante de la cancelación, que no es la fecha de la cita: el
-          // aviso las rotulaba con el mismo valor.
+          // El instante de la cancelación, que no es la fecha de la cita.
           cancelledAt: cancelledAt.toISOString(),
         },
       });
@@ -654,7 +633,6 @@ export class AppointmentsService {
     return this.findById(id, businessId);
   }
 
-  /** Marca que el cliente no se presentó. */
   async markNoShow(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
     if (
@@ -666,7 +644,7 @@ export class AppointmentsService {
       );
     }
     // Nadie falta a una cita que aun no ha empezado: el planton ensucia la tasa
-    // de asistencia del informe y mancha el historial del cliente.
+    // de asistencia y mancha el historial del cliente.
     const zona = await this.zonas.de(businessId);
     if (!esInstantePasadoEn(zona, appt.date, appt.startTime)) {
       throw new BadRequestException(

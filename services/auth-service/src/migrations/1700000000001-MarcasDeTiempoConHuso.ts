@@ -1,21 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Pasa todas las marcas de tiempo del esquema de `timestamp without time zone`
- * a `timestamptz`.
- *
- * Una columna sin huso guarda la hora de pared de quien la escribe: Postgres,
- * que corre en UTC, en los valores por defecto (`created_at`, `updated_at`), y
- * el proceso Node en su hora local en las que fija la aplicación. Al leerlas, el
- * driver las reinterpreta en la zona del proceso, así que las primeras salían
- * desplazadas y las segundas no, y el mismo instante se pintaba con horas de
- * diferencia según la pantalla.
- *
- * Los valores existentes se reinterpretan como UTC, que es la zona en la que
- * están escritos los `created_at`/`updated_at` que motivaron el cambio. Lo que
- * la aplicación hubiera escrito desde un proceso en otra zona queda desplazado
- * esa diferencia: es dato de desarrollo y no compensa arrastrar una conversión
- * columna a columna para conservarlo.
+ * Pasa las marcas de tiempo del esquema a `timestamptz`: sin huso, la columna
+ * guarda la hora de pared de quien escribe y el mismo instante se lee distinto.
+ * Los valores existentes se reinterpretan como UTC.
  */
 export class MarcasDeTiempoConHuso1700000000001 implements MigrationInterface {
   name = "MarcasDeTiempoConHuso1700000000001";

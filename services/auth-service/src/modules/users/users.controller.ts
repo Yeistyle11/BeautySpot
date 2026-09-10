@@ -26,14 +26,12 @@ class CambiarEstadoDto {
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  /** Devuelve el perfil del usuario autenticado. */
   @Get("me")
   async getMe(@CurrentUser("userId") userId: string) {
     const user = await this.usersService.findById(userId);
     return toSafeUser(user);
   }
 
-  /** Actualiza el perfil del usuario autenticado. */
   @Patch("me")
   async updateProfile(
     @CurrentUser("userId") userId: string,
@@ -135,10 +133,9 @@ export class UsersController {
 }
 
 /**
- * Endpoint interno (servicio-a-servicio) que da la versión de token vigente.
- *
- * Los otros microservicios validan la revocación contra Redis, que es volátil;
- * cuando la clave no está, preguntan aquí, que es donde vive el dato duradero.
+ * Endpoint interno que da la versión de token vigente. Los otros servicios
+ * validan la revocación contra Redis, que es volátil, y cuando la clave no
+ * está preguntan aquí, que es donde vive el dato duradero.
  */
 @Internal()
 @Controller("internal/users")

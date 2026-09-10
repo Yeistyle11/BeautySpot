@@ -2,10 +2,9 @@ import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 
 /**
- * Un componente que usa hooks y no declara "use client" revienta en tiempo de
- * ejecucion —Next lo renderiza en el servidor— pero pasa cualquier test de
- * jsdom, porque Jest no aplica la frontera servidor/cliente. De ahi que la
- * comprobacion sea sobre el codigo fuente y no sobre el render.
+ * Un componente con hooks y sin "use client" revienta en ejecucion —Next lo
+ * renderiza en el servidor— pero pasa cualquier test de jsdom, que no aplica la
+ * frontera. De ahi que la comprobacion sea sobre el codigo fuente.
  */
 const RAIZ = join(__dirname, "..");
 const CARPETAS = ["app", "components", "lib"];

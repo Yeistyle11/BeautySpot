@@ -28,7 +28,7 @@ describe("las plantillas", () => {
   });
 
   // Un servicio cuya categoría no existe nace «sin categoría» y el filtro del
-  // panel no lo encuentra, que es justo el lío de BS-007.
+  // panel no lo encuentra.
   it.each(plantillas)(
     "%s solo usa categorías que la propia plantilla crea",
     (_, p) => {

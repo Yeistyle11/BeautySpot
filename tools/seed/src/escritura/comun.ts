@@ -5,10 +5,8 @@ const LOTE = 400;
 
 /**
  * Escribe las filas por su clave primaria, actualizando las que ya estuvieran.
- *
- * Es lo que hace la siembra repetible: como todos los identificadores se
- * derivan del nombre de la cosa (ver `idDe`), la segunda pasada cae sobre las
- * mismas filas y las reescribe en vez de duplicarlas.
+ * Es lo que hace la siembra repetible: los identificadores se derivan del nombre
+ * de la cosa (ver `idDe`), así que la segunda pasada cae sobre las mismas filas.
  */
 export async function guardar<T extends ObjectLiteral>(
   dataSource: DataSource,

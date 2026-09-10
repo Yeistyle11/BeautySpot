@@ -89,10 +89,9 @@ export class CashRegisterService {
     return this.dataSource.transaction(async (manager) => {
       const sessionRepo = manager.getRepository(CashSessionEntity);
 
-      // El arqueo se calcula con la fila bloqueada: leer los movimientos fuera
-      // de la transacción dejaba entrar un cobro entre la cuenta y el cierre, y
-      // ese efectivo se quedaba sin arquear. El bloqueo también impide que dos
-      // cierres simultáneos pasen los dos.
+      // El arqueo se calcula con la fila bloqueada: contando los movimientos
+      // fuera de la transacción, un cobro entre la cuenta y el cierre se queda
+      // sin arquear. El bloqueo impide además dos cierres simultáneos.
       const session = await sessionRepo.findOne({
         where: { id: sessionId, businessId },
         lock: { mode: "pessimistic_write" },

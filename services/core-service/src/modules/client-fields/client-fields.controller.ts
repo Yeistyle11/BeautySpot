@@ -25,7 +25,6 @@ import { Role } from "@beautyspot/shared-types";
 export class ClientFieldsController {
   constructor(private readonly service: ClientFieldsService) {}
 
-  /** Define un campo nuevo. */
   @Roles(Role.OWNER, Role.ADMIN)
   @Post()
   async create(
@@ -45,7 +44,6 @@ export class ClientFieldsController {
     return this.service.findByBusiness(businessId, activos !== "false");
   }
 
-  /** Actualiza un campo. */
   @Roles(Role.OWNER, Role.ADMIN)
   @Patch(":id")
   async update(

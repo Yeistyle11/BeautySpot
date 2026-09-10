@@ -29,9 +29,8 @@ export type BusinessHour = z.infer<typeof businessHourSchema>;
 
 /**
  * Lo que el formulario mantiene y reenvia: exactamente los campos que admite
- * BusinessHourItemDto. El `id` que trae la entidad se queda fuera a proposito,
- * porque el validador del backend rechaza cualquier campo de mas y guardar un
- * horario ya existente fallaba por reenviarlo.
+ * BusinessHourItemDto. El `id` de la entidad se queda fuera a proposito, porque
+ * el validador del backend rechaza cualquier campo de mas.
  */
 export type BusinessHourForm = Omit<BusinessHour, "id">;
 
@@ -56,9 +55,8 @@ export const defaultHours: BusinessHourForm[] = DAYS.map((d) => ({
 
 /**
  * Pasa los tramos guardados a la forma que admite BusinessHourItemDto, un
- * registro por dia de la semana. Copiar campo a campo no es ceremonia: la
- * entidad llega con `id` y el validador del backend rechaza cualquier campo de
- * mas, asi que reenviarla entera dejaba el horario sin poder modificarse.
+ * registro por dia de la semana. Se copia campo a campo porque la entidad llega
+ * con `id` y el validador del backend rechaza cualquier campo de mas.
  */
 export function sembrarHorarios(guardados: BusinessHour[]): BusinessHourForm[] {
   return DAYS.map((d) => {
@@ -128,10 +126,9 @@ export type Facturacion = z.infer<typeof facturacionSchema>;
 export const TASA_DE_IMPUESTO_POR_DEFECTO = 19;
 
 /**
- * Lo que se manda al guardar los datos fiscales. La tasa se escribe en un
- * input, asi que llega como texto: vacia significa «el de por defecto», y no
- * cero, que es una decision distinta —facturar sin impuesto— y hay que
- * escribirla.
+ * Lo que se manda al guardar los datos fiscales. La tasa llega como texto:
+ * vacia significa «el de por defecto», y no cero, que es otra decision —
+ * facturar sin impuesto— y hay que escribirla.
  */
 export function facturacionParaGuardar(
   facturacion: Facturacion,

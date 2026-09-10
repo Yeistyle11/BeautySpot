@@ -645,9 +645,9 @@ function estadoDeLaCita(
 }
 
 /**
- * Un cobro por cita atendida. Uno de cada seis se reparte entre dos medios y
- * uno de cada diez lleva descuento comercial, que es lo que BS-005 añadió y no
- * tenía datos con los que verse.
+ * Un cobro por cita atendida. Uno de cada seis se reparte entre dos medios y uno
+ * de cada diez lleva descuento comercial, para que el panel tenga con qué
+ * enseñar las dos cosas.
  */
 function cobrosDe(negocio: Negocio, citas: Cita[], cajero: string): Cobro[] {
   const azar = generador(`cobros:${negocio.id}`);
@@ -720,10 +720,9 @@ function repartir(
 }
 
 /**
- * Una caja por sede y día con cobros: cerradas las de los días pasados y
- * abierta la de hoy. Solo entra el efectivo, que es lo único que hay en el
- * cajón, y una de cada doce cierra descuadrada para que el arqueo tenga algo
- * que señalar.
+ * Una caja por sede y día con cobros: cerradas las de los días pasados y abierta
+ * la de hoy. Solo entra el efectivo, y una de cada doce cierra descuadrada para
+ * que el arqueo tenga algo que señalar.
  */
 function cajasDe(
   negocio: Negocio,

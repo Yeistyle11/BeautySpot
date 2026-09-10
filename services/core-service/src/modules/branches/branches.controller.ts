@@ -19,14 +19,12 @@ import { CreateBranchDto, UpdateBranchDto } from "./dto/branch.dto";
 export class BranchesController {
   constructor(private readonly service: BranchesService) {}
 
-  /** Crea una sede en el negocio actual. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post()
   async create(@BusinessId() businessId: string, @Body() dto: CreateBranchDto) {
     return this.service.create(businessId, dto);
   }
 
-  /** Lista las sedes del negocio actual. */
   @Roles(
     Role.OWNER,
     Role.ADMIN,
@@ -34,13 +32,11 @@ export class BranchesController {
     Role.RECEPTIONIST,
     Role.PROFESSIONAL
   )
-  /** Sedes del negocio. */
   @Get()
   async findAll(@BusinessId() businessId: string) {
     return this.service.findByBusiness(businessId);
   }
 
-  /** Obtiene una sede por id. */
   @Get(":id")
   async findById(
     @Param("id", ParseUUIDPipe) id: string,
@@ -49,7 +45,6 @@ export class BranchesController {
     return this.service.findById(id, businessId);
   }
 
-  /** Actualiza una sede. */
   @Patch(":id")
   async update(
     @Param("id", ParseUUIDPipe) id: string,
@@ -59,7 +54,6 @@ export class BranchesController {
     return this.service.update(id, businessId, dto);
   }
 
-  /** Da de baja una sede. */
   @Delete(":id")
   async deactivate(
     @Param("id", ParseUUIDPipe) id: string,

@@ -16,11 +16,8 @@ const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /**
- * Valida el header X-Business-Id y verifica que el usuario autenticado
- * tenga membresía en el negocio solicitado (previene acceso cross-tenant).
- *
- * - SUPER_ADMIN puede acceder a cualquier negocio (admin de plataforma).
- * - Los demás roles deben tener el businessId en su lista de membresías del JWT.
+ * Valida el header X-Business-Id y exige que el usuario tenga membresía en ese
+ * negocio, para que nadie entre en el de otro. SUPER_ADMIN pasa a cualquiera.
  */
 @Injectable()
 export class BusinessScopeGuard implements CanActivate {

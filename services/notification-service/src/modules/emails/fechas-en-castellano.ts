@@ -2,11 +2,7 @@ import { LOCALE_POR_DEFECTO } from "@beautyspot/shared-utils";
 
 /**
  * Cómo escribe el producto una fecha y una hora en los correos: «5 de sept de
- * 2026» y «8:00 pm».
- *
- * Los correos interpolaban los valores crudos —`2026-08-25`, `20:00`—, que es
- * el formato en que viajan por el bus, no el que lee una clienta. El resto del
- * producto ya escribe así, y un correo que no lo hace parece de otro sistema.
+ * 2026» y «8:00 pm», y no los valores crudos con los que viajan por el bus.
  */
 
 /** Fecha "YYYY-MM-DD" como «5 de sept de 2026»; el valor tal cual si no lo es. */

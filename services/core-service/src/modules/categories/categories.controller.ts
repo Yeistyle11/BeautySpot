@@ -19,7 +19,6 @@ import { Role } from "@beautyspot/shared-types";
 export class CategoriesController {
   constructor(private readonly service: CategoriesService) {}
 
-  /** Crea una categoría de profesionales. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post()
   async create(
@@ -75,7 +74,6 @@ export class CategoriesController {
     Role.PROFESSIONAL,
     Role.RECEPTIONIST
   )
-  /** Obtiene una categoría por id. */
   @Get(":id")
   async findById(
     @Param("id", ParseUUIDPipe) id: string,
@@ -84,7 +82,6 @@ export class CategoriesController {
     return this.service.findById(id, businessId);
   }
 
-  /** Actualiza una categoría. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Patch(":id")
   async update(
@@ -95,7 +92,6 @@ export class CategoriesController {
     return this.service.update(id, businessId, dto);
   }
 
-  /** Da de baja una categoría. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Delete(":id")
   async remove(
@@ -106,7 +102,6 @@ export class CategoriesController {
     return { message: "Categoría desactivada" };
   }
 
-  /** Alterna el estado activo/inactivo de una categoría. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Patch(":id/toggle")
   async toggleActive(
@@ -127,7 +122,6 @@ export class CategoriesController {
     return { count };
   }
 
-  /** Aplica un nuevo orden a las categorías. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post("reorder")
   async reorder(

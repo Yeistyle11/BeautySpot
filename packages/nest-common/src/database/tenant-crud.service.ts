@@ -28,12 +28,9 @@ export abstract class TenantCrudService<T extends EntidadDeNegocio> {
   }
 
   /**
-   * Actualiza un elemento del negocio y devuelve cómo queda.
-   *
-   * Con `updatedAtEsperado` la escritura es condicional: si la fila cambió
-   * desde que quien edita la cargó, se responde 409 en vez de pisar en
-   * silencio lo que otra persona acaba de guardar. Sin ese argumento se
-   * escribe sin más, que es lo que hacen las rutas de un solo editor.
+   * Actualiza un elemento del negocio y devuelve cómo queda. Con
+   * `updatedAtEsperado` la escritura es condicional y responde 409 si la fila
+   * cambió; sin él se escribe sin más, como en las rutas de un solo editor.
    */
   async update(
     id: string,

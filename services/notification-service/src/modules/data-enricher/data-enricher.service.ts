@@ -81,7 +81,6 @@ export class DataEnricherService {
     return resolution.client?.userId ?? null;
   }
 
-  /** Devuelve el nombre y datos de contacto de un negocio. */
   async enrichBusinessData(businessId: string): Promise<{
     businessName: string;
     businessAddress: string;

@@ -117,7 +117,6 @@ export class InternalProfilesController {
     };
   }
 
-  /** Nombre del profesional indicado. */
   private async resolveProfessional(
     id: string
   ): Promise<ResolvedProfessional | null> {

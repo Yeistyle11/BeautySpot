@@ -27,13 +27,9 @@ export enum CancelReason {
 }
 
 /**
- * Cómo se le explica al cliente por qué se canceló su cita.
- *
- * Está redactado desde su lado, que es distinto del desplegable con el que el
- * personal elige el motivo: al cliente le importa saber si la culpa fue suya,
- * del negocio o del profesional. Vive aquí porque lo escribe el correo y lo
- * ofrece el panel, y una sola redacción evita que las dos superficies digan
- * cosas distintas del mismo motivo.
+ * Cómo se le explica al cliente por qué se canceló su cita, redactado desde su
+ * lado y no como el desplegable del personal. Lo comparten el correo y el panel,
+ * para que no digan cosas distintas del mismo motivo.
  */
 export const MOTIVO_PARA_EL_CLIENTE: Record<CancelReason, string> = {
   [CancelReason.CLIENTE_CANCELA]: "Cancelaste la cita",

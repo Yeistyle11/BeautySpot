@@ -1,22 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Índices que sirven la búsqueda pública del marketplace.
- *
- * La consulta compara `translate(lower(columna), …) LIKE '%texto%'`, que no lo
- * sirve ningún B-tree: el comodín va delante y la columna viaja dentro de una
- * expresión. Solo un GIN de trigramas sobre esa misma expresión evita recorrer
- * el catálogo entero en cada visita.
- *
- * Las cadenas de `translate` son las de `columnaSinTildes`
- * (`packages/shared-utils/src/texto-buscable.ts`): si cambian allí, hay que
- * rehacer estos índices o dejan de usarse sin que nada falle.
- *
- * No hay declaración equivalente en la entidad, al contrario que el resto de
- * índices del repo, porque no cabe: un índice sobre una expresión no se puede
- * escribir con `@Index`. Tampoco hace falta, porque TypeORM no los ve —los
- * busca por columna y estos no tienen ninguna—, así que ni `synchronize` los
- * borra en desarrollo ni el test de esquema los reclama.
+ * Índices que sirven la búsqueda pública del marketplace: la consulta compara
+ * `translate(lower(columna), …) LIKE '%texto%'`, que solo sirve un GIN de
+ * trigramas sobre esa misma expresión, la de `columnaSinTildes`.
  */
 export class BusquedaSinTildes1700000000010 implements MigrationInterface {
   name = "BusquedaSinTildes1700000000010";

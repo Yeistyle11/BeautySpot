@@ -262,8 +262,8 @@ describe("BlockedSlotsService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    // Un bloqueo encima de una cita viva la dejaba huérfana: seguía agendada en
-    // una franja que la agenda ya daba por cerrada.
+    // Un bloqueo encima de una cita viva la deja huérfana: sigue agendada en una
+    // franja que la agenda ya da por cerrada.
     it("avisa si la franja tiene citas vivas encima", async () => {
       mockApptRepo.find.mockResolvedValue([
         { date: MANANA, startTime: "12:30", endTime: "13:30" },

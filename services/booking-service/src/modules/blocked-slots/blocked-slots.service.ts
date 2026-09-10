@@ -212,11 +212,8 @@ export class BlockedSlotsService {
 
   /**
    * De las fechas de la serie, cuáles tienen alguna cita viva bajo la franja
-   * que se quiere bloquear, en el orden en que se pidieron.
-   *
-   * Las trae todas de una consulta: bloquear "los martes hasta fin de año" son
-   * medio centenar de fechas, y preguntar por cada una era medio centenar de
-   * viajes a la base para responder a una sola llamada.
+   * que se quiere bloquear, en el orden en que se pidieron. Las trae todas de
+   * una consulta: «los martes hasta fin de año» son medio centenar de fechas.
    */
   private async fechasQueChocan(
     businessId: string,

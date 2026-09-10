@@ -26,9 +26,8 @@ export class PaymentEventListeners {
 
   /**
    * Dos fichas del mismo cliente pasaron a ser una: sus cobros y sus facturas
-   * pasan a la ficha buena. Sin esto, el dinero que esa persona dejó en el
-   * negocio se quedaría colgando de una ficha que ya no se lista, y el
-   * historial de la superviviente mentiría por defecto.
+   * pasan a la ficha buena, para que el dinero que esa persona dejó no cuelgue
+   * de una ficha que ya no se lista.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,

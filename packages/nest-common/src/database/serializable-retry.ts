@@ -15,13 +15,8 @@ function isRetryable(error: unknown): boolean {
 
 /**
  * Ejecuta una operación reintentándola si Postgres aborta la transacción por un
- * conflicto de serialización o un deadlock.
- *
- * Una transacción SERIALIZABLE traslada el control de concurrencia a la base de
- * datos: cuando dos transacciones entran en conflicto, una recibe el error
- * 40001 en vez de corromper los datos. Ese error es esperable y se resuelve
- * reintentando; sin este envoltorio, la petición fallaría con un 500 pese a ser
- * recuperable. Los errores no relacionados se propagan de inmediato.
+ * conflicto de serialización o un deadlock: ese error es esperable y se resuelve
+ * repitiendo. Los demás se propagan de inmediato.
  */
 export async function withSerializableRetry<T>(
   operation: () => Promise<T>,

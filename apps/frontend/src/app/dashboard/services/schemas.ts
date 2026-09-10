@@ -68,9 +68,8 @@ export function toServicePayload(
   incluirActivo = false,
   /**
    * Versión con la que se abrió el formulario. No es un campo del servicio: es
-   * con lo que el servidor comprueba que nadie lo haya tocado mientras tanto.
-   * El formulario manda el precio y la duración enteros, así que sin ella
-   * guardar devuelve en silencio la tarifa que otra persona acaba de cambiar.
+   * con lo que el servidor comprueba que nadie lo haya tocado mientras tanto,
+   * porque el formulario manda el precio y la duración enteros.
    */
   updatedAt?: string
 ) {

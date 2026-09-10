@@ -90,9 +90,8 @@ export class BusinessesService {
 
   /**
    * Deja el negocio nuevo con catálogo y horario, en la misma transacción que
-   * su alta: o nace entero o no nace. Nada de lo sembrado se marca como tal —el
-   * dueño lo edita y lo borra como si lo hubiera escrito él, porque en cuanto
-   * lo toca es suyo.
+   * su alta: o nace entero o no nace. Nada de lo sembrado se marca como tal; el
+   * dueño lo edita y lo borra como si lo hubiera escrito él.
    */
   private async sembrar(
     manager: EntityManager,

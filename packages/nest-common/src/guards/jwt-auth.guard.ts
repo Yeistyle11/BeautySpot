@@ -20,12 +20,9 @@ import {
 } from "../security/token-version.store";
 
 /**
- * Verifica el JWT (HS256) de cada petición y publica el usuario en `request.user`.
- *
- * Deja pasar las rutas marcadas con @Public, `/health` y las internas `/internal`.
- * Además de validar firma y expiración, compara la `tokenVersion` del token con la
- * almacenada para poder invalidar sesiones remotamente (logout global, cambio de
- * contraseña); si no coinciden, la sesión se considera revocada.
+ * Verifica el JWT (HS256) de cada petición y publica el usuario en
+ * `request.user`; deja pasar @Public, `/health` y las rutas `/internal`. Una
+ * `tokenVersion` distinta de la almacenada cuenta como sesión revocada.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -118,11 +115,9 @@ export class JwtAuthGuard implements CanActivate {
   }
 
   /**
-   * Rol que el usuario tiene en el negocio de la petición.
-   *
-   * Un mismo usuario puede ser dueño de un salón y profesional en otro, así que
-   * el rol del token solo vale como valor por defecto: el que decide es el de
-   * la membresía del negocio que se está usando.
+   * Rol que el usuario tiene en el negocio de la petición. Puede ser dueño de
+   * un salón y profesional en otro, así que manda la membresía del negocio en
+   * uso y el rol del token solo vale de defecto.
    */
   private rolEnElNegocio(
     decoded: jwt.JwtPayload,

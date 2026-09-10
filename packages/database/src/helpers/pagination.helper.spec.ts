@@ -120,9 +120,8 @@ describe("Pagination Helper", () => {
     });
 
     it("respeta un order explícito de findOptions (multi-campo) sobre el sort", async () => {
-      // Antes el helper descartaba findOptions.order y siempre imponía el sort
-      // de params; ahora un order explícito (p. ej. date DESC + startTime ASC)
-      // tiene prioridad.
+      // Un order explícito (p. ej. date DESC + startTime ASC) manda sobre el
+      // sort de params.
       mockRepository.findAndCount.mockResolvedValue([mockData, 2]);
 
       await paginate(mockRepository, mockParams, {

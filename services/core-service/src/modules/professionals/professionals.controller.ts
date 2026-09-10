@@ -30,7 +30,6 @@ class VincularUsuarioDto {
 export class ProfessionalsController {
   constructor(private readonly service: ProfessionalsService) {}
 
-  /** Da de alta un profesional en el negocio. */
   @Post()
   async create(
     @BusinessId() businessId: string,
@@ -55,7 +54,6 @@ export class ProfessionalsController {
     return this.service.findByBusiness(businessId, true, branchId);
   }
 
-  /** Obtiene un profesional por id. */
   @Get(":id")
   async findById(
     @Param("id", ParseUUIDPipe) id: string,
@@ -64,7 +62,6 @@ export class ProfessionalsController {
     return this.service.findById(id, businessId);
   }
 
-  /** Actualiza la ficha de un profesional. */
   @Patch(":id")
   async update(
     @Param("id", ParseUUIDPipe) id: string,
@@ -99,7 +96,6 @@ export class ProfessionalsController {
     return this.service.getServices(id, businessId);
   }
 
-  /** Desasigna un servicio del profesional. */
   @Delete(":id/services/:serviceId")
   async removeService(
     @BusinessId() businessId: string,

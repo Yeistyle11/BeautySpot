@@ -119,9 +119,8 @@ export class PaymentsService {
     const splits = this.repartoDelCobro(data, propina);
 
     // Un cobro de cero no es una operacion: o es un error de tecleo o es una
-    // cortesia, que merece su propio concepto. La excepcion es el canje, donde
-    // `amount` es lo que el cliente pone de su bolsillo y los puntos cubren el
-    // resto: ahi el cero es legitimo.
+    // cortesia, que merece su propio concepto. En un canje si es legitimo: los
+    // puntos cubren el resto de lo que el cliente no pone.
     if (data.amount <= 0 && puntosUsados === 0) {
       throw new BadRequestException("El monto tiene que ser mayor que cero");
     }
@@ -255,9 +254,8 @@ export class PaymentsService {
 
   /**
    * Las lineas del cobro: las que vengan, o una sola con el medio indicado.
-   *
    * Suman el importe mas la propina, que es el dinero que entra de verdad; el
-   * cuadre se comprueba aqui y no en el DTO porque depende de los dos campos.
+   * cuadre se comprueba aqui porque depende de los dos campos.
    */
   private repartoDelCobro(
     data: Parameters<PaymentsService["create"]>[1],
@@ -319,10 +317,9 @@ export class PaymentsService {
   }
 
   /**
-   * Descuenta en core los puntos que va a gastar el cobro. El saldo lo guarda
-   * core y lo mueve él en una sola sentencia condicionada, de modo que dos
-   * cobros simultáneos del mismo cliente no puedan gastar el mismo saldo: el
-   * segundo recibe un 409 y no llega a registrarse.
+   * Descuenta en core los puntos que va a gastar el cobro. Core los mueve en
+   * una sola sentencia condicionada, así que de dos cobros simultáneos del
+   * mismo cliente el segundo recibe un 409 y no llega a registrarse.
    */
   private async reservarLosPuntos(
     businessId: string,
@@ -348,8 +345,8 @@ export class PaymentsService {
 
   /**
    * Devuelve a core los puntos reservados para un cobro que no llegó a
-   * registrarse. Es el compensatorio de {@link reservarLosPuntos}: sin él, un
-   * fallo posterior a la reserva dejaría al cliente sin puntos y sin descuento.
+   * registrarse: es el compensatorio de {@link reservarLosPuntos}, que evita
+   * dejar al cliente sin puntos y sin descuento.
    */
   private async devolverLosPuntos(
     businessId: string,
@@ -557,9 +554,8 @@ export class PaymentsService {
         to: new Date(filters.to),
       });
     }
-    // Un cobro repartido vale `MIXED` en su columna, asi que filtrar por
-    // igualdad lo escondia de los tres medios concretos aunque una de sus
-    // lineas fuera justo la que se busca.
+    // Un cobro repartido vale `MIXED` en su columna, asi que el filtro por medio
+    // mira las lineas: una de ellas puede ser justo la que se busca.
     if (filters.method) {
       qb.andWhere(
         `(p.method = :method OR EXISTS (
@@ -580,14 +576,9 @@ export class PaymentsService {
   }
 
   /**
-   * Resumen de los cobros completados de un dia, desglosado por medio.
-   *
-   * El desglose sale de las lineas del reparto y no de `payments.method`, que
-   * en un cobro repartido vale `MIXED`: agrupar por esa columna dejaba los tres
-   * medios en cero mientras el total no lo estaba, y el filtro por medio ocultaba
-   * el cobro entero. La venta de cada medio es su parte proporcional del importe
-   * —las lineas llevan la propina dentro y el importe no—, asi que el desglose
-   * suma siempre el total.
+   * Resumen de los cobros completados de un dia, desglosado por medio. Sale de
+   * las lineas del reparto y no de `payments.method`, que en un cobro repartido
+   * vale `MIXED`; cada medio aporta su parte proporcional y el total cuadra.
    */
   async getDailySummary(businessId: string, date: string, branchId?: string) {
     // El día va de medianoche a medianoche en el huso del negocio, con el fin
@@ -632,11 +623,9 @@ export class PaymentsService {
   }
 
   /**
-   * Corrige un cobro ya registrado: importe, metodo, referencia o notas.
-   *
-   * Solo se admite mientras la caja que recogio el cobro siga abierta. Cerrada
-   * la caja el arqueo ya esta firmado, y reescribir el importe lo descuadraria
-   * hacia atras sin que nadie lo note; a partir de ahi la via es la devolucion.
+   * Corrige un cobro ya registrado: importe, metodo, referencia o notas. Solo
+   * mientras la caja que lo recogio siga abierta: con el arqueo firmado,
+   * reescribir el importe lo descuadraria hacia atras y la via es la devolucion.
    */
   async correctPayment(
     id: string,

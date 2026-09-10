@@ -57,8 +57,8 @@ describe("PublicBookingDto", () => {
   });
 
   it("rechaza un userId en el cuerpo", async () => {
-    // Sin token no hay identidad que dar por buena: aceptarlo dejaba atar la
-    // ficha de cliente a la cuenta de otra persona.
+    // Sin token no hay identidad que dar por buena: aceptarlo ata la ficha de
+    // cliente a la cuenta de otra persona.
     await expect(
       pipe.transform(
         {

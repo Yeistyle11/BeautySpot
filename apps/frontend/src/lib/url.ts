@@ -1,7 +1,6 @@
 // Los enlaces del perfil publico (Instagram, sitio web) los teclea el propio
 // negocio y acaban en un href. Un "javascript:..." ahi se ejecuta en el
-// navegador de cualquier visitante, y React 18 solo avisa por consola: no lo
-// bloquea. De ahi que se filtre el protocolo antes de pintarlos.
+// navegador del visitante y React solo avisa: de ahi el filtro de protocolo.
 const PROTOCOLOS_PERMITIDOS = new Set(["http:", "https:"]);
 
 /**

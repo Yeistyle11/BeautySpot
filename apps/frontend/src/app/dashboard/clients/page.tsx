@@ -530,10 +530,9 @@ export default function ClientsPage() {
             )}
 
             <FichaSection
-              // Remonta al cambiar de cliente: el dialogo no se desmonta entre
-              // uno y otro, y el borrador tiene que empezar de cero.
-              // Y al recargar: la version nueva remonta el borrador con lo
-              // que hay guardado, que es lo que el aviso promete.
+              // Remonta al cambiar de cliente, porque el dialogo no se
+              // desmonta entre uno y otro, y al recargar, para que el
+              // borrador arranque con lo que hay guardado.
               key={`${selectedClient.id}-${selectedClient.updatedAt}`}
               campos={campos ?? []}
               servicios={servicios ?? []}

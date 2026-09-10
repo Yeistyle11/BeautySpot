@@ -20,12 +20,8 @@ function conCodigo(error: unknown, codigo: string): error is ErrorDePostgres {
 
 /**
  * Reconoce el error con el que Postgres rechaza un texto que no encaja en el
- * tipo de la columna: casi siempre un identificador de la URL que no es un
- * UUID. Sin traducirlo, escribir mal una URL se registra como un fallo del
- * servidor y acaba tapando los 500 que sí importan.
- *
- * Es la red de seguridad, no la validación: cada ruta declara su
- * `ParseUUIDPipe`, que responde antes de llegar a la base.
+ * tipo de la columna: casi siempre un id de la URL que no es un UUID. Es la red
+ * de seguridad; la validacion es el `ParseUUIDPipe` que declara cada ruta.
  */
 export function esIdentificadorInvalido(
   error: unknown
@@ -35,9 +31,8 @@ export function esIdentificadorInvalido(
 
 /**
  * Reconoce el error con el que Postgres rechaza lo que incumple un `CHECK`.
- * Los catálogos acotados —el medio de cobro, el estado de una reseña— viven en
- * restricciones con nombre, así que el nombre es lo único que distingue cuál
- * se tocó cuando la tabla tiene varias.
+ * Los catalogos acotados viven en restricciones con nombre, y el nombre es lo
+ * unico que distingue cual se toco cuando la tabla tiene varias.
  */
 export function esViolacionDeCatalogo(
   error: unknown

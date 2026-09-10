@@ -250,8 +250,8 @@ describe("CatalogoTenantService", () => {
     });
 
     it("corta también cuando solo uno de los dos era del negocio", async () => {
-      // El caso que se colaba: al contar sobre lo que devuelve el UPDATE sin
-      // separar filas de afectadas, dos elementos siempre cuadraban.
+      // Contar sobre lo que devuelve el UPDATE sin separar filas de afectadas
+      // daría dos siempre, y un id ajeno pasaría.
       repo.manager.query.mockResolvedValue(resultadoDeUpdate(["cat-1"]));
 
       await expect(

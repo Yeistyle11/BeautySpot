@@ -25,10 +25,9 @@ export class ServicesService extends TenantCrudService<Service> {
   }
 
   /**
-   * Crea un servicio en el catálogo del negocio.
-   *
-   * La descripción y la categoría son opcionales para quien da de alta, pero
-   * sus columnas no admiten nulo: lo que no se rellena se guarda vacío.
+   * Crea un servicio en el catálogo del negocio. La descripción y la categoría
+   * son opcionales para quien da de alta, pero sus columnas no admiten nulo: lo
+   * que no se rellena se guarda vacío.
    */
   async create(businessId: string, data: Partial<Service>): Promise<Service> {
     await this.validarCategoria(data.categoryId, businessId);
@@ -53,11 +52,9 @@ export class ServicesService extends TenantCrudService<Service> {
   }
 
   /**
-   * Actualiza los datos de un servicio, validando antes su categoría.
-   *
-   * Con `updatedAtEsperado` la escritura se rechaza si el servicio cambió desde
-   * que quien edita lo cargó: el formulario manda el precio y la duración
-   * enteros, así que guardar a ciegas devolvería la tarifa a su valor viejo.
+   * Actualiza los datos de un servicio, validando antes su categoría. Con
+   * `updatedAtEsperado` la escritura se rechaza si el servicio cambió desde que
+   * se cargó: el formulario manda el precio y la duración enteros.
    */
   async update(
     id: string,

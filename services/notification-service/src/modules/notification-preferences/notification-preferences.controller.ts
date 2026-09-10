@@ -28,7 +28,6 @@ class UpsertPreferenceDto {
 export class NotificationPreferencesController {
   constructor(private readonly service: NotificationPreferencesService) {}
 
-  /** Lista las preferencias del usuario. */
   @Get()
   findByUser(
     @Headers("x-user-id") userId: string,
@@ -37,7 +36,6 @@ export class NotificationPreferencesController {
     return this.service.findByUser(userId, businessId);
   }
 
-  /** Crea o actualiza una preferencia del usuario. */
   @Post()
   upsert(
     @Body() dto: UpsertPreferenceDto,

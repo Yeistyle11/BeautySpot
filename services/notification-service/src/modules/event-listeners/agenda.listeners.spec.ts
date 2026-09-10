@@ -448,10 +448,9 @@ describe("AgendaListeners", () => {
       );
     });
 
-    // El producto le pide al personal una nota «para el historial» y luego se la
-    // mandaba al cliente bajo el rótulo «Motivo»: una recepcionista que escriba
-    // «la clienta ya nos plantó dos veces» estaba redactando, sin saberlo, el
-    // correo que iba a recibir esa clienta.
+    // La nota que el personal escribe «para el historial» no es el motivo que se
+    // le enseña al cliente: «la clienta ya nos plantó dos veces» no puede acabar
+    // en el correo que ella recibe.
     it("no le manda al cliente la nota interna", async () => {
       await listeners.handleAppointmentCancelled(mockAppointmentCancelledEvent);
 

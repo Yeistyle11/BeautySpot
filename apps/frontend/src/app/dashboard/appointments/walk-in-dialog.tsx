@@ -37,11 +37,9 @@ interface WalkInDialogProps {
 }
 
 /**
- * Alta de un walk-in. Buena parte de la clientela de una barberia entra sin
- * cita: se atiende primero y se anota despues, cuando hay un hueco. Nace
- * atendida y se cobra en el mismo paso, que es la unica forma de que el cobro
- * quede ligado al servicio y al profesional —y de que las metricas por uno y
- * por otro dejen de estar vacias—.
+ * Alta de un walk-in: se atiende primero y se anota despues, cuando hay un
+ * hueco. Nace atendida y se cobra en el mismo paso, que es lo que liga el cobro
+ * al servicio y al profesional y da metricas por uno y por otro.
  */
 export function WalkInDialog({
   open,

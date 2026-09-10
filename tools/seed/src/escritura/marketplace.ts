@@ -21,12 +21,9 @@ function valoracion(resenas: Resena[]) {
 }
 
 /**
- * Escaparate: el perfil del negocio, el de cada profesional y las reseñas.
- *
- * La nota y el número de reseñas se calculan aquí y se guardan en el perfil
- * porque así es como los lee el escaparate —el listado no vuelve a agregar las
- * reseñas de cada negocio—, y `publishedAt` va relleno porque es lo que ordena
- * «Recién llegados»: sin él el perfil está publicado pero no aparece.
+ * Escaparate: el perfil del negocio, el de cada profesional y las reseñas. La
+ * nota y el número de reseñas se guardan en el perfil porque así los lee el
+ * listado, y `publishedAt` va relleno porque es lo que ordena «Recién llegados».
  */
 export async function sembrarMarketplace(
   dataSource: DataSource,

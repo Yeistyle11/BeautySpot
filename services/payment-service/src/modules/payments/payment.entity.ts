@@ -83,10 +83,9 @@ export class PaymentEntity extends TenantEntity {
   registeredBy!: string;
 
   /**
-   * Rebaja que concede el negocio —la promocion del martes, el trato con un
-   * cliente fiel—, con su motivo. Es distinta de {@link descuento}, que es lo
-   * que rebajaron los puntos canjeados: una sale del margen y la otra de la
-   * fidelizacion, y el negocio necesita saber cuanto regalo por cada via.
+   * Rebaja que concede el negocio, con su motivo. Es distinta de {@link
+   * descuento}, que es lo que rebajaron los puntos canjeados: una sale del
+   * margen y la otra de la fidelizacion.
    */
   @Column({
     type: "decimal",

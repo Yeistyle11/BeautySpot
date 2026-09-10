@@ -211,10 +211,9 @@ function addFooter(doc: Documento, data: InvoiceData): void {
 }
 
 /**
- * Monta el PDF completo de una factura y lo devuelve como Buffer.
- *
- * No depende de Nest ni de ninguna configuración: es una función pura sobre los
- * datos recibidos, para poder ejecutarse dentro de un worker.
+ * Monta el PDF completo de una factura y lo devuelve como Buffer. No depende de
+ * Nest ni de configuración: es una función pura sobre los datos recibidos, para
+ * poder ejecutarse dentro de un worker.
  */
 export function construirPdfFactura(data: InvoiceData): Promise<Buffer> {
   return new Promise((resolve, reject) => {

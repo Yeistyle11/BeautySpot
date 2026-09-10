@@ -89,7 +89,6 @@ export class InvoicesController {
     res.send(pdfBuffer);
   }
 
-  /** Obtiene una factura por id. */
   @Get(":id")
   async findById(
     @Param("id", ParseUUIDPipe) id: string,
@@ -98,7 +97,6 @@ export class InvoicesController {
     return this.service.findById(id, businessId);
   }
 
-  /** Cambia el estado de una factura. */
   @Patch(":id/status")
   async updateStatus(
     @Param("id", ParseUUIDPipe) id: string,
@@ -108,7 +106,6 @@ export class InvoicesController {
     return this.service.updateStatus(id, businessId, dto.status);
   }
 
-  /** Genera y descarga el PDF de una factura. */
   @Get(":id/pdf")
   @HttpCode(HttpStatus.OK)
   async generatePdf(

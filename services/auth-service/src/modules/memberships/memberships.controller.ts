@@ -48,7 +48,6 @@ export class MembershipsController {
     );
   }
 
-  /** Cambia el rol de una membresía existente. */
   @SesionVerificable()
   @Patch(":id/role")
   @Roles(Role.OWNER, Role.SUPER_ADMIN)
@@ -78,7 +77,6 @@ export class MembershipsController {
     return { message: "Membresía desactivada" };
   }
 
-  /** Lista los miembros de un negocio. */
   @Get("business/:businessId")
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   async findByBusiness(

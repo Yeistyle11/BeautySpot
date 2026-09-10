@@ -329,7 +329,6 @@ export class DashboardService {
     }));
   }
 
-  /** Ranking de profesionales por ingresos en el periodo. */
   async getTopProfessionals(
     businessId: string,
     limit = 10,

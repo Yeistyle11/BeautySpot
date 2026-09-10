@@ -2,11 +2,8 @@ import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
  * Guarda el desglose del impuesto en la propia factura, en vez de deducirlo del
- * total al imprimir el PDF.
- *
- * Las facturas ya emitidas se rellenan con impuesto cero y `subtotal = total`,
- * que es lo que de verdad se cobró: aplicarles el 19 % repercutiría un impuesto
- * que nadie pagó y descuadraría documentos ya entregados.
+ * total al imprimir el PDF. Las ya emitidas se rellenan con impuesto cero y
+ * `subtotal = total`, que es lo que de verdad se cobró.
  */
 export class DesgloseDeIvaEnFacturas1700000000006 implements MigrationInterface {
   name = "DesgloseDeIvaEnFacturas1700000000006";

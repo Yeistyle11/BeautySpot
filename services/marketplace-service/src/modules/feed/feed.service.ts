@@ -171,7 +171,6 @@ export class FeedService {
     return data;
   }
 
-  /** Los negocios mejor calificados de la plataforma. */
   private async getTopRated(): Promise<BusinessProfileEntity[]> {
     return this.profilesService.findTopRated(6);
   }
@@ -181,7 +180,6 @@ export class FeedService {
     return this.profilesService.findRecent(30, 6);
   }
 
-  /** Los profesionales destacados de la plataforma. */
   private async getTopProfessionals(): Promise<ProfessionalProfileEntity[]> {
     return this.professionalProfilesService.findTopRated(6);
   }

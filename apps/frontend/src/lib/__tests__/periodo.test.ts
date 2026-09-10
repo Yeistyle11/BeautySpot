@@ -42,8 +42,7 @@ describe("resolverPeriodo", () => {
     });
   });
 
-  // Es la queja concreta del informe: la ventana móvil no cuadra con el mes
-  // con el que se factura y se declara.
+  // La ventana móvil no cuadra con el mes con el que se factura y se declara.
   it("el mes va del día 1 a hoy", () => {
     expect(resolverPeriodo("mes", LUNES)).toEqual({
       from: "2026-08-01",

@@ -227,7 +227,6 @@ export class PaymentsController {
     return this.service.getDailySummary(businessId, query.date, branchId);
   }
 
-  /** Obtiene un pago por id. */
   @Get(":id")
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   async findById(

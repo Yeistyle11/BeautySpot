@@ -38,14 +38,9 @@ interface LineaResuelta {
 }
 
 /**
- * Permite reservar citas desde el marketplace, resolviendo al cliente contra el
- * core-service y validando la disponibilidad.
- *
- * Sirve a los dos caminos del escaparate —el invitado sin token y el cliente
- * con sesión—, que solo se diferencian en si la ficha queda ligada a un
- * usuario. El `userId` nunca sale del cuerpo de la petición: lo pone el
- * controlador autenticado a partir del token, porque aceptarlo del cuerpo
- * dejaría reservar a nombre de otro.
+ * Permite reservar desde el marketplace, resolviendo al cliente contra el
+ * core-service y validando la disponibilidad. Sirve al invitado y al cliente
+ * con sesión; el `userId` lo pone el controlador desde el token.
  */
 @Injectable()
 export class PublicBookingService {
@@ -64,12 +59,8 @@ export class PublicBookingService {
 
   /**
    * Crea una cita del escaparate: resuelve o crea el cliente, elige profesional
-   * si no vino indicado y delega el alta.
-   *
-   * `userId` llega solo cuando quien reserva tiene sesión, y siempre desde el
-   * token. Con él, la ficha del negocio queda ligada a esa cuenta, que es lo
-   * que hace que la reserva aparezca en *Mis Citas* y que el cliente pueda
-   * cancelarla, reagendarla y reseñarla después.
+   * si no vino indicado y delega el alta. `userId` llega solo con sesión y
+   * siempre desde el token; con él la ficha queda ligada a esa cuenta.
    */
   async createPublicAppointment(
     data: {
@@ -157,12 +148,9 @@ export class PublicBookingService {
   }
 
   /**
-   * Pide al core-service el cliente que coincida o uno nuevo. Falla si el
-   * servicio no responde.
-   *
-   * El `userId` viaja solo en la reserva con sesión; el core lo usa para
-   * vincular la ficha a esa cuenta cuando aún no lo está, y nunca para pisar un
-   * vínculo existente. En la reserva de invitado no hay ninguno que mandar.
+   * Pide al core-service el cliente que coincida o uno nuevo; falla si no
+   * responde. El `userId` viaja solo en la reserva con sesión, y el core lo usa
+   * para vincular la ficha cuando aún no lo está, nunca para pisar un vínculo.
    */
   private async findOrCreateGuestClient(
     businessId: string,

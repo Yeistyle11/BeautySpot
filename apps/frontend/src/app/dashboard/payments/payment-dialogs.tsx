@@ -470,9 +470,9 @@ interface RefundDialogProps {
 }
 
 /**
- * Devolución de un cobro, total o parcial. Hasta ahora la única salida era
- * dejar el cobro malo y compensarlo con un movimiento de caja suelto, sin
- * trazabilidad y descuadrando los informes de ingresos.
+ * Devolución de un cobro, total o parcial, con su traza. La alternativa sería
+ * compensarlo con un movimiento de caja suelto, que descuadra los informes de
+ * ingresos y no deja constancia de nada.
  */
 export function RefundDialog({
   open,

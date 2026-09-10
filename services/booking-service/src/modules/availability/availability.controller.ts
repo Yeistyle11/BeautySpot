@@ -17,7 +17,6 @@ import { ReplaceAvailabilityDto } from "./dto/availability.dto";
 export class AvailabilityController {
   constructor(private readonly service: AvailabilityService) {}
 
-  /** Devuelve la disponibilidad semanal del profesional. */
   @Get()
   async get(
     @Param("professionalId", ParseUUIDPipe) professionalId: string,
@@ -27,10 +26,9 @@ export class AvailabilityController {
   }
 
   /**
-   * Reemplaza por completo la disponibilidad semanal del profesional. Queda
-   * fuera del alcance de PROFESSIONAL: la ruta lleva el profesional en la URL y
-   * el token no permite comprobar que sea el suyo, así que cualquiera del
-   * equipo podría reescribir la agenda de otro.
+   * Reemplaza por completo la disponibilidad semanal del profesional. Fuera del
+   * alcance de PROFESSIONAL: la ruta lo lleva en la URL y el token no permite
+   * comprobar que sea el suyo.
    */
   @Roles(Role.OWNER, Role.ADMIN)
   @Post()

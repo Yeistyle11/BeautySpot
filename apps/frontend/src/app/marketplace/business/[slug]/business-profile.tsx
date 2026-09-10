@@ -130,10 +130,9 @@ export default function BusinessProfile({
     );
   }
 
-  // Un negocio que nunca toco la configuracion no trae sectionConfig: se pinta
-  // el orden por defecto, el mismo que ofrece el panel en
-  // dashboard/marketplace/schemas.ts (defaultSections). Si cambia uno hay que
-  // cambiar el otro.
+  // Un negocio que nunca toco la configuracion no trae sectionConfig: se pinta el
+  // orden por defecto, el mismo que ofrece el panel en
+  // dashboard/marketplace/schemas.ts (defaultSections); los dos van a la par.
   const sections = profile.sectionConfig?.sections
     ?.filter((s) => s.enabled)
     .sort((a, b) => a.order - b.order) || [

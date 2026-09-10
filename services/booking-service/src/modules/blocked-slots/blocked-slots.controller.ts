@@ -41,7 +41,6 @@ export class BlockedSlotsDelDiaController {
 export class BlockedSlotsController {
   constructor(private readonly service: BlockedSlotsService) {}
 
-  /** Lista los bloqueos de agenda del profesional. */
   @Get()
   async findAll(
     @Param("professionalId", ParseUUIDPipe) professionalId: string,

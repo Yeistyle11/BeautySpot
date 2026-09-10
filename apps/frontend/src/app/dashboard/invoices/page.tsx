@@ -66,10 +66,9 @@ export default function InvoicesPage() {
     params: estado === "all" ? undefined : { status: estado },
   });
 
-  // Los nombres de los clientes se piden aparte: la factura solo trae su id.
-  // Las dos rutas son paginadas, así que llegan envueltas en { data, meta };
-  // validarlas como un array plano hacía fallar el parseo y dejaba la lista
-  // vacía, que en pantalla se leía como «todavía no hay nada que facturar».
+  // Los nombres de los clientes se piden aparte: la factura solo trae su id. Las
+  // dos rutas son paginadas, así que llegan envueltas en { data, meta } y hay que
+  // validarlas como tales.
   const { data: clientesPage } = useApi(
     CLIENTS_KEY,
     undefined,

@@ -65,8 +65,8 @@ describe("BatchUpsertDto", () => {
     ).toEqual([]);
   });
 
-  // Sin @IsArray, un objeto suelto se colaba: @ValidateNested({ each: true })
-  // no encuentra elementos que recorrer y da el campo por bueno.
+  // Sin @IsArray, un objeto suelto pasa: @ValidateNested({ each: true }) no
+  // encuentra elementos que recorrer y da el campo por bueno.
   it("rechaza un hours que no sea una lista", async () => {
     expect(
       await erroresDe(BatchUpsertDto, { hours: TRAMO }, "hours")

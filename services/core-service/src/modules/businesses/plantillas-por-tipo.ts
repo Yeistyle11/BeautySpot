@@ -1,12 +1,7 @@
 /**
- * Con qué nace un negocio según su tipo. Preguntar el tipo y luego no usarlo
- * para nada es peor que no preguntarlo: crea la expectativa de que el producto
- * se adapta y entrega un panel de quince secciones vacías sin ninguna pista de
- * por dónde empezar.
- *
- * Los precios son de referencia del mercado colombiano y están para cambiarse:
- * lo que se siembra es indistinguible de lo que el negocio escriba después, sin
- * marca ni bloqueo, y se puede borrar entero.
+ * Con qué nace un negocio según su tipo, para que preguntarlo sirva de algo y
+ * el panel no arranque vacío. Los precios son de referencia del mercado
+ * colombiano: lo sembrado no lleva marca y se edita o se borra entero.
  */
 
 /** Servicio con el que arranca el catálogo. */

@@ -235,12 +235,8 @@ export class ClientsService extends TenantCrudService<Client> {
 
   /**
    * Actualiza la ficha, salvo que ya se haya ejercido la supresión sobre ella.
-   * El contacto pasa por la misma canonización y el mismo cotejo que el alta:
-   * editar el teléfono es la otra vía por la que se duplica una persona.
-   *
-   * Con `updatedAtEsperado` la escritura se rechaza si la ficha cambió desde
-   * que quien edita la cargó: en el mostrador la misma ficha se abre a la vez
-   * en varios sitios.
+   * El contacto pasa por la misma canonización y cotejo que el alta. Con
+   * `updatedAtEsperado` se rechaza si la ficha cambió desde que se cargó.
    */
   async update(
     id: string,
@@ -330,15 +326,9 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * Fusiona dos fichas del mismo cliente en la que sobrevive. Los duplicados
-   * aparecen en cualquier cartera —la misma persona da otro teléfono, se apunta
-   * con el correo del trabajo, o se teclea mal un nombre— y sin fusión el salón
-   * se queda con dos historiales a medias: en un centro estético eso parte la
-   * ficha de alergias y la fórmula de color, que es información con la que se
-   * trabaja sobre la piel de alguien.
-   *
-   * Es definitiva. Lo que cuelga de la absorbida en los otros servicios lo
-   * reasigna cada uno al consumir `core.client.merged`.
+   * Fusiona dos fichas del mismo cliente en la que sobrevive, para que el salón
+   * no trabaje con dos historiales a medias. Es definitiva: lo que cuelga de la
+   * absorbida lo reasigna cada servicio al consumir `core.client.merged`.
    */
   async fusionar(
     businessId: string,
@@ -406,10 +396,9 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * La ficha superviviente con lo que aporta la absorbida. Lo que el
-   * superviviente ya tiene manda; lo que tiene vacío se rellena, y su contacto
-   * viejo se conserva como alias para que las reservas futuras por él caigan
-   * aquí.
+   * La ficha superviviente con lo que aporta la absorbida: lo que ya tiene
+   * manda, lo vacío se rellena y su contacto anterior queda como alias, para
+   * que las reservas futuras por él caigan aquí.
    */
   private combinar(superviviente: Client, absorbido: Client): Client {
     const aliasEmails = new Set([
@@ -499,17 +488,8 @@ export class ClientsService extends TenantCrudService<Client> {
 
   /**
    * Lista los clientes activos del negocio, con paginación y búsqueda por
-   * nombre, correo o teléfono.
-   *
-   * El término se normaliza como en el alta antes de consultar: comparar el
-   * texto crudo hacía que `3101112233` encontrara la ficha guardada con
-   * `+573101112233` pero no al revés, y el prefijo internacional es justo el
-   * formato que sale del móvil y de WhatsApp.
-   *
-   * Mira además los alias que deja una fusión, que es lo que el propio diálogo
-   * promete: el teléfono y el correo de la ficha absorbida tienen que seguir
-   * encontrando a la superviviente, o la recepcionista vuelve a crear el
-   * duplicado que acababa de unir.
+   * nombre, correo o teléfono. El término se normaliza como en el alta y mira
+   * los alias de una fusión, para que el contacto absorbido siga encontrando.
    */
   async findByBusiness(
     businessId: string,
@@ -590,7 +570,6 @@ export class ClientsService extends TenantCrudService<Client> {
     });
   }
 
-  /** Página sin resultados con la forma que espera quien la pidió. */
   private paginaVacia(
     pagination: PaginateParams
   ): IPaginatedResponse<Pick<Client, "id" | "name">> {
@@ -620,7 +599,6 @@ export class ClientsService extends TenantCrudService<Client> {
     });
   }
 
-  /** Busca el cliente asociado a una cuenta de usuario dentro del negocio. */
   async findByUserId(
     userId: string,
     businessId: string
@@ -713,9 +691,8 @@ export class ClientsService extends TenantCrudService<Client> {
 
   /**
    * Descuenta los puntos al cliente si le alcanzan, en una sola sentencia, y
-   * dice si pudo. Leer el saldo y escribirlo después dejaría que dos canjes
-   * simultáneos pasaran ambos la comprobación y gastaran el mismo saldo dos
-   * veces, así que la condición viaja dentro del propio UPDATE.
+   * dice si pudo. La condición viaja dentro del UPDATE porque leer el saldo y
+   * escribirlo después deja que dos canjes simultáneos gasten el mismo.
    */
   async redeemLoyaltyPoints(
     id: string,

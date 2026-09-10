@@ -15,9 +15,8 @@ const PAGINA = {
 
 /**
  * Comprueba contra Postgres real que el buscador de clientes encuentra por los
- * alias que deja una fusión y por cualquier formato del teléfono
- * (`npm run test:int`). Las dos cosas viven en SQL —`string_to_array … @>` y la
- * comparación por variantes—, así que solo la base puede confirmarlas.
+ * alias de una fusión y por cualquier formato del teléfono. Las dos cosas viven
+ * en SQL, así que solo la base puede confirmarlas (`npm run test:int`).
  */
 describe("Integración: el buscador de clientes alcanza alias y formatos", () => {
   let dataSource: DataSource;

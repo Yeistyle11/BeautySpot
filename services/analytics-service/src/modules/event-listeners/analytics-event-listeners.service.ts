@@ -41,11 +41,9 @@ export class AnalyticsEventListeners {
   ) {}
 
   /**
-   * Dia al que pertenece un evento, en el huso del negocio: el que trae su
-   * carga si lo trae, y si no el instante en que se emitio.
-   *
-   * Nunca el dia en que se procesa. Los eventos se reentregan, y un consumidor
-   * que se cae y vuelve al dia siguiente sumaria en el dia equivocado.
+   * Dia al que pertenece un evento, en el huso del negocio: el que trae su carga
+   * si lo trae, y si no el instante en que se emitio. Nunca el dia en que se
+   * procesa: un consumidor que se cae y vuelve sumaria en el dia equivocado.
    */
   private async diaDelEvento(
     businessId: string,
@@ -335,11 +333,9 @@ export class AnalyticsEventListeners {
   }
 
   /**
-   * Dos fichas del mismo cliente pasaron a ser una. Aquí no basta con
-   * reasignar: el historial agregado tiene una fila por cliente y negocio, así
-   * que las dos se suman en la del superviviente —visitas y gasto— y las fechas
-   * se estiran a la primera y la última de las dos. Si solo existía la de la
-   * absorbida, se reasigna sin más.
+   * Dos fichas del mismo cliente pasaron a ser una. El historial agregado tiene
+   * una fila por cliente y negocio: las dos se suman en la del superviviente y
+   * las fechas se estiran a la primera y la última de ambas.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,

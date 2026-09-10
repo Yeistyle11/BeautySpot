@@ -9,10 +9,8 @@ import { PaymentEntity } from "./payment.entity";
 
 /**
  * Lo que se pagó por un medio dentro de un cobro: «20.000 en efectivo y el
- * resto con tarjeta» son dos líneas del mismo cobro.
- *
- * Un cobro de un solo medio también guarda su línea, para que la caja y el
- * arqueo tengan una sola vía de la que leer.
+ * resto con tarjeta» son dos líneas del mismo cobro. Un cobro de un solo medio
+ * también guarda la suya, para que la caja lea de una sola vía.
  */
 @Entity("payment_splits")
 // La caja y el arqueo leen las lineas de su cobro.

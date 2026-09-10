@@ -64,9 +64,8 @@ export class CoreEventListeners {
 
   /**
    * Deja constancia del canje. El saldo lo descuenta el propio cobro contra
-   * `/internal/clients/:id/puntos/reservar` antes de registrarse, porque el
-   * descuento decide el importe y no puede resolverse después: hacerlo aquí
-   * dejaría que dos cobros simultáneos gastaran el mismo saldo.
+   * `/internal/clients/:id/puntos/reservar` antes de registrarse: el descuento
+   * decide el importe, y hacerlo aquí dejaría gastarlo dos veces.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,

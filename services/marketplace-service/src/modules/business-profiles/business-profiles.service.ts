@@ -266,7 +266,6 @@ export class BusinessProfilesService {
     return this.guardar(profile);
   }
 
-  /** Añade imágenes a la galería del perfil. */
   async addGalleryImages(
     businessId: string,
     dto: AddGalleryImagesDto
@@ -339,10 +338,9 @@ export class BusinessProfilesService {
   }
 
   /**
-   * Recalcula la media de calificación y el total de reseñas del negocio a
-   * partir de sus reviews, contándolas **todas**, también las ocultas: ocultar
-   * una reseña la retira del listado público pero no debe subir la nota del
-   * negocio que la modera.
+   * Recalcula la media de calificación y el total de reseñas del negocio
+   * contándolas todas, también las ocultas: ocultar una la retira del listado
+   * público, pero no sube la nota de quien la modera.
    */
   async updateRating(
     businessId: string,

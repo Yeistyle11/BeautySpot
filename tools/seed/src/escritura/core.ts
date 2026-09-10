@@ -12,10 +12,9 @@ import { idDe } from "../identidades";
 import { borrarPorNegocio, guardar } from "./comun";
 
 /**
- * El negocio y todo lo que cuelga de él. El catálogo y el horario no se
- * inventan aquí: salen de `plantillaDe(tipo)`, la misma plantilla con la que
- * nace un negocio real, así que la barbería sembrada tiene exactamente los
- * servicios y las horas que tendría recién dada de alta.
+ * El negocio y todo lo que cuelga de él. El catálogo y el horario salen de
+ * `plantillaDe(tipo)`, la misma plantilla con la que nace un negocio real, así
+ * que la barbería sembrada es igual a una recién dada de alta.
  */
 export async function sembrarCore(dataSource: DataSource, siembra: Siembra) {
   const negocios: Business[] = [];

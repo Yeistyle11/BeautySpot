@@ -1,17 +1,7 @@
 /**
  * Guarda de la siembra, que corre sin base de datos (`npm run seed:comprobar`).
- *
- * Cubre las dos formas en que esto se rompe solo:
- *
- * 1. **Una columna renombrada en un servicio.** La siembra construye las filas
- *    con `Object.assign(new Entidad(), { … })`, y una propiedad que ya no
- *    existe no da error: se descarta en silencio y la fila se escribe con ese
- *    campo vacío. Aquí se compara cada clave contra los metadatos reales de la
- *    entidad, que TypeORM construye sin conectarse a nada.
- * 2. **Un escenario incoherente.** Que las citas de un profesional se solapen,
- *    que un cobro no cuadre con su reparto, que una caja cierre con un esperado
- *    que no sale de sus movimientos. Nada de eso lo detecta la base: se
- *    escribiría tal cual y luego el panel enseñaría números imposibles.
+ * Cubre lo que no da error solo: una clave que ya no existe en la entidad y un
+ * escenario incoherente, como citas solapadas o una caja descuadrada sin serlo.
  */
 import "reflect-metadata";
 import { readFileSync, readdirSync } from "fs";

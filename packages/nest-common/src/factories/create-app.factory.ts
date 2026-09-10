@@ -42,13 +42,9 @@ const REQUISITOS_COMUNES: RequisitosDeEntorno = {
 };
 
 /**
- * Resolver autoritativo de versiones de token para el guard global.
- *
- * El guard se construye fuera del contenedor, así que el resolver hay que
- * dárselo a mano: el que el servicio haya registrado —auth resuelve contra su
- * propia tabla de usuarios— y, si no registró ninguno, uno que se lo pregunte a
- * auth por HTTP interno. Sin esto el store nace ciego y una clave ausente en
- * Redis se lee como "nunca revocado".
+ * Resolver autoritativo de versiones de token para el guard global, que se
+ * construye fuera del contenedor: el que el servicio registre o, si no hay
+ * ninguno, uno que pregunte a auth por HTTP interno.
  */
 function resolverDeVersiones(
   app: { get: (token: symbol, opciones: { strict: boolean }) => unknown },
@@ -60,9 +56,8 @@ function resolverDeVersiones(
     }) as TokenVersionResolver;
   } catch {
     // Nest lanza cuando el token no está registrado, que es el caso de los
-    // siete servicios que no poseen la tabla de usuarios. Que esto se pueda
-    // capturar depende de `abortOnError: false` al crear la aplicación: sin
-    // él, el propio `get` mata el proceso y no vuelve de aquí.
+    // servicios sin tabla de usuarios. Capturarlo exige `abortOnError: false`
+    // al crear la aplicación; sin él, el propio `get` mata el proceso.
     return new HttpTokenVersionResolver(new InternalHttpClient(configService));
   }
 }
@@ -103,10 +98,9 @@ export async function createMicroserviceApp(
 
   const app = await NestFactory.create(AppModule as Type<unknown>, {
     logger: new StructuredLogger(),
-    // Sin esto, cualquier fallo dentro de la aplicación —incluido preguntar por
-    // un proveedor que este servicio no registra— llama a process.exit(1) por
-    // dentro y no hay forma de atenderlo. Con él, el error sube hasta
-    // bootstrapMicroservice, que decide: registrarlo y salir con código.
+    // Sin esto, cualquier fallo dentro de la aplicación llama a process.exit(1)
+    // por dentro y no hay forma de atenderlo. Con él, el error sube hasta
+    // bootstrapMicroservice, que lo registra y sale con código.
     abortOnError: false,
   });
 

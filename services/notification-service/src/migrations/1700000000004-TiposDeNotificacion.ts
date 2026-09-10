@@ -1,10 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Añade los tipos de notificación de cita creada y pago registrado.
- *
- * Son los dos momentos en los que el negocio y el cliente esperaban un aviso y
- * no lo recibían: la reserva y el cobro.
+ * Añade los tipos de notificación de cita creada y pago registrado: la reserva
+ * y el cobro, los dos momentos en los que el negocio y el cliente esperan un
+ * aviso.
  */
 export class TiposDeNotificacion1700000000004 implements MigrationInterface {
   name = "TiposDeNotificacion1700000000004";

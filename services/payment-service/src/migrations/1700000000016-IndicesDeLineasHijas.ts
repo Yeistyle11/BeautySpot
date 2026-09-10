@@ -1,10 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Indexa las dos claves ajenas por las que se leen las líneas de un padre:
- * los movimientos de una sesión de caja y las líneas de una factura. Postgres
- * no indexa las claves ajenas por su cuenta, así que sin esto el arqueo y cada
- * factura recorren la tabla entera.
+ * Indexa las dos claves ajenas por las que se leen las líneas de un padre: los
+ * movimientos de una sesión de caja y las líneas de una factura. Postgres no
+ * las indexa solo, y sin esto el arqueo recorre la tabla entera.
  */
 export class IndicesDeLineasHijas1700000000016 implements MigrationInterface {
   name = "IndicesDeLineasHijas1700000000016";

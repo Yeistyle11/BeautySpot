@@ -4,10 +4,8 @@
 
 /**
  * Guard de Edge de /dashboard y /login. Solo decide a donde va la navegacion:
- * la autorizacion de verdad la sigue haciendo el gateway en cada peticion.
- *
- * Corre en entorno node y no en jsdom: `next/server` necesita los globales web
- * (Request, Response) que trae Node y jsdom no expone.
+ * la autorizacion la sigue haciendo el gateway en cada peticion. Corre en node
+ * porque `next/server` necesita globales web que jsdom no expone.
  */
 import { middleware } from "../../middleware";
 
@@ -88,8 +86,7 @@ describe("middleware", () => {
 
   // La cookie de refresco no llega hasta aqui —esta acotada a la ruta que la
   // canjea—, asi que el testigo de que la sesion aun se puede renovar es la
-  // pista. Expulsar al caducar el access tiraba al usuario a mitad de un flujo
-  // teniendo con que seguir.
+  // pista: expulsar al caducar el access corta un flujo que podia seguir.
   it("deja pasar con el access caducado si la sesion aun puede renovarse", async () => {
     const res = await middleware(
       peticion("/dashboard", { bs_access: caducado, bs_session: pista })

@@ -29,8 +29,7 @@ interface ServicesDialogProps {
 /**
  * Qué servicios presta cada profesional y a qué precio. La tarifa propia es
  * opcional: en blanco, cobra y dura lo del catálogo. Es la regla más extendida
- * del sector —el corte del senior no vale lo que el del junior— y hasta ahora
- * obligaba a duplicar servicios para poder cobrarlos distinto.
+ * del sector, que el corte del senior no vale lo que el del junior.
  */
 export function ServicesDialog({
   open,

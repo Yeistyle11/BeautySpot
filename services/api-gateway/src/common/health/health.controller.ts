@@ -11,11 +11,9 @@ export class HealthController {
   constructor(private serviceUrls: ServiceUrlsConfig) {}
 
   /**
-   * Salud del conjunto, sin decir quién falla.
-   *
-   * Es una ruta pública —la consultan el balanceador y el orquestador—, y el
-   * desglose por servicio dibuja la topología interna y señala cuál está caído,
-   * que es justo lo que busca quien tantea. Para operar está el de abajo.
+   * Salud del conjunto, sin decir quién falla. Es una ruta pública y el desglose
+   * por servicio dibujaría la topología interna y señalaría al caído; para
+   * operar está el detalle de abajo.
    */
   @Get()
   async check() {

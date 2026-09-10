@@ -97,7 +97,6 @@ export abstract class CatalogoTenantService<T extends EntidadDeCatalogo> {
     );
   }
 
-  /** Alterna el estado activo/inactivo de un elemento. */
   async toggleActive(id: string, businessId: string): Promise<T> {
     const actual = await this.findById(id, businessId);
     await this.repo.update(
@@ -110,13 +109,9 @@ export abstract class CatalogoTenantService<T extends EntidadDeCatalogo> {
   }
 
   /**
-   * Aplica el nuevo orden en una sola sentencia. Reordenar es arrastrar una
-   * lista entera, así que un UPDATE por elemento convertía un gesto de la
-   * interfaz en tantas idas y vueltas como elementos tuviera el catálogo.
-   *
-   * Si alguno de los ids no es del negocio no se actualiza, y entonces vuelven
-   * menos filas de las pedidas: la sentencia se deshace entera, porque media
-   * reordenación deja la lista en un orden que nadie eligió.
+   * Aplica el nuevo orden en una sola sentencia. Si algún id no es del negocio
+   * vuelven menos filas de las pedidas y la reordenación se deshace entera:
+   * media lista queda en un orden que nadie eligió.
    */
   async reorder(
     businessId: string,
@@ -150,8 +145,7 @@ export abstract class CatalogoTenantService<T extends EntidadDeCatalogo> {
       )) as unknown[];
 
       // De un UPDATE, TypeORM devuelve [filas, afectadas]; de un SELECT, las
-      // filas sueltas. Contar sobre lo que llega sin distinguirlo daría dos
-      // siempre, que es como se colaba un id ajeno cuando la lista traía dos.
+      // filas sueltas. Hay que distinguirlo para contar las afectadas de verdad.
       const filas = (Array.isArray(crudo[0]) ? crudo[0] : crudo) as unknown[];
 
       if (filas.length !== items.length) {

@@ -204,11 +204,9 @@ export class InvoicesService {
   }
 
   /**
-   * Factura de un cobro ya registrado. Lo que se cobró en el mostrador es el
-   * **total**, con el impuesto dentro: sumárselo encima haría que la factura
-   * pidiera más de lo que el cliente ya pagó. Así que se hace el camino
-   * inverso —la base sale de descontar el impuesto— y el total de la factura
-   * coincide siempre, al peso, con el importe cobrado.
+   * Factura de un cobro ya registrado. Lo cobrado en el mostrador es el total,
+   * con el impuesto dentro, así que la base sale de descontarlo y el total de la
+   * factura coincide al peso con el importe cobrado.
    */
   private async desdeElCobro(
     businessId: string,
@@ -370,7 +368,6 @@ export class InvoicesService {
     return invoice;
   }
 
-  /** Fichas de cliente del usuario. */
   private async clientIdsDelUsuario(userId: string): Promise<string[]> {
     const fichas = await this.http.pedirONulo<{ id?: unknown }[]>(
       "core",

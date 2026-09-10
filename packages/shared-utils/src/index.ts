@@ -173,13 +173,8 @@ const DIGITOS_DEL_INDICATIVO = INDICATIVO_POR_DEFECTO.slice(1);
 
 /**
  * Deja un telefono en su forma canonica E.164 para poder cotejarlo: solo
- * digitos tras un `+`, con el `00` resuelto y el indicativo puesto cuando el
- * numero se escribio sin el. Sin esto, el mismo movil dictado con `+57` en el
- * marketplace y sin indicativo en el mostrador son dos fichas distintas.
- *
- * Un numero mas largo que uno nacional y que no empieza por el indicativo se
- * deja tal cual: es preferible no tocar un numero extranjero que inventarle un
- * pais.
+ * digitos tras un `+`, con el `00` resuelto y el indicativo puesto cuando falta.
+ * Un numero mas largo que uno nacional y sin ese indicativo se deja tal cual.
  */
 export function normalizarTelefono(telefono?: string | null): string {
   const texto = telefono?.trim() ?? "";
@@ -199,10 +194,9 @@ export function normalizarTelefono(telefono?: string | null): string {
 }
 
 /**
- * Formas equivalentes del mismo numero, para cotejarlo contra fichas guardadas
- * antes de que se canonizara: la E.164, la de solo digitos, la del `00` y la
- * nacional. Es lo que permite reconocer «3009998877» y «+573009998877» como la
- * misma persona sin reescribir los datos existentes.
+ * Formas equivalentes del mismo numero —la E.164, la de solo digitos, la del
+ * `00` y la nacional—, para reconocer «3009998877» y «+573009998877» como la
+ * misma persona sea cual sea la forma guardada.
  */
 export function variantesDeTelefono(telefono?: string | null): string[] {
   const canonico = normalizarTelefono(telefono);
@@ -251,16 +245,8 @@ export function formatearDinero(
 
 /**
  * Reparte un importe entre varias partes en proporción a sus pesos, en pesos
- * enteros y **sumando exactamente el importe**: lo que se pierde al redondear
- * se le devuelve a las partes con el resto más grande.
- *
- * Es lo que permite desglosar un cobro repartido por medio de pago sin que el
- * desglose deje de cuadrar con el total. El caso que lo obliga es la propina:
- * las líneas del reparto la llevan dentro y las ventas no, así que la venta de
- * cada medio es su parte proporcional del importe cobrado.
- *
- * Con todos los pesos a cero el importe se reparte por igual, que es lo único
- * que se puede hacer sin proporción de la que tirar.
+ * enteros y sumando exactamente el importe: lo que se pierde al redondear va a
+ * las partes con el resto mayor. Con todos los pesos a cero, reparto por igual.
  */
 export function repartirProporcional(total: number, pesos: number[]): number[] {
   if (pesos.length === 0) return [];

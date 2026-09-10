@@ -65,10 +65,9 @@ describe("formatDate con timestamp ISO completo", () => {
     expect(result).toContain("2026");
   });
 
-  // El modal de devolucion recortaba el ISO a sus diez primeros caracteres, que
-  // es el dia en UTC: en Colombia, un cobro de las diez de la noche salia
-  // fechado un dia despues que en el listado. Las dos superficies tienen que
-  // nombrar el mismo dia, sea cual sea la zona en la que se lea.
+  // El dia de un cobro se nombra en la zona del negocio: recortar el ISO a sus
+  // diez primeros caracteres lo fecha en UTC, y en Colombia un cobro de las diez
+  // de la noche saldria un dia despues que en el listado.
   it("nombra el mismo dia que el listado para un mismo instante", () => {
     const instantes = [
       "2026-09-05T03:18:00.000Z",
