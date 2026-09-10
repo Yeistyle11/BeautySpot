@@ -73,6 +73,9 @@ describe("Integración: el cobro repartido se registra", () => {
     });
 
   it("la base admite el método MIXED del reparto", async () => {
+    // El reparto lleva efectivo, y el efectivo exige caja abierta.
+    await abrirCaja();
+
     const cobro = await cobrarRepartido();
 
     expect(cobro.method).toBe(METODO_MIXTO);

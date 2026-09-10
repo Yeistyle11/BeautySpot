@@ -32,7 +32,14 @@ export class PaymentSplitEntity extends BaseEntity {
   })
   amount!: number;
 
-  @ManyToOne(() => PaymentEntity, (payment) => payment.splits)
-  @JoinColumn({ name: "payment_id" })
+  // La clave ajena se nombra y se borra en cascada igual que en la migración:
+  // en desarrollo el esquema sale de la entidad y en producción de aquella.
+  @ManyToOne(() => PaymentEntity, (payment) => payment.splits, {
+    onDelete: "CASCADE",
+  })
+  @JoinColumn({
+    name: "payment_id",
+    foreignKeyConstraintName: "FK_payment_splits_cobro",
+  })
   payment!: PaymentEntity;
 }
