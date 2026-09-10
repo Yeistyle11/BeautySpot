@@ -73,13 +73,18 @@ describe("Integración: felicitación de cumpleaños", () => {
     return anio;
   };
 
-  /** Deja una ficha en la base y la devuelve. */
+  let fichasCreadas = 0;
+
+  /**
+   * Deja una ficha en la base y la devuelve. Cada una con su correo: el negocio
+   * no admite dos con el mismo (`uq_clients_email_por_negocio`).
+   */
   const guardarCliente = async (datos: Partial<Client>): Promise<Client> =>
     dataSource.getRepository(Client).save(
       dataSource.getRepository(Client).create({
         businessId: NEGOCIO,
         name: "Ana Gómez",
-        email: "ana@example.com",
+        email: `ana.${++fichasCreadas}@example.com`,
         ...datos,
       })
     );
