@@ -1,11 +1,6 @@
 import { DataSource } from "typeorm";
-import { OutboxMessageEntity } from "@beautyspot/nest-common";
 import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
-import { PaymentEntity } from "../modules/payments/payment.entity";
-import { InvoiceEntity } from "../modules/invoices/invoice.entity";
-import { InvoiceItemEntity } from "../modules/invoices/invoice-item.entity";
-import { CashSessionEntity } from "../modules/cash-register/cash-session.entity";
-import { CashMovementEntity } from "../modules/cash-register/cash-movement.entity";
+import { entities } from "../orm-entities";
 
 const NEGOCIO = "11111111-1111-4111-8111-111111111111";
 const CLIENTE = "22222222-2222-4222-8222-222222222222";
@@ -24,14 +19,7 @@ describe("Integración: la base acota los catálogos", () => {
     dataSource = new DataSource({
       type: "postgres",
       url: process.env.DATABASE_URL,
-      entities: [
-        PaymentEntity,
-        InvoiceEntity,
-        InvoiceItemEntity,
-        CashSessionEntity,
-        CashMovementEntity,
-        OutboxMessageEntity,
-      ],
+      entities,
       synchronize: true,
     });
     await dataSource.initialize();

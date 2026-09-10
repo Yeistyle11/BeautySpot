@@ -2,11 +2,8 @@ import { DataSource, Repository } from "typeorm";
 import { OutboxMessageEntity, OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { PaymentMethod } from "@beautyspot/shared-types";
+import { entities } from "../orm-entities";
 import { PaymentEntity } from "../modules/payments/payment.entity";
-import { InvoiceEntity } from "../modules/invoices/invoice.entity";
-import { InvoiceItemEntity } from "../modules/invoices/invoice-item.entity";
-import { CashSessionEntity } from "../modules/cash-register/cash-session.entity";
-import { CashMovementEntity } from "../modules/cash-register/cash-movement.entity";
 import { PaymentsService } from "../modules/payments/payments.service";
 
 const NEGOCIO = "11111111-1111-4111-8111-111111111111";
@@ -53,14 +50,7 @@ describe("Integración: el canje de puntos va con el cobro", () => {
     dataSource = new DataSource({
       type: "postgres",
       url: process.env.DATABASE_URL,
-      entities: [
-        PaymentEntity,
-        InvoiceEntity,
-        InvoiceItemEntity,
-        CashSessionEntity,
-        CashMovementEntity,
-        OutboxMessageEntity,
-      ],
+      entities,
       synchronize: true,
     });
     await dataSource.initialize();

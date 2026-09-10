@@ -1,10 +1,7 @@
 import { DataSource } from "typeorm";
 import { OutboxMessageEntity, OutboxStatus } from "@beautyspot/nest-common";
-import { PaymentEntity } from "../modules/payments/payment.entity";
-import { InvoiceEntity } from "../modules/invoices/invoice.entity";
-import { InvoiceItemEntity } from "../modules/invoices/invoice-item.entity";
+import { entities } from "../orm-entities";
 import { CashSessionEntity } from "../modules/cash-register/cash-session.entity";
-import { CashMovementEntity } from "../modules/cash-register/cash-movement.entity";
 
 const NEGOCIO = "44444444-4444-4444-8444-444444444444";
 const USUARIO = "55555555-5555-4555-8555-555555555555";
@@ -21,14 +18,7 @@ describe("Integración: atomicidad del Outbox", () => {
     dataSource = new DataSource({
       type: "postgres",
       url: process.env.DATABASE_URL,
-      entities: [
-        PaymentEntity,
-        InvoiceEntity,
-        InvoiceItemEntity,
-        CashSessionEntity,
-        CashMovementEntity,
-        OutboxMessageEntity,
-      ],
+      entities,
       synchronize: true,
     });
     await dataSource.initialize();

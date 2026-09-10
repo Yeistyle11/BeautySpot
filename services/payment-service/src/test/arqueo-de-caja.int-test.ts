@@ -1,9 +1,8 @@
 import { DataSource, Repository } from "typeorm";
 import { OutboxMessageEntity, OutboxService } from "@beautyspot/nest-common";
 import { PaymentMethod } from "@beautyspot/shared-types";
+import { entities } from "../orm-entities";
 import { PaymentEntity } from "../modules/payments/payment.entity";
-import { InvoiceEntity } from "../modules/invoices/invoice.entity";
-import { InvoiceItemEntity } from "../modules/invoices/invoice-item.entity";
 import { CashSessionEntity } from "../modules/cash-register/cash-session.entity";
 import { CashMovementEntity } from "../modules/cash-register/cash-movement.entity";
 import { CashRegisterService } from "../modules/cash-register/cash-register.service";
@@ -54,14 +53,7 @@ describe("Integración: el arqueo de caja cuadra", () => {
     dataSource = new DataSource({
       type: "postgres",
       url: process.env.DATABASE_URL,
-      entities: [
-        PaymentEntity,
-        InvoiceEntity,
-        InvoiceItemEntity,
-        CashSessionEntity,
-        CashMovementEntity,
-        OutboxMessageEntity,
-      ],
+      entities,
       synchronize: true,
     });
     await dataSource.initialize();
