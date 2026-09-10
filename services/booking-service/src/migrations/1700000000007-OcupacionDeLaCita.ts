@@ -1,12 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Reparto de la agenda dentro de la cita: cada línea guarda su posición y el
- * procesado y la limpieza con los que se reservó, y la cita hasta cuándo sigue
- * ocupado el profesional.
- *
- * Las filas existentes quedan con `orden` por antigüedad, sin procesado y con
- * `ocupado_hasta = end_time`.
+ * Reparto de la agenda dentro de la cita: cada línea con su posición, procesado
+ * y limpieza, y la cita con hasta cuándo sigue ocupado el profesional. Las
+ * filas existentes quedan por antigüedad y con `ocupado_hasta = end_time`.
  */
 export class OcupacionDeLaCita1700000000007 implements MigrationInterface {
   name = "OcupacionDeLaCita1700000000007";

@@ -1,11 +1,12 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
   Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
   Query,
 } from "@nestjs/common";
 import { CategoriesService } from "./categories.service";
@@ -18,7 +19,6 @@ import { Role } from "@beautyspot/shared-types";
 export class CategoriesController {
   constructor(private readonly service: CategoriesService) {}
 
-  /** Crea una categoría de profesionales. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post()
   async create(
@@ -74,36 +74,38 @@ export class CategoriesController {
     Role.PROFESSIONAL,
     Role.RECEPTIONIST
   )
-  /** Obtiene una categoría por id. */
   @Get(":id")
-  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+  async findById(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.findById(id, businessId);
   }
 
-  /** Actualiza una categoría. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Patch(":id")
   async update(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Body() dto: UpdateCategoryDto
   ) {
     return this.service.update(id, businessId, dto);
   }
 
-  /** Da de baja una categoría. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Delete(":id")
-  async remove(@Param("id") id: string, @BusinessId() businessId: string) {
+  async remove(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     await this.service.remove(id, businessId);
     return { message: "Categoría desactivada" };
   }
 
-  /** Alterna el estado activo/inactivo de una categoría. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Patch(":id/toggle")
   async toggleActive(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string
   ) {
     return this.service.toggleActive(id, businessId);
@@ -113,14 +115,13 @@ export class CategoriesController {
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Patch(":id/professionals-count")
   async getProfessionalsCount(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string
   ) {
     const count = await this.service.countProfessionals(id, businessId);
     return { count };
   }
 
-  /** Aplica un nuevo orden a las categorías. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post("reorder")
   async reorder(

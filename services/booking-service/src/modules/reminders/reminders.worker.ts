@@ -90,7 +90,6 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  /** Detiene el sondeo al parar el servicio. */
   async onModuleDestroy(): Promise<void> {
     if (this.timer) {
       clearInterval(this.timer);
@@ -136,13 +135,8 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Página de citas que aún esperan algún aviso, desde donde se quedó la
-   * anterior.
-   *
-   * Avanza por cursor y no por OFFSET porque el propio worker va marcando las
-   * citas que atiende y esas salen del filtro: con OFFSET, la página siguiente
-   * se desplaza sobre un conjunto que ha encogido y se salta tantas citas como
-   * lleve marcadas. El orden por (fecha, hora, id) es el que hace el cursor
-   * inequívoco cuando dos citas coinciden a la misma hora.
+   * anterior. Avanza por cursor porque el worker marca las que atiende y esas
+   * salen del filtro; ordena por (fecha, hora, id) para no repetir ninguna.
    */
   private async paginaDeCandidatas(
     desde: string,
@@ -251,7 +245,6 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  /** Devuelve la fecha desplazada las horas indicadas. */
   private sumarHoras(fecha: Date, horas: number): Date {
     return new Date(fecha.getTime() + horas * 3600000);
   }

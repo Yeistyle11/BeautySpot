@@ -1,11 +1,12 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
   Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
   Query,
 } from "@nestjs/common";
 import { BusinessesService } from "./businesses.service";
@@ -41,7 +42,8 @@ export class BusinessesController {
     @Body() dto: CreateBusinessDto,
     @CurrentUser("userId") userId: string
   ) {
-    return this.service.createWithOwner(dto, userId);
+    const { sembrar, ...negocio } = dto;
+    return this.service.createWithOwner(negocio, userId, { sembrar });
   }
 
   @Roles(
@@ -68,7 +70,6 @@ export class BusinessesController {
     Role.PROFESSIONAL,
     Role.RECEPTIONIST
   )
-  /** Obtiene un negocio por su slug. */
   @Get("slug/:slug")
   async findBySlug(
     @BusinessId() businessId: string,
@@ -78,33 +79,30 @@ export class BusinessesController {
     return this.service.findBySlug(slug, businessId, role);
   }
 
-  /** Obtiene un negocio por su id. */
   @Get(":id")
   async findById(
     @BusinessId() businessId: string,
     @CurrentUser("role") role: Role,
-    @Param("id") id: string
+    @Param("id", ParseUUIDPipe) id: string
   ) {
     return this.service.findById(id, businessId, role);
   }
 
-  /** Actualiza los datos de un negocio. */
   @Patch(":id")
   async update(
     @BusinessId() businessId: string,
     @CurrentUser("role") role: Role,
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: UpdateBusinessDto
   ) {
     return this.service.update(id, dto, businessId, role);
   }
 
-  /** Da de baja un negocio. */
   @Delete(":id")
   async deactivate(
     @BusinessId() businessId: string,
     @CurrentUser("role") role: Role,
-    @Param("id") id: string
+    @Param("id", ParseUUIDPipe) id: string
   ) {
     await this.service.deactivate(id, businessId, role);
     return { message: "Negocio desactivado" };
@@ -132,6 +130,7 @@ export class InternalBusinessesController {
   /** Crea un negocio a petición de otro microservicio (p. ej. al registrarse). */
   @Post()
   async create(@Body() dto: CreateBusinessDto) {
-    return this.service.create(dto);
+    const { sembrar, ...negocio } = dto;
+    return this.service.create(negocio, "", { sembrar });
   }
 }

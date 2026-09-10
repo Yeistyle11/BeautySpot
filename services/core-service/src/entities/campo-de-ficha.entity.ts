@@ -12,11 +12,9 @@ export enum TipoDeCampo {
 }
 
 /**
- * Campo que un negocio añade a la ficha de sus clientes.
- *
- * Es configurable y no una columna fija porque una barbería y un centro
- * estético no piden lo mismo: alergias, tipo de piel o el color de partida solo
- * tienen sentido en algunos sitios.
+ * Campo que un negocio añade a la ficha de sus clientes. Es configurable y no
+ * una columna fija porque una barbería y un centro estético no piden lo mismo:
+ * alergias, tipo de piel o color de partida solo valen en algunos sitios.
  */
 @Entity("campos_de_ficha")
 // El catalogo de tipos, acotado en la base.

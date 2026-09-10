@@ -6,7 +6,8 @@
   "workspaces": [
     "apps/*",
     "packages/*",
-    "services/*"
+    "services/*",
+    "tools/*"
   ],
   "scripts": {
     "dev": "turbo dev",
@@ -18,6 +19,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "seed": "npm run seed --workspace @beautyspot/seed --",
+    "seed:comprobar": "npm run seed:comprobar --workspace @beautyspot/seed",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",

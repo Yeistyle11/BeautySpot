@@ -10,13 +10,9 @@ import { ROLES_KEY } from "../decorators/roles.decorator";
 import { esContextoHttp } from "./http-context";
 
 /**
- * Guard de control de acceso basado en roles (RBAC) con semántica de ALLOWLIST.
- *
- * - SUPER_ADMIN siempre tiene acceso (administrador de plataforma).
- * - Los demás roles deben estar explícitamente listados en @Roles(...).
- *
- * Esto reemplaza la jerarquía numérica anterior: @Roles(OWNER, ADMIN) ahora
- * significa "exactamente OWNER o ADMIN", no "nivel ≥ ADMIN".
+ * Control de acceso por roles con semántica de lista blanca: @Roles(OWNER,
+ * ADMIN) significa exactamente esos dos, sin jerarquía. SUPER_ADMIN pasa
+ * siempre, por ser administrador de plataforma.
  */
 @Injectable()
 export class RolesGuard implements CanActivate {

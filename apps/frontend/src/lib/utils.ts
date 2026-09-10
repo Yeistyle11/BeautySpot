@@ -15,6 +15,15 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+/**
+ * Presenta una tasa como porcentaje, con un decimal solo cuando lo tiene: 7 %
+ * se escribe «7%» y 6,7 % se escribe «6.7%». Es la unica forma en que el
+ * producto escribe una tasa, en el panel y en Reportes.
+ */
+export function formatPorcentaje(valor: number): string {
+  return `${Number(valor.toFixed(1))}%`;
+}
+
 /** Formatea una fecha "YYYY-MM-DD" o ISO como "5 mar 2026" en locale es-CO. */
 export function formatDate(date: string): string {
   // Las fechas sin hora ("YYYY-MM-DD") se parsean como medianoche UTC; sin
@@ -51,12 +60,29 @@ export function toLocalDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/** Suma (o resta) dias a una fecha "YYYY-MM-DD", en horario local. */
+export function desplazarDia(date: string, dias: number): string {
+  // El mediodia evita que el cambio de horario de verano corra un dia.
+  const d = new Date(`${date}T12:00:00`);
+  d.setDate(d.getDate() + dias);
+  return toLocalDateKey(d);
+}
+
 /**
- * Indica si una cita ("YYYY-MM-DD" + "HH:MM") ya ha empezado.
- *
- * Compara las cadenas tal cual, lo que solo funciona con ese formato exacto y
- * con las horas rellenadas a dos digitos; una hora "9:00" se ordenaria despues
- * de "10:00". Ambos lados se toman en hora local, sin zona horaria.
+ * Los siete dias de la semana que contiene esa fecha, de lunes a domingo.
+ * `getDay()` numera el domingo como 0, que aqui cierra la semana en vez de
+ * abrirla.
+ */
+export function fechasDeLaSemana(date: string): string[] {
+  const dia = new Date(`${date}T12:00:00`).getDay();
+  const lunes = desplazarDia(date, dia === 0 ? -6 : 1 - dia);
+  return Array.from({ length: 7 }, (_, i) => desplazarDia(lunes, i));
+}
+
+/**
+ * Indica si una cita ("YYYY-MM-DD" + "HH:MM") ya ha empezado. Compara las
+ * cadenas tal cual, asi que exige ese formato con las horas a dos digitos: un
+ * "9:00" se ordenaria despues de "10:00". Ambos lados van en hora local.
  */
 export function haComenzado(date: string, startTime: string): boolean {
   const ahora = new Date();

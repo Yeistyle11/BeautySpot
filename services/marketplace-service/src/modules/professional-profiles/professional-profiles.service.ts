@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, EntityManager } from "typeorm";
+import { Repository, EntityManager, MoreThan } from "typeorm";
 import { generateSlug } from "@beautyspot/shared-utils";
 import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
 import {
@@ -133,10 +133,17 @@ export class ProfessionalProfilesService {
     return profile;
   }
 
-  /** Devuelve los profesionales visibles mejor valorados para el feed. */
+  /**
+   * Devuelve los profesionales visibles mejor valorados para el feed. Sin
+   * reseñas no hay valoración que destacar, igual que en los negocios.
+   */
   async findTopRated(limit: number): Promise<ProfessionalProfileEntity[]> {
     return this.repo.find({
-      where: { active: true, visibleOnProfile: true },
+      where: {
+        active: true,
+        visibleOnProfile: true,
+        totalReviews: MoreThan(0),
+      },
       order: { rating: "DESC", totalReviews: "DESC" },
       take: limit,
     });

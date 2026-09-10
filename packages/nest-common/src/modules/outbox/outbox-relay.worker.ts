@@ -37,12 +37,9 @@ type CambiosDeMensaje = Parameters<
 >[1];
 
 /**
- * Sondea periódicamente la tabla outbox y publica en RabbitMQ los eventos pendientes.
- *
- * Reclama lotes con bloqueo pesimista y `SKIP LOCKED` para que varias instancias
- * puedan procesar en paralelo sin pisarse. Cada evento se reintenta hasta
- * `OUTBOX_MAX_ATTEMPTS`; superado el límite queda marcado como DEAD para revisión.
- * Se puede desactivar con OUTBOX_RELAY_ENABLED=false.
+ * Sondea la tabla outbox y publica en RabbitMQ lo pendiente. Reclama lotes con
+ * `SKIP LOCKED` para que varias instancias no se pisen; agotados los
+ * `OUTBOX_MAX_ATTEMPTS` el mensaje queda DEAD. OUTBOX_RELAY_ENABLED lo apaga.
  */
 @Injectable()
 export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
@@ -107,7 +104,6 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  /** Detiene el sondeo al parar el servicio. */
   async onModuleDestroy(): Promise<void> {
     if (this.timer) {
       clearInterval(this.timer);
@@ -236,10 +232,9 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Escribe el desenlace de todo el lote: publicados, a la espera de otro
-   * intento y muertos. Los mensajes se agrupan por el cambio que reciben, así
-   * que el caso corriente —todos bien, o todos mal por la misma razón— es un
-   * UPDATE y no uno por mensaje.
+   * Escribe el desenlace de todo el lote. Los mensajes se agrupan por el cambio
+   * que reciben, así que el caso corriente —todos bien, o todos mal por lo
+   * mismo— es un UPDATE y no uno por mensaje.
    */
   private async anotarResultados(
     resultados: ResultadoDePublicacion[]
@@ -252,7 +247,6 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
       { cambios: CambiosDeMensaje; ids: string[] }
     >();
 
-    /** Suma el mensaje al grupo de los que reciben exactamente ese cambio. */
     const agrupar = (cambios: CambiosDeMensaje, id: string): void => {
       const clave = JSON.stringify(cambios);
       const grupo = grupos.get(clave) ?? { cambios, ids: [] };
@@ -322,10 +316,9 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Cuándo puede volver a intentarse un mensaje que acaba de fallar: la espera
-   * se dobla en cada intento hasta el tope. Sin ella, una caída de la cola
-   * consume los cinco intentos en unos segundos y da por muertos eventos que
-   * solo necesitaban esperar a que volviera.
+   * Cuándo puede reintentarse un mensaje que acaba de fallar: la espera se
+   * dobla en cada intento hasta el tope, para que una caída de la cola no
+   * consuma los cinco intentos en unos segundos.
    */
   private proximoIntento(intentos: number, ahora: Date): Date {
     const espera = Math.min(
@@ -335,7 +328,6 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     return new Date(ahora.getTime() + espera);
   }
 
-  /** Lee un número de la configuración, con valor por defecto si falta o no es válido. */
   private getNumberConfig(key: string, fallback: number): number {
     const raw = this.configService.get(key);
     if (raw === undefined || raw === null || raw === "") return fallback;

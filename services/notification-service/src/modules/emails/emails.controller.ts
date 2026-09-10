@@ -22,7 +22,6 @@ import {
 export class EmailsController {
   constructor(private readonly emailService: EmailService) {}
 
-  /** Envía el correo de confirmación de una cita. */
   @Post("appointment/confirmation")
   @HttpCode(HttpStatus.OK)
   async sendAppointmentConfirmation(
@@ -32,7 +31,6 @@ export class EmailsController {
     return { message: "Email de confirmación encolado" };
   }
 
-  /** Envía el recordatorio de cita de 24 horas. */
   @Post("appointment/reminder-24h")
   @HttpCode(HttpStatus.OK)
   async sendAppointmentReminder24h(@Body() dto: SendAppointmentReminder24hDto) {
@@ -40,7 +38,6 @@ export class EmailsController {
     return { message: "Email de recordatorio 24h encolado" };
   }
 
-  /** Envía el recordatorio de cita de 1 hora. */
   @Post("appointment/reminder-1h")
   @HttpCode(HttpStatus.OK)
   async sendAppointmentReminder1h(@Body() dto: SendAppointmentReminder1hDto) {
@@ -48,7 +45,6 @@ export class EmailsController {
     return { message: "Email de recordatorio 1h encolado" };
   }
 
-  /** Envía el aviso de cita cancelada. */
   @Post("appointment/cancelled")
   @HttpCode(HttpStatus.OK)
   async sendAppointmentCancelled(@Body() dto: SendAppointmentCancelledDto) {
@@ -56,7 +52,6 @@ export class EmailsController {
     return { message: "Email de cancelación encolado" };
   }
 
-  /** Envía la factura por correo. */
   @Post("invoice")
   @HttpCode(HttpStatus.OK)
   async sendInvoice(@Body() dto: SendInvoiceDto) {
@@ -64,7 +59,6 @@ export class EmailsController {
     return { message: "Email de factura encolado" };
   }
 
-  /** Envía el correo de restablecimiento de contraseña. */
   @Post("password-reset")
   @HttpCode(HttpStatus.OK)
   async sendPasswordReset(@Body() dto: SendPasswordResetDto) {
@@ -72,7 +66,6 @@ export class EmailsController {
     return { message: "Email de reset encolado" };
   }
 
-  /** Envía el correo de bienvenida. */
   @Post("welcome")
   @HttpCode(HttpStatus.OK)
   async sendWelcomeEmail(@Body() dto: SendWelcomeEmailDto) {
@@ -80,7 +73,6 @@ export class EmailsController {
     return { message: "Email de bienvenida encolado" };
   }
 
-  /** Envía el reporte mensual del negocio. */
   @Post("monthly-report")
   @HttpCode(HttpStatus.OK)
   async sendMonthlyReport(@Body() dto: SendMonthlyReportDto) {

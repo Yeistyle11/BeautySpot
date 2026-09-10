@@ -9,13 +9,13 @@ import { Switch } from "@/components/ui/switch";
 import { HoraDeCierre } from "@/components/ui/hora-de-cierre";
 import { canDo } from "@/lib/permissions";
 import { useAuthStore } from "@/lib/store";
-import { DAYS, type BusinessHour } from "./schemas";
+import { DAYS, type BusinessHourForm } from "./schemas";
 
 interface HoursTabProps {
-  hours: BusinessHour[];
+  hours: BusinessHourForm[];
   onUpdate: (
     dayOfWeek: number,
-    field: keyof BusinessHour,
+    field: keyof BusinessHourForm,
     value: string | boolean
   ) => void;
   onSave: () => void;

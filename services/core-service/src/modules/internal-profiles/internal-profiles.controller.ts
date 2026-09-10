@@ -28,6 +28,10 @@ export interface DatosDeFacturacion {
   razonSocial?: string;
   regimen?: string;
   direccionFiscal?: string;
+  /** Impuesto con el que factura el negocio, en porcentaje. */
+  tasaDeImpuesto?: number;
+  /** Prefijo con el que numera sus facturas. */
+  serie?: string;
 }
 
 export interface ResolvedBusiness {
@@ -113,7 +117,6 @@ export class InternalProfilesController {
     };
   }
 
-  /** Nombre del profesional indicado. */
   private async resolveProfessional(
     id: string
   ): Promise<ResolvedProfessional | null> {

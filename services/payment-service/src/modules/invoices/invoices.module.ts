@@ -3,13 +3,20 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { OutboxModule, InternalHttpModule } from "@beautyspot/nest-common";
 import { InvoiceEntity } from "./invoice.entity";
 import { InvoiceItemEntity } from "./invoice-item.entity";
+import { PaymentEntity } from "../payments/payment.entity";
 import { InvoicesService } from "./invoices.service";
 import { InvoicesController } from "./invoices.controller";
 import { PdfModule } from "./pdf/pdf.module";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([InvoiceEntity, InvoiceItemEntity, OutboxModule]),
+    // El cobro se lee para facturarlo; escribirlo sigue siendo de payments.
+    TypeOrmModule.forFeature([
+      InvoiceEntity,
+      InvoiceItemEntity,
+      PaymentEntity,
+      OutboxModule,
+    ]),
     InternalHttpModule,
     PdfModule,
   ],

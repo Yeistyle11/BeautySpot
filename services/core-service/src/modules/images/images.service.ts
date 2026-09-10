@@ -138,7 +138,6 @@ export class ImagesService {
     }
   }
 
-  /** Sube el logo de un negocio a su carpeta en S3. */
   async uploadBusinessLogo(
     businessId: string,
     file: Buffer,
@@ -150,7 +149,6 @@ export class ImagesService {
     });
   }
 
-  /** Sube la foto de un profesional a su carpeta en S3. */
   async uploadProfessionalPhoto(
     professionalId: string,
     file: Buffer,
@@ -167,7 +165,6 @@ export class ImagesService {
     );
   }
 
-  /** Sube la imagen de un servicio a su carpeta en S3. */
   async uploadServiceImage(
     serviceId: string,
     file: Buffer,
@@ -215,7 +212,6 @@ export class ImagesService {
     }
   }
 
-  /** URL presignada para subir el logo de un negocio. */
   async generatePresignedUploadUrlForBusinessLogo(
     businessId: string,
     contentType: string,
@@ -228,7 +224,6 @@ export class ImagesService {
     );
   }
 
-  /** URL presignada para subir la foto de un profesional. */
   async generatePresignedUploadUrlForProfessionalPhoto(
     professionalId: string,
     contentType: string,
@@ -241,7 +236,6 @@ export class ImagesService {
     );
   }
 
-  /** URL presignada para subir la imagen de un servicio. */
   async generatePresignedUploadUrlForServiceImage(
     serviceId: string,
     contentType: string,
@@ -254,7 +248,6 @@ export class ImagesService {
     );
   }
 
-  /** Borra un objeto de S3 por su clave. */
   async deleteImage(key: string): Promise<void> {
     try {
       const command = new DeleteObjectCommand({
@@ -294,10 +287,8 @@ export class ImagesService {
 
   /**
    * Valida que el archivo sea realmente una imagen permitida y no exceda 5MB.
-   *
-   * No basta con mirar el content-type: lo declara quien sube el archivo. Se
-   * comprueban además los primeros bytes, que sí describen el contenido real,
-   * para no acabar sirviendo cualquier cosa desde el CDN con tipo de imagen.
+   * El content-type lo declara quien sube, así que se comprueban también los
+   * primeros bytes, que sí describen el contenido real.
    */
   validateImageFile(file: Buffer, contentType: string): void {
     if (!TIPOS_DE_IMAGEN_PERMITIDOS.includes(contentType)) {

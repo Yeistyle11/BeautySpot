@@ -6,9 +6,8 @@ import { User } from "../entities/user.entity";
 
 /**
  * Implementación del TokenVersionResolver respaldada por la tabla `users`.
- *
- * auth-service es el único servicio dueño de esa tabla, así que es el único
- * que puede dar persistencia a la revocación de sesiones.
+ * auth-service es su único dueño, así que es el único que puede dar
+ * persistencia a la revocación de sesiones.
  */
 @Injectable()
 export class DbTokenVersionResolver implements TokenVersionResolver {

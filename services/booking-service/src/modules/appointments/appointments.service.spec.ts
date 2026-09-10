@@ -995,6 +995,30 @@ describe("AppointmentsService", () => {
   });
 
   describe("cancel", () => {
+    // El no-show sostiene la politica de plantones: si se puede borrar
+    // cancelando la cita despues, deja de ser un registro. Y el contador de la
+    // ficha no se deshace, asi que las dos superficies se contradecian.
+    it.each([
+      AppointmentStatus.NO_SHOW,
+      AppointmentStatus.COMPLETED,
+      AppointmentStatus.CANCELLED,
+    ])("no cancela una cita en estado %s", async (status) => {
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        status,
+        generateId: () => {},
+      } as any);
+
+      await expect(
+        service.cancel("appt-123", "business-123", {
+          tipo: CancelReason.NEGOCIO_CANCELA,
+          nota: "QA",
+        })
+      ).rejects.toThrow(`No se puede cancelar una cita en estado ${status}`);
+
+      expect(mockOutbox.enqueue).not.toHaveBeenCalled();
+    });
+
     it("debería cancelar una cita con política de 2 horas", async () => {
       const futureDate = new Date();
       futureDate.setHours(futureDate.getHours() + 3);
@@ -1160,7 +1184,12 @@ describe("AppointmentsService", () => {
 
   describe("markNoShow", () => {
     it("debería marcar una cita como no asistida", async () => {
-      mockApptRepo.findOne.mockResolvedValue(mockAppointment);
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        // Ya empezada: a una cita que no ha llegado nadie puede faltar.
+        ...dentroDeMinutos(-30),
+        generateId: () => {},
+      } as any);
       mockApptRepo.update.mockResolvedValue({ affected: 1 } as any);
 
       await service.markNoShow("appt-123", "business-123");
@@ -1186,6 +1215,22 @@ describe("AppointmentsService", () => {
       await expect(
         service.markNoShow("appt-123", "business-123")
       ).rejects.toThrow(BadRequestException);
+    });
+
+    // La regla vivía solo en la pantalla, que esconde el botón hasta que la
+    // cita empieza; el servicio aceptaba el plantón de una cita futura y con él
+    // ensuciaba la tasa de asistencia y el historial del cliente.
+    it("no deja plantar una cita que todavía no ha empezado", async () => {
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        ...dentroDeMinutos(30),
+        generateId: () => {},
+      } as any);
+
+      await expect(
+        service.markNoShow("appt-123", "business-123")
+      ).rejects.toThrow("La cita todavía no ha empezado");
+      expect(mockManager.update).not.toHaveBeenCalled();
     });
   });
 
@@ -1876,6 +1921,109 @@ describe("AppointmentsService", () => {
       );
 
       expect(resultado).toEqual({ clientIds: [], truncado: false });
+    });
+  });
+
+  describe("registrarWalkIn", () => {
+    /** Los datos con los que el mostrador anota a quien acaba de atender. */
+    const walkIn = {
+      professionalId: "prof-123",
+      clientId: "client-123",
+      serviceIds: [SERVICIO_CORTE],
+      startTime: dentroDeMinutos(-45).startTime,
+      createdBy: "user-1",
+    };
+
+    beforeEach(() => {
+      mockHttp.enviar.mockResolvedValue([CORTE]);
+      // Sin jornada y con la agenda ocupada: un alta normal fallaria por las
+      // dos cosas, y el walk-in no las consulta.
+      mockAvailRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([mockAppointment]);
+    });
+
+    /** El objeto con el que se creó la cita del walk-in. */
+    const citaCreada = () =>
+      (mockManager.create as jest.Mock).mock.calls.find(
+        ([entidad]: [unknown]) => entidad === Appointment
+      )?.[1];
+
+    it("nace atendida, no pendiente: ya ocurrió", async () => {
+      await service.registrarWalkIn("business-123", walkIn);
+
+      expect(citaCreada()).toMatchObject({
+        status: AppointmentStatus.COMPLETED,
+        completedAt: expect.any(Date),
+      });
+    });
+
+    it("guarda la hora a la que se atendió, no la de cuando se anota", async () => {
+      await service.registrarWalkIn("business-123", walkIn);
+
+      expect(citaCreada()).toMatchObject({
+        startTime: walkIn.startTime,
+        startedAt: expect.any(Date),
+      });
+    });
+
+    it("suma los puntos de fidelidad, como completar una cita", async () => {
+      await service.registrarWalkIn("business-123", walkIn);
+
+      // El 10 % del importe, que es lo que otorga completar.
+      expect(citaCreada()).toMatchObject({
+        pointsEarned: Math.round(CORTE.price * 0.1),
+      });
+    });
+
+    // Es lo que hace que «Rentabilidad por servicio» e «Ingresos por
+    // profesional» dejen de estar vacíos donde media clientela entra sin cita.
+    it("publica el evento de cita atendida", async () => {
+      await service.registrarWalkIn("business-123", walkIn);
+
+      const eventos = mockOutbox.enqueue.mock.calls.map(
+        ([, evento]: [unknown, { eventType: string }]) => evento.eventType
+      );
+      expect(eventos).toEqual([
+        EventNames.BOOKING_APPOINTMENT_CREATED,
+        EventNames.BOOKING_APPOINTMENT_COMPLETED,
+      ]);
+    });
+
+    // No es una reserva: el hueco no se pide, ya se ocupó en la silla. Un alta
+    // normal con esta misma agenda se rechaza.
+    it("se registra aunque no haya jornada y la franja esté ocupada", async () => {
+      await expect(
+        service.registrarWalkIn("business-123", walkIn)
+      ).resolves.toBeDefined();
+
+      await expect(
+        service.create("business-123", {
+          ...walkIn,
+          date: FECHA_CITA,
+          startTime: "10:00",
+        })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("una hora que aún no ha llegado no es un walk-in", async () => {
+      await expect(
+        service.registrarWalkIn("business-123", {
+          ...walkIn,
+          startTime: dentroDeMinutos(60).startTime,
+        })
+      ).rejects.toThrow("esa hora aún no ha llegado");
+    });
+
+    it("congela el precio del catálogo en la línea", async () => {
+      await service.registrarWalkIn("business-123", walkIn);
+
+      const linea = (mockManager.create as jest.Mock).mock.calls.find(
+        ([entidad]: [unknown]) => entidad === AppointmentServiceEntity
+      )?.[1];
+      expect(linea).toMatchObject({
+        serviceName: CORTE.name,
+        price: CORTE.price,
+      });
     });
   });
 });

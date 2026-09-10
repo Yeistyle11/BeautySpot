@@ -45,7 +45,6 @@ export class InternalHttpClient {
 
   constructor(private readonly configService: ConfigService) {}
 
-  /** Pide un recurso a otro servicio; falla si no se puede obtener. */
   async pedir<T>(
     servicio: ServicioInterno,
     ruta: string,
@@ -54,7 +53,6 @@ export class InternalHttpClient {
     return this.ejecutar<T>(servicio, ruta, opciones);
   }
 
-  /** Envía datos a otro servicio; falla si no se puede completar. */
   async enviar<T>(
     servicio: ServicioInterno,
     ruta: string,
@@ -133,7 +131,6 @@ export class InternalHttpClient {
     }
   }
 
-  /** Lee el cuerpo como JSON, o falla si no lo es. */
   private async leerJson(respuesta: Response): Promise<unknown> {
     try {
       return await respuesta.json();
@@ -181,7 +178,6 @@ export class InternalHttpClient {
     return this.configService.get<string>("INTERNAL_API_SECRET", "");
   }
 
-  /** Extrae el texto de un error para poder registrarlo. */
   private mensaje(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }

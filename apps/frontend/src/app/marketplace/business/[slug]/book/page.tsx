@@ -7,7 +7,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { z } from "zod";
-import { apiPublic } from "@/lib/api";
+import { api, apiPublic } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { useApiPublic, revalidatePrefix } from "@/lib/swr";
 import { useSeededForm } from "@/lib/use-seeded-form";
@@ -55,13 +55,6 @@ function PublicBookingPageInner() {
     profileResponseSchema
   );
   const profile: Profile | undefined = profileResponse?.profile;
-  const { data: rawServices } = useApiPublic<Service[]>(
-    profile?.businessId
-      ? `/core/public/businesses/${profile.businessId}/services`
-      : null,
-    undefined,
-    z.array(serviceSchema)
-  );
   const { data: rawProfessionals } = useApiPublic<Professional[]>(
     profile?.businessId
       ? `/core/public/businesses/${profile.businessId}/professionals`
@@ -70,10 +63,6 @@ function PublicBookingPageInner() {
     z.array(professionalSchema)
   );
 
-  const services = (rawServices ?? []).map((s) => ({
-    ...s,
-    price: Number(s.price),
-  }));
   // El perfil publico y el profesional son entidades distintas; para reservar
   // hace falta el id del profesional, no el del perfil.
   const professionals = (rawProfessionals ?? []).map((p) => ({
@@ -102,6 +91,33 @@ function PublicBookingPageInner() {
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [error, setError] = useState("");
 
+  const isAnyProfessional = selectedProfessional === "any";
+
+  // Los servicios se piden con la tarifa del profesional elegido: la agenda cobra
+  // el precio del par servicio-profesional, y la duracion tambien es la suya, que
+  // es de donde salen los huecos que se ofrecen.
+  const serviciosKey = profile?.businessId
+    ? `/core/public/businesses/${profile.businessId}/services` +
+      (selectedProfessional && !isAnyProfessional
+        ? `?professionalId=${selectedProfessional}`
+        : "")
+    : null;
+  const { data: rawServices } = useApiPublic<Service[]>(
+    serviciosKey,
+    undefined,
+    z.array(serviceSchema)
+  );
+
+  const services = (rawServices ?? []).map((s) => ({
+    ...s,
+    price: Number(s.price),
+  }));
+
+  // Con «cualquier profesional» el precio aun no esta decidido: lo elige el
+  // servidor al reservar, y con el la tarifa.
+  const precioPorConfirmar =
+    isAnyProfessional && services.some((s) => s.precioVariable);
+
   const selectedServiceData = services.filter((s) =>
     selectedServices.includes(s.id)
   );
@@ -113,7 +129,6 @@ function PublicBookingPageInner() {
 
   // Con "cualquier profesional" la disponibilidad se pide del negocio entero, que
   // devuelve la union de las agendas; con uno concreto, solo la suya.
-  const isAnyProfessional = selectedProfessional === "any";
   const alcanceSlots = isAnyProfessional
     ? `businessId=${profile?.businessId}`
     : `professionalId=${selectedProfessional}`;
@@ -157,9 +172,16 @@ function PublicBookingPageInner() {
     setError("");
     setSubmitting(true);
     try {
-      // La ruta es publica y sin token: no se manda el id del usuario.
-      const identidad =
-        isAuthenticated && user
+      const body: Record<string, unknown> = {
+        businessId: profile.businessId,
+        professionalId: isAnyProfessional ? undefined : selectedProfessional,
+        // Solo los ids: el precio y la duración los pone el catálogo.
+        serviceIds: selectedServices,
+        date,
+        startTime,
+        // Con quién contactar. Con sesión no se pide el formulario —la pantalla
+        // dice «Reservando como …»—, así que los datos salen de la cuenta.
+        ...(isAuthenticated && user
           ? {
               guestName: user.name,
               guestEmail: user.email || undefined,
@@ -169,22 +191,18 @@ function PublicBookingPageInner() {
               guestName: guest.name,
               guestEmail: guest.email || undefined,
               guestPhone: guest.phone || undefined,
-            };
-
-      const body: Record<string, unknown> = {
-        businessId: profile.businessId,
-        professionalId: isAnyProfessional ? undefined : selectedProfessional,
-        // Solo los ids: el precio y la duración los pone el catálogo.
-        serviceIds: selectedServices,
-        date,
-        startTime,
-        ...identidad,
+            }),
       };
 
-      const result = await apiPublic.post<Confirmation>(
-        "/booking/public/appointments",
-        body
-      );
+      // Con sesión, la reserva va por la ruta autenticada: es la que liga la
+      // ficha del negocio a la cuenta, y de ahí salen *Mis Citas* y el poder
+      // cancelar, reagendar o reseñar. El id del usuario sale del token.
+      const result = isAuthenticated
+        ? await api.post<Confirmation>("/booking/appointments/mine", body)
+        : await apiPublic.post<Confirmation>(
+            "/booking/public/appointments",
+            body
+          );
       setConfirmation(result);
       await revalidatePrefix("/booking/appointments");
     } catch (err) {
@@ -236,6 +254,11 @@ function PublicBookingPageInner() {
         slug={slug}
         date={date}
         isAuthenticated={isAuthenticated}
+        contacto={
+          isAuthenticated && user
+            ? { email: user.email, phone: user.phone }
+            : { email: guest.email, phone: guest.phone }
+        }
       />
     );
   }
@@ -314,6 +337,7 @@ function PublicBookingPageInner() {
           startTime={startTime}
           totalDuration={totalDuration}
           totalAmount={totalAmount}
+          precioPorConfirmar={precioPorConfirmar}
           user={isAuthenticated && user ? user : null}
           guest={guest}
           onGuestChange={setGuest}

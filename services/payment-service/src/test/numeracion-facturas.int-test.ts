@@ -38,6 +38,8 @@ describe("Integración: numeración de facturas por negocio", () => {
     facturas = new InvoicesService(
       dataSource.getRepository(InvoiceEntity),
       dataSource.getRepository("invoice_items") as never,
+      // Estas facturas se escriben a mano: no hay cobro del que salgan.
+      dataSource.getRepository("payments") as never,
       {} as PdfService,
       dataSource,
       outbox as unknown as OutboxService,

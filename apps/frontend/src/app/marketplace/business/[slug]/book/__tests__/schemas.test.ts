@@ -1,4 +1,5 @@
 import {
+  datosDeReservaCompletos,
   profileResponseSchema,
   profileSchema,
   serviceSchema,
@@ -67,6 +68,20 @@ describe("catálogos del flujo de reserva", () => {
     expect(serviceSchema.safeParse(servicio).success).toBe(true);
   });
 
+  // Sin profesional elegido el precio del catalogo es un «desde»: la agenda
+  // cobrara la tarifa de quien atienda.
+  it("recoge la marca de precio variable cuando la trae", () => {
+    const servicio = {
+      id: "4a28a25f-5168-4d8b-a8fd-51dc5f9f33e6",
+      name: "Corte básico",
+      price: 30000,
+      duration: 30,
+      precioVariable: true,
+    };
+
+    expect(serviceSchema.parse(servicio).precioVariable).toBe(true);
+  });
+
   it("acepta un profesional sin foto y sin perfil enlazado", () => {
     const profesional = {
       id: "3b2a1c0d-9e8f-4a7b-6c5d-4e3f2a1b0c9d",
@@ -94,5 +109,34 @@ describe("catálogos del flujo de reserva", () => {
 describe("pasos de la reserva", () => {
   it("numera los cuatro pasos", () => {
     expect(BOOKING_STEPS.map((s) => s.n)).toEqual([1, 2, 3, 4]);
+  });
+});
+
+describe("datosDeReservaCompletos", () => {
+  const conNombre = { name: "Ana Gómez", email: "", phone: "" };
+
+  // Sin teléfono ni correo el negocio recibe un nombre y nada más: no puede
+  // confirmar la víspera ni recolocar el hueco si el cliente cancela.
+  it("el nombre solo no basta para reservar", () => {
+    expect(datosDeReservaCompletos(conNombre)).toBe(false);
+  });
+
+  it("con correo o con teléfono, cualquiera de los dos, sí", () => {
+    expect(
+      datosDeReservaCompletos({ ...conNombre, email: "ana@correo.co" })
+    ).toBe(true);
+    expect(
+      datosDeReservaCompletos({ ...conNombre, phone: "+573001234567" })
+    ).toBe(true);
+  });
+
+  it("un contacto de solo espacios no es un contacto", () => {
+    expect(datosDeReservaCompletos({ ...conNombre, email: "   " })).toBe(false);
+  });
+
+  it("sin nombre tampoco se reserva", () => {
+    expect(
+      datosDeReservaCompletos({ name: "  ", email: "ana@correo.co", phone: "" })
+    ).toBe(false);
   });
 });

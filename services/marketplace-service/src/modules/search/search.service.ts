@@ -46,12 +46,8 @@ const BUSQUEDA_TTL_SEGUNDOS = 60;
 
 /**
  * Condición de texto sobre varias columnas, ignorando tildes y mayúsculas: en
- * el marketplace "Perez" tiene que encontrar a "Pérez" igual que en el resto
- * del producto.
- *
- * Las expresiones que genera son las que indexa la migración
- * `BusquedaSinTildes`; cambiar unas sin las otras deja la búsqueda recorriendo
- * la tabla entera.
+ * el marketplace "Perez" encuentra a "Pérez". Genera las expresiones que indexa
+ * la migración `BusquedaSinTildes`, y las dos tienen que ir a la par.
  */
 function coincideElTexto(columnas: string[]): string {
   return columnas

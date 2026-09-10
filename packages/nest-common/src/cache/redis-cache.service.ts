@@ -27,12 +27,10 @@ export class RedisCacheService implements OnModuleDestroy {
     });
   }
 
-  /** Lee un valor de la caché, o null si no está. */
   async get(key: string): Promise<string | null> {
     return this.client.get(key);
   }
 
-  /** Guarda un valor, con vencimiento si se indica. */
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
     if (ttlSeconds && ttlSeconds > 0) {
       await this.client.set(key, value, "EX", ttlSeconds);
@@ -41,39 +39,29 @@ export class RedisCacheService implements OnModuleDestroy {
     }
   }
 
-  /** Suma uno al contador de la clave y devuelve el nuevo valor. */
   async incr(key: string): Promise<number> {
     const value = await this.client.incr(key);
     return value;
   }
 
-  /** Borra una clave. */
   async del(key: string): Promise<void> {
     await this.client.del(key);
   }
 
-  /** Indica si la clave existe. */
   async exists(key: string): Promise<boolean> {
     const result = await this.client.exists(key);
     return result === 1;
   }
 
-  /** Comprueba que el servidor responde al PING. */
   async ping(): Promise<boolean> {
     const respuesta = await this.client.ping();
     return respuesta === "PONG";
   }
 
   /**
-   * Devuelve el valor cacheado o lo calcula y lo guarda. Si Redis falla, recurre
-   * al origen. La clave no distingue usuario: no usar para datos por permisos.
-   *
-   * Las cargas simultáneas de la misma clave se agrupan en una sola, para que
-   * al caducar una clave muy visitada no la recalculen a la vez todas las
-   * peticiones en vuelo.
-   *
-   * `etiquetaDe` permite asociar la clave a un grupo (por ejemplo, un negocio)
-   * para poder invalidar después solo ese grupo con {@link invalidarEtiqueta}.
+   * Devuelve el valor cacheado o lo calcula y lo guarda; si Redis falla,
+   * recurre al origen. Las cargas simultáneas de una clave se agrupan en una.
+   * La clave no distingue usuario: no usar para datos por permisos.
    */
   async remember<T>(
     clave: string,
@@ -112,8 +100,6 @@ export class RedisCacheService implements OnModuleDestroy {
     const valor = await cargar();
 
     try {
-      // El TTL se dispersa para que las claves guardadas a la vez no venzan
-      // todas en el mismo instante.
       const ttl = Math.max(
         1,
         Math.round(ttlSegundos * (1 + (Math.random() * 2 - 1) * DISPERSION_TTL))
@@ -134,7 +120,6 @@ export class RedisCacheService implements OnModuleDestroy {
     return valor;
   }
 
-  /** Borra las claves asociadas a una etiqueta. */
   async invalidarEtiqueta(etiqueta: string): Promise<number> {
     try {
       const claves = await this.client.smembers(etiqueta);
@@ -151,12 +136,10 @@ export class RedisCacheService implements OnModuleDestroy {
     }
   }
 
-  /** Extrae el texto de un error para poder registrarlo. */
   private mensaje(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }
 
-  /** Cierra la conexión con Redis al parar el servicio. */
   onModuleDestroy(): void {
     this.client.disconnect();
   }

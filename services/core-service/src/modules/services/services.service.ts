@@ -25,10 +25,9 @@ export class ServicesService extends TenantCrudService<Service> {
   }
 
   /**
-   * Crea un servicio en el catálogo del negocio.
-   *
-   * La descripción y la categoría son opcionales para quien da de alta, pero
-   * sus columnas no admiten nulo: lo que no se rellena se guarda vacío.
+   * Crea un servicio en el catálogo del negocio. La descripción y la categoría
+   * son opcionales para quien da de alta, pero sus columnas no admiten nulo: lo
+   * que no se rellena se guarda vacío.
    */
   async create(businessId: string, data: Partial<Service>): Promise<Service> {
     await this.validarCategoria(data.categoryId, businessId);
@@ -52,17 +51,22 @@ export class ServicesService extends TenantCrudService<Service> {
     return this.repo.find({ where, order: { category: "ASC", name: "ASC" } });
   }
 
-  /** Actualiza los datos de un servicio, validando antes su categoría. */
+  /**
+   * Actualiza los datos de un servicio, validando antes su categoría. Con
+   * `updatedAtEsperado` la escritura se rechaza si el servicio cambió desde que
+   * se cargó: el formulario manda el precio y la duración enteros.
+   */
   async update(
     id: string,
     businessId: string,
-    data: Partial<Service>
+    data: Partial<Service>,
+    updatedAtEsperado?: Date
   ): Promise<Service> {
     await this.validarCategoria(data.categoryId, businessId);
     // La invariante se comprueba sobre lo guardado fusionado con lo enviado.
     const actual = await this.findById(id, businessId);
     this.validarProcesado({ ...actual, ...data });
-    return super.update(id, businessId, data);
+    return super.update(id, businessId, data, updatedAtEsperado);
   }
 
   /** La ventana de procesado tiene que ser una pareja y caber en la duración. */

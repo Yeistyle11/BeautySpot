@@ -1,11 +1,12 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
   Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
   Query,
 } from "@nestjs/common";
 import { ServiceCategoriesService } from "./service-categories.service";
@@ -21,7 +22,6 @@ import { Role } from "@beautyspot/shared-types";
 export class ServiceCategoriesController {
   constructor(private readonly service: ServiceCategoriesService) {}
 
-  /** Crea una categoría de servicio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post()
   async create(
@@ -75,7 +75,6 @@ export class ServiceCategoriesController {
     Role.PROFESSIONAL,
     Role.RECEPTIONIST
   )
-  /** Obtiene una categoría de servicio por id. */
   @Roles(
     Role.OWNER,
     Role.ADMIN,
@@ -83,27 +82,30 @@ export class ServiceCategoriesController {
     Role.PROFESSIONAL,
     Role.RECEPTIONIST
   )
-  /** Una categoría de servicio del negocio. */
   @Get(":id")
-  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+  async findById(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.findById(id, businessId);
   }
 
-  /** Actualiza una categoría de servicio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Patch(":id")
   async update(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Body() dto: UpdateServiceCategoryDto
   ) {
     return this.service.update(id, businessId, dto);
   }
 
-  /** Da de baja una categoría de servicio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Delete(":id")
-  async remove(@Param("id") id: string, @BusinessId() businessId: string) {
+  async remove(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     await this.service.remove(id, businessId);
     return { message: "Categoría de servicio desactivada" };
   }
@@ -112,13 +114,12 @@ export class ServiceCategoriesController {
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Patch(":id/toggle")
   async toggleActive(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string
   ) {
     return this.service.toggleActive(id, businessId);
   }
 
-  /** Aplica un nuevo orden a las categorías de servicio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post("reorder")
   async reorder(

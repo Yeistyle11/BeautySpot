@@ -3,7 +3,15 @@
 // Tarjeta de un profesional en la rejilla, con sus datos y acciones.
 import { memo } from "react";
 import Image from "next/image";
-import { Star, Briefcase, Eye, Pencil, Trash2, Clock } from "lucide-react";
+import {
+  Star,
+  Briefcase,
+  Eye,
+  Pencil,
+  Trash2,
+  Clock,
+  Scissors,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +31,7 @@ interface ProCardProps {
   onEdit: (p: Professional) => void;
   onDelete: (id: string) => void;
   onSchedule: (p: Professional) => void;
+  onServices: (p: Professional) => void;
 }
 
 /** Tarjeta de un profesional en la rejilla del equipo. */
@@ -34,6 +43,7 @@ export const ProCard = memo(function ProCard({
   onEdit,
   onDelete,
   onSchedule,
+  onServices,
 }: ProCardProps) {
   const categoryColor = p.categoryId
     ? categoryMap.get(p.categoryId)?.color
@@ -73,12 +83,17 @@ export const ProCard = memo(function ProCard({
               color={categoryColor ?? undefined}
               className="mt-0.5 text-xs"
             />
-            <div className="mt-1 flex items-center gap-1">
-              <Star className="fill-rating text-rating h-3.5 w-3.5" />
-              <span className="text-muted-foreground text-sm">
-                {Number(p.rating).toFixed(1)} ({p.totalReviews})
-              </span>
-            </div>
+            {/* Sin resenas no se pone nota: un «0.0» se lee como la peor de
+                todas, que es lo contrario de lo que significa. El escaparate ya
+                lo hace asi. */}
+            {Number(p.rating) > 0 && (
+              <div className="mt-1 flex items-center gap-1">
+                <Star className="fill-rating text-rating h-3.5 w-3.5" />
+                <span className="text-muted-foreground text-sm">
+                  {Number(p.rating).toFixed(1)} ({p.totalReviews})
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -134,6 +149,14 @@ export const ProCard = memo(function ProCard({
                 onClick={() => onSchedule(p)}
               >
                 <Clock className="mr-1 h-3.5 w-3.5" /> Horarios
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 px-2"
+                onClick={() => onServices(p)}
+              >
+                <Scissors className="mr-1 h-3.5 w-3.5" /> Servicios
               </Button>
             </>
           )}

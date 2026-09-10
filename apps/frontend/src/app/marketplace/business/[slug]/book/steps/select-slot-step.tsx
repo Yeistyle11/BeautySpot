@@ -53,8 +53,8 @@ export function SelectSlotStep({
 
         {date && isAnyProfessional && (
           <p className="bg-muted text-muted-foreground rounded-lg p-3 text-sm">
-            Estas viendo los horarios libres de todo el equipo. Al confirmar se
-            te asignara un profesional disponible.
+            Estás viendo los horarios libres de todo el equipo. Al confirmar se
+            te asignará un profesional disponible.
           </p>
         )}
 

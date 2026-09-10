@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, Between } from "typeorm";
 import { DailyMetricEntity } from "../../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
+import { porcentaje } from "../../common/porcentaje";
 
 /** Fila agregada por profesional para el reporte: citas, ingresos, valoración y días activos. */
 interface ProfessionalAggRow {
@@ -38,11 +39,11 @@ export class ReportsService {
           "totalAppointments"
         )
         .addSelect("COALESCE(SUM(m.ventas), 0)", "ventas")
-        // Solo los ingresos de los días cuyas ventas están contadas: promediar
-        // sobre los otros daría un ticket inflado.
+        // Días con ingresos que ningún cobro contado explica: mientras los
+        // haya, el ticket medio no se puede promediar.
         .addSelect(
-          "COALESCE(SUM(m.total_revenue) FILTER (WHERE m.ventas > 0), 0)",
-          "revenueDeVentas"
+          "COUNT(*) FILTER (WHERE m.ventas = 0 AND m.total_revenue > 0)",
+          "diasDescuadrados"
         )
         .where("m.business_id = :businessId", { businessId })
         .andWhere("m.date BETWEEN :from AND :to", { from, to })
@@ -51,7 +52,7 @@ export class ReportsService {
           totalAppointments: string;
           completedAppointments: string;
           ventas: string;
-          revenueDeVentas: string;
+          diasDescuadrados: string;
         }>(),
       this.dailyRepo.find({
         where: { businessId, date: Between(from, to) },
@@ -68,10 +69,14 @@ export class ReportsService {
       aggregates?.completedAppointments ?? 0
     );
     // Ingresos del periodo entre los cobros que los produjeron, no entre las
-    // citas atendidas. Sin cobros no hay ticket.
+    // citas atendidas. Sin cobros que promediar, o con las métricas
+    // descuadradas, el ticket es nulo.
     const ventas = Number(aggregates?.ventas ?? 0);
-    const revenueDeVentas = Number(aggregates?.revenueDeVentas ?? 0);
-    const avgTicket = ventas > 0 ? Math.round(revenueDeVentas / ventas) : null;
+    const ticketDescuadrado = Number(aggregates?.diasDescuadrados ?? 0) > 0;
+    const avgTicket =
+      ventas > 0 && !ticketDescuadrado
+        ? Math.round(totalRevenue / ventas)
+        : null;
 
     return {
       period: { from, to },
@@ -80,6 +85,7 @@ export class ReportsService {
         totalAppointments,
         completedAppointments,
         avgTicket,
+        ticketDescuadrado,
         days: dayCount,
       },
       daily,
@@ -144,15 +150,10 @@ export class ReportsService {
     return {
       period: { from, to },
       summary: { total, completed, cancelled, noShow },
-      completionRate: this.percentage(completed, total),
-      cancellationRate: this.percentage(cancelled, total),
-      noShowRate: this.percentage(noShow, total),
+      completionRate: porcentaje(completed, total),
+      cancellationRate: porcentaje(cancelled, total),
+      noShowRate: porcentaje(noShow, total),
       daily,
     };
-  }
-
-  /** Porcentaje entero de `part` sobre `total`; 0 si el total es cero. */
-  private percentage(part: number, total: number): number {
-    return total > 0 ? Math.round((part / total) * 100) : 0;
   }
 }

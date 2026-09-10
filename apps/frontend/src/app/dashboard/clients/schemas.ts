@@ -1,3 +1,4 @@
+import type { ClientForm } from "./client-form-dialog";
 import { z } from "zod";
 
 export const clientSchema = z.object({
@@ -13,6 +14,8 @@ export const clientSchema = z.object({
   /** Valores de la ficha configurable, indexados por id de campo. */
   ficha: z.record(z.string(), z.unknown()).nullish(),
   anonymizedAt: z.string().nullish(),
+  /** Versión con la que se cargó la ficha; el guardado la devuelve para cotejar. */
+  updatedAt: z.string(),
 });
 export type Client = z.infer<typeof clientSchema>;
 
@@ -35,5 +38,67 @@ export const servicioBreveSchema = z.object({
 });
 export type ServicioBreve = z.infer<typeof servicioBreveSchema>;
 
+/** Lo que el PATCH de un cliente admite cambiar. */
+export interface CambiosDelCliente {
+  /**
+   * Versión de la ficha al abrir el formulario. No es un campo que se guarde:
+   * es con lo que el servidor comprueba que nadie la haya tocado mientras
+   * tanto, y sin ella la última escritura gana en silencio.
+   */
+  updatedAt?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  notes?: string;
+  /** Vaciar el campo borra la fecha, asi que va `null` y no `undefined`. */
+  birthDate?: string | null;
+}
+
+/**
+ * Compara el formulario con la ficha que se cargo y devuelve solo lo que
+ * cambio, para no revertir en silencio lo que otra persona haya guardado
+ * mientras tanto.
+ */
+export function cambiosDelCliente(
+  original: ClientForm,
+  actual: ClientForm
+): CambiosDelCliente {
+  const cambios: CambiosDelCliente = {};
+  // El nombre viaja recortado: los espacios de los extremos no distinguen a
+  // nadie y un nombre que solo son espacios deja la ficha sin identidad.
+  if (actual.name.trim() !== original.name.trim()) {
+    cambios.name = actual.name.trim();
+  }
+  if (actual.email !== original.email)
+    cambios.email = actual.email || undefined;
+  if (actual.phone !== original.phone)
+    cambios.phone = actual.phone || undefined;
+  if ((actual.notes ?? "") !== (original.notes ?? "")) {
+    cambios.notes = actual.notes || undefined;
+  }
+  if (actual.birthDate !== original.birthDate) {
+    cambios.birthDate = actual.birthDate || null;
+  }
+  return cambios;
+}
+
 export const CLIENTS_KEY = "/core/clients";
 export const CLIENT_FIELDS_KEY = "/core/client-fields";
+
+/** Fichas parecidas que se enseñan al dar de alta; más serían ruido. */
+export const POSIBLES_DUPLICADOS = 5;
+
+/** Desde cuántas letras del nombre tiene sentido buscar parecidos. */
+const LETRAS_MINIMAS = 3;
+
+/**
+ * Consulta con la que se buscan fichas que puedan ser la misma persona mientras
+ * se teclea el alta, o `null` si aún no hay con qué buscar. Es para el duplicado
+ * que no comparte contacto: el mismo nombre escrito de otra manera.
+ */
+export function clavePosiblesDuplicados(nombre: string): string | null {
+  const limpio = nombre.trim();
+  if (limpio.length < LETRAS_MINIMAS) return null;
+
+  return `${CLIENTS_KEY}?search=${encodeURIComponent(limpio)}&limit=${POSIBLES_DUPLICADOS}`;
+}

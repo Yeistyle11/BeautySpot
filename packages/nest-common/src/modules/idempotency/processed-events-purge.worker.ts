@@ -64,7 +64,6 @@ export class ProcessedEventsPurgeWorker
     this.timer.unref?.();
   }
 
-  /** Detiene la purga al parar el servicio. */
   onModuleDestroy(): void {
     if (this.timer) {
       clearInterval(this.timer);
@@ -96,7 +95,6 @@ export class ProcessedEventsPurgeWorker
     }
   }
 
-  /** Lee un número de la configuración, con valor por defecto si falta o no es válido. */
   private numero(clave: string, porDefecto: number): number {
     const crudo = this.configService.get(clave);
     if (crudo === undefined || crudo === null || crudo === "")

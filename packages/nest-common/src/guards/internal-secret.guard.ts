@@ -42,7 +42,6 @@ export class InternalSecretGuard implements CanActivate {
     return true;
   }
 
-  /** Compara el secreto recibido con el configurado. */
   private isValidSecret(
     secret: unknown,
     expected: string | undefined

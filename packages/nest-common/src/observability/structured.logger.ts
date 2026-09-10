@@ -18,31 +18,26 @@ interface LineaEstructurada {
 export class StructuredLogger extends ConsoleLogger {
   private readonly enProduccion = process.env.NODE_ENV === "production";
 
-  /** Registra un mensaje informativo. */
   log(mensaje: unknown, ...resto: unknown[]): void {
     if (this.estructurar("log", mensaje, resto)) return;
     super.log(this.conPrefijo(mensaje), ...(resto as string[]));
   }
 
-  /** Registra un error. */
   error(mensaje: unknown, ...resto: unknown[]): void {
     if (this.estructurar("error", mensaje, resto)) return;
     super.error(this.conPrefijo(mensaje), ...(resto as string[]));
   }
 
-  /** Registra un aviso. */
   warn(mensaje: unknown, ...resto: unknown[]): void {
     if (this.estructurar("warn", mensaje, resto)) return;
     super.warn(this.conPrefijo(mensaje), ...(resto as string[]));
   }
 
-  /** Registra detalle de depuración. */
   debug(mensaje: unknown, ...resto: unknown[]): void {
     if (this.estructurar("debug", mensaje, resto)) return;
     super.debug(this.conPrefijo(mensaje), ...(resto as string[]));
   }
 
-  /** Registra detalle de traza. */
   verbose(mensaje: unknown, ...resto: unknown[]): void {
     if (this.estructurar("verbose", mensaje, resto)) return;
     super.verbose(this.conPrefijo(mensaje), ...(resto as string[]));

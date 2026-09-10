@@ -2,7 +2,10 @@ import { Injectable, Logger } from "@nestjs/common";
 import { RabbitSubscribe } from "@golevelup/nestjs-rabbitmq";
 import { ConfigService } from "@nestjs/config";
 import { ProcessedEventsStore } from "@beautyspot/nest-common";
-import { NotificationType } from "@beautyspot/shared-types";
+import {
+  motivoParaElCliente,
+  NotificationType,
+} from "@beautyspot/shared-types";
 import {
   AppointmentCreatedEvent,
   AppointmentConfirmedEvent,
@@ -19,6 +22,10 @@ import {
 import { EmailService } from "../emails/email.service";
 import { DataEnricherService } from "../data-enricher/data-enricher.service";
 import { AvisosService } from "./avisos.service";
+import {
+  fechaEnCastellano,
+  horaEnCastellano,
+} from "../emails/fechas-en-castellano";
 
 /**
  * Como se nombra lo reservado en el correo: "Corte" o "Corte y Color", con un
@@ -363,6 +370,8 @@ export class AgendaListeners {
     const {
       appointmentId,
       cancelReason,
+      cancelReasonType,
+      cancelledAt,
       date,
       startTime,
       clientId,
@@ -371,8 +380,13 @@ export class AgendaListeners {
       services,
     } = event.payload;
 
+    // Lo que se le cuenta al cliente es el motivo tipificado. `cancelReason` es
+    // la nota que el personal escribe «para el historial», y mandársela era
+    // filtrarle un texto interno bajo el rótulo «Motivo».
+    const motivo = motivoParaElCliente(cancelReasonType);
+
     this.logger.log(
-      `Cita cancelada: ${appointmentId}, motivo: ${cancelReason}`
+      `Cita cancelada: ${appointmentId}, motivo: ${cancelReasonType}`
     );
 
     try {
@@ -391,16 +405,17 @@ export class AgendaListeners {
             businessId,
             NotificationType.APPOINTMENT_CANCELLED,
             "Cita cancelada",
-            `Tu cita en ${data.businessName} del ${date} se ha cancelado.`,
-            { appointmentId, cancelReason }
+            `Tu cita en ${data.businessName} del ${fechaEnCastellano(date)} se ha cancelado.`,
+            { appointmentId, cancelReason: cancelReasonType }
           );
 
           await this.avisos.avisarAlNegocio(
             businessId,
             NotificationType.APPOINTMENT_CANCELLED,
             "Cita cancelada",
-            `${data.clientName} canceló su cita del ${date} a las ${startTime}.`,
-            { appointmentId, cancelReason }
+            `${data.clientName} canceló su cita del ${fechaEnCastellano(date)} a las ${horaEnCastellano(startTime)}.`,
+            // El negocio sí ve la nota: es suya y es donde tiene sentido.
+            { appointmentId, cancelReason, cancelReasonType }
           );
 
           await this.avisos.intentarCorreo(
@@ -413,8 +428,10 @@ export class AgendaListeners {
                     clientName: data.clientName,
                     professionalName: data.professionalName,
                     serviceName: nombreDelServicio(services),
-                    cancelledDate: date,
-                    reason: cancelReason || "Sin motivo",
+                    appointmentDate: date,
+                    appointmentTime: startTime,
+                    cancelledDate: cancelledAt ?? new Date().toISOString(),
+                    reason: motivo,
                     businessName: data.businessName,
                   }
                 );

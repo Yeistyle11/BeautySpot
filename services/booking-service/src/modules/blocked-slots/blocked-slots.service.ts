@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { In, Repository, MoreThanOrEqual } from "typeorm";
+import { Between, In, Repository, MoreThanOrEqual } from "typeorm";
 import {
   esFechaPasadaEn,
   esHoraValida,
@@ -63,10 +63,18 @@ export class BlockedSlotsService {
   }
 
   /** Bloqueos de todo el equipo un día concreto, para pintarlos en la agenda. */
-  async findByDate(businessId: string, date: string): Promise<BlockedSlot[]> {
+  async findByDate(
+    businessId: string,
+    date: string,
+    hasta?: string
+  ): Promise<BlockedSlot[]> {
     return this.repo.find({
-      where: { businessId, date },
-      order: { startTime: "ASC" },
+      // La vista semana pide siete dias de una vez; sin rango, el dia suelto.
+      where: {
+        businessId,
+        date: hasta && hasta > date ? Between(date, hasta) : date,
+      },
+      order: { date: "ASC", startTime: "ASC" },
     });
   }
 
@@ -204,11 +212,8 @@ export class BlockedSlotsService {
 
   /**
    * De las fechas de la serie, cuáles tienen alguna cita viva bajo la franja
-   * que se quiere bloquear, en el orden en que se pidieron.
-   *
-   * Las trae todas de una consulta: bloquear "los martes hasta fin de año" son
-   * medio centenar de fechas, y preguntar por cada una era medio centenar de
-   * viajes a la base para responder a una sola llamada.
+   * que se quiere bloquear, en el orden en que se pidieron. Las trae todas de
+   * una consulta: «los martes hasta fin de año» son medio centenar de fechas.
    */
   private async fechasQueChocan(
     businessId: string,

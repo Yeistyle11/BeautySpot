@@ -6,13 +6,8 @@ const RADIO_TERRESTRE_KM = 6371;
 
 /**
  * Expresión SQL con la distancia en kilómetros entre la fila y un punto, por la
- * fórmula del semiverseno. Sirve tanto para filtrar («a menos de N km») como
- * para ordenar por cercanía, y se genera aquí para que las dos usen la misma:
- * escritas a mano, filtro y orden acababan pidiendo dos juegos de parámetros
- * para el mismo punto.
- *
- * Los nombres son de parámetros de consulta, nunca de entrada del usuario: el
- * valor viaja por `setParameters` y no por la cadena.
+ * fórmula del semiverseno; la comparten filtro y orden para no pedir dos juegos
+ * de parámetros del mismo punto. Los valores viajan por `setParameters`.
  */
 export function distanciaEnKm(
   alias: string,

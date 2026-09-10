@@ -105,9 +105,10 @@ describe("DashboardService", () => {
       });
       expect(result.periodo.totalRevenue).toBe(1100000);
       expect(result.periodo.totalAppointments).toBe(22);
-      expect(result.periodo.completionRate).toBe(82);
-      expect(result.periodo.cancellationRate).toBe(9);
-      expect(result.periodo.noShowRate).toBe(9);
+      // Con un decimal: 18/22 y 2/22 cada una.
+      expect(result.periodo.completionRate).toBe(81.8);
+      expect(result.periodo.cancellationRate).toBe(9.1);
+      expect(result.periodo.noShowRate).toBe(9.1);
       // El promedio se reparte entre los 30 días del periodo, no entre los que
       // tuvieron movimiento: 1.100.000 / 30.
       expect(result.periodo.avgDailyRevenue).toBe(36667);
@@ -241,17 +242,28 @@ describe("DashboardService", () => {
   });
 
   describe("getRevenueChart", () => {
+    // 10:00 del 16 de enero en Bogota, que es el huso del negocio de prueba.
+    beforeEach(() => {
+      jest.useFakeTimers({ doNotFake: ["nextTick"] });
+      jest.setSystemTime(new Date("2024-01-16T15:00:00Z"));
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    const fila = (date: string, totalRevenue: number) =>
+      ({ ...mockDailyMetric, date, totalRevenue }) as any;
+
     // La gráfica del dashboard consume {date, revenue}: con la entidad entera
     // su validación falla y la serie se pinta vacía.
     it("devuelve la serie como puntos {date, revenue}", async () => {
-      const revenueData = [
-        { ...mockDailyMetric, date: "2024-01-15", totalRevenue: 500000 } as any,
-        { ...mockDailyMetric, date: "2024-01-16", totalRevenue: 600000 } as any,
-      ];
+      mockDailyRepo.find.mockResolvedValue([
+        fila("2024-01-15", 500000),
+        fila("2024-01-16", 600000),
+      ]);
 
-      mockDailyRepo.find.mockResolvedValue(revenueData);
-
-      const result = await service.getRevenueChart("business-123", 30);
+      const result = await service.getRevenueChart("business-123", 2);
 
       expect(mockDailyRepo.find).toHaveBeenCalledWith({
         where: { businessId: "business-123", date: expect.any(Object) },
@@ -263,12 +275,32 @@ describe("DashboardService", () => {
       ]);
     });
 
-    it("debería retornar array vacío si no hay datos", async () => {
+    // Un dia sin fila es un dia sin ingresos, y el hueco es justo lo que la
+    // grafica tiene que enseñar.
+    it("rellena con cero los días sin actividad", async () => {
+      mockDailyRepo.find.mockResolvedValue([
+        fila("2024-01-14", 500000),
+        fila("2024-01-16", 600000),
+      ]);
+
+      const result = await service.getRevenueChart("business-123", 3);
+
+      expect(result).toEqual([
+        { date: "2024-01-14", revenue: 500000 },
+        { date: "2024-01-15", revenue: 0 },
+        { date: "2024-01-16", revenue: 600000 },
+      ]);
+    });
+
+    it("devuelve tantos puntos como días se piden, hoy incluido", async () => {
       mockDailyRepo.find.mockResolvedValue([]);
 
-      const result = await service.getRevenueChart("business-123", 30);
+      const result = await service.getRevenueChart("business-123", 7);
 
-      expect(result).toEqual([]);
+      expect(result).toHaveLength(7);
+      expect(result[0].date).toBe("2024-01-10");
+      expect(result[6].date).toBe("2024-01-16");
+      expect(result.every((punto) => punto.revenue === 0)).toBe(true);
     });
   });
 
@@ -282,7 +314,7 @@ describe("DashboardService", () => {
       newClients: "0",
       returningClients: "0",
       ventas: "20",
-      revenueDeVentas: "1000000",
+      diasDescuadrados: "0",
     };
 
     it("divide los ingresos entre los cobros que los produjeron", async () => {
@@ -304,7 +336,6 @@ describe("DashboardService", () => {
           ...aggResult,
           completedAppointments: "0",
           ventas: "2",
-          revenueDeVentas: "1000000",
         })
       );
       mockDailyRepo.findOne.mockResolvedValue(null);
@@ -314,23 +345,41 @@ describe("DashboardService", () => {
       );
     });
 
-    // Solo entran los dias que aportan las dos cifras: sin cobros no hay
-    // ticket que promediar.
-    it("promedia solo los días cuyas ventas están contadas", async () => {
+    // Un dia con ingresos y sin ventas contadas deja el periodo sin ticket
+    // fiable: promediar lo que si cuadra publica una cifra falsa y plausible.
+    it("con las métricas descuadradas no publica ticket medio", async () => {
       (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
         buildQueryBuilder({
           ...aggResult,
-          totalRevenue: "576000",
-          ventas: "2",
-          revenueDeVentas: "75000",
+          totalRevenue: "626000",
+          ventas: "5",
+          diasDescuadrados: "1",
         })
       );
       mockDailyRepo.findOne.mockResolvedValue(null);
 
       const kpis = await service.getKPIs("business-123");
 
-      expect(kpis.periodo.totalRevenue).toBe(576000);
-      expect(kpis.periodo.avgTicket).toBe(37500);
+      expect(kpis.periodo.totalRevenue).toBe(626000);
+      expect(kpis.periodo.avgTicket).toBeNull();
+      expect(kpis.periodo.ticketDescuadrado).toBe(true);
+    });
+
+    it("cuadradas, promedia sobre los ingresos del periodo entero", async () => {
+      (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
+        buildQueryBuilder({
+          ...aggResult,
+          totalRevenue: "626000",
+          ventas: "12",
+          diasDescuadrados: "0",
+        })
+      );
+      mockDailyRepo.findOne.mockResolvedValue(null);
+
+      const kpis = await service.getKPIs("business-123");
+
+      expect(kpis.periodo.avgTicket).toBe(52167);
+      expect(kpis.periodo.ticketDescuadrado).toBe(false);
     });
 
     // Un cero se lee como "este negocio no vende"; que no haya cobros es otra
@@ -341,7 +390,6 @@ describe("DashboardService", () => {
           ...aggResult,
           totalRevenue: "0",
           ventas: "0",
-          revenueDeVentas: "0",
         })
       );
       mockDailyRepo.findOne.mockResolvedValue(null);
@@ -365,11 +413,39 @@ describe("DashboardService", () => {
       expect(kpis.periodo.ocupacion).toBe(25);
     });
 
-    it("sin capacidad materializada la ocupación es cero", async () => {
+    // Un cero se lee como agenda vacia; que la capacidad no este materializada
+    // todavia es otra cosa, y la pantalla lo dice con palabras.
+    it("sin capacidad materializada la ocupación es nula", async () => {
       (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
         buildQueryBuilder(aggResult)
       );
       mockDailyRepo.findOne.mockResolvedValue(null);
+
+      const kpis = await service.getKPIs("business-123");
+
+      expect(kpis.periodo.ocupacion).toBeNull();
+    });
+
+    it("sin fila de capacidad tampoco hay ocupación", async () => {
+      (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
+        buildQueryBuilder(aggResult)
+      );
+      mockDailyRepo.findOne.mockResolvedValue(null);
+      mockDataSource.query.mockResolvedValue([]);
+
+      const kpis = await service.getKPIs("business-123");
+
+      expect(kpis.periodo.ocupacion).toBeNull();
+    });
+
+    it("con la agenda entera libre la ocupación es cero, no nula", async () => {
+      (mockDailyRepo.createQueryBuilder as any).mockReturnValue(
+        buildQueryBuilder(aggResult)
+      );
+      mockDailyRepo.findOne.mockResolvedValue(null);
+      mockDataSource.query.mockResolvedValue([
+        { vendidos: "0", disponibles: "1200" },
+      ]);
 
       const kpis = await service.getKPIs("business-123");
 

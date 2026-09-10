@@ -361,12 +361,8 @@ export class ReviewsService {
 
   /**
    * Resumen de resenas de un negocio: promedio, total y distribucion por
-   * estrellas, calculada con un GROUP BY rating.
-   *
-   * Cuenta **todas** las resenas, tambien las ocultas, y es deliberado: ocultar
-   * retira la resena del listado publico pero no cambia la nota, para que el
-   * negocio no gane calificacion moderando lo que no le gusta. Filtrar aqui por
-   * estado volveria a premiarlo.
+   * estrellas. Cuenta todas, tambien las ocultas: ocultar retira la resena del
+   * listado publico pero no sube la nota de quien modera lo que no le gusta.
    */
   async getSummary(businessId: string): Promise<ReviewSummary> {
     const rows = await this.repo
@@ -398,11 +394,9 @@ export class ReviewsService {
   }
 
   /**
-   * Obtiene una reseña publicada por su id, tal y como la ve cualquiera desde
-   * el escaparate; lanza 404 si no existe o si está oculta. Una reseña que el
-   * negocio retiró no debe seguir siendo recuperable por su id, y quien la
-   * escribió no se identifica: el vínculo con su usuario y su cita se queda
-   * dentro.
+   * Obtiene una reseña publicada por su id; 404 si no existe o está oculta,
+   * porque una retirada no debe seguir siendo recuperable. Quien la escribió no
+   * se identifica: el vínculo con su usuario y su cita se queda dentro.
    */
   async findById(id: string): Promise<ResenaPublica> {
     const review = await this.repo.findOne({

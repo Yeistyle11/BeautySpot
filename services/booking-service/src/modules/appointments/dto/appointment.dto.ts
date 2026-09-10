@@ -42,6 +42,29 @@ export class CreateAppointmentDto {
   @IsOptional() @IsString() branchId?: string;
 }
 
+/**
+ * Datos para registrar un walk-in: lo mismo que una cita, sin fecha. La pone el
+ * servicio —el día en curso del negocio— porque un walk-in solo se anota el día
+ * en que se atendió.
+ */
+export class WalkInDto {
+  @IsUUID() professionalId!: string;
+  @IsUUID() clientId!: string;
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsUUID("4", { each: true })
+  serviceIds!: string[];
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AsignacionDeServicioDto)
+  asignaciones?: AsignacionDeServicioDto[];
+  /** Hora a la que se atendió, ya pasada. */
+  @EsHoraDelDia() startTime!: string;
+  @IsOptional() @IsString() notes?: string;
+  @IsOptional() @IsString() branchId?: string;
+}
+
 /** Motivo de cancelación de una cita. */
 /** Cancelación del propio cliente: el motivo lo fija el backend. */
 export class CancelMineDto {

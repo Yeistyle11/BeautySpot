@@ -14,7 +14,6 @@ export class ClientFieldsService extends TenantCrudService<CampoDeFicha> {
     super(repo, "Campo de ficha no encontrado");
   }
 
-  /** Define un campo nuevo para el negocio. */
   async create(
     businessId: string,
     data: Partial<CampoDeFicha>

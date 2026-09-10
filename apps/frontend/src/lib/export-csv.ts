@@ -1,7 +1,6 @@
 // Excel y LibreOffice interpretan como formula toda celda que empiece por uno de
-// estos caracteres, aunque venga entrecomillada. Como las celdas salen de datos
-// que teclea el usuario (nombres de cliente, notas), un "=HYPERLINK(...)" se
-// ejecutaria al abrir el export.
+// estos caracteres, aunque venga entrecomillada. Las celdas salen de datos que
+// teclea el usuario, asi que un "=HYPERLINK(...)" se ejecutaria al abrirlo.
 const INICIO_DE_FORMULA = /^[=+\-@\t\r]/;
 
 /**
@@ -27,11 +26,9 @@ export function buildCsv(
 }
 
 /**
- * Descarga una tabla como CSV abrible en Excel.
- *
- * Lleva BOM UTF-8 al principio porque, sin el, Excel en Windows interpreta el
- * archivo como ANSI y los acentos salen corruptos. El object URL se libera
- * despues de disparar la descarga para no retener el blob en memoria.
+ * Descarga una tabla como CSV abrible en Excel. Lleva BOM UTF-8 porque sin el
+ * Excel en Windows lo lee como ANSI y los acentos salen corruptos; el object URL
+ * se libera tras disparar la descarga.
  */
 export function downloadCsv(
   filename: string,

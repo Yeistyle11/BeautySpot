@@ -53,7 +53,24 @@ describe("BusinessesService", () => {
     generateId: () => {},
   };
 
+  /** Lo escrito al sembrar, por nombre de entidad. */
+  let sembrado: Record<string, unknown[]>;
+
+  /** Repositorio simulado que devuelve lo que se le pasa y lo deja anotado. */
+  const repositorioDeSiembra = (entidad: string) => ({
+    create: (datos: unknown) => datos,
+    save: (filas: unknown) => {
+      const lista = Array.isArray(filas) ? filas : [filas];
+      sembrado[entidad] = [...(sembrado[entidad] ?? []), ...lista];
+      // El alta de categorías necesita el id para enlazar los servicios.
+      return Promise.resolve(
+        lista.map((fila, i) => ({ id: `${entidad}-${i}`, ...(fila as object) }))
+      );
+    },
+  });
+
   beforeEach(async () => {
+    sembrado = {};
     mockRepository = {
       findOne: jest.fn(),
       find: jest.fn(),
@@ -82,7 +99,15 @@ describe("BusinessesService", () => {
     const mockDataSourceSpec = {
       // La transacción entrega el mismo repositorio simulado del test.
       transaction: jest.fn((cb) =>
-        cb({ getRepository: jest.fn().mockReturnValue(mockRepository) })
+        cb({
+          // El negocio usa su repositorio simulado; lo que se siembra con él
+          // —catálogo, categorías y horario— se recoge por entidad para poder
+          // comprobar qué se escribió.
+          getRepository: jest.fn((entidad: { name: string }) => {
+            if (entidad === Business) return mockRepository;
+            return repositorioDeSiembra(entidad.name);
+          }),
+        })
       ),
     };
 
@@ -491,6 +516,67 @@ describe("BusinessesService", () => {
       expect(typeof service.findBySlug).toBe("function");
       expect(typeof service.update).toBe("function");
       expect(typeof service.deactivate).toBe("function");
+    });
+  });
+
+  describe("siembra por tipo de negocio", () => {
+    /** Alta de un negocio de ese tipo, devolviendo lo que se sembró. */
+    const crear = async (businessType?: string, sembrar?: boolean) => {
+      mockRepository.findOne.mockResolvedValue(null);
+      mockRepository.create.mockReturnValue(mockBusiness);
+      mockRepository.save.mockResolvedValue(mockBusiness);
+      await service.create({ name: "Nuevo", businessType }, "", { sembrar });
+      return sembrado;
+    };
+
+    // Preguntar el tipo y no usarlo para nada crea la expectativa de que el
+    // producto se adapta, y entrega un panel vacío de quince secciones.
+    it("una barbería nace con su catálogo, sus categorías y su horario", async () => {
+      const escrito = await crear("BARBERIA");
+
+      expect(escrito.Service?.length).toBeGreaterThan(0);
+      expect(escrito.ServiceCategoryEntity?.length).toBeGreaterThan(0);
+      expect(escrito.ProfessionalCategoryEntity?.length).toBeGreaterThan(0);
+      expect(escrito.BusinessHours?.length).toBeGreaterThan(0);
+    });
+
+    it("un spa no nace con el catálogo de una barbería", async () => {
+      const escrito = await crear("SPA");
+      const nombres = (escrito.Service ?? []).map(
+        (s) => (s as { name: string }).name
+      );
+
+      expect(nombres).toContain("Masaje relajante");
+      expect(nombres).not.toContain("Corte clásico");
+    });
+
+    it("cada servicio queda enlazado con su categoría", async () => {
+      const escrito = await crear("BARBERIA");
+
+      for (const servicio of escrito.Service ?? []) {
+        expect(servicio).toMatchObject({
+          category: expect.any(String),
+          categoryId: expect.any(String),
+        });
+      }
+    });
+
+    it("quien la pide en blanco no recibe nada", async () => {
+      const escrito = await crear("BARBERIA", false);
+
+      expect(escrito).toEqual({});
+    });
+
+    it("un tipo sin plantilla no rompe el alta", async () => {
+      const escrito = await crear("OTRO");
+
+      expect(escrito).toEqual({});
+    });
+
+    it("un negocio sin tipo tampoco", async () => {
+      const escrito = await crear(undefined);
+
+      expect(escrito).toEqual({});
     });
   });
 });

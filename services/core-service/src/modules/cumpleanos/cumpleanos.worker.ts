@@ -71,7 +71,6 @@ export class CumpleanosWorker implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  /** Detiene el sondeo al parar el servicio. */
   async onModuleDestroy(): Promise<void> {
     if (this.timer) {
       clearInterval(this.timer);

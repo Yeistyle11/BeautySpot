@@ -18,6 +18,7 @@ import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { useCrudResource } from "@/lib/use-crud-resource";
+import { esConflictoDeEdicion } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
@@ -67,6 +68,11 @@ export default function ServicesPage() {
 
   const [editDialog, setEditDialog] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  // Version con la que se abrio el formulario, para que el servidor avise si
+  // otra persona toco el servicio mientras tanto.
+  const [editVersion, setEditVersion] = useState<string | null>(null);
+  const [conflicto, setConflicto] = useState("");
+  const [recargando, setRecargando] = useState(false);
   const [editForm, setEditForm] = useState(emptyForm);
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -127,38 +133,74 @@ export default function ServicesPage() {
     }
   };
 
+  /** Los campos del formulario, tal como se leen de un servicio guardado. */
+  const comoFormulario = (s: Service) => ({
+    name: s.name,
+    description: s.description || "",
+    price: String(s.price),
+    duration: String(s.duration),
+    category: s.category || "",
+    categoryId: s.categoryId || "",
+    procesadoDesde: s.procesadoDesde == null ? "" : String(s.procesadoDesde),
+    procesadoMinutos:
+      s.procesadoMinutos == null ? "" : String(s.procesadoMinutos),
+    bufferDespues: s.bufferDespues ? String(s.bufferDespues) : "",
+    active: s.active,
+  });
+
   const openEdit = (s: Service) => {
     setEditId(s.id);
-    setEditForm({
-      name: s.name,
-      description: s.description || "",
-      price: String(s.price),
-      duration: String(s.duration),
-      category: s.category || "",
-      categoryId: s.categoryId || "",
-      procesadoDesde: s.procesadoDesde == null ? "" : String(s.procesadoDesde),
-      procesadoMinutos:
-        s.procesadoMinutos == null ? "" : String(s.procesadoMinutos),
-      bufferDespues: s.bufferDespues ? String(s.bufferDespues) : "",
-      active: s.active,
-    });
+    setEditForm(comoFormulario(s));
+    setEditVersion(s.updatedAt);
+    setConflicto("");
     setEditDialog(true);
+  };
+
+  /** Cambia lo escrito por lo que hay guardado, dejando el formulario abierto. */
+  const recargarEnEdicion = async () => {
+    if (!editId) return;
+    setRecargando(true);
+    try {
+      const frescos = await reload();
+      const guardado = z
+        .array(serviceSchema)
+        .parse(frescos)
+        .find((s) => s.id === editId);
+      if (!guardado) return;
+      setEditForm(comoFormulario(guardado));
+      setEditVersion(guardado.updatedAt);
+      setConflicto("");
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    } finally {
+      setRecargando(false);
+    }
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editId) return;
     setSavingEdit(true);
+    setConflicto("");
     try {
       await updateService(
         editId,
-        toServicePayload(editForm, categories ?? [], true)
+        toServicePayload(
+          editForm,
+          categories ?? [],
+          true,
+          editVersion ?? undefined
+        )
       );
       setEditDialog(false);
       setEditId(null);
     } catch (err) {
       logger.error(err);
-      toast.error(mensajeDeError(err));
+      // El formulario se queda abierto con lo escrito: hay algo que decidir, y
+      // un aviso que se va solo no da tiempo a decidirlo.
+      if (esConflictoDeEdicion(err)) setConflicto(mensajeDeError(err));
+      else toast.error(mensajeDeError(err));
     } finally {
       setSavingEdit(false);
     }
@@ -365,6 +407,9 @@ export default function ServicesPage() {
         onSubmit={handleUpdate}
         guardando={savingEdit}
         categorias={categories ?? []}
+        conflicto={conflicto}
+        onRecargar={() => void recargarEnEdicion()}
+        recargando={recargando}
       />
 
       <ConfirmDialog

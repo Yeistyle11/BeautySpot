@@ -1,4 +1,4 @@
-import { PaymentMethod } from "@beautyspot/shared-types";
+import { MetodoDeCobro, PaymentMethod } from "@beautyspot/shared-types";
 
 /** Contrato base de todos los eventos que viajan por el bus (RabbitMQ). */
 export interface IBaseEvent<T = unknown> {
@@ -55,11 +55,9 @@ export type EmailVerificationRequestedEvent =
   IBaseEvent<EmailVerificationRequestedPayload>;
 
 /**
- * Alguien intentó darse de alta con un correo que ya tiene cuenta.
- *
- * El alta responde lo mismo exista o no la cuenta, para no revelar qué correos
- * están registrados; este aviso es lo que le dice a su dueño lo que ha pasado y
- * le da la salida, que es recuperar la contraseña.
+ * Alguien intentó darse de alta con un correo que ya tiene cuenta. El alta
+ * responde lo mismo exista o no, así que este aviso es lo que se lo dice a su
+ * dueño y le ofrece la salida: recuperar la contraseña.
  */
 export interface RegistroDuplicadoPayload {
   email: string;
@@ -139,6 +137,19 @@ export interface ClientCreatedPayload {
 
 export type ClientCreatedEvent = IBaseEvent<ClientCreatedPayload>;
 
+/**
+ * Dos fichas del mismo cliente que pasan a ser una. Quien guarde algo con el
+ * `absorbidoId` lo reasigna al superviviente: la ficha absorbida se conserva
+ * marcada, pero deja de recibir historial.
+ */
+export interface ClientMergedPayload {
+  businessId: string;
+  supervivienteId: string;
+  absorbidoId: string;
+}
+
+export type ClientMergedEvent = IBaseEvent<ClientMergedPayload>;
+
 /** Cliente que cumple años hoy en la zona horaria de su negocio. */
 export interface ClientBirthdayPayload {
   clientId: string;
@@ -165,8 +176,7 @@ export interface AppointmentCreatedPayload {
   appointmentId: string;
   businessId: string;
   /**
-   * Sede donde se atiende. Opcional porque los eventos ya encolados no lo
-   * llevan: se empezó a enviar después de que la cita tuviera sede.
+   * Sede donde se atiende. Opcional: un evento ya encolado puede no llevarla.
    */
   branchId?: string;
   clientId: string;
@@ -191,9 +201,11 @@ export type AppointmentCancelledEvent = IBaseEvent<
   AppointmentCreatedPayload & {
     /** Nota libre de quien cancela. */
     cancelReason?: string;
-    /** Motivo tipificado, del enum `CancelReason`. */
+    /** Motivo tipificado, del enum `CancelReason`. Es el que se le enseña al cliente. */
     cancelReasonType?: string;
     cancelledBy?: string;
+    /** Instante en que se canceló, que no es la fecha de la cita. */
+    cancelledAt?: string;
   }
 >;
 export type AppointmentCompletedEvent = IBaseEvent<
@@ -225,12 +237,27 @@ export interface PaymentRegisteredPayload {
   businessId: string;
   appointmentId?: string;
   clientId: string;
+  /** Lo cobrado por los servicios, sin la propina. */
   amount: number;
   /**
-   * Tipado con el enum y no con `string`: quien lo compare contra un literal
-   * que el enum no produce no compila.
+   * Propina, que no es ingreso del negocio: entra con el cobro y sale para el
+   * profesional, asi que quien agrega ventas no la suma.
    */
-  method: PaymentMethod;
+  propina?: number;
+  /**
+   * Dia del cobro en el huso del negocio (`YYYY-MM-DD`). Quien agrega por dia
+   * lo necesita: un evento reprocesado -una redelivery, un consumidor que se
+   * cayo y vuelve- se atribuiria si no al dia en que se proceso.
+   */
+  date?: string;
+  /**
+   * Tipado con el enum y no con `string`: quien lo compare contra un literal
+   * que el enum no produce no compila. `MIXED` cuando el cobro se repartio,
+   * y entonces el detalle esta en `metodos`.
+   */
+  method: MetodoDeCobro;
+  /** Reparto del cobro por medio, cuando entro por mas de uno. */
+  metodos?: { method: PaymentMethod; amount: number }[];
   /**
    * Lo que se cobró, resuelto contra la cita. Falta en los cobros sueltos, que
    * no llevan cita detrás: entonces el recibo solo puede dar el importe.
@@ -239,6 +266,27 @@ export interface PaymentRegisteredPayload {
 }
 
 export type PaymentRegisteredEvent = IBaseEvent<PaymentRegisteredPayload>;
+
+/**
+ * Correccion de un cobro ya registrado. Lleva la diferencia además del importe
+ * nuevo -quien agrega ingresos ajusta lo sumado, no lo vuelve a sumar- y el dia
+ * del cobro original, para no atribuir la correccion al dia en que se hizo.
+ */
+export interface PaymentCorrectedPayload {
+  paymentId: string;
+  businessId: string;
+  /** Dia del cobro corregido, en el huso del negocio (`YYYY-MM-DD`). */
+  date: string;
+  previousAmount: number;
+  amount: number;
+  /** `amount - previousAmount`: negativa cuando la correccion rebaja el cobro. */
+  difference: number;
+  method: PaymentMethod;
+  reason: string;
+  editedBy: string;
+}
+
+export type PaymentCorrectedEvent = IBaseEvent<PaymentCorrectedPayload>;
 
 /** Puntos que un cobro gastó de la ficha del cliente. */
 export interface PointsRedeemedPayload {
@@ -378,6 +426,7 @@ export const EventNames = {
   CORE_SERVICE_UPDATED: "core.service.updated",
   CORE_CLIENT_CREATED: "core.client.created",
   CORE_CLIENT_BIRTHDAY: "core.client.birthday",
+  CORE_CLIENT_MERGED: "core.client.merged",
 
   BOOKING_APPOINTMENT_CREATED: "booking.appointment.created",
   BOOKING_APPOINTMENT_CONFIRMED: "booking.appointment.confirmed",
@@ -390,6 +439,7 @@ export const EventNames = {
   PAYMENT_PAYMENT_REGISTERED: "payment.payment.registered",
   PAYMENT_INVOICE_GENERATED: "payment.invoice.generated",
   PAYMENT_POINTS_REDEEMED: "payment.points.redeemed",
+  PAYMENT_PAYMENT_CORRECTED: "payment.payment.corrected",
   PAYMENT_REFUND_PROCESSED: "payment.refund.processed",
   PAYMENT_CASH_SESSION_CLOSED: "payment.cash.session.closed",
 
@@ -403,9 +453,8 @@ export const EventNames = {
 
 /**
  * Eventos cuyo payload transporta un secreto de un solo uso: el enlace de
- * restablecimiento de contraseña y el de confirmación de correo. El relay borra
- * su fila del outbox en cuanto los publica, en lugar de conservarla hasta la
- * purga, para que el secreto no siga legible en la base después de entregarse.
+ * contraseña y el de confirmacion de correo. El relay borra su fila del outbox
+ * al publicarlos, para que el secreto no siga legible en la base.
  */
 export const EVENTOS_CON_SECRETO: readonly string[] = [
   EventNames.AUTH_PASSWORD_RESET_REQUESTED,

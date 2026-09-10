@@ -7,13 +7,9 @@ import {
 import { v4 as uuidv4 } from "uuid";
 
 /**
- * Entidad base común: id UUID y marcas de tiempo de creación/actualización.
- * El id se genera en la aplicación antes del INSERT (@BeforeInsert).
- *
- * Las marcas son `timestamptz` y no `timestamp`: una columna sin huso guarda la
- * hora de pared de quien escribe —Postgres en UTC para los valores por defecto,
- * el proceso Node en su hora local para el resto— y quien lee después no puede
- * saber cuál de las dos era.
+ * Entidad base común: id UUID generado en la aplicación antes del INSERT y
+ * marcas de tiempo. Son `timestamptz` porque una columna sin huso guarda la
+ * hora de pared de quien escribe y quien lee no sabe cuál era.
  */
 export abstract class BaseEntity {
   @PrimaryColumn("uuid")

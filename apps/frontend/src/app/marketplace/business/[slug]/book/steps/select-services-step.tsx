@@ -52,6 +52,9 @@ export function SelectServicesStep({
                 </p>
               </div>
               <span className="text-primary font-semibold">
+                {/* El precio de este servicio cambia segun quien lo atienda:
+                    hasta elegir profesional, es un «desde» y no una promesa. */}
+                {s.precioVariable ? "desde " : ""}
                 {formatCurrency(s.price)}
               </span>
             </button>

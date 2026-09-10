@@ -7,11 +7,9 @@ import {
 import { esContextoHttp } from "./http-context";
 
 /**
- * Si la petición va a un endpoint servicio-a-servicio.
- *
- * Lo decide el decorador `@Internal()` o el prefijo de la ruta, indistintamente:
- * los tres guards que necesitan saberlo comparten esta función para que la
- * respuesta no dependa de que tres ficheros escriban la misma cadena.
+ * Si la petición va a un endpoint servicio-a-servicio, sea por el decorador
+ * `@Internal()` o por el prefijo de la ruta. La comparten los tres guards que lo
+ * necesitan, para que no dependa de tres cadenas escritas igual.
  */
 export function esRutaInterna(
   context: ExecutionContext,

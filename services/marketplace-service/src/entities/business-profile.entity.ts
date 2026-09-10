@@ -32,6 +32,11 @@ export interface GalleryImage {
 // Un negocio tiene un solo escaparate: el alta lo comprueba antes de escribir,
 // pero dos altas a la vez pasarían las dos comprobaciones.
 @Index("uq_business_profiles_negocio", ["businessId"], { unique: true })
+// «Recien llegados» recorre solo los perfiles ya publicados, que son minoria
+// frente a los borradores.
+@Index("idx_business_profiles_publicacion", ["publishedAt"], {
+  where: '"published_at" IS NOT NULL',
+})
 export class BusinessProfileEntity extends TenantEntity {
   @Column({ unique: true }) slug!: string;
 
@@ -106,6 +111,14 @@ export class BusinessProfileEntity extends TenantEntity {
 
   @Column({ default: false, name: "is_published" })
   isPublished!: boolean;
+
+  /**
+   * Cuando el perfil llego al escaparate por primera vez, que es lo que mide
+   * «Recien llegados». La fecha de creacion no sirve: la fila nace con el
+   * borrador, que puede llevar meses sin publicarse.
+   */
+  @Column({ type: "timestamptz", nullable: true, name: "published_at" })
+  publishedAt!: Date | null;
 
   @Column({ type: "int", default: 0, name: "profile_completeness" })
   profileCompleteness!: number;

@@ -190,3 +190,12 @@ export const TIPOS_DE_NEGOCIO = [
 export const VALORES_TIPO_DE_NEGOCIO: string[] = TIPOS_DE_NEGOCIO.map(
   (t) => t.valor
 );
+
+// ─── Edición simultánea ───────────────────────────────────────────────────
+
+/**
+ * Código del 409 de una escritura condicional cuya fila cambió. El navegador lo
+ * distingue del otro 409, el del dato que ya existe: uno se resuelve recargando
+ * y el otro corrigiendo el formulario.
+ */
+export const CODIGO_EDICION_SIMULTANEA = "EDICION_SIMULTANEA";

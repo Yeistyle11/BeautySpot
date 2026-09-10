@@ -8,17 +8,37 @@ import {
   TenantCrudService,
   OutboxService,
   InternalHttpClient,
+  esViolacionDeUnicidad,
 } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
-import { Repository, In, DataSource, EntityManager } from "typeorm";
-import { normalizarEmail, normalizarTelefono } from "@beautyspot/shared-utils";
+import {
+  Repository,
+  In,
+  Not,
+  Brackets,
+  DataSource,
+  EntityManager,
+} from "typeorm";
+import {
+  columnaSinTildes,
+  escapeLikePattern,
+  normalizarEmail,
+  normalizarTelefono,
+  sinTildes,
+  variantesDeTelefono,
+} from "@beautyspot/shared-utils";
 import {
   nivelDePuntos,
   siguienteNivel,
   NIVELES_FIDELIDAD_POR_DEFECTO,
   type NivelDeFidelidad,
 } from "@beautyspot/shared-constants";
-import { contieneTexto, paginate, PaginateParams } from "@beautyspot/database";
+import {
+  contieneTexto,
+  paginarQueryBuilder,
+  paginate,
+  PaginateParams,
+} from "@beautyspot/database";
 import { IPaginatedResponse } from "@beautyspot/shared-types";
 import {
   BusinessConfigService,
@@ -79,7 +99,14 @@ export class ClientsService extends TenantCrudService<Client> {
     const client = this.repo.create({ ...data, ...contacto, businessId });
 
     return this.dataSource.transaction(async (manager) => {
-      const creado = await manager.getRepository(Client).save(client);
+      const creado = await manager
+        .getRepository(Client)
+        .save(client)
+        .catch((error: unknown) => {
+          // El cotejo de arriba no basta: entre la consulta y la escritura cabe
+          // otra alta con el mismo contacto, y es el índice único quien las separa.
+          throw this.comoChoqueDeContacto(error);
+        });
 
       await this.outbox.enqueue(manager, {
         eventType: EventNames.CORE_CLIENT_CREATED,
@@ -104,9 +131,14 @@ export class ClientsService extends TenantCrudService<Client> {
    */
   private async rechazarSiYaExiste(
     businessId: string,
-    contacto: { email?: string; phone?: string }
+    contacto: { email?: string; phone?: string },
+    excluirId?: string
   ): Promise<void> {
-    const existente = await this.buscarPorContacto(businessId, contacto);
+    const existente = await this.buscarPorContacto(
+      businessId,
+      contacto,
+      excluirId
+    );
     if (existente) {
       throw new ConflictException(
         `Ya existe un cliente con ese ${existente.email === contacto.email ? "correo" : "teléfono"}: ${existente.name}`
@@ -114,28 +146,115 @@ export class ClientsService extends TenantCrudService<Client> {
     }
   }
 
-  /** Ficha del negocio que coincide por correo o por teléfono, si la hay. */
+  /**
+   * Ficha del negocio que coincide por correo o por teléfono, si la hay. El
+   * teléfono se coteja contra todas sus formas equivalentes, porque las fichas
+   * anteriores a la canonización siguen guardadas sin indicativo.
+   */
   private async buscarPorContacto(
     businessId: string,
-    contacto: { email?: string; phone?: string }
+    contacto: { email?: string; phone?: string },
+    excluirId?: string
   ): Promise<Client | null> {
+    const otraFicha = excluirId ? { id: Not(excluirId) } : {};
     const criterios: Record<string, unknown>[] = [];
-    if (contacto.email) criterios.push({ businessId, email: contacto.email });
-    if (contacto.phone) criterios.push({ businessId, phone: contacto.phone });
+    if (contacto.email) {
+      criterios.push({ businessId, email: contacto.email, ...otraFicha });
+    }
+    if (contacto.phone) {
+      criterios.push({
+        businessId,
+        phone: In(variantesDeTelefono(contacto.phone)),
+        ...otraFicha,
+      });
+    }
     if (criterios.length === 0) return null;
 
-    return this.repo.findOne({ where: criterios });
+    const porContacto = await this.repo.findOne({ where: criterios });
+    if (porContacto) return porContacto;
+
+    // Y por los contactos heredados de una ficha fusionada: quien reserve con
+    // el teléfono viejo debe caer en la ficha buena, no abrir otra.
+    return this.buscarPorAlias(businessId, contacto, excluirId);
   }
 
-  /** Actualiza la ficha, salvo que ya se haya ejercido la supresión sobre ella. */
+  /**
+   * Ficha que heredó ese correo o ese teléfono al absorber a otra. El alias es
+   * una lista corta por ficha, así que se compara en SQL con `LIKE` sobre la
+   * columna de texto que TypeORM usa para `simple-array`.
+   */
+  private async buscarPorAlias(
+    businessId: string,
+    contacto: { email?: string; phone?: string },
+    excluirId?: string
+  ): Promise<Client | null> {
+    const valores = [
+      ...(contacto.email
+        ? [{ columna: "alias_emails", v: [contacto.email] }]
+        : []),
+      ...(contacto.phone
+        ? [{ columna: "alias_phones", v: variantesDeTelefono(contacto.phone) }]
+        : []),
+    ];
+    if (valores.length === 0) return null;
+
+    const qb = this.repo
+      .createQueryBuilder("c")
+      .where("c.business_id = :businessId", { businessId });
+    if (excluirId) qb.andWhere("c.id <> :excluirId", { excluirId });
+
+    qb.andWhere(
+      new Brackets((donde) => {
+        valores.forEach(({ columna, v }, i) => {
+          v.forEach((valor, j) => {
+            const clave = `alias${i}_${j}`;
+            donde.orWhere(
+              `string_to_array(coalesce(c.${columna}, ''), ',') @> ARRAY[:${clave}]`,
+              { [clave]: valor }
+            );
+          });
+        });
+      })
+    );
+
+    return qb.getOne();
+  }
+
+  /**
+   * Traduce el choque del índice único de contacto al mismo 409 en castellano
+   * que da el cotejo previo; cualquier otro error sigue su camino.
+   */
+  private comoChoqueDeContacto(error: unknown): unknown {
+    if (!esViolacionDeUnicidad(error)) return error;
+
+    const porCorreo = error.constraint === "uq_clients_email_por_negocio";
+    return new ConflictException(
+      `Ya existe un cliente con ese ${porCorreo ? "correo" : "teléfono"} en este negocio`
+    );
+  }
+
+  /**
+   * Actualiza la ficha, salvo que ya se haya ejercido la supresión sobre ella.
+   * El contacto pasa por la misma canonización y cotejo que el alta. Con
+   * `updatedAtEsperado` se rechaza si la ficha cambió desde que se cargó.
+   */
   async update(
     id: string,
     businessId: string,
-    data: Partial<Client>
+    data: Partial<Client>,
+    updatedAtEsperado?: Date
   ): Promise<Client> {
     await this.rechazarSiEstaAnonimizado(id, businessId);
     await this.validarFicha(businessId, data.ficha);
-    return super.update(id, businessId, data);
+
+    const contacto = normalizarContacto(data);
+    await this.rechazarSiYaExiste(businessId, contacto, id);
+
+    return super
+      .update(id, businessId, { ...data, ...contacto }, updatedAtEsperado)
+      .catch((error: unknown) => {
+        throw this.comoChoqueDeContacto(error);
+      });
   }
 
   /**
@@ -207,6 +326,127 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
+   * Fusiona dos fichas del mismo cliente en la que sobrevive, para que el salón
+   * no trabaje con dos historiales a medias. Es definitiva: lo que cuelga de la
+   * absorbida lo reasigna cada servicio al consumir `core.client.merged`.
+   */
+  async fusionar(
+    businessId: string,
+    supervivienteId: string,
+    absorbidoId: string
+  ): Promise<Client> {
+    if (supervivienteId === absorbidoId) {
+      throw new BadRequestException("Una ficha no se fusiona consigo misma");
+    }
+
+    const [superviviente, absorbido] = await Promise.all([
+      this.findById(supervivienteId, businessId),
+      this.findById(absorbidoId, businessId),
+    ]);
+
+    for (const ficha of [superviviente, absorbido]) {
+      if (ficha.anonymizedAt) {
+        throw new ConflictException(
+          "Una ficha con los datos suprimidos no se puede fusionar"
+        );
+      }
+      if (ficha.mergedIntoId) {
+        throw new ConflictException("Esa ficha ya se fusionó con otra");
+      }
+    }
+
+    // Dos cuentas distintas pueden ser dos personas, y el producto no puede
+    // saberlo: fusionarlas dejaria a alguien viendo en su portal las citas de
+    // otro, que es peor que un duplicado.
+    if (
+      superviviente.userId &&
+      absorbido.userId &&
+      superviviente.userId !== absorbido.userId
+    ) {
+      throw new ConflictException(
+        "Cada ficha está vinculada a una cuenta distinta: revísalas antes de fusionarlas"
+      );
+    }
+
+    const fusionada = this.combinar(superviviente, absorbido);
+
+    return this.dataSource.transaction(async (manager) => {
+      const guardada = await manager.getRepository(Client).save(fusionada);
+
+      await manager.getRepository(Client).update(
+        { id: absorbidoId, businessId },
+        {
+          mergedIntoId: supervivienteId,
+          mergedAt: new Date(),
+          // Deja de aparecer en la cartera; la fila se conserva porque el
+          // historial viejo la referencia.
+          active: false,
+        }
+      );
+
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.CORE_CLIENT_MERGED,
+        aggregateType: "client",
+        aggregateId: supervivienteId,
+        payload: { businessId, supervivienteId, absorbidoId },
+      });
+
+      return guardada;
+    });
+  }
+
+  /**
+   * La ficha superviviente con lo que aporta la absorbida: lo que ya tiene
+   * manda, lo vacío se rellena y su contacto anterior queda como alias, para
+   * que las reservas futuras por él caigan aquí.
+   */
+  private combinar(superviviente: Client, absorbido: Client): Client {
+    const aliasEmails = new Set([
+      ...(superviviente.aliasEmails ?? []),
+      ...(absorbido.aliasEmails ?? []),
+    ]);
+    const aliasPhones = new Set([
+      ...(superviviente.aliasPhones ?? []),
+      ...(absorbido.aliasPhones ?? []),
+    ]);
+    if (absorbido.email && absorbido.email !== superviviente.email) {
+      aliasEmails.add(absorbido.email);
+    }
+    if (absorbido.phone && absorbido.phone !== superviviente.phone) {
+      aliasPhones.add(absorbido.phone);
+    }
+
+    superviviente.email = superviviente.email || absorbido.email;
+    superviviente.phone = superviviente.phone || absorbido.phone;
+    superviviente.documento = superviviente.documento || absorbido.documento;
+    superviviente.birthDate = superviviente.birthDate ?? absorbido.birthDate;
+    superviviente.userId = superviviente.userId ?? absorbido.userId;
+    superviviente.notes = [superviviente.notes, absorbido.notes]
+      .filter(Boolean)
+      .join("\n");
+    superviviente.tags = [
+      ...new Set([...(superviviente.tags ?? []), ...(absorbido.tags ?? [])]),
+    ];
+    // Los puntos son saldo del cliente, no de la ficha: se suman.
+    superviviente.loyaltyPoints += absorbido.loyaltyPoints;
+    superviviente.noShowCount += absorbido.noShowCount;
+    // Campo a campo, conservando lo que ya hay: la alergia anotada en la ficha
+    // buena no la pisa un hueco de la otra.
+    superviviente.ficha = {
+      ...(absorbido.ficha ?? {}),
+      ...Object.fromEntries(
+        Object.entries(superviviente.ficha ?? {}).filter(
+          ([, valor]) => valor !== null && valor !== undefined && valor !== ""
+        )
+      ),
+    };
+    superviviente.aliasEmails = [...aliasEmails];
+    superviviente.aliasPhones = [...aliasPhones];
+
+    return superviviente;
+  }
+
+  /**
    * Ejerce el derecho de supresion: vacia los datos personales y da de baja la
    * ficha, que se conserva porque citas y facturas la referencian.
    */
@@ -246,21 +486,49 @@ export class ClientsService extends TenantCrudService<Client> {
     }
   }
 
-  /** Lista los clientes activos del negocio, con búsqueda por nombre/email/teléfono y paginación. */
+  /**
+   * Lista los clientes activos del negocio, con paginación y búsqueda por
+   * nombre, correo o teléfono. El término se normaliza como en el alta y mira
+   * los alias de una fusión, para que el contacto absorbido siga encontrando.
+   */
   async findByBusiness(
     businessId: string,
     search: string | undefined,
     pagination: PaginateParams
   ): Promise<IPaginatedResponse<Client>> {
-    const base = { businessId, active: true };
-    const where = search
-      ? [
-          { ...base, name: contieneTexto(search) },
-          { ...base, email: contieneTexto(search) },
-          { ...base, phone: contieneTexto(search) },
-        ]
-      : base;
-    return paginate(this.repo, pagination, { where, order: { name: "ASC" } });
+    const qb = this.repo
+      .createQueryBuilder("c")
+      .where("c.business_id = :businessId", { businessId })
+      .andWhere("c.active = true")
+      .orderBy("c.name", "ASC");
+
+    if (search) {
+      const patron = `%${escapeLikePattern(sinTildes(search))}%`;
+      const telefonos = variantesDeTelefono(search);
+
+      qb.andWhere(
+        new Brackets((donde) => {
+          for (const columna of ["c.name", "c.email", "c.phone"]) {
+            donde.orWhere(`${columnaSinTildes(columna)} LIKE :patron`, {
+              patron,
+            });
+          }
+          donde.orWhere(
+            `string_to_array(coalesce(c.alias_emails, ''), ',') @> ARRAY[:correo]`,
+            { correo: search }
+          );
+          telefonos.forEach((telefono, i) => {
+            const clave = `telefono${i}`;
+            donde.orWhere(
+              `c.phone = :${clave} OR string_to_array(coalesce(c.alias_phones, ''), ',') @> ARRAY[:${clave}]`,
+              { [clave]: telefono }
+            );
+          });
+        })
+      );
+    }
+
+    return paginarQueryBuilder(qb, pagination);
   }
 
   /**
@@ -302,7 +570,6 @@ export class ClientsService extends TenantCrudService<Client> {
     });
   }
 
-  /** Página sin resultados con la forma que espera quien la pidió. */
   private paginaVacia(
     pagination: PaginateParams
   ): IPaginatedResponse<Pick<Client, "id" | "name">> {
@@ -332,7 +599,6 @@ export class ClientsService extends TenantCrudService<Client> {
     });
   }
 
-  /** Busca el cliente asociado a una cuenta de usuario dentro del negocio. */
   async findByUserId(
     userId: string,
     businessId: string
@@ -425,9 +691,8 @@ export class ClientsService extends TenantCrudService<Client> {
 
   /**
    * Descuenta los puntos al cliente si le alcanzan, en una sola sentencia, y
-   * dice si pudo. Leer el saldo y escribirlo después dejaría que dos canjes
-   * simultáneos pasaran ambos la comprobación y gastaran el mismo saldo dos
-   * veces, así que la condición viaja dentro del propio UPDATE.
+   * dice si pudo. La condición viaja dentro del UPDATE porque leer el saldo y
+   * escribirlo después deja que dos canjes simultáneos gasten el mismo.
    */
   async redeemLoyaltyPoints(
     id: string,

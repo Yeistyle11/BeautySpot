@@ -1,11 +1,12 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
   Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
 } from "@nestjs/common";
 import { BranchesService } from "./branches.service";
 import { Roles, BusinessId } from "@beautyspot/nest-common";
@@ -18,14 +19,12 @@ import { CreateBranchDto, UpdateBranchDto } from "./dto/branch.dto";
 export class BranchesController {
   constructor(private readonly service: BranchesService) {}
 
-  /** Crea una sede en el negocio actual. */
   @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post()
   async create(@BusinessId() businessId: string, @Body() dto: CreateBranchDto) {
     return this.service.create(businessId, dto);
   }
 
-  /** Lista las sedes del negocio actual. */
   @Roles(
     Role.OWNER,
     Role.ADMIN,
@@ -33,31 +32,33 @@ export class BranchesController {
     Role.RECEPTIONIST,
     Role.PROFESSIONAL
   )
-  /** Sedes del negocio. */
   @Get()
   async findAll(@BusinessId() businessId: string) {
     return this.service.findByBusiness(businessId);
   }
 
-  /** Obtiene una sede por id. */
   @Get(":id")
-  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+  async findById(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.findById(id, businessId);
   }
 
-  /** Actualiza una sede. */
   @Patch(":id")
   async update(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Body() dto: UpdateBranchDto
   ) {
     return this.service.update(id, businessId, dto);
   }
 
-  /** Da de baja una sede. */
   @Delete(":id")
-  async deactivate(@Param("id") id: string, @BusinessId() businessId: string) {
+  async deactivate(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     await this.service.deactivate(id, businessId);
     return { message: "Sucursal desactivada" };
   }

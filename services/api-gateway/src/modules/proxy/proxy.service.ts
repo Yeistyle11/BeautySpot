@@ -18,7 +18,6 @@ import { ACCESS_COOKIE, leerCookie } from "../session/session-cookies";
 export class ProxyService {
   constructor(private serviceUrls: ServiceUrlsConfig) {}
 
-  /** Devuelve la URL base del microservicio indicado. */
   getServiceUrl(serviceName: string): string {
     const normalized = this.normalize(serviceName);
     return this.serviceUrls.getUrl(normalized);
@@ -92,10 +91,8 @@ export class ProxyService {
 
   /**
    * Negocio sobre el que va la petición: el que pide el cliente si tiene
-   * membresía en él, y si no el suyo por defecto.
-   *
-   * Quien trabaja en dos sitios necesita poder decir en cuál está operando; sin
-   * atender esa cabecera, solo podría entrar al primero de su lista.
+   * membresía en él, y si no el suyo por defecto. Quien trabaja en dos sitios
+   * necesita poder decir en cuál está operando.
    */
   private negocioDeLaPeticion(req: Request): string | undefined {
     const user = (

@@ -33,6 +33,7 @@ import {
   calculateEndTime,
   escapeLikePattern,
   esInstantePasadoEn,
+  fechaDeHoyEn,
   duracionDeCliente,
   finDeOcupacion,
   horaDeReloj,
@@ -50,6 +51,17 @@ const TOPE_DE_CLIENTES_POR_PROFESIONAL = 500;
 const ESTADOS_REAGENDABLES: AppointmentStatus[] = [
   AppointmentStatus.PENDING,
   AppointmentStatus.CONFIRMED,
+];
+
+/**
+ * Estados desde los que todavía se puede cancelar. Los demás son finales: una
+ * cita atendida, ya cancelada o marcada como plantón no se deshace cancelándola
+ * después, y el contador de plantones de la ficha se queda como está.
+ */
+const ESTADOS_CANCELABLES: AppointmentStatus[] = [
+  AppointmentStatus.PENDING,
+  AppointmentStatus.CONFIRMED,
+  AppointmentStatus.IN_PROGRESS,
 ];
 
 /** Servicio tal y como lo devuelve el catálogo del core-service. */
@@ -70,15 +82,9 @@ interface LineaDeCita extends ServicioResuelto {
 }
 
 /**
- * Cuerpo comun de los eventos de una cita. Los seis —alta, confirmacion,
- * atendida, cancelacion, ausencia y cambio de hora— describen la misma cita, y
- * escribirlo en cada uno hacia que anadir un campo pidiera seis ediciones
- * iguales; olvidar una no rompia la compilacion, porque los campos son
- * opcionales, y el evento salia incompleto hasta que faltaba un dato en
- * analytics.
- *
- * `cambios` es para lo que el evento sabe mejor que la fila: al reagendar, la
- * fecha y la hora nuevas todavia no estan escritas.
+ * Cuerpo comun de los eventos de una cita: los seis describen la misma cita y
+ * se arma en un solo sitio. `cambios` lleva lo que el evento sabe mejor que la
+ * fila, como la fecha nueva de un reagendado, que todavia no esta escrita.
  */
 function cuerpoDeCita(
   appt: Appointment,
@@ -185,8 +191,7 @@ export class AppointmentsService {
     }
 
     // Una llamada por profesional, porque el precio y la duracion dependen de
-    // quien atiende, pero todas a la vez: en serie, una cita repartida entre
-    // varios profesionales sumaba un viaje a core detras de otro.
+    // quien atiende, pero todas a la vez y no en serie.
     const porProfesionalResueltos = await Promise.all(
       [...porProfesional].map(([profesional, ids]) =>
         this.resolverServicios(businessId, ids, profesional)
@@ -371,7 +376,115 @@ export class AppointmentsService {
     return appointment;
   }
 
-  /** Pasa la cita a confirmada. */
+  /**
+   * Registra un walk-in: entró sin cita, se atendió y se anota después. No pasa
+   * por disponibilidad ni por solapes, nace atendida y publica los eventos de
+   * una cita completada. Solo admite una hora ya pasada del día en curso.
+   */
+  async registrarWalkIn(
+    businessId: string,
+    data: {
+      professionalId: string;
+      clientId: string;
+      serviceIds: string[];
+      startTime: string;
+      notes?: string;
+      branchId?: string;
+      createdBy?: string;
+      asignaciones?: { serviceId: string; professionalId: string }[];
+    }
+  ): Promise<Appointment> {
+    await this.validarSede(businessId, data.branchId);
+
+    const zona = await this.zonas.de(businessId);
+    const date = fechaDeHoyEn(zona);
+    if (!esInstantePasadoEn(zona, date, data.startTime)) {
+      throw new BadRequestException(
+        "Un walk-in se registra después de atenderlo: esa hora aún no ha llegado"
+      );
+    }
+
+    const lineas = await this.lineasDeLaCita(
+      businessId,
+      data.serviceIds,
+      data.professionalId,
+      new Map(
+        (data.asignaciones ?? []).map((a) => [a.serviceId, a.professionalId])
+      )
+    );
+    const totalAmount = lineas.reduce((sum, s) => sum + s.price, 0);
+    const endTime = calculateEndTime(data.startTime, duracionDeCliente(lineas));
+    const ocupadoHasta = finDeOcupacion(data.startTime, lineas);
+    const pointsEarned = Math.round(totalAmount * PROPORCION_PUNTOS_FIDELIDAD);
+
+    const appointment = await this.dataSource.transaction(async (manager) => {
+      const created = manager.create(Appointment, {
+        businessId,
+        branchId: data.branchId,
+        clientId: data.clientId,
+        professionalId: data.professionalId,
+        date,
+        startTime: data.startTime,
+        endTime: horaDeReloj(endTime),
+        ocupadoHasta: horaDeReloj(ocupadoHasta),
+        totalAmount,
+        notes: data.notes,
+        createdBy: data.createdBy,
+        status: AppointmentStatus.COMPLETED,
+        // Se atendió a su hora, no cuando alguien tuvo tiempo de anotarlo.
+        startedAt: instanteDe(zona, date, data.startTime),
+        completedAt: new Date(),
+        pointsEarned,
+      });
+      const saved = await manager.save(Appointment, created);
+
+      const apptServices = lineas.map((linea) =>
+        manager.create(AppointmentServiceEntity, {
+          appointmentId: saved.id,
+          serviceId: linea.id,
+          serviceName: linea.name,
+          price: linea.price,
+          duration: linea.duration,
+          orden: linea.orden,
+          procesadoDesde: linea.procesadoDesde,
+          procesadoMinutos: linea.procesadoMinutos,
+          bufferDespues: linea.bufferDespues,
+          professionalId: linea.professionalId,
+        })
+      );
+      await manager.save(AppointmentServiceEntity, apptServices);
+
+      const servicios = serviciosDelEvento(apptServices);
+      // Los dos eventos: nace y se da por atendida en el mismo acto, y quien
+      // escucha uno u otro tiene que ver lo mismo que en una cita normal.
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.BOOKING_APPOINTMENT_CREATED,
+        aggregateType: "appointment",
+        aggregateId: saved.id,
+        payload: {
+          ...cuerpoDeCita(saved, businessId, { services: servicios }),
+        },
+      });
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.BOOKING_APPOINTMENT_COMPLETED,
+        aggregateType: "appointment",
+        aggregateId: saved.id,
+        payload: {
+          ...cuerpoDeCita(saved, businessId, { services: servicios }),
+          pointsEarned,
+        },
+      });
+
+      const result = await manager.findOne(Appointment, {
+        where: { id: saved.id },
+        relations: ["appointmentServices"],
+      });
+      return result!;
+    });
+
+    return appointment;
+  }
+
   async confirm(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
     if (appt.status !== AppointmentStatus.PENDING) {
@@ -395,7 +508,6 @@ export class AppointmentsService {
     return this.findById(id, businessId);
   }
 
-  /** Marca que el servicio ha empezado. */
   async startService(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
     if (appt.status !== AppointmentStatus.CONFIRMED) {
@@ -472,10 +584,7 @@ export class AppointmentsService {
     opciones: { esCliente: boolean } = { esCliente: false }
   ): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
-    if (
-      appt.status === AppointmentStatus.COMPLETED ||
-      appt.status === AppointmentStatus.CANCELLED
-    ) {
+    if (!ESTADOS_CANCELABLES.includes(appt.status)) {
       throw new BadRequestException(
         `No se puede cancelar una cita en estado ${appt.status}`
       );
@@ -491,6 +600,9 @@ export class AppointmentsService {
       );
     }
 
+    // El mismo instante en la fila y en el evento: son la misma cancelación.
+    const cancelledAt = new Date();
+
     await this.dataSource.transaction(async (manager) => {
       await manager.update(
         Appointment,
@@ -500,7 +612,7 @@ export class AppointmentsService {
           cancelReason: motivo.nota ?? null,
           cancelReasonType: motivo.tipo,
           cancelledBy: motivo.canceladaPor ?? null,
-          cancelledAt: new Date(),
+          cancelledAt,
         }
       );
       await this.outbox.enqueue(manager, {
@@ -512,6 +624,8 @@ export class AppointmentsService {
           cancelReason: motivo.nota,
           cancelReasonType: motivo.tipo,
           cancelledBy: motivo.canceladaPor,
+          // El instante de la cancelación, que no es la fecha de la cita.
+          cancelledAt: cancelledAt.toISOString(),
         },
       });
     });
@@ -519,7 +633,6 @@ export class AppointmentsService {
     return this.findById(id, businessId);
   }
 
-  /** Marca que el cliente no se presentó. */
   async markNoShow(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
     if (
@@ -528,6 +641,14 @@ export class AppointmentsService {
     ) {
       throw new BadRequestException(
         "Solo se puede marcar no-show en citas pendientes o confirmadas"
+      );
+    }
+    // Nadie falta a una cita que aun no ha empezado: el planton ensucia la tasa
+    // de asistencia y mancha el historial del cliente.
+    const zona = await this.zonas.de(businessId);
+    if (!esInstantePasadoEn(zona, appt.date, appt.startTime)) {
+      throw new BadRequestException(
+        "La cita todavía no ha empezado: no se puede marcar como no asistida"
       );
     }
     await this.dataSource.transaction(async (manager) => {

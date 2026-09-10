@@ -3,6 +3,7 @@ import {
   formatAniosExperiencia,
   formatCurrency,
   formatDate,
+  formatPorcentaje,
   formatTime,
   toLocalDateKey,
   formatDateTime,
@@ -31,6 +32,25 @@ describe("formatCurrency", () => {
   });
 });
 
+describe("formatPorcentaje", () => {
+  it("escribe el decimal solo cuando lo tiene", () => {
+    expect(formatPorcentaje(7)).toBe("7%");
+    expect(formatPorcentaje(6.7)).toBe("6.7%");
+  });
+
+  // El panel anadia un decimal fijo que siempre era `.0`, sugiriendo una
+  // exactitud que el dato no tenia; Reportes imprimia el numero crudo.
+  it("no promete una exactitud que el dato no tiene", () => {
+    expect(formatPorcentaje(7)).not.toBe("7.0%");
+    expect(formatPorcentaje(66.66666666666667)).toBe("66.7%");
+  });
+
+  it("escribe el cero y el cien sin adornos", () => {
+    expect(formatPorcentaje(0)).toBe("0%");
+    expect(formatPorcentaje(100)).toBe("100%");
+  });
+});
+
 describe("formatDate", () => {
   it("formatea una fecha ISO (YYYY-MM-DD) en formato legible es-CO", () => {
     const result = formatDate("2026-03-15");
@@ -43,6 +63,23 @@ describe("formatDate con timestamp ISO completo", () => {
   it("no rompe cuando recibe un ISO con hora y timezone", () => {
     const result = formatDate("2026-03-15T23:00:00.000Z");
     expect(result).toContain("2026");
+  });
+
+  // El dia de un cobro se nombra en la zona del negocio: recortar el ISO a sus
+  // diez primeros caracteres lo fecha en UTC, y en Colombia un cobro de las diez
+  // de la noche saldria un dia despues que en el listado.
+  it("nombra el mismo dia que el listado para un mismo instante", () => {
+    const instantes = [
+      "2026-09-05T03:18:00.000Z",
+      "2026-09-04T23:59:00.000Z",
+      "2026-09-05T12:00:00.000Z",
+    ];
+
+    for (const instante of instantes) {
+      const enElModal = formatDate(instante);
+      const enElListado = formatDateTimeStamp(instante);
+      expect(enElListado.startsWith(enElModal)).toBe(true);
+    }
   });
 });
 

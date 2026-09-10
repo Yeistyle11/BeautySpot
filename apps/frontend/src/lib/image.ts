@@ -12,13 +12,9 @@ function hostMatches(hostname: string, pattern: string): boolean {
 }
 
 /**
- * Decide si una imagen remota puede pasar por el optimizador de Next.
- *
- * Las URLs las escribe cada negocio a mano, asi que pueden venir de cualquier
- * host. Next falla al renderizar un host que no este en `remotePatterns`, de
- * modo que las de hosts desconocidos se sirven sin optimizar: se pierde el
- * AVIF/WebP en esas, pero se ven. Los hosts habituales (configurados en
- * next.config.js) si se optimizan, que es donde esta el grueso del trafico.
+ * Decide si una imagen remota puede pasar por el optimizador de Next. Las URLs
+ * las escribe cada negocio, y Next falla al renderizar un host que no este en
+ * `remotePatterns`: los desconocidos se sirven sin optimizar, pero se ven.
  */
 export function canOptimizeImage(url: string | null | undefined): boolean {
   if (!url) return false;

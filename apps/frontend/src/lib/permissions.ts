@@ -79,6 +79,14 @@ export const PAGES: PageAccess[] = [
     roles: ["OWNER", "ADMIN", "RECEPTIONIST"],
   },
   {
+    // Recepción las consulta y descarga; emitirlas y cambiarles el estado es de
+    // dueño y administrador, como en el backend.
+    path: "/dashboard/invoices",
+    label: "Facturas",
+    icon: "Receipt",
+    roles: ["OWNER", "ADMIN", "RECEPTIONIST"],
+  },
+  {
     path: "/dashboard/analytics",
     label: "Reportes",
     icon: "BarChart3",
@@ -153,13 +161,20 @@ export const ACTIONS = {
   service_categories_delete: ["OWNER", "ADMIN"],
   clients_create: ["OWNER", "ADMIN", "RECEPTIONIST"],
   clients_edit: ["OWNER", "ADMIN", "RECEPTIONIST"],
+  // Como la supresión de datos: es irreversible y mezcla dos historiales,
+  // incluida la ficha de alergias.
+  clients_merge: ["OWNER", "ADMIN"],
   appointments_create: ["OWNER", "ADMIN", "RECEPTIONIST"],
   appointments_confirm: ["OWNER", "ADMIN", "PROFESSIONAL"],
   appointments_cancel: ["OWNER", "ADMIN", "RECEPTIONIST"],
   appointments_reschedule: ["OWNER", "ADMIN", "RECEPTIONIST"],
   payments_create: ["OWNER", "ADMIN", "RECEPTIONIST"],
   payments_edit: ["OWNER", "ADMIN"],
-  payments_void: ["OWNER", "ADMIN"],
+  // Devolver, no anular: un cobro completado no admite cambio de estado en el
+  // servicio, así que la devolución es la única forma de deshacerlo.
+  payments_refund: ["OWNER", "ADMIN"],
+  invoices_create: ["OWNER", "ADMIN"],
+  invoices_status: ["OWNER", "ADMIN"],
   cash_register_open: ["OWNER", "ADMIN", "RECEPTIONIST"],
   cash_register_close: ["OWNER", "ADMIN"],
   marketplace_edit: ["OWNER", "ADMIN"],

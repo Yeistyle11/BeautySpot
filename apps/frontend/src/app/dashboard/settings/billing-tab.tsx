@@ -8,11 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { canDo } from "@/lib/permissions";
 import { useAuthStore } from "@/lib/store";
-import type { Facturacion } from "./schemas";
+import { TASA_DE_IMPUESTO_POR_DEFECTO, type Facturacion } from "./schemas";
 
 interface BillingTabProps {
   facturacion: Facturacion;
   onChange: (facturacion: Facturacion) => void;
+  /** La tasa se edita como texto: en blanco es «el de por defecto». */
+  tasa: string;
+  onTasaChange: (tasa: string) => void;
   onSave: () => void;
   saving: boolean;
 }
@@ -21,6 +24,8 @@ interface BillingTabProps {
 export function BillingTab({
   facturacion,
   onChange,
+  tasa,
+  onTasaChange,
   onSave,
   saving,
 }: BillingTabProps) {
@@ -67,18 +72,36 @@ export function BillingTab({
             placeholder="Calle 10 #5-40, Bogotá"
           />
         </Field>
-        <Field
-          label="Serie de numeración"
-          hint="Prefijo de los números de factura: hasta 10 letras o números, sin espacios."
-        >
-          <Input
-            value={facturacion.serie ?? ""}
-            onChange={(e) => set({ serie: e.target.value })}
-            disabled={!puedeEditar}
-            maxLength={10}
-            placeholder="INV"
-          />
-        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Serie de numeración"
+            hint="Prefijo de los números de factura: hasta 10 letras o números, sin espacios."
+          >
+            <Input
+              value={facturacion.serie ?? ""}
+              onChange={(e) => set({ serie: e.target.value })}
+              disabled={!puedeEditar}
+              maxLength={10}
+              placeholder="INV"
+            />
+          </Field>
+          <Field
+            label="Impuesto (%)"
+            hint={`Se aplica al facturar. En blanco, el ${TASA_DE_IMPUESTO_POR_DEFECTO} % del IVA; escribe 0 para facturar sin impuesto. Cada factura conserva el tipo con el que se emitió.`}
+          >
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              step="0.01"
+              inputMode="decimal"
+              value={tasa}
+              onChange={(e) => onTasaChange(e.target.value)}
+              disabled={!puedeEditar}
+              placeholder={String(TASA_DE_IMPUESTO_POR_DEFECTO)}
+            />
+          </Field>
+        </div>
 
         {puedeEditar && (
           <Button onClick={onSave} disabled={saving}>

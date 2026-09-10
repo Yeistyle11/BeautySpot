@@ -1,14 +1,15 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Patch,
-  Param,
-  Body,
-  Query,
-  Res,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Res,
 } from "@nestjs/common";
 import { Response } from "express";
 import { InvoicesService } from "./invoices.service";
@@ -74,7 +75,7 @@ export class InvoicesController {
   @SkipBusinessScope()
   @HttpCode(HttpStatus.OK)
   async generateMyPdf(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @CurrentUser("userId") userId: string,
     @Res() res: Response
   ) {
@@ -88,27 +89,27 @@ export class InvoicesController {
     res.send(pdfBuffer);
   }
 
-  /** Obtiene una factura por id. */
   @Get(":id")
-  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+  async findById(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.findById(id, businessId);
   }
 
-  /** Cambia el estado de una factura. */
   @Patch(":id/status")
   async updateStatus(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Body() dto: UpdateInvoiceStatusDto
   ) {
     return this.service.updateStatus(id, businessId, dto.status);
   }
 
-  /** Genera y descarga el PDF de una factura. */
   @Get(":id/pdf")
   @HttpCode(HttpStatus.OK)
   async generatePdf(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Res() res: Response
   ) {

@@ -4,17 +4,9 @@ import { api } from "@/lib/api";
 import type { EditForm, Professional, StaffMember } from "./schemas";
 
 /**
- * Guarda todos los cambios de una cuenta.
- *
- * Cada seccion del formulario pega contra un endpoint distinto (datos,
- * contrasena, estado, vinculo con el profesional), asi que se agrupan aqui.
- * Se lanzan en paralelo porque son independientes entre si; la validacion de
- * la contrasena va antes de disparar nada para no dejar el resto aplicado si
- * no coincide.
- *
- * Aviso: si una de las llamadas falla, las otras ya se habran aplicado. El
- * backend no expone una operacion transaccional para esto, asi que la pagina
- * recarga los datos tras el error para reflejar lo que si se guardo.
+ * Guarda todos los cambios de una cuenta. Cada seccion pega contra un endpoint
+ * distinto y se lanzan en paralelo, con la contrasena validada antes de
+ * disparar nada. Si una falla, las otras ya se aplicaron: la pagina recarga.
  */
 export async function saveMemberChanges(
   member: StaffMember,

@@ -305,18 +305,29 @@ Roles a nivel de clase: **OWNER, ADMIN, SUPER_ADMIN**.
 | PATCH  | `/:id` | Actualiza        |
 | DELETE | `/:id` | Desactiva        |
 
+El alta **siembra el negocio según su `businessType`**: los servicios típicos de
+su sector con duración y precio orientativos, las categorías de servicio y de
+profesional, y un horario de apertura. Va en la misma transacción que el negocio
+—o nace entero o no nace— y nada queda marcado como sembrado: se edita y se borra
+como lo escrito a mano. `sembrar: false` en el cuerpo lo deja en blanco, y un
+tipo sin plantilla no siembra nada sin que el alta falle.
+
 ### Horarios — `/api/v1/core/business-hours`
 
 Roles a nivel de clase: **OWNER, ADMIN**.
 
 | Método | Ruta              | Descripción                                             |
 | ------ | ----------------- | ------------------------------------------------------- |
-| GET    | `/`               | Horario semanal del negocio                             |
+| GET    | `/`               | Horario semanal del negocio (+ **RECEPTIONIST**)        |
 | PUT    | `/`               | Reemplaza el horario completo (upsert)                  |
 | PATCH  | `/:id`            | Actualiza un tramo                                      |
 | GET    | `/especiales`     | Días especiales declarados, del más próximo             |
 | POST   | `/especiales`     | Declara un festivo, unas vacaciones o un horario propio |
 | DELETE | `/especiales/:id` | Retira un día especial                                  |
+
+La lectura del horario semanal admite además a **RECEPTIONIST**: la agenda marca
+como cerrados los días sin horario y es recepción quien responde al teléfono.
+Cambiarlo sigue siendo cosa de dueño y administrador.
 
 Un **día especial** es un rango de fechas con motivo que manda sobre el horario
 de la semana: `closed: true` cierra el negocio esos días, y con `closed: false`
@@ -341,18 +352,25 @@ por clave en `business_config`.
 
 Roles a nivel de clase: **OWNER, ADMIN, SUPER_ADMIN**.
 
-| Método | Ruta                       | Descripción                   |
-| ------ | -------------------------- | ----------------------------- |
-| POST   | `/`                        | Crea profesional              |
-| GET    | `/`                        | Lista profesionales           |
-| GET    | `/:id`                     | Detalle                       |
-| PATCH  | `/:id`                     | Actualiza                     |
-| DELETE | `/:id`                     | Elimina                       |
-| POST   | `/:id/services`            | Asigna un servicio            |
-| GET    | `/:id/services`            | Servicios que presta          |
-| DELETE | `/:id/services/:serviceId` | Quita un servicio             |
-| PATCH  | `/:id/link-user`           | Vincula una cuenta de usuario |
-| PATCH  | `/:id/unlink-user`         | Desvincula la cuenta          |
+| Método | Ruta                       | Descripción                           |
+| ------ | -------------------------- | ------------------------------------- |
+| POST   | `/`                        | Crea profesional                      |
+| GET    | `/`                        | Lista profesionales                   |
+| GET    | `/:id`                     | Detalle                               |
+| PATCH  | `/:id`                     | Actualiza                             |
+| DELETE | `/:id`                     | Elimina                               |
+| POST   | `/:id/services`            | Asigna un servicio o cambia su tarifa |
+| GET    | `/:id/services`            | Servicios que presta                  |
+| DELETE | `/:id/services/:serviceId` | Quita un servicio                     |
+| PATCH  | `/:id/link-user`           | Vincula una cuenta de usuario         |
+| PATCH  | `/:id/unlink-user`         | Desvincula la cuenta                  |
+
+`POST /:id/services` es idempotente: sobre un servicio ya asignado cambia su
+tarifa en vez de fallar contra el único (profesional, servicio). `customPrice` y
+`customDuration` son opcionales y **se vacían al omitirlos**, que es como se dice
+que ese profesional cobra y dura lo del catálogo. La agenda y el escaparate leen
+esa tarifa por `/internal/services/resolve` y por
+`/public/businesses/:id/services?professionalId=`.
 
 ### Servicios — `/api/v1/core/services`
 
@@ -365,6 +383,11 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 | GET    | `/:id` | OWNER, ADMIN                             | Detalle         |
 | PATCH  | `/:id` | OWNER, ADMIN                             | Actualiza       |
 | DELETE | `/:id` | OWNER, ADMIN                             | Elimina         |
+
+El `PATCH` admite `updatedAt`, que no es un campo del servicio: es la versión
+con la que se cargó. Si viene y el servicio ya cambió, la escritura se rechaza
+con **409** y código `EDICION_SIMULTANEA` en vez de pisar lo que otra persona
+acabe de guardar. Sin él se escribe sin cotejar, como siempre.
 
 ### Categorías de servicio — `/api/v1/core/service-categories`
 
@@ -401,8 +424,30 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 | GET    | `/me`            | CLIENT                                   | Su ficha, con el nivel de fidelidad resuelto     |
 | PATCH  | `/me`            | CLIENT                                   | Sus datos personales; 404 si reservó de invitado |
 | GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST               | Detalle                                          |
-| PATCH  | `/:id`           | OWNER, ADMIN, RECEPTIONIST               | Actualiza                                        |
+| PATCH  | `/:id`           | OWNER, ADMIN, RECEPTIONIST               | Actualiza; admite `updatedAt` para cotejar       |
+| POST   | `/:id/merge`     | OWNER, ADMIN                             | Fusiona otra ficha del mismo cliente en esta     |
 | POST   | `/:id/anonymize` | OWNER, ADMIN                             | Derecho de supresión; conserva citas y facturas  |
+
+**Guardar sobre una ficha que cambió avisa.** El `PATCH /:id` admite
+`updatedAt`, que no es un campo de la ficha sino la versión con la que se cargó.
+Si viene y la ficha ya cambió, se responde **409** con código
+`EDICION_SIMULTANEA` —distinto del 409 del contacto repetido— en vez de dejar
+que la última escritura gane en silencio. Sin él se escribe sin cotejar.
+
+**Fusionar es definitivo.** `POST /:id/merge` recibe `{ absorbidoId }` y deja la
+ficha de la ruta con todo: suma los puntos, rellena lo que tenga vacío, combina
+la ficha configurable sin pisar lo que ya había y hereda como **alias** el
+teléfono y el correo de la absorbida, de modo que una reserva futura hecha con
+el contacto viejo cae en la ficha buena. La absorbida no se borra —el historial
+la referencia— sino que queda marcada (`merged_into_id`) y fuera de la cartera.
+Se rechaza si alguna está anonimizada, si ya se fusionó, o si **cada una está
+vinculada a una cuenta de usuario distinta**: pueden ser dos personas, y
+fusionarlas dejaría a alguien viendo en su portal las citas de otro.
+
+Lo que cuelga de la absorbida en los demás servicios lo reasigna cada uno al
+consumir `core.client.merged`: las citas (booking), los cobros y las facturas
+(payment), las reseñas (marketplace) y el historial agregado (analytics, que
+además **suma** las dos filas porque tiene una por cliente y negocio).
 
 `GET /me` devuelve además `nivel` y `siguienteNivel`, resueltos en el servidor
 contra la escala de `business-config/fidelizacion`, que el cliente no puede leer.
@@ -458,6 +503,13 @@ Controlador `@Public()`: sin token. Alimenta el marketplace y la reserva públic
 | GET    | `/businesses/:id/services`      | Servicios del negocio     |
 | GET    | `/businesses/:id/professionals` | Profesionales del negocio |
 
+`/businesses/:id/services` admite `?professionalId=`, y entonces devuelve el
+**precio y la duración de ese profesional**, que son los que la agenda aplicará
+al reservar. Sin él, los del catálogo, marcando con `precioVariable` los
+servicios que algún profesional cobra o dura distinto: hasta que hay profesional
+elegido, el precio del catálogo es un «desde» y no una promesa. Un
+`professionalId` de otro negocio responde 400.
+
 ### Internos
 
 | Método | Ruta                                    | Descripción                                                                         |
@@ -490,6 +542,7 @@ patrón **Outbox** para publicar eventos de forma fiable.
 | Método | Ruta              | Roles                                    | Descripción               |
 | ------ | ----------------- | ---------------------------------------- | ------------------------- |
 | POST   | `/`               | OWNER, ADMIN, RECEPTIONIST               | Crea cita                 |
+| POST   | `/walk-in`        | OWNER, ADMIN, RECEPTIONIST               | Registra un walk-in       |
 | GET    | `/`               | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Lista citas (paginado)    |
 | GET    | `/availability`   | Autenticado                              | Huecos disponibles        |
 | GET    | `/:id`            | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Detalle                   |
@@ -500,16 +553,40 @@ patrón **Outbox** para publicar eventos de forma fiable.
 | POST   | `/:id/no-show`    | OWNER, ADMIN, PROFESSIONAL               | Marca no presentado       |
 | PATCH  | `/:id/reschedule` | OWNER, ADMIN, RECEPTIONIST               | Reprograma                |
 
+Un **walk-in** es quien entró sin cita, ya se atendió y se anota después. No es
+una reserva: no lleva fecha —la pone el servicio, que solo admite el día en curso
+del negocio—, exige una hora **ya pasada**, y no pasa por la disponibilidad ni
+por el control de solapes, porque el hueco no se está pidiendo, ya se ocupó.
+Nace `COMPLETED`, con sus puntos de fidelidad, y publica los eventos de cita
+creada **y** atendida, que es lo que hace que las métricas por profesional y por
+servicio cuenten lo que se atiende sin cita.
+
+Solo se cancela lo que sigue vivo: `PENDING`, `CONFIRMED` o `IN_PROGRESS`. Una
+cita atendida, ya cancelada o marcada como **no presentado** responde 400 —el
+no-show es el registro que sostiene la política de plantones, y cancelarla
+después lo borraba del informe sin deshacer el contador de la ficha—.
+
 Las rutas `/mine/*` son las del portal del cliente: el destinatario sale del
 token y no del negocio, así que llevan `@SkipBusinessScope()`. A diferencia de
 las del panel, respetan la antelación mínima de cancelación del negocio.
 
-| Método | Ruta                   | Roles  | Descripción              |
-| ------ | ---------------------- | ------ | ------------------------ |
-| GET    | `/mine`                | CLIENT | Sus citas                |
-| GET    | `/mine/:id`            | CLIENT | Detalle de una cita suya |
-| POST   | `/mine/:id/cancel`     | CLIENT | Cancela una cita suya    |
-| PATCH  | `/mine/:id/reschedule` | CLIENT | Reagenda una cita suya   |
+| Método | Ruta                   | Roles  | Descripción                 |
+| ------ | ---------------------- | ------ | --------------------------- |
+| POST   | `/mine`                | CLIENT | Reserva desde el escaparate |
+| GET    | `/mine`                | CLIENT | Sus citas                   |
+| GET    | `/mine/:id`            | CLIENT | Detalle de una cita suya    |
+| POST   | `/mine/:id/cancel`     | CLIENT | Cancela una cita suya       |
+| PATCH  | `/mine/:id/reschedule` | CLIENT | Reagenda una cita suya      |
+
+`POST /mine` es la reserva del escaparate hecha **con la sesión iniciada**, y es
+la que liga la ficha del negocio a la cuenta de quien reserva. De ese vínculo
+cuelga el resto del portal: sin él la ficha queda con `user_id` a NULL, _Mis
+Citas_ y _Mis Facturas_ salen vacías y **no se puede reseñar**, porque una
+reseña exige una cita del propio usuario. El cuerpo es el mismo de la reserva
+pública, pero **el usuario sale del token y nunca del cuerpo**: enviar un
+`userId` se rechaza, igual que en la ruta pública, porque aceptarlo dejaría
+reservar a nombre de otro. Sin sesión se sigue usando
+`POST /booking/public/appointments`, que reserva como invitado.
 
 ### Disponibilidad — `/api/v1/booking/professionals/:professionalId/availability`
 
@@ -542,11 +619,15 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 ### Bloqueos del día — `/api/v1/booking/blocked-slots`
 
 Roles a nivel de clase: **OWNER, ADMIN, RECEPTIONIST**. Los bloqueos de todo el
-equipo un día concreto, que es lo que pinta la vista día de la agenda.
+equipo, que es lo que pintan las vistas día y semana de la agenda.
 
-| Método | Ruta      | Descripción                 |
-| ------ | --------- | --------------------------- |
-| GET    | `/?date=` | Bloqueos del equipo ese día |
+| Método | Ruta             | Descripción                                       |
+| ------ | ---------------- | ------------------------------------------------- |
+| GET    | `/?date=`        | Bloqueos del equipo ese día                       |
+| GET    | `/?date=&hasta=` | Bloqueos del equipo en el rango, `hasta` incluido |
+
+`hasta` es opcional y lo usa la vista semana para traerse los siete días de una
+vez; sin él se devuelven los de `date`.
 
 `POST` responde siempre con **una lista** de bloqueos, también cuando se crea uno
 solo. Con `repeticion` (`DIARIA` o `SEMANAL`) hace falta `repetirHasta`, y se
@@ -559,6 +640,13 @@ nombra los días en conflicto.
 | Método | Ruta            | Roles   | Descripción                              |
 | ------ | --------------- | ------- | ---------------------------------------- |
 | POST   | `/appointments` | PÚBLICA | Reserva desde el marketplace, sin cuenta |
+
+La reserva exige **al menos una vía de contacto**: `guestEmail` o `guestPhone`,
+uno de los dos. Sin ninguno el negocio recibe un nombre y nada más —no puede
+confirmar la víspera, ni avisar de un retraso, ni recolocar el hueco si el
+cliente cancela— y el cliente no puede recuperar su cita porque no dejó rastro
+con el que identificarse. El teléfono se valida con el mismo formato que la
+ficha de cliente, que es de donde sale.
 
 ### Internos
 
@@ -581,18 +669,45 @@ Pagos manuales, facturas y caja. Base de datos `beautyspot_payment`. Usa el patr
 
 | Método | Ruta             | Roles                      | Descripción                       |
 | ------ | ---------------- | -------------------------- | --------------------------------- |
-| POST   | `/`              | ADMIN, RECEPTIONIST        | Registra pago                     |
+| POST   | `/`              | OWNER, ADMIN, RECEPTIONIST | Registra pago                     |
 | GET    | `/`              | OWNER, ADMIN, RECEPTIONIST | Lista pagos (paginado)            |
 | GET    | `/cobradas`      | OWNER, ADMIN, RECEPTIONIST | De unas citas, cuáles ya se cobró |
 | GET    | `/daily-summary` | OWNER, ADMIN               | Resumen del día                   |
 | GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST | Detalle                           |
-| PATCH  | `/:id/status`    | OWNER, ADMIN               | Cambia el estado                  |
+| PATCH  | `/:id`           | OWNER, ADMIN               | Corrige el cobro                  |
 | POST   | `/:id/refund`    | OWNER, ADMIN               | Procesa devolución                |
 
 Un cobro puede llevar `appointmentId`: entonces el importe tiene que coincidir
-con el de la cita, esa cita no se puede cobrar dos veces mientras el cobro siga
-vivo, y el evento `payment.registered` sale con los servicios que se vendieron.
-Sin él es una venta suelta, con el importe tecleado a mano.
+con el de la cita —contando lo que rebajen los puntos y el descuento
+concedido—, esa cita no se puede cobrar dos veces mientras el cobro siga vivo, y
+el evento `payment.registered` sale con los servicios que se vendieron. Sin él
+es una venta suelta, con el importe tecleado a mano.
+
+`amount` es lo cobrado por los servicios. Encima puede llevar:
+
+- **`descuentoComercial`** con su **`motivoDescuento`**, que es obligatorio. Lo
+  aplican solo OWNER y ADMIN: recepción cobra, pero no descuenta, y su intento
+  responde 403. Es distinto del descuento por canje de puntos, que sale de
+  `puntosUsados`; el negocio necesita saber cuánto regaló por cada vía.
+- **`propina`**, que se suma a lo que entra pero no es ingreso del negocio: no
+  cuenta como venta ni se factura. Se atribuye al profesional de la cita.
+- **`metodos`**, el reparto del cobro entre varios medios («20.000 en efectivo y
+  el resto con tarjeta»), como lista de `{ method, amount }` de hasta cuatro
+  entradas sin repetir medio. Tiene que sumar `amount` + `propina`. Cuando
+  viene, el cobro se guarda con `method: "MIXED"` y el detalle en sus líneas;
+  la caja recibe un movimiento por medio, de modo que el arqueo solo cuadra el
+  cajón contra la parte en efectivo.
+
+`PATCH /:id` no corrige un cobro repartido: tiene varias partes y varios
+movimientos de caja detrás, así que la vía es la devolución.
+
+`PATCH /:id` corrige un cobro ya registrado (importe, método, referencia o
+notas) y exige un `reason`, que queda escrito en el pago junto a quién y cuándo
+lo corrigió. Solo se admite mientras la sesión de caja que recogió el cobro siga
+abierta: cerrada la caja el arqueo ya está firmado, así que a partir de ahí la
+vía es `POST /:id/refund`. El movimiento de caja se ajusta en la misma
+transacción, y un cambio de importe emite `payment.payment.corrected` con la
+diferencia y el día del cobro original, para que las métricas no se descuadren.
 
 `GET /cobradas` acepta `appointmentIds` (lista separada por comas, máximo 100) y
 responde con los identificadores que ya tienen cobro. Booking no sabe de pagos,
@@ -611,6 +726,18 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 | GET    | `/:id`          | OWNER, ADMIN               | Detalle                       |
 | PATCH  | `/:id/status`   | OWNER, ADMIN               | Cambia el estado              |
 | GET    | `/:id/pdf`      | OWNER, ADMIN               | Descarga el PDF               |
+
+`POST /` emite de dos maneras. Con **`paymentId`**, la factura sale de un cobro
+completado: el cliente y las líneas se toman de él —los servicios de su cita, o
+una sola línea si es un cobro suelto— y el importe cobrado es el **total**, con
+el impuesto dentro, así que la base se calcula descontándolo y la factura cuadra
+al peso con lo que se pagó. Con **`clientId` + `items`** se factura a mano y el
+impuesto se suma sobre las líneas. Un cobro se factura una vez
+(`uq_invoices_cobro`, que deja fuera las anuladas): repetirlo responde 409.
+
+El tipo impositivo sale de `facturacion.tasaDeImpuesto` del negocio (en
+porcentaje; sin configurar, el IVA colombiano) y **cada factura lo congela**: una
+factura de ayer no se reimprime con el impuesto de mañana.
 
 ### Caja — `/api/v1/payment/cash-register`
 

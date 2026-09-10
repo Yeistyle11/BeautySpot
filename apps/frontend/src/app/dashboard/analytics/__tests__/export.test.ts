@@ -96,10 +96,65 @@ describe("filasDelResumen", () => {
     ]);
   });
 
-  it("no inventa una variación cuando antes no había nada", () => {
+  // Una celda vacía en las trece filas no dice si el cálculo falta o si no
+  // había con qué comparar; el CSV lo escribe.
+  it("dice «nuevo» cuando el periodo anterior estaba a cero", () => {
     const filas = filasDelResumen(cifras(), cifras({ totalRevenue: 0 }));
 
-    expect(fila(filas, "Ingresos")).toEqual(["Ingresos", 1100000, 0, null]);
+    expect(fila(filas, "Ingresos")).toEqual(["Ingresos", 1100000, 0, "nuevo"]);
+  });
+
+  it("marca con un guion lo que no tiene comparación posible", () => {
+    const filas = filasDelResumen(
+      cifras({ totalRevenue: 0 }),
+      cifras({ totalRevenue: 0 })
+    );
+
+    expect(fila(filas, "Ingresos")).toEqual(["Ingresos", 0, 0, "—"]);
+  });
+
+  it("un indicador sin cifra tampoco inventa variación", () => {
+    const filas = filasDelResumen(cifras({ avgTicket: null }), cifras());
+
+    expect(fila(filas, "Ticket medio")).toEqual([
+      "Ticket medio",
+      null,
+      37500,
+      "—",
+    ]);
+  });
+});
+
+describe("las cabeceras van en español correcto", () => {
+  // El CSV lleva BOM UTF-8 puesto a proposito para que Excel no corrompa los
+  // acentos, y luego las cabeceras se escribieron sin ellos.
+  it("acentúa «Variación» al comparar", () => {
+    expect(cabecerasDelResumen(true)).toContain("Variación (%)");
+  });
+
+  it("acentúa los indicadores que lo llevan", () => {
+    const indicadores = filasDelResumen(cifras()).map((f) => f[0]);
+
+    expect(indicadores).toEqual(
+      expect.arrayContaining([
+        "Tasa de cancelación (%)",
+        "Promedio por día del periodo",
+        "Ocupación de agenda (%)",
+      ])
+    );
+  });
+
+  it("acentúa las del desempeño por profesional", () => {
+    exportarProfesionales(PERIODO, []);
+
+    const [, cabeceras] = (downloadCsv as jest.Mock).mock.calls[0];
+    expect(cabeceras).toEqual([
+      "Profesional",
+      "Citas",
+      "Ingresos",
+      "Valoración",
+      "Días activos",
+    ]);
   });
 });
 
@@ -183,7 +238,7 @@ describe("exportarProfesionales", () => {
 
     expect(downloadCsv).toHaveBeenCalledWith(
       "profesionales_2026-08-01_2026-08-31",
-      expect.arrayContaining(["Profesional", "Valoracion"]),
+      expect.arrayContaining(["Profesional", "Valoración"]),
       [["Ana", 30, 900000, 4.8, 20]]
     );
   });

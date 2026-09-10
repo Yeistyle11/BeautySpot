@@ -47,8 +47,6 @@ const SIN_NEGOCIO_A_PROPOSITO: Record<string, string> = {
     "La factura se busca por id acotada a las fichas del usuario, que pueden ser de varios negocios",
   "marketplace-service/src/modules/business-profiles/business-profiles.service.ts#findById":
     "Perfil público, buscado por su propio id",
-  "marketplace-service/src/modules/business-profiles/business-profiles.service.ts#findTopRated":
-    "Feed público: los mejor valorados de toda la plataforma",
   "marketplace-service/src/modules/professional-profiles/professional-profiles.service.ts#deactivateFromCore":
     "Baja propagada desde core, que identifica al profesional por su id",
   "marketplace-service/src/modules/professional-profiles/professional-profiles.service.ts#findBySlug":

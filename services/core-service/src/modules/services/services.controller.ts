@@ -1,11 +1,12 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
   Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
   Query,
 } from "@nestjs/common";
 import { ServicesService } from "./services.service";
@@ -19,7 +20,6 @@ import { CreateServiceDto, UpdateServiceDto } from "./dto/service.dto";
 export class ServicesController {
   constructor(private readonly service: ServicesService) {}
 
-  /** Crea un servicio en el catálogo del negocio. */
   @Post()
   async create(
     @BusinessId() businessId: string,
@@ -38,25 +38,39 @@ export class ServicesController {
     return this.service.findByBusiness(businessId, active === "true");
   }
 
-  /** Obtiene un servicio por id. */
   @Get(":id")
-  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+  async findById(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.findById(id, businessId);
   }
 
-  /** Actualiza un servicio. */
+  /**
+   * Actualiza un servicio. La versión que traiga el cuerpo no es un campo del
+   * servicio: es con lo que se comprueba que nadie lo haya tocado mientras
+   * tanto.
+   */
   @Patch(":id")
   async update(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Body() dto: UpdateServiceDto
   ) {
-    return this.service.update(id, businessId, dto);
+    const { updatedAt, ...cambios } = dto;
+    return this.service.update(
+      id,
+      businessId,
+      cambios,
+      updatedAt ? new Date(updatedAt) : undefined
+    );
   }
 
-  /** Da de baja un servicio del catálogo. */
   @Delete(":id")
-  async remove(@Param("id") id: string, @BusinessId() businessId: string) {
+  async remove(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     await this.service.softDelete(id, businessId);
     return { message: "Servicio desactivado" };
   }

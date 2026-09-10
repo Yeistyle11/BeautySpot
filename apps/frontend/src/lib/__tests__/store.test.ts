@@ -1,10 +1,7 @@
 /**
- * Store de sesion: usuario, negocio y rol con los que se pinta el panel.
- *
- * Lo que importa aqui es de donde sale cada dato al hidratar. La pista que
- * escribe el gateway refleja la sesion que el navegador tiene de verdad; el
- * localStorage puede haber quedado de una sesion anterior, asi que la pista
- * manda sobre lo guardado.
+ * Store de sesion: usuario, negocio y rol con los que se pinta el panel. Lo que
+ * importa es de donde sale cada dato al hidratar: la pista que escribe el
+ * gateway manda sobre el localStorage, que puede ser de una sesion anterior.
  */
 import { useAuthStore, type User } from "../store";
 import { SESSION_HINT_COOKIE } from "../auth";

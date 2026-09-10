@@ -1,12 +1,13 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Patch,
-  Param,
-  Body,
-  Query,
   NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
 } from "@nestjs/common";
 import { ClientsService } from "./clients.service";
 import {
@@ -20,6 +21,7 @@ import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import {
   ClientNamesDto,
   CreateClientDto,
+  FusionarClienteDto,
   UpdateClientDto,
 } from "./dto/client.dto";
 
@@ -28,7 +30,6 @@ import {
 export class ClientsController {
   constructor(private readonly service: ClientsService) {}
 
-  /** Registra un cliente nuevo en el negocio. */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Post()
   async create(@BusinessId() businessId: string, @Body() dto: CreateClientDto) {
@@ -104,19 +105,46 @@ export class ClientsController {
    */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Get(":id")
-  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+  async findById(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.findById(id, businessId);
   }
 
-  /** Actualiza los datos de un cliente. */
+  /**
+   * Actualiza los datos de un cliente. La versión que traiga el cuerpo no es un
+   * campo de la ficha: es con lo que se comprueba que nadie la haya tocado
+   * mientras tanto.
+   */
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Patch(":id")
   async update(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Body() dto: UpdateClientDto
   ) {
-    return this.service.update(id, businessId, dto);
+    const { updatedAt, ...cambios } = dto;
+    return this.service.update(
+      id,
+      businessId,
+      cambios,
+      updatedAt ? new Date(updatedAt) : undefined
+    );
+  }
+
+  /**
+   * Fusiona otra ficha en esta. Como la supresión de datos: es irreversible y
+   * mezcla dos historiales, incluida la ficha de alergias.
+   */
+  @Roles(Role.OWNER, Role.ADMIN)
+  @Post(":id/merge")
+  async merge(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string,
+    @Body() dto: FusionarClienteDto
+  ) {
+    return this.service.fusionar(businessId, id, dto.absorbidoId);
   }
 
   /**
@@ -125,7 +153,10 @@ export class ClientsController {
    */
   @Roles(Role.OWNER, Role.ADMIN)
   @Post(":id/anonymize")
-  async anonymize(@Param("id") id: string, @BusinessId() businessId: string) {
+  async anonymize(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.anonymize(id, businessId);
   }
 }

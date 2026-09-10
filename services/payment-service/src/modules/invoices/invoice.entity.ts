@@ -12,6 +12,12 @@ import { InvoiceItemEntity } from "./invoice-item.entity";
  * del negocio —cada uno lleva su propia serie— y no de la tabla.
  */
 @Entity("invoices")
+// Un cobro se factura una vez: anulada la factura se puede volver a emitir,
+// que es la única forma de corregir una mal emitida.
+@Index("uq_invoices_cobro", ["paymentId"], {
+  unique: true,
+  where: '"payment_id" IS NOT NULL AND "status" <> \'CANCELLED\'',
+})
 @Index(["businessId", "number"], { unique: true })
 // El catalogo de estados, acotado en la base.
 @Check(
@@ -20,6 +26,12 @@ import { InvoiceItemEntity } from "./invoice-item.entity";
 )
 export class InvoiceEntity extends TenantEntity {
   @Column({ type: "uuid", name: "client_id" }) clientId!: string;
+  /**
+   * Cobro del que salió la factura, si se emitió desde uno. Nulo en las que se
+   * escriben a mano, que no corresponden a ningún cobro registrado.
+   */
+  @Column({ type: "uuid", name: "payment_id", nullable: true })
+  paymentId!: string | null;
   @Column() number!: string;
   @Column({ type: "date" }) date!: string;
   @Column({ type: "date", name: "due_date" }) dueDate!: string;

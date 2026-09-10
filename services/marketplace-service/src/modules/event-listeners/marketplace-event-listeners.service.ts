@@ -4,6 +4,7 @@ import { Repository } from "typeorm";
 import { RabbitSubscribe } from "@golevelup/nestjs-rabbitmq";
 import {
   BusinessUpdatedEvent,
+  ClientMergedEvent,
   EventNames,
   EVENTS_EXCHANGE,
   DEAD_LETTER_EXCHANGE,
@@ -11,6 +12,7 @@ import {
 } from "@beautyspot/event-types";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
+import { ReviewEntity } from "../../entities/review.entity";
 
 /**
  * Campos del negocio que el perfil público duplica, y con qué nombre los guarda.
@@ -39,7 +41,9 @@ export class MarketplaceEventListeners {
   constructor(
     @InjectRepository(BusinessProfileEntity)
     private readonly repo: Repository<BusinessProfileEntity>,
-    private readonly profiles: BusinessProfilesService
+    private readonly profiles: BusinessProfilesService,
+    @InjectRepository(ReviewEntity)
+    private readonly reviewRepo: Repository<ReviewEntity>
   ) {}
 
   /**
@@ -80,6 +84,30 @@ export class MarketplaceEventListeners {
 
     this.logger.log(
       `Perfil de ${businessId} sincronizado: ${Object.keys(parche).join(", ")}`
+    );
+  }
+
+  /**
+   * Dos fichas del mismo cliente pasaron a ser una: las resenas de la absorbida
+   * pasan a la ficha buena, que es donde el negocio mira el historial.
+   */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.CORE_CLIENT_MERGED,
+    queue: nombreDeCola("marketplace", EventNames.CORE_CLIENT_MERGED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleClientMerged(event: ClientMergedEvent): Promise<void> {
+    const { businessId, supervivienteId, absorbidoId } = event.payload;
+
+    // Reasignar es idempotente: una reentrega no encuentra ya nada que mover.
+    const { affected } = await this.reviewRepo.update(
+      { businessId, clientId: absorbidoId },
+      { clientId: supervivienteId }
+    );
+
+    this.logger.log(
+      `Fusion de clientes ${absorbidoId} -> ${supervivienteId}: ${affected ?? 0} las resenas reasignadas`
     );
   }
 }

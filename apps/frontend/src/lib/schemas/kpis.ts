@@ -20,9 +20,14 @@ export const cifrasDelPeriodoSchema = z.object({
   noShowRate: z.number(),
   newClients: z.number(),
   returningClients: z.number(),
-  /** Ingresos entre los cobros que los produjeron; nulo si no hubo ninguno. */
+  /**
+   * Ingresos entre los cobros que los produjeron; nulo si no hubo ninguno o si
+   * las métricas del periodo no cuadran.
+   */
   avgTicket: z.number().nullish(),
-  /** Minutos vendidos sobre disponibles, en porcentaje. */
+  /** El periodo tiene ingresos que ningún cobro contado explica. */
+  ticketDescuadrado: z.boolean().nullish(),
+  /** Minutos vendidos sobre disponibles, en porcentaje; nulo sin capacidad. */
   ocupacion: z.number().nullish(),
 });
 export type CifrasDelPeriodo = z.infer<typeof cifrasDelPeriodoSchema>;

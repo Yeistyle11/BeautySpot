@@ -6,6 +6,16 @@ export enum PaymentMethod {
   OTHER = "OTHER",
 }
 
+/**
+ * Marca que un cobro se repartió entre varios medios; el reparto vive en las
+ * líneas del cobro. Fuera de `PaymentMethod` a propósito: ese catálogo acota
+ * también los movimientos de caja, que entran por un medio concreto.
+ */
+export const METODO_MIXTO = "MIXED";
+
+/** Lo que puede guardar el `method` de un cobro: un medio, o el reparto. */
+export type MetodoDeCobro = PaymentMethod | typeof METODO_MIXTO;
+
 /** Estados por los que pasa un pago. */
 export enum PaymentStatus {
   PENDING = "PENDING",

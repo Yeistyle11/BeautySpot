@@ -1,10 +1,11 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Delete,
-  Param,
   Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
   Query,
 } from "@nestjs/common";
 import { BlockedSlotsService } from "./blocked-slots.service";
@@ -24,13 +25,13 @@ import {
 export class BlockedSlotsDelDiaController {
   constructor(private readonly service: BlockedSlotsService) {}
 
-  /** Bloqueos del negocio en una fecha, de todos sus profesionales. */
+  /** Bloqueos del negocio en una fecha o en un rango, de todos sus profesionales. */
   @Get()
   async findByDate(
     @BusinessId() businessId: string,
     @Query() query: BlockedSlotsDelDiaDto
   ) {
-    return this.service.findByDate(businessId, query.date);
+    return this.service.findByDate(businessId, query.date, query.hasta);
   }
 }
 
@@ -40,10 +41,9 @@ export class BlockedSlotsDelDiaController {
 export class BlockedSlotsController {
   constructor(private readonly service: BlockedSlotsService) {}
 
-  /** Lista los bloqueos de agenda del profesional. */
   @Get()
   async findAll(
-    @Param("professionalId") professionalId: string,
+    @Param("professionalId", ParseUUIDPipe) professionalId: string,
     @BusinessId() businessId: string
   ) {
     return this.service.findByProfessional(businessId, professionalId);
@@ -52,7 +52,7 @@ export class BlockedSlotsController {
   /** Crea un bloqueo de agenda para el profesional. */
   @Post()
   async create(
-    @Param("professionalId") professionalId: string,
+    @Param("professionalId", ParseUUIDPipe) professionalId: string,
     @BusinessId() businessId: string,
     @Body() dto: CreateBlockedSlotDto
   ) {
@@ -61,14 +61,20 @@ export class BlockedSlotsController {
 
   /** Elimina un bloqueo de agenda; si se repetía, solo ese día. */
   @Delete(":id")
-  async remove(@Param("id") id: string, @BusinessId() businessId: string) {
+  async remove(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     await this.service.remove(id, businessId);
     return { message: "Bloqueo eliminado" };
   }
 
   /** Elimina la serie entera a la que pertenece el bloqueo. */
   @Delete(":id/serie")
-  async removeSerie(@Param("id") id: string, @BusinessId() businessId: string) {
+  async removeSerie(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     const eliminados = await this.service.removeSerie(id, businessId);
     return { message: `Se eliminaron ${eliminados} bloqueos` };
   }

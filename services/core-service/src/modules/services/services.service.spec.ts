@@ -4,7 +4,11 @@ import { Repository } from "typeorm";
 import { ServicesService } from "./services.service";
 import { ServiceCategoriesService } from "../service-categories/service-categories.service";
 import { Service } from "../../entities/service.entity";
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from "@nestjs/common";
 
 describe("ServicesService", () => {
   let service: ServicesService;
@@ -307,6 +311,28 @@ describe("ServicesService", () => {
       expect(mockRepo.findOne).toHaveBeenCalled();
       expect(result.name).toBe("Corte Premium");
       expect(result.price).toBe(55000);
+    });
+
+    it("con la versión cargada avisa en vez de devolver la tarifa a su valor viejo", async () => {
+      const cargada = new Date("2026-08-31T10:00:00.000Z");
+      const enTransaccion = {
+        findOne: jest.fn().mockResolvedValue({
+          ...mockService,
+          updatedAt: new Date("2026-08-31T10:05:00.000Z"),
+        }),
+        update: jest.fn(),
+      };
+      (mockRepo as any).target = "Service";
+      (mockRepo as any).manager = {
+        transaction: (cb: (m: unknown) => unknown) =>
+          cb({ getRepository: () => enTransaccion }),
+      };
+      mockRepo.findOne.mockResolvedValue(mockService as any);
+
+      await expect(
+        service.update("service-123", "business-123", { price: 55000 }, cargada)
+      ).rejects.toThrow(ConflictException);
+      expect(enTransaccion.update).not.toHaveBeenCalled();
     });
 
     it("debería manejar actualización parcial", async () => {

@@ -19,8 +19,7 @@ export function temaGuardado(): Theme {
 
 // El tema no vive en React: lo guarda localStorage y lo aplica el script que
 // corre en <head> antes del primer pintado. Estos oyentes son lo que permite
-// leerlo con useSyncExternalStore, que ya sabe distinguir el valor del servidor
-// del del navegador y no necesita un efecto que lo copie despues de montar.
+// leerlo con useSyncExternalStore, sin un efecto que lo copie tras montar.
 const oyentes = new Set<() => void>();
 
 function avisarDelCambio() {

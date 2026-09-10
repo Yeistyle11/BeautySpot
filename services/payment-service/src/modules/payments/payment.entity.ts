@@ -1,10 +1,16 @@
-import { Entity, Column, Check, Index } from "typeorm";
+import { Entity, Column, Check, Index, OneToMany } from "typeorm";
 import {
   TenantEntity,
   enCatalogo,
   numericTransformer,
 } from "@beautyspot/database";
-import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
+import {
+  METODO_MIXTO,
+  MetodoDeCobro,
+  PaymentMethod,
+  PaymentStatus,
+} from "@beautyspot/shared-types";
+import { PaymentSplitEntity } from "./payment-split.entity";
 
 /** Pago manual de un cliente (opcionalmente ligado a una cita), con sus datos de devolución. */
 @Entity("payments")
@@ -26,9 +32,11 @@ import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
   where: `"solicitud_id" IS NOT NULL`,
 })
 // Los catalogos de metodo y estado, acotados en la base.
+// Ademas de los medios, admite la marca de reparto: el detalle vive en las
+// lineas del cobro.
 @Check(
   "CHK_payments_method",
-  enCatalogo("method", Object.values(PaymentMethod))
+  enCatalogo("method", [...Object.values(PaymentMethod), METODO_MIXTO])
 )
 @Check(
   "CHK_payments_status",
@@ -51,7 +59,8 @@ export class PaymentEntity extends TenantEntity {
     transformer: numericTransformer,
   })
   amount!: number;
-  @Column({ type: "varchar" }) method!: PaymentMethod;
+  /** El medio del cobro, o `MIXED` cuando el importe se repartió entre varios. */
+  @Column({ type: "varchar" }) method!: MetodoDeCobro;
   @Column({ type: "varchar", default: PaymentStatus.COMPLETED })
   status!: PaymentStatus;
   /**
@@ -72,6 +81,60 @@ export class PaymentEntity extends TenantEntity {
   @Column({ type: "text", nullable: true }) notes!: string;
   @Column({ type: "uuid", name: "registered_by", nullable: true })
   registeredBy!: string;
+
+  /**
+   * Rebaja que concede el negocio, con su motivo. Es distinta de {@link
+   * descuento}, que es lo que rebajaron los puntos canjeados: una sale del
+   * margen y la otra de la fidelizacion.
+   */
+  @Column({
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    name: "descuento_comercial",
+    default: 0,
+    transformer: numericTransformer,
+  })
+  descuentoComercial!: number;
+  @Column({ type: "text", name: "motivo_descuento", nullable: true })
+  motivoDescuento!: string | null;
+
+  /**
+   * Propina, que no es ingreso del negocio: entra con el cobro y sale para el
+   * profesional, asi que ni suma a las ventas ni se factura.
+   */
+  @Column({
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
+  propina!: number;
+  /** A quien va la propina; se toma de la cita, y falta en los cobros sueltos. */
+  @Column({ type: "uuid", name: "propina_profesional_id", nullable: true })
+  propinaProfesionalId!: string | null;
+
+  /**
+   * Reparto del cobro por medio de pago. Suma `amount` mas `propina`: es el
+   * dinero que entro, del que la caja solo se queda la parte en efectivo.
+   */
+  @OneToMany(() => PaymentSplitEntity, (split) => split.payment, {
+    cascade: ["insert"],
+  })
+  splits!: PaymentSplitEntity[];
+
+  /**
+   * Traza de la correccion de un cobro. Un importe mal tecleado se corrige
+   * mientras la caja que lo recogio sigue abierta, y queda escrito quien lo
+   * hizo y por que; cerrada la caja, la via es la devolucion.
+   */
+  @Column({ type: "timestamptz", name: "edited_at", nullable: true })
+  editedAt!: Date | null;
+  @Column({ type: "uuid", name: "edited_by", nullable: true })
+  editedBy!: string | null;
+  @Column({ type: "text", name: "edit_reason", nullable: true })
+  editReason!: string | null;
 
   @Column({ type: "timestamptz", name: "refunded_at", nullable: true })
   refundedAt!: Date | null;

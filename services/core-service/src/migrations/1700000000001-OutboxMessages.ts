@@ -1,12 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Tabla del patrón Outbox transaccional para core-service.
- *
- * Los eventos de dominio (negocio creado, profesional creado) se persisten en
- * la misma transacción que el cambio y los publica después el
- * OutboxRelayWorker, de modo que un rollback nunca deja un evento emitido sin
- * su cambio ni viceversa (dual-write).
+ * Tabla del patrón Outbox transaccional para core-service: los eventos de
+ * dominio se persisten en la misma transacción que el cambio y los publica
+ * después el OutboxRelayWorker, así que nunca hay uno sin el otro.
  */
 export class OutboxMessages1700000000001 implements MigrationInterface {
   name = "OutboxMessages1700000000001";

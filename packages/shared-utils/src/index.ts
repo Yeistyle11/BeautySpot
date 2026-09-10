@@ -159,8 +159,22 @@ export function normalizarEmail(email?: string | null): string {
 }
 
 /**
- * Deja un telefono en su forma canonica para poder cotejarlo: solo digitos,
- * conservando el `+` inicial si lo trae.
+ * Indicativo que se le supone a un telefono escrito sin prefijo internacional.
+ * El producto opera hoy en Colombia, como `MONEDA_POR_DEFECTO` y el `locale`
+ * `es-CO`; el dia que haya negocios fuera, este es el unico sitio que cambia.
+ */
+export const INDICATIVO_POR_DEFECTO = "+57";
+
+/** Digitos de un numero nacional, ya sin indicativo. */
+const LONGITUD_NACIONAL = 10;
+
+/** El indicativo sin el `+`, que es como aparece dentro de los digitos. */
+const DIGITOS_DEL_INDICATIVO = INDICATIVO_POR_DEFECTO.slice(1);
+
+/**
+ * Deja un telefono en su forma canonica E.164 para poder cotejarlo: solo
+ * digitos tras un `+`, con el `00` resuelto y el indicativo puesto cuando falta.
+ * Un numero mas largo que uno nacional y sin ese indicativo se deja tal cual.
  */
 export function normalizarTelefono(telefono?: string | null): string {
   const texto = telefono?.trim() ?? "";
@@ -169,7 +183,32 @@ export function normalizarTelefono(telefono?: string | null): string {
   const digitos = texto.replace(/\D/g, "");
   if (!digitos) return "";
 
-  return texto.startsWith("+") ? `+${digitos}` : digitos;
+  if (texto.startsWith("+")) return `+${digitos}`;
+  if (digitos.startsWith("00")) return `+${digitos.slice(2)}`;
+  if (digitos.length <= LONGITUD_NACIONAL) {
+    return `${INDICATIVO_POR_DEFECTO}${digitos}`;
+  }
+  if (digitos.startsWith(DIGITOS_DEL_INDICATIVO)) return `+${digitos}`;
+
+  return digitos;
+}
+
+/**
+ * Formas equivalentes del mismo numero —la E.164, la de solo digitos, la del
+ * `00` y la nacional—, para reconocer «3009998877» y «+573009998877» como la
+ * misma persona sea cual sea la forma guardada.
+ */
+export function variantesDeTelefono(telefono?: string | null): string[] {
+  const canonico = normalizarTelefono(telefono);
+  if (!canonico) return [];
+
+  const digitos = canonico.replace(/\D/g, "");
+  const variantes = new Set([canonico, digitos, `00${digitos}`]);
+  if (canonico.startsWith(INDICATIVO_POR_DEFECTO)) {
+    variantes.add(canonico.slice(INDICATIVO_POR_DEFECTO.length));
+  }
+
+  return [...variantes];
 }
 
 /** Escapa los comodines de SQL LIKE (%, _, \) para construir patrones ILIKE seguros. */
@@ -202,4 +241,33 @@ export function formatearDinero(
     currency,
     minimumFractionDigits: 0,
   }).format(monto);
+}
+
+/**
+ * Reparte un importe entre varias partes en proporción a sus pesos, en pesos
+ * enteros y sumando exactamente el importe: lo que se pierde al redondear va a
+ * las partes con el resto mayor. Con todos los pesos a cero, reparto por igual.
+ */
+export function repartirProporcional(total: number, pesos: number[]): number[] {
+  if (pesos.length === 0) return [];
+
+  const suma = pesos.reduce((acc, peso) => acc + peso, 0);
+  const cuotas = pesos.map((peso) =>
+    suma === 0 ? total / pesos.length : (total * peso) / suma
+  );
+
+  const partes = cuotas.map(Math.floor);
+  let restante = total - partes.reduce((acc, parte) => acc + parte, 0);
+
+  // El sobrante se reparte de mayor a menor resto, que es el criterio que menos
+  // se desvía de la proporción exacta.
+  const porResto = cuotas
+    .map((cuota, indice) => ({ indice, resto: cuota - Math.floor(cuota) }))
+    .sort((a, b) => b.resto - a.resto);
+
+  for (let i = 0; restante > 0 && i < porResto.length; i++, restante--) {
+    partes[porResto[i].indice] += 1;
+  }
+
+  return partes;
 }

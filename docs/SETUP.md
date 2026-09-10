@@ -136,6 +136,40 @@ Comprobar que el gateway ve a todos los servicios:
 curl http://localhost:3000/health
 ```
 
+## Datos de desarrollo
+
+Una base recién creada está vacía: no hay negocios con los que entrar al panel
+ni con qué probar nada. `npm run seed` la deja usable.
+
+```bash
+npm run seed               # siembra, o resiembra sobre lo ya sembrado
+npm run seed -- --limpiar  # borra lo sembrado y lo vuelve a sembrar
+npm run seed -- --ayuda    # el resto de opciones
+```
+
+Escribe en las seis bases directamente y deriva el esquema de las entidades, así
+que **no hace falta tener los servicios levantados**: basta con Postgres.
+
+Deja dos negocios —una barbería en Bogotá y un spa en Medellín, que es el
+segundo tenant con el que se prueba el aislamiento—, seis cuentas y unos dos
+meses de historia con una semana de agenda por delante: citas en todos sus
+estados, cobros, caja, facturas, reseñas y las métricas que les corresponden.
+
+| Cuenta                     | Rol            | Negocio           |
+| -------------------------- | -------------- | ----------------- |
+| `owner@beautyspot.local`   | `OWNER`        | Barbería La Noche |
+| `admin@beautyspot.local`   | `ADMIN`        | Barbería La Noche |
+| `pro@beautyspot.local`     | `PROFESSIONAL` | Barbería La Noche |
+| `recep@beautyspot.local`   | `RECEPTIONIST` | Barbería La Noche |
+| `cliente@beautyspot.local` | `CLIENT`       | —                 |
+| `ownerb@beautyspot.local`  | `OWNER`        | Spa Aurora        |
+
+Contraseña común: `Prueba2026!`. Son cuentas de desarrollo con una contraseña
+conocida, y por eso la siembra se niega a correr con `NODE_ENV=production` o
+contra una base que no sea local.
+
+Detalles y decisiones de diseño en [`tools/seed/README.md`](../tools/seed/README.md).
+
 ## Comandos habituales
 
 ```bash

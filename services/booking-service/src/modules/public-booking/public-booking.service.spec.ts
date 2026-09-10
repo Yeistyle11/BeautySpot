@@ -345,6 +345,32 @@ describe("PublicBookingService", () => {
       );
     });
 
+    // La reserva con sesión sí liga la ficha, y el vínculo sale del token: es
+    // lo que hace que la cita aparezca luego en *Mis Citas* y que el cliente
+    // pueda cancelarla, reagendarla y reseñarla.
+    it("liga la ficha a la cuenta cuando quien reserva tiene sesión", async () => {
+      await service.createPublicAppointment(bookingData, "usuario-propio");
+
+      expect(mockHttp.enviar).toHaveBeenCalledWith(
+        "core",
+        "/internal/clients/find-or-create",
+        expect.objectContaining({ userId: "usuario-propio" })
+      );
+    });
+
+    it("ignora el userId del cuerpo también con sesión", async () => {
+      await service.createPublicAppointment(
+        { ...bookingData, userId: "usuario-ajeno" } as never,
+        "usuario-propio"
+      );
+
+      expect(mockHttp.enviar).toHaveBeenCalledWith(
+        "core",
+        "/internal/clients/find-or-create",
+        expect.objectContaining({ userId: "usuario-propio" })
+      );
+    });
+
     it("descarta a un profesional con una cita confirmada a esa hora", async () => {
       const sinPreferencia = { ...bookingData, professionalId: undefined };
       mockAvailRepo.find.mockResolvedValue([

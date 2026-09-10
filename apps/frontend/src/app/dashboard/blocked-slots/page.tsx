@@ -22,6 +22,7 @@ import { canDo } from "@/lib/permissions";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { mensajeDeError } from "@/lib/error-message";
+import { formatDate, formatTime } from "@/lib/utils";
 import { BlockedSlotFormDialog } from "./blocked-slot-form-dialog";
 import {
   blockedSlotSchema,
@@ -174,7 +175,8 @@ export default function BlockedSlotsPage() {
               <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
                 <div>
                   <p className="font-medium">
-                    {b.date} · {b.startTime}–{b.endTime}
+                    {formatDate(b.date)} · {formatTime(b.startTime)}–
+                    {formatTime(b.endTime)}
                   </p>
                   {b.reason && (
                     <p className="text-muted-foreground text-sm">{b.reason}</p>
@@ -195,7 +197,7 @@ export default function BlockedSlotsPage() {
                         setABorrar(b);
                         setBorrarSerie(false);
                       }}
-                      aria-label={`Eliminar el bloqueo del ${b.date}`}
+                      aria-label={`Eliminar el bloqueo del ${formatDate(b.date)}`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

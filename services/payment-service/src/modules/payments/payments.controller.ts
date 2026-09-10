@@ -1,10 +1,11 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Patch,
   Param,
-  Body,
+  ParseUUIDPipe,
+  Patch,
+  Post,
   Query,
 } from "@nestjs/common";
 import { PaymentsService } from "./payments.service";
@@ -18,8 +19,12 @@ import {
   IsUUID,
   Min,
   MaxLength,
+  IsPositive,
+  ArrayMaxSize,
+  ArrayNotEmpty,
+  ValidateNested,
 } from "class-validator";
-import { Transform } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import { PaymentMethod, PaymentStatus, Role } from "@beautyspot/shared-types";
 import {
   Roles,
@@ -29,6 +34,18 @@ import {
   EsFechaSola,
 } from "@beautyspot/nest-common";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
+
+/** Lo que se paga por un medio dentro de un cobro repartido. */
+class LineaDeCobroDto {
+  @IsEnum(PaymentMethod, { message: "El método de pago no es válido" })
+  method!: PaymentMethod;
+  @IsNumber({}, { message: "El monto debe ser un número" })
+  @IsPositive({ message: "Cada parte del cobro tiene que ser mayor que cero" })
+  amount!: number;
+}
+
+/** Tope de partes de un cobro repartido: son cuatro los medios que existen. */
+const MAXIMO_LINEAS = 4;
 
 /** Datos para registrar un pago: cliente, monto, método y referencia/cita opcionales. */
 class CreatePaymentDto {
@@ -57,6 +74,36 @@ class CreatePaymentDto {
   @IsOptional()
   @IsUUID("4", { message: "El identificador de la solicitud debe ser un UUID" })
   solicitudId?: string;
+  /**
+   * Rebaja que concede el negocio, con su motivo. Solo la aplican el dueño y el
+   * administrador; el servicio rechaza la de recepción.
+   */
+  @IsOptional()
+  @IsNumber({}, { message: "El descuento debe ser un número" })
+  @Min(0, { message: "El descuento no puede ser negativo" })
+  descuentoComercial?: number;
+  @IsOptional()
+  @IsString()
+  @MaxLength(300, { message: "El motivo del descuento es demasiado largo" })
+  motivoDescuento?: string;
+  /** Propina, que se suma a lo que entra pero no es ingreso del negocio. */
+  @IsOptional()
+  @IsNumber({}, { message: "La propina debe ser un número" })
+  @Min(0, { message: "La propina no puede ser negativa" })
+  propina?: number;
+  /**
+   * Reparto del cobro entre varios medios. Cuando falta, el cobro entero entra
+   * por `method`.
+   */
+  @IsOptional()
+  @IsArray({ message: "El reparto del cobro se envia como una lista" })
+  @ArrayNotEmpty({ message: "El reparto del cobro no puede ir vacío" })
+  @ArrayMaxSize(MAXIMO_LINEAS, {
+    message: `Un cobro no se reparte en más de ${MAXIMO_LINEAS} medios`,
+  })
+  @ValidateNested({ each: true })
+  @Type(() => LineaDeCobroDto)
+  metodos?: LineaDeCobroDto[];
 }
 
 /** Tope de citas por consulta; el formulario ofrece una página, no el historial. */
@@ -86,9 +133,23 @@ class DailySummaryQueryDto {
   @EsFechaSola() date!: string;
 }
 
-/** Nuevo estado a asignar a un pago. */
-class UpdateStatusDto {
-  @IsEnum(PaymentStatus) status!: PaymentStatus;
+/**
+ * Corrección de un cobro ya registrado. El motivo es obligatorio: la corrección
+ * queda escrita en el pago y sin él la traza no explica nada.
+ */
+class UpdatePaymentDto {
+  @IsOptional()
+  @IsNumber({}, { message: "El monto debe ser un número" })
+  @IsPositive({ message: "El monto tiene que ser mayor que cero" })
+  amount?: number;
+  @IsOptional()
+  @IsEnum(PaymentMethod, { message: "El método de pago no es válido" })
+  method?: PaymentMethod;
+  @IsOptional() @IsString() reference?: string;
+  @IsOptional() @IsString() notes?: string;
+  @IsString({ message: "Anota el motivo de la corrección" })
+  @MaxLength(500, { message: "El motivo no puede pasar de 500 caracteres" })
+  reason!: string;
 }
 
 /** Motivo e importe de una devolución; sin importe se devuelve el total. */
@@ -109,12 +170,14 @@ export class PaymentsController {
     @BusinessId() businessId: string,
     @BranchId() branchId: string | undefined,
     @CurrentUser("userId") userId: string,
+    @CurrentUser("role") rol: Role,
     @Body() dto: CreatePaymentDto
   ) {
     return this.service.create(businessId, {
       ...dto,
       branchId,
       registeredBy: userId,
+      rol,
     });
   }
 
@@ -164,29 +227,35 @@ export class PaymentsController {
     return this.service.getDailySummary(businessId, query.date, branchId);
   }
 
-  /** Obtiene un pago por id. */
   @Get(":id")
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
-  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+  async findById(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.findById(id, businessId);
   }
 
-  /** Cambia el estado de un pago. */
-  @Patch(":id/status")
+  /** Corrige un cobro mientras su caja siga abierta, dejando traza de quién y por qué. */
+  @Patch(":id")
   @Roles(Role.OWNER, Role.ADMIN)
-  async updateStatus(
-    @Param("id") id: string,
+  async update(
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
-    @Body() dto: UpdateStatusDto
+    @CurrentUser("userId") userId: string,
+    @Body() dto: UpdatePaymentDto
   ) {
-    return this.service.updateStatus(id, businessId, dto.status);
+    return this.service.correctPayment(id, businessId, {
+      ...dto,
+      editedBy: userId,
+    });
   }
 
   /** Reembolsa un pago (total o parcial) a nombre del usuario autenticado. */
   @Post(":id/refund")
   @Roles(Role.OWNER, Role.ADMIN)
   async refund(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @CurrentUser("userId") userId: string,
     @Body() body: DevolucionDto

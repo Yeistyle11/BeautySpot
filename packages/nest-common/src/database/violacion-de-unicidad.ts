@@ -6,13 +6,8 @@ const VIOLACION_DE_UNICIDAD = "23505";
 
 /**
  * Reconoce el error con el que Postgres rechaza un duplicado. Las invariantes
- * de negocio viven en índices únicos parciales —una caja abierta por sede, un
- * cobro vivo por cita, una reseña por cita—, así que cada alta se intenta y se
- * traduce el choque, en lugar de comprobar antes: entre la comprobación y la
- * escritura cabe otra transacción.
- *
- * Deja ver el `constraint` para poder distinguir cuál de los índices se tocó
- * cuando la tabla tiene más de uno.
+ * viven en índices únicos parciales, así que el alta se intenta y se traduce el
+ * choque; el `constraint` dice cuál de los índices se tocó.
  */
 export function esViolacionDeUnicidad(
   error: unknown

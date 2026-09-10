@@ -1,4 +1,8 @@
-import { businessDataSchema, businessHourSchema } from "../schemas";
+import {
+  businessDataSchema,
+  businessHourSchema,
+  facturacionParaGuardar,
+} from "../schemas";
 
 /** Negocio tal y como lo devuelve /core/businesses/:id. */
 const negocioDeLaApi = {
@@ -76,5 +80,31 @@ describe("businessHourSchema", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe("facturacionParaGuardar", () => {
+  const datos = { razonSocial: "La Noche S.A.S.", nit: "900.123.456-7" };
+
+  it("manda la tasa que se teclea", () => {
+    expect(facturacionParaGuardar(datos, "5").tasaDeImpuesto).toBe(5);
+  });
+
+  // Cero es una decisión —facturar sin impuesto— y hay que poder escribirla.
+  it("distingue el cero del campo vacío", () => {
+    expect(facturacionParaGuardar(datos, "0").tasaDeImpuesto).toBe(0);
+    expect(facturacionParaGuardar(datos, "").tasaDeImpuesto).toBeUndefined();
+  });
+
+  it("descarta lo que no es una tasa posible", () => {
+    expect(facturacionParaGuardar(datos, "-1").tasaDeImpuesto).toBeUndefined();
+    expect(facturacionParaGuardar(datos, "120").tasaDeImpuesto).toBeUndefined();
+    expect(
+      facturacionParaGuardar(datos, "mucho").tasaDeImpuesto
+    ).toBeUndefined();
+  });
+
+  it("no toca el resto de los datos fiscales", () => {
+    expect(facturacionParaGuardar(datos, "19")).toMatchObject(datos);
   });
 });

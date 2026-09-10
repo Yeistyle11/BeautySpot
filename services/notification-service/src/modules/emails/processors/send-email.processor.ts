@@ -137,7 +137,6 @@ export class SendEmailProcessor extends WorkerHost {
     }
   }
 
-  /** Publica en RabbitMQ el evento de correo fallido. */
   private async emitEmailFailedEvent(
     jobId: string,
     to: string,

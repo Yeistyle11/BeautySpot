@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Param, Body, Query } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from "@nestjs/common";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
 import { CashRegisterService } from "./cash-register.service";
 import {
@@ -39,7 +47,7 @@ export class CashRegisterController {
   /** Cierra una sesión de caja indicando el saldo final. */
   @Post(":id/close")
   async closeSession(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @CurrentUser("userId") userId: string,
     @Body() dto: CloseSessionDto
@@ -50,7 +58,7 @@ export class CashRegisterController {
   /** Registra un movimiento (ingreso/egreso) en la sesión. */
   @Post(":id/movements")
   async registerMovement(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @CurrentUser("userId") userId: string,
     @Body() dto: RegisterMovementDto
@@ -85,14 +93,17 @@ export class CashRegisterController {
 
   /** Corte X: el arqueo de la sesión sin cerrarla, desglosado por método. */
   @Get(":id/corte")
-  async corteX(@Param("id") id: string, @BusinessId() businessId: string) {
+  async corteX(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.getSessionSummary(id, businessId);
   }
 
   /** Devuelve el resumen de una sesión con sus movimientos y total esperado. */
   @Get(":id/summary")
   async getSessionSummary(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string
   ) {
     return this.service.getSessionSummary(id, businessId);

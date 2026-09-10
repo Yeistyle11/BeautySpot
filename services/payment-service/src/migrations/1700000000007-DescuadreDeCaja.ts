@@ -2,10 +2,8 @@ import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
  * Guarda en el cierre de caja el saldo esperado y su diferencia con el contado.
- *
- * Las sesiones ya cerradas se quedan sin ambos valores: sus movimientos siguen
- * ahí, pero el recuento que hizo quien cerró no se registró y no se puede
- * reconstruir.
+ * Las sesiones ya cerradas se quedan sin ambos: el recuento de quien cerró no
+ * se puede reconstruir.
  */
 export class DescuadreDeCaja1700000000007 implements MigrationInterface {
   name = "DescuadreDeCaja1700000000007";

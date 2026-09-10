@@ -1,13 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Hace único el índice de reseña por cita.
- *
- * La unicidad se comprobaba solo con un `findOne` previo, así que dos altas
- * simultáneas sobre la misma cita pasaban las dos. Ahora la decide la base.
- *
- * Antes de crearlo hay que quedarse con una reseña por cita: se conserva la más
- * antigua, que es la que el negocio ya pudo haber respondido.
+ * Hace único el índice de reseña por cita, para que lo decida la base y no un
+ * `findOne` previo. Antes de crearlo hay que quedarse con una por cita: se
+ * conserva la más antigua, que el negocio ya pudo responder.
  */
 export class ResenaUnicaPorCita1700000000003 implements MigrationInterface {
   name = "ResenaUnicaPorCita1700000000003";

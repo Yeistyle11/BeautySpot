@@ -38,8 +38,9 @@ interface LineaResuelta {
 }
 
 /**
- * Permite reservar citas desde el marketplace sin autenticación, resolviendo al
- * cliente invitado contra el core-service y validando la disponibilidad.
+ * Permite reservar desde el marketplace, resolviendo al cliente contra el
+ * core-service y validando la disponibilidad. Sirve al invitado y al cliente
+ * con sesión; el `userId` lo pone el controlador desde el token.
  */
 @Injectable()
 export class PublicBookingService {
@@ -57,26 +58,31 @@ export class PublicBookingService {
   ) {}
 
   /**
-   * Crea una cita a partir de los datos de un invitado: resuelve o crea el
-   * cliente, elige profesional si no vino indicado y delega el alta.
+   * Crea una cita del escaparate: resuelve o crea el cliente, elige profesional
+   * si no vino indicado y delega el alta. `userId` llega solo con sesión y
+   * siempre desde el token; con él la ficha queda ligada a esa cuenta.
    */
-  async createPublicAppointment(data: {
-    businessId: string;
-    professionalId?: string;
-    serviceIds: string[];
-    date: string;
-    startTime: string;
-    notes?: string;
-    guestName: string;
-    guestEmail?: string;
-    guestPhone?: string;
-  }) {
-    // 1. Resolver o crear el cliente invitado vía el endpoint interno del core-service.
+  async createPublicAppointment(
+    data: {
+      businessId: string;
+      professionalId?: string;
+      serviceIds: string[];
+      date: string;
+      startTime: string;
+      notes?: string;
+      guestName: string;
+      guestEmail?: string;
+      guestPhone?: string;
+    },
+    userId?: string
+  ) {
+    // 1. Resolver o crear el cliente vía el endpoint interno del core-service.
     const clientId = await this.findOrCreateGuestClient(
       data.businessId,
       data.guestName,
       data.guestEmail,
-      data.guestPhone
+      data.guestPhone,
+      userId
     );
 
     // 2. Elegir profesional si el invitado no pidio uno, con la duracion base
@@ -142,19 +148,21 @@ export class PublicBookingService {
   }
 
   /**
-   * Pide al core-service el cliente que coincida o uno nuevo, sin `userId`:
-   * esta ruta no tiene token. Falla si el servicio no responde.
+   * Pide al core-service el cliente que coincida o uno nuevo; falla si no
+   * responde. El `userId` viaja solo en la reserva con sesión, y el core lo usa
+   * para vincular la ficha cuando aún no lo está, nunca para pisar un vínculo.
    */
   private async findOrCreateGuestClient(
     businessId: string,
     name: string,
     email?: string,
-    phone?: string
+    phone?: string,
+    userId?: string
   ): Promise<string> {
     const client = await this.http.enviar<{ id?: unknown }>(
       "core",
       "/internal/clients/find-or-create",
-      { businessId, name, email, phone }
+      { businessId, name, email, phone, ...(userId ? { userId } : {}) }
     );
 
     if (!client || typeof client.id !== "string" || client.id.length === 0) {

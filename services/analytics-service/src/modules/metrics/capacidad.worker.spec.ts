@@ -121,6 +121,67 @@ describe("CapacidadWorker", () => {
     await primero;
   });
 
+  // Sin esta pasada el primer dato tarda una hora, y un servicio que se
+  // reinicia antes no llega a escribir nunca.
+  it("materializa una vez al arrancar, sin esperar al intervalo", async () => {
+    mockDataSource.query.mockResolvedValue(negocios(1));
+
+    worker.onModuleInit();
+    await new Promise(process.nextTick);
+
+    expect(mockMetrics.fijarCapacidadDelDia).toHaveBeenCalledWith(
+      "negocio-0",
+      "2026-08-12",
+      EQUIPO
+    );
+  });
+
+  it("vuelve a materializar en cada vuelta del intervalo", async () => {
+    jest.useFakeTimers();
+    config.CAPACIDAD_INTERVAL_MS = "1000";
+    mockDataSource.query.mockResolvedValue(negocios(1));
+
+    const periodico = new CapacidadWorker(
+      mockDataSource as unknown as DataSource,
+      mockHttp as unknown as InternalHttpClient,
+      mockMetrics as unknown as NegocioMetricsService,
+      { get: (clave: string) => config[clave] } as unknown as ConfigService
+    );
+    periodico.onModuleInit();
+    await jest.advanceTimersByTimeAsync(1000);
+
+    expect(mockMetrics.fijarCapacidadDelDia).toHaveBeenCalledTimes(2);
+
+    await periodico.onModuleDestroy();
+    jest.useRealTimers();
+  });
+
+  it("un fallo de la primera pasada no tumba el arranque", async () => {
+    mockDataSource.query.mockRejectedValue(new Error("base caida"));
+
+    expect(() => worker.onModuleInit()).not.toThrow();
+    await new Promise(process.nextTick);
+
+    expect(mockMetrics.fijarCapacidadDelDia).not.toHaveBeenCalled();
+  });
+
+  it("no materializa al arrancar si esta desactivado", async () => {
+    config.CAPACIDAD_ENABLED = "false";
+    mockDataSource.query.mockResolvedValue(negocios(1));
+
+    const apagado = new CapacidadWorker(
+      mockDataSource as unknown as DataSource,
+      mockHttp as unknown as InternalHttpClient,
+      mockMetrics as unknown as NegocioMetricsService,
+      { get: (clave: string) => config[clave] } as unknown as ConfigService
+    );
+    apagado.onModuleInit();
+    await new Promise(process.nextTick);
+
+    expect(mockDataSource.query).not.toHaveBeenCalled();
+    await apagado.onModuleDestroy();
+  });
+
   it("no arranca el sondeo si esta desactivado", () => {
     config.CAPACIDAD_ENABLED = "false";
 

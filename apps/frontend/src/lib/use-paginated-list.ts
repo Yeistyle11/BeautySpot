@@ -32,9 +32,8 @@ function buildKey(
 
 /**
  * Lista paginada contra el servidor: posee la pagina actual, compone la key de
- * SWR con `page`/`limit`/`search` y expone el `meta` del backend para pintar la
- * navegacion. La busqueda tambien viaja al servidor, porque filtrar en cliente
- * solo miraria la pagina ya descargada y daria "sin resultados" en falso.
+ * SWR y expone el `meta` del backend. La busqueda tambien viaja al servidor,
+ * porque filtrar en cliente solo miraria la pagina ya descargada.
  */
 export function usePaginatedList<T>({
   basePath,
@@ -49,10 +48,9 @@ export function usePaginatedList<T>({
   // ser un objeto literal nuevo en cada render.
   const serializedParams = JSON.stringify(params ?? {});
 
-  // La pagina se guarda junto a la consulta de la que salio. Cambiar la
-  // busqueda o un filtro reordena la coleccion entera, y al no coincidir ya la
-  // consulta se vuelve sola a la primera: seguir en la pagina 5 mostraria un
-  // hueco vacio.
+  // La pagina se guarda junto a la consulta de la que salio: cambiar la busqueda
+  // o un filtro reordena la coleccion entera, y al no coincidir ya la consulta se
+  // vuelve a la primera en vez de enseñar un hueco vacio.
   const consulta = `${serializedParams}|${limit}|${debouncedSearch}`;
   const [elegida, setElegida] = useState({ consulta, pagina: 1 });
   const page = elegida.consulta === consulta ? elegida.pagina : 1;
@@ -76,10 +74,9 @@ export function usePaginatedList<T>({
     listKey,
     itemSchema,
     {
-      // Si el backend recorta la ultima pagina (por ejemplo al borrar el unico
-      // elemento que quedaba en ella), se retrocede en vez de dejar la vista
-      // vacia. Se hace al llegar la respuesta, que es cuando se sabe, y no
-      // desde un efecto que reaccione despues.
+      // Si el backend recorta la ultima pagina —al borrar el unico elemento que
+      // quedaba en ella—, se retrocede en vez de dejar la vista vacia. Se hace al
+      // llegar la respuesta, que es cuando se sabe.
       onSuccess: (datos) => {
         const total = datos?.meta?.totalPages ?? 0;
         if (total > 0 && page > total) setPage(total);

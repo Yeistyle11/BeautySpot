@@ -95,5 +95,9 @@ export { validarEntorno, problemasDelEntorno } from "./config/validar-entorno";
 export type { RequisitosDeEntorno, Entorno } from "./config/validar-entorno";
 export { withSerializableRetry } from "./database/serializable-retry";
 export { esViolacionDeUnicidad } from "./database/violacion-de-unicidad";
+export {
+  esIdentificadorInvalido,
+  esViolacionDeCatalogo,
+} from "./database/errores-de-postgres";
 export { ZonaDelNegocioService } from "./zona/zona-del-negocio.service";
 export { ZonaDelNegocioModule } from "./zona/zona-del-negocio.module";

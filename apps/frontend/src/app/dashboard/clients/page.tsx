@@ -1,7 +1,7 @@
 "use client";
 
 // Pagina de clientes: alta, edicion y listado de la base de clientes del negocio.
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,12 +25,15 @@ import {
   Edit,
   Trash2,
   Users,
+  Merge,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { api } from "@/lib/api";
+import { esConflictoDeEdicion } from "@/lib/api-error";
 import { useApi, paginatedSchema } from "@/lib/swr";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { usePaginatedCrudResource } from "@/lib/use-crud-resource";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
@@ -43,8 +46,11 @@ import {
   emptyClientForm,
   type ClientForm,
 } from "./client-form-dialog";
+import { MergeDialog } from "./merge-dialog";
 import {
+  clavePosiblesDuplicados,
   clientSchema,
+  cambiosDelCliente,
   campoDeFichaSchema,
   servicioBreveSchema,
   CLIENTS_KEY,
@@ -77,6 +83,16 @@ export default function ClientsPage() {
   const [createDialog, setCreateDialog] = useState(false);
   const [createForm, setCreateForm] = useState<ClientForm>(emptyClientForm);
   const [savingCreate, setSavingCreate] = useState(false);
+  // Fichas que podrían ser la misma persona, mientras se teclea el nombre. El
+  // contacto repetido ya lo rechaza el servidor; esto atrapa al duplicado que
+  // no comparte ninguno, que es el que acaba pidiendo una fusión.
+  const nombreTecleado = useDebouncedValue(createForm.name);
+  const { data: parecidas } = useApi(
+    createDialog ? clavePosiblesDuplicados(nombreTecleado) : null,
+    undefined,
+    paginatedSchema(clientSchema)
+  );
+  const posiblesDuplicados = useMemo(() => parecidas?.data ?? [], [parecidas]);
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
@@ -85,10 +101,26 @@ export default function ClientsPage() {
     ...emptyClientForm,
     notes: "",
   });
+  // La ficha tal como se cargo, para enviar en el guardado solo lo modificado.
+  const [editOriginal, setEditOriginal] = useState<ClientForm>({
+    ...emptyClientForm,
+    notes: "",
+  });
   const [editId, setEditId] = useState<string | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  // Version de la ficha al abrir el formulario. Viaja en el guardado para que
+  // el servidor avise si otra persona la cambio mientras tanto, en vez de
+  // dejar que la ultima escritura gane sin que nadie se entere.
+  const [editVersion, setEditVersion] = useState<string | null>(null);
+  const [conflictoEdicion, setConflictoEdicion] = useState("");
+  const [conflictoFicha, setConflictoFicha] = useState("");
+  const [recargando, setRecargando] = useState(false);
 
   const [clienteASuprimir, setClienteASuprimir] = useState<Client | null>(null);
+  const [fusionCon, setFusionCon] = useState<Client | null>(null);
+  const [absorbidoId, setAbsorbidoId] = useState("");
+  const [fusionando, setFusionando] = useState(false);
+  const [fusionError, setFusionError] = useState("");
   const [suprimiendo, setSuprimiendo] = useState(false);
 
   const { data: campos } = useApi<CampoDeFicha[] | null>(
@@ -103,16 +135,41 @@ export default function ClientsPage() {
   );
   const [guardandoFicha, setGuardandoFicha] = useState(false);
 
-  const handleSaveFicha = async (ficha: Record<string, unknown>) => {
-    if (!selectedClient) return;
-    setGuardandoFicha(true);
+  /** Trae del servidor la ficha tal como esta guardada ahora mismo. */
+  const recargarCliente = async (id: string): Promise<Client | null> => {
+    setRecargando(true);
     try {
-      await updateClient(selectedClient.id, { ficha });
-      setSelectedClient({ ...selectedClient, ficha });
-      toast.exito("Ficha guardada");
+      const fresca = clientSchema.parse(await api.get(`${CLIENTS_KEY}/${id}`));
+      await recargarClientes();
+      if (selectedClient?.id === id) setSelectedClient(fresca);
+      return fresca;
     } catch (err) {
       logger.error(err);
       toast.error(mensajeDeError(err));
+      return null;
+    } finally {
+      setRecargando(false);
+    }
+  };
+
+  const handleSaveFicha = async (ficha: Record<string, unknown>) => {
+    if (!selectedClient) return;
+    setGuardandoFicha(true);
+    setConflictoFicha("");
+    try {
+      const guardado = clientSchema.parse(
+        await updateClient(selectedClient.id, {
+          ficha,
+          updatedAt: selectedClient.updatedAt,
+        })
+      );
+      // Con la version nueva, guardar dos veces seguidas no choca consigo mismo.
+      setSelectedClient(guardado);
+      toast.exito("Ficha guardada");
+    } catch (err) {
+      logger.error(err);
+      if (esConflictoDeEdicion(err)) setConflictoFicha(mensajeDeError(err));
+      else toast.error(mensajeDeError(err));
     } finally {
       setGuardandoFicha(false);
     }
@@ -123,7 +180,7 @@ export default function ClientsPage() {
     setSavingCreate(true);
     try {
       await createClient({
-        name: createForm.name,
+        name: createForm.name.trim(),
         email: createForm.email || undefined,
         phone: createForm.phone || undefined,
         birthDate: createForm.birthDate || undefined,
@@ -135,6 +192,32 @@ export default function ClientsPage() {
       toast.error(mensajeDeError(err));
     } finally {
       setSavingCreate(false);
+    }
+  };
+
+  const openFusion = (client: Client) => {
+    setFusionCon(client);
+    setAbsorbidoId("");
+    setFusionError("");
+  };
+
+  const fusionar = async () => {
+    if (!fusionCon || !absorbidoId) return;
+    setFusionando(true);
+    setFusionError("");
+    try {
+      await api.post(`/core/clients/${fusionCon.id}/merge`, { absorbidoId });
+      setFusionCon(null);
+      setSelectedClient(null);
+      await recargarClientes();
+      toast.exito("Fichas fusionadas");
+    } catch (err) {
+      logger.error(err);
+      // El motivo se lee en el diálogo: dos cuentas distintas o una ficha ya
+      // fusionada piden revisar antes de reintentar.
+      setFusionError(mensajeDeError(err));
+    } finally {
+      setFusionando(false);
     }
   };
 
@@ -160,44 +243,68 @@ export default function ClientsPage() {
     }
   };
 
+  /** Los campos del formulario, tal como se leen de una ficha. */
+  const comoFormulario = (client: Client): ClientForm => ({
+    name: client.name,
+    email: client.email || "",
+    phone: client.phone || "",
+    notes: client.notes || "",
+    birthDate: client.birthDate || "",
+  });
+
   const openEdit = (client: Client) => {
+    const cargado = comoFormulario(client);
     setEditId(client.id);
-    setEditForm({
-      name: client.name,
-      email: client.email || "",
-      phone: client.phone || "",
-      notes: client.notes || "",
-      birthDate: client.birthDate || "",
-    });
+    setEditForm(cargado);
+    // Se guarda la ficha tal como se cargo para poder enviar despues solo lo
+    // que el usuario haya tocado.
+    setEditOriginal(cargado);
+    setEditVersion(client.updatedAt);
+    setConflictoEdicion("");
     setEditDialog(true);
+  };
+
+  /** Cambia lo escrito por lo que hay guardado, dejando el formulario abierto. */
+  const recargarEnEdicion = async () => {
+    if (!editId) return;
+    const fresca = await recargarCliente(editId);
+    if (!fresca) return;
+    const cargada = comoFormulario(fresca);
+    setEditForm(cargada);
+    setEditOriginal(cargada);
+    setEditVersion(fresca.updatedAt);
+    setConflictoEdicion("");
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editId) return;
-    setSavingEdit(true);
-    try {
-      await updateClient(editId, {
-        name: editForm.name,
-        email: editForm.email || undefined,
-        phone: editForm.phone || undefined,
-        notes: editForm.notes || undefined,
-        // Vaciar el campo borra la fecha: va null, no undefined.
-        birthDate: editForm.birthDate || null,
-      });
+    const cambios = cambiosDelCliente(editOriginal, editForm);
+    // Sin cambios no hay nada que mandar, y un PATCH vacio solo serviria para
+    // pisar la ficha con lo que esta pestana tenia cargado.
+    if (Object.keys(cambios).length === 0) {
       setEditDialog(false);
       setEditId(null);
-      if (selectedClient?.id === editId) {
-        setSelectedClient({
-          ...selectedClient,
-          name: editForm.name,
-          email: editForm.email || null,
-          phone: editForm.phone || null,
-        });
-      }
+      return;
+    }
+    setSavingEdit(true);
+    setConflictoEdicion("");
+    try {
+      const guardada = clientSchema.parse(
+        await updateClient(editId, {
+          ...cambios,
+          updatedAt: editVersion ?? undefined,
+        })
+      );
+      setEditDialog(false);
+      setEditId(null);
+      if (selectedClient?.id === editId) setSelectedClient(guardada);
     } catch (err) {
       logger.error(err);
-      toast.error(mensajeDeError(err));
+      // El formulario se queda abierto con lo escrito: hay algo que decidir, y
+      // un aviso que se va solo no da tiempo a decidirlo.
+      if (esConflictoDeEdicion(err)) setConflictoEdicion(mensajeDeError(err));
+      else toast.error(mensajeDeError(err));
     } finally {
       setSavingEdit(false);
     }
@@ -278,15 +385,18 @@ export default function ClientsPage() {
           clients.map((c) => (
             <Card
               key={c.id}
-              className="focus-within:ring-ring border-0 shadow-sm transition-shadow [contain-intrinsic-size:auto_140px] [content-visibility:auto] focus-within:ring-2 hover:shadow-md"
+              className="border-0 shadow-sm transition-shadow [contain-intrinsic-size:auto_140px] [content-visibility:auto] hover:shadow-md"
             >
               {/* La tarjeta entera abre la ficha, y es la unica via de acceso a
-                  ella: tiene que ser un boton para que llegue el teclado. */}
+                  ella: tiene que ser un boton para que llegue el teclado. El
+                  anillo va en el boton y con focus-visible, como el resto del
+                  panel: en la tarjeta y con focus-within se pintaba tambien al
+                  hacer clic con el raton, y no se veia al tabular. */}
               <button
                 type="button"
                 onClick={() => openDetail(c)}
                 aria-label={`Ver la ficha de ${c.name}`}
-                className="w-full cursor-pointer text-left focus:outline-none"
+                className="focus-visible:ring-ring w-full cursor-pointer rounded-xl text-left focus-visible:outline-none focus-visible:ring-2"
               >
                 <CardContent className="p-5">
                   <div className="flex items-center gap-3">
@@ -337,6 +447,11 @@ export default function ClientsPage() {
         title="Nuevo cliente"
         submitLabel="Crear cliente"
         saving={savingCreate}
+        posiblesDuplicados={posiblesDuplicados}
+        onAbrirFicha={(cliente) => {
+          setCreateDialog(false);
+          openDetail(cliente);
+        }}
       />
 
       <Dialog
@@ -383,6 +498,15 @@ export default function ClientsPage() {
                       >
                         <Edit className="mr-1 h-3 w-3" /> Editar
                       </Button>
+                      {canDo(role, "clients_merge") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openFusion(selectedClient)}
+                        >
+                          <Merge className="mr-1 h-3 w-3" /> Fusionar
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="ghost"
@@ -406,14 +530,21 @@ export default function ClientsPage() {
             )}
 
             <FichaSection
-              // Remonta al cambiar de cliente: el dialogo no se desmonta entre
-              // uno y otro, y el borrador tiene que empezar de cero.
-              key={selectedClient.id}
+              // Remonta al cambiar de cliente, porque el dialogo no se
+              // desmonta entre uno y otro, y al recargar, para que el
+              // borrador arranque con lo que hay guardado.
+              key={`${selectedClient.id}-${selectedClient.updatedAt}`}
               campos={campos ?? []}
               servicios={servicios ?? []}
               valores={selectedClient.ficha ?? {}}
               onSave={handleSaveFicha}
               saving={guardandoFicha}
+              conflicto={conflictoFicha}
+              onRecargar={() => {
+                setConflictoFicha("");
+                void recargarCliente(selectedClient.id);
+              }}
+              recargando={recargando}
               puedeEditar={
                 canDo(role, "clients_edit") && !selectedClient.anonymizedAt
               }
@@ -476,6 +607,25 @@ export default function ClientsPage() {
         submitLabel="Guardar cambios"
         saving={savingEdit}
         conNotas
+        conflicto={conflictoEdicion}
+        onRecargar={() => void recargarEnEdicion()}
+        recargando={recargando}
+      />
+
+      <MergeDialog
+        open={fusionCon !== null}
+        onClose={() => setFusionCon(null)}
+        onFusionar={fusionar}
+        superviviente={fusionCon}
+        // Cualquier otra ficha viva de la cartera: los duplicados no siempre
+        // comparten contacto, que es justo por lo que hacen falta.
+        candidatos={clients.filter(
+          (c) => c.id !== fusionCon?.id && !c.anonymizedAt
+        )}
+        absorbidoId={absorbidoId}
+        onAbsorbidoChange={setAbsorbidoId}
+        saving={fusionando}
+        error={fusionError}
       />
 
       <ConfirmDialog

@@ -20,6 +20,11 @@ export const serviceSchema = z.object({
   name: z.string(),
   price: z.number(),
   duration: z.number(),
+  /**
+   * El precio depende del profesional y todavia no hay ninguno elegido: lo que
+   * se enseña es el del catalogo, y se dice «desde».
+   */
+  precioVariable: z.boolean().nullish(),
 });
 export type Service = z.infer<typeof serviceSchema>;
 
@@ -40,6 +45,21 @@ export interface BookingConfirmation {
   totalAmount?: number | string;
   services?: string[];
   [key: string]: unknown;
+}
+
+/**
+ * Lo que hace falta para reservar. Al menos una via de contacto: sin telefono ni
+ * correo el negocio no puede confirmar ni recolocar el hueco, y el cliente no
+ * puede recuperar su cita porque no dejo con que identificarse.
+ */
+export function datosDeReservaCompletos(guest: {
+  name: string;
+  email: string;
+  phone: string;
+}): boolean {
+  return Boolean(
+    guest.name.trim() && (guest.email.trim() || guest.phone.trim())
+  );
 }
 
 export const BOOKING_STEPS = [

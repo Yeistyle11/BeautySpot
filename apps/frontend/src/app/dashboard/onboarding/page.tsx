@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Store, Loader2 } from "lucide-react";
 import { api, apiPublic } from "@/lib/api";
@@ -30,11 +31,17 @@ export default function OnboardingPage() {
     city: "",
     address: "",
     description: "",
+    /** Nace con el catálogo y el horario típicos de su tipo. */
+    sembrar: true,
   });
   const [saving, setSaving] = useState(false);
 
   const set = (cambios: Partial<typeof form>) =>
     setForm((actual) => ({ ...actual, ...cambios }));
+
+  const etiquetaDelTipo =
+    TIPOS_DE_NEGOCIO.find((t) => t.valor === form.businessType)?.etiqueta ??
+    "El negocio";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +54,7 @@ export default function OnboardingPage() {
         city: form.city || undefined,
         address: form.address || undefined,
         description: form.description || undefined,
+        sembrar: form.sembrar,
       });
 
       // El token vigente todavia dice CLIENT y sin negocio. Se renueva para
@@ -131,6 +139,26 @@ export default function OnboardingPage() {
                 maxLength={255}
               />
             </Field>
+            <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium" id="sembrar">
+                  Empezar con servicios de ejemplo
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  {/* Un panel de quince secciones vacías y ninguna pista de por
+                      dónde empezar es donde se pierde a un cliente nuevo. */}
+                  {etiquetaDelTipo} nace con un catálogo típico de su sector,
+                  sus categorías y un horario de apertura. Todo se puede cambiar
+                  o borrar después.
+                </p>
+              </div>
+              <Switch
+                checked={form.sembrar}
+                onCheckedChange={(sembrar) => set({ sembrar })}
+                aria-labelledby="sembrar"
+              />
+            </div>
+
             <Field label="Descripción">
               <Textarea
                 value={form.description}

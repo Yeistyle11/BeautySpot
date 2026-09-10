@@ -17,7 +17,12 @@ export class CreateBlockedSlotDto {
   @IsOptional() @EsFechaSola() repetirHasta?: string;
 }
 
-/** Día del que se piden los bloqueos de todo el equipo. */
+/**
+ * Días de los que se piden los bloqueos de todo el equipo: uno solo, o el
+ * rango de `date` a `hasta` que necesita la vista semana.
+ */
 export class BlockedSlotsDelDiaDto {
   @EsFechaSola() date!: string;
+  /** Último día del rango, incluido. Ausente, se piden los de `date`. */
+  @IsOptional() @EsFechaSola() hasta?: string;
 }

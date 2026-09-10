@@ -124,7 +124,7 @@ export class FeedService {
     if (recent.length > 0) {
       sections.push({
         id: "new_on_platform",
-        title: "Recien llegados a BeautySpot",
+        title: "Recién llegados a BeautySpot",
         type: "carousel",
         itemType: "business",
         items: recent,
@@ -171,17 +171,15 @@ export class FeedService {
     return data;
   }
 
-  /** Los negocios mejor calificados de la plataforma. */
   private async getTopRated(): Promise<BusinessProfileEntity[]> {
     return this.profilesService.findTopRated(6);
   }
 
-  /** Los negocios llegados en los últimos 30 días. */
+  /** Los negocios que llegaron al escaparate en los últimos 30 días. */
   private async getRecent(): Promise<BusinessProfileEntity[]> {
     return this.profilesService.findRecent(30, 6);
   }
 
-  /** Los profesionales destacados de la plataforma. */
   private async getTopProfessionals(): Promise<ProfessionalProfileEntity[]> {
     return this.professionalProfilesService.findTopRated(6);
   }

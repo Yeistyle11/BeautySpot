@@ -1,12 +1,13 @@
 import { IsUUID } from "class-validator";
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
   Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
 } from "@nestjs/common";
 import { ProfessionalsService } from "./professionals.service";
 import { Roles, BranchId, BusinessId } from "@beautyspot/nest-common";
@@ -29,7 +30,6 @@ class VincularUsuarioDto {
 export class ProfessionalsController {
   constructor(private readonly service: ProfessionalsService) {}
 
-  /** Da de alta un profesional en el negocio. */
   @Post()
   async create(
     @BusinessId() businessId: string,
@@ -54,16 +54,17 @@ export class ProfessionalsController {
     return this.service.findByBusiness(businessId, true, branchId);
   }
 
-  /** Obtiene un profesional por id. */
   @Get(":id")
-  async findById(@Param("id") id: string, @BusinessId() businessId: string) {
+  async findById(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.findById(id, businessId);
   }
 
-  /** Actualiza la ficha de un profesional. */
   @Patch(":id")
   async update(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Body() dto: UpdateProfessionalDto
   ) {
@@ -74,7 +75,7 @@ export class ProfessionalsController {
   @Post(":id/services")
   async assignService(
     @BusinessId() businessId: string,
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: AssignServiceDto
   ) {
     return this.service.assignService(
@@ -88,16 +89,18 @@ export class ProfessionalsController {
 
   /** Lista los servicios que presta el profesional. */
   @Get(":id/services")
-  async getServices(@BusinessId() businessId: string, @Param("id") id: string) {
+  async getServices(
+    @BusinessId() businessId: string,
+    @Param("id", ParseUUIDPipe) id: string
+  ) {
     return this.service.getServices(id, businessId);
   }
 
-  /** Desasigna un servicio del profesional. */
   @Delete(":id/services/:serviceId")
   async removeService(
     @BusinessId() businessId: string,
-    @Param("id") id: string,
-    @Param("serviceId") serviceId: string
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("serviceId", ParseUUIDPipe) serviceId: string
   ) {
     await this.service.removeServiceAssignment(id, serviceId, businessId);
     return { message: "Servicio desasignado" };
@@ -105,7 +108,10 @@ export class ProfessionalsController {
 
   /** Inactiva un profesional (baja lógica), si no tiene citas activas. */
   @Delete(":id")
-  async remove(@Param("id") id: string, @BusinessId() businessId: string) {
+  async remove(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     await this.service.remove(id, businessId);
     return { message: "Profesional eliminado" };
   }
@@ -116,7 +122,7 @@ export class ProfessionalsController {
    */
   @Patch(":id/link-user")
   async linkUser(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Body() body: VincularUsuarioDto
   ) {
@@ -127,7 +133,10 @@ export class ProfessionalsController {
    * Desvincula la cuenta de usuario de un profesional.
    */
   @Patch(":id/unlink-user")
-  async unlinkUser(@Param("id") id: string, @BusinessId() businessId: string) {
+  async unlinkUser(
+    @Param("id", ParseUUIDPipe) id: string,
+    @BusinessId() businessId: string
+  ) {
     return this.service.unlinkUser(id, businessId);
   }
 }

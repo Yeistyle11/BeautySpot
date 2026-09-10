@@ -14,11 +14,8 @@ export interface CorsOptions {
 
 /**
  * Construye la política CORS compartida por el gateway y los microservicios.
- *
- * Como las respuestas se emiten con `credentials: true`, el origen no puede
- * reflejarse sin más: cualquier sitio al que se le devuelva su propio Origin
- * podría leer respuestas autenticadas del usuario. Por eso solo se aceptan los
- * orígenes declarados en CORS_ORIGINS y, fuera de producción, los locales.
+ * Como las respuestas llevan `credentials: true`, reflejar el origen dejaría a
+ * cualquier sitio leer respuestas autenticadas: solo pasan los declarados.
  */
 export function buildCorsOptions(configService: ConfigService): CorsOptions {
   const allowedOrigins = (configService.get<string>("CORS_ORIGINS") ?? "")

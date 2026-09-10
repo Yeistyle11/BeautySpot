@@ -1,4 +1,5 @@
-import { NotFoundException } from "@nestjs/common";
+import { ConflictException, NotFoundException } from "@nestjs/common";
+import { CODIGO_EDICION_SIMULTANEA } from "@beautyspot/shared-constants";
 import { Repository } from "typeorm";
 import { TenantCrudService, EntidadDeNegocio } from "./tenant-crud.service";
 
@@ -14,20 +15,41 @@ class SedesService extends TenantCrudService<Sede> {
 }
 
 describe("TenantCrudService", () => {
-  let repo: { findOne: jest.Mock; update: jest.Mock };
+  let repo: {
+    findOne: jest.Mock;
+    update: jest.Mock;
+    target: string;
+    manager: { transaction: jest.Mock };
+  };
+  /** El repositorio que la escritura condicional usa dentro de la transacción. */
+  let enTransaccion: { findOne: jest.Mock; update: jest.Mock };
   let service: SedesService;
+
+  const CARGADA = new Date("2026-08-31T10:00:00.000Z");
 
   const sede: Sede = {
     id: "sede-1",
     businessId: "negocio-1",
     name: "Centro",
     active: true,
+    updatedAt: CARGADA,
   };
 
   beforeEach(() => {
+    enTransaccion = {
+      findOne: jest.fn().mockResolvedValue(sede),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
     repo = {
       findOne: jest.fn(),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
+      target: "Sede",
+      manager: {
+        transaction: jest.fn(
+          (cb: (manager: { getRepository: jest.Mock }) => unknown) =>
+            cb({ getRepository: jest.fn().mockReturnValue(enTransaccion) })
+        ),
+      },
     };
     service = new SedesService(repo as unknown as Repository<Sede>);
   });
@@ -87,6 +109,81 @@ describe("TenantCrudService", () => {
 
       await expect(
         service.update("sede-1", "otro-negocio", { name: "Norte" })
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("sin versión esperada escribe sin leer antes", async () => {
+      repo.findOne.mockResolvedValue(sede);
+
+      await service.update("sede-1", "negocio-1", { name: "Norte" });
+
+      // La ruta de siempre no abre transacción ni bloquea la fila.
+      expect(repo.manager.transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("update con versión esperada", () => {
+    it("escribe si la fila sigue como se cargó", async () => {
+      const actualizada = { ...sede, name: "Norte" };
+      enTransaccion.findOne
+        .mockResolvedValueOnce(sede)
+        .mockResolvedValueOnce(actualizada);
+
+      await expect(
+        service.update("sede-1", "negocio-1", { name: "Norte" }, CARGADA)
+      ).resolves.toEqual(actualizada);
+      expect(enTransaccion.update).toHaveBeenCalledWith(
+        { id: "sede-1", businessId: "negocio-1" },
+        { name: "Norte" }
+      );
+    });
+
+    it("bloquea la fila entre el cotejo y la escritura", async () => {
+      enTransaccion.findOne.mockResolvedValue(sede);
+
+      await service.update("sede-1", "negocio-1", { name: "Norte" }, CARGADA);
+
+      expect(enTransaccion.findOne).toHaveBeenNthCalledWith(1, {
+        where: { id: "sede-1", businessId: "negocio-1" },
+        lock: { mode: "pessimistic_write" },
+      });
+    });
+
+    it("rechaza con 409 si otra persona guardó mientras tanto", async () => {
+      enTransaccion.findOne.mockResolvedValue({
+        ...sede,
+        updatedAt: new Date("2026-08-31T10:05:00.000Z"),
+      });
+
+      await expect(
+        service.update("sede-1", "negocio-1", { name: "Norte" }, CARGADA)
+      ).rejects.toThrow(ConflictException);
+      expect(enTransaccion.update).not.toHaveBeenCalled();
+    });
+
+    it("el 409 lleva su propio código, para no confundirlo con el de un dato repetido", async () => {
+      enTransaccion.findOne.mockResolvedValue({
+        ...sede,
+        updatedAt: new Date("2026-08-31T10:05:00.000Z"),
+      });
+
+      const error = await service
+        .update("sede-1", "negocio-1", { name: "Norte" }, CARGADA)
+        .catch((e: ConflictException) => e);
+
+      expect((error as ConflictException).getResponse()).toEqual({
+        error: {
+          code: CODIGO_EDICION_SIMULTANEA,
+          message: expect.stringContaining("Otra persona guardó cambios"),
+        },
+      });
+    });
+
+    it("una fila que ya no existe sigue siendo un 404, no un conflicto", async () => {
+      enTransaccion.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.update("sede-1", "negocio-1", { name: "Norte" }, CARGADA)
       ).rejects.toThrow(NotFoundException);
     });
   });

@@ -8,7 +8,9 @@ import {
   AppointmentCancelledEvent,
   AppointmentNoShowedEvent,
   PaymentRegisteredEvent,
+  PaymentCorrectedEvent,
   ClientCreatedEvent,
+  ClientMergedEvent,
   ReviewCreatedEvent,
   EventNames,
   IBaseEvent,
@@ -21,6 +23,7 @@ import { MetricsService } from "../metrics/metrics.service";
 import { NegocioMetricsService } from "../metrics/negocio-metrics.service";
 import { ZonaDelNegocioService } from "@beautyspot/nest-common";
 import { fechaDeHoy } from "../../common/fecha";
+import { ClientMetricEntity } from "../../entities/client-metric.entity";
 
 /**
  * Acumula las metricas diarias y por profesional a partir de los eventos de
@@ -37,9 +40,21 @@ export class AnalyticsEventListeners {
     private readonly zonas: ZonaDelNegocioService
   ) {}
 
-  /** Día en curso en el huso de ese negocio. */
-  private async hoyPara(businessId: string): Promise<string> {
-    return fechaDeHoy(await this.zonas.de(businessId));
+  /**
+   * Dia al que pertenece un evento, en el huso del negocio: el que trae su carga
+   * si lo trae, y si no el instante en que se emitio. Nunca el dia en que se
+   * procesa: un consumidor que se cae y vuelve sumaria en el dia equivocado.
+   */
+  private async diaDelEvento(
+    businessId: string,
+    event: IBaseEvent<unknown>,
+    dia?: string
+  ): Promise<string> {
+    if (dia) return dia;
+    return fechaDeHoy(
+      await this.zonas.de(businessId),
+      new Date(event.timestamp)
+    );
   }
 
   /**
@@ -230,13 +245,37 @@ export class AnalyticsEventListeners {
   })
   async handlePaymentRegistered(event: PaymentRegisteredEvent): Promise<void> {
     this.logger.log(`Pago registrado: ${event.payload.paymentId}`);
+    // La propina no entra: no es ingreso del negocio, sino dinero que pasa por
+    // el hacia el profesional.
     const { businessId, amount } = event.payload;
-    const hoy = await this.hoyPara(businessId);
+    const dia = await this.diaDelEvento(businessId, event, event.payload.date);
     await this.aplicar(event, "pago", (manager) =>
       this.metricsService.incrementDailyMetric(
         businessId,
-        hoy,
+        dia,
         { totalRevenue: amount, ventas: 1 },
+        manager
+      )
+    );
+  }
+
+  /** Ajusta los ingresos del día del cobro cuando este se corrige. */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.PAYMENT_PAYMENT_CORRECTED,
+    queue: nombreDeCola("analytics", EventNames.PAYMENT_PAYMENT_CORRECTED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handlePaymentCorrected(event: PaymentCorrectedEvent): Promise<void> {
+    this.logger.log(`Pago corregido: ${event.payload.paymentId}`);
+    const { businessId, date, difference } = event.payload;
+    // Se suma la diferencia sobre el día del cobro original, no sobre el día en
+    // que se corrige, y no se toca el contador de ventas: la venta es la misma.
+    await this.aplicar(event, "corrección de pago", (manager) =>
+      this.metricsService.incrementDailyMetric(
+        businessId,
+        date,
+        { totalRevenue: difference },
         manager
       )
     );
@@ -252,7 +291,7 @@ export class AnalyticsEventListeners {
   async handleReviewCreated(event: ReviewCreatedEvent): Promise<void> {
     this.logger.log(`Reseña creada: ${event.payload.reviewId}`);
     const { businessId, professionalId, rating } = event.payload;
-    const hoy = await this.hoyPara(businessId);
+    const hoy = await this.diaDelEvento(businessId, event);
     await this.aplicar(event, "reseña", (manager) =>
       this.metricsService.setProfessionalRating(
         businessId,
@@ -291,5 +330,54 @@ export class AnalyticsEventListeners {
         stack
       );
     }
+  }
+
+  /**
+   * Dos fichas del mismo cliente pasaron a ser una. El historial agregado tiene
+   * una fila por cliente y negocio: las dos se suman en la del superviviente y
+   * las fechas se estiran a la primera y la última de ambas.
+   */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.CORE_CLIENT_MERGED,
+    queue: nombreDeCola("analytics", EventNames.CORE_CLIENT_MERGED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleClientMerged(event: ClientMergedEvent): Promise<void> {
+    const { businessId, supervivienteId, absorbidoId } = event.payload;
+
+    await this.aplicar(event, "fusion", async (manager) => {
+      const repo = manager.getRepository(ClientMetricEntity);
+      const [superviviente, absorbido] = await Promise.all([
+        repo.findOne({ where: { businessId, clientId: supervivienteId } }),
+        repo.findOne({ where: { businessId, clientId: absorbidoId } }),
+      ]);
+
+      if (!absorbido) return;
+
+      if (!superviviente) {
+        await repo.update(
+          { businessId, clientId: absorbidoId },
+          { clientId: supervivienteId }
+        );
+        return;
+      }
+
+      superviviente.visitas += absorbido.visitas;
+      superviviente.gasto += absorbido.gasto;
+      superviviente.primeraVisita =
+        absorbido.primeraVisita < superviviente.primeraVisita
+          ? absorbido.primeraVisita
+          : superviviente.primeraVisita;
+      superviviente.ultimaVisita =
+        absorbido.ultimaVisita > superviviente.ultimaVisita
+          ? absorbido.ultimaVisita
+          : superviviente.ultimaVisita;
+
+      await repo.save(superviviente);
+      // La fila de la absorbida ya no cuenta nada: sumarla otra vez duplicaría
+      // las visitas de esa persona.
+      await repo.delete({ businessId, clientId: absorbidoId });
+    });
   }
 }

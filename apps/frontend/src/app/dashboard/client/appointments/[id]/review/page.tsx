@@ -44,10 +44,9 @@ const resenaSchema = z.object({
 type Resena = z.infer<typeof resenaSchema>;
 
 /**
- * Selector de calificacion de 1 a 5. Se expone como grupo de radio para que el
- * lector de pantalla anuncie cuantas estrellas hay marcadas; al pasar el raton
- * se pintan las estrellas sobrevoladas en lugar de las elegidas, de ahi que el
- * relleno mire a `hovered` antes que a `value`.
+ * Selector de calificacion de 1 a 5, expuesto como grupo de radio para que el
+ * lector de pantalla anuncie cuantas estrellas hay marcadas. Al pasar el raton
+ * se pintan las sobrevoladas, de ahi que el relleno mire antes a `hovered`.
  */
 function StarRating({
   value,

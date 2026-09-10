@@ -42,6 +42,59 @@ export const emptyForm = {
 
 export type AppointmentForm = typeof emptyForm;
 
+/**
+ * Alta de un walk-in: quien entro sin cita, ya se atendio y se anota despues.
+ * Sin fecha, porque solo se registra el dia en que se atendio, y con el cobro
+ * en el mismo paso, que es como ocurre en el mostrador.
+ */
+export const emptyWalkInForm = {
+  professionalId: "",
+  clientId: "",
+  /** Hora a la que se le atendio, ya pasada. */
+  startTime: "",
+  notes: "",
+  cobrar: true,
+  metodo: "CASH",
+  referencia: "",
+};
+
+export type WalkInForm = typeof emptyWalkInForm;
+
+/** Hora actual en formato `HH:MM`, que es a la que se propone anotarlo. */
+export function horaActual(ahora: Date = new Date()): string {
+  const dos = (n: number) => String(n).padStart(2, "0");
+  return `${dos(ahora.getHours())}:${dos(ahora.getMinutes())}`;
+}
+
+/** Si el walk-in esta listo para registrarse. */
+export function walkInCompleto(form: WalkInForm, servicios: string[]): boolean {
+  return Boolean(
+    form.professionalId && form.clientId && form.startTime && servicios.length
+  );
+}
+
+/** Cuerpo del alta del walk-in; la fecha la pone el servicio. */
+export function walkInParaEnviar(
+  form: WalkInForm,
+  serviceIds: string[],
+  asignaciones: Record<string, string>
+) {
+  const propias = Object.entries(asignaciones)
+    .filter(([serviceId, professionalId]) =>
+      Boolean(professionalId && serviceIds.includes(serviceId))
+    )
+    .map(([serviceId, professionalId]) => ({ serviceId, professionalId }));
+
+  return {
+    professionalId: form.professionalId,
+    clientId: form.clientId,
+    serviceIds,
+    startTime: form.startTime,
+    notes: form.notes || undefined,
+    asignaciones: propias.length ? propias : undefined,
+  };
+}
+
 /** Motivos de cancelacion que acepta el backend, en el orden en que se ofrecen. */
 export const MOTIVOS_DE_CANCELACION = [
   { value: "CLIENTE_CANCELA", label: "El cliente canceló" },

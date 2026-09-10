@@ -10,10 +10,9 @@ jest.mock("ioredis", () => {
 });
 
 /**
- * Construye el servicio con un cliente Redis controlado.
- *
- * El cliente se inyecta reemplazando la propiedad privada porque el constructor
- * crea el suyo a partir del ConfigService; aquí interesa gobernar sus respuestas.
+ * Construye el servicio con un cliente Redis controlado, inyectado sobre la
+ * propiedad privada: el constructor crea el suyo desde el ConfigService y aquí
+ * interesa gobernar sus respuestas.
  */
 function servicioCon(cliente: Partial<Redis>): RedisCacheService {
   const service = new RedisCacheService({

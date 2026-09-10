@@ -57,8 +57,8 @@ describe("PublicBookingDto", () => {
   });
 
   it("rechaza un userId en el cuerpo", async () => {
-    // Sin token no hay identidad que dar por buena: aceptarlo dejaba atar la
-    // ficha de cliente a la cuenta de otra persona.
+    // Sin token no hay identidad que dar por buena: aceptarlo ata la ficha de
+    // cliente a la cuenta de otra persona.
     await expect(
       pipe.transform(
         {
@@ -88,6 +88,46 @@ describe("PublicBookingDto", () => {
   it.each(["9:0", "abc", "24:30"])("rechaza la hora %p", async (startTime) => {
     await expect(
       pipe.transform({ ...reservaDeInvitado, startTime }, metadata)
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  // Sin telefono ni correo el negocio recibe un nombre y nada mas.
+  it("rechaza una reserva sin ninguna via de contacto", async () => {
+    const sinContacto = { ...reservaDeInvitado };
+    delete (sinContacto as { guestEmail?: string }).guestEmail;
+    delete (sinContacto as { guestPhone?: string }).guestPhone;
+
+    await expect(pipe.transform(sinContacto, metadata)).rejects.toBeInstanceOf(
+      BadRequestException
+    );
+  });
+
+  it("rechaza una reserva con los dos campos en blanco", async () => {
+    await expect(
+      pipe.transform(
+        { ...reservaDeInvitado, guestEmail: "", guestPhone: "   " },
+        metadata
+      )
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("con solo teléfono basta", async () => {
+    const soloTelefono = { ...reservaDeInvitado };
+    delete (soloTelefono as { guestEmail?: string }).guestEmail;
+
+    await expect(pipe.transform(soloTelefono, metadata)).resolves.toBeDefined();
+  });
+
+  it("con solo correo también", async () => {
+    const soloCorreo = { ...reservaDeInvitado };
+    delete (soloCorreo as { guestPhone?: string }).guestPhone;
+
+    await expect(pipe.transform(soloCorreo, metadata)).resolves.toBeDefined();
+  });
+
+  it("rechaza un teléfono que no tiene forma de teléfono", async () => {
+    await expect(
+      pipe.transform({ ...reservaDeInvitado, guestPhone: "llámame" }, metadata)
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 

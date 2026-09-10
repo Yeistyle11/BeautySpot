@@ -1,10 +1,8 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Horas a las que la cita empezó y terminó de verdad. Sin ellas no hay forma de
- * contrastar la duración estimada de un servicio con la que de verdad lleva.
- *
- * Las citas anteriores se quedan a null: la hora real no se puede reconstruir.
+ * Horas a las que la cita empezó y terminó de verdad, para poder contrastar la
+ * duración estimada con la real. Las citas anteriores se quedan a null.
  */
 export class HorasRealesDeLaCita1700000000006 implements MigrationInterface {
   name = "HorasRealesDeLaCita1700000000006";

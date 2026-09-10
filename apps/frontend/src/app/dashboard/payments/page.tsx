@@ -23,14 +23,21 @@ import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { PaymentSummaryCards } from "./payment-summary";
 import { PaymentCard } from "./payment-card";
-import { CreatePaymentDialog, EditPaymentDialog } from "./payment-dialogs";
+import {
+  CreatePaymentDialog,
+  EditPaymentDialog,
+  RefundDialog,
+} from "./payment-dialogs";
 import {
   citaCobrableSchema,
   clientSchema,
+  cobroParaEnviar,
   CLIENTS_KEY,
   COBRADAS_KEY,
   dailySummarySchema,
+  devolucionParaEnviar,
   emptyCreateForm,
+  emptyDevolucionForm,
   emptyEditForm,
   METHOD_FILTERS,
   METHOD_LABELS,
@@ -46,6 +53,9 @@ import {
 export default function PaymentsPage() {
   const toast = useToast();
   const { role } = useAuthStore();
+  // El descuento sale del margen del negocio, asi que la pantalla solo se lo
+  // ofrece a quien el servidor se lo va a admitir.
+  const puedeDescontar = role === "OWNER" || role === "ADMIN";
   const [filterMethod, setFilterMethod] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -92,6 +102,11 @@ export default function PaymentsPage() {
   };
 
   const [editDialog, setEditDialog] = useState(false);
+  const [refundDialog, setRefundDialog] = useState(false);
+  const [refundPayment, setRefundPayment] = useState<Payment | null>(null);
+  const [refundForm, setRefundForm] = useState(emptyDevolucionForm);
+  const [savingRefund, setSavingRefund] = useState(false);
+  const [refundError, setRefundError] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditForm>(emptyEditForm);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -189,17 +204,10 @@ export default function PaymentsPage() {
     cobrando.current = true;
     setSavingCreate(true);
     try {
-      await api.post("/payment/payments", {
-        clientId: createForm.clientId,
-        appointmentId: createForm.appointmentId || undefined,
-        amount: parseFloat(createForm.amount),
-        method: createForm.method,
-        reference: createForm.reference || undefined,
-        notes: createForm.notes || undefined,
-        // Sin canje no se manda el campo: el backend exige al menos un punto.
-        puntosUsados: Number(createForm.puntosUsados) || undefined,
-        solicitudId: solicitudId.current || undefined,
-      });
+      await api.post(
+        "/payment/payments",
+        cobroParaEnviar(createForm, solicitudId.current)
+      );
       setCreateDialog(false);
       setCreateForm(emptyCreateForm);
       await revalidatePrefix(PAYMENTS_KEY);
@@ -212,6 +220,38 @@ export default function PaymentsPage() {
     }
   };
 
+  const openRefund = (p: Payment) => {
+    setRefundPayment(p);
+    setRefundForm(emptyDevolucionForm);
+    setRefundError("");
+    setRefundDialog(true);
+  };
+
+  const handleRefund = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!refundPayment) return;
+    setSavingRefund(true);
+    setRefundError("");
+    try {
+      await api.post(
+        `/payment/payments/${refundPayment.id}/refund`,
+        devolucionParaEnviar(refundForm)
+      );
+      setRefundDialog(false);
+      setRefundPayment(null);
+      await revalidatePrefix(PAYMENTS_KEY);
+      // El efectivo devuelto sale del cajón: el arqueo cambia con él.
+      await revalidatePrefix("/payment/cash-register");
+    } catch (err) {
+      logger.error(err);
+      // El motivo se lee donde se pulsó: sin caja abierta o fuera de plazo, el
+      // servicio explica por qué y el aviso flotante se lo llevaría.
+      setRefundError(mensajeDeError(err));
+    } finally {
+      setSavingRefund(false);
+    }
+  };
+
   const openEdit = (p: Payment) => {
     setEditId(p.id);
     setEditForm({
@@ -219,6 +259,7 @@ export default function PaymentsPage() {
       method: p.method,
       reference: p.reference || "",
       notes: p.notes || "",
+      reason: "",
     });
     setEditDialog(true);
   };
@@ -233,6 +274,7 @@ export default function PaymentsPage() {
         method: editForm.method,
         reference: editForm.reference || undefined,
         notes: editForm.notes || undefined,
+        reason: editForm.reason,
       });
       setEditDialog(false);
       setEditId(null);
@@ -320,6 +362,8 @@ export default function PaymentsPage() {
               key={p.id}
               payment={p}
               canEdit={canDo(role, "payments_edit")}
+              canRefund={canDo(role, "payments_refund")}
+              onRefund={openRefund}
               onEdit={openEdit}
               clientName={p.clientId ? clientMap[p.clientId] : undefined}
             />
@@ -338,6 +382,18 @@ export default function PaymentsPage() {
         citasPorCobrar={citasPorCobrar}
         clients={clients ?? []}
         saving={savingCreate}
+        puedeDescontar={puedeDescontar}
+      />
+
+      <RefundDialog
+        open={refundDialog}
+        onClose={() => setRefundDialog(false)}
+        onSubmit={handleRefund}
+        payment={refundPayment}
+        form={refundForm}
+        onChange={setRefundForm}
+        saving={savingRefund}
+        error={refundError}
       />
 
       <EditPaymentDialog

@@ -1,9 +1,11 @@
 import { Transform } from "class-transformer";
 import {
   IsString,
+  IsNotEmpty,
   IsOptional,
   IsArray,
   IsBoolean,
+  IsDateString,
   IsEmail,
   IsObject,
   IsUUID,
@@ -19,6 +21,14 @@ import {
   MENSAJE_TELEFONO,
 } from "@beautyspot/shared-constants";
 import { PATRON_FECHA, esFechaValida } from "@beautyspot/shared-utils";
+
+/**
+ * Recorta los espacios de los extremos antes de validar. Un nombre de solo
+ * espacios pasaba por `@IsString` y creaba una ficha sin identidad visible: sin
+ * nombre en el listado y sin forma de encontrarla buscando.
+ */
+const recortado = ({ value }: { value: unknown }): unknown =>
+  typeof value === "string" ? value.trim() : value;
 
 /** Un nacimiento en un dia que no existe, como `2026-02-30`. */
 @ValidatorConstraint({ name: "esDiaDeNacimiento" })
@@ -38,7 +48,9 @@ class EsDiaDeNacimiento implements ValidatorConstraintInterface {
  * telefono se valida de formato.
  */
 export class CreateClientDto {
+  @Transform(recortado)
   @IsString({ message: "El nombre es obligatorio" })
+  @IsNotEmpty({ message: "El nombre es obligatorio" })
   @MaxLength(200, { message: "El nombre no puede pasar de 200 caracteres" })
   name!: string;
   @IsOptional()
@@ -103,7 +115,9 @@ export class ClientNamesDto {
 /** Campos editables de un cliente (todos opcionales). */
 export class UpdateClientDto {
   @IsOptional()
+  @Transform(recortado)
   @IsString()
+  @IsNotEmpty({ message: "El nombre es obligatorio" })
   @MaxLength(200, { message: "El nombre no puede pasar de 200 caracteres" })
   name?: string;
   @IsOptional()
@@ -141,4 +155,21 @@ export class UpdateClientDto {
    */
   @IsOptional() @IsObject() ficha?: Record<string, unknown>;
   @IsOptional() @IsBoolean() active?: boolean;
+  /**
+   * Marca de la versión que se cargó al abrir el formulario. Si viene y la
+   * ficha ya cambió, la escritura se rechaza en vez de pisar lo que otra
+   * persona guardó mientras tanto.
+   */
+  @IsOptional()
+  @IsDateString(
+    {},
+    { message: "La versión de la ficha no es una fecha válida" }
+  )
+  updatedAt?: string;
+}
+
+/** La otra ficha del mismo cliente, la que se absorbe. */
+export class FusionarClienteDto {
+  @IsUUID("4", { message: "La ficha a fusionar no es válida" })
+  absorbidoId!: string;
 }

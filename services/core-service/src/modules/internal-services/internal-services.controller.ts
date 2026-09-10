@@ -3,21 +3,11 @@ import { Controller, Post, Body, BadRequestException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import { Service } from "../../entities/service.entity";
-import { ProfessionalService } from "../../entities/professional-service.entity";
+import { PreciosService } from "../precios/precios.service";
+import type { ServicioResuelto } from "../precios/precios.service";
 import { ResolveServicesDto } from "./dto/resolve-services.dto";
 
-/** Servicio con el precio y la duración que se aplican a una reserva concreta. */
-export interface ServicioResuelto {
-  id: string;
-  name: string;
-  price: number;
-  duration: number;
-  /** Ventana en que el profesional queda libre dentro del servicio. */
-  procesadoDesde: number | null;
-  procesadoMinutos: number | null;
-  /** Limpieza posterior, en la que sigue ocupado. */
-  bufferDespues: number;
-}
+export type { ServicioResuelto };
 
 /**
  * Endpoint interno (servicio-a-servicio) para que booking calcule el importe y
@@ -30,8 +20,7 @@ export class InternalServicesController {
   constructor(
     @InjectRepository(Service)
     private readonly serviceRepo: Repository<Service>,
-    @InjectRepository(ProfessionalService)
-    private readonly professionalServiceRepo: Repository<ProfessionalService>
+    private readonly precios: PreciosService
   ) {}
 
   /**
@@ -52,7 +41,7 @@ export class InternalServicesController {
       );
     }
 
-    const personalizados = await this.preciosDelProfesional(
+    const personalizados = await this.precios.tarifasDe(
       ids,
       dto.professionalId
     );
@@ -60,49 +49,8 @@ export class InternalServicesController {
     const porId = new Map(servicios.map((s) => [s.id, s]));
 
     // En el orden en que los pidió booking, que es el del reparto de la agenda.
-    return ids.map((id) => this.resolverUno(porId.get(id)!, personalizados));
-  }
-
-  /** Aplica al servicio los valores propios del profesional, si los tiene. */
-  private resolverUno(
-    servicio: Service,
-    personalizados: Map<string, ProfessionalService>
-  ): ServicioResuelto {
-    const propio = personalizados.get(servicio.id);
-    const duration = propio?.customDuration ?? servicio.duration;
-
-    // La ventana solo se propaga si sigue cabiendo en la duración efectiva.
-    const cabe =
-      servicio.procesadoDesde !== null &&
-      servicio.procesadoMinutos !== null &&
-      servicio.procesadoDesde + servicio.procesadoMinutos <= duration;
-
-    return {
-      id: servicio.id,
-      name: servicio.name,
-      price: propio?.customPrice ?? servicio.price,
-      duration,
-      procesadoDesde: cabe ? servicio.procesadoDesde : null,
-      procesadoMinutos: cabe ? servicio.procesadoMinutos : null,
-      bufferDespues: servicio.bufferDespues,
-    };
-  }
-
-  /**
-   * Precio y duración propios del profesional para esos servicios. Las columnas
-   * son nullable aunque el tipo diga `number`, así que el `??` de quien llame
-   * es el que decide si hay valor propio.
-   */
-  private async preciosDelProfesional(
-    serviceIds: string[],
-    professionalId?: string
-  ): Promise<Map<string, ProfessionalService>> {
-    if (!professionalId) return new Map();
-
-    const filas = await this.professionalServiceRepo.find({
-      where: { professionalId, serviceId: In(serviceIds) },
-    });
-
-    return new Map(filas.map((fila) => [fila.serviceId, fila]));
+    return ids.map((id) =>
+      this.precios.resolver(porId.get(id)!, personalizados.get(id))
+    );
   }
 }

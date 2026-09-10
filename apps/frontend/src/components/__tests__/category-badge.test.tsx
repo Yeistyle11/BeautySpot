@@ -19,16 +19,17 @@ describe("CategoryBadge", () => {
   });
 
   // Pintadas igual, el dueño ve todo clasificado, intenta filtrar por ello y no
-  // encuentra nada. La etiqueta heredada tiene que verse distinta y explicarse.
-  it("distingue la etiqueta heredada y dice por qué no filtra", () => {
+  // encuentra nada. La etiqueta heredada no puede tener forma de categoría.
+  it("dice que el servicio no tiene categoría, y qué etiqueta lleva", () => {
     render(<CategoryBadge nombre="Cabello" delCatalogo={false} />);
 
-    const insignia = screen.getByText("Cabello");
-    expect(insignia).toHaveAttribute(
+    const texto = screen.getByText(/Sin categoría · etiqueta: Cabello/);
+    expect(texto).toHaveAttribute(
       "title",
       expect.stringContaining("no se puede filtrar")
     );
-    expect(insignia.className).toContain("border-dashed");
+    // Texto y no insignia: es lo que la distingue de una categoría de verdad.
+    expect(texto.tagName).toBe("P");
   });
 
   it("la heredada no toma el color de ninguna categoría", () => {
@@ -36,7 +37,9 @@ describe("CategoryBadge", () => {
       <CategoryBadge nombre="Cabello" delCatalogo={false} color="#EC4899" />
     );
 
-    expect(screen.getByText("Cabello")).not.toHaveStyle({
+    expect(
+      screen.getByText(/Sin categoría · etiqueta: Cabello/)
+    ).not.toHaveStyle({
       color: "#EC4899",
     });
   });

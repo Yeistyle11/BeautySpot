@@ -46,8 +46,7 @@ interface EditMemberDialogProps {
 /**
  * Edicion de una cuenta en un solo formulario: datos personales, contrasena,
  * estado y vinculo con el perfil profesional. Se guarda todo junto porque cada
- * seccion pega contra un endpoint distinto y separarlo obligaria al usuario a
- * confirmar cuatro veces.
+ * seccion pega contra un endpoint distinto y separarlo pediria cuatro pasos.
  */
 export function EditMemberDialog({
   member,

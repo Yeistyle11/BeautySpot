@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from "@nestjs/common";
+import { Controller, Get, Param, ParseUUIDPipe, Query } from "@nestjs/common";
 import { Public } from "@beautyspot/nest-common";
 import { PublicService } from "./public.service";
 
@@ -14,21 +14,27 @@ export class PublicController {
     return this.publicService.listBusinesses(q, city);
   }
 
-  /** Devuelve el perfil público de un negocio por su slug. */
   @Get("businesses/slug/:slug")
   async getBusinessBySlug(@Param("slug") slug: string) {
     return this.publicService.getBusinessBySlug(slug);
   }
 
-  /** Lista los servicios públicos de un negocio. */
+  /**
+   * Lista los servicios públicos de un negocio. Con `professionalId`, con la
+   * tarifa de ese profesional, que es la que se cobrará.
+   */
   @Get("businesses/:id/services")
-  async getBusinessServices(@Param("id") businessId: string) {
-    return this.publicService.getBusinessServices(businessId);
+  async getBusinessServices(
+    @Param("id", ParseUUIDPipe) businessId: string,
+    @Query("professionalId") professionalId?: string
+  ) {
+    return this.publicService.getBusinessServices(businessId, professionalId);
   }
 
-  /** Lista los profesionales públicos de un negocio. */
   @Get("businesses/:id/professionals")
-  async getBusinessProfessionals(@Param("id") businessId: string) {
+  async getBusinessProfessionals(
+    @Param("id", ParseUUIDPipe) businessId: string
+  ) {
     return this.publicService.getBusinessProfessionals(businessId);
   }
 }

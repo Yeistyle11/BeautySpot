@@ -41,4 +41,12 @@ describe("politica de contenido", () => {
     expect(directivas).toContain("form-action 'self'");
     expect(directivas).toContain("base-uri 'self'");
   });
+
+  it("no permite eval fuera de desarrollo", async () => {
+    const scriptSrc = (await cabeceras())["Content-Security-Policy"]
+      .split("; ")
+      .find((d) => d.startsWith("script-src "));
+
+    expect(scriptSrc).not.toContain("'unsafe-eval'");
+  });
 });

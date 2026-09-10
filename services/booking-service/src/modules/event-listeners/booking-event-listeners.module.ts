@@ -1,13 +1,17 @@
 import { Module } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
 import { ConfigService } from "@nestjs/config";
 import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { EVENTS_EXCHANGE, DEAD_LETTER_EXCHANGE } from "@beautyspot/event-types";
 import { BookingEventListeners } from "./booking-event-listeners.service";
 import { AvailabilityModule } from "../availability/availability.module";
+import { Appointment } from "../../entities/appointment.entity";
 
 @Module({
   imports: [
     AvailabilityModule,
+    // Las citas de la ficha absorbida se reasignan al fusionar dos clientes.
+    TypeOrmModule.forFeature([Appointment]),
     RabbitMQModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

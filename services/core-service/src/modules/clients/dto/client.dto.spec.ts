@@ -39,6 +39,20 @@ describe("CreateClientDto", () => {
     ).resolves.toMatchObject({ name: "Carlos Pérez" });
   });
 
+  // Un nombre de solo espacios pasaba el @IsString y creaba una ficha sin
+  // identidad: en blanco en el listado e imposible de encontrar buscando.
+  it("rechaza un nombre que solo son espacios", async () => {
+    await expect(
+      pipe.transform({ ...fichaDelMostrador, name: "   " }, metadata)
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("recorta los espacios de los extremos del nombre", async () => {
+    await expect(
+      pipe.transform({ ...fichaDelMostrador, name: "  Ana  " }, metadata)
+    ).resolves.toMatchObject({ name: "Ana" });
+  });
+
   it("acepta una fecha de nacimiento que existe", async () => {
     await expect(motivosDe("1990-02-28")).resolves.toBe("");
   });
@@ -62,5 +76,14 @@ describe("CreateClientDto", () => {
     expect(await motivosDe("2026-02-30", UpdateClientDto)).toContain(
       "no existe en el calendario"
     );
+  });
+
+  it("tampoco deja dejar el nombre en blanco al editar", async () => {
+    await expect(
+      pipe.transform(
+        { name: "   " },
+        { type: "body", metatype: UpdateClientDto as never }
+      )
+    ).rejects.toThrow(BadRequestException);
   });
 });

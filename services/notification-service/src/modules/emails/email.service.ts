@@ -60,7 +60,6 @@ export class EmailService {
     return { jobId: job.id! };
   }
 
-  /** Envía el correo de confirmación de una cita. */
   async sendAppointmentConfirmation(
     to: string,
     data: {
@@ -116,7 +115,6 @@ export class EmailService {
     });
   }
 
-  /** Envía el aviso de cita cancelada. */
   async sendAppointmentCancelled(
     to: string,
     data: {
@@ -178,7 +176,6 @@ export class EmailService {
     });
   }
 
-  /** Envía el correo de bienvenida a un nuevo usuario. */
   async sendWelcomeEmail(
     to: string,
     data: { clientName: string; businessName?: string }
@@ -259,7 +256,6 @@ export class EmailService {
     });
   }
 
-  /** Encola el recordatorio de cita de 24 horas. */
   async queueAppointmentReminder24h(
     to: string,
     data: {
@@ -301,14 +297,18 @@ export class EmailService {
     });
   }
 
-  /** Encola el aviso de cita cancelada. */
   async queueAppointmentCancelled(
     to: string,
     data: {
       clientName: string;
       professionalName: string;
       serviceName: string;
+      /** Fecha y hora de la cita que se cancela. */
+      appointmentDate: string;
+      appointmentTime: string;
+      /** Cuándo se canceló, que no es cuándo era la cita. */
       cancelledDate: string;
+      /** Motivo tipificado y redactado para el cliente, nunca la nota interna. */
       reason: string;
       businessName: string;
     }

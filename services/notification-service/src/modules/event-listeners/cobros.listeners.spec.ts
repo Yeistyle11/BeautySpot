@@ -1,4 +1,4 @@
-import { PaymentMethod } from "@beautyspot/shared-types";
+import { METODO_MIXTO, PaymentMethod } from "@beautyspot/shared-types";
 import { EmailService } from "../emails/email.service";
 import { DataEnricherService } from "../data-enricher/data-enricher.service";
 import { CobrosListeners } from "./cobros.listeners";
@@ -127,6 +127,37 @@ describe("CobrosListeners", () => {
           clientName: "Juan Cliente",
         })
       );
+    });
+
+    // Un cobro repartido no tiene un metodo, tiene varios: si alguna parte
+    // entro en efectivo, de esa el cliente no se lleva comprobante.
+    it("manda recibo del cobro repartido cuando parte entró sin comprobante", async () => {
+      await listeners.handlePaymentRegistered({
+        ...mockPaymentRegisteredEvent,
+        payload: {
+          ...mockPaymentRegisteredEvent.payload,
+          method: METODO_MIXTO,
+          metodos: [
+            { method: PaymentMethod.CARD, amount: 40000 },
+            { method: PaymentMethod.CASH, amount: 40000 },
+          ],
+        },
+      } as never);
+
+      expect(mockEmailService.queueInvoice).toHaveBeenCalled();
+    });
+
+    it("no manda recibo si todo el reparto dejó comprobante", async () => {
+      await listeners.handlePaymentRegistered({
+        ...mockPaymentRegisteredEvent,
+        payload: {
+          ...mockPaymentRegisteredEvent.payload,
+          method: METODO_MIXTO,
+          metodos: [{ method: PaymentMethod.CARD, amount: 80000 }],
+        },
+      } as never);
+
+      expect(mockEmailService.queueInvoice).not.toHaveBeenCalled();
     });
 
     it("detalla en el recibo lo que se cobró", async () => {

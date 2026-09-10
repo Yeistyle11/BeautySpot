@@ -1,3 +1,5 @@
+"use client";
+
 import { mutate as globalMutate } from "swr";
 import type { ZodType } from "zod";
 import { api } from "./api";
@@ -55,9 +57,8 @@ export function useCrudResource<T>({
 
 /**
  * Para colecciones que crecen sin limite ({ data, meta }): añade paginacion y
- * busqueda contra el servidor sobre el CRUD. Tras mutar se revalida el recurso
- * entero, no solo la pagina visible, porque insertar o borrar desplaza los
- * elementos de todas las paginas siguientes.
+ * busqueda contra el servidor. Tras mutar revalida el recurso entero, porque
+ * insertar o borrar desplaza los elementos de todas las paginas siguientes.
  */
 export function usePaginatedCrudResource<T>({
   basePath,

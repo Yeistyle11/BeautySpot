@@ -13,13 +13,8 @@ const PROFESIONAL = "33333333-3333-4333-8333-333333333333";
 
 /**
  * Comprueba contra Postgres real que el sondeo de recordatorios avanza por
- * cursor y no se salta citas.
- *
- * El unitario solo puede mirar el SQL que se genera, y aquí lo que importa son
- * dos cosas que solo se ven contra la base: que la comparación de fila
- * `(fecha, hora, id) > (…)` es válida, y que marcar las citas de una página no
- * desplaza la siguiente. Requiere la infraestructura levantada; se ejecuta con
- * `npm run test:int`.
+ * cursor y no se salta citas: la comparación de fila `(fecha, hora, id) > (…)`
+ * es válida y marcar una página no desplaza la siguiente (`npm run test:int`).
  */
 describe("Integración: el sondeo de recordatorios no se salta citas", () => {
   let dataSource: DataSource;

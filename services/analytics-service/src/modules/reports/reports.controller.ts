@@ -10,7 +10,6 @@ import { DateRangeQueryDto } from "./dto/report-query.dto";
 export class ReportsController {
   constructor(private readonly service: ReportsService) {}
 
-  /** Reporte de ingresos del periodo. */
   @Get("revenue")
   async getRevenueReport(
     @BusinessId() businessId: string,
@@ -19,7 +18,6 @@ export class ReportsController {
     return this.service.getRevenueReport(businessId, query.from, query.to);
   }
 
-  /** Reporte de desempeño por profesional del periodo. */
   @Get("professionals")
   async getProfessionalsReport(
     @BusinessId() businessId: string,

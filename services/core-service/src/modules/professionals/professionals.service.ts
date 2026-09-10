@@ -9,6 +9,7 @@ import {
   InternalHttpClient,
   OutboxService,
   TenantCrudService,
+  esViolacionDeUnicidad,
 } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { Repository, DataSource } from "typeorm";
@@ -47,7 +48,6 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     await this.categories.findById(categoryId, businessId);
   }
 
-  /** Da de alta un profesional en el negocio. */
   async create(
     businessId: string,
     data: Partial<Professional>
@@ -110,13 +110,27 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     await this.findById(professionalId, businessId);
     await this.validarServicio(serviceId, businessId);
 
-    const ps = this.psRepo.create({
-      professionalId,
-      serviceId,
-      customPrice,
-      customDuration,
+    // Asignar es idempotente: cambiar la tarifa de un servicio ya asignado es lo
+    // habitual y otra fila chocaría con el único (professional, service). Cobrar
+    // lo del catálogo se expresa vaciando la tarifa propia, no borrando la fila.
+    const existente = await this.psRepo.findOne({
+      where: { professionalId, serviceId },
     });
-    return this.psRepo.save(ps);
+    const ps = this.psRepo.create({
+      ...(existente ?? { professionalId, serviceId }),
+      customPrice: customPrice ?? (null as unknown as number),
+      customDuration: customDuration ?? (null as unknown as number),
+    });
+
+    return this.psRepo.save(ps).catch((error: unknown) => {
+      // Dos asignaciones a la vez pasan las dos por el findOne de arriba.
+      if (esViolacionDeUnicidad(error)) {
+        throw new ConflictException(
+          "Ese servicio ya se le acababa de asignar a este profesional"
+        );
+      }
+      throw error;
+    });
   }
 
   /** Comprueba que el servicio pertenece al negocio antes de asignarlo. */
@@ -132,7 +146,6 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     }
   }
 
-  /** Quita la asignación de un servicio a un profesional. */
   async removeServiceAssignment(
     professionalId: string,
     serviceId: string,
@@ -143,7 +156,6 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     await this.psRepo.delete({ professionalId, serviceId });
   }
 
-  /** Lista los servicios que presta un profesional. */
   async getServices(
     professionalId: string,
     businessId: string
@@ -197,7 +209,6 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     return this.findById(id, businessId);
   }
 
-  /** Desvincula la cuenta de usuario de un profesional. */
   async unlinkUser(id: string, businessId: string): Promise<Professional> {
     const professional = await this.findById(id, businessId);
 

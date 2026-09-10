@@ -2,10 +2,8 @@ import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
  * Ficha del cliente que cada negocio se define: los campos en su propia tabla y
- * los valores en un jsonb del cliente.
- *
- * No son columnas fijas porque una barbería y un centro estético no piden lo
- * mismo, y añadir un campo no debería costar una migración.
+ * los valores en un jsonb del cliente. No son columnas fijas porque cada tipo
+ * de negocio pide lo suyo, y añadir un campo no debería costar una migración.
  */
 export class FichaDelCliente1700000000008 implements MigrationInterface {
   name = "FichaDelCliente1700000000008";

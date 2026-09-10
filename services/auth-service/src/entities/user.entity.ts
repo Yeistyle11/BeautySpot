@@ -5,12 +5,9 @@ import { Membership } from "./membership.entity";
 import { PasswordReset } from "./password-reset.entity";
 
 /**
- * Cuenta de usuario de la plataforma: credenciales, perfil y sus membresías a
- * negocios.
- *
+ * Cuenta de usuario de la plataforma: credenciales, perfil y sus membresías.
  * Lo marcado con `@Exclude()` es maquinaria de la sesión y no sale en ninguna
- * respuesta: el serializador lo quita si la entidad viaja entera, y
- * `toSafeUser` lo quita cuando se devuelve como objeto plano.
+ * respuesta, ni entera ni por `toSafeUser`.
  */
 @Entity("users")
 export class User extends BaseEntity {

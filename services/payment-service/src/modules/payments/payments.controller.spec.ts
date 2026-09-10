@@ -2,7 +2,7 @@ import { validate } from "class-validator";
 import { plainToInstance } from "class-transformer";
 import { CitasCobradasDto, PaymentsController } from "./payments.controller";
 import { PaymentsService } from "./payments.service";
-import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
+import { PaymentMethod, Role } from "@beautyspot/shared-types";
 
 /** El DTO tal y como lo arma el ValidationPipe a partir del query string. */
 function desdeLaQuery(appointmentIds: unknown): CitasCobradasDto {
@@ -64,7 +64,6 @@ describe("PaymentsController", () => {
       citasYaCobradas: jest.fn().mockResolvedValue([UNA]),
       getDailySummary: jest.fn().mockResolvedValue({ total: 0 }),
       findById: jest.fn().mockResolvedValue({ id: "pay-1" }),
-      updateStatus: jest.fn().mockResolvedValue({ id: "pay-1" }),
       refundPayment: jest.fn().mockResolvedValue({ id: "pay-1" }),
     } as unknown as jest.Mocked<PaymentsService>;
 
@@ -78,7 +77,7 @@ describe("PaymentsController", () => {
       method: PaymentMethod.CARD,
     } as never;
 
-    await controller.create(NEGOCIO, SEDE, CAJERO, dto);
+    await controller.create(NEGOCIO, SEDE, CAJERO, Role.ADMIN, dto);
 
     expect(service.create).toHaveBeenCalledWith(NEGOCIO, {
       clientId: "cli-1",
@@ -86,6 +85,7 @@ describe("PaymentsController", () => {
       method: PaymentMethod.CARD,
       branchId: SEDE,
       registeredBy: CAJERO,
+      rol: Role.ADMIN,
     });
   });
 
@@ -135,18 +135,6 @@ describe("PaymentsController", () => {
     await controller.findById("pay-1", NEGOCIO);
 
     expect(service.findById).toHaveBeenCalledWith("pay-1", NEGOCIO);
-  });
-
-  it("cambia el estado dentro del negocio", async () => {
-    await controller.updateStatus("pay-1", NEGOCIO, {
-      status: PaymentStatus.CANCELLED,
-    } as never);
-
-    expect(service.updateStatus).toHaveBeenCalledWith(
-      "pay-1",
-      NEGOCIO,
-      PaymentStatus.CANCELLED
-    );
   });
 
   // Quién devolvió el dinero se toma del token: una devolución sin autor

@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Between, Repository } from "typeorm";
 import { BlockedSlotsService } from "./blocked-slots.service";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
 import { Appointment } from "../../entities/appointment.entity";
@@ -141,9 +141,34 @@ describe("BlockedSlotsService", () => {
 
       expect(mockRepo.find).toHaveBeenCalledWith({
         where: { businessId: "business-123", date: "2026-08-20" },
-        order: { startTime: "ASC" },
+        order: { date: "ASC", startTime: "ASC" },
       });
       expect(result).toEqual([mockBlockedSlot]);
+    });
+
+    // La vista semana los pide de siete en siete; sin ellos, la tarde de quien
+    // esta de vacaciones se veia libre.
+    it("trae el rango entero cuando se le pide hasta donde", async () => {
+      mockRepo.find.mockResolvedValue([mockBlockedSlot]);
+
+      await service.findByDate("business-123", "2026-08-24", "2026-08-30");
+
+      expect(mockRepo.find).toHaveBeenCalledWith({
+        where: {
+          businessId: "business-123",
+          date: Between("2026-08-24", "2026-08-30"),
+        },
+        order: { date: "ASC", startTime: "ASC" },
+      });
+    });
+
+    it("un rango que no avanza se resuelve como un solo dia", async () => {
+      mockRepo.find.mockResolvedValue([]);
+
+      await service.findByDate("business-123", "2026-08-24", "2026-08-24");
+
+      const [{ where }] = (mockRepo.find as jest.Mock).mock.calls[0];
+      expect(where.date).toBe("2026-08-24");
     });
 
     it("no acota por profesional: la vista dia los pinta todos", async () => {
@@ -237,8 +262,8 @@ describe("BlockedSlotsService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    // Un bloqueo encima de una cita viva la dejaba huérfana: seguía agendada en
-    // una franja que la agenda ya daba por cerrada.
+    // Un bloqueo encima de una cita viva la deja huérfana: sigue agendada en una
+    // franja que la agenda ya da por cerrada.
     it("avisa si la franja tiene citas vivas encima", async () => {
       mockApptRepo.find.mockResolvedValue([
         { date: MANANA, startTime: "12:30", endTime: "13:30" },

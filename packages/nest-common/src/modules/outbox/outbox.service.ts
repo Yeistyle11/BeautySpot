@@ -11,10 +11,9 @@ export interface OutboxMessageInput {
 }
 
 /**
- * Persiste eventos en la tabla outbox dentro de la misma transacción que el cambio
- * de negocio (patrón Transactional Outbox). Así el evento se guarda atómicamente
- * con los datos y luego lo publica {@link OutboxRelayWorker}, evitando perder
- * eventos si RabbitMQ está caído en el momento de la operación.
+ * Persiste eventos en la tabla outbox dentro de la misma transacción que el
+ * cambio de negocio, para que {@link OutboxRelayWorker} los publique después y
+ * no se pierda ninguno si RabbitMQ está caído.
  */
 @Injectable()
 export class OutboxService {

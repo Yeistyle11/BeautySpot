@@ -27,6 +27,13 @@ export const businessHourSchema = z.object({
 });
 export type BusinessHour = z.infer<typeof businessHourSchema>;
 
+/**
+ * Lo que el formulario mantiene y reenvia: exactamente los campos que admite
+ * BusinessHourItemDto. El `id` de la entidad se queda fuera a proposito, porque
+ * el validador del backend rechaza cualquier campo de mas.
+ */
+export type BusinessHourForm = Omit<BusinessHour, "id">;
+
 // La semana arranca en lunes (1) y cierra en domingo (0), como los numera
 // getDay() y como los espera el backend.
 export const DAYS = [
@@ -39,12 +46,37 @@ export const DAYS = [
   { value: 0, label: "Domingo" },
 ];
 
-export const defaultHours: BusinessHour[] = DAYS.map((d) => ({
+export const defaultHours: BusinessHourForm[] = DAYS.map((d) => ({
   dayOfWeek: d.value,
   openTime: "08:00",
   closeTime: "18:00",
   active: d.value >= 1 && d.value <= 5,
 }));
+
+/**
+ * Pasa los tramos guardados a la forma que admite BusinessHourItemDto, un
+ * registro por dia de la semana. Se copia campo a campo porque la entidad llega
+ * con `id` y el validador del backend rechaza cualquier campo de mas.
+ */
+export function sembrarHorarios(guardados: BusinessHour[]): BusinessHourForm[] {
+  return DAYS.map((d) => {
+    const guardado = guardados.find((h) => h.dayOfWeek === d.value);
+    if (!guardado) {
+      return {
+        dayOfWeek: d.value,
+        openTime: "08:00",
+        closeTime: "18:00",
+        active: false,
+      };
+    }
+    return {
+      dayOfWeek: guardado.dayOfWeek,
+      openTime: guardado.openTime,
+      closeTime: guardado.closeTime,
+      active: guardado.active,
+    };
+  });
+}
 
 /** Tipos de dato que puede pedir un campo de la ficha del cliente. */
 export const TIPOS_DE_CAMPO = [
@@ -85,8 +117,34 @@ export const facturacionSchema = z.object({
   nit: z.string().nullish(),
   direccionFiscal: z.string().nullish(),
   serie: z.string().nullish(),
+  /** Impuesto con el que se factura, en porcentaje. */
+  tasaDeImpuesto: z.number().nullish(),
 });
 export type Facturacion = z.infer<typeof facturacionSchema>;
+
+/** Lo que se aplica si el negocio no fija el suyo: el IVA colombiano. */
+export const TASA_DE_IMPUESTO_POR_DEFECTO = 19;
+
+/**
+ * Lo que se manda al guardar los datos fiscales. La tasa llega como texto:
+ * vacia significa «el de por defecto», y no cero, que es otra decision —
+ * facturar sin impuesto— y hay que escribirla.
+ */
+export function facturacionParaGuardar(
+  facturacion: Facturacion,
+  tasa: string
+): Facturacion {
+  const limpia = tasa.trim();
+  const numero = Number(limpia);
+
+  return {
+    ...facturacion,
+    tasaDeImpuesto:
+      limpia && Number.isFinite(numero) && numero >= 0 && numero <= 100
+        ? numero
+        : undefined,
+  };
+}
 
 export const FACTURACION_KEY = "/core/business-config/facturacion";
 

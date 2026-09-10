@@ -1,4 +1,5 @@
-import { NotFoundException } from "@nestjs/common";
+import { ConflictException, NotFoundException } from "@nestjs/common";
+import { CODIGO_EDICION_SIMULTANEA } from "@beautyspot/shared-constants";
 import { FindOptionsWhere, Repository } from "typeorm";
 
 /** Forma mínima de una entidad que pertenece a un negocio y admite baja lógica. */
@@ -6,6 +7,7 @@ export interface EntidadDeNegocio {
   id: string;
   businessId: string;
   active: boolean;
+  updatedAt: Date;
 }
 
 /** Lectura, actualización y baja de una entidad, siempre acotadas al negocio. */
@@ -25,13 +27,52 @@ export abstract class TenantCrudService<T extends EntidadDeNegocio> {
     return encontrado;
   }
 
-  /** Actualiza un elemento del negocio y devuelve cómo queda. */
-  async update(id: string, businessId: string, data: Partial<T>): Promise<T> {
-    await this.repo.update(
-      { id, businessId } as FindOptionsWhere<T>,
-      data as never
-    );
-    return this.findById(id, businessId);
+  /**
+   * Actualiza un elemento del negocio y devuelve cómo queda. Con
+   * `updatedAtEsperado` la escritura es condicional y responde 409 si la fila
+   * cambió; sin él se escribe sin más, como en las rutas de un solo editor.
+   */
+  async update(
+    id: string,
+    businessId: string,
+    data: Partial<T>,
+    updatedAtEsperado?: Date
+  ): Promise<T> {
+    if (!updatedAtEsperado) {
+      await this.repo.update(
+        { id, businessId } as FindOptionsWhere<T>,
+        data as never
+      );
+      return this.findById(id, businessId);
+    }
+
+    return this.repo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository<T>(this.repo.target);
+      const donde = { id, businessId } as FindOptionsWhere<T>;
+
+      // El bloqueo sostiene la fila entre el cotejo y la escritura: sin él, dos
+      // guardados con la misma marca de partida pasarían los dos el cotejo.
+      const actual = await repo.findOne({
+        where: donde,
+        lock: { mode: "pessimistic_write" },
+      });
+      if (!actual) throw new NotFoundException(this.mensajeNoEncontrado);
+
+      if (actual.updatedAt.getTime() !== updatedAtEsperado.getTime()) {
+        throw new ConflictException({
+          error: {
+            code: CODIGO_EDICION_SIMULTANEA,
+            message:
+              "Otra persona guardó cambios mientras editabas. Recarga para ver cómo ha quedado.",
+          },
+        });
+      }
+
+      await repo.update(donde, data as never);
+      const guardado = await repo.findOne({ where: donde });
+      if (!guardado) throw new NotFoundException(this.mensajeNoEncontrado);
+      return guardado;
+    });
   }
 
   /** Da de baja un elemento del negocio sin borrarlo. */

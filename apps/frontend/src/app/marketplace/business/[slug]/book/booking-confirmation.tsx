@@ -14,6 +14,23 @@ interface BookingConfirmationProps {
   slug: string;
   date: string;
   isAuthenticated: boolean;
+  /** Contacto con el que se reservo, del que depende lo que se puede prometer. */
+  contacto: { email?: string | null; phone?: string | null };
+}
+
+/**
+ * Lo que el negocio podra hacer con lo que el cliente dejo. Prometer un correo
+ * a quien no dio ninguno deja esperando una confirmacion que no va a llegar.
+ */
+function avisoDeContacto(contacto: {
+  email?: string | null;
+  phone?: string | null;
+}): string {
+  if (contacto.email) {
+    return `Recibirás un correo de confirmación en ${contacto.email}`;
+  }
+  if (contacto.phone) return "El negocio te confirmará la cita por teléfono";
+  return "Anota la fecha y la hora: no dejaste ningún dato de contacto con el que avisarte";
 }
 
 /** Pantalla final tras reservar, con el resumen de lo agendado. */
@@ -23,6 +40,7 @@ export function BookingConfirmation({
   slug,
   date,
   isAuthenticated,
+  contacto,
 }: BookingConfirmationProps) {
   return (
     <div className="mx-auto max-w-lg px-4 py-16 text-center">
@@ -30,9 +48,7 @@ export function BookingConfirmation({
         <CheckCircle className="h-10 w-10" />
       </div>
       <h1 className="mt-6 text-2xl font-bold">Tu cita ha sido reservada</h1>
-      <p className="text-muted-foreground mt-2">
-        Recibiras un correo de confirmacion
-      </p>
+      <p className="text-muted-foreground mt-2">{avisoDeContacto(contacto)}</p>
       <Card className="mt-6 border-0 text-left shadow-sm">
         <CardContent className="space-y-2 p-6">
           <p className="text-sm">

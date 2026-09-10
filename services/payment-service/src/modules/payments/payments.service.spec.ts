@@ -3,11 +3,17 @@ import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository, DataSource } from "typeorm";
 import { PaymentsService, conceptoDelCobro } from "./payments.service";
 import { PaymentEntity } from "./payment.entity";
-import { NotFoundException, BadRequestException } from "@nestjs/common";
 import {
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from "@nestjs/common";
+import {
+  METODO_MIXTO,
   PaymentMethod,
   PaymentStatus,
   CashMovementType,
+  Role,
 } from "@beautyspot/shared-types";
 import {
   InternalHttpClient,
@@ -63,6 +69,12 @@ describe("PaymentsService", () => {
       // consulta y crea sobre las entidades de arqueo.
       findOne: jest.fn().mockResolvedValue({ id: "cash-session-1" }),
       create: jest.fn((data) => data),
+      // Las lineas del cobro: la devolucion mira por ellas cuanto entro en
+      // efectivo.
+      find: jest
+        .fn()
+        .mockResolvedValue([{ method: PaymentMethod.CASH, amount: 100 }]),
+      delete: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     mockManager = {
       getRepository: jest.fn().mockReturnValue(mockManagerRepo),
@@ -124,6 +136,12 @@ describe("PaymentsService", () => {
         businessId: "business-123",
         puntosUsados: 0,
         descuento: 0,
+        descuentoComercial: 0,
+        motivoDescuento: null,
+        propina: 0,
+        // Un cobro de un solo medio guarda igualmente su linea: la caja y el
+        // arqueo leen de ahi.
+        splits: [{ method: PaymentMethod.CASH, amount: 100 }],
       });
       // el save ocurre a traves del repositorio del manager (dentro de la tx)
       expect(mockManagerRepo.save).toHaveBeenCalledWith(mockPayment);
@@ -274,7 +292,162 @@ describe("PaymentsService", () => {
       mockManagerRepo.findOne.mockResolvedValue(null);
 
       await expect(service.create("business-123", data)).resolves.toBeDefined();
-      expect(mockManagerRepo.create).not.toHaveBeenCalled();
+      // Se escribe la linea del cobro, pero ningun movimiento de caja: sin
+      // caja abierta, la tarjeta entra igual y el efectivo no.
+      expect(mockManagerRepo.create).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: CashMovementType.IN })
+      );
+    });
+
+    describe("descuento, propina y reparto", () => {
+      /** Alta de 100 con lo que se le indique encima. */
+      const alta = (extra: Record<string, unknown>) => ({
+        clientId: "client-123",
+        amount: 100,
+        method: PaymentMethod.CASH,
+        registeredBy: "user-123",
+        ...extra,
+      });
+
+      beforeEach(() => {
+        mockRepo.create.mockReturnValue(mockPayment);
+        mockManagerRepo.save.mockResolvedValue(mockPayment);
+      });
+
+      // El descuento sale del margen del negocio: quien esta en el mostrador
+      // cobra, pero no decide regalar.
+      it("recepción no puede descontar", async () => {
+        await expect(
+          service.create(
+            "business-123",
+            alta({
+              descuentoComercial: 20,
+              motivoDescuento: "cliente fiel",
+              rol: Role.RECEPTIONIST,
+            })
+          )
+        ).rejects.toThrow(ForbiddenException);
+      });
+
+      it("un descuento sin motivo no dice qué se regaló", async () => {
+        await expect(
+          service.create(
+            "business-123",
+            alta({ descuentoComercial: 20, rol: Role.ADMIN })
+          )
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it("guarda el descuento del dueño con su motivo", async () => {
+        await service.create(
+          "business-123",
+          alta({
+            descuentoComercial: 20,
+            motivoDescuento: "  promoción del martes  ",
+            rol: Role.OWNER,
+          })
+        );
+
+        expect(mockRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            descuentoComercial: 20,
+            motivoDescuento: "promoción del martes",
+          })
+        );
+      });
+
+      // La propina entra al cajon con el cobro, asi que la linea suma las dos
+      // cosas; lo que no hace es engordar la venta.
+      it("la propina viaja en la línea pero no en el importe", async () => {
+        await service.create("business-123", alta({ propina: 15 }));
+
+        expect(mockRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            amount: 100,
+            propina: 15,
+            splits: [{ method: PaymentMethod.CASH, amount: 115 }],
+          })
+        );
+      });
+
+      it("reparte el cobro entre dos medios y lo marca como mixto", async () => {
+        await service.create(
+          "business-123",
+          alta({
+            metodos: [
+              { method: PaymentMethod.CASH, amount: 40 },
+              { method: PaymentMethod.CARD, amount: 60 },
+            ],
+          })
+        );
+
+        expect(mockRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            method: METODO_MIXTO,
+            splits: [
+              { method: PaymentMethod.CASH, amount: 40 },
+              { method: PaymentMethod.CARD, amount: 60 },
+            ],
+          })
+        );
+      });
+
+      it("no acepta un reparto que no cuadra con el cobro", async () => {
+        await expect(
+          service.create(
+            "business-123",
+            alta({
+              propina: 10,
+              metodos: [
+                { method: PaymentMethod.CASH, amount: 40 },
+                { method: PaymentMethod.CARD, amount: 60 },
+              ],
+            })
+          )
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it("no acepta el mismo medio dos veces", async () => {
+        await expect(
+          service.create(
+            "business-123",
+            alta({
+              metodos: [
+                { method: PaymentMethod.CASH, amount: 40 },
+                { method: PaymentMethod.CASH, amount: 60 },
+              ],
+            })
+          )
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      // El arqueo desglosa por medio y solo cuadra el cajon contra el
+      // efectivo: cada parte necesita su movimiento.
+      it("deja un movimiento de caja por cada medio", async () => {
+        await service.create(
+          "business-123",
+          alta({
+            metodos: [
+              { method: PaymentMethod.CASH, amount: 40 },
+              { method: PaymentMethod.CARD, amount: 60 },
+            ],
+          })
+        );
+
+        const movimientos = mockManagerRepo.create.mock.calls
+          .map(([datos]: [Record<string, unknown>]) => datos)
+          .filter((datos: any) => datos.type === CashMovementType.IN);
+        expect(movimientos).toEqual([
+          expect.objectContaining({
+            method: PaymentMethod.CASH,
+            amount: 40,
+          }),
+          expect.objectContaining({
+            method: PaymentMethod.CARD,
+            amount: 60,
+          }),
+        ]);
+      });
     });
 
     describe("cobro asociado a una cita", () => {
@@ -303,6 +476,20 @@ describe("PaymentsService", () => {
             "/internal/appointments/appointment-123/cobro"
           )
         );
+      });
+
+      // La cita vale 100: con 20 de descuento el cliente paga 80, y el cuadre
+      // tiene que contar lo que se regalo igual que cuenta los puntos.
+      it("cuadra con la cita contando el descuento concedido", async () => {
+        await expect(
+          service.create("business-123", {
+            ...conCita,
+            amount: 80,
+            descuentoComercial: 20,
+            motivoDescuento: "promoción del martes",
+            rol: Role.OWNER,
+          })
+        ).resolves.toBeDefined();
       });
 
       it("rechaza un importe distinto al de la cita", async () => {
@@ -506,8 +693,26 @@ describe("PaymentsService", () => {
       order: "DESC" as const,
     };
 
+    /** El listado se arma con query builder: necesita un join contra las líneas. */
+    const mockListado = (filas: unknown[], total = filas.length) => {
+      const qb: Record<string, jest.Mock> = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([filas, total]),
+      };
+      mockRepo.createQueryBuilder.mockReturnValue(qb as never);
+      return qb;
+    };
+
+    /** Condiciones SQL que el listado acabó pidiendo. */
+    const condiciones = (qb: Record<string, jest.Mock>) =>
+      qb.andWhere.mock.calls.map(([sql]) => String(sql)).join(" | ");
+
     it("devuelve una página con metadatos de paginación", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[mockPayment], 1]);
+      const qb = mockListado([mockPayment], 1);
 
       const result = await service.findByBusiness(
         "business-123",
@@ -515,21 +720,20 @@ describe("PaymentsService", () => {
         pagination
       );
 
-      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { businessId: "business-123" },
-          skip: 0,
-          take: 20,
-          order: { createdAt: "DESC" },
-        })
-      );
+      expect(qb.where).toHaveBeenCalledWith("p.business_id = :businessId", {
+        businessId: "business-123",
+      });
+      expect(qb.skip).toHaveBeenCalledWith(0);
+      expect(qb.take).toHaveBeenCalledWith(20);
       expect(result.data).toEqual([mockPayment]);
       expect(result.meta.total).toBe(1);
       expect(result.meta.page).toBe(1);
     });
 
-    it("debería filtrar por método", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[mockPayment], 1]);
+    // Un cobro repartido vale MIXED en su columna, así que el filtro tiene que
+    // mirar también sus líneas o esconde el cobro de los tres medios concretos.
+    it("al filtrar por método alcanza también las líneas del reparto", async () => {
+      const qb = mockListado([mockPayment]);
 
       await service.findByBusiness(
         "business-123",
@@ -537,15 +741,16 @@ describe("PaymentsService", () => {
         pagination
       );
 
-      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { businessId: "business-123", method: PaymentMethod.CASH },
-        })
-      );
+      const sql = condiciones(qb);
+      expect(sql).toContain("p.method = :method");
+      expect(sql).toContain("payment_splits");
+      expect(qb.andWhere).toHaveBeenCalledWith(expect.any(String), {
+        method: PaymentMethod.CASH,
+      });
     });
 
     it("debería filtrar por estado", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[mockPayment], 1]);
+      const qb = mockListado([mockPayment]);
 
       await service.findByBusiness(
         "business-123",
@@ -553,18 +758,13 @@ describe("PaymentsService", () => {
         pagination
       );
 
-      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            businessId: "business-123",
-            status: PaymentStatus.COMPLETED,
-          },
-        })
-      );
+      expect(qb.andWhere).toHaveBeenCalledWith("p.status = :status", {
+        status: PaymentStatus.COMPLETED,
+      });
     });
 
     it("debería filtrar por rango de fechas", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[mockPayment], 1]);
+      const qb = mockListado([mockPayment]);
 
       await service.findByBusiness(
         "business-123",
@@ -572,14 +772,7 @@ describe("PaymentsService", () => {
         pagination
       );
 
-      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            businessId: "business-123",
-            createdAt: expect.any(Object),
-          },
-        })
-      );
+      expect(condiciones(qb)).toContain("p.created_at BETWEEN :from AND :to");
     });
   });
 
@@ -604,87 +797,40 @@ describe("PaymentsService", () => {
     });
   });
 
-  describe("updateStatus", () => {
-    /** Deja el pago en el estado indicado antes de intentar la transición. */
-    const pagoEn = (status: PaymentStatus) =>
+  describe("correctPayment", () => {
+    // Esta via reescribe un importe y un medio. Un cobro repartido tiene
+    // varias partes y varios movimientos de caja detras.
+    it("no corrige un cobro repartido entre varios medios", async () => {
       mockRepo.findOne.mockResolvedValue({
         ...mockPayment,
-        status,
-        generateId: () => {},
+        status: PaymentStatus.COMPLETED,
+        method: METODO_MIXTO,
       } as any);
 
-    it("debería actualizar el estado del pago", async () => {
-      pagoEn(PaymentStatus.PENDING);
-
-      const result = await service.updateStatus(
-        "payment-123",
-        "business-123",
-        PaymentStatus.COMPLETED
-      );
-
-      expect(mockRepo.update).toHaveBeenCalledWith(
-        { id: "payment-123", businessId: "business-123" },
-        { status: PaymentStatus.COMPLETED }
-      );
-      expect(result.status).toBe(PaymentStatus.PENDING);
-    });
-
-    // El importe, el motivo, el autor y la ventana de 30 dias los comprueba
-    // refundPayment.
-    it("no deja marcar un pago como reembolsado por esta vía", async () => {
-      pagoEn(PaymentStatus.COMPLETED);
-
       await expect(
-        service.updateStatus(
-          "payment-123",
-          "business-123",
-          PaymentStatus.REFUNDED
-        )
+        service.correctPayment("payment-123", "business-123", {
+          amount: 120,
+          reason: "importe mal tecleado",
+          editedBy: "user-123",
+        })
       ).rejects.toThrow(BadRequestException);
-      expect(mockRepo.update).not.toHaveBeenCalled();
-    });
-
-    it.each([
-      [PaymentStatus.COMPLETED, PaymentStatus.PENDING],
-      [PaymentStatus.CANCELLED, PaymentStatus.COMPLETED],
-      [PaymentStatus.REFUNDED, PaymentStatus.COMPLETED],
-    ])("no deja pasar de %s a %s", async (desde, hasta) => {
-      pagoEn(desde);
-
-      await expect(
-        service.updateStatus("payment-123", "business-123", hasta)
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it("debería lanzar NotFoundException si el pago no existe", async () => {
-      mockRepo.findOne.mockResolvedValue(null);
-
-      await expect(
-        service.updateStatus(
-          "non-existent",
-          "business-123",
-          PaymentStatus.COMPLETED
-        )
-      ).rejects.toThrow(NotFoundException);
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
     });
   });
 
   describe("getDailySummary", () => {
-    const mockQueryBuilder = (rows: unknown[]) => ({
-      select: jest.fn().mockReturnThis(),
-      addSelect: jest.fn().mockReturnThis(),
+    const mockQueryBuilder = (cobros: unknown[]) => ({
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      groupBy: jest.fn().mockReturnThis(),
-      getRawMany: jest.fn().mockResolvedValue(rows),
+      getMany: jest.fn().mockResolvedValue(cobros),
     });
 
-    it("agrega por método vía SQL (SUM/COUNT + GROUP BY)", async () => {
-      // pg devuelve SUM/COUNT como strings; el servicio los convierte a number.
+    it("agrupa por el medio de cada cobro", async () => {
       mockRepo.createQueryBuilder.mockReturnValue(
         mockQueryBuilder([
-          { method: "CASH", total: "50", count: "1" },
-          { method: "CARD", total: "30", count: "1" },
+          { amount: 50, method: "CASH", splits: [] },
+          { amount: 30, method: "CARD", splits: [] },
         ]) as any
       );
 
@@ -697,6 +843,58 @@ describe("PaymentsService", () => {
       expect(result.total).toBe(80);
       expect(result.count).toBe(2);
       expect(result.byMethod).toEqual({ CASH: 50, CARD: 30 });
+    });
+
+    // El cobro repartido vale MIXED en su columna: agrupar por ella dejaba los
+    // tres medios en cero mientras el total no lo estaba.
+    it("desglosa el cobro repartido por sus líneas, no como MIXTO", async () => {
+      mockRepo.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder([
+          {
+            amount: 50000,
+            method: "MIXED",
+            splits: [
+              { method: "CASH", amount: 30000 },
+              { method: "CARD", amount: 20000 },
+            ],
+          },
+        ]) as any
+      );
+
+      const result = await service.getDailySummary(
+        "business-123",
+        "2024-01-15"
+      );
+
+      expect(result.total).toBe(50000);
+      expect(result.byMethod).toEqual({ CASH: 30000, CARD: 20000 });
+      expect(result.byMethod.MIXED).toBeUndefined();
+    });
+
+    // Las líneas llevan la propina dentro y el importe no, así que la venta de
+    // cada medio es su parte proporcional: el desglose suma siempre el total.
+    it("descuenta la propina del desglose y sigue cuadrando", async () => {
+      mockRepo.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder([
+          {
+            amount: 50000,
+            method: "MIXED",
+            splits: [
+              { method: "CASH", amount: 30000 },
+              { method: "CARD", amount: 25000 },
+            ],
+          },
+        ]) as any
+      );
+
+      const result = await service.getDailySummary(
+        "business-123",
+        "2024-01-15"
+      );
+
+      const sumado = Object.values(result.byMethod).reduce((a, b) => a + b, 0);
+      expect(sumado).toBe(result.total);
+      expect(result.byMethod).toEqual({ CASH: 27273, CARD: 22727 });
     });
 
     it("debería retornar resumen vacío si no hay pagos", async () => {
@@ -873,6 +1071,213 @@ describe("PaymentsService", () => {
         })
       ).rejects.toThrow(BadRequestException);
       expect(mockOutbox.enqueue).not.toHaveBeenCalled();
+    });
+  });
+  describe("correctPayment", () => {
+    /**
+     * Un importe mal tecleado en el mostrador se corrige mientras la caja que
+     * lo recogio siga abierta; despues, la via es la devolucion.
+     */
+    const corregir = {
+      amount: 30000,
+      reason: "Se tecleó 300.000 en vez de 30.000",
+      editedBy: "user-999",
+    };
+
+    /** Movimiento de caja del cobro, en la sesion que se indique. */
+    function conCajaDelMovimiento(sesion: {
+      id: string;
+      closedAt: Date | null;
+    }) {
+      mockManagerRepo.findOne = jest.fn(async (opciones: any) => {
+        if (opciones?.where?.paymentId) {
+          return {
+            id: "mov-1",
+            cashSessionId: sesion.id,
+            type: CashMovementType.IN,
+          };
+        }
+        return sesion;
+      });
+    }
+
+    beforeEach(() => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockPayment,
+        amount: 300000,
+      } as any);
+      mockManagerRepo.findOneOrFail = jest
+        .fn()
+        .mockResolvedValue({ ...mockPayment, amount: 30000 });
+    });
+
+    it("corrige el importe y deja escrito quién y por qué", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: null });
+
+      await service.correctPayment("payment-123", "business-123", corregir);
+
+      expect(mockManagerRepo.update).toHaveBeenCalledWith(
+        { id: "payment-123", businessId: "business-123" },
+        expect.objectContaining({
+          amount: 30000,
+          editedBy: "user-999",
+          editReason: "Se tecleó 300.000 en vez de 30.000",
+          editedAt: expect.any(Date),
+        })
+      );
+    });
+
+    it("ajusta el movimiento de caja al importe corregido", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: null });
+
+      await service.correctPayment("payment-123", "business-123", corregir);
+
+      expect(mockManagerRepo.update).toHaveBeenCalledWith(
+        { id: "mov-1" },
+        { amount: 30000, method: PaymentMethod.CASH }
+      );
+    });
+
+    it("no corrige un cobro cuya caja ya se cerró", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: new Date() });
+
+      await expect(
+        service.correctPayment("payment-123", "business-123", corregir)
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("avisa de que la vía es la devolución cuando la caja está cerrada", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: new Date() });
+
+      await expect(
+        service.correctPayment("payment-123", "business-123", corregir)
+      ).rejects.toThrow(/devolución/);
+    });
+
+    it("solo corrige cobros completados", async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockPayment,
+        status: PaymentStatus.REFUNDED,
+      } as any);
+
+      await expect(
+        service.correctPayment("payment-123", "business-123", corregir)
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("avisa del cambio con la diferencia y el día del cobro original", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: null });
+
+      await service.correctPayment("payment-123", "business-123", corregir);
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        mockManager,
+        expect.objectContaining({
+          eventType: EventNames.PAYMENT_PAYMENT_CORRECTED,
+          payload: expect.objectContaining({
+            previousAmount: 300000,
+            amount: 30000,
+            difference: -270000,
+          }),
+        })
+      );
+    });
+
+    it("no avisa a nadie si el importe no cambió", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: null });
+
+      await service.correctPayment("payment-123", "business-123", {
+        notes: "Otra nota",
+        reason: "Corregir la nota",
+        editedBy: "user-999",
+      });
+
+      expect(mockOutbox.enqueue).not.toHaveBeenCalled();
+    });
+
+    // El cobro se tecleo como efectivo y era con datafono: el dinero nunca
+    // paso por el cajon, asi que su movimiento sobra. Se puede borrar porque
+    // la sesion sigue abierta y todavia no se ha arqueado.
+    it("borra el movimiento cuando el cobro deja de ser en efectivo", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: null });
+
+      await service.correctPayment("payment-123", "business-123", {
+        ...corregir,
+        method: PaymentMethod.CARD,
+      });
+
+      expect(mockManagerRepo.delete).toHaveBeenCalledWith({ id: "mov-1" });
+      expect(mockManagerRepo.update).not.toHaveBeenCalledWith(
+        { id: "mov-1" },
+        expect.anything()
+      );
+    });
+
+    // Al reves: era con datafono y resulta que fue en efectivo. No habia
+    // movimiento y ahora el cajon tiene que recogerlo.
+    it("crea el movimiento cuando el cobro pasa a ser en efectivo", async () => {
+      // Sin movimiento del cobro, pero con caja abierta que lo reciba.
+      mockManagerRepo.findOne = jest.fn(async (opciones: any) =>
+        opciones?.where?.paymentId
+          ? null
+          : { id: "cash-session-1", closedAt: null }
+      );
+
+      await service.correctPayment("payment-123", "business-123", {
+        ...corregir,
+        method: PaymentMethod.CASH,
+      });
+
+      expect(mockManagerRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cashSessionId: "cash-session-1",
+          type: CashMovementType.IN,
+          amount: 30000,
+          method: PaymentMethod.CASH,
+        })
+      );
+    });
+
+    it("no corrige un cobro que entró en una caja ya cerrada", async () => {
+      conCajaDelMovimiento({ id: "cash-session-1", closedAt: new Date() });
+
+      await expect(
+        service.correctPayment("payment-123", "business-123", corregir)
+      ).rejects.toThrow(/caja que ya se cerró/);
+    });
+  });
+
+  describe("cobro de cero", () => {
+    it("rechaza un cobro de cero sin puntos", async () => {
+      await expect(
+        service.create("business-123", {
+          clientId: "client-123",
+          amount: 0,
+          method: PaymentMethod.CASH,
+          registeredBy: "user-123",
+        })
+      ).rejects.toThrow(/mayor que cero/);
+    });
+
+    // Con puntos, `amount` es lo que el cliente pone de su bolsillo: que sea
+    // cero significa que el canje cubrio el servicio entero.
+    it("admite el cero cuando los puntos cubren el total", async () => {
+      mockHttp.pedir.mockResolvedValue({
+        clientId: "client-123",
+        totalAmount: 100,
+      });
+      mockRepo.create.mockReturnValue(mockPayment);
+      mockManagerRepo.save.mockResolvedValue(mockPayment);
+
+      await expect(
+        service.create("business-123", {
+          clientId: "client-123",
+          amount: 0,
+          method: PaymentMethod.CASH,
+          registeredBy: "user-123",
+          puntosUsados: 100,
+        })
+      ).resolves.toBeDefined();
     });
   });
 });

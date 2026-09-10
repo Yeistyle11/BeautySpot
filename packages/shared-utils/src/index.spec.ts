@@ -1,4 +1,8 @@
-import { normalizarEmail, normalizarTelefono } from "./index";
+import {
+  normalizarEmail,
+  normalizarTelefono,
+  variantesDeTelefono,
+} from "./index";
 import {
   generateSlug,
   getTimeSlots,
@@ -13,6 +17,7 @@ import {
   finExtendido,
   horaDeReloj,
   formatearDinero,
+  repartirProporcional,
 } from "./index";
 
 describe("Shared Utils", () => {
@@ -315,11 +320,28 @@ describe("Shared Utils", () => {
     it("reduce a la misma forma los formatos habituales", () => {
       expect(normalizarTelefono("+57 300 123 45 67")).toBe("+573001234567");
       expect(normalizarTelefono("+57-300-123-4567")).toBe("+573001234567");
-      expect(normalizarTelefono("(300) 123 4567")).toBe("3001234567");
+      expect(normalizarTelefono("(300) 123 4567")).toBe("+573001234567");
+    });
+
+    // Las tres formas con las que se dicta el mismo móvil: con indicativo, con
+    // el prefijo de marcación internacional y a secas.
+    it("reconcilia el prefijo internacional escrito de cualquier manera", () => {
+      const canonico = "+573009998877";
+
+      expect(normalizarTelefono("+57 300 999 8877")).toBe(canonico);
+      expect(normalizarTelefono("00573009998877")).toBe(canonico);
+      expect(normalizarTelefono("3009998877")).toBe(canonico);
     });
 
     it("conserva el prefijo internacional", () => {
       expect(normalizarTelefono("+573001234567")).not.toBe("573001234567");
+    });
+
+    it("respeta un número de otro país", () => {
+      expect(normalizarTelefono("+34 612 345 678")).toBe("+34612345678");
+      // Sin `+` y demasiado largo para ser nacional: se deja como está antes
+      // que atribuirle un indicativo que nadie escribió.
+      expect(normalizarTelefono("34612345678")).toBe("34612345678");
     });
 
     it.each([undefined, null, "", "   ", "sin numeros"])(
@@ -328,6 +350,40 @@ describe("Shared Utils", () => {
         expect(normalizarTelefono(valor)).toBe("");
       }
     );
+  });
+
+  describe("variantesDeTelefono", () => {
+    // Las fichas guardadas antes de canonizar siguen en su forma antigua: el
+    // cotejo tiene que reconocerlas sin reescribir los datos.
+    it("incluye la forma nacional y la del prefijo de marcación", () => {
+      const variantes = variantesDeTelefono("+57 300 999 8877");
+
+      expect(variantes).toEqual(
+        expect.arrayContaining([
+          "+573009998877",
+          "573009998877",
+          "00573009998877",
+          "3009998877",
+        ])
+      );
+    });
+
+    it("da las mismas variantes se escriba como se escriba", () => {
+      expect(variantesDeTelefono("3009998877").sort()).toEqual(
+        variantesDeTelefono("00573009998877").sort()
+      );
+    });
+
+    it("no repite valores", () => {
+      const variantes = variantesDeTelefono("+34612345678");
+
+      expect(new Set(variantes).size).toBe(variantes.length);
+    });
+
+    it("no devuelve nada cuando no hay teléfono", () => {
+      expect(variantesDeTelefono("")).toEqual([]);
+      expect(variantesDeTelefono(null)).toEqual([]);
+    });
   });
 });
 
@@ -372,5 +428,36 @@ describe("columnaSinTildes", () => {
     it("un importe de cero se escribe, no se omite", () => {
       expect(formatearDinero(0)).toContain("0");
     });
+  });
+});
+
+describe("repartirProporcional", () => {
+  it("reparte sin resto cuando la proporcion es exacta", () => {
+    expect(repartirProporcional(50000, [30000, 20000])).toEqual([30000, 20000]);
+  });
+
+  it("suma siempre el total aunque la proporcion no sea exacta", () => {
+    const partes = repartirProporcional(50000, [30000, 25000]);
+    expect(partes.reduce((a, b) => a + b, 0)).toBe(50000);
+    // La propina de 5.000 sale de las dos partes segun su peso.
+    expect(partes).toEqual([27273, 22727]);
+  });
+
+  it("da el sobrante a la parte con el resto mayor", () => {
+    const partes = repartirProporcional(10, [1, 1, 1]);
+    expect(partes.reduce((a, b) => a + b, 0)).toBe(10);
+    expect(partes).toEqual([4, 3, 3]);
+  });
+
+  it("con una sola parte le da el total entero", () => {
+    expect(repartirProporcional(45000, [45000])).toEqual([45000]);
+  });
+
+  it("reparte por igual cuando no hay proporcion de la que tirar", () => {
+    expect(repartirProporcional(9, [0, 0])).toEqual([5, 4]);
+  });
+
+  it("no reparte nada sin partes", () => {
+    expect(repartirProporcional(1000, [])).toEqual([]);
   });
 });

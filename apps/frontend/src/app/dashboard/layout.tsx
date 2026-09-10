@@ -25,10 +25,9 @@ export default function DashboardLayout({
     );
   }
 
-  // Defensa en profundidad: middleware.ts ya redirige antes de renderizar si
-  // no hay sesion valida, pero cubrimos el caso de estado desincronizado (ej.
-  // cookie borrada manualmente sin recargar). El rol es el indicio de sesion
-  // del que dispone el cliente: la credencial es httpOnly y no se puede leer.
+  // Defensa en profundidad: middleware.ts ya redirige antes de renderizar, pero
+  // aqui se cubre el estado desincronizado (cookie borrada sin recargar). El rol
+  // es el unico indicio de sesion legible: la credencial es httpOnly.
   if (!role) return null;
 
   return (

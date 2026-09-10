@@ -1,14 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Espera entre reintentos del outbox.
- *
- * Sin ella un fallo devolvía el mensaje a PENDING sin retraso ninguno, de modo
- * que una caída de RabbitMQ consumía los cinco intentos en segundos y daba por
- * muertos eventos que solo necesitaban esperar a que la cola volviera.
- *
- * La columna va vacía en los mensajes que nunca han fallado, que es lo que les
- * deja salir en el primer sondeo.
+ * Espera entre reintentos del outbox, para que una caída de RabbitMQ no gaste
+ * los cinco intentos en segundos. Va vacía en los mensajes que nunca han
+ * fallado, que salen en el primer sondeo.
  */
 export class ReintentoDelOutbox1700000000009 implements MigrationInterface {
   name = "ReintentoDelOutbox1700000000009";

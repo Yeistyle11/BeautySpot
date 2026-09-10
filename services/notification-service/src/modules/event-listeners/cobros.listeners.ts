@@ -5,6 +5,7 @@ import { NotificationType, PaymentMethod } from "@beautyspot/shared-types";
 import {
   InvoiceGeneratedEvent,
   PaymentRegisteredEvent,
+  PaymentRegisteredPayload,
   EventNames,
   EVENTS_EXCHANGE,
   DEAD_LETTER_EXCHANGE,
@@ -22,6 +23,20 @@ const METODOS_CON_RECIBO: PaymentMethod[] = [
   PaymentMethod.CASH,
   PaymentMethod.TRANSFER,
 ];
+
+/**
+ * Si el cobro merece recibo por correo. Uno repartido lo merece en cuanto
+ * alguna de sus partes entro por un medio que no deja comprobante: el cliente
+ * pago en efectivo una parte y de esa no se lleva nada.
+ */
+function llevaRecibo(payload: PaymentRegisteredPayload): boolean {
+  const medios = payload.metodos?.length
+    ? payload.metodos.map((linea) => linea.method)
+    : [payload.method];
+  return medios.some((medio) =>
+    METODOS_CON_RECIBO.includes(medio as PaymentMethod)
+  );
+}
 
 /**
  * Lo que el cliente recibe cuando se le cobra: la factura y el recibo del
@@ -120,7 +135,7 @@ export class CobrosListeners {
 
         // El recibo por correo solo tiene sentido en los métodos sin
         // comprobante propio; con datáfono lo da el propio terminal.
-        if (METODOS_CON_RECIBO.includes(event.payload.method)) {
+        if (llevaRecibo(event.payload)) {
           const clientName = await this.dataEnricher.enrichClientName(clientId);
           await this.avisos.intentarCorreo(
             "recibo",

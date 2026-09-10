@@ -1,10 +1,11 @@
 import {
+  Body,
   Controller,
   Get,
-  Put,
-  Patch,
   Param,
-  Body,
+  ParseUUIDPipe,
+  Patch,
+  Put,
   Query,
 } from "@nestjs/common";
 import { BusinessHoursService } from "./business-hours.service";
@@ -21,7 +22,12 @@ import {
 export class BusinessHoursController {
   constructor(private readonly service: BusinessHoursService) {}
 
-  /** Devuelve el horario del negocio (o de una sede concreta). */
+  /**
+   * Devuelve el horario del negocio (o de una sede concreta). Lo lee tambien
+   * recepcion, que es quien atiende el telefono y necesita ver que dias estan
+   * cerrados. Cambiarlo sigue siendo de dueño y administrador.
+   */
+  @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @Get()
   async findAll(
     @BusinessId() businessId: string,
@@ -30,7 +36,6 @@ export class BusinessHoursController {
     return this.service.findByBusiness(businessId, branchId);
   }
 
-  /** Reemplaza el horario completo del negocio. */
   @Put()
   async batchUpsert(
     @BusinessId() businessId: string,
@@ -39,10 +44,9 @@ export class BusinessHoursController {
     return this.service.batchUpsert(businessId, dto.hours);
   }
 
-  /** Actualiza un tramo horario concreto. */
   @Patch(":id")
   async update(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @BusinessId() businessId: string,
     @Body() dto: UpdateBusinessHoursDto
   ) {

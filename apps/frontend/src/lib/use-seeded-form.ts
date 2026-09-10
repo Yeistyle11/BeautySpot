@@ -3,14 +3,9 @@
 import { useCallback, useEffect, useRef } from "react";
 
 /**
- * Vuelca en un formulario el dato que llega del backend, una sola vez.
- *
- * La siembra se salta mientras el dato es nulo y no se repite cuando SWR
- * revalida: a partir del primer volcado manda lo que el usuario tenga escrito,
- * que si no se le borraria a mitad de edicion.
- *
- * Devuelve una funcion para volver a admitir siembra, util cuando el registro
- * se borra y el formulario pasa a estar disponible para uno nuevo.
+ * Vuelca en un formulario el dato que llega del backend, una sola vez: se salta
+ * mientras el dato es nulo y no se repite al revalidar, para no borrar lo
+ * escrito. Devuelve una funcion para volver a admitir siembra.
  */
 export function useSeededForm<T>(
   dato: T | null | undefined,
@@ -18,9 +13,8 @@ export function useSeededForm<T>(
 ): () => void {
   const sembrado = useRef(false);
   // La funcion suele ser un literal nuevo en cada render; guardarla en una ref
-  // evita volver a sembrar solo porque haya cambiado su identidad. La ref se
-  // actualiza en su propio efecto, que corre antes que el de abajo, porque
-  // escribirla durante el render rompe el renderizado concurrente.
+  // evita sembrar de nuevo solo porque cambie su identidad. Se actualiza en su
+  // propio efecto, porque escribirla durante el render rompe el modo concurrente.
   const ultimaSiembra = useRef(sembrar);
   useEffect(() => {
     ultimaSiembra.current = sembrar;

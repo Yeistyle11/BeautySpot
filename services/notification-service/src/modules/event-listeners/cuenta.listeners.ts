@@ -67,11 +67,8 @@ export class CuentaListeners {
 
   /**
    * Avisa al dueño de una cuenta de que alguien intentó registrarse con su
-   * correo.
-   *
-   * El alta responde lo mismo exista o no la cuenta, así que este correo es lo
-   * único que distingue los dos casos, y lo recibe quien tiene derecho a
-   * saberlo: el dueño del buzón.
+   * correo. El alta responde lo mismo exista o no, así que este correo es lo
+   * único que distingue los dos casos, y lo recibe el dueño del buzón.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,

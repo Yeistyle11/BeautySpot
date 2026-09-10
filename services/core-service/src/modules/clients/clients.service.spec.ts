@@ -19,6 +19,7 @@ import {
 describe("ClientsService", () => {
   let service: ClientsService;
   let mockRepo: jest.Mocked<Repository<Client>>;
+  let mockAliasQb: { where: jest.Mock; andWhere: jest.Mock; getOne: jest.Mock };
   let mockOutbox: { enqueue: jest.Mock };
   let mockCamposRepo: jest.Mocked<Repository<CampoDeFicha>>;
   let mockConfig: { leer: jest.Mock };
@@ -42,6 +43,10 @@ describe("ClientsService", () => {
     active: true,
     ficha: null,
     anonymizedAt: null,
+    mergedIntoId: null,
+    mergedAt: null,
+    aliasEmails: null,
+    aliasPhones: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     business: {} as any,
@@ -49,6 +54,14 @@ describe("ClientsService", () => {
   };
 
   beforeEach(async () => {
+    // El cotejo por alias consulta con un query builder; por defecto no
+    // encuentra ninguna ficha que haya heredado ese contacto.
+    mockAliasQb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+
     mockRepo = {
       create: jest.fn(),
       save: jest.fn(),
@@ -57,6 +70,7 @@ describe("ClientsService", () => {
       findAndCount: jest.fn().mockResolvedValue([[], 0]),
       update: jest.fn(),
       increment: jest.fn(),
+      createQueryBuilder: jest.fn(() => mockAliasQb),
     } as any;
 
     // Sin campos definidos, la ficha no se valida contra nada.
@@ -137,6 +151,72 @@ describe("ClientsService", () => {
       );
     });
 
+    // El mismo móvil dictado con indicativo en el marketplace y sin él en el
+    // mostrador es una sola persona, no dos fichas.
+    it("reconoce la ficha existente aunque el teléfono se escriba de otra forma", async () => {
+      mockRepo.findOne.mockResolvedValue(mockClient as any);
+
+      await expect(
+        service.create("business-123", {
+          name: "Ana",
+          phone: "+57 300 123 4567",
+        })
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it("coteja el teléfono contra sus formas equivalentes", async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockReturnValue(mockClient);
+      mockRepo.save.mockResolvedValue(mockClient);
+
+      await service.create("business-123", {
+        name: "Ana",
+        phone: "3009998877",
+      });
+
+      const criterios = (mockRepo.findOne.mock.calls[0][0] as any).where;
+      expect(criterios).toEqual([
+        {
+          businessId: "business-123",
+          phone: In([
+            "+573009998877",
+            "573009998877",
+            "00573009998877",
+            "3009998877",
+          ]),
+        },
+      ]);
+    });
+
+    it("guarda el teléfono canonizado", async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockReturnValue(mockClient);
+      mockRepo.save.mockResolvedValue(mockClient);
+
+      await service.create("business-123", {
+        name: "Ana",
+        phone: "00573009998877",
+      });
+
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ phone: "+573009998877" })
+      );
+    });
+
+    // El cotejo previo no separa dos altas simultáneas: eso lo hace el índice.
+    it("traduce el choque del índice único a un 409 en castellano", async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockReturnValue(mockClient);
+      mockRepo.save.mockRejectedValue({
+        code: "23505",
+        constraint: "uq_clients_telefono_por_negocio",
+      });
+
+      await expect(
+        service.create("business-123", { name: "Ana", phone: "3009998877" })
+      ).rejects.toThrow(ConflictException);
+    });
+
     it("debería propagar errores del repositorio", async () => {
       mockRepo.save.mockRejectedValue(new Error("Database error"));
 
@@ -155,8 +235,37 @@ describe("ClientsService", () => {
       order: "ASC" as const,
     };
 
+    /** El listado se arma con query builder: mezcla LIKE con arrays de alias. */
+    const mockListado = (filas: unknown[], total = filas.length) => {
+      const donde = { orWhere: jest.fn().mockReturnThis() };
+      const qb: Record<string, jest.Mock> = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn((arg) => {
+          // Las condiciones de búsqueda llegan agrupadas en un Brackets.
+          if (
+            typeof arg === "object" &&
+            arg !== null &&
+            "whereFactory" in arg
+          ) {
+            (arg as { whereFactory: (q: unknown) => void }).whereFactory(donde);
+          }
+          return qb;
+        }),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([filas, total]),
+      };
+      mockRepo.createQueryBuilder.mockReturnValue(qb as never);
+      return { qb, donde };
+    };
+
+    /** Condiciones que acabó pidiendo el OR de búsqueda. */
+    const condiciones = (donde: { orWhere: jest.Mock }) =>
+      donde.orWhere.mock.calls.map(([sql]) => String(sql)).join(" | ");
+
     it("devuelve una página de clientes activos con meta", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[mockClient], 1]);
+      const { qb } = mockListado([mockClient], 1);
 
       const result = await service.findByBusiness(
         "business-123",
@@ -164,20 +273,17 @@ describe("ClientsService", () => {
         pagination
       );
 
-      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { businessId: "business-123", active: true },
-          order: { name: "ASC" },
-          skip: 0,
-          take: 20,
-        })
-      );
+      expect(qb.where).toHaveBeenCalledWith("c.business_id = :businessId", {
+        businessId: "business-123",
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith("c.active = true");
+      expect(qb.orderBy).toHaveBeenCalledWith("c.name", "ASC");
       expect(result.data).toEqual([mockClient]);
       expect(result.meta.total).toBe(1);
     });
 
     it("debería buscar clientes por nombre/email/teléfono (OR)", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[mockClient], 1]);
+      const { donde } = mockListado([mockClient], 1);
 
       const result = await service.findByBusiness(
         "business-123",
@@ -185,28 +291,59 @@ describe("ClientsService", () => {
         pagination
       );
 
-      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.arrayContaining([
-            expect.objectContaining({ name: expect.any(Object) }),
-            expect.objectContaining({ email: expect.any(Object) }),
-            expect.objectContaining({ phone: expect.any(Object) }),
-          ]),
-        })
-      );
+      const sql = condiciones(donde);
+      expect(sql).toContain("c.name");
+      expect(sql).toContain("c.email");
+      expect(sql).toContain("c.phone");
       expect(result.data).toEqual([mockClient]);
     });
 
+    // La fusión rellena los alias justamente para que el teléfono y el correo
+    // de la ficha absorbida sigan encontrando a la superviviente.
+    it("busca también en los alias que deja una fusión", async () => {
+      const { donde } = mockListado([mockClient]);
+
+      await service.findByBusiness("business-123", "3015550001", pagination);
+
+      const sql = condiciones(donde);
+      expect(sql).toContain("alias_emails");
+      expect(sql).toContain("alias_phones");
+    });
+
+    // `3101112233` es subcadena de `+573101112233`, pero no al revés: buscar con
+    // el prefijo internacional —el que sale del móvil— perdía fichas.
+    it("normaliza el teléfono buscado a todas sus variantes", async () => {
+      const { donde } = mockListado([mockClient]);
+
+      await service.findByBusiness(
+        "+573101112233",
+        "+573101112233",
+        pagination
+      );
+
+      const buscados = donde.orWhere.mock.calls
+        .map(([, params]) => params)
+        .filter(Boolean)
+        .flatMap((params) => Object.values(params as Record<string, string>));
+
+      expect(buscados).toEqual(expect.arrayContaining(["+573101112233"]));
+      expect(buscados).toEqual(expect.arrayContaining(["3101112233"]));
+    });
+
     it("debería manejar caracteres especiales en búsqueda", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[mockClient], 1]);
+      const { donde } = mockListado([mockClient], 1);
 
       await service.findByBusiness("business-123", "Juan%", pagination);
 
-      expect(mockRepo.findAndCount).toHaveBeenCalled();
+      // El comodín llega escapado, no como patrón.
+      const escapados = donde.orWhere.mock.calls
+        .map(([, params]) => (params as { patron?: string })?.patron)
+        .filter(Boolean);
+      expect(escapados[0]).toContain("\%");
     });
 
     it("devuelve una página vacía si no hay clientes", async () => {
-      mockRepo.findAndCount.mockResolvedValue([[], 0]);
+      mockListado([], 0);
 
       const result = await service.findByBusiness(
         "business-123",
@@ -379,7 +516,12 @@ describe("ClientsService", () => {
 
       const updatedClient = { ...mockClient, ...updateData } as any;
 
-      mockRepo.findOne.mockResolvedValue(updatedClient);
+      mockRepo.findOne
+        // La ficha que se va a tocar, para comprobar que no está suprimida.
+        .mockResolvedValueOnce(updatedClient)
+        // Ninguna otra ficha del negocio tiene ese teléfono.
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue(updatedClient);
       mockRepo.update.mockResolvedValue({ affected: 1 } as any);
 
       const result = await service.update(
@@ -397,6 +539,30 @@ describe("ClientsService", () => {
       expect(result.phone).toBe("+573009876543");
     });
 
+    it("con la versión cargada avisa en vez de pisar lo que otra persona guardó", async () => {
+      const cargada = new Date("2026-08-31T10:00:00.000Z");
+      const enTransaccion = {
+        findOne: jest.fn().mockResolvedValue({
+          ...mockClient,
+          updatedAt: new Date("2026-08-31T10:05:00.000Z"),
+        }),
+        update: jest.fn(),
+      };
+      (mockRepo as any).target = "Client";
+      (mockRepo as any).manager = {
+        transaction: (cb: (m: unknown) => unknown) =>
+          cb({ getRepository: () => enTransaccion }),
+      };
+      mockRepo.findOne
+        .mockResolvedValueOnce(mockClient as any)
+        .mockResolvedValueOnce(null);
+
+      await expect(
+        service.update("client-123", "business-123", { name: "Otro" }, cargada)
+      ).rejects.toThrow(ConflictException);
+      expect(enTransaccion.update).not.toHaveBeenCalled();
+    });
+
     it("no deja reescribir una ficha ya suprimida", async () => {
       mockRepo.findOne.mockResolvedValue({
         ...mockClient,
@@ -407,6 +573,36 @@ describe("ClientsService", () => {
         service.update("client-123", "business-123", { name: "Otro" })
       ).rejects.toThrow(ConflictException);
       expect(mockRepo.update).not.toHaveBeenCalled();
+    });
+
+    // Editar el teléfono era la otra vía por la que la misma persona acababa
+    // con dos fichas: el alta cotejaba y la edición no.
+    it("rechaza el teléfono que ya tiene otra ficha del negocio", async () => {
+      mockRepo.findOne
+        .mockResolvedValueOnce(mockClient as any)
+        .mockResolvedValueOnce({ ...mockClient, id: "otra-ficha" } as any);
+
+      await expect(
+        service.update("client-123", "business-123", { phone: "3009998877" })
+      ).rejects.toThrow(ConflictException);
+      expect(mockRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("guarda el teléfono canonizado y no lo que se tecleó", async () => {
+      mockRepo.findOne
+        .mockResolvedValueOnce(mockClient as any)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue(mockClient as any);
+      mockRepo.update.mockResolvedValue({ affected: 1 } as any);
+
+      await service.update("client-123", "business-123", {
+        phone: "(300) 999 8877",
+      });
+
+      expect(mockRepo.update).toHaveBeenCalledWith(
+        { id: "client-123", businessId: "business-123" },
+        { phone: "+573009998877" }
+      );
     });
   });
 
@@ -588,9 +784,9 @@ describe("ClientsService", () => {
     });
   });
 
-  // El descuento decide el importe de un cobro, asi que la condicion tiene que
-  // ir dentro del UPDATE: leer el saldo y escribirlo despues dejaba que dos
-  // canjes simultaneos gastaran el mismo.
+  // El descuento decide el importe de un cobro, asi que la condicion va dentro
+  // del UPDATE: leer el saldo y escribirlo despues deja que dos canjes
+  // simultaneos gasten el mismo.
   describe("redeemLoyaltyPoints", () => {
     /** Constructor de consulta que dice cuantas filas tocó el UPDATE. */
     function updateQueQueda(affected: number) {
@@ -717,7 +913,7 @@ describe("ClientsService", () => {
       expect(mockRepo.findAndCount).not.toHaveBeenCalled();
     });
 
-    // El hallazgo en una línea: ni la cartera entera ni los datos personales.
+    // Ni la cartera entera ni los datos personales.
     it("acota a los clientes atendidos y solo devuelve id y nombre", async () => {
       await service.findByBusinessParaProfesional(
         "business-123",
@@ -801,6 +997,169 @@ describe("ClientsService", () => {
       );
 
       expect(mockRepo.findAndCount).toHaveBeenCalled();
+    });
+  });
+
+  describe("fusionar", () => {
+    /** Ficha con lo justo para fusionar, sobre el fixture del negocio. */
+    const ficha = (extra: Partial<Client>): Client =>
+      ({ ...mockClient, ...extra, generateId: () => {} }) as Client;
+
+    const SUPERVIVIENTE = "client-123";
+    const ABSORBIDO = "client-456";
+
+    /** Deja las dos fichas que la fusión va a leer. */
+    const conFichas = (
+      superviviente: Partial<Client>,
+      absorbido: Partial<Client>
+    ) => {
+      mockRepo.findOne.mockImplementation((opciones: any) => {
+        const id = opciones?.where?.id;
+        if (id === SUPERVIVIENTE)
+          return Promise.resolve(
+            ficha({ id: SUPERVIVIENTE, ...superviviente })
+          );
+        if (id === ABSORBIDO)
+          return Promise.resolve(ficha({ id: ABSORBIDO, ...absorbido }));
+        return Promise.resolve(null);
+      });
+      mockRepo.save.mockImplementation((c: any) => Promise.resolve(c));
+      mockRepo.update.mockResolvedValue({ affected: 1 } as never);
+    };
+
+    /** La ficha tal como quedó guardada. */
+    const guardada = () => mockRepo.save.mock.calls[0][0] as Client;
+
+    it("suma los puntos: son saldo del cliente, no de la ficha", async () => {
+      conFichas({ loyaltyPoints: 100 }, { loyaltyPoints: 250 });
+
+      await service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO);
+
+      expect(guardada().loyaltyPoints).toBe(350);
+    });
+
+    // El contacto viejo tiene que seguir llevando a la ficha buena: si no, la
+    // siguiente reserva por el telefono de siempre abre otro duplicado.
+    it("hereda como alias el contacto de la absorbida", async () => {
+      conFichas(
+        { email: "ana@correo.co", phone: "+573001112233" },
+        { email: "ana.trabajo@correo.co", phone: "+573009998877" }
+      );
+
+      await service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO);
+
+      expect(guardada().aliasEmails).toContain("ana.trabajo@correo.co");
+      expect(guardada().aliasPhones).toContain("+573009998877");
+    });
+
+    it("rellena lo que la superviviente tiene vacío", async () => {
+      conFichas(
+        { email: "", documento: "", birthDate: null },
+        {
+          email: "ana@correo.co",
+          documento: "1020304050",
+          birthDate: "1990-05-02",
+        }
+      );
+
+      await service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO);
+
+      expect(guardada()).toMatchObject({
+        email: "ana@correo.co",
+        documento: "1020304050",
+        birthDate: "1990-05-02",
+      });
+    });
+
+    // La alergia anotada en la ficha buena no la pisa un hueco de la otra.
+    it("combina la ficha configurable sin pisar lo que ya había", async () => {
+      conFichas(
+        { ficha: { alergias: "Ninguna", piel: "" } },
+        { ficha: { alergias: "Tinte", piel: "Mixta", formula: "6.0 + 20 vol" } }
+      );
+
+      await service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO);
+
+      expect(guardada().ficha).toEqual({
+        alergias: "Ninguna",
+        piel: "Mixta",
+        formula: "6.0 + 20 vol",
+      });
+    });
+
+    it("marca la absorbida y la retira de la cartera", async () => {
+      conFichas({}, {});
+
+      await service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO);
+
+      expect(mockRepo.update).toHaveBeenCalledWith(
+        { id: ABSORBIDO, businessId: "business-123" },
+        expect.objectContaining({
+          mergedIntoId: SUPERVIVIENTE,
+          active: false,
+        })
+      );
+    });
+
+    // Lo que cuelga de la absorbida en los otros servicios lo reasigna cada uno
+    // al consumir el evento.
+    it("publica la fusión para que los demás reasignen lo suyo", async () => {
+      conFichas({}, {});
+
+      await service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO);
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: "core.client.merged",
+          payload: {
+            businessId: "business-123",
+            supervivienteId: SUPERVIVIENTE,
+            absorbidoId: ABSORBIDO,
+          },
+        })
+      );
+    });
+
+    // Dos cuentas distintas pueden ser dos personas, y fusionarlas dejaria a
+    // alguien viendo en su portal las citas de otro.
+    it("rechaza fusionar fichas de dos cuentas distintas", async () => {
+      conFichas({ userId: "user-1" }, { userId: "user-2" });
+
+      await expect(
+        service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO)
+      ).rejects.toThrow("cuenta distinta");
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("admite fusionar cuando solo una tiene cuenta", async () => {
+      conFichas({ userId: null }, { userId: "user-2" });
+
+      await service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO);
+
+      expect(guardada().userId).toBe("user-2");
+    });
+
+    it("no fusiona una ficha con los datos suprimidos", async () => {
+      conFichas({}, { anonymizedAt: new Date() });
+
+      await expect(
+        service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO)
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it("no fusiona dos veces la misma ficha", async () => {
+      conFichas({}, { mergedIntoId: "otra" });
+
+      await expect(
+        service.fusionar("business-123", SUPERVIVIENTE, ABSORBIDO)
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it("una ficha no se fusiona consigo misma", async () => {
+      await expect(
+        service.fusionar("business-123", SUPERVIVIENTE, SUPERVIVIENTE)
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

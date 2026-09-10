@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatPorcentaje } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
@@ -43,6 +43,7 @@ import {
 } from "@/lib/schemas/kpis";
 import { PeriodPicker } from "./period-picker";
 import { MetricRow } from "./metric-row";
+import { textoDeOcupacion, textoDelTicket } from "./textos";
 import {
   filasDeProfesionales,
   ProfessionalsTable,
@@ -220,7 +221,7 @@ export default function AnalyticsPage() {
               />
               <MetricRow
                 etiqueta="Tasa completado"
-                valor={`${data.periodo.completionRate}%`}
+                valor={formatPorcentaje(data.periodo.completionRate)}
                 actual={data.periodo.completionRate}
                 anterior={data.comparado?.completionRate}
               />
@@ -262,7 +263,7 @@ export default function AnalyticsPage() {
                 <>
                   <MetricRow
                     etiqueta="Tasa de retorno (histórico)"
-                    valor={`${retencion.tasaDeRetorno}%`}
+                    valor={formatPorcentaje(retencion.tasaDeRetorno)}
                   />
                   <MetricRow
                     etiqueta="Vuelven cada (histórico)"
@@ -282,22 +283,18 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {/*
-                Sin cobros en el periodo no hay ticket que promediar, y un cero
-                ahi se lee como que el negocio no vende.
+                Un cero en estas dos se lee como que el negocio no vende o tiene
+                la agenda vacia, asi que cada motivo se dice con su nombre.
               */}
               <MetricRow
                 etiqueta="Ticket medio"
-                valor={
-                  data.periodo.avgTicket == null
-                    ? "Sin cobros aún"
-                    : formatCurrency(data.periodo.avgTicket)
-                }
+                valor={textoDelTicket(data.periodo)}
                 actual={data.periodo.avgTicket}
                 anterior={data.comparado?.avgTicket}
               />
               <MetricRow
                 etiqueta="Ocupación de agenda"
-                valor={`${data.periodo.ocupacion ?? 0}%`}
+                valor={textoDeOcupacion(data.periodo)}
                 actual={data.periodo.ocupacion}
                 anterior={data.comparado?.ocupacion}
               />
@@ -372,6 +369,15 @@ export default function AnalyticsPage() {
           error={loadError}
           recurso="los reportes"
           onReintentar={() => void recargar()}
+        />
+      ) : !consultable ? (
+        // Con el periodo invertido no se ha preguntado nada, asi que decir «no
+        // hay datos» contradice al aviso del selector: sugiere que el periodo
+        // vale y que el negocio esta vacio.
+        <EmptyState
+          icon={TrendingUp}
+          titulo="Elige un periodo válido"
+          descripcion="La fecha de inicio tiene que ser anterior a la de fin para poder calcular el reporte."
         />
       ) : (
         <EmptyState

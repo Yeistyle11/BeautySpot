@@ -1,10 +1,6 @@
 import { DataSource, QueryFailedError, Repository } from "typeorm";
-import { OutboxMessageEntity } from "@beautyspot/nest-common";
-import { PaymentEntity } from "../modules/payments/payment.entity";
-import { InvoiceEntity } from "../modules/invoices/invoice.entity";
-import { InvoiceItemEntity } from "../modules/invoices/invoice-item.entity";
+import { entities } from "../orm-entities";
 import { CashSessionEntity } from "../modules/cash-register/cash-session.entity";
-import { CashMovementEntity } from "../modules/cash-register/cash-movement.entity";
 
 /** Código de error de Postgres para violación de restricción única. */
 const UNIQUE_VIOLATION = "23505";
@@ -38,14 +34,7 @@ describe("Integración: una sola caja abierta por negocio", () => {
     dataSource = new DataSource({
       type: "postgres",
       url: process.env.DATABASE_URL,
-      entities: [
-        PaymentEntity,
-        InvoiceEntity,
-        InvoiceItemEntity,
-        CashSessionEntity,
-        CashMovementEntity,
-        OutboxMessageEntity,
-      ],
+      entities,
       // Crea el esquema desde las entidades, incluido el índice parcial.
       synchronize: true,
     });

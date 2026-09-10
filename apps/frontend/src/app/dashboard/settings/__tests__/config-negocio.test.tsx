@@ -14,6 +14,8 @@ describe("BillingTab", () => {
       <BillingTab
         facturacion={{ razonSocial: "La Noche S.A.S.", nit: "900.123.456-7" }}
         onChange={jest.fn()}
+        tasa=""
+        onTasaChange={jest.fn()}
         onSave={jest.fn()}
         saving={false}
       />
@@ -30,6 +32,8 @@ describe("BillingTab", () => {
       <BillingTab
         facturacion={{}}
         onChange={onChange}
+        tasa=""
+        onTasaChange={jest.fn()}
         onSave={onSave}
         saving={false}
       />
@@ -52,6 +56,8 @@ describe("BillingTab", () => {
       <BillingTab
         facturacion={{ nit: "900.123.456-7" }}
         onChange={jest.fn()}
+        tasa=""
+        onTasaChange={jest.fn()}
         onSave={jest.fn()}
         saving={false}
       />

@@ -82,6 +82,7 @@ describe("BusinessProfilesService", () => {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
       setParameters: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
@@ -225,6 +226,37 @@ describe("BusinessProfilesService", () => {
       expect(result).toEqual(mockBusinessProfile);
     });
 
+    it("sella la fecha de llegada al escaparate", async () => {
+      const nuevo = {
+        ...mockBusinessProfile,
+        publishedAt: null,
+        generateId: () => {},
+      } as any;
+      mockRepo.findOne.mockResolvedValue(nuevo);
+      mockRepo.save.mockResolvedValue(nuevo);
+
+      await service.publish("business-123");
+
+      expect(nuevo.publishedAt).toBeInstanceOf(Date);
+    });
+
+    // Retirar el perfil y volver a publicarlo no devuelve a nadie a la
+    // sección de recién llegados.
+    it("no reescribe la llegada de quien ya había estado publicado", async () => {
+      const llegada = new Date("2026-01-15T10:00:00Z");
+      const veterano = {
+        ...mockBusinessProfile,
+        publishedAt: llegada,
+        generateId: () => {},
+      } as any;
+      mockRepo.findOne.mockResolvedValue(veterano);
+      mockRepo.save.mockResolvedValue(veterano);
+
+      await service.publish("business-123");
+
+      expect(veterano.publishedAt).toBe(llegada);
+    });
+
     it("debería lanzar BadRequestException si faltan datos requeridos", async () => {
       const incompleteProfile = {
         ...mockBusinessProfile,
@@ -308,17 +340,34 @@ describe("BusinessProfilesService", () => {
 
   describe("findTopRated", () => {
     it("debería retornar los perfiles mejor calificados", async () => {
-      const topRated = [mockBusinessProfile];
-      mockRepo.find.mockResolvedValue(topRated);
+      const qb = mockRepo.createQueryBuilder() as any;
+      qb.getMany.mockResolvedValue([mockBusinessProfile]);
 
       const result = await service.findTopRated(10);
 
-      expect(mockRepo.find).toHaveBeenCalledWith({
-        where: { active: true, isPublished: true },
-        order: { rating: "DESC" },
-        take: 10,
-      });
-      expect(result).toEqual(topRated);
+      expect(result).toEqual([mockBusinessProfile]);
+      expect(qb.orderBy).toHaveBeenCalledWith("bp.rating", "DESC");
+      expect(qb.take).toHaveBeenCalledWith(10);
+    });
+
+    // Un negocio estrenado figuraba entre los mejor calificados con la nota a
+    // cero y ninguna reseña, compitiendo con los que sí las tienen.
+    it("deja fuera a quien no tiene ninguna reseña", async () => {
+      const qb = mockRepo.createQueryBuilder() as any;
+      qb.getMany.mockResolvedValue([]);
+
+      await service.findTopRated(10);
+
+      expect(qb.andWhere).toHaveBeenCalledWith("bp.total_reviews > 0");
+    });
+
+    it("a igual nota manda quien la sostiene con más reseñas", async () => {
+      const qb = mockRepo.createQueryBuilder() as any;
+      qb.getMany.mockResolvedValue([]);
+
+      await service.findTopRated(10);
+
+      expect(qb.addOrderBy).toHaveBeenCalledWith("bp.total_reviews", "DESC");
     });
   });
 
@@ -495,17 +544,34 @@ describe("BusinessProfilesService", () => {
   });
 
   describe("findRecent", () => {
-    it("devuelve perfiles recientes priorizando los más completos", async () => {
+    // La fila nace con el borrador: filtrando por su fecha de creación, un
+    // negocio podía publicarse hoy y no salir nunca entre los recién llegados.
+    it("mide la llegada por la fecha de publicación, no por la de creación", async () => {
       const qb = mockRepo.createQueryBuilder() as any;
       qb.getMany.mockResolvedValue([mockBusinessProfile]);
 
       const result = await service.findRecent(30, 10);
 
       expect(result).toEqual([mockBusinessProfile]);
-      expect(qb.orderBy).toHaveBeenCalledWith(
-        "bp.profile_completeness",
-        "DESC"
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        "bp.published_at >= :since",
+        expect.objectContaining({ since: expect.any(Date) })
       );
+      expect(qb.orderBy).toHaveBeenCalledWith("bp.published_at", "DESC");
+    });
+
+    it("abre la ventana en los días que se le piden", async () => {
+      const qb = mockRepo.createQueryBuilder() as any;
+      qb.getMany.mockResolvedValue([]);
+      jest.useFakeTimers().setSystemTime(new Date("2026-08-31T12:00:00Z"));
+
+      await service.findRecent(30, 10);
+
+      const [, params] = qb.andWhere.mock.calls.find(
+        ([sql]: [string]) => sql === "bp.published_at >= :since"
+      );
+      expect((params.since as Date).toISOString()).toContain("2026-08-01");
+      jest.useRealTimers();
     });
   });
 

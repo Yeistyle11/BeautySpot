@@ -431,6 +431,61 @@ describe("AnalyticsEventListeners", () => {
         managerFalso
       );
     });
+
+    // Un evento se reentrega, y el consumidor puede volver al dia siguiente:
+    // el ingreso pertenece al dia del cobro, no al de su proceso.
+    it("suma en el día del cobro aunque se procese más tarde", async () => {
+      const event = {
+        eventType: "payment.payment.registered",
+        timestamp: new Date("2026-08-20T15:00:00.000Z"),
+        eventId: "evt-6-bis",
+        correlationId: "corr-6",
+        payload: {
+          paymentId: "pay-124",
+          businessId: "biz-333",
+          clientId: "client-333",
+          amount: 50000,
+          method: "CASH",
+          date: "2026-08-20",
+        },
+      } as any;
+
+      await service.handlePaymentRegistered(event);
+
+      expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
+        "biz-333",
+        "2026-08-20",
+        { totalRevenue: 50000, ventas: 1 },
+        managerFalso
+      );
+    });
+
+    // Los cobros emitidos antes de que el evento llevara el dia siguen
+    // llegando: se fechan con el instante en que se emitieron.
+    it("sin día en la carga, se fecha con el instante del evento", async () => {
+      const event = {
+        eventType: "payment.payment.registered",
+        timestamp: new Date("2026-08-20T15:00:00.000Z"),
+        eventId: "evt-6-ter",
+        correlationId: "corr-6",
+        payload: {
+          paymentId: "pay-125",
+          businessId: "biz-333",
+          clientId: "client-333",
+          amount: 10000,
+          method: "CASH",
+        },
+      } as any;
+
+      await service.handlePaymentRegistered(event);
+
+      expect(mockMetricsService.incrementDailyMetric).toHaveBeenCalledWith(
+        "biz-333",
+        "2026-08-20",
+        { totalRevenue: 10000, ventas: 1 },
+        managerFalso
+      );
+    });
   });
 
   describe("handleReviewCreated", () => {
@@ -458,6 +513,104 @@ describe("AnalyticsEventListeners", () => {
         5,
         managerFalso
       );
+    });
+  });
+
+  describe("handleClientMerged", () => {
+    /** El evento de fusión tal como lo publica core. */
+    const fusion = {
+      eventId: "evt-fusion",
+      payload: {
+        businessId: "biz-1",
+        supervivienteId: "c-buena",
+        absorbidoId: "c-duplicada",
+      },
+    } as never;
+
+    /** Historial agregado de una ficha. */
+    const metrica = (extra: Record<string, unknown>) => ({
+      visitas: 0,
+      gasto: 0,
+      primeraVisita: "2026-01-01",
+      ultimaVisita: "2026-01-01",
+      ...extra,
+    });
+
+    let repo: {
+      findOne: jest.Mock;
+      update: jest.Mock;
+      save: jest.Mock;
+      delete: jest.Mock;
+    };
+
+    beforeEach(() => {
+      repo = {
+        findOne: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
+        save: jest.fn().mockResolvedValue(undefined),
+        delete: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      (managerFalso as unknown as { getRepository: unknown }).getRepository =
+        () => repo;
+    });
+
+    // La tabla tiene una fila por cliente y negocio: reasignar sin mas
+    // chocaria con el unico, y sumar dos veces inflaria las visitas.
+    it("suma las dos filas en la del superviviente", async () => {
+      repo.findOne
+        .mockResolvedValueOnce(
+          metrica({
+            visitas: 3,
+            gasto: 150000,
+            primeraVisita: "2026-03-01",
+            ultimaVisita: "2026-08-01",
+          })
+        )
+        .mockResolvedValueOnce(
+          metrica({
+            visitas: 2,
+            gasto: 80000,
+            primeraVisita: "2026-01-15",
+            ultimaVisita: "2026-09-01",
+          })
+        );
+
+      await service.handleClientMerged(fusion);
+
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          visitas: 5,
+          gasto: 230000,
+          // La primera visita de las dos, y la ultima de las dos.
+          primeraVisita: "2026-01-15",
+          ultimaVisita: "2026-09-01",
+        })
+      );
+      expect(repo.delete).toHaveBeenCalledWith({
+        businessId: "biz-1",
+        clientId: "c-duplicada",
+      });
+    });
+
+    it("si la buena no tenía historial, se reasigna el de la otra", async () => {
+      repo.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(metrica({ visitas: 2 }));
+
+      await service.handleClientMerged(fusion);
+
+      expect(repo.update).toHaveBeenCalledWith(
+        { businessId: "biz-1", clientId: "c-duplicada" },
+        { clientId: "c-buena" }
+      );
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it("sin historial de la absorbida no hay nada que mover", async () => {
+      await service.handleClientMerged(fusion);
+
+      expect(repo.save).not.toHaveBeenCalled();
+      expect(repo.update).not.toHaveBeenCalled();
     });
   });
 });

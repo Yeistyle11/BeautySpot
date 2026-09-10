@@ -6,7 +6,6 @@ export const ZONA_POR_DEFECTO = "America/Bogota";
 /** Formato de una hora de pared `HH:mm`, de 00:00 a 23:59. */
 export const PATRON_HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-/** Indica si el texto es una hora de pared válida en formato `HH:mm`. */
 export function esHoraValida(hora: string): boolean {
   return PATRON_HORA.test(hora);
 }
@@ -117,12 +116,10 @@ export function fechaDeHoyEn(
   return ahoraEnLaZona(zona, instante).fecha;
 }
 
-/** Indica si la fecha de calendario es anterior al día en curso en esa zona. */
 export function esFechaPasadaEn(zona: string, fecha: string): boolean {
   return fecha < fechaDeHoyEn(zona);
 }
 
-/** Indica si el instante de pared ya pasó en esa zona. */
 export function esInstantePasadoEn(
   zona: string,
   fecha: string,

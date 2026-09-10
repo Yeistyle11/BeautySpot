@@ -11,12 +11,8 @@ const CAJA = "99999999-9999-4999-8999-999999999999";
 
 /**
  * Comprueba contra Postgres real que un fallo al publicar aplaza el siguiente
- * intento en vez de gastarlos todos seguidos.
- *
- * El unitario solo puede mirar el objeto que se le pasa al repositorio; lo que
- * importa aquí es que la columna existe en la tabla y que el propio relay deja
- * de reclamar la fila mientras la espera no ha vencido.
- * Requiere la infraestructura levantada; se ejecuta con `npm run test:int`.
+ * intento en vez de gastarlos todos seguidos: el relay no reclama la fila
+ * mientras la espera no ha vencido (`npm run test:int`).
  */
 describe("Integración: el outbox espera entre reintentos", () => {
   let dataSource: DataSource;

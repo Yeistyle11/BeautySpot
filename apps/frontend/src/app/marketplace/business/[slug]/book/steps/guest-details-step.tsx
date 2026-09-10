@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
-import type { Service } from "../schemas";
+import { datosDeReservaCompletos, type Service } from "../schemas";
 
 export interface GuestDetails {
   name: string;
@@ -21,6 +21,8 @@ interface GuestDetailsStepProps {
   startTime: string;
   totalDuration: number;
   totalAmount: number;
+  /** Con «cualquier profesional», el total depende de a quien le toque. */
+  precioPorConfirmar?: boolean;
   /** Usuario con sesion iniciada; si existe, no se piden datos de invitado. */
   user: { name: string; email: string } | null;
   guest: GuestDetails;
@@ -38,6 +40,7 @@ export function GuestDetailsStep({
   startTime,
   totalDuration,
   totalAmount,
+  precioPorConfirmar,
   user,
   guest,
   onGuestChange,
@@ -69,8 +72,17 @@ export function GuestDetailsStep({
           </p>
           <p>
             <span className="font-medium">Total:</span>{" "}
+            {precioPorConfirmar ? "desde " : ""}
             {formatCurrency(totalAmount)}
           </p>
+          {/* Sin profesional elegido, el negocio asigna uno al reservar y con
+              el la tarifa: prometer un total exacto seria inventarselo. */}
+          {precioPorConfirmar && (
+            <p className="text-muted-foreground">
+              Al elegir «cualquier profesional», el precio final depende de
+              quién te atienda.
+            </p>
+          )}
         </div>
 
         {user ? (
@@ -93,7 +105,12 @@ export function GuestDetailsStep({
                 required
               />
             </Field>
-            <Field label="Email (opcional)">
+            {/* Uno de los dos, no los dos: es la via por la que el negocio
+                confirma la cita y avisa si algo cambia. */}
+            <p className="text-muted-foreground text-sm">
+              Déjanos al menos una forma de avisarte: correo o teléfono.
+            </p>
+            <Field label="Email">
               <Input
                 type="email"
                 placeholder="tu@email.com"
@@ -101,7 +118,7 @@ export function GuestDetailsStep({
                 onChange={(e) => set({ email: e.target.value })}
               />
             </Field>
-            <Field label="Teléfono (opcional)">
+            <Field label="Teléfono">
               <Input
                 type="tel"
                 placeholder="+57 300 1234567"
@@ -122,7 +139,7 @@ export function GuestDetailsStep({
             Atrás
           </Button>
           <Button
-            disabled={(!user && !guest.name) || submitting}
+            disabled={(!user && !datosDeReservaCompletos(guest)) || submitting}
             onClick={onSubmit}
             className="flex-1"
           >

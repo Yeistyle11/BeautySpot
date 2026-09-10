@@ -23,17 +23,19 @@ import {
   List,
   CalendarDays,
   Columns3,
+  UserPlus,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
-import { toLocalDateKey } from "@/lib/utils";
+import { fechasDeLaSemana, toLocalDateKey } from "@/lib/utils";
 import { useApi, paginatedSchema, revalidatePrefix } from "@/lib/swr";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { usePaginatedList } from "@/lib/use-paginated-list";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { AppointmentForm } from "./appointment-form";
+import { WalkInDialog } from "./walk-in-dialog";
 import { AppointmentCard } from "./appointment-card";
 import { RescheduleDialog } from "./reschedule-dialog";
 import { BlockedSlotFormDialog } from "../blocked-slots/blocked-slot-form-dialog";
@@ -44,6 +46,7 @@ import {
   toBlockedSlotPayload,
   type BlockedSlot,
 } from "../blocked-slots/schemas";
+import { businessHourSchema, type BusinessHour } from "../settings/schemas";
 import {
   CompleteAppointmentDialog,
   emptyPaymentDraft,
@@ -57,11 +60,14 @@ import {
   clientSchema,
   CLIENTS_KEY,
   emptyForm,
+  emptyWalkInForm,
+  horaActual,
   MOTIVOS_DE_CANCELACION,
   professionalSchema,
   PROFESSIONALS_KEY,
   serviceSchema,
   SERVICES_KEY,
+  walkInParaEnviar,
   type Appointment,
   type AppointmentForm as FormValues,
   type Client,
@@ -109,6 +115,11 @@ export default function AppointmentsPage() {
 
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [walkInDialog, setWalkInDialog] = useState(false);
+  const [walkInForm, setWalkInForm] = useState(emptyWalkInForm);
+  const [walkInServicios, setWalkInServicios] = useState<string[]>([]);
+  const [savingWalkIn, setSavingWalkIn] = useState(false);
+  const [walkInError, setWalkInError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "day" | "calendar">("list");
@@ -132,13 +143,35 @@ export default function AppointmentsPage() {
     search: viewMode === "list" ? search : "",
   });
 
-  // Los bloqueos solo hacen falta en la vista dia, que es la unica que los
-  // pinta y la unica desde la que se crean.
+  // La vista dia pide los bloqueos de ese dia; la semana, los de los siete,
+  // que es lo que le faltaba para no pintar como libre la tarde de quien esta
+  // de vacaciones. La lista no los necesita.
   const puedeBloquear = canDo(role, "blocked_slots_create");
+  const semana = useMemo(() => fechasDeLaSemana(dia), [dia]);
+  const bloqueosKey =
+    viewMode === "day"
+      ? `/booking/blocked-slots?date=${dia}`
+      : viewMode === "calendar"
+        ? `/booking/blocked-slots?date=${semana[0]}&hasta=${semana[6]}`
+        : null;
   const { data: bloqueos, mutate: recargarBloqueos } = useApi<BlockedSlot[]>(
-    viewMode === "day" ? `/booking/blocked-slots?date=${dia}` : null,
+    bloqueosKey,
     undefined,
     z.array(blockedSlotSchema)
+  );
+
+  // El horario del negocio, para marcar como cerrados los dias sin apertura.
+  const { data: horarios } = useApi<BusinessHour[]>(
+    "/core/business-hours",
+    undefined,
+    z.array(businessHourSchema)
+  );
+  const diasAbiertos = useMemo(
+    () =>
+      horarios
+        ? [...new Set(horarios.filter((h) => h.active).map((h) => h.dayOfWeek))]
+        : undefined,
+    [horarios]
   );
 
   const [bloqueoForm, setBloqueoForm] = useState(emptyBlockedSlotForm);
@@ -154,14 +187,16 @@ export default function AppointmentsPage() {
     undefined,
     z.array(professionalSchema)
   );
-  // Servicios y clientes solo hacen falta con el formulario abierto.
+  // Servicios y clientes solo hacen falta con un formulario abierto, y los dos
+  // que los piden son el de nueva cita y el de walk-in.
+  const necesitaCatalogos = showForm || walkInDialog;
   const { data: services } = useApi<Service[]>(
-    showForm ? SERVICES_KEY : null,
+    necesitaCatalogos ? SERVICES_KEY : null,
     undefined,
     z.array(serviceSchema)
   );
   const { data: clientsPage } = useApi(
-    showForm ? CLIENTS_KEY : null,
+    necesitaCatalogos ? CLIENTS_KEY : null,
     undefined,
     paginatedSchema(clientSchema)
   );
@@ -339,9 +374,8 @@ export default function AppointmentsPage() {
 
   /**
    * Cierra la cita y, si se pide, la cobra. Son dos escrituras encadenadas sin
-   * transaccion: si falla la del pago, la cita ya quedo completada y el cobro
-   * hay que registrarlo despues desde Pagos. Por eso la caja se comprueba antes
-   * de completar nada, que es el fallo que si se puede prever.
+   * transaccion: si falla la del pago, la cita queda completada y el cobro se
+   * registra despues desde Pagos. Por eso la caja se comprueba antes.
    */
   const handleCompleteWithPayment = async (registerPayment: boolean) => {
     if (!completingAppt) return;
@@ -385,17 +419,71 @@ export default function AppointmentsPage() {
     }
   };
 
+  const openWalkIn = () => {
+    // Se propone la hora de ahora: lo normal es anotarlo recién atendido.
+    setWalkInForm({ ...emptyWalkInForm, startTime: horaActual() });
+    setWalkInServicios([]);
+    setWalkInError("");
+    setWalkInDialog(true);
+  };
+
+  const handleWalkIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingWalkIn(true);
+    setWalkInError("");
+    try {
+      // El cobro en efectivo exige caja abierta; se comprueba antes de
+      // registrar nada, para no dejar la cita anotada y el cobro sin hacer.
+      if (walkInForm.cobrar && walkInForm.metodo === "CASH") {
+        const caja = await api.get<{ id: string } | null>(
+          "/payment/cash-register/active"
+        );
+        if (!caja) {
+          setWalkInError(
+            "No hay una caja abierta: ábrela antes de cobrar en efectivo"
+          );
+          return;
+        }
+      }
+
+      const cita = await api.post<Appointment>(
+        `${APPOINTMENTS_KEY}/walk-in`,
+        walkInParaEnviar(walkInForm, walkInServicios, asignaciones)
+      );
+
+      if (walkInForm.cobrar) {
+        await api.post("/payment/payments", {
+          appointmentId: cita.id,
+          clientId: cita.clientId,
+          amount: cita.totalAmount,
+          method: walkInForm.metodo,
+          reference: walkInForm.referencia || undefined,
+        });
+      }
+
+      setWalkInDialog(false);
+      await recargar();
+      await revalidatePrefix("/payment/payments");
+      await revalidatePrefix("/payment/cash-register");
+      toast.exito("Walk-in registrado");
+    } catch (err) {
+      logger.error(err);
+      // El motivo se lee en el diálogo: el aviso flotante se lo llevaría y hay
+      // que corregir algo antes de reintentar.
+      setWalkInError(mensajeDeError(err));
+    } finally {
+      setSavingWalkIn(false);
+    }
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSubmitting(true);
     try {
-      // Solo van los ids: el backend resuelve nombre, precio y duracion
-      // contra el catalogo y los congela junto a la cita.
-      //
-      // En asignaciones viajan unicamente los servicios que atiende otro: los
-      // que se queda el titular se omiten, porque es a quien el backend asigna
-      // por defecto lo que no viene repartido.
+      // Solo van los ids: el backend resuelve nombre, precio y duracion contra el
+      // catalogo y los congela con la cita. En asignaciones viajan solo los
+      // servicios que atiende otro; lo que no se reparte se lo queda el titular.
       await api.post("/booking/appointments", {
         ...form,
         serviceIds: selectedServices,
@@ -448,6 +536,11 @@ export default function AppointmentsPage() {
                 </FilterChip>
               ))}
             </div>
+            {canDo(role, "appointments_create") && (
+              <Button variant="outline" onClick={openWalkIn}>
+                <UserPlus className="mr-2 h-4 w-4" /> Walk-in
+              </Button>
+            )}
             {canDo(role, "appointments_create") && (
               <Button onClick={() => setShowForm(!showForm)}>
                 {showForm ? (
@@ -531,6 +624,7 @@ export default function AppointmentsPage() {
                 canCancel={canDo(role, "appointments_cancel")}
                 clientNames={clientMap}
                 bloqueos={bloqueos ?? []}
+                diasAbiertos={diasAbiertos}
                 onBloquearHueco={puedeBloquear ? abrirBloqueo : undefined}
               />
             )}
@@ -546,6 +640,8 @@ export default function AppointmentsPage() {
             ) : (
               <CalendarView
                 appointments={appointments}
+                date={dia}
+                onDateChange={setDia}
                 onComplete={openCompleteDialog}
                 onConfirm={handleConfirm}
                 onCancel={handleCancel}
@@ -553,6 +649,10 @@ export default function AppointmentsPage() {
                 canConfirm={canDo(role, "appointments_confirm")}
                 canCancel={canDo(role, "appointments_cancel")}
                 clientNames={clientMap}
+                bloqueos={bloqueos ?? []}
+                nombresDeProfesional={professionalMap}
+                diasAbiertos={diasAbiertos}
+                horarios={horarios}
               />
             )}
           </CardContent>
@@ -623,6 +723,27 @@ export default function AppointmentsPage() {
         onPaymentChange={setPayment}
         onComplete={handleCompleteWithPayment}
         pending={completingAction}
+      />
+
+      <WalkInDialog
+        open={walkInDialog}
+        onClose={() => setWalkInDialog(false)}
+        onSubmit={handleWalkIn}
+        form={walkInForm}
+        onChange={setWalkInForm}
+        professionals={professionals ?? []}
+        clients={clients ?? []}
+        services={services ?? []}
+        selectedServices={walkInServicios}
+        onToggleService={(id) =>
+          setWalkInServicios((previos) =>
+            previos.includes(id)
+              ? previos.filter((s) => s !== id)
+              : [...previos, id]
+          )
+        }
+        saving={savingWalkIn}
+        error={walkInError}
       />
 
       <BlockedSlotFormDialog

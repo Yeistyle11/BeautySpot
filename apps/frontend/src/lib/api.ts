@@ -71,9 +71,8 @@ function cabeceraDeNegocio(publicMode: boolean): Record<string, string> {
 
 /**
  * Ejecuta una petición al gateway y normaliza el error a {@link ApiError}.
- * Devuelve el campo `data` del sobre estándar o el cuerpo tal cual si no viene
- * envuelto. La sesión viaja en la cookie httpOnly. Ante un 401 renueva una vez
- * y repite la petición; si la renovación falla, cierra la sesión.
+ * Devuelve el `data` del sobre estándar, o el cuerpo tal cual si no viene
+ * envuelto. Ante un 401 renueva una vez y repite; si falla, cierra la sesión.
  */
 async function request<T>(
   path: string,
@@ -103,7 +102,7 @@ async function request<T>(
       onUnauthorized?.();
     }
     const error = data.error as
-      | { message?: string; details?: { validation?: string[] } }
+      | { code?: string; message?: string; details?: { validation?: string[] } }
       | undefined;
     const detalles = error?.details?.validation;
     throw new ApiError(
@@ -111,7 +110,8 @@ async function request<T>(
       error?.message ||
         (data.message as string | undefined) ||
         `Error en la solicitud (${res.status})`,
-      Array.isArray(detalles) ? detalles : []
+      Array.isArray(detalles) ? detalles : [],
+      error?.code ?? null
     );
   }
   return (data.success !== undefined ? data.data : data) as T;

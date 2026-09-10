@@ -62,13 +62,15 @@ import {
   businessHourSchema,
   campoDeFichaSchema,
   servicioBreveSchema,
-  DAYS,
   defaultHours,
   type BusinessData,
   type BusinessHour,
+  type BusinessHourForm,
+  sembrarHorarios,
   type CampoDeFicha,
   type ServicioBreve,
   type Feedback,
+  facturacionParaGuardar,
   facturacionSchema,
   reservasSchema,
   diaEspecialSchema,
@@ -159,9 +161,10 @@ export default function SettingsPage() {
   );
 
   const [facturacion, setFacturacion] = useState<Facturacion>({});
+  const [tasaDeImpuesto, setTasaDeImpuesto] = useState("");
   const [reservas, setReservas] = useState<Reservas>({});
   const [businessForm, setBusinessForm] = useState<Partial<BusinessData>>({});
-  const [hours, setHours] = useState<BusinessHour[]>(defaultHours);
+  const [hours, setHours] = useState<BusinessHourForm[]>(defaultHours);
   const [niveles, setNiveles] = useState<Nivel[]>([]);
 
   const loadingBiz = canSeeBusiness && !business;
@@ -183,23 +186,18 @@ export default function SettingsPage() {
   );
 
   // Una respuesta vacia no siembra: los horarios se rellenan con el dia por
-  // defecto y guardarlos asi sobreescribiria los del negocio con nada.
+  // defecto y guardarlos asi sobreescribiria los del negocio con nada. Del tramo
+  // guardado se copian solo los campos que admite el DTO.
   useSeededForm(hoursData?.length ? hoursData : null, (horas) =>
-    setHours(
-      DAYS.map(
-        (d) =>
-          horas.find((h) => h.dayOfWeek === d.value) || {
-            dayOfWeek: d.value,
-            openTime: "08:00",
-            closeTime: "18:00",
-            active: false,
-          }
-      )
-    )
+    setHours(sembrarHorarios(horas))
   );
 
   useSeededForm(fidelizacion, (f) => setNiveles(f.niveles));
-  useSeededForm(facturacionGuardada, setFacturacion);
+  useSeededForm(facturacionGuardada, (f) => {
+    setFacturacion(f);
+    // La tasa se edita aparte porque es texto: un input vacio no es un cero.
+    setTasaDeImpuesto(f.tasaDeImpuesto != null ? String(f.tasaDeImpuesto) : "");
+  });
   useSeededForm(reservasGuardadas, setReservas);
 
   const saveAccount = async () => {
@@ -326,7 +324,10 @@ export default function SettingsPage() {
   const saveFacturacion = async () => {
     setSaving("billing");
     try {
-      await api.patch(FACTURACION_KEY, facturacion);
+      await api.patch(
+        FACTURACION_KEY,
+        facturacionParaGuardar(facturacion, tasaDeImpuesto)
+      );
       await mutateFacturacion();
       toast.exito("Datos de facturación actualizados");
     } catch (err) {
@@ -390,7 +391,7 @@ export default function SettingsPage() {
 
   const updateHour = (
     dayOfWeek: number,
-    field: keyof BusinessHour,
+    field: keyof BusinessHourForm,
     value: string | boolean
   ) => {
     setHours((prev) =>
@@ -518,6 +519,8 @@ export default function SettingsPage() {
             <BillingTab
               facturacion={facturacion}
               onChange={setFacturacion}
+              tasa={tasaDeImpuesto}
+              onTasaChange={setTasaDeImpuesto}
               onSave={saveFacturacion}
               saving={saving === "billing"}
             />

@@ -38,10 +38,9 @@ export function usePaginatedApi<T>(
   };
 }
 
-// El schema es opcional: si se pasa, valida la respuesta del gateway en
-// runtime antes de devolverla al cache de SWR. `schema.parse` lanza si no
-// matchea, y SWR ya captura ese throw en su `error` -- mismo mecanismo que
-// las paginas ya usan para errores de red, sin plomeria nueva.
+// El schema es opcional: si se pasa, valida la respuesta del gateway en runtime
+// antes de devolverla al cache de SWR. `schema.parse` lanza si no casa, y SWR
+// recoge ese throw en su `error`, como con los errores de red.
 export function useApi<T>(
   path: Key,
   options?: SWRConfiguration<T>,
@@ -77,7 +76,6 @@ export async function revalidatePath(path: string): Promise<void> {
   await mutate(path);
 }
 
-/** Recarga todo lo cacheado. */
 export async function revalidateAll(): Promise<void> {
   const { mutate } = await import("swr");
   await mutate(() => true, undefined, { revalidate: true });

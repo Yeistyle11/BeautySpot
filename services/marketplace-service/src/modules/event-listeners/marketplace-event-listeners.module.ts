@@ -4,12 +4,14 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { EVENTS_EXCHANGE, DEAD_LETTER_EXCHANGE } from "@beautyspot/event-types";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
+import { ReviewEntity } from "../../entities/review.entity";
 import { MarketplaceEventListeners } from "./marketplace-event-listeners.service";
 import { BusinessProfilesModule } from "../business-profiles/business-profiles.module";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([BusinessProfileEntity]),
+    // Las reseñas de la ficha absorbida se reasignan al fusionar dos clientes.
+    TypeOrmModule.forFeature([BusinessProfileEntity, ReviewEntity]),
     BusinessProfilesModule,
     RabbitMQModule.forRootAsync({
       inject: [ConfigService],

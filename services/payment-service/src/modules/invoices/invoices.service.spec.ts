@@ -5,8 +5,13 @@ import { getRepositoryToken } from "@nestjs/typeorm";
 import { InvoicesService } from "./invoices.service";
 import { InvoiceEntity } from "./invoice.entity";
 import { InvoiceItemEntity } from "./invoice-item.entity";
+import { PaymentEntity } from "../payments/payment.entity";
 import { InvoiceStatus } from "@beautyspot/shared-types";
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from "@nestjs/common";
 import { PdfService } from "./pdf/pdf.service";
 import { InternalHttpClient } from "@beautyspot/nest-common";
 
@@ -29,6 +34,7 @@ const PERFILES = {
 describe("InvoicesService", () => {
   let service: InvoicesService;
   let mockInvoiceRepo: jest.Mocked<Repository<InvoiceEntity>>;
+  let mockPaymentRepo: jest.Mocked<Repository<PaymentEntity>>;
   let mockItemRepo: jest.Mocked<Repository<InvoiceItemEntity>>;
   let mockPdfService: jest.Mocked<PdfService>;
   let mockReservarNumero: jest.Mock;
@@ -79,6 +85,11 @@ describe("InvoicesService", () => {
       create: jest.fn(),
     } as any;
 
+    mockPaymentRepo = {
+      findOne: jest.fn(),
+      exists: jest.fn().mockResolvedValue(false),
+    } as any;
+
     mockPdfService = {
       generateInvoicePdf: jest.fn().mockResolvedValue(Buffer.from("PDF data")),
     } as any;
@@ -114,6 +125,10 @@ describe("InvoicesService", () => {
         {
           provide: getRepositoryToken(InvoiceItemEntity),
           useValue: mockItemRepo,
+        },
+        {
+          provide: getRepositoryToken(PaymentEntity),
+          useValue: mockPaymentRepo,
         },
         {
           provide: PdfService,
@@ -554,6 +569,206 @@ describe("InvoicesService", () => {
       await expect(
         service.generateMyInvoicePdf("invoice-de-otro", "user-1")
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("emitir desde un cobro", () => {
+    /** Cobro completado de una cita, tal como lo devuelve el repositorio. */
+    const cobro = {
+      id: "pay-1",
+      businessId: "business-123",
+      clientId: "client-123",
+      appointmentId: "appt-1",
+      amount: 119000,
+      status: "COMPLETED",
+    };
+
+    beforeEach(() => {
+      mockInvoiceRepo.create.mockImplementation((datos) => datos as never);
+      // La guardada conserva sus líneas, que es lo que devuelve el save real.
+      mockInvoiceRepo.save.mockImplementation((factura) =>
+        Promise.resolve({ ...factura, id: "inv-1" } as never)
+      );
+      mockInvoiceRepo.exists = jest.fn().mockResolvedValue(false) as never;
+      mockItemRepo.create.mockImplementation((item) => item as never);
+      mockPaymentRepo.findOne.mockResolvedValue(cobro as never);
+    });
+
+    // Lo cobrado en el mostrador lleva el impuesto dentro: sumarlo encima
+    // dejaria la factura pidiendo mas de lo que el cliente ya pago.
+    it("el total de la factura es exactamente lo que se cobró", async () => {
+      mockHttp.pedirONulo.mockResolvedValue(null);
+
+      const factura = await service.create("business-123", {
+        paymentId: "pay-1",
+      });
+
+      expect(factura.total).toBe(119000);
+      expect(factura.subtotal).toBe(100000);
+      expect(factura.tax).toBe(19000);
+      expect(factura.subtotal + factura.tax).toBe(factura.total);
+    });
+
+    it("guarda de qué cobro salió", async () => {
+      mockHttp.pedirONulo.mockResolvedValue(null);
+
+      const factura = await service.create("business-123", {
+        paymentId: "pay-1",
+      });
+
+      expect(factura.paymentId).toBe("pay-1");
+    });
+
+    it("las líneas son los servicios de la cita", async () => {
+      mockHttp.pedirONulo.mockImplementation((servicio: string) =>
+        servicio === "booking"
+          ? Promise.resolve({
+              clientId: "client-123",
+              totalAmount: 119000,
+              services: [
+                { serviceId: "s1", name: "Corte", price: 59500, duration: 30 },
+                { serviceId: "s2", name: "Barba", price: 59500, duration: 30 },
+              ],
+            })
+          : Promise.resolve(null)
+      );
+
+      const factura = await service.create("business-123", {
+        paymentId: "pay-1",
+      });
+
+      expect(factura.items.map((i) => i.description)).toEqual([
+        "Corte",
+        "Barba",
+      ]);
+      expect(factura.total).toBe(119000);
+    });
+
+    // Un descuento o un canje deja los precios de la cita por encima de lo
+    // cobrado, y la factura tiene que cuadrar con lo que se pago.
+    it("no usa los precios de la cita si no suman lo cobrado", async () => {
+      mockHttp.pedirONulo.mockImplementation((servicio: string) =>
+        servicio === "booking"
+          ? Promise.resolve({
+              clientId: "client-123",
+              totalAmount: 150000,
+              services: [
+                { serviceId: "s1", name: "Corte", price: 150000, duration: 30 },
+              ],
+            })
+          : Promise.resolve(null)
+      );
+
+      const factura = await service.create("business-123", {
+        paymentId: "pay-1",
+      });
+
+      expect(factura.items).toHaveLength(1);
+      expect(factura.items[0].description).toBe("Servicios prestados");
+      expect(factura.total).toBe(119000);
+    });
+
+    it("un cobro suelto se factura como una sola línea", async () => {
+      mockPaymentRepo.findOne.mockResolvedValue({
+        ...cobro,
+        appointmentId: null,
+      } as never);
+      mockHttp.pedirONulo.mockResolvedValue(null);
+
+      const factura = await service.create("business-123", {
+        paymentId: "pay-1",
+      });
+
+      expect(factura.items).toHaveLength(1);
+      expect(mockHttp.pedirONulo).not.toHaveBeenCalledWith(
+        "booking",
+        expect.anything()
+      );
+    });
+
+    it("no factura un cobro que no está completado", async () => {
+      mockPaymentRepo.findOne.mockResolvedValue({
+        ...cobro,
+        status: "REFUNDED",
+      } as never);
+
+      await expect(
+        service.create("business-123", { paymentId: "pay-1" })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("no factura un cobro de otro negocio", async () => {
+      mockPaymentRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.create("business-123", { paymentId: "pay-ajeno" })
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("no factura dos veces el mismo cobro", async () => {
+      mockInvoiceRepo.exists = jest.fn().mockResolvedValue(true) as never;
+
+      await expect(
+        service.create("business-123", { paymentId: "pay-1" })
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it("sin cobro ni líneas no hay factura que emitir", async () => {
+      await expect(service.create("business-123", {})).rejects.toThrow(
+        BadRequestException
+      );
+    });
+  });
+
+  describe("tasa de impuesto del negocio", () => {
+    beforeEach(() => {
+      mockInvoiceRepo.create.mockImplementation((datos) => datos as never);
+      // La guardada conserva sus líneas, que es lo que devuelve el save real.
+      mockInvoiceRepo.save.mockImplementation((factura) =>
+        Promise.resolve({ ...factura, id: "inv-1" } as never)
+      );
+      mockItemRepo.create.mockImplementation((item) => item as never);
+    });
+
+    it("aplica y congela la que el negocio tiene configurada", async () => {
+      mockHttp.pedirONulo.mockResolvedValue({
+        business: { facturacion: { tasaDeImpuesto: 5 } },
+      });
+
+      const factura = await service.create("business-123", {
+        clientId: "client-123",
+        items: [{ description: "Corte", quantity: 1, unitPrice: 100000 }],
+      });
+
+      expect(factura.taxRate).toBe(0.05);
+      expect(factura.tax).toBe(5000);
+      expect(factura.total).toBe(105000);
+    });
+
+    // Un negocio exento factura sin impuesto, que hoy era imposible.
+    it("admite el cero, que es facturar sin impuesto", async () => {
+      mockHttp.pedirONulo.mockResolvedValue({
+        business: { facturacion: { tasaDeImpuesto: 0 } },
+      });
+
+      const factura = await service.create("business-123", {
+        clientId: "client-123",
+        items: [{ description: "Corte", quantity: 1, unitPrice: 100000 }],
+      });
+
+      expect(factura.tax).toBe(0);
+      expect(factura.total).toBe(100000);
+    });
+
+    it("sin configurar, el IVA colombiano", async () => {
+      mockHttp.pedirONulo.mockResolvedValue(null);
+
+      const factura = await service.create("business-123", {
+        clientId: "client-123",
+        items: [{ description: "Corte", quantity: 1, unitPrice: 100000 }],
+      });
+
+      expect(factura.taxRate).toBe(0.19);
     });
   });
 });

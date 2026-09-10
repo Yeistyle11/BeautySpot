@@ -1,11 +1,8 @@
 import { DataSource, Repository } from "typeorm";
-import { OutboxMessageEntity, OutboxService } from "@beautyspot/nest-common";
+import { OutboxService } from "@beautyspot/nest-common";
 import { PaymentMethod, PaymentStatus } from "@beautyspot/shared-types";
+import { entities } from "../orm-entities";
 import { PaymentEntity } from "../modules/payments/payment.entity";
-import { InvoiceEntity } from "../modules/invoices/invoice.entity";
-import { InvoiceItemEntity } from "../modules/invoices/invoice-item.entity";
-import { CashSessionEntity } from "../modules/cash-register/cash-session.entity";
-import { CashMovementEntity } from "../modules/cash-register/cash-movement.entity";
 import { PaymentsService } from "../modules/payments/payments.service";
 
 /** Código de error de Postgres para violación de restricción única. */
@@ -47,14 +44,7 @@ describe("Integración: una cita se cobra una sola vez", () => {
     dataSource = new DataSource({
       type: "postgres",
       url: process.env.DATABASE_URL,
-      entities: [
-        PaymentEntity,
-        InvoiceEntity,
-        InvoiceItemEntity,
-        CashSessionEntity,
-        CashMovementEntity,
-        OutboxMessageEntity,
-      ],
+      entities,
       synchronize: true,
     });
     await dataSource.initialize();

@@ -231,6 +231,20 @@ describe("createAppFactory", () => {
     });
   });
 
+  describe("arranque", () => {
+    it("no deja que Nest mate el proceso por su cuenta", async () => {
+      // Nest envuelve los métodos de la aplicación en una zona cuyo cierre por
+      // defecto es process.exit(1). Con `abortOnError: false` el error sube
+      // hasta bootstrapMicroservice, que lo registra y sale.
+      await createMicroserviceApp({} as any);
+
+      expect(NestFactoryMock.create).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ abortOnError: false })
+      );
+    });
+  });
+
   describe("Global Guards", () => {
     /** El store con el que se construyó el guard global de JWT. */
     function storeDelGuard(): any {

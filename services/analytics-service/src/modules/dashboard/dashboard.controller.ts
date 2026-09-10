@@ -30,7 +30,6 @@ export class DashboardController {
     );
   }
 
-  /** Devuelve el ranking de profesionales por ingresos. */
   @Get("top-professionals")
   async getTopProfessionals(
     @BusinessId() businessId: string,

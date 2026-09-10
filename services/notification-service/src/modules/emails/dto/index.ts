@@ -100,9 +100,18 @@ export class SendAppointmentCancelledDto {
   @IsString()
   serviceName: string;
 
+  /** Fecha y hora de la cita que se cancela. */
+  @IsString()
+  appointmentDate: string;
+
+  @IsString()
+  appointmentTime: string;
+
+  /** Cuándo se canceló, que no es cuándo era la cita. */
   @IsString()
   cancelledDate: string;
 
+  /** Motivo tipificado y redactado para el cliente, nunca la nota interna. */
   @IsString()
   reason: string;
 

@@ -84,20 +84,61 @@ describe("cashSessionSchema", () => {
 });
 
 describe("cashMovementSchema", () => {
-  it("acepta los movimientos que devuelve el resumen", () => {
-    const resumen = {
-      movements: [
-        {
-          id: "6c1f5c9a-1f3f-4a1e-9a2b-0b7c1d2e3f40",
-          type: "IN",
-          amount: 35000,
-          concept: "Pago en efectivo",
-          createdAt: "2026-07-28T02:10:00.000Z",
-        },
-      ],
-    };
+  /** El resumen tal como lo devuelve `/cash-register/:id/summary`. */
+  const resumenDeLaApi = {
+    movements: [
+      {
+        id: "6c1f5c9a-1f3f-4a1e-9a2b-0b7c1d2e3f40",
+        type: "IN",
+        amount: 30000,
+        concept: "Venta en mostrador",
+        method: "CASH",
+        createdAt: "2026-07-28T02:10:00.000Z",
+      },
+      {
+        id: "6c1f5c9a-1f3f-4a1e-9a2b-0b7c1d2e3f41",
+        type: "IN",
+        amount: 20000,
+        concept: "Venta en mostrador",
+        method: "CARD",
+        createdAt: "2026-07-28T02:10:00.000Z",
+      },
+    ],
+    summary: {
+      totalIn: 50000,
+      totalOut: 0,
+      movementCount: 2,
+      porMetodo: {
+        CASH: { entradas: 30000, salidas: 0 },
+        CARD: { entradas: 20000, salidas: 0 },
+      },
+      // Solo el efectivo esta en el cajon: la parte con datafono no.
+      expectedTotal: 30000,
+    },
+  };
 
-    const result = cashSummarySchema.safeParse(resumen);
+  it("acepta los movimientos que devuelve el resumen", () => {
+    const result = cashSummarySchema.safeParse(resumenDeLaApi);
+
+    expect(result.success).toBe(true);
+  });
+
+  // La pantalla rehacia la suma de los movimientos sin mirar el medio, asi que
+  // la parte con datafono contaba como dinero del cajon y el arqueo exigia
+  // justificar un descuadre que no existia.
+  it("conserva el arqueo que hace el servicio", () => {
+    const resumen = cashSummarySchema.parse(resumenDeLaApi);
+
+    expect(resumen.summary.expectedTotal).toBe(30000);
+    expect(resumen.summary.totalIn).toBe(50000);
+    expect(resumen.summary.porMetodo.CARD.entradas).toBe(20000);
+  });
+
+  it("admite el movimiento anotado a mano, que no tiene medio", () => {
+    const result = cashSummarySchema.safeParse({
+      ...resumenDeLaApi,
+      movements: [{ ...resumenDeLaApi.movements[0], method: null }],
+    });
 
     expect(result.success).toBe(true);
   });

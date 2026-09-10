@@ -2,10 +2,8 @@ import { User } from "../../../entities/user.entity";
 
 /**
  * Usuario apto para devolver en una respuesta: sin la contraseña y sin la
- * maquinaria de la sesión —versión de token, contador de fallos y bloqueo—,
- * que no le importa a nadie fuera de auth. Importa porque el listado de
- * personal devuelve un usuario por compañero, así que eso publicaba el estado
- * de seguridad de cuentas ajenas.
+ * maquinaria de la sesión —versión de token, contador de fallos y bloqueo—, que
+ * no le importa a nadie fuera de auth.
  */
 export type SafeUser = Omit<
   User,
