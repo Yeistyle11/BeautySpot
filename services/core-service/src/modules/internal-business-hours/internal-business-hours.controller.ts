@@ -2,6 +2,7 @@ import { Internal } from "@beautyspot/nest-common";
 import { Controller, Get, Query } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { diaDeLaSemana } from "@beautyspot/shared-utils";
 import { BusinessHours } from "../../entities/business-hours.entity";
 import { SpecialDaysService } from "../business-hours/special-days.service";
 
@@ -81,7 +82,7 @@ export class InternalBusinessHoursController {
       };
     }
 
-    const dayOfWeek = new Date(`${date}T12:00:00Z`).getUTCDay();
+    const dayOfWeek = diaDeLaSemana(date);
 
     return {
       tramos: semana

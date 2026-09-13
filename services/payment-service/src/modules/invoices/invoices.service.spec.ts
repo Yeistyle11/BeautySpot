@@ -563,7 +563,7 @@ describe("InvoicesService", () => {
     const paginacion = { page: 1, limit: 20, offset: 0 } as never;
 
     it("acota a las fichas del usuario", async () => {
-      mockHttp.pedirONulo.mockResolvedValue([{ id: "cli-1" }, { id: "cli-2" }]);
+      mockHttp.pedir.mockResolvedValue([{ id: "cli-1" }, { id: "cli-2" }]);
       mockInvoiceRepo.findAndCount.mockResolvedValue([[], 0]);
 
       await service.findByClientUser("user-1", paginacion);
@@ -576,11 +576,22 @@ describe("InvoicesService", () => {
     });
 
     it("no consulta nada si el usuario no tiene fichas", async () => {
-      mockHttp.pedirONulo.mockResolvedValue([]);
+      mockHttp.pedir.mockResolvedValue([]);
 
       const resultado = await service.findByClientUser("user-1", paginacion);
 
       expect(resultado.data).toEqual([]);
+      expect(mockInvoiceRepo.findAndCount).not.toHaveBeenCalled();
+    });
+
+    // Devolver una pagina vacia convertiria la caida en un "no tienes
+    // facturas", y eso nadie lo mira dos veces.
+    it("falla en vez de decir que no hay facturas si core no responde", async () => {
+      mockHttp.pedir.mockRejectedValue(new Error("core no responde"));
+
+      await expect(
+        service.findByClientUser("user-1", paginacion)
+      ).rejects.toThrow("core no responde");
       expect(mockInvoiceRepo.findAndCount).not.toHaveBeenCalled();
     });
 

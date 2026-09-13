@@ -202,6 +202,16 @@ export function arrastreDeJornada<
     }));
 }
 
+/**
+ * Día de la semana de una fecha de calendario, de domingo (0) a sábado (6),
+ * que es como lo guardan los horarios. Se ancla a mediodía en UTC: el día de
+ * una fecha suelta no depende del huso, y anclarla a medianoche la haría
+ * saltar al día vecino según dónde corra el proceso.
+ */
+export function diaDeLaSemana(fecha: string): number {
+  return new Date(`${fecha}T12:00:00Z`).getUTCDay();
+}
+
 /** Día de la semana anterior, con la vuelta del domingo (0) al sábado (6). */
 export function diaAnteriorDeLaSemana(dayOfWeek: number): number {
   return (dayOfWeek + 6) % 7;

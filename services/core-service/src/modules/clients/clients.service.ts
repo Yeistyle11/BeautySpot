@@ -35,6 +35,7 @@ import {
 } from "@beautyspot/shared-constants";
 import {
   contieneTexto,
+  metadataDePaginacion,
   paginarQueryBuilder,
   paginate,
   PaginateParams,
@@ -668,17 +669,7 @@ export class ClientsService extends TenantCrudService<Client> {
   private paginaVacia(
     pagination: PaginateParams
   ): IPaginatedResponse<Pick<Client, "id" | "name">> {
-    return {
-      data: [],
-      meta: {
-        page: pagination.page,
-        limit: pagination.limit,
-        total: 0,
-        totalPages: 0,
-        hasNext: false,
-        hasPrev: pagination.page > 1,
-      },
-    };
+    return { data: [], meta: metadataDePaginacion(pagination, 0) };
   }
 
   /** Nombre de los clientes pedidos, acotado al negocio: solo id y nombre. */

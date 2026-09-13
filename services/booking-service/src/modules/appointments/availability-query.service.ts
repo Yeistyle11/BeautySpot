@@ -15,6 +15,7 @@ import {
   arrastreDelDiaAnterior,
   arrastreDeJornada,
   diaAnterior,
+  diaDeLaSemana,
   diaAnteriorDeLaSemana,
   finExtendido,
   repartoPorProfesional,
@@ -128,7 +129,7 @@ export class AvailabilityQueryService {
     date: string,
     duration: number
   ): Promise<Franja[]> {
-    const dayOfWeek = new Date(date + "T12:00:00").getDay();
+    const dayOfWeek = diaDeLaSemana(date);
     const horarios = await this.jornadasDelDia(businessId, dayOfWeek);
     const profesionales = [...new Set(horarios.map((h) => h.professionalId))];
     if (profesionales.length === 0) return [];
@@ -185,7 +186,7 @@ export class AvailabilityQueryService {
     date: string,
     duration: number
   ): Promise<Franja[]> {
-    const dayOfWeek = new Date(date + "T12:00:00").getDay();
+    const dayOfWeek = diaDeLaSemana(date);
 
     const tramos = await this.jornadasDelDia(businessId, dayOfWeek, [
       professionalId,
@@ -396,7 +397,7 @@ export class AvailabilityQueryService {
     endTime: string,
     lineas: LineaDeAgenda[]
   ): Promise<string | null> {
-    const dayOfWeek = new Date(date + "T12:00:00").getDay();
+    const dayOfWeek = diaDeLaSemana(date);
     const horarios = await this.jornadasDelDia(businessId, dayOfWeek);
     const candidatos = [...new Set(horarios.map((h) => h.professionalId))];
     if (candidatos.length === 0) return null;
@@ -508,7 +509,7 @@ export class AvailabilityQueryService {
     businessId: string,
     date: string
   ): Promise<{ professionalId: string; minutosDisponibles: number }[]> {
-    const dayOfWeek = new Date(date + "T12:00:00").getDay();
+    const dayOfWeek = diaDeLaSemana(date);
     const horarios = await this.jornadasDelDia(businessId, dayOfWeek);
     const profesionales = [...new Set(horarios.map((h) => h.professionalId))];
     if (profesionales.length === 0) return [];

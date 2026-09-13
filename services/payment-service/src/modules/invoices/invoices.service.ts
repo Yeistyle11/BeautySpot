@@ -14,7 +14,11 @@ import {
 import { fechaDeHoyEn } from "@beautyspot/shared-utils";
 import { EventNames, ServicioDeLaCita } from "@beautyspot/event-types";
 import { Between, In, Repository, DataSource, EntityManager } from "typeorm";
-import { paginate, PaginateParams } from "@beautyspot/database";
+import {
+  metadataDePaginacion,
+  paginate,
+  PaginateParams,
+} from "@beautyspot/database";
 import { InvoiceEntity } from "./invoice.entity";
 import { InvoiceItemEntity } from "./invoice-item.entity";
 import {
@@ -333,17 +337,7 @@ export class InvoicesService {
   ): Promise<IPaginatedResponse<InvoiceEntity>> {
     const clientIds = await this.clientIdsDelUsuario(userId);
     if (clientIds.length === 0) {
-      return {
-        data: [],
-        meta: {
-          page: pagination.page,
-          limit: pagination.limit,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false,
-        },
-      };
+      return { data: [], meta: metadataDePaginacion(pagination, 0) };
     }
 
     return paginate(this.invoiceRepo, pagination, {
@@ -377,16 +371,22 @@ export class InvoicesService {
     return invoice;
   }
 
+  /**
+   * Pregunta a core qué fichas de cliente pertenecen a este usuario. Falla si
+   * core no responde: dar la lista por vacía convertiría una caída en un "no
+   * tienes facturas", que es peor que un error, porque nadie lo mira dos veces.
+   */
   private async clientIdsDelUsuario(userId: string): Promise<string[]> {
-    const fichas = await this.http.pedirONulo<{ id?: unknown }[]>(
+    const fichas = await this.http.pedir<{ id?: unknown }[]>(
       "core",
       `/internal/clients/by-user/${userId}`
     );
-    if (!Array.isArray(fichas)) return [];
 
-    return fichas
-      .map((c) => c.id)
-      .filter((id): id is string => typeof id === "string");
+    return Array.isArray(fichas)
+      ? fichas
+          .map((c) => c.id)
+          .filter((id): id is string => typeof id === "string")
+      : [];
   }
 
   /** Obtiene una factura con sus líneas; lanza 404 si no existe. */

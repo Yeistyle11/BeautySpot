@@ -31,7 +31,11 @@ import {
   withSerializableRetry,
   ZonaDelNegocioService,
 } from "@beautyspot/nest-common";
-import { paginate, PaginateParams } from "@beautyspot/database";
+import {
+  metadataDePaginacion,
+  paginate,
+  PaginateParams,
+} from "@beautyspot/database";
 import { serviciosDelEvento } from "../../common/servicios-del-evento";
 import { AvailabilityQueryService } from "./availability-query.service";
 import { PoliticaDeReservaService } from "./politica-de-reserva.service";
@@ -39,6 +43,7 @@ import { PROPORCION_PUNTOS_FIDELIDAD } from "@beautyspot/shared-constants";
 import {
   ahoraEnLaZona,
   calculateEndTime,
+  diaDeLaSemana,
   escapeLikePattern,
   esInstantePasadoEn,
   fechaDeHoyEn,
@@ -293,7 +298,7 @@ export class AppointmentsService {
 
     // Pre-check rapido (UX): fast-fail en slots obviamente invalidos fuera
     // de transaccion. El check autoritativo corre DENTRO de la tx SERIALIZABLE.
-    const dayOfWeek = new Date(data.date + "T12:00:00").getDay();
+    const dayOfWeek = diaDeLaSemana(data.date);
     const available = await this.disponibilidad.franjaDentroDelHorario(
       businessId,
       data.date,
@@ -738,7 +743,7 @@ export class AppointmentsService {
     );
     const finGuardado = horaDeReloj(newEndTime);
     const ocupadoHastaGuardado = horaDeReloj(nuevoOcupadoHasta);
-    const dayOfWeek = new Date(newDate + "T12:00:00").getDay();
+    const dayOfWeek = diaDeLaSemana(newDate);
     const available = await this.disponibilidad.franjaDentroDelHorario(
       businessId,
       newDate,
@@ -977,17 +982,7 @@ export class AppointmentsService {
   ): Promise<IPaginatedResponse<Appointment>> {
     const clientIds = await this.clientIdsDelUsuario(userId);
     if (clientIds.length === 0) {
-      return {
-        data: [],
-        meta: {
-          page: pagination.page,
-          limit: pagination.limit,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false,
-        },
-      };
+      return { data: [], meta: metadataDePaginacion(pagination, 0) };
     }
 
     return paginate(this.apptRepo, pagination, {

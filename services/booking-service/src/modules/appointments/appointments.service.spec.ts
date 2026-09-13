@@ -1575,6 +1575,30 @@ describe("AppointmentsService", () => {
       mockHttp.pedir.mockResolvedValue(clients);
     }
 
+    // El sobre de la pagina vacia lo arma el helper compartido, que es lo que
+    // impide que cada servicio conteste un `hasPrev` distinto.
+    it("arma la página vacía como el resto de listados", async () => {
+      coreDevuelve([]);
+
+      const vacia = await service.findByClientUser("user-1", {
+        ...pagination,
+        page: 2,
+        offset: 20,
+      });
+
+      expect(vacia).toEqual({
+        data: [],
+        meta: {
+          page: 2,
+          limit: 20,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: true,
+        },
+      });
+    });
+
     it("busca las citas de todas las fichas del usuario", async () => {
       coreDevuelve([{ id: "cliente-a" }, { id: "cliente-b" }]);
       mockApptRepo.findAndCount.mockResolvedValue([[mockAppointment], 1]);
