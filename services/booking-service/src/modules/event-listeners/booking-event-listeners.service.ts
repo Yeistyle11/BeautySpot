@@ -3,6 +3,7 @@ import { RabbitSubscribe } from "@golevelup/nestjs-rabbitmq";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import {
+  BusinessUpdatedEvent,
   ClientMergedEvent,
   ProfessionalCreatedEvent,
   EventNames,
@@ -10,7 +11,10 @@ import {
   DEAD_LETTER_EXCHANGE,
   nombreDeCola,
 } from "@beautyspot/event-types";
-import { ProcessedEventsStore } from "@beautyspot/nest-common";
+import {
+  ProcessedEventsStore,
+  ZonaDelNegocioService,
+} from "@beautyspot/nest-common";
 import { AvailabilityService } from "../availability/availability.service";
 import { Appointment } from "../../entities/appointment.entity";
 
@@ -22,6 +26,7 @@ export class BookingEventListeners {
   constructor(
     private readonly availabilityService: AvailabilityService,
     private readonly processedEvents: ProcessedEventsStore,
+    private readonly zonas: ZonaDelNegocioService,
     @InjectRepository(Appointment)
     private readonly apptRepo: Repository<Appointment>
   ) {}
@@ -103,5 +108,24 @@ export class BookingEventListeners {
     this.logger.log(
       `Fusión de clientes ${absorbidoId} → ${supervivienteId}: ${affected ?? 0} las citas reasignadas`
     );
+  }
+
+  /**
+   * Olvida el huso cacheado del negocio cuando cambian sus datos. Se cachea una
+   * hora, y hasta ahora un cambio de huso tardaba eso en llegar a la agenda:
+   * las horas que ve quien reserva salen de él.
+   *
+   * No lleva guarda de idempotencia porque olvidar dos veces es olvidar.
+   */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.CORE_BUSINESS_UPDATED,
+    queue: nombreDeCola("booking", EventNames.CORE_BUSINESS_UPDATED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleBusinessUpdated(event: BusinessUpdatedEvent): Promise<void> {
+    const { businessId } = event.payload;
+    await this.zonas.olvidar(businessId);
+    this.logger.log(`Huso olvidado del negocio ${businessId}`);
   }
 }

@@ -35,6 +35,16 @@ export class ZonaDelNegocioService {
     );
   }
 
+  /**
+   * Olvida el huso cacheado de un negocio, para que la proxima consulta lo
+   * vuelva a pedir. La clave no lleva prefijo de servicio, asi que olvidarla
+   * desde uno vale para todos los que la leen.
+   */
+  async olvidar(businessId: string): Promise<void> {
+    if (!businessId) return;
+    await this.cache.del(`zona:negocio:${businessId}`);
+  }
+
   /** Pide el huso a core. Falla en abierto: sin respuesta, el de por defecto. */
   private async consultar(businessId: string): Promise<string> {
     const perfil = await this.http.pedirONulo<PerfilDelNegocio>(

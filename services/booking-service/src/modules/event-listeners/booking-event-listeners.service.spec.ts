@@ -1,7 +1,10 @@
 import { Test } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import type { IBaseEvent } from "@beautyspot/event-types";
-import { ProcessedEventsStore } from "@beautyspot/nest-common";
+import {
+  ProcessedEventsStore,
+  ZonaDelNegocioService,
+} from "@beautyspot/nest-common";
 import { BookingEventListeners } from "./booking-event-listeners.service";
 import { AvailabilityService } from "../availability/availability.service";
 import { Appointment } from "../../entities/appointment.entity";
@@ -21,6 +24,7 @@ function makeEvent<T>(payload: T): IBaseEvent<T> {
 describe("BookingEventListeners", () => {
   /** Reasignación de citas al fusionar dos fichas. */
   const reasignarCitas = jest.fn().mockResolvedValue({ affected: 3 });
+  const mockZonas = { olvidar: jest.fn().mockResolvedValue(undefined) };
 
   let service: BookingEventListeners;
   let mockAvailabilityService: jest.Mocked<AvailabilityService>;
@@ -47,6 +51,7 @@ describe("BookingEventListeners", () => {
           provide: AvailabilityService,
           useValue: mockAvailabilityService,
         },
+        { provide: ZonaDelNegocioService, useValue: mockZonas },
         {
           // El store real se prueba aparte; aquí basta con que deje pasar el
           // trabajo, que es el comportamiento cuando el evento es nuevo.
@@ -189,6 +194,18 @@ describe("BookingEventListeners", () => {
         { businessId: "biz-1", clientId: "c-duplicada" },
         { clientId: "c-buena" }
       );
+    });
+  });
+
+  describe("handleBusinessUpdated", () => {
+    // El huso se cachea una hora: sin esto, cambiarlo tardaba eso en llegar a
+    // las horas que ve quien reserva.
+    it("olvida el huso cacheado del negocio que cambió", async () => {
+      await service.handleBusinessUpdated(
+        makeEvent({ businessId: "negocio-1", slug: "x", changes: {} })
+      );
+
+      expect(mockZonas.olvidar).toHaveBeenCalledWith("negocio-1");
     });
   });
 });
