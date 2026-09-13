@@ -1,4 +1,5 @@
 import {
+  mensajeDeValidacion,
   nivelDePuntos,
   siguienteNivel,
   NIVELES_FIDELIDAD_POR_DEFECTO,
@@ -58,5 +59,72 @@ describe("niveles de fidelidad", () => {
         NIVELES_FIDELIDAD_POR_DEFECTO[i - 1].min
       );
     }
+  });
+});
+
+describe("mensajeDeValidacion", () => {
+  it("traduce el mensaje que emite el validador y nombra el campo en castellano", () => {
+    expect(
+      mensajeDeValidacion("isUuid", "businessId", "businessId must be a UUID")
+    ).toBe("Revisa el negocio: el formato no es válido");
+    expect(
+      mensajeDeValidacion(
+        "isNotEmpty",
+        "serviceIds",
+        "serviceIds should not be empty"
+      )
+    ).toBe("Falta indicar los servicios");
+    expect(
+      mensajeDeValidacion(
+        "isUuid",
+        "serviceIds",
+        "each value in serviceIds must be a UUID"
+      )
+    ).toBe("Revisa los servicios: el formato no es válido");
+  });
+
+  it("respeta el mensaje que ya redactó el DTO", () => {
+    expect(
+      mensajeDeValidacion(
+        "isNotEmpty",
+        "guestName",
+        "Escribe tu nombre para reservar"
+      )
+    ).toBe("Escribe tu nombre para reservar");
+  });
+
+  it("no nombra el campo interno cuando no lo tiene traducido", () => {
+    const mensaje = mensajeDeValidacion(
+      "isString",
+      "sectionConfig",
+      "sectionConfig must be a string"
+    );
+    expect(mensaje).toBe("Revisa este dato: el formato no es válido");
+    expect(mensaje).not.toContain("sectionConfig");
+  });
+
+  it("usa la frase de la regla cuando la conoce", () => {
+    expect(
+      mensajeDeValidacion("maxLength", "name", "name must be shorter than")
+    ).toBe("Revisa el nombre: es más largo de lo permitido");
+  });
+
+  it.each([
+    ["arrayMaxSize", "supera el máximo permitido"],
+    ["arrayMinSize", "no llega al mínimo permitido"],
+    ["arrayNotEmpty", "Falta indicar"],
+    ["isEmail", "El correo no tiene un formato válido"],
+    ["isNotEmpty", "Falta indicar"],
+    ["isPositive", "mayor que cero"],
+    ["isUrl", "dirección web"],
+    ["max", "supera el máximo permitido"],
+    ["maxLength", "más largo de lo permitido"],
+    ["min", "no llega al mínimo permitido"],
+    ["minLength", "más corto de lo permitido"],
+    ["isString", "el formato no es válido"],
+  ])("la regla %s se cuenta en castellano", (regla, esperado) => {
+    const mensaje = mensajeDeValidacion(regla, "email", "email must be valid");
+
+    expect(mensaje).toContain(esperado);
   });
 });

@@ -44,13 +44,14 @@ describe("EsDiaDelCalendario", () => {
     expect(constraint.validate(42)).toBe(true);
   });
 
-  it("nombra la propiedad y el valor en el mensaje", () => {
+  it("nombra el campo en castellano y el valor en el mensaje", () => {
     const mensaje = constraint.defaultMessage({
       property: "from",
       value: "2026-02-30",
     } as never);
 
-    expect(mensaje).toContain("from");
+    expect(mensaje).toContain("la fecha inicial");
+    expect(mensaje).not.toContain("from");
     expect(mensaje).toContain("2026-02-30");
   });
 });

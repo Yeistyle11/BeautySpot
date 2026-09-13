@@ -33,7 +33,7 @@ export function CategoryCard({
 
   return (
     <Card
-      className={`border-0 shadow-sm transition-shadow hover:shadow-md ${!category.active ? "opacity-60" : ""}`}
+      className={`shadow-flat hover:shadow-flat border-0 transition-shadow ${!category.active ? "opacity-60" : ""}`}
     >
       <CardContent className="p-5">
         <div className="flex items-start justify-between">

@@ -1,11 +1,16 @@
 "use client";
 
-// Tarjeta de una cita en la lista, con su estado y las acciones disponibles segun permisos.
+// Fila de una cita en la vista lista, con su estado y sus acciones.
 import { memo } from "react";
-import { Ban, Calendar, CalendarClock, Clock, User } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Ban, CalendarClock, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  FilaDeTabla,
+  CeldaDeTabla,
+  CeldaPrincipal,
+  type ColumnaDeTabla,
+} from "@/components/ui/tabla-de-registros";
 import {
   formatCurrency,
   formatDate,
@@ -15,6 +20,16 @@ import {
 } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
 import { etiquetaDeMotivo, type Appointment } from "./schemas";
+
+/** Columnas de la vista lista. El orden lo resuelve el servidor. */
+export const COLUMNAS_DE_AGENDA: ColumnaDeTabla<"date">[] = [
+  { label: "Cliente" },
+  { label: "Servicio", ocultaEnMovil: true },
+  { label: "Cuándo", campo: "date" },
+  { label: "Profesional", ocultaEnMovil: true },
+  { label: "Importe", alineacion: "right" },
+  { label: "Estado" },
+];
 
 interface AppointmentCardProps {
   appointment: Appointment;
@@ -34,7 +49,6 @@ interface AppointmentCardProps {
 /** Estados desde los que la cita todavia puede anularse. */
 const ANULABLES = ["PENDING", "CONFIRMED"];
 
-/** Fila de la agenda en vista lista, con las acciones segun el estado. */
 export const AppointmentCard = memo(function AppointmentCard({
   appointment,
   professionalName,
@@ -52,101 +66,117 @@ export const AppointmentCard = memo(function AppointmentCard({
   const serviceNames = appointment.appointmentServices
     .map((s) => s.serviceName)
     .join(", ");
-  // "Completar" y "No asistió" solo aparecen cuando la cita ya ha empezado.
   const yaEmpezo = haComenzado(appointment.date, appointment.startTime);
+  // Una cita que ya empezó se cierra como "Atendida" o "No asistió".
+  const cerrable =
+    yaEmpezo &&
+    (appointment.status === "PENDING" || appointment.status === "CONFIRMED");
+  const anulable = ANULABLES.includes(appointment.status);
 
   return (
-    <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
-      <CardContent className="p-5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="bg-primary/10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl">
-              <Calendar className="text-primary h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-semibold">{clientName || "Cliente"}</p>
-                <Badge variant={status.variant}>{status.label}</Badge>
-              </div>
-              <p className="text-muted-foreground text-sm">{serviceNames}</p>
-              <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-3 text-sm">
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  {formatDate(appointment.date)}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {formatTime(appointment.startTime)} -{" "}
-                  {formatTime(appointment.endTime)}
-                </span>
-                <span className="flex items-center gap-1">
-                  <User className="h-3 w-3" />
-                  {professionalName}
-                </span>
-              </div>
-              {appointment.status === "CANCELLED" && (
-                <p className="text-muted-foreground mt-1 flex items-start gap-1 text-sm">
-                  <Ban className="mt-0.5 h-3 w-3 shrink-0" />
-                  <span>
-                    {etiquetaDeMotivo(appointment.cancelReasonType)}
-                    {appointment.cancelReason &&
-                      `: ${appointment.cancelReason}`}
-                    {appointment.cancelledAt &&
-                      ` · ${formatDateTimeStamp(appointment.cancelledAt)}`}
-                  </span>
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="font-semibold">
-              {formatCurrency(appointment.totalAmount)}
-            </span>
-            {appointment.status === "PENDING" && canConfirm && (
+    <FilaDeTabla
+      acciones={
+        /* Cada accion ocupa siempre su hueco; solo la principal lleva texto. */
+        <>
+          <span className="flex w-[104px] justify-end">
+            {appointment.status === "PENDING" && canConfirm && !yaEmpezo && (
               <Button size="sm" onClick={() => onConfirm(appointment.id)}>
                 Confirmar
               </Button>
             )}
-            {appointment.status === "CONFIRMED" && canConfirm && yaEmpezo && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onComplete(appointment)}
-              >
-                Completar
+            {canConfirm && cerrable && (
+              <Button size="sm" onClick={() => onComplete(appointment)}>
+                Atendida
               </Button>
             )}
-            {appointment.status === "CONFIRMED" && canConfirm && yaEmpezo && (
+          </span>
+
+          <span className="flex h-8 w-8 items-center justify-center">
+            {canConfirm && cerrable && (
               <Button
-                size="sm"
-                variant="outline"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
                 onClick={() => onNoShow(appointment.id)}
+                aria-label={`Marcar que ${clientName || "el cliente"} no asistió`}
+                title="No asistió"
               >
-                No asistió
+                <UserX className="h-4 w-4" />
               </Button>
             )}
-            {ANULABLES.includes(appointment.status) && canReschedule && (
+          </span>
+
+          <span className="flex h-8 w-8 items-center justify-center">
+            {anulable && canReschedule && (
               <Button
-                size="sm"
-                variant="outline"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
                 onClick={() => onReschedule(appointment)}
+                aria-label={`Reagendar la cita de ${clientName || "el cliente"}`}
+                title="Reagendar"
               >
-                <CalendarClock className="mr-1 h-4 w-4" />
-                Reagendar
+                <CalendarClock className="h-4 w-4" />
               </Button>
             )}
-            {ANULABLES.includes(appointment.status) && canCancel && (
+          </span>
+
+          {/* El rojo de cancelar aparece solo al apuntarla. */}
+          <span className="flex h-8 w-8 items-center justify-center">
+            {anulable && canCancel && (
               <Button
-                size="sm"
-                variant="destructive"
+                size="icon"
+                variant="ghost"
+                className="hover:text-destructive hover:bg-destructive/10 h-8 w-8"
                 onClick={() => onCancel(appointment.id)}
+                aria-label={`Cancelar la cita de ${clientName || "el cliente"}`}
+                title="Cancelar"
               >
-                Cancelar
+                <Ban className="h-4 w-4" />
               </Button>
             )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+          </span>
+        </>
+      }
+    >
+      <CeldaPrincipal
+        inicial={(clientName || "C").charAt(0)}
+        titulo={clientName || "Cliente"}
+        subtitulo={
+          appointment.status === "CANCELLED" ? (
+            <span className="flex items-start gap-1">
+              <Ban className="mt-0.5 h-3 w-3 shrink-0" />
+              <span>
+                {etiquetaDeMotivo(appointment.cancelReasonType)}
+                {appointment.cancelReason && `: ${appointment.cancelReason}`}
+                {appointment.cancelledAt &&
+                  ` · ${formatDateTimeStamp(appointment.cancelledAt)}`}
+              </span>
+            </span>
+          ) : undefined
+        }
+      />
+      <CeldaDeTabla apagada ocultaEnMovil>
+        {serviceNames || "—"}
+      </CeldaDeTabla>
+      <CeldaDeTabla apagada>
+        <span className="whitespace-nowrap">
+          {formatDate(appointment.date)}
+        </span>
+        <span className="block whitespace-nowrap text-xs">
+          {formatTime(appointment.startTime)} –{" "}
+          {formatTime(appointment.endTime)}
+        </span>
+      </CeldaDeTabla>
+      <CeldaDeTabla apagada ocultaEnMovil>
+        {professionalName}
+      </CeldaDeTabla>
+      <CeldaDeTabla alineacion="right" className="font-semibold">
+        {formatCurrency(appointment.totalAmount)}
+      </CeldaDeTabla>
+      <CeldaDeTabla>
+        <Badge variant={status.variant}>{status.label}</Badge>
+      </CeldaDeTabla>
+    </FilaDeTabla>
   );
 });

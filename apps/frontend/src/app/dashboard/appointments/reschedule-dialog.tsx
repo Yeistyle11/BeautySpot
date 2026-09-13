@@ -3,11 +3,11 @@
 // Dialogo para mover una cita a otro hueco libre del mismo profesional.
 import { useMemo, useState } from "react";
 import { z } from "zod";
-import { Clock, Loader2 } from "lucide-react";
+import { CalendarClock, Clock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
-import { Dialog } from "@/components/ui/dialog";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { useApi } from "@/lib/swr";
 import { cn, formatDate, formatTime, toLocalDateKey } from "@/lib/utils";
 import {
@@ -60,7 +60,25 @@ export function RescheduleDialog({
   const libres = (huecos ?? []).filter((h) => h.available);
 
   return (
-    <Dialog open={open} onClose={onClose} title="Reagendar cita" wide>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Reagendar cita"
+      descripcion="Elige el nuevo día y una franja libre del profesional."
+      icono={CalendarClock}
+      wide
+      pie={
+        <>
+          <BotonDeCancelar disabled={pending} />
+          <Button
+            onClick={() => hora && onConfirm(fecha, hora)}
+            disabled={!hora || pending}
+          >
+            {pending ? "Moviendo..." : "Mover la cita"}
+          </Button>
+        </>
+      }
+    >
       {appointment && (
         <div className="space-y-5">
           <p className="text-muted-foreground text-sm">
@@ -116,18 +134,6 @@ export function RescheduleDialog({
           </div>
 
           {error && <p className="text-destructive text-sm">{error}</p>}
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose} disabled={pending}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => hora && onConfirm(fecha, hora)}
-              disabled={!hora || pending}
-            >
-              {pending ? "Moviendo..." : "Mover la cita"}
-            </Button>
-          </div>
         </div>
       )}
     </Dialog>

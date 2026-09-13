@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { formatCurrency, formatPorcentaje } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
@@ -43,7 +43,13 @@ import {
 } from "@/lib/schemas/kpis";
 import { PeriodPicker } from "./period-picker";
 import { MetricRow } from "./metric-row";
-import { textoDeOcupacion, textoDelTicket } from "./textos";
+import {
+  textoDeFrecuencia,
+  textoDeOcupacion,
+  textoDeTasaCompletado,
+  textoDeTasaDeRetorno,
+  textoDelTicket,
+} from "./textos";
 import {
   filasDeProfesionales,
   ProfessionalsTable,
@@ -114,7 +120,7 @@ export default function AnalyticsPage() {
         titulo="Reportes"
         descripcion={
           consultable
-            ? `Del ${periodo.from} al ${periodo.to}`
+            ? `Del ${formatDate(periodo.from)} al ${formatDate(periodo.to)}`
             : "Elige un periodo"
         }
         accion={
@@ -141,7 +147,11 @@ export default function AnalyticsPage() {
             if (id === "personalizado") setPersonalizado(periodo);
             setSeleccionado(id);
           }}
-          onPersonalizar={setPersonalizado}
+          onPersonalizar={(nuevo) => {
+            // Tocar una fecha pasa el atajo a "Personalizado".
+            setPersonalizado(nuevo);
+            setSeleccionado("personalizado");
+          }}
         />
       </div>
 
@@ -149,7 +159,7 @@ export default function AnalyticsPage() {
         <LoadingState recurso="el reporte" />
       ) : data ? (
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Calendar className="h-5 w-5" />
@@ -193,7 +203,7 @@ export default function AnalyticsPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <TrendingUp className="h-5 w-5" />
@@ -214,21 +224,21 @@ export default function AnalyticsPage() {
                 nadie lo confunda con "lo que gano al dia".
               */}
               <MetricRow
-                etiqueta={`Promedio por día (${data.periodo.dias})`}
+                etiqueta={`Promedio por día (${data.periodo.dias} días)`}
                 valor={formatCurrency(data.periodo.avgDailyRevenue)}
                 actual={data.periodo.avgDailyRevenue}
                 anterior={data.comparado?.avgDailyRevenue}
               />
               <MetricRow
                 etiqueta="Tasa completado"
-                valor={formatPorcentaje(data.periodo.completionRate)}
+                valor={textoDeTasaCompletado(data.periodo)}
                 actual={data.periodo.completionRate}
                 anterior={data.comparado?.completionRate}
               />
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Users className="h-5 w-5" />
@@ -263,18 +273,18 @@ export default function AnalyticsPage() {
                 <>
                   <MetricRow
                     etiqueta="Tasa de retorno (histórico)"
-                    valor={formatPorcentaje(retencion.tasaDeRetorno)}
+                    valor={textoDeTasaDeRetorno(retencion)}
                   />
                   <MetricRow
                     etiqueta="Vuelven cada (histórico)"
-                    valor={`${retencion.diasEntreVisitas} días`}
+                    valor={textoDeFrecuencia(retencion)}
                   />
                 </>
               )}
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Gauge className="h-5 w-5" />
@@ -314,7 +324,7 @@ export default function AnalyticsPage() {
             </div>
           )}
 
-          <Card className="border-0 shadow-sm lg:col-span-2">
+          <Card className="shadow-flat border-0 lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between gap-2">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Scissors className="h-5 w-5" />

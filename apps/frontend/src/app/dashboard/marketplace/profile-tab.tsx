@@ -64,7 +64,7 @@ export function ProfileTab({
   const set = (patch: Partial<ConfigForm>) => onChange({ ...form, ...patch });
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardHeader>
         <CardTitle className="text-lg">
           Configuración del perfil inmersivo

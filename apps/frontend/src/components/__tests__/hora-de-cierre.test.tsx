@@ -15,7 +15,7 @@ describe("HoraDeCierre", () => {
       <HoraDeCierre value="02:00" apertura="20:00" onValueChange={jest.fn()} />
     );
 
-    expect(opciones()).toContain("2:00 am (madrugada)");
+    expect(opciones()).toContain("02:00 (madrugada)");
   });
 
   // Con el negocio abierto desde la una de la tarde, cerrar a las dos de la
@@ -25,8 +25,8 @@ describe("HoraDeCierre", () => {
       <HoraDeCierre value="14:00" apertura="13:00" onValueChange={jest.fn()} />
     );
 
-    expect(opciones()).toContain("2:00 pm");
-    expect(opciones()).not.toContain("2:00 pm (madrugada)");
+    expect(opciones()).toContain("14:00");
+    expect(opciones()).not.toContain("14:00 (madrugada)");
   });
 
   // El backend acota la madrugada a las 08:00: ofrecer las 09:00 con apertura a
@@ -37,9 +37,9 @@ describe("HoraDeCierre", () => {
     );
 
     const ofrecidas = opciones();
-    expect(ofrecidas).toContain("8:00 am (madrugada)");
-    expect(ofrecidas).not.toContain("9:00 am");
-    expect(ofrecidas).not.toContain("9:00 am (madrugada)");
+    expect(ofrecidas).toContain("08:00 (madrugada)");
+    expect(ofrecidas).not.toContain("09:00");
+    expect(ofrecidas).not.toContain("09:00 (madrugada)");
   });
 
   // "24:00" y "00:00" son la misma hora del reloj y significan cosas opuestas:
@@ -49,7 +49,7 @@ describe("HoraDeCierre", () => {
       <HoraDeCierre value="24:00" apertura="09:00" onValueChange={jest.fn()} />
     );
 
-    expect(opciones()).toContain("12:00 am (medianoche)");
+    expect(opciones()).toContain("00:00 (medianoche)");
   });
 
   // Editar un horario no puede perder lo que ya estaba guardado, aunque no

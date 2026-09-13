@@ -23,6 +23,12 @@ import {
   ArrayMaxSize,
   ArrayNotEmpty,
   ValidateNested,
+  Validate,
+  ValidatorConstraint,
+} from "class-validator";
+import type {
+  ValidationArguments,
+  ValidatorConstraintInterface,
 } from "class-validator";
 import { Transform, Type } from "class-transformer";
 import { PaymentMethod, PaymentStatus, Role } from "@beautyspot/shared-types";
@@ -46,6 +52,21 @@ class LineaDeCobroDto {
 
 /** Tope de partes de un cobro repartido: son cuatro los medios que existen. */
 const MAXIMO_LINEAS = 4;
+
+/** El descuento no puede pasar del importe cobrado. */
+@ValidatorConstraint({ name: "noPasaDelImporte" })
+class NoPasaDelImporte implements ValidatorConstraintInterface {
+  validate(valor: unknown, args: ValidationArguments): boolean {
+    if (typeof valor !== "number") return true;
+    const importe = (args.object as { amount?: unknown }).amount;
+    if (typeof importe !== "number") return true;
+    return valor <= importe;
+  }
+
+  defaultMessage(): string {
+    return "El descuento no puede ser mayor que el importe cobrado";
+  }
+}
 
 /** Datos para registrar un pago: cliente, monto, método y referencia/cita opcionales. */
 class CreatePaymentDto {
@@ -81,6 +102,7 @@ class CreatePaymentDto {
   @IsOptional()
   @IsNumber({}, { message: "El descuento debe ser un número" })
   @Min(0, { message: "El descuento no puede ser negativo" })
+  @Validate(NoPasaDelImporte)
   descuentoComercial?: number;
   @IsOptional()
   @IsString()

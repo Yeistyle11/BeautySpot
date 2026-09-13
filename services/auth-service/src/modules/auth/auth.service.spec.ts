@@ -373,7 +373,7 @@ describe("AuthService", () => {
 
       await expect(
         service.login({ email: "no-existe@example.com", password: "x" })
-      ).rejects.toThrow("Credenciales inválidas");
+      ).rejects.toThrow(/no son correctos/);
 
       expect(bcrypt.compare).toHaveBeenCalledWith("x", "hash-senuelo");
     });
@@ -389,9 +389,7 @@ describe("AuthService", () => {
       await expect(service.login(loginDto)).rejects.toThrow(
         UnauthorizedException
       );
-      await expect(service.login(loginDto)).rejects.toThrow(
-        "Credenciales inválidas"
-      );
+      await expect(service.login(loginDto)).rejects.toThrow(/no son correctos/);
     });
 
     it("debería lanzar UnauthorizedException con contraseña incorrecta", async () => {
@@ -696,6 +694,56 @@ describe("AuthService", () => {
       await service.forgotPassword("nonexistent@example.com");
 
       expect(mockOutboxService.enqueue).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("tokenDeReseteoValido", () => {
+    it("acepta el token vivo de una cuenta activa", async () => {
+      mockPasswordResetRepository.findOne.mockResolvedValue(mockPasswordReset);
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+
+      expect(await service.tokenDeReseteoValido("valid-token")).toEqual({
+        valido: true,
+      });
+    });
+
+    it("rechaza el token que no existe", async () => {
+      mockPasswordResetRepository.findOne.mockResolvedValue(null);
+
+      expect(await service.tokenDeReseteoValido("inventado")).toEqual({
+        valido: false,
+      });
+    });
+
+    it("rechaza el token ya usado", async () => {
+      mockPasswordResetRepository.findOne.mockResolvedValue({
+        ...mockPasswordReset,
+        usedAt: new Date(),
+      });
+
+      expect(await service.tokenDeReseteoValido("valid-token")).toEqual({
+        valido: false,
+      });
+    });
+
+    it("rechaza el token caducado", async () => {
+      mockPasswordResetRepository.findOne.mockResolvedValue({
+        ...mockPasswordReset,
+        expiresAt: new Date(Date.now() - 1000),
+      });
+
+      expect(await service.tokenDeReseteoValido("valid-token")).toEqual({
+        valido: false,
+      });
+    });
+
+    it("no marca el token como usado", async () => {
+      mockPasswordResetRepository.findOne.mockResolvedValue(mockPasswordReset);
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+
+      await service.tokenDeReseteoValido("valid-token");
+
+      expect(mockPasswordResetRepository.update).not.toHaveBeenCalled();
     });
   });
 
@@ -1159,7 +1207,7 @@ describe("AuthService", () => {
       });
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
-      await expect(validar(mockUser)).rejects.toThrow("Credenciales inválidas");
+      await expect(validar(mockUser)).rejects.toThrow(/no son correctos/);
     });
 
     it("no alarga el bloqueo con los intentos de quien prueba a ciegas", async () => {
@@ -1170,7 +1218,7 @@ describe("AuthService", () => {
       });
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
-      await expect(validar(mockUser)).rejects.toThrow("Credenciales inválidas");
+      await expect(validar(mockUser)).rejects.toThrow(/no son correctos/);
 
       expect(mockUserRepository.update).not.toHaveBeenCalled();
     });

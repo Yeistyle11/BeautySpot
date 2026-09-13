@@ -1,15 +1,24 @@
 "use client";
 
 // Dialogos para registrar, editar y devolver un pago.
-import { Banknote, CreditCard, Smartphone } from "lucide-react";
+import { rutaDeAlta } from "@/lib/alta-por-url";
+import {
+  Banknote,
+  CreditCard,
+  Pencil,
+  RotateCcw,
+  Smartphone,
+  Wallet,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog } from "@/components/ui/dialog";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { RadioGroup } from "@/components/ui/radio-group";
+import { SelectorDeEntidad } from "@/components/ui/selector-de-entidad";
 import { VALOR_DEL_PUNTO } from "@beautyspot/shared-constants";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import {
@@ -47,6 +56,8 @@ interface CreatePaymentDialogProps {
   onChange: (form: CreateForm) => void;
   onSubmit: (e: React.FormEvent) => void;
   clients: Client[];
+  /** Recarga la cartera tras dar de alta un cliente desde aqui. */
+  onRecargarClientes?: () => Promise<unknown>;
   /** Citas atendidas del cliente elegido que aún no se han cobrado. */
   citasPorCobrar: CitaCobrable[];
   saving: boolean;
@@ -72,6 +83,7 @@ export function CreatePaymentDialog({
   onChange,
   onSubmit,
   clients,
+  onRecargarClientes,
   citasPorCobrar,
   saving,
   puedeDescontar,
@@ -130,40 +142,54 @@ export function CreatePaymentDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="Registrar pago">
-      <form onSubmit={onSubmit} className="space-y-4">
-        {/* El servidor exige el cliente en todo pago, asi que el desplegable no
-            ofrece "sin cliente": la opcion por defecto solo pide elegir uno. */}
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Registrar pago"
+      descripcion="Un cobro en mostrador o el de una cita pendiente."
+      icono={Wallet}
+      pie={
+        <>
+          <BotonDeCancelar />
+          <SubmitButton
+            form="cobro-nuevo"
+            label="Registrar pago"
+            pendingLabel="Guardando..."
+            pending={saving}
+            disabled={reparte && falta !== 0}
+          />
+        </>
+      }
+    >
+      <form id="cobro-nuevo" onSubmit={onSubmit} className="space-y-4">
+        {/* El cliente es obligatorio en todo pago. */}
         <Field label="Cliente *">
-          <Select
+          <SelectorDeEntidad
+            opciones={clients.map((c) => ({ id: c.id, nombre: c.name }))}
             value={form.clientId}
-            onChange={(e) => set({ clientId: e.target.value })}
+            onChange={(id) => set({ clientId: id })}
+            placeholder="Buscar cliente..."
+            etiquetaDeAlta="Crear cliente"
+            rutaDeAlta={rutaDeAlta("/dashboard/clients")}
+            onRecargarOpciones={onRecargarClientes}
             required
-          >
-            <option value="">Selecciona un cliente</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
+          />
         </Field>
         {form.clientId !== "" && citasPorCobrar.length > 0 && (
           <Field
             label="Cita"
             hint="Cobrar la cita trae su importe y deja registrado qué se vendió"
           >
-            <Select
+            <SelectorDeEntidad
+              opciones={citasPorCobrar.map((c) => ({
+                id: c.id,
+                nombre: etiquetaDeCita(c),
+              }))}
               value={form.appointmentId}
-              onChange={(e) => elegirCita(e.target.value)}
-            >
-              <option value="">Venta suelta, sin cita</option>
-              {citasPorCobrar.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {etiquetaDeCita(c)}
-                </option>
-              ))}
-            </Select>
+              onChange={elegirCita}
+              etiquetaDeVacio="Venta suelta, sin cita"
+              placeholder="Buscar la cita..."
+            />
           </Field>
         )}
         <Field
@@ -187,9 +213,11 @@ export function CreatePaymentDialog({
             label="Descuento (COP)"
             hint="Lo que rebaja el negocio de su margen. Queda escrito con su motivo."
           >
+            {/* El descuento no pasa del importe. */}
             <Input
               type="number"
               min={0}
+              max={Number(form.amount) || undefined}
               placeholder="0"
               value={form.descuentoComercial}
               onChange={(e) => set({ descuentoComercial: e.target.value })}
@@ -355,17 +383,6 @@ export function CreatePaymentDialog({
             rows={2}
           />
         </Field>
-        <div className="flex gap-3 pt-2">
-          <SubmitButton
-            label="Registrar pago"
-            pendingLabel="Guardando..."
-            pending={saving}
-            disabled={reparte && falta !== 0}
-          />
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-        </div>
       </form>
     </Dialog>
   );
@@ -392,8 +409,24 @@ export function EditPaymentDialog({
   const set = (patch: Partial<EditForm>) => onChange({ ...form, ...patch });
 
   return (
-    <Dialog open={open} onClose={onClose} title="Editar pago">
-      <form onSubmit={onSubmit} className="space-y-4">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Editar pago"
+      icono={Pencil}
+      pie={
+        <>
+          <BotonDeCancelar />
+          <SubmitButton
+            form="cobro-edicion"
+            label="Guardar cambios"
+            pendingLabel="Guardando..."
+            pending={saving}
+          />
+        </>
+      }
+    >
+      <form id="cobro-edicion" onSubmit={onSubmit} className="space-y-4">
         <Field label="Monto (COP)">
           <Input
             type="number"
@@ -441,16 +474,6 @@ export function EditPaymentDialog({
             required
           />
         </Field>
-        <div className="flex gap-3 pt-2">
-          <SubmitButton
-            label="Guardar cambios"
-            pendingLabel="Guardando..."
-            pending={saving}
-          />
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-        </div>
       </form>
     </Dialog>
   );
@@ -491,8 +514,25 @@ export function RefundDialog({
   const cobrado = payment.amount;
 
   return (
-    <Dialog open={open} onClose={onClose} title="Devolver un cobro">
-      <form onSubmit={onSubmit} className="space-y-4">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Devolver un cobro"
+      icono={RotateCcw}
+      pie={
+        <>
+          <BotonDeCancelar />
+          <SubmitButton
+            form="cobro-devolucion"
+            label="Devolver"
+            pendingLabel="Devolviendo..."
+            pending={saving}
+            disabled={!devolucionCompleta(form, cobrado)}
+          />
+        </>
+      }
+    >
+      <form id="cobro-devolucion" onSubmit={onSubmit} className="space-y-4">
         {error && (
           <p role="alert" className="text-destructive text-sm">
             {error}
@@ -561,18 +601,6 @@ export function RefundDialog({
             required
           />
         </Field>
-
-        <div className="flex gap-3 pt-2">
-          <SubmitButton
-            label="Devolver"
-            pendingLabel="Devolviendo..."
-            pending={saving}
-            disabled={!devolucionCompleta(form, cobrado)}
-          />
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-        </div>
       </form>
     </Dialog>
   );

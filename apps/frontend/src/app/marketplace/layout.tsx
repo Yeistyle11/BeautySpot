@@ -85,7 +85,7 @@ export default function PublicLayout({
               {dropdownOpen && (
                 <div
                   role="menu"
-                  className="bg-popover absolute right-0 z-50 mt-2 w-48 rounded-lg border py-1 shadow-lg"
+                  className="bg-popover shadow-raised absolute right-0 z-50 mt-2 w-48 rounded-lg border py-1"
                 >
                   <Link
                     href="/dashboard/client"
@@ -122,10 +122,20 @@ export default function PublicLayout({
         </nav>
       </header>
       <main id="contenido">{children}</main>
+      {/* La captacion de negocios, aparte del escaparate. */}
       <footer className="text-muted-foreground bg-background border-t py-6 text-center text-sm">
         <p>
-          BeautySpot — Plataforma de gestión para barberías, salones de belleza,
-          spas y centros estéticos
+          Reserva en barberías, salones de belleza, spas y centros estéticos
+          cerca de ti.
+        </p>
+        <p className="mt-2">
+          ¿Tienes un negocio?{" "}
+          <Link
+            href="/registro"
+            className="text-primary font-medium underline-offset-4 hover:underline"
+          >
+            Publícalo gratis
+          </Link>
         </p>
       </footer>
     </div>

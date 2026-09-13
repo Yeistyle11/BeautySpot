@@ -1,8 +1,9 @@
 "use client";
 
 // Feed del marketplace: buscador y rejilla de negocios publicos.
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { imageUnoptimized } from "@/lib/image";
 import { Card, CardContent } from "@/components/ui/card";
@@ -58,12 +59,35 @@ export default function MarketplaceFeed({
     initialFeed ? { fallbackData: initialFeed } : undefined,
     feedResponseSchema
   );
-  const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  // La busqueda y el filtro viven en la URL: al teclear se reemplaza la
+  // entrada del historial, al cambiar de categoria se apila.
+  const router = useRouter();
+  const parametros = useSearchParams();
+  const [search, setSearch] = useState(() => parametros.get("q") ?? "");
+  const activeCategory = parametros.get("tipo");
+
+  const escribirEnLaUrl = useCallback(
+    (q: string, tipo: string | null, apilar: boolean) => {
+      const siguiente = new URLSearchParams();
+      if (q) siguiente.set("q", q);
+      if (tipo) siguiente.set("tipo", tipo);
+      const destino = siguiente.toString()
+        ? `/marketplace?${siguiente}`
+        : "/marketplace";
+      if (apilar) router.push(destino, { scroll: false });
+      else router.replace(destino, { scroll: false });
+    },
+    [router]
+  );
 
   // La busqueda va con retardo: sin el, cada tecla dispara una peticion al
   // marketplace, que es publico y no esta detras de sesion.
   const busquedaDiferida = useDebouncedValue(search);
+
+  useEffect(() => {
+    if (busquedaDiferida === (parametros.get("q") ?? "")) return;
+    escribirEnLaUrl(busquedaDiferida, activeCategory, false);
+  }, [busquedaDiferida, parametros, activeCategory, escribirEnLaUrl]);
 
   const searchParams = new URLSearchParams();
   if (busquedaDiferida) searchParams.set("q", busquedaDiferida);
@@ -78,20 +102,28 @@ export default function MarketplaceFeed({
 
   const isSearching = busquedaDiferida !== "" || activeCategory !== null;
 
-  // Con una busqueda activa los contadores se recalculan sobre lo encontrado,
-  // y solo cuando han llegado todos los resultados.
+  // Los contadores cuentan sobre el texto buscado, no sobre la categoria.
+  const claveDelUniverso = busquedaDiferida
+    ? `/marketplace/search?q=${encodeURIComponent(busquedaDiferida)}`
+    : null;
+  const { data: universo } = useApiPublic<SearchResult>(
+    claveDelUniverso,
+    undefined,
+    searchResultSchema
+  );
+
+  // Solo cuando han llegado todos los resultados.
   const conteosVisibles = useMemo(() => {
-    if (!busquedaDiferida || !searchResults) return null;
-    if (searchResults.meta.hasNext) return null;
+    if (!busquedaDiferida || !universo || universo.meta.hasNext) return null;
 
     const conteos: Record<string, number> = {};
-    searchResults.data.forEach((p) => {
+    universo.data.forEach((p) => {
       if (p.businessType) {
         conteos[p.businessType] = (conteos[p.businessType] ?? 0) + 1;
       }
     });
     return conteos;
-  }, [busquedaDiferida, searchResults]);
+  }, [busquedaDiferida, universo]);
 
   return (
     <div className="from-background to-muted/30 min-h-screen bg-gradient-to-b">
@@ -118,7 +150,7 @@ export default function MarketplaceFeed({
                 type="search"
                 aria-label="Buscar negocios por nombre, ciudad o tipo"
                 placeholder="Buscar por nombre, ciudad o tipo..."
-                className="border-muted bg-background/80 h-12 pl-12 text-base shadow-lg backdrop-blur"
+                className="border-muted bg-background/80 shadow-flat h-12 pl-12 text-base backdrop-blur"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -128,11 +160,11 @@ export default function MarketplaceFeed({
           {feed && feed.categories.length > 0 && (
             <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
               <button
-                onClick={() => setActiveCategory(null)}
+                onClick={() => escribirEnLaUrl(busquedaDiferida, null, true)}
                 aria-pressed={!activeCategory}
-                className={`focus-visible:ring-ring rounded-full px-4 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 ${
+                className={`focus-visible:ring-ring rounded-full px-4 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 [@media(pointer:coarse)]:min-h-11 ${
                   !activeCategory
-                    ? "bg-primary text-primary-foreground shadow-md"
+                    ? "bg-primary text-primary-foreground shadow-flat"
                     : "bg-muted/60 text-muted-foreground hover:bg-muted"
                 }`}
               >
@@ -142,12 +174,16 @@ export default function MarketplaceFeed({
                 <button
                   key={cat.id}
                   onClick={() =>
-                    setActiveCategory(activeCategory === cat.id ? null : cat.id)
+                    escribirEnLaUrl(
+                      busquedaDiferida,
+                      activeCategory === cat.id ? null : cat.id,
+                      true
+                    )
                   }
                   aria-pressed={activeCategory === cat.id}
-                  className={`focus-visible:ring-ring inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 ${
+                  className={`focus-visible:ring-ring inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 [@media(pointer:coarse)]:min-h-11 ${
                     activeCategory === cat.id
-                      ? "bg-primary text-primary-foreground shadow-md"
+                      ? "bg-primary text-primary-foreground shadow-flat"
                       : "bg-muted/60 text-muted-foreground hover:bg-muted"
                   }`}
                 >
@@ -182,7 +218,10 @@ export default function MarketplaceFeed({
               <h2 className="text-2xl font-bold">Resultados</h2>
               {searchResults && (
                 <Badge variant="secondary">
-                  {searchResults.meta.total} encontrados
+                  {searchResults.meta.total}{" "}
+                  {searchResults.meta.total === 1
+                    ? "encontrado"
+                    : "encontrados"}
                 </Badge>
               )}
             </div>
@@ -252,7 +291,7 @@ function FeedSection({ section }: { section: FeedSectionData }) {
         <h2 className="text-2xl font-bold">{section.title}</h2>
       </div>
       {section.type === "carousel" ? (
-        <div className="scrollbar-hide flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-4 overflow-x-auto pb-4">
           {section.items.map((p) => (
             <div key={p.id} className="w-72 shrink-0">
               <ProfileCard profile={p} />
@@ -278,7 +317,7 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
 
   return (
     <Link href={`/marketplace/business/${p.slug}`} className="group block">
-      <Card className="h-full overflow-hidden border-0 shadow-sm transition-all [contain-intrinsic-size:auto_320px] [content-visibility:auto] hover:-translate-y-0.5 hover:shadow-xl">
+      <Card className="shadow-flat hover:shadow-flat h-full overflow-hidden border-0 transition-all [contain-intrinsic-size:auto_320px] [content-visibility:auto] hover:-translate-y-0.5">
         <div className="from-primary/20 to-primary/5 relative h-40 bg-gradient-to-br">
           {featuredImage ? (
             <Image
@@ -297,7 +336,7 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
 
           {Number(p.rating) > 0 && (
-            <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-xs font-bold shadow-sm backdrop-blur">
+            <div className="shadow-flat absolute right-3 top-3 flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-xs font-bold backdrop-blur">
               <Star className="fill-rating text-rating h-3 w-3" />
               {Number(p.rating).toFixed(1)}
             </div>

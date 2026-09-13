@@ -103,6 +103,37 @@ describe("HttpExceptionFilter", () => {
       );
     });
 
+    it("no deja salir la ruta interna en el 404 sin controlador", () => {
+      const exception = new HttpException(
+        "Cannot GET /marketplace/profiles/spa-aurora",
+        HttpStatus.NOT_FOUND
+      );
+      const response = mockResponse();
+      const host = createMockArgumentsHost(response);
+
+      filter.catch(exception, host);
+
+      const cuerpo = response.json.mock.calls[0][0];
+      expect(cuerpo.error.message).toBe("Recurso no encontrado");
+      expect(cuerpo.error.message).not.toContain("marketplace");
+    });
+
+    // El 404 que escribe el servicio sí dice qué no encontró.
+    it("conserva el mensaje del recurso que no existe", () => {
+      const exception = new HttpException(
+        "Perfil de negocio no encontrado",
+        HttpStatus.NOT_FOUND
+      );
+      const response = mockResponse();
+      const host = createMockArgumentsHost(response);
+
+      filter.catch(exception, host);
+
+      expect(response.json.mock.calls[0][0].error.message).toBe(
+        "Perfil de negocio no encontrado"
+      );
+    });
+
     it("debería conservar el código y el mensaje del sobre ya formado", () => {
       const exception = new HttpException(
         {

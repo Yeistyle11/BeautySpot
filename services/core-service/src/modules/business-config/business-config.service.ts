@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { QueryDeepPartialEntity } from "typeorm/query-builder/QueryPartialEntity";
+import { v4 as uuidv4 } from "uuid";
 import { BusinessConfig } from "../../entities/business-config.entity";
 
 /** Clave de los datos fiscales dentro de `business_config`. */
@@ -37,10 +38,21 @@ export class BusinessConfigService {
     const actual = await this.leer(businessId, key);
     const value = { ...actual, ...cambios };
 
-    await this.repo.upsert(
-      { businessId, key, value } as QueryDeepPartialEntity<BusinessConfig>,
-      ["businessId", "key"]
-    );
+    // El id lo pone la aplicacion: la columna no tiene DEFAULT. Al chocar solo
+    // se pisan el valor y la marca de tiempo.
+    await this.repo
+      .createQueryBuilder()
+      .insert()
+      .into(BusinessConfig)
+      .values({
+        id: uuidv4(),
+        businessId,
+        key,
+        value: value as QueryDeepPartialEntity<Record<string, unknown>>,
+        updatedAt: new Date(),
+      })
+      .orUpdate(["value", "updated_at"], ["business_id", "key"])
+      .execute();
     return value;
   }
 }

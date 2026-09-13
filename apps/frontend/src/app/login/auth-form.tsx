@@ -14,9 +14,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { MarcaBeautySpot } from "@/components/ui/marca-beautyspot";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Scissors, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuthStore, type Role } from "@/lib/store";
 import { apiPublic } from "@/lib/api";
 import { canAccess, getDefaultPath } from "@/lib/permissions";
@@ -24,6 +25,7 @@ import { authResponseSchema } from "@/lib/auth";
 import { mensajeDeError } from "@/lib/error-message";
 import {
   LONGITUD_MINIMA_CONTRASENA,
+  REQUISITOS_DE_CONTRASENA,
   MENSAJE_CONTRASENA,
   PATRON_CONTRASENA,
 } from "@beautyspot/shared-constants";
@@ -44,24 +46,40 @@ const emptyForm = {
  * Comprueba el formulario antes de enviarlo. Es propia y no la del navegador,
  * para que los mensajes sean los mismos que en el resto de la aplicación.
  */
-function validar(form: typeof emptyForm, modo: ModoAuth): string {
-  if (!form.email.trim()) return "Escribe tu email";
+/** El problema encontrado y el campo al que hay que llevar el foco. */
+interface Problema {
+  campo: "name" | "email" | "password" | "confirmacion";
+  mensaje: string;
+}
+
+function validar(form: typeof emptyForm, modo: ModoAuth): Problema | null {
+  if (!form.email.trim())
+    return { campo: "email", mensaje: "Escribe tu email" };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-    return "El email no tiene un formato valido";
+    return { campo: "email", mensaje: "El email no tiene un formato válido" };
   }
-  if (!form.password) return "Escribe tu contraseña";
+  if (!form.password)
+    return { campo: "password", mensaje: "Escribe tu contraseña" };
 
   if (modo === "registro") {
-    if (!form.name.trim()) return "Escribe tu nombre";
+    if (!form.name.trim())
+      return { campo: "name", mensaje: "Escribe tu nombre" };
     if (form.password.length < LONGITUD_MINIMA_CONTRASENA) {
-      return `La contraseña debe tener al menos ${LONGITUD_MINIMA_CONTRASENA} caracteres`;
+      return {
+        campo: "password",
+        mensaje: `La contraseña debe tener al menos ${LONGITUD_MINIMA_CONTRASENA} caracteres`,
+      };
     }
-    if (!PATRON_CONTRASENA.test(form.password)) return MENSAJE_CONTRASENA;
+    if (!PATRON_CONTRASENA.test(form.password))
+      return { campo: "password", mensaje: MENSAJE_CONTRASENA };
     if (form.password !== form.confirmacion) {
-      return "Las contraseñas no coinciden";
+      return {
+        campo: "confirmacion",
+        mensaje: "Las contraseñas no coinciden",
+      };
     }
   }
-  return "";
+  return null;
 }
 
 /**
@@ -134,7 +152,9 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
     e.preventDefault();
     const problema = validar(form, modo);
     if (problema) {
-      setError(problema);
+      setError(problema.mensaje);
+      // Lleva el foco al primer campo con error.
+      document.getElementById(problema.campo)?.focus();
       return;
     }
 
@@ -181,19 +201,9 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
   return (
     <main className="from-primary/5 via-background to-primary/10 flex min-h-screen items-center justify-center bg-gradient-to-br p-4">
       <div className="w-full max-w-md">
-        <div className="mb-8 flex items-center justify-center gap-3">
-          <div className="bg-primary text-primary-foreground flex h-12 w-12 items-center justify-center rounded-xl shadow-lg">
-            <Scissors className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-foreground text-2xl font-bold">BeautySpot</h1>
-            <p className="text-muted-foreground text-xs">
-              Gestión para tu negocio
-            </p>
-          </div>
-        </div>
+        <MarcaBeautySpot />
 
-        <Card className="border-0 shadow-xl">
+        <Card className="shadow-flat border-0">
           <CardHeader className="pb-2 text-center">
             <CardTitle as="h2" className="text-xl">
               {registrado
@@ -231,6 +241,9 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                       <Label htmlFor="name">Nombre completo</Label>
                       <Input
                         id="name"
+                        name="name"
+                        autoComplete="name"
+                        maxLength={120}
                         placeholder="Tu nombre"
                         value={form.name}
                         onChange={(e) =>
@@ -243,6 +256,8 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                     <Label htmlFor="email">Email</Label>
                     <Input
                       id="email"
+                      name="email"
+                      autoComplete="email"
                       type="email"
                       placeholder="tu@email.com"
                       value={form.email}
@@ -258,6 +273,10 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                     <div className="relative">
                       <Input
                         id="password"
+                        name="password"
+                        autoComplete={
+                          esLogin ? "current-password" : "new-password"
+                        }
                         type={showPassword ? "text" : "password"}
                         placeholder="********"
                         value={form.password}
@@ -282,7 +301,7 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                             : "Mostrar contraseña"
                         }
                         aria-pressed={showPassword}
-                        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute right-3 top-1/2 -translate-y-1/2 rounded focus-visible:outline-none focus-visible:ring-2"
+                        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute right-3 top-1/2 -translate-y-1/2 rounded-sm focus-visible:outline-none focus-visible:ring-2"
                       >
                         {showPassword ? (
                           <EyeOff className="h-4 w-4" />
@@ -296,8 +315,7 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                         id="pista-password"
                         className="text-muted-foreground text-xs"
                       >
-                        Mínimo {LONGITUD_MINIMA_CONTRASENA} caracteres, con
-                        mayúsculas, minúsculas y números
+                        {REQUISITOS_DE_CONTRASENA}
                       </p>
                     )}
                   </div>
@@ -306,6 +324,8 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                       <Label htmlFor="confirmacion">Repetir contraseña</Label>
                       <Input
                         id="confirmacion"
+                        name="confirmacion"
+                        autoComplete="new-password"
                         type={showPassword ? "text" : "password"}
                         placeholder="********"
                         value={form.confirmacion}
@@ -332,6 +352,8 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                       <Label htmlFor="phone">Teléfono (opcional)</Label>
                       <Input
                         id="phone"
+                        name="phone"
+                        autoComplete="tel"
                         type="tel"
                         inputMode="tel"
                         placeholder="+57 300 1234567"

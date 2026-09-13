@@ -1,13 +1,15 @@
 "use client";
 
+import { rutaDeAlta } from "@/lib/alta-por-url";
+import { Scissors } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Field } from "@/components/ui/field";
-import { Select } from "@/components/ui/select";
+import { SelectorDeEntidad } from "@/components/ui/selector-de-entidad";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Dialog } from "@/components/ui/dialog";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { AvisoDeConflicto } from "@/components/ui/aviso-de-conflicto";
 import type { ServiceForm, ServiceCategory } from "./schemas";
 
@@ -21,6 +23,8 @@ interface ServiceFormDialogProps {
   onSubmit: (e: React.FormEvent) => void;
   guardando: boolean;
   categorias: ServiceCategory[];
+  /** Recarga el catalogo de categorias tras crear una desde aqui. */
+  onRecargarCategorias?: () => Promise<unknown>;
   /** Motivo por el que no se guardó: alguien cambió el servicio mientras tanto. */
   conflicto?: string;
   /** Trae el servicio guardado sin cerrar el formulario. */
@@ -41,6 +45,7 @@ export function ServiceFormDialog({
   onSubmit,
   guardando,
   categorias,
+  onRecargarCategorias,
   conflicto,
   onRecargar,
   recargando,
@@ -53,10 +58,24 @@ export function ServiceFormDialog({
       open={open}
       onClose={onClose}
       title={modo === "crear" ? "Nuevo servicio" : "Editar servicio"}
+      icono={Scissors}
+      pie={
+        <>
+          <BotonDeCancelar />
+          <Button type="submit" form="servicio" disabled={guardando}>
+            {guardando
+              ? "Guardando..."
+              : modo === "crear"
+                ? "Crear servicio"
+                : "Guardar cambios"}
+          </Button>
+        </>
+      }
     >
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form id="servicio" onSubmit={onSubmit} className="space-y-4">
         <Field label="Nombre">
           <Input
+            maxLength={200}
             placeholder="Corte clasico"
             value={form.name}
             onChange={(e) => set({ name: e.target.value })}
@@ -67,6 +86,7 @@ export function ServiceFormDialog({
           <Field label="Precio (COP)">
             <Input
               type="number"
+              min={0}
               placeholder="25000"
               value={form.price}
               onChange={(e) => set({ price: e.target.value })}
@@ -76,6 +96,9 @@ export function ServiceFormDialog({
           <Field label="Duración (min)">
             <Input
               type="number"
+              min={5}
+              max={480}
+              step={5}
               placeholder="30"
               value={form.duration}
               onChange={(e) => set({ duration: e.target.value })}
@@ -84,19 +107,18 @@ export function ServiceFormDialog({
           </Field>
         </div>
         <Field label="Categoría">
-          <Select
-            value={form.categoryId}
-            onChange={(e) => set({ categoryId: e.target.value })}
-          >
-            <option value="">Sin categoría</option>
-            {categorias
+          <SelectorDeEntidad
+            opciones={categorias
               .filter((c) => c.active)
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-          </Select>
+              .map((c) => ({ id: c.id, nombre: c.name }))}
+            value={form.categoryId}
+            onChange={(id) => set({ categoryId: id })}
+            etiquetaDeVacio="Sin categoría"
+            placeholder="Buscar categoría..."
+            etiquetaDeAlta="Crear categoría"
+            rutaDeAlta={rutaDeAlta("/dashboard/service-categories")}
+            onRecargarOpciones={onRecargarCategorias}
+          />
         </Field>
         <Field label="Descripción">
           <Textarea
@@ -169,18 +191,6 @@ export function ServiceFormDialog({
             recargando={recargando}
           />
         )}
-        <div className="flex gap-3 pt-2">
-          <Button type="submit" disabled={guardando}>
-            {guardando
-              ? "Guardando..."
-              : modo === "crear"
-                ? "Crear servicio"
-                : "Guardar cambios"}
-          </Button>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-        </div>
       </form>
     </Dialog>
   );

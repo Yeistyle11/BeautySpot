@@ -496,11 +496,16 @@ export class ClientsService extends TenantCrudService<Client> {
     search: string | undefined,
     pagination: PaginateParams
   ): Promise<IPaginatedResponse<Client>> {
+    // Columnas por las que se admite ordenar.
+    const COLUMNA_DE_ORDEN: Record<string, string> = {
+      name: "c.name",
+      createdAt: "c.created_at",
+    };
     const qb = this.repo
       .createQueryBuilder("c")
       .where("c.business_id = :businessId", { businessId })
       .andWhere("c.active = true")
-      .orderBy("c.name", "ASC");
+      .orderBy(COLUMNA_DE_ORDEN[pagination.sort] ?? "c.name", pagination.order);
 
     if (search) {
       const patron = `%${escapeLikePattern(sinTildes(search))}%`;

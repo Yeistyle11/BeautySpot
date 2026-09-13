@@ -9,3 +9,9 @@ export class ResetPasswordDto {
   @EsContrasenaValida()
   newPassword!: string;
 }
+
+/** Token de recuperación del que solo se pregunta si sigue sirviendo. */
+export class ValidarTokenDto {
+  @IsString()
+  token!: string;
+}

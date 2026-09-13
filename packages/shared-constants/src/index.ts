@@ -143,6 +143,9 @@ export const LONGITUD_MINIMA_CONTRASENA = 10;
 /** Contraseña aceptada: al menos una minúscula, una mayúscula y un dígito. */
 export const PATRON_CONTRASENA = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/;
 
+/** Los requisitos de la contraseña, tal como se le muestran al usuario. */
+export const REQUISITOS_DE_CONTRASENA = `Mínimo ${LONGITUD_MINIMA_CONTRASENA} caracteres, con mayúsculas, minúsculas y números`;
+
 /** Mensaje único para la contraseña, para que todos los formularios digan lo mismo. */
 export const MENSAJE_CONTRASENA =
   "La contraseña debe combinar mayúsculas, minúsculas y números";
@@ -199,3 +202,104 @@ export const VALORES_TIPO_DE_NEGOCIO: string[] = TIPOS_DE_NEGOCIO.map(
  * y el otro corrigiendo el formulario.
  */
 export const CODIGO_EDICION_SIMULTANEA = "EDICION_SIMULTANEA";
+
+// ─── Mensajes de validación ───────────────────────────────────────────────
+
+/** Nombre de cada campo de la API, con su artículo, como se le dice al usuario. */
+export const CAMPOS_EN_CASTELLANO: Record<string, string> = {
+  active: "el estado",
+  amount: "el importe",
+  avatar: "la foto",
+  birthDate: "la fecha de nacimiento",
+  branchId: "la sede",
+  businessId: "el negocio",
+  categoryId: "la categoría",
+  clientId: "el cliente",
+  color: "el color",
+  date: "la fecha",
+  description: "la descripción",
+  documento: "el documento",
+  duration: "la duración",
+  email: "el correo",
+  endTime: "la hora de fin",
+  from: "la fecha inicial",
+  guestEmail: "el correo",
+  guestName: "el nombre",
+  guestPhone: "el teléfono",
+  icon: "el icono",
+  items: "las líneas",
+  limit: "el tamaño de página",
+  method: "el método de pago",
+  name: "el nombre",
+  nit: "el NIT",
+  notes: "las notas",
+  nota: "la nota",
+  openingAmount: "el fondo de caja",
+  openTime: "la hora de apertura",
+  page: "la página",
+  password: "la contraseña",
+  phone: "el teléfono",
+  photos: "las fotos",
+  price: "el precio",
+  professionalId: "el profesional",
+  professionalIds: "los profesionales",
+  rating: "la puntuación",
+  razonSocial: "la razón social",
+  reason: "el motivo",
+  serie: "la serie",
+  serviceId: "el servicio",
+  serviceIds: "los servicios",
+  slug: "la dirección del perfil",
+  sortOrder: "el orden",
+  startTime: "la hora de inicio",
+  status: "el estado",
+  tasaDeImpuesto: "el impuesto",
+  tipo: "el tipo",
+  to: "la fecha final",
+  token: "el enlace",
+  userId: "el usuario",
+};
+
+/** Cómo se le cuenta al usuario cada regla de class-validator. */
+const REGLAS_DE_VALIDACION: Record<string, (campo: string) => string> = {
+  arrayMaxSize: (campo) => `Revisa ${campo}: supera el máximo permitido`,
+  arrayMinSize: (campo) => `Revisa ${campo}: no llega al mínimo permitido`,
+  arrayNotEmpty: (campo) => `Falta indicar ${campo}`,
+  isEmail: () => "El correo no tiene un formato válido",
+  isNotEmpty: (campo) => `Falta indicar ${campo}`,
+  isPositive: (campo) => `Revisa ${campo}: tiene que ser mayor que cero`,
+  isUrl: (campo) => `Revisa ${campo}: no es una dirección web válida`,
+  max: (campo) => `Revisa ${campo}: supera el máximo permitido`,
+  maxLength: (campo) => `Revisa ${campo}: es más largo de lo permitido`,
+  min: (campo) => `Revisa ${campo}: no llega al mínimo permitido`,
+  minLength: (campo) => `Revisa ${campo}: es más corto de lo permitido`,
+};
+
+/** Frase para las reglas que solo dicen que el valor no encaja. */
+const FORMATO_NO_VALIDO = (campo: string) =>
+  `Revisa ${campo}: el formato no es válido`;
+
+/** Marcas del inglés con el que class-validator redacta sus propios mensajes. */
+const MENSAJE_SIN_REDACTAR =
+  /\b(must be|must not be|must contain|must match|must have|must equal|should not be empty|each value in|is not a valid)\b/;
+
+/** Nombre del campo tal como se le nombra al usuario. */
+function campoEnCastellano(propiedad: string): string {
+  return CAMPOS_EN_CASTELLANO[propiedad] ?? "este dato";
+}
+
+/**
+ * Traduce al castellano el mensaje de una regla de validación incumplida, y
+ * devuelve el original cuando el DTO ya lo redactó.
+ */
+export function mensajeDeValidacion(
+  regla: string,
+  propiedad: string,
+  original: string
+): string {
+  if (!MENSAJE_SIN_REDACTAR.test(original)) return original;
+
+  const campo = campoEnCastellano(propiedad);
+  const frase = REGLAS_DE_VALIDACION[regla] ?? FORMATO_NO_VALIDO;
+  return frase(campo);
+}

@@ -54,7 +54,7 @@ export function BusinessTab({
   const { role } = useAuthStore();
   if (loading) {
     return (
-      <Card className="border-0 shadow-sm">
+      <Card className="shadow-flat border-0">
         <CardContent className="text-muted-foreground p-8 text-center">
           Cargando...
         </CardContent>
@@ -77,7 +77,7 @@ export function BusinessTab({
   );
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardHeader>
         <CardTitle className="text-lg">Información del negocio</CardTitle>
       </CardHeader>

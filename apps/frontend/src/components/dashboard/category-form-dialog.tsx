@@ -1,4 +1,5 @@
 "use client";
+import { Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,7 +7,7 @@ import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Dialog } from "@/components/ui/dialog";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 
 export interface CategoryForm {
   name: string;
@@ -59,8 +60,21 @@ export function CategoryFormDialog({
   const set = (patch: Partial<CategoryForm>) => onChange({ ...form, ...patch });
 
   return (
-    <Dialog open={open} onClose={onClose} title={title}>
-      <form onSubmit={onSubmit} className="space-y-4">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={title}
+      icono={Tag}
+      pie={
+        <>
+          <BotonDeCancelar />
+          <Button type="submit" form="categoria" disabled={saving}>
+            {saving ? "Guardando..." : submitLabel}
+          </Button>
+        </>
+      }
+    >
+      <form id="categoria" onSubmit={onSubmit} className="space-y-4">
         <Field label="Nombre *">
           <Input
             placeholder={namePlaceholder}
@@ -90,7 +104,7 @@ export function CategoryFormDialog({
               type="color"
               value={form.color}
               onChange={(e) => set({ color: e.target.value })}
-              className="border-input h-10 w-12 cursor-pointer rounded border p-0.5"
+              className="border-input h-10 w-12 cursor-pointer rounded-sm border p-0.5"
               aria-label="Color personalizado"
             />
             <div
@@ -152,17 +166,6 @@ export function CategoryFormDialog({
             {error}
           </p>
         )}
-
-        {/* Fijos al pie del area que hace scroll: el formulario es mas alto
-            que un viewport corto. */}
-        <div className="bg-background sticky bottom-0 flex gap-3 border-t pb-1 pt-3">
-          <Button type="submit" disabled={saving}>
-            {saving ? "Guardando..." : submitLabel}
-          </Button>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-        </div>
       </form>
     </Dialog>
   );

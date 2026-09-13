@@ -84,7 +84,7 @@ export function SectionsTab({
     onChange(sections.map((s) => (s.id === id ? { ...s, ...changes } : s)));
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardHeader>
         <CardTitle className="text-lg">Secciones del perfil</CardTitle>
       </CardHeader>

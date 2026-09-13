@@ -52,9 +52,11 @@ describe("MergeDialog", () => {
   it("identifica las fichas por su contacto, que es lo que las distingue", () => {
     pintar();
 
-    expect(
-      screen.getByRole("option", { name: /Ana Gomez · ana.trabajo@correo.co/ })
-    ).toBeInTheDocument();
+    // Las opciones viven en la lista del selector, que se despliega al pulsar.
+    fireEvent.click(screen.getByLabelText("Ficha duplicada"));
+
+    const opcion = screen.getByRole("option", { name: /Ana Gomez/ });
+    expect(opcion).toHaveTextContent("ana.trabajo@correo.co");
   });
 
   it("dice qué se queda la ficha que sobrevive", () => {

@@ -847,6 +847,19 @@ describe("AppointmentsService", () => {
         service.confirm("non-existent", "business-123")
       ).rejects.toThrow(NotFoundException);
     });
+
+    it("no confirma una cita que ya pasó", async () => {
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        ...dentroDeMinutos(-90),
+        status: AppointmentStatus.PENDING,
+      } as never);
+
+      await expect(service.confirm("appt-123", "business-123")).rejects.toThrow(
+        "Esta cita ya pasó: márcala como atendida o como no asistió"
+      );
+      expect(mockOutbox.enqueue).not.toHaveBeenCalled();
+    });
   });
 
   describe("startService", () => {
@@ -921,6 +934,25 @@ describe("AppointmentsService", () => {
           aggregateType: "appointment",
           aggregateId: "appt-123",
           payload: expect.objectContaining({ pointsEarned: 5000 }),
+        })
+      );
+    });
+
+    it("cierra una cita vencida que quedó pendiente", async () => {
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        ...dentroDeMinutos(-30),
+        status: AppointmentStatus.PENDING,
+        generateId: () => {},
+      } as any);
+      mockApptRepo.update.mockResolvedValue({ affected: 1 } as any);
+
+      await service.complete("appt-123", "business-123");
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.BOOKING_APPOINTMENT_COMPLETED,
         })
       );
     });
@@ -1712,6 +1744,31 @@ describe("AppointmentsService", () => {
     });
   });
 
+  describe("contarVencidas", () => {
+    it("cuenta las citas que quedaron por cerrar", async () => {
+      mockApptRepo.count.mockResolvedValue(7);
+
+      expect(await service.contarVencidas("business-123")).toBe(7);
+
+      const { where } = mockApptRepo.count.mock.calls[0][0] as {
+        where: Record<string, unknown>[];
+      };
+      expect(where).toHaveLength(2);
+      expect(where[0].businessId).toBe("business-123");
+    });
+
+    it("respeta la sede por la que se pregunta", async () => {
+      mockApptRepo.count.mockResolvedValue(0);
+
+      await service.contarVencidas("business-123", { branchId: "branch-1" });
+
+      const { where } = mockApptRepo.count.mock.calls[0][0] as {
+        where: Record<string, unknown>[];
+      };
+      expect(where[0].branchId).toBe("branch-1");
+    });
+  });
+
   describe("findByBusiness", () => {
     const pagination = {
       page: 1,
@@ -1742,6 +1799,26 @@ describe("AppointmentsService", () => {
       expect(result.data).toEqual([mockAppointment]);
       expect(result.meta.total).toBe(1);
       expect(result.meta.page).toBe(1);
+    });
+
+    it("con vencidas solo lista lo que pasó sin cerrarse", async () => {
+      mockApptRepo.findAndCount.mockResolvedValue([[mockAppointment], 1]);
+
+      await service.findByBusiness(
+        "business-123",
+        { vencidas: true },
+        pagination
+      );
+
+      const { where } = mockApptRepo.findAndCount.mock.calls[0][0] as {
+        where: Record<string, unknown>[];
+      };
+      expect(where).toHaveLength(2);
+      expect(where[0].status).toEqual(
+        In([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED])
+      );
+      expect(where[0].date).toBeInstanceOf(Object);
+      expect(where[1].startTime).toBeInstanceOf(Object);
     });
 
     it("la agenda de una sede no trae las citas de otra", async () => {
@@ -2005,13 +2082,19 @@ describe("AppointmentsService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    // Con el reloj fijado al mediodia de Bogota.
     it("una hora que aún no ha llegado no es un walk-in", async () => {
-      await expect(
-        service.registrarWalkIn("business-123", {
-          ...walkIn,
-          startTime: dentroDeMinutos(60).startTime,
-        })
-      ).rejects.toThrow("esa hora aún no ha llegado");
+      jest.useFakeTimers().setSystemTime(new Date("2026-09-12T17:00:00Z"));
+      try {
+        await expect(
+          service.registrarWalkIn("business-123", {
+            ...walkIn,
+            startTime: "13:00",
+          })
+        ).rejects.toThrow("esa hora aún no ha llegado");
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it("congela el precio del catálogo en la línea", async () => {

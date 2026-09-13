@@ -1,11 +1,13 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { rutaDeAlta } from "@/lib/alta-por-url";
+import { UserPlus } from "lucide-react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
-import { Dialog } from "@/components/ui/dialog";
+import { SelectorDeEntidad } from "@/components/ui/selector-de-entidad";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { LONGITUD_MINIMA_CONTRASENA } from "@beautyspot/shared-constants";
 import { emptyCreateForm, type Professional } from "./schemas";
 
@@ -19,6 +21,8 @@ interface CreateMemberDialogProps {
   onSubmit: (e: React.FormEvent) => void;
   /** Profesionales sin cuenta asociada, unicos vinculables. */
   unlinkedPros: Professional[];
+  /** Recarga el equipo tras dar de alta un profesional desde aqui. */
+  onRecargarProfesionales?: () => Promise<unknown>;
   saving: boolean;
   error: string;
 }
@@ -31,14 +35,33 @@ export function CreateMemberDialog({
   onChange,
   onSubmit,
   unlinkedPros,
+  onRecargarProfesionales,
   saving,
   error,
 }: CreateMemberDialogProps) {
   const set = (patch: Partial<CreateForm>) => onChange({ ...form, ...patch });
 
   return (
-    <Dialog open={open} onClose={onClose} title="Crear cuenta de usuario" wide>
-      <form onSubmit={onSubmit} className="space-y-4">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Crear cuenta de usuario"
+      descripcion="Da acceso al panel con el rol que le corresponda."
+      icono={UserPlus}
+      wide
+      pie={
+        <>
+          <BotonDeCancelar />
+          <SubmitButton
+            form="alta-de-usuario"
+            label="Crear cuenta"
+            pendingLabel="Creando..."
+            pending={saving}
+          />
+        </>
+      }
+    >
+      <form id="alta-de-usuario" onSubmit={onSubmit} className="space-y-4">
         {error && (
           <p
             role="alert"
@@ -97,31 +120,24 @@ export function CreateMemberDialog({
               <option value="CLIENT">Cliente</option>
             </Select>
           </Field>
-          {form.role === "PROFESSIONAL" && unlinkedPros.length > 0 && (
+          {/* El propio selector da de alta un profesional. */}
+          {form.role === "PROFESSIONAL" && (
             <Field label="Vincular a profesional">
-              <Select
+              <SelectorDeEntidad
+                opciones={unlinkedPros.map((p) => ({
+                  id: p.id,
+                  nombre: p.name || "Sin nombre",
+                }))}
                 value={form.professionalId}
-                onChange={(e) => set({ professionalId: e.target.value })}
-              >
-                <option value="">Sin vincular</option>
-                {unlinkedPros.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name || "Sin nombre"}
-                  </option>
-                ))}
-              </Select>
+                onChange={(id) => set({ professionalId: id })}
+                etiquetaDeVacio="Sin vincular"
+                placeholder="Buscar profesional..."
+                etiquetaDeAlta="Crear profesional"
+                rutaDeAlta={rutaDeAlta("/dashboard/professionals")}
+                onRecargarOpciones={onRecargarProfesionales}
+              />
             </Field>
           )}
-        </div>
-        <div className="flex gap-2 pt-2">
-          <SubmitButton
-            label="Crear cuenta"
-            pendingLabel="Creando..."
-            pending={saving}
-          />
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
         </div>
       </form>
     </Dialog>

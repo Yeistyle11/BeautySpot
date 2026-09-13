@@ -3,6 +3,11 @@
 // Desempeño por profesional dentro del periodo.
 import { UserRound } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  TablaDeRegistros,
+  FilaDeTabla,
+  CeldaDeTabla,
+} from "@/components/ui/tabla-de-registros";
 import { formatCurrency } from "@/lib/utils";
 import type { ReporteProfesionales } from "@/lib/schemas/kpis";
 
@@ -19,6 +24,14 @@ export interface FilaDeProfesional {
  * Cruza el reporte con el equipo para poner nombre a cada fila; quien ya no
  * esta en el equipo sigue saliendo.
  */
+const COLUMNAS_DE_RENDIMIENTO = [
+  { label: "Profesional" },
+  { label: "Citas", alineacion: "right" as const },
+  { label: "Ingresos", alineacion: "right" as const },
+  { label: "Valoración", alineacion: "right" as const },
+  { label: "Días activos", alineacion: "right" as const },
+];
+
 export function filasDeProfesionales(
   reporte: ReporteProfesionales | undefined,
   equipo: { id: string; name: string }[] | undefined
@@ -36,7 +49,7 @@ export function filasDeProfesionales(
 /** Tabla de citas, ingresos y valoración de cada profesional en el periodo. */
 export function ProfessionalsTable({ filas }: { filas: FilaDeProfesional[] }) {
   return (
-    <Card className="border-0 shadow-sm lg:col-span-2">
+    <Card className="shadow-flat border-0 lg:col-span-2">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <UserRound className="h-5 w-5" />
@@ -49,48 +62,27 @@ export function ProfessionalsTable({ filas }: { filas: FilaDeProfesional[] }) {
             Nadie atendió citas en el periodo.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-muted-foreground border-b text-left">
-                  <th scope="col" className="py-2 font-medium">
-                    Profesional
-                  </th>
-                  <th scope="col" className="py-2 text-right font-medium">
-                    Citas
-                  </th>
-                  <th scope="col" className="py-2 text-right font-medium">
-                    Ingresos
-                  </th>
-                  <th scope="col" className="py-2 text-right font-medium">
-                    Valoración
-                  </th>
-                  <th scope="col" className="py-2 text-right font-medium">
-                    Días activos
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filas.map((p) => (
-                  <tr key={p.professionalId} className="border-b last:border-0">
-                    <td className="py-2 font-medium">{p.nombre}</td>
-                    <td className="py-2 text-right">{p.appointments}</td>
-                    <td className="py-2 text-right font-semibold">
-                      {formatCurrency(p.revenue)}
-                    </td>
-                    {/*
-                      Sin valoraciones no es que valga cero: es que todavía no
-                      la ha valorado nadie.
-                    */}
-                    <td className="py-2 text-right">
-                      {p.avgRating > 0 ? p.avgRating.toFixed(2) : "—"}
-                    </td>
-                    <td className="py-2 text-right">{p.days}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TablaDeRegistros
+            titulo="Rendimiento por profesional"
+            columnas={COLUMNAS_DE_RENDIMIENTO}
+            conAcciones={false}
+          >
+            {filas.map((p) => (
+              <FilaDeTabla key={p.professionalId}>
+                <CeldaDeTabla className="font-medium">{p.nombre}</CeldaDeTabla>
+                <CeldaDeTabla alineacion="right">{p.appointments}</CeldaDeTabla>
+                <CeldaDeTabla alineacion="right" className="font-semibold">
+                  {formatCurrency(p.revenue)}
+                </CeldaDeTabla>
+                {/* Sin valoraciones no hay nota, que no es lo mismo que un
+                    cero. */}
+                <CeldaDeTabla alineacion="right">
+                  {p.avgRating > 0 ? p.avgRating.toFixed(2) : "—"}
+                </CeldaDeTabla>
+                <CeldaDeTabla alineacion="right">{p.days}</CeldaDeTabla>
+              </FilaDeTabla>
+            ))}
+          </TablaDeRegistros>
         )}
       </CardContent>
     </Card>

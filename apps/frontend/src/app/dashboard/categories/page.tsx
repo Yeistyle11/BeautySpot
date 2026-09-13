@@ -31,7 +31,7 @@ const CONFIG: CategoryManagerConfig = {
     delete: "categories_delete",
   },
   deleteConfirmMessage:
-    "¿Desactivar esta categoría? Los profesionales asignados perderán la asociación.",
+    "dejará de ofrecerse, y los profesionales asignados perderán la asociación.",
 };
 
 export default function CategoriesPage() {

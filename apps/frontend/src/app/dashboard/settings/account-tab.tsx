@@ -45,7 +45,7 @@ export function AccountTab({
 
   return (
     <>
-      <Card className="border-0 shadow-sm">
+      <Card className="shadow-flat border-0">
         <CardHeader>
           <CardTitle className="text-lg">Mi cuenta</CardTitle>
         </CardHeader>
@@ -86,7 +86,7 @@ export function AccountTab({
         </CardContent>
       </Card>
 
-      <Card className="mt-6 border-0 shadow-sm">
+      <Card className="shadow-flat mt-6 border-0">
         <CardHeader>
           <CardTitle className="text-lg">Cambiar contraseña</CardTitle>
         </CardHeader>

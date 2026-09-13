@@ -26,7 +26,7 @@ interface HoursTabProps {
 export function HoursTab({ hours, onUpdate, onSave, saving }: HoursTabProps) {
   const { role } = useAuthStore();
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardHeader>
         <CardTitle className="text-lg">Horarios de atención</CardTitle>
       </CardHeader>

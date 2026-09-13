@@ -62,12 +62,22 @@ export class BlockedSlotsService {
     return this.repo.find({ where, order: { date: "ASC", startTime: "ASC" } });
   }
 
-  /** Bloqueos de todo el equipo un día concreto, para pintarlos en la agenda. */
+  /**
+   * Bloqueos de todo el equipo: de un día concreto o de un rango. Sin fecha,
+   * los futuros de todo el negocio.
+   */
   async findByDate(
     businessId: string,
-    date: string,
+    date?: string,
     hasta?: string
   ): Promise<BlockedSlot[]> {
+    if (!date) {
+      const zona = await this.zonas.de(businessId);
+      return this.repo.find({
+        where: { businessId, date: MoreThanOrEqual(fechaDeHoyEn(zona)) },
+        order: { date: "ASC", startTime: "ASC" },
+      });
+    }
     return this.repo.find({
       // La vista semana pide siete dias de una vez; sin rango, el dia suelto.
       where: {

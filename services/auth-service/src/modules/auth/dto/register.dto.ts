@@ -2,6 +2,7 @@ import {
   IsEmail,
   IsString,
   MinLength,
+  MaxLength,
   IsOptional,
   Matches,
   ValidateIf,
@@ -22,6 +23,7 @@ export class RegisterDto {
 
   @IsString({ message: "El nombre es obligatorio" })
   @MinLength(2, { message: "El nombre debe tener al menos 2 caracteres" })
+  @MaxLength(120, { message: "El nombre no puede pasar de 120 caracteres" })
   name!: string;
 
   @IsOptional()

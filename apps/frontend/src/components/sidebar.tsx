@@ -1,11 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { useLogout } from "@/lib/use-logout";
 import { getPagesForRole } from "@/lib/permissions";
+import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { BusinessSwitcher } from "@/components/business-switcher";
 import { BranchSwitcher } from "@/components/branch-switcher";
@@ -28,6 +29,7 @@ import {
   LayoutGrid,
   Store,
   Receipt,
+  Search,
   Menu,
   X,
 } from "lucide-react";
@@ -47,6 +49,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Wallet,
   BarChart3,
   Megaphone,
+  Search,
   Bell,
   Settings,
   Store,
@@ -68,6 +71,17 @@ export function Sidebar() {
   const [panel, setPanel] = useState({ abierto: false, ruta: pathname });
   const open = panel.abierto && panel.ruta === pathname;
   const setOpen = (abierto: boolean) => setPanel({ abierto, ruta: pathname });
+
+  // Escape cierra el panel movil, como en cualquier capa que tape la pagina.
+  useEffect(() => {
+    if (!open) return;
+
+    const alPulsar = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPanel({ abierto: false, ruta: pathname });
+    };
+    window.addEventListener("keydown", alPulsar);
+    return () => window.removeEventListener("keydown", alPulsar);
+  }, [open, pathname]);
 
   const pages = getPagesForRole(role);
 
@@ -147,7 +161,7 @@ export function Sidebar() {
                 className={cn(
                   "focus-visible:ring-ring flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2",
                   isActive
-                    ? "bg-primary text-primary-foreground shadow-sm"
+                    ? "bg-primary text-primary-foreground shadow-flat"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
               >
@@ -172,13 +186,16 @@ export function Sidebar() {
               </p>
             </div>
             <ThemeToggle className="p-1" />
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={handleLogout}
-              className="text-muted-foreground hover:text-destructive transition-colors"
+              className="text-muted-foreground hover:text-destructive h-8 w-8"
               aria-label="Cerrar sesión"
+              title="Cerrar sesión"
             >
               <LogOut className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         </div>
       </aside>

@@ -14,7 +14,7 @@ import type { GalleryImage, Profile } from "./schemas";
 function CompletenessItem({ done, label }: { done: boolean; label: string }) {
   return (
     <div
-      className={`rounded p-2 ${done ? "bg-success-soft text-success-soft-foreground" : "bg-muted text-muted-foreground"}`}
+      className={`rounded-sm p-2 ${done ? "bg-success-soft text-success-soft-foreground" : "bg-muted text-muted-foreground"}`}
     >
       {done && <CheckCircle className="mr-1 inline h-3 w-3" />} {label}
     </div>
@@ -37,7 +37,7 @@ export function OverviewTab({
 }: OverviewTabProps) {
   return (
     <div className="space-y-6">
-      <Card className="border-0 shadow-sm">
+      <Card className="shadow-flat border-0">
         <CardContent className="p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>

@@ -1,9 +1,11 @@
 "use client";
 
 // Pestana de resenas: listado de valoraciones y respuesta a los clientes.
+import { useState } from "react";
 import { Eye, EyeOff, MessageSquare, Pencil, Star, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { canDo } from "@/lib/permissions";
@@ -45,8 +47,10 @@ export function ReviewsTab({
   onRemoveResponse,
   onModerar,
 }: ReviewsTabProps) {
+  const [aQuitar, setAQuitar] = useState<Review | null>(null);
+
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardHeader>
         <CardTitle className="text-lg">Reseñas ({reviews.length})</CardTitle>
       </CardHeader>
@@ -137,7 +141,7 @@ export function ReviewsTab({
                             size="sm"
                             variant="ghost"
                             className="text-destructive"
-                            onClick={() => onRemoveResponse(review.id)}
+                            onClick={() => setAQuitar(review)}
                           >
                             <Trash2 className="mr-2 h-3 w-3" /> Quitar
                           </Button>
@@ -193,6 +197,25 @@ export function ReviewsTab({
           </div>
         )}
       </CardContent>
+
+      <ConfirmDialog
+        open={aQuitar !== null}
+        onClose={() => setAQuitar(null)}
+        onConfirm={() => {
+          if (aQuitar) onRemoveResponse(aQuitar.id);
+          setAQuitar(null);
+        }}
+        title="Quitar la respuesta"
+        registro={
+          aQuitar
+            ? `Respuesta a la reseña de ${aQuitar.rating} estrellas`
+            : undefined
+        }
+        consecuencias="deja de verse en el perfil público, y la reseña se queda sin contestar."
+        seConserva="La reseña del cliente no se toca."
+        confirmLabel="Sí, quitar la respuesta"
+        variant="destructive"
+      />
     </Card>
   );
 }

@@ -2,7 +2,9 @@
 
 // Pestana de fidelizacion: los escalones por los que pasa el cliente segun sus
 // puntos acumulados.
+import { useState } from "react";
 import { Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +38,7 @@ export function LoyaltyTab({
 }: LoyaltyTabProps) {
   const { role } = useAuthStore();
   const puedeEditar = canDo(role, "settings_edit");
+  const [aQuitar, setAQuitar] = useState<number | null>(null);
 
   const actualizar = (indice: number, cambios: Partial<Nivel>) =>
     onChange(niveles.map((n, i) => (i === indice ? { ...n, ...cambios } : n)));
@@ -53,7 +56,7 @@ export function LoyaltyTab({
   };
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardHeader>
         <CardTitle className="text-lg">Programa de fidelidad</CardTitle>
       </CardHeader>
@@ -121,9 +124,7 @@ export function LoyaltyTab({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() =>
-                    onChange(niveles.filter((_, i) => i !== indice))
-                  }
+                  onClick={() => setAQuitar(indice)}
                   aria-label={`Quitar el nivel ${indice + 1}`}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -154,6 +155,23 @@ export function LoyaltyTab({
           </div>
         )}
       </CardContent>
+
+      <ConfirmDialog
+        open={aQuitar !== null}
+        onClose={() => setAQuitar(null)}
+        onConfirm={() => {
+          if (aQuitar !== null) {
+            onChange(niveles.filter((_, i) => i !== aQuitar));
+          }
+          setAQuitar(null);
+        }}
+        title="Quitar el nivel"
+        registro={aQuitar !== null ? niveles[aQuitar]?.label : undefined}
+        consecuencias="sale de la escala, y quien estuviera en él pasa al nivel inmediatamente inferior."
+        seConserva="Los puntos de cada cliente no cambian. El cambio no es firme hasta que guardes los niveles."
+        confirmLabel="Sí, quitar el nivel"
+        variant="destructive"
+      />
     </Card>
   );
 }

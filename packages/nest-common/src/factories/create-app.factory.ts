@@ -1,16 +1,12 @@
 import { NestFactory, Reflector } from "@nestjs/core";
-import {
-  ClassSerializerInterceptor,
-  Logger,
-  ValidationPipe,
-  type Type,
-} from "@nestjs/common";
+import { ClassSerializerInterceptor, Logger, type Type } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import helmet from "helmet";
 import { JwtAuthGuard } from "../guards/jwt-auth.guard";
 import { BusinessScopeGuard } from "../guards/business-scope.guard";
 import { RolesGuard } from "../guards/roles.guard";
 import { HttpExceptionFilter } from "../filters/http-exception.filter";
+import { crearValidationPipe } from "../pipes/validacion.pipe";
 import { TransformInterceptor } from "../interceptors/transform.interceptor";
 import { InternalSecretGuard } from "../guards/internal-secret.guard";
 import { RedisCacheService } from "../cache/redis-cache.service";
@@ -112,13 +108,7 @@ export async function createMicroserviceApp(
   app.use(helmet());
   app.enableCors(buildCorsOptions(configService));
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    })
-  );
+  app.useGlobalPipes(crearValidationPipe());
 
   const reflector = app.get(Reflector);
 

@@ -3,7 +3,13 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchPublic } from "@/lib/api-server";
 import BusinessProfile from "./business-profile";
-import { profileResponseSchema, type Profile } from "./schemas";
+import { z } from "zod";
+import {
+  profileResponseSchema,
+  servicioPublicoSchema,
+  type Profile,
+  type ServicioPublico,
+} from "./schemas";
 
 interface PageProps {
   // Desde Next 15 los parámetros de ruta llegan como promesa: la página puede
@@ -18,6 +24,15 @@ async function getProfile(slug: string): Promise<Profile | null> {
   if (!raw) return null;
   const parsed = profileResponseSchema.safeParse(raw);
   return parsed.success ? parsed.data.profile : null;
+}
+
+// El catalogo se resuelve en servidor; si falla, lo pide el cliente.
+async function getServicios(businessId: string): Promise<ServicioPublico[]> {
+  const raw = await fetchPublic<unknown>(
+    `/core/public/businesses/${businessId}/services`
+  );
+  const parsed = z.array(servicioPublicoSchema).safeParse(raw);
+  return parsed.success ? parsed.data : [];
 }
 
 /** Metadata propia de cada negocio: título, descripción e imagen del perfil. */
@@ -57,6 +72,13 @@ export default async function BusinessProfilePage({ params }: PageProps) {
   const { slug } = await params;
   const profile = await getProfile(slug);
   if (!profile) notFound();
+  const servicios = await getServicios(profile.businessId);
 
-  return <BusinessProfile slug={slug} initialProfile={profile} />;
+  return (
+    <BusinessProfile
+      slug={slug}
+      initialProfile={profile}
+      initialServicios={servicios}
+    />
+  );
 }

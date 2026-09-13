@@ -116,12 +116,12 @@ export default function AppointmentsPage() {
           <h1 className="text-2xl font-bold">Mis citas</h1>
           <p className="text-muted-foreground">Gestiona tus citas agendadas</p>
         </div>
-        <Link href="/marketplace">
-          <Button className="gap-2">
+        <Button asChild className="gap-2">
+          <Link href="/marketplace">
             <Plus className="h-4 w-4" />
             Reservar nueva cita
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
       <div
@@ -142,7 +142,7 @@ export default function AppointmentsPage() {
       </div>
 
       {loading ? (
-        <Card className="border-0 shadow-sm">
+        <Card className="shadow-flat border-0">
           <CardContent className="text-muted-foreground p-8 text-center">
             Cargando citas...
           </CardContent>
@@ -154,17 +154,15 @@ export default function AppointmentsPage() {
           onReintentar={() => recargar()}
         />
       ) : filtered.length === 0 ? (
-        <Card className="border-0 shadow-sm">
+        <Card className="shadow-flat border-0">
           <CardContent className="p-8 text-center">
             <Calendar className="text-muted-foreground mx-auto h-12 w-12 opacity-20" />
             <p className="text-muted-foreground mt-2">
               No tienes citas en esta categoría
             </p>
-            <Link href="/marketplace">
-              <Button variant="outline" className="mt-4">
-                Explorar negocios
-              </Button>
-            </Link>
+            <Button asChild variant="outline" className="mt-4">
+              <Link href="/marketplace">Explorar negocios</Link>
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -179,7 +177,7 @@ export default function AppointmentsPage() {
             return (
               <Card
                 key={appt.id}
-                className="relative border-0 shadow-sm transition-shadow hover:shadow-md"
+                className="shadow-flat hover:shadow-flat relative border-0 transition-shadow"
               >
                 <CardContent className="p-5">
                   <Link

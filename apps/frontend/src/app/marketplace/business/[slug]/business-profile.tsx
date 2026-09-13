@@ -51,9 +51,12 @@ import { Spinner } from "@/components/ui/spinner";
 export default function BusinessProfile({
   slug,
   initialProfile,
+  initialServicios,
 }: {
   slug: string;
   initialProfile: Profile | null;
+  /** Catalogo resuelto en servidor, para que entre en el HTML inicial. */
+  initialServicios?: ServicioPublico[];
 }) {
   // El perfil y el equipo llegan juntos en esta respuesta.
   const { data: respuesta, isLoading: loading } = useApiPublic<ProfileResponse>(
@@ -68,7 +71,7 @@ export default function BusinessProfile({
   // El escaparate del marketplace solo guarda lo personalizado.
   const { data: servicios } = useApiPublic<ServicioPublico[]>(
     bid ? `/core/public/businesses/${bid}/services` : null,
-    undefined,
+    initialServicios ? { fallbackData: initialServicios } : undefined,
     z.array(servicioPublicoSchema)
   );
   const { data: equipoDelNegocio } = useApiPublic<ProfesionalPublico[]>(
@@ -110,7 +113,9 @@ export default function BusinessProfile({
 
   const reviews = reviewsResp?.data ?? [];
 
-  if (loading) {
+  // El perfil resuelto en servidor entra como `fallbackData` y se pinta desde
+  // el primer render, mientras la revalidacion sigue por detras.
+  if (loading && !profile) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Spinner variant="inline" className="h-8 w-8 border-4" />
@@ -165,17 +170,23 @@ export default function BusinessProfile({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
 
+        {/*
+          Fondo propio y no el velo del heroe: el velo tiñe abajo y aqui arriba
+          es transparente, asi que el blanco quedaba sobre el degradado claro.
+          Con este fondo se lee igual con foto de portada y sin ella.
+        */}
         <div className="absolute left-4 top-4 z-10">
-          <Link href="/marketplace">
-            <Button
-              size="sm"
-              variant="secondary"
-              className="bg-white/20 text-white backdrop-blur hover:bg-white/30"
-            >
+          <Button
+            asChild
+            size="sm"
+            variant="secondary"
+            className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
+          >
+            <Link href="/marketplace">
               <ArrowLeft className="mr-1 h-4 w-4" />
               Volver
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 p-6">
@@ -188,10 +199,10 @@ export default function BusinessProfile({
                   width={80}
                   height={80}
                   unoptimized={imageUnoptimized(profile.logo)}
-                  className="h-20 w-20 shrink-0 rounded-2xl border-4 border-white object-cover shadow-lg"
+                  className="shadow-flat h-20 w-20 shrink-0 rounded-2xl border-4 border-white object-cover"
                 />
               ) : (
-                <div className="bg-primary text-primary-foreground flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border-4 border-white text-3xl font-bold shadow-lg">
+                <div className="bg-primary text-primary-foreground shadow-flat flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border-4 border-white text-3xl font-bold">
                   {profile.name.charAt(0)}
                 </div>
               )}
@@ -235,15 +246,16 @@ export default function BusinessProfile({
                   )}
                 </div>
               </div>
-              <Link href={`/marketplace/business/${slug}/book`}>
-                <Button
-                  size="lg"
-                  className="text-primary hidden bg-white shadow-lg hover:bg-white/90 sm:flex"
-                >
+              <Button
+                asChild
+                size="lg"
+                className="text-primary shadow-flat hidden bg-white hover:bg-white/90 sm:flex"
+              >
+                <Link href={`/marketplace/business/${slug}/book`}>
                   <Calendar className="mr-2 h-4 w-4" />
                   Agendar cita
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
           </div>
         </div>
@@ -251,12 +263,12 @@ export default function BusinessProfile({
 
       <div className="mx-auto max-w-4xl px-4 py-8">
         <div className="mb-6 sm:hidden">
-          <Link href={`/marketplace/business/${slug}/book`} className="block">
-            <Button size="lg" className="w-full">
+          <Button asChild size="lg" className="w-full">
+            <Link href={`/marketplace/business/${slug}/book`} className="block">
               <Calendar className="mr-2 h-4 w-4" />
               Agendar cita
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
 
         {sections.map((section) => {
@@ -370,15 +382,16 @@ export default function BusinessProfile({
           <p className="text-primary-foreground/80 mt-2">
             Agenda en segundos, sin necesidad de crear una cuenta
           </p>
-          <Link href={`/marketplace/business/${slug}/book`}>
-            <Button
-              size="lg"
-              className="text-primary mt-4 bg-white hover:bg-white/90"
-            >
+          <Button
+            asChild
+            size="lg"
+            className="text-primary mt-4 bg-white hover:bg-white/90"
+          >
+            <Link href={`/marketplace/business/${slug}/book`}>
               <Calendar className="mr-2 h-4 w-4" />
               Agendar cita ahora
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </div>
     </div>

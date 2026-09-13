@@ -1,8 +1,9 @@
 "use client";
 
+import { UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { Dialog } from "@/components/ui/dialog";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,8 +71,26 @@ export function ClientFormDialog({
   recargando,
 }: ClientFormDialogProps) {
   return (
-    <Dialog open={open} onClose={onClose} title={title}>
-      <form onSubmit={onSubmit} className="space-y-4">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={title}
+      icono={UserRound}
+      pie={
+        <>
+          <BotonDeCancelar />
+          <SubmitButton
+            form="ficha-de-cliente"
+            label={submitLabel}
+            pendingLabel="Guardando..."
+            pending={saving}
+            // El `required` del campo se conforma con espacios.
+            disabled={!form.name.trim()}
+          />
+        </>
+      }
+    >
+      <form id="ficha-de-cliente" onSubmit={onSubmit} className="space-y-4">
         <Field label="Nombre">
           <Input
             placeholder="Maria Garcia"
@@ -173,19 +192,6 @@ export function ClientFormDialog({
             recargando={recargando}
           />
         )}
-        <div className="flex gap-3 pt-2">
-          <SubmitButton
-            label={submitLabel}
-            pendingLabel="Guardando..."
-            pending={saving}
-            // El `required` del campo se conforma con espacios, y una ficha sin
-            // nombre no se reconoce en el listado ni se encuentra buscando.
-            disabled={!form.name.trim()}
-          />
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-        </div>
       </form>
     </Dialog>
   );

@@ -3,13 +3,14 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { Business } from "../../entities/business.entity";
 import { Service } from "../../entities/service.entity";
 import { Professional } from "../../entities/professional.entity";
+import { BusinessHours } from "../../entities/business-hours.entity";
 import { PreciosModule } from "../precios/precios.module";
 import { PublicController } from "./public.controller";
 import { PublicService } from "./public.service";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Business, Service, Professional]),
+    TypeOrmModule.forFeature([Business, Service, Professional, BusinessHours]),
     PreciosModule,
   ],
   controllers: [PublicController],

@@ -265,7 +265,7 @@ export default function MarketplacePage() {
     return (
       <div>
         <h1 className="text-2xl font-bold">Marketplace</h1>
-        <Card className="mt-4 border-0 shadow-sm">
+        <Card className="shadow-flat mt-4 border-0">
           <CardContent className="text-muted-foreground p-8 text-center">
             Cargando perfil...
           </CardContent>
@@ -367,9 +367,9 @@ export default function MarketplacePage() {
             aria-selected={activeTab === tab}
             onClick={() => setActiveTab(tab)}
             className={cn(
-              "whitespace-nowrap rounded px-3 py-1.5 text-sm font-medium transition-colors",
+              "whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-colors",
               activeTab === tab
-                ? "bg-background shadow-sm"
+                ? "bg-background shadow-flat"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >

@@ -103,13 +103,27 @@ describe("SpecialDaysCard", () => {
     expect(screen.getByRole("button", { name: /Añadir día/ })).toBeDisabled();
   });
 
-  it("quita el día especial", () => {
+  it("quita el día especial cuando se confirma", () => {
     const onRemove = jest.fn();
     pintar([FESTIVO], { onRemove });
 
     fireEvent.click(screen.getByRole("button", { name: /Quitar 20 de julio/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Sí, quitar el día/ }));
 
     expect(onRemove).toHaveBeenCalledWith("dia-1");
+  });
+
+  // Quitar un festivo devuelve esos días al horario normal: se pregunta antes.
+  it("no quita nada si se cancela la confirmación", () => {
+    const onRemove = jest.fn();
+    pintar([FESTIVO], { onRemove });
+
+    fireEvent.click(screen.getByRole("button", { name: /Quitar 20 de julio/ }));
+    expect(screen.getByText("Quitar el día especial")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(onRemove).not.toHaveBeenCalled();
   });
 
   it("a quien no puede editar le deja mirar, no tocar", () => {

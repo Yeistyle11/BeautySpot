@@ -1,11 +1,13 @@
 "use client";
 
 // Formulario de alta/edicion de un profesional.
+import { rutaDeAlta } from "@/lib/alta-por-url";
+import { UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
-import { Select } from "@/components/ui/select";
-import { Dialog } from "@/components/ui/dialog";
+import { SelectorDeEntidad } from "@/components/ui/selector-de-entidad";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import type { Category, ProfessionalForm } from "./schemas";
 
 interface ProfessionalFormDialogProps {
@@ -15,6 +17,8 @@ interface ProfessionalFormDialogProps {
   form: ProfessionalForm;
   onChange: (form: ProfessionalForm) => void;
   categories: Category[];
+  /** Recarga el catalogo de categorias tras crear una desde aqui. */
+  onRecargarCategorias?: () => Promise<unknown>;
   title: string;
   submitLabel: string;
 }
@@ -30,6 +34,7 @@ export function ProfessionalFormDialog({
   form,
   onChange,
   categories,
+  onRecargarCategorias,
   title,
   submitLabel,
 }: ProfessionalFormDialogProps) {
@@ -37,8 +42,22 @@ export function ProfessionalFormDialog({
     onChange({ ...form, ...patch });
 
   return (
-    <Dialog open={open} onClose={onClose} title={title} wide>
-      <form onSubmit={onSubmit} className="space-y-4">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={title}
+      icono={UserRound}
+      wide
+      pie={
+        <>
+          <BotonDeCancelar />
+          <Button type="submit" form="profesional">
+            {submitLabel}
+          </Button>
+        </>
+      }
+    >
+      <form id="profesional" onSubmit={onSubmit} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Nombre *">
             <Input
@@ -49,19 +68,18 @@ export function ProfessionalFormDialog({
             />
           </Field>
           <Field label="Categoría">
-            <Select
-              value={form.categoryId}
-              onChange={(e) => set({ categoryId: e.target.value })}
-            >
-              <option value="">Sin categoría</option>
-              {categories
+            <SelectorDeEntidad
+              opciones={categories
                 .filter((c) => c.active)
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-            </Select>
+                .map((c) => ({ id: c.id, nombre: c.name }))}
+              value={form.categoryId}
+              onChange={(id) => set({ categoryId: id })}
+              etiquetaDeVacio="Sin categoría"
+              placeholder="Buscar categoría..."
+              etiquetaDeAlta="Crear categoría"
+              rutaDeAlta={rutaDeAlta("/dashboard/categories")}
+              onRecargarOpciones={onRecargarCategorias}
+            />
           </Field>
           <Field label="Especialidades" hint="Separadas por comas">
             <Input
@@ -92,12 +110,6 @@ export function ProfessionalFormDialog({
               onChange={(e) => set({ bio: e.target.value })}
             />
           </Field>
-        </div>
-        <div className="flex gap-2 pt-2">
-          <Button type="submit">{submitLabel}</Button>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
         </div>
       </form>
     </Dialog>

@@ -12,10 +12,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Scissors } from "lucide-react";
+
 import { apiPublic } from "@/lib/api";
 import { mensajeDeError } from "@/lib/error-message";
 import { Spinner } from "@/components/ui/spinner";
+import { MarcaBeautySpot } from "@/components/ui/marca-beautyspot";
 
 type Estado = "verificando" | "confirmado" | "fallido";
 
@@ -47,19 +48,9 @@ function VerifyEmailInner() {
   return (
     <main className="from-primary/5 via-background to-primary/10 flex min-h-screen items-center justify-center bg-gradient-to-br p-4">
       <div className="w-full max-w-md">
-        <div className="mb-8 flex items-center justify-center gap-3">
-          <div className="bg-primary text-primary-foreground flex h-12 w-12 items-center justify-center rounded-xl shadow-lg">
-            <Scissors className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-foreground text-2xl font-bold">BeautySpot</h1>
-            <p className="text-muted-foreground text-xs">
-              Gestión para tu negocio
-            </p>
-          </div>
-        </div>
+        <MarcaBeautySpot />
 
-        <Card className="border-0 shadow-xl">
+        <Card className="shadow-flat border-0">
           <CardHeader className="pb-2 text-center">
             <CardTitle as="h2" className="text-xl">
               Confirmar cuenta

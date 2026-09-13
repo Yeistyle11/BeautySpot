@@ -1,11 +1,12 @@
 "use client";
 
 // Formulario de creacion/edicion de una cita: cliente, profesional, servicios y horario.
+import { rutaDeAlta } from "@/lib/alta-por-url";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
-import { Select } from "@/components/ui/select";
+import { SelectorDeEntidad } from "@/components/ui/selector-de-entidad";
 import { formatCurrency, toLocalDateKey } from "@/lib/utils";
 import type {
   AppointmentForm as FormValues,
@@ -28,6 +29,10 @@ interface AppointmentFormProps {
   onAsignar: (serviceId: string, professionalId: string) => void;
   submitting: boolean;
   error: string;
+  /** Recarga la cartera tras dar de alta un cliente desde aqui. */
+  onRecargarClientes?: () => Promise<unknown>;
+  /** Recarga el equipo tras dar de alta un profesional desde aqui. */
+  onRecargarProfesionales?: () => Promise<unknown>;
 }
 
 /**
@@ -47,12 +52,14 @@ export function AppointmentForm({
   onAsignar,
   submitting,
   error,
+  onRecargarClientes,
+  onRecargarProfesionales,
 }: AppointmentFormProps) {
   const set = (patch: Partial<FormValues>) => onChange({ ...form, ...patch });
   const faltas = clients.find((c) => c.id === form.clientId)?.noShowCount ?? 0;
 
   return (
-    <Card className="mb-6 border-0 shadow-sm">
+    <Card className="shadow-flat mb-6 border-0">
       <CardHeader>
         <CardTitle className="text-lg">Nueva cita</CardTitle>
       </CardHeader>
@@ -62,32 +69,31 @@ export function AppointmentForm({
           className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
         >
           <Field label="Profesional">
-            <Select
+            <SelectorDeEntidad
+              opciones={professionals.map((p) => ({
+                id: p.id,
+                nombre: p.name || "Sin nombre",
+              }))}
               value={form.professionalId}
-              onChange={(e) => set({ professionalId: e.target.value })}
+              onChange={(id) => set({ professionalId: id })}
+              placeholder="Buscar profesional..."
+              etiquetaDeAlta="Crear profesional"
+              rutaDeAlta={rutaDeAlta("/dashboard/professionals")}
+              onRecargarOpciones={onRecargarProfesionales}
               required
-            >
-              <option value="">Seleccionar...</option>
-              {professionals.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name || "Sin nombre"}
-                </option>
-              ))}
-            </Select>
+            />
           </Field>
           <Field label="Cliente">
-            <Select
+            <SelectorDeEntidad
+              opciones={clients.map((c) => ({ id: c.id, nombre: c.name }))}
               value={form.clientId}
-              onChange={(e) => set({ clientId: e.target.value })}
+              onChange={(id) => set({ clientId: id })}
+              placeholder="Buscar cliente..."
+              etiquetaDeAlta="Crear cliente"
+              rutaDeAlta={rutaDeAlta("/dashboard/clients")}
+              onRecargarOpciones={onRecargarClientes}
               required
-            >
-              <option value="">Seleccionar...</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
+            />
             {faltas > 0 && (
               <p role="status" className="text-warning mt-1.5 text-xs">
                 Este cliente no se presentó {faltas}{" "}
@@ -166,19 +172,19 @@ export function AppointmentForm({
                       <span className="min-w-32 flex-1">
                         {servicio?.name ?? "Servicio"}
                       </span>
-                      <Select
+                      <SelectorDeEntidad
                         aria-label={`Profesional de ${servicio?.name ?? "el servicio"}`}
-                        className="w-48"
+                        className="w-56"
+                        opciones={professionals.map((p) => ({
+                          id: p.id,
+                          nombre: p.name || "Sin nombre",
+                        }))}
                         value={asignaciones[id] ?? ""}
-                        onChange={(e) => onAsignar(id, e.target.value)}
-                      >
-                        <option value="">El titular de la cita</option>
-                        {professionals.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name || "Sin nombre"}
-                          </option>
-                        ))}
-                      </Select>
+                        onChange={(profesionalId) =>
+                          onAsignar(id, profesionalId)
+                        }
+                        etiquetaDeVacio="El titular de la cita"
+                      />
                     </div>
                   );
                 })}

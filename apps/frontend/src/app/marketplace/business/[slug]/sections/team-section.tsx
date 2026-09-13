@@ -25,7 +25,7 @@ export function TeamSection({
       </h2>
       <div className="grid gap-4 sm:grid-cols-2">
         {professionals.map((p) => (
-          <Card key={p.id} className="border-0 shadow-sm">
+          <Card key={p.id} className="shadow-flat border-0">
             <CardContent className="p-5">
               <div className="flex items-start gap-4">
                 {p.photo ? (
@@ -78,15 +78,20 @@ export function TeamSection({
                   {p.bio}
                 </p>
               )}
-              <Link
-                href={`/marketplace/business/${slug}/book?professionalId=${p.id}`}
-                className="mt-3 block"
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="w-full gap-2"
               >
-                <Button variant="outline" size="sm" className="w-full gap-2">
+                <Link
+                  href={`/marketplace/business/${slug}/book?professionalId=${p.id}`}
+                  className="mt-3 block"
+                >
                   <Calendar className="h-3 w-3" />
                   Agendar con {p.name.split(" ")[0]}
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         ))}

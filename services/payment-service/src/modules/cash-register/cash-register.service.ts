@@ -4,13 +4,16 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
-import { Repository, DataSource, In, IsNull } from "typeorm";
+import { Repository, DataSource, In, IsNull, Not } from "typeorm";
 import { CashSessionEntity } from "./cash-session.entity";
 import { CashMovementEntity } from "./cash-movement.entity";
 import { CashMovementType, PaymentMethod } from "@beautyspot/shared-types";
 
 /** Clave del desglose para lo que se anota a mano, sin cobro detrás. */
 const MOVIMIENTO_MANUAL = "MANUAL";
+
+/** Una sesión de caja está abierta mientras no tenga cierre. */
+export type EstadoDeSesion = "abierta" | "cerrada";
 import {
   OpenSessionDto,
   CloseSessionDto,
@@ -321,15 +324,49 @@ export class CashRegisterService {
     });
   }
 
-  /** Lista las sesiones de caja de la sede, de la más reciente a la más antigua. */
+  /**
+   * Lista las sesiones de caja de la sede, de la más reciente a la más
+   * antigua. `estado` acota a las abiertas o a las cerradas.
+   */
   async getSessionHistory(
     businessId: string,
     pagination: PaginateParams,
-    branchId?: string
+    branchId?: string,
+    estado?: EstadoDeSesion
   ): Promise<IPaginatedResponse<CashSessionEntity>> {
     return paginate(this.sessionRepo, pagination, {
-      where: { businessId, ...(branchId ? { branchId } : {}) },
+      where: this.condicionDeSesiones(businessId, branchId, estado),
       order: { openedAt: "DESC" },
     });
+  }
+
+  /** Cuántas sesiones hay abiertas y cerradas, para los contadores. */
+  async contarSesionesPorEstado(
+    businessId: string,
+    branchId?: string
+  ): Promise<{ abiertas: number; cerradas: number }> {
+    const [abiertas, cerradas] = await Promise.all([
+      this.sessionRepo.count({
+        where: this.condicionDeSesiones(businessId, branchId, "abierta"),
+      }),
+      this.sessionRepo.count({
+        where: this.condicionDeSesiones(businessId, branchId, "cerrada"),
+      }),
+    ]);
+    return { abiertas, cerradas };
+  }
+
+  /** El negocio, la sede si la hay y el estado si se pidió. */
+  private condicionDeSesiones(
+    businessId: string,
+    branchId?: string,
+    estado?: EstadoDeSesion
+  ) {
+    return {
+      businessId,
+      ...(branchId ? { branchId } : {}),
+      ...(estado === "abierta" ? { closedAt: IsNull() } : {}),
+      ...(estado === "cerrada" ? { closedAt: Not(IsNull()) } : {}),
+    };
   }
 }

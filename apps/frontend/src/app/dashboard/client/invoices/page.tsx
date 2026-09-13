@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -46,6 +47,7 @@ export default function ClientInvoicesPage() {
     setPage,
     isLoading,
     error,
+    mutate: recargar,
   } = usePaginatedList<Invoice>({
     basePath: MY_INVOICES_KEY,
     itemSchema: invoiceSchema,
@@ -63,7 +65,14 @@ export default function ClientInvoicesPage() {
     }
   };
 
-  if (error) return <ErrorDeCarga error={error} recurso="las facturas" />;
+  if (error)
+    return (
+      <ErrorDeCarga
+        error={error}
+        recurso="las facturas"
+        onReintentar={() => recargar()}
+      />
+    );
 
   return (
     <div>
@@ -75,7 +84,7 @@ export default function ClientInvoicesPage() {
       </div>
 
       {isLoading ? (
-        <Card className="border-0 shadow-sm">
+        <Card className="shadow-flat border-0">
           <CardContent className="text-muted-foreground p-8 text-center">
             Cargando facturas...
           </CardContent>
@@ -85,6 +94,11 @@ export default function ClientInvoicesPage() {
           icon={Receipt}
           titulo="Todavía no tienes facturas"
           descripcion="Aquí aparecerán las de los servicios que te facturen."
+          accion={
+            <Button asChild>
+              <Link href="/marketplace">Explorar negocios</Link>
+            </Button>
+          }
         />
       ) : (
         <div className="space-y-3">
@@ -94,7 +108,7 @@ export default function ClientInvoicesPage() {
               variant: "secondary" as const,
             };
             return (
-              <Card key={invoice.id} className="border-0 shadow-sm">
+              <Card key={invoice.id} className="shadow-flat border-0">
                 <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
                   <div>
                     <p className="font-medium">{invoice.number}</p>

@@ -114,4 +114,19 @@ describe("getDefaultPath", () => {
       expect(PAGES.some((p) => p.path === path)).toBe(true);
     }
   });
+
+  it("al cliente le ofrece el escaparate público y no el editor del negocio", () => {
+    const rutas = getPagesForRole("CLIENT").map((p) => p.path);
+
+    expect(rutas).toContain("/marketplace");
+    expect(rutas).not.toContain("/dashboard/marketplace");
+  });
+
+  it("el editor de la ficha sigue siendo del negocio", () => {
+    for (const rol of ["OWNER", "ADMIN"] as const) {
+      expect(getPagesForRole(rol).map((p) => p.path)).toContain(
+        "/dashboard/marketplace"
+      );
+    }
+  });
 });

@@ -126,8 +126,9 @@ export class CapacidadWorker implements OnModuleInit, OnModuleDestroy {
   private async diasAbiertos(): Promise<
     { business_id: string; date: string }[]
   > {
+    // El dia se pide como texto `YYYY-MM-DD`, que es lo que espera booking.
     return (await this.dataSource.query(
-      `SELECT DISTINCT business_id, date
+      `SELECT DISTINCT business_id, to_char(date, 'YYYY-MM-DD') AS date
        FROM daily_metrics
        WHERE date >= CURRENT_DATE - INTERVAL '7 days'`
     )) as { business_id: string; date: string }[];

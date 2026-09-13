@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { HoraDeCierre } from "@/components/ui/hora-de-cierre";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatDate } from "@/lib/utils";
 import { canDo } from "@/lib/permissions";
 import { useAuthStore } from "@/lib/store";
@@ -41,6 +42,7 @@ export function SpecialDaysCard({
 }: SpecialDaysCardProps) {
   const { role } = useAuthStore();
   const puedeEditar = canDo(role, "business_hours_edit");
+  const [aQuitar, setAQuitar] = useState<DiaEspecial | null>(null);
   const [form, setForm] = useState<NuevoDiaEspecial>(nuevoDiaEspecial);
   const set = (cambios: Partial<NuevoDiaEspecial>) =>
     setForm({ ...form, ...cambios });
@@ -51,7 +53,7 @@ export function SpecialDaysCard({
   };
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardHeader>
         <CardTitle className="text-lg">Días especiales</CardTitle>
         <p className="text-muted-foreground text-sm">
@@ -86,7 +88,7 @@ export function SpecialDaysCard({
                     size="sm"
                     variant="ghost"
                     aria-label={`Quitar ${dia.motivo}`}
-                    onClick={() => onRemove(dia.id)}
+                    onClick={() => setAQuitar(dia)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -167,6 +169,21 @@ export function SpecialDaysCard({
           </div>
         )}
       </CardContent>
+
+      <ConfirmDialog
+        open={aQuitar !== null}
+        onClose={() => setAQuitar(null)}
+        onConfirm={() => {
+          if (aQuitar) onRemove(aQuitar.id);
+          setAQuitar(null);
+        }}
+        title="Quitar el día especial"
+        registro={aQuitar?.motivo}
+        consecuencias="deja de aplicarse, y esos días vuelven al horario normal de la semana."
+        seConserva="Las citas ya agendadas no se tocan."
+        confirmLabel="Sí, quitar el día"
+        variant="destructive"
+      />
     </Card>
   );
 }

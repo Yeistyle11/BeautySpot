@@ -22,10 +22,11 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { useApi } from "@/lib/swr";
+import { revalidatePrefix, useApi } from "@/lib/swr";
 import { useSeededForm } from "@/lib/use-seeded-form";
 import { logger } from "@/lib/logger";
 import { mensajeDeError } from "@/lib/error-message";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import Link from "next/link";
@@ -73,7 +74,7 @@ function StarRating({
           aria-label={star === 1 ? "1 estrella" : `${star} estrellas`}
           onClick={() => onChange(star)}
           onMouseEnter={() => setHovered(star)}
-          className="focus-visible:ring-ring rounded transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2"
+          className="focus-visible:ring-ring rounded-sm transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2"
         >
           <Star
             className={cn(
@@ -123,6 +124,7 @@ export default function ReviewPage() {
   const siguienteIdFoto = useRef(1);
   const [submitting, setSubmitting] = useState(false);
   const [borrando, setBorrando] = useState(false);
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
   const [success, setSuccess] = useState(false);
   const permitirNuevaSiembra = useSeededForm(existente, (resena) => {
     setRating(resena.rating);
@@ -198,6 +200,8 @@ export default function ReviewPage() {
         });
       }
       await recargarResena();
+      // El detalle enseña si la cita ya tiene reseña.
+      await revalidatePrefix("/booking/appointments");
       setSuccess(true);
     } catch (err: unknown) {
       logger.error(err);
@@ -209,6 +213,7 @@ export default function ReviewPage() {
 
   const handleDelete = async () => {
     if (!existente) return;
+    setConfirmandoBorrado(false);
     setBorrando(true);
     setError(null);
     try {
@@ -238,12 +243,12 @@ export default function ReviewPage() {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-destructive">Error al cargar la cita</p>
-        <Link href="/dashboard/client/appointments">
-          <Button variant="outline" className="mt-4 gap-2">
+        <Button asChild variant="outline" className="mt-4 gap-2">
+          <Link href="/dashboard/client/appointments">
             <ArrowLeft className="h-4 w-4" />
             Volver a mis citas
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
     );
   }
@@ -261,15 +266,15 @@ export default function ReviewPage() {
           Gracias por compartir tu experiencia
         </p>
         <div className="mt-6 flex gap-3">
-          <Link href={`/dashboard/client/appointments/${appointment.id}`}>
-            <Button variant="outline" className="gap-2">
+          <Button asChild variant="outline" className="gap-2">
+            <Link href={`/dashboard/client/appointments/${appointment.id}`}>
               <ArrowLeft className="h-4 w-4" />
               Volver a la cita
-            </Button>
-          </Link>
-          <Link href="/dashboard/client/appointments">
-            <Button>Mis citas</Button>
-          </Link>
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/dashboard/client/appointments">Mis citas</Link>
+          </Button>
         </div>
       </div>
     );
@@ -291,7 +296,7 @@ export default function ReviewPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Scissors className="h-4 w-4" />
@@ -323,7 +328,7 @@ export default function ReviewPage() {
         </div>
 
         <div className="space-y-4 lg:col-span-2">
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardHeader>
               <CardTitle className="text-base">Calificacion</CardTitle>
             </CardHeader>
@@ -341,7 +346,7 @@ export default function ReviewPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardHeader>
               <CardTitle className="text-base">Comentario</CardTitle>
             </CardHeader>
@@ -365,7 +370,7 @@ export default function ReviewPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <ImageIcon className="h-4 w-4" />
@@ -423,7 +428,7 @@ export default function ReviewPage() {
             {existente && (
               <Button
                 variant="outline"
-                onClick={handleDelete}
+                onClick={() => setConfirmandoBorrado(true)}
                 disabled={borrando || submitting}
                 className="text-destructive mr-auto gap-2"
               >
@@ -435,9 +440,11 @@ export default function ReviewPage() {
                 Borrar reseña
               </Button>
             )}
-            <Link href={`/dashboard/client/appointments/${id}`}>
-              <Button variant="outline">Cancelar</Button>
-            </Link>
+            <Button asChild variant="outline">
+              <Link href={`/dashboard/client/appointments/${id}`}>
+                Cancelar
+              </Link>
+            </Button>
             <Button
               onClick={handleSubmit}
               disabled={!isValid || submitting}
@@ -458,6 +465,19 @@ export default function ReviewPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmandoBorrado}
+        onClose={() => setConfirmandoBorrado(false)}
+        onConfirm={handleDelete}
+        title="Borrar la reseña"
+        consecuencias="Tu reseña deja de verse en el perfil del negocio y la puntuación que le pusiste deja de contar."
+        seConserva="La cita y su historial no se tocan. Puedes volver a reseñarla más adelante."
+        confirmLabel="Sí, borrar la reseña"
+        pendingLabel="Borrando..."
+        pending={borrando}
+        variant="destructive"
+      />
     </div>
   );
 }

@@ -90,14 +90,14 @@ export default function NotificationsPage() {
         ) : list.length === 0 ? (
           <EmptyState
             icon={Bell}
-            titulo="No hay notificaciones"
+            titulo="Aún no hay notificaciones"
             descripcion="Aquí aparecerán los avisos de tus citas y pagos."
           />
         ) : (
           list.map((n) => (
             <Card
               key={n.id}
-              className={`border-0 shadow-sm ${!n.read ? "bg-primary/5" : ""}`}
+              className={`shadow-flat border-0 ${!n.read ? "bg-primary/5" : ""}`}
             >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
@@ -114,7 +114,7 @@ export default function NotificationsPage() {
                     <button
                       onClick={() => markRead(n.id)}
                       aria-label="Marcar el aviso como leido"
-                      className="text-primary hover:text-primary/80 focus-visible:ring-ring rounded focus-visible:outline-none focus-visible:ring-2"
+                      className="text-primary hover:text-primary/80 focus-visible:ring-ring rounded-sm focus-visible:outline-none focus-visible:ring-2"
                     >
                       <CheckCheck className="h-5 w-5" />
                     </button>

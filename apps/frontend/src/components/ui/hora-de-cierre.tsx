@@ -39,7 +39,7 @@ function enMinutos(hora: string): number {
  * abierto desde las ocho es la madrugada siguiente.
  */
 function etiquetaDe(hora: string, apertura?: string): string {
-  if (hora === "24:00") return "12:00 am (medianoche)";
+  if (hora === "24:00") return "00:00 (medianoche)";
   if (apertura && enMinutos(hora) <= enMinutos(apertura)) {
     return `${formatTime(hora)} (madrugada)`;
   }

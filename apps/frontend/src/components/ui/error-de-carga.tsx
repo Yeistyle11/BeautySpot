@@ -20,7 +20,7 @@ export function ErrorDeCarga({
   onReintentar,
 }: ErrorDeCargaProps) {
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardContent className="p-8 text-center" role="alert">
         <AlertTriangle className="text-destructive mx-auto h-12 w-12 opacity-40" />
         <p className="mt-2 font-medium">No se pudieron cargar {recurso}</p>

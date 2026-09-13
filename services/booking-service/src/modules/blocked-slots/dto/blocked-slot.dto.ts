@@ -22,7 +22,8 @@ export class CreateBlockedSlotDto {
  * rango de `date` a `hasta` que necesita la vista semana.
  */
 export class BlockedSlotsDelDiaDto {
-  @EsFechaSola() date!: string;
+  /** Ausente, se piden todos los bloqueos futuros del negocio. */
+  @IsOptional() @EsFechaSola() date?: string;
   /** Último día del rango, incluido. Ausente, se piden los de `date`. */
   @IsOptional() @EsFechaSola() hasta?: string;
 }

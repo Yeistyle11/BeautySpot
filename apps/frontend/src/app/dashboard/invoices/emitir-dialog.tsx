@@ -1,8 +1,9 @@
 "use client";
 
 // Dialogo para emitir una factura a partir de un cobro ya registrado.
+import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { ETIQUETAS_DE_METODO } from "@/lib/metodos-de-pago";
 import { formatCurrency, formatDateTimeStamp } from "@/lib/utils";
 import { mensajeDeError } from "@/lib/error-message";
@@ -40,7 +41,15 @@ export function EmitirDialog({
   error,
 }: EmitirDialogProps) {
   return (
-    <Dialog open={open} onClose={onClose} title="Emitir factura" wide>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Emitir factura"
+      descripcion="Cobros completados que todavía no tienen factura."
+      icono={FileText}
+      wide
+      pie={<BotonDeCancelar>Cerrar</BotonDeCancelar>}
+    >
       <div className="space-y-4">
         {error && (
           <p role="alert" className="text-destructive text-sm">
@@ -68,7 +77,7 @@ export function EmitirDialog({
             No hay cobros completados que facturar.
           </p>
         ) : (
-          <div className="max-h-96 space-y-2 overflow-y-auto">
+          <div className="space-y-2">
             {cobros.map((cobro) => (
               <div
                 key={cobro.id}
@@ -99,10 +108,6 @@ export function EmitirDialog({
             ))}
           </div>
         )}
-
-        <Button variant="outline" onClick={onClose}>
-          Cerrar
-        </Button>
       </div>
     </Dialog>
   );

@@ -15,10 +15,10 @@
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    --muted-foreground: 215 19% 40%;
+    --accent: 262 83% 96%;
+    --accent-foreground: 262 60% 35%;
+    --destructive: 0 74% 45%;
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
@@ -34,7 +34,7 @@
     --success-soft: 141 79% 95%;
     --success-soft-foreground: 143 64% 24%;
 
-    --warning: 38 92% 40%;
+    --warning: 30 90% 33%;
     --warning-foreground: 0 0% 100%;
     --warning-soft: 48 96% 94%;
     --warning-soft-foreground: 28 74% 26%;
@@ -47,6 +47,26 @@
     /* Estrella de valoracion. Es su propio token porque no significa aviso:
        las paginas lo tenian como amber-400 en unas y yellow-400 en otras. */
     --rating: 43 96% 50%;
+
+    /* Tercer escalon: el chip del calendario, con su propio borde. */
+    --warning-chip: 48 96% 85%;
+    --warning-chip-foreground: 28 74% 22%;
+    --warning-chip-border: 45 90% 60%;
+    --info-chip: 214 95% 88%;
+    --info-chip-foreground: 224 64% 28%;
+    --info-chip-border: 214 90% 65%;
+    --accent-chip: 262 85% 91%;
+    --accent-chip-foreground: 262 60% 30%;
+    --accent-chip-border: 262 70% 72%;
+    --success-chip: 141 70% 87%;
+    --success-chip-foreground: 143 64% 20%;
+    --success-chip-border: 141 55% 58%;
+    --danger-chip: 0 90% 90%;
+    --danger-chip-foreground: 0 70% 30%;
+    --danger-chip-border: 0 75% 68%;
+    --neutro-chip: 215 20% 88%;
+    --neutro-chip-foreground: 215 25% 25%;
+    --neutro-chip-border: 215 18% 66%;
 
     color-scheme: light;
   }
@@ -68,10 +88,11 @@
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --accent: 262 35% 22%;
+    --accent-foreground: 262 70% 88%;
+    /* En oscuro el rojo se aclara y lleva encima un rojo muy oscuro. */
+    --destructive: 0 74% 58%;
+    --destructive-foreground: 0 60% 6%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 263 70% 50%;
@@ -94,6 +115,38 @@
     --info-soft-foreground: 214 95% 88%;
 
     --rating: 43 96% 58%;
+
+    /* En oscuro el chip invierte la relacion, como las versiones "soft". */
+    --warning-chip: 30 50% 22%;
+    --warning-chip-foreground: 48 96% 85%;
+    --warning-chip-border: 30 45% 38%;
+    --info-chip: 222 47% 24%;
+    --info-chip-foreground: 214 95% 88%;
+    --info-chip-border: 222 42% 40%;
+    --accent-chip: 262 40% 25%;
+    --accent-chip-foreground: 262 80% 88%;
+    --accent-chip-border: 262 35% 42%;
+    --success-chip: 143 45% 20%;
+    --success-chip-foreground: 141 79% 85%;
+    --success-chip-border: 143 40% 36%;
+    --danger-chip: 0 45% 24%;
+    --danger-chip-foreground: 0 90% 88%;
+    --danger-chip-border: 0 40% 40%;
+    --neutro-chip: 215 20% 24%;
+    --neutro-chip-foreground: 215 25% 85%;
+    --neutro-chip-border: 215 18% 40%;
+  }
+}
+
+/* Con menos movimiento pedido, las animaciones se acortan al minimo. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

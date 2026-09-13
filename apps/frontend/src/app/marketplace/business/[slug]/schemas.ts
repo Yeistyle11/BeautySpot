@@ -152,14 +152,17 @@ export type Review = z.infer<typeof reviewSchema>;
 
 export const reviewsResponseSchema = paginatedSchema(reviewSchema);
 
+/** El resumen de resenas tal como lo devuelve el marketplace: anidado. */
 export const ratingDistributionSchema = z.object({
-  5: z.number(),
-  4: z.number(),
-  3: z.number(),
-  2: z.number(),
-  1: z.number(),
   average: z.number(),
   total: z.number(),
+  distribution: z.object({
+    5: z.number(),
+    4: z.number(),
+    3: z.number(),
+    2: z.number(),
+    1: z.number(),
+  }),
 });
 export type RatingDistribution = z.infer<typeof ratingDistributionSchema>;
 

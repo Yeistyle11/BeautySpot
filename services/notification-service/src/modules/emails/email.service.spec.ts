@@ -219,3 +219,246 @@ describe("EmailService", () => {
     });
   });
 });
+
+/** Cada aviso encolado con su plantilla y su prioridad. */
+describe("EmailService · avisos encolados", () => {
+  let service: EmailService;
+  let mockQueue: jest.Mocked<Queue>;
+
+  const CITA = {
+    clientName: "Pedro",
+    professionalName: "Ana",
+    serviceName: "Tinte",
+    appointmentDate: "2026-06-17",
+    appointmentTime: "14:00",
+    businessName: "BeautySpot",
+    businessAddress: "Av. 456",
+    businessPhone: "555-5678",
+  };
+
+  beforeEach(async () => {
+    mockQueue = { add: jest.fn().mockResolvedValue({ id: "job-1" }) } as any;
+
+    const module = await Test.createTestingModule({
+      providers: [
+        EmailService,
+        {
+          provide: PlantillasService,
+          useValue: { render: jest.fn(() => "HTML"), disponibles: [] },
+        },
+        {
+          provide: SmtpTransport,
+          useValue: { enviar: jest.fn().mockResolvedValue({}) },
+        },
+        { provide: "BullQueue_emails", useValue: mockQueue },
+      ],
+    }).compile();
+
+    service = module.get<EmailService>(EmailService);
+  });
+
+  it.each([
+    ["queueAppointmentCreated", CITA, "appointment-created", "high"],
+    [
+      "queueAppointmentCancelled",
+      { ...CITA, reason: "El profesional no está" },
+      "appointment-cancelled",
+      "normal",
+    ],
+    ["queueAppointmentReminder24h", CITA, "appointment-reminder-24h", "normal"],
+    ["queueAppointmentReminder1h", CITA, "appointment-reminder-1h", "high"],
+    [
+      "queuePasswordReset",
+      { clientName: "Pedro", resetLink: "https://x/y", expiryHours: 2 },
+      "password-reset",
+      "high",
+    ],
+    [
+      "queueEmailVerification",
+      { clientName: "Pedro", verificationLink: "https://x/y", expiryHours: 24 },
+      "email-verification",
+      "high",
+    ],
+    [
+      "queueReviewRequest",
+      {
+        clientName: "Pedro",
+        businessName: "BeautySpot",
+        professionalName: "Ana",
+        reviewLink: "https://x/y",
+      },
+      "review-request",
+      "low",
+    ],
+    [
+      "queueBirthdayGreeting",
+      { clientName: "Pedro", businessName: "BeautySpot", year: 2026 },
+      "birthday-greeting",
+      "low",
+    ],
+    [
+      "queueWelcomeEmail",
+      { clientName: "Pedro", businessName: "BeautySpot" },
+      "welcome-email",
+      "low",
+    ],
+  ])("%s usa la plantilla %s", async (metodo, datos, plantilla, prioridad) => {
+    const encolar = service[metodo as keyof EmailService] as (
+      to: string,
+      data: unknown
+    ) => Promise<{ jobId: string }>;
+
+    expect(await encolar.call(service, "pedro@example.com", datos)).toEqual({
+      jobId: "job-1",
+    });
+    expect(mockQueue.add).toHaveBeenCalledWith(
+      "send",
+      expect.objectContaining({
+        to: "pedro@example.com",
+        template: plantilla,
+        priority: prioridad,
+      })
+    );
+  });
+
+  // El importe viaja ya escrito, no como número.
+  it("el reporte mensual encola los importes ya escritos", async () => {
+    await service.queueMonthlyReport("dueno@example.com", {
+      businessName: "BeautySpot",
+      month: "agosto",
+      year: "2026",
+      totalRevenue: 1250000,
+      totalAppointments: 42,
+      topService: "Tinte",
+      topServiceRevenue: 450000,
+      clientName: "Dueño",
+    });
+
+    const [, trabajo] = mockQueue.add.mock.calls[0] as [
+      string,
+      { context: Record<string, unknown> },
+    ];
+    expect(String(trabajo.context.totalRevenue)).toContain("1.250.000");
+    expect(String(trabajo.context.topServiceRevenue)).toContain("450.000");
+    expect(String(trabajo.context.subject)).toContain("agosto 2026");
+  });
+
+  it("la factura encolada lleva el número en el asunto", async () => {
+    await service.queueInvoice("cliente@example.com", {
+      clientName: "Pedro",
+      invoiceNumber: "FA-0001",
+      businessName: "BeautySpot",
+      total: 30000,
+      issueDate: "2026-09-12",
+      pdfPath: "/tmp/fa-0001.pdf",
+    } as never);
+
+    expect(mockQueue.add).toHaveBeenCalledWith(
+      "send",
+      expect.objectContaining({
+        template: "invoice-generated",
+        context: expect.objectContaining({
+          subject: expect.stringContaining("FA-0001"),
+        }),
+      })
+    );
+  });
+});
+
+/** Los envíos inmediatos, que no pasan por la cola. */
+describe("EmailService · envíos directos", () => {
+  let service: EmailService;
+  let smtp: { enviar: jest.Mock };
+
+  beforeEach(async () => {
+    smtp = { enviar: jest.fn().mockResolvedValue({ messageId: "msg-1" }) };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        EmailService,
+        {
+          provide: PlantillasService,
+          useValue: { render: jest.fn(() => "HTML"), disponibles: [] },
+        },
+        { provide: SmtpTransport, useValue: smtp },
+        {
+          provide: "BullQueue_emails",
+          useValue: { add: jest.fn().mockResolvedValue({ id: "job-1" }) },
+        },
+      ],
+    }).compile();
+
+    service = module.get<EmailService>(EmailService);
+  });
+
+  it.each([
+    ["sendAppointmentReminder24h", "Recordatorio - Cita mañana en BeautySpot"],
+    [
+      "sendAppointmentReminder1h",
+      "Recordatorio - Cita en 1 hora en BeautySpot",
+    ],
+    ["sendAppointmentCancelled", "Cita cancelada - BeautySpot"],
+  ])("%s escribe su asunto", async (metodo, asunto) => {
+    const enviar = service[metodo as keyof EmailService] as (
+      to: string,
+      data: unknown
+    ) => Promise<void>;
+
+    await enviar.call(service, "pedro@example.com", {
+      clientName: "Pedro",
+      professionalName: "Ana",
+      serviceName: "Tinte",
+      appointmentDate: "2026-06-17",
+      appointmentTime: "14:00",
+      cancelledDate: "2026-06-16",
+      reason: "El profesional no está",
+      businessName: "BeautySpot",
+      businessAddress: "Av. 456",
+    });
+
+    expect(smtp.enviar).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: asunto })
+    );
+  });
+
+  it("el restablecimiento y la bienvenida nombran BeautySpot", async () => {
+    await service.sendPasswordReset("pedro@example.com", {
+      clientName: "Pedro",
+      resetLink: "https://x/y",
+      expiryHours: 2,
+    });
+    await service.sendWelcomeEmail("pedro@example.com", {
+      clientName: "Pedro",
+    });
+
+    expect(smtp.enviar).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        subject: "Restablecer contraseña - BeautySpot",
+      })
+    );
+    expect(smtp.enviar).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ subject: "Bienvenido a BeautySpot" })
+    );
+  });
+
+  it("el reporte mensual directo escribe los importes", async () => {
+    await service.sendMonthlyReport("dueno@example.com", {
+      businessName: "BeautySpot",
+      month: "agosto",
+      year: "2026",
+      totalRevenue: 1250000,
+      totalAppointments: 42,
+      topService: "Tinte",
+      topServiceRevenue: 450000,
+      clientName: "Dueño",
+    });
+
+    expect(smtp.enviar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: "Reporte mensual - BeautySpot (agosto 2026)",
+      })
+    );
+  });
+});

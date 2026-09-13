@@ -49,7 +49,7 @@ export function BookingConfirmation({
       </div>
       <h1 className="mt-6 text-2xl font-bold">Tu cita ha sido reservada</h1>
       <p className="text-muted-foreground mt-2">{avisoDeContacto(contacto)}</p>
-      <Card className="mt-6 border-0 text-left shadow-sm">
+      <Card className="shadow-flat mt-6 border-0 text-left">
         <CardContent className="space-y-2 p-6">
           <p className="text-sm">
             <span className="font-medium">Negocio:</span> {businessName}
@@ -74,18 +74,20 @@ export function BookingConfirmation({
       <div className="mt-6 flex flex-wrap justify-center gap-3">
         {/* Con sesión iniciada la cita queda en "Mis citas"; como invitado no
             hay panel al que enviar al usuario. */}
-        <Link
-          href={
-            isAuthenticated ? "/dashboard/client/appointments" : "/marketplace"
-          }
-        >
-          <Button variant="outline">
-            {isAuthenticated ? "Mis citas" : "Volver al inicio"}
-          </Button>
-        </Link>
-        <Link href={`/marketplace/business/${slug}`}>
-          <Button>Ver negocio</Button>
-        </Link>
+        <Button asChild variant="outline">
+          <Link
+            href={
+              isAuthenticated
+                ? "/dashboard/client/appointments"
+                : "/marketplace"
+            }
+          >
+            {isAuthenticated ? "Mis citas" : "Volver al buscador"}
+          </Link>
+        </Button>
+        <Button asChild>
+          <Link href={`/marketplace/business/${slug}`}>Ver negocio</Link>
+        </Button>
       </div>
     </div>
   );

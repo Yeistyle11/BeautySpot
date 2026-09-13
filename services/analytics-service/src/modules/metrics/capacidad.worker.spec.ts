@@ -52,6 +52,16 @@ describe("CapacidadWorker", () => {
     await worker.onModuleDestroy();
   });
 
+  it("pide el día ya formateado como YYYY-MM-DD", async () => {
+    mockDataSource.query.mockResolvedValue([]);
+
+    await worker.materializar();
+
+    expect(mockDataSource.query.mock.calls[0][0]).toContain(
+      "to_char(date, 'YYYY-MM-DD')"
+    );
+  });
+
   it("guarda el equipo de cada negocio en una sola escritura", async () => {
     mockDataSource.query.mockResolvedValue(negocios(1));
 

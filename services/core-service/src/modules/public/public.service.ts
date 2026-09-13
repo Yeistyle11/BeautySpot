@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { escapeLikePattern } from "@beautyspot/shared-utils";
 import { Business } from "../../entities/business.entity";
+import { BusinessHours } from "../../entities/business-hours.entity";
 import { Service } from "../../entities/service.entity";
 import { Professional } from "../../entities/professional.entity";
 import { PreciosService } from "../precios/precios.service";
@@ -22,6 +23,13 @@ export interface ServicioPublico {
   precioVariable?: boolean;
 }
 
+/** Jornada de un día de la semana, tal como la ve quien va a reservar. */
+export interface JornadaPublica {
+  dayOfWeek: number;
+  openTime: string;
+  closeTime: string;
+}
+
 /**
  * Consultas públicas (sin autenticación) de negocios, servicios y profesionales,
  * devolviendo solo los campos aptos para mostrar en el marketplace.
@@ -35,8 +43,24 @@ export class PublicService {
     private readonly serviceRepo: Repository<Service>,
     @InjectRepository(Professional)
     private readonly proRepo: Repository<Professional>,
+    @InjectRepository(BusinessHours)
+    private readonly horasRepo: Repository<BusinessHours>,
     private readonly precios: PreciosService
   ) {}
+
+  /** Jornadas activas del negocio, por día de la semana. */
+  async getBusinessHours(businessId: string): Promise<JornadaPublica[]> {
+    const jornadas = await this.horasRepo.find({
+      where: { businessId, active: true },
+      order: { dayOfWeek: "ASC", openTime: "ASC" },
+    });
+
+    return jornadas.map((j) => ({
+      dayOfWeek: j.dayOfWeek,
+      openTime: j.openTime,
+      closeTime: j.closeTime,
+    }));
+  }
 
   /** Lista negocios activos con filtro opcional por nombre y ciudad (máx. 50). */
   async listBusinesses(q?: string, city?: string) {

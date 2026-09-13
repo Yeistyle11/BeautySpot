@@ -18,7 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { useApi } from "@/lib/swr";
+import { revalidatePrefix, useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
 import { mensajeDeError } from "@/lib/error-message";
 import {
@@ -102,6 +102,8 @@ export default function ReschedulePage() {
           startTime: selectedSlot,
         }
       );
+      // El detalle y la lista leen de la cache, que se invalida aqui.
+      await revalidatePrefix("/booking/appointments");
       setSuccess(true);
     } catch (err: unknown) {
       logger.error(err);
@@ -123,12 +125,12 @@ export default function ReschedulePage() {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-destructive">Error al cargar la cita</p>
-        <Link href="/dashboard/client/appointments">
-          <Button variant="outline" className="mt-4 gap-2">
+        <Button asChild variant="outline" className="mt-4 gap-2">
+          <Link href="/dashboard/client/appointments">
             <ArrowLeft className="h-4 w-4" />
             Volver a mis citas
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
     );
   }
@@ -144,15 +146,15 @@ export default function ReschedulePage() {
           Tu cita ha sido reagendada exitosamente
         </p>
         <div className="mt-6 flex gap-3">
-          <Link href={`/dashboard/client/appointments/${appointment.id}`}>
-            <Button variant="outline" className="gap-2">
+          <Button asChild variant="outline" className="gap-2">
+            <Link href={`/dashboard/client/appointments/${appointment.id}`}>
               <ArrowLeft className="h-4 w-4" />
               Ver detalle
-            </Button>
-          </Link>
-          <Link href="/dashboard/client/appointments">
-            <Button className="gap-2">Mis citas</Button>
-          </Link>
+            </Link>
+          </Button>
+          <Button asChild className="gap-2">
+            <Link href="/dashboard/client/appointments">Mis citas</Link>
+          </Button>
         </div>
       </div>
     );
@@ -174,7 +176,7 @@ export default function ReschedulePage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Scissors className="h-4 w-4" />
@@ -212,7 +214,7 @@ export default function ReschedulePage() {
         </div>
 
         <div className="space-y-4 lg:col-span-2">
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Calendar className="h-4 w-4" />
@@ -235,7 +237,7 @@ export default function ReschedulePage() {
           </Card>
 
           {selectedDate && (
-            <Card className="border-0 shadow-sm">
+            <Card className="shadow-flat border-0">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Clock className="h-4 w-4" />
@@ -270,7 +272,7 @@ export default function ReschedulePage() {
                         className={cn(
                           "rounded-lg border-2 px-3 py-3 text-center text-sm font-medium transition-all",
                           selectedSlot === slot.startTime
-                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                            ? "border-primary bg-primary text-primary-foreground shadow-flat"
                             : "border-muted bg-background hover:border-primary/40 hover:bg-muted/50"
                         )}
                       >
@@ -291,9 +293,11 @@ export default function ReschedulePage() {
 
           {selectedDate && selectedSlot && (
             <div className="flex justify-end gap-3">
-              <Link href={`/dashboard/client/appointments/${id}`}>
-                <Button variant="outline">Cancelar</Button>
-              </Link>
+              <Button asChild variant="outline">
+                <Link href={`/dashboard/client/appointments/${id}`}>
+                  Cancelar
+                </Link>
+              </Button>
               <Button
                 onClick={handleConfirm}
                 disabled={submitting}

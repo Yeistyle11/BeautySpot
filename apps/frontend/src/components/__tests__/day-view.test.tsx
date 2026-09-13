@@ -68,7 +68,7 @@ describe("DayView", () => {
     pintar({ onBloquearHueco });
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Bloquear 9:00 am de Luis" })
+      screen.getByRole("button", { name: "Bloquear 09:00 de Luis" })
     );
 
     expect(onBloquearHueco).toHaveBeenCalledWith("prof-2", "09:00");
@@ -79,7 +79,7 @@ describe("DayView", () => {
     pintar({ onBloquearHueco });
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Bloquear 9:30 am de Ana" })
+      screen.getByRole("button", { name: "Bloquear 09:30 de Ana" })
     );
 
     expect(onBloquearHueco).toHaveBeenCalledWith("prof-1", "09:30");
@@ -132,7 +132,7 @@ describe("DayView", () => {
 
     // Sin estirarse, la rejilla arrancaría a las 7 y la 1 de la mañana no
     // tendría fila.
-    expect(screen.getByText("1:00 am")).toBeInTheDocument();
+    expect(screen.getByText("01:00")).toBeInTheDocument();
   });
 
   it("pinta la cita que termina pasada la medianoche", () => {
@@ -148,8 +148,8 @@ describe("DayView", () => {
     });
 
     // La rejilla llega hasta la fila de la medianoche, que es donde acaba.
-    expect(screen.getByText("11:00 pm")).toBeInTheDocument();
-    expect(screen.getByText("12:00 am")).toBeInTheDocument();
+    expect(screen.getByText("23:00")).toBeInTheDocument();
+    expect(screen.getByText("00:00")).toBeInTheDocument();
   });
 
   // El solape legitimo es lo que hace valioso el tiempo de procesado: vender el

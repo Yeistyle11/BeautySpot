@@ -3,6 +3,7 @@ import {
   IsNumber,
   IsOptional,
   Min,
+  Max,
   IsBoolean,
   IsDateString,
   MaxLength,
@@ -28,6 +29,7 @@ export class CreateServiceDto {
   price!: number;
   @IsNumber({}, { message: "La duración debe ser un número" })
   @Min(5, { message: "La duración mínima es de 5 minutos" })
+  @Max(480, { message: "La duración no puede pasar de 8 horas" })
   duration!: number;
   @IsOptional()
   @IsString()
@@ -45,7 +47,7 @@ export class UpdateServiceDto {
   @IsOptional() @IsString() @MaxLength(200) name?: string;
   @IsOptional() @IsString() @MaxLength(1000) description?: string;
   @IsOptional() @IsNumber() @Min(0) price?: number;
-  @IsOptional() @IsNumber() @Min(5) duration?: number;
+  @IsOptional() @IsNumber() @Min(5) @Max(480) duration?: number;
   @IsOptional() @IsString() @MaxLength(100) category?: string;
   @IsOptional() @IsUUID() categoryId?: string;
   @IsOptional() @IsString() image?: string;

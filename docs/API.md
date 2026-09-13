@@ -223,18 +223,19 @@ Autenticación, usuarios, personal y membresías. Base de datos `beautyspot_auth
 
 ### Autenticación — `/api/v1/auth`
 
-| Método | Ruta                   | Roles       | Descripción                                |
-| ------ | ---------------------- | ----------- | ------------------------------------------ |
-| POST   | `/register`            | PÚBLICA     | Registra usuario y negocio                 |
-| POST   | `/login`               | PÚBLICA     | Devuelve access y refresh token            |
-| POST   | `/refresh`             | PÚBLICA     | Canjea el refresh token por uno nuevo      |
-| POST   | `/forgot-password`     | PÚBLICA     | Dispara el correo de recuperación          |
-| POST   | `/reset-password`      | PÚBLICA     | Fija la contraseña con el token del correo |
-| POST   | `/change-password`     | Autenticado | Cambia la contraseña conociendo la actual  |
-| POST   | `/logout`              | Autenticado | Invalida la sesión (sube `tokenVersion`)   |
-| POST   | `/verify-email`        | PÚBLICA     | Confirma el correo con el token del enlace |
-| POST   | `/resend-verification` | PÚBLICA     | Reenvía el enlace de confirmación          |
-| GET    | `/me`                  | Autenticado | Usuario del token                          |
+| Método | Ruta                      | Roles       | Descripción                                    |
+| ------ | ------------------------- | ----------- | ---------------------------------------------- |
+| POST   | `/register`               | PÚBLICA     | Registra usuario y negocio                     |
+| POST   | `/login`                  | PÚBLICA     | Devuelve access y refresh token                |
+| POST   | `/refresh`                | PÚBLICA     | Canjea el refresh token por uno nuevo          |
+| POST   | `/forgot-password`        | PÚBLICA     | Dispara el correo de recuperación              |
+| POST   | `/reset-password`         | PÚBLICA     | Fija la contraseña con el token del correo     |
+| POST   | `/reset-password/validez` | PÚBLICA     | Dice si el token sigue sirviendo, sin gastarlo |
+| POST   | `/change-password`        | Autenticado | Cambia la contraseña conociendo la actual      |
+| POST   | `/logout`                 | Autenticado | Invalida la sesión (sube `tokenVersion`)       |
+| POST   | `/verify-email`           | PÚBLICA     | Confirma el correo con el token del enlace     |
+| POST   | `/resend-verification`    | PÚBLICA     | Reenvía el enlace de confirmación              |
+| GET    | `/me`                     | Autenticado | Usuario del token                              |
 
 `/register` responde `201` con `{ message }` **exista o no ya una cuenta con ese
 correo**: distinguir los dos casos delataría qué correos están registrados. Si
@@ -342,7 +343,7 @@ por clave en `business_config`.
 | Método | Ruta            | Descripción                                            |
 | ------ | --------------- | ------------------------------------------------------ |
 | GET    | `/facturacion`  | Datos fiscales con los que se emiten las facturas      |
-| PATCH  | `/facturacion`  | Actualiza los datos fiscales                           |
+| PATCH  | `/facturacion`  | Actualiza los datos fiscales — solo **OWNER**          |
 | GET    | `/reservas`     | Reglas de reserva y cancelación                        |
 | PATCH  | `/reservas`     | Actualiza las reglas de reserva                        |
 | GET    | `/fidelizacion` | Niveles del programa; los de por defecto si no los hay |
@@ -502,6 +503,12 @@ Controlador `@Public()`: sin token. Alimenta el marketplace y la reserva públic
 | GET    | `/businesses/slug/:slug`        | Negocio por slug          |
 | GET    | `/businesses/:id/services`      | Servicios del negocio     |
 | GET    | `/businesses/:id/professionals` | Profesionales del negocio |
+| GET    | `/businesses/:id/horarios`      | Jornadas activas por día  |
+
+`/businesses/:id/horarios` devuelve las jornadas activas (`dayOfWeek`,
+`openTime`, `closeTime`) sin exigir token: el asistente de reserva las usa para
+proponer el primer día abierto y para no ofrecer un domingo cerrado como si
+fuera a tener huecos.
 
 `/businesses/:id/services` admite `?professionalId=`, y entonces devuelve el
 **precio y la duración de ese profesional**, que son los que la agenda aplicará
@@ -539,19 +546,20 @@ patrón **Outbox** para publicar eventos de forma fiable.
 
 ### Citas — `/api/v1/booking/appointments`
 
-| Método | Ruta              | Roles                                    | Descripción               |
-| ------ | ----------------- | ---------------------------------------- | ------------------------- |
-| POST   | `/`               | OWNER, ADMIN, RECEPTIONIST               | Crea cita                 |
-| POST   | `/walk-in`        | OWNER, ADMIN, RECEPTIONIST               | Registra un walk-in       |
-| GET    | `/`               | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Lista citas (paginado)    |
-| GET    | `/availability`   | Autenticado                              | Huecos disponibles        |
-| GET    | `/:id`            | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Detalle                   |
-| POST   | `/:id/confirm`    | OWNER, ADMIN, PROFESSIONAL               | `PENDING` → `CONFIRMED`   |
-| POST   | `/:id/start`      | OWNER, ADMIN, PROFESSIONAL               | Marca en curso            |
-| POST   | `/:id/complete`   | OWNER, ADMIN, PROFESSIONAL               | Completa y suma fidelidad |
-| POST   | `/:id/cancel`     | OWNER, ADMIN, RECEPTIONIST               | Cancela con motivo        |
-| POST   | `/:id/no-show`    | OWNER, ADMIN, PROFESSIONAL               | Marca no presentado       |
-| PATCH  | `/:id/reschedule` | OWNER, ADMIN, RECEPTIONIST               | Reprograma                |
+| Método | Ruta                  | Roles                                    | Descripción                              |
+| ------ | --------------------- | ---------------------------------------- | ---------------------------------------- |
+| POST   | `/`                   | OWNER, ADMIN, RECEPTIONIST               | Crea cita                                |
+| POST   | `/walk-in`            | OWNER, ADMIN, RECEPTIONIST               | Registra un walk-in                      |
+| GET    | `/`                   | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Lista citas (paginado)                   |
+| GET    | `/resumen-por-estado` | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Citas por estado y `VENCIDAS`            |
+| GET    | `/availability`       | Autenticado                              | Huecos disponibles                       |
+| GET    | `/:id`                | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Detalle                                  |
+| POST   | `/:id/confirm`        | OWNER, ADMIN, PROFESSIONAL               | `PENDING` → `CONFIRMED`, solo si no pasó |
+| POST   | `/:id/start`          | OWNER, ADMIN, PROFESSIONAL               | Marca en curso                           |
+| POST   | `/:id/complete`       | OWNER, ADMIN, PROFESSIONAL               | Completa y suma fidelidad                |
+| POST   | `/:id/cancel`         | OWNER, ADMIN, RECEPTIONIST               | Cancela con motivo                       |
+| POST   | `/:id/no-show`        | OWNER, ADMIN, PROFESSIONAL               | Marca no presentado                      |
+| PATCH  | `/:id/reschedule`     | OWNER, ADMIN, RECEPTIONIST               | Reprograma                               |
 
 Un **walk-in** es quien entró sin cita, ya se atendió y se anota después. No es
 una reserva: no lleva fecha —la pone el servicio, que solo admite el día en curso
@@ -560,6 +568,13 @@ por el control de solapes, porque el hueco no se está pidiendo, ya se ocupó.
 Nace `COMPLETED`, con sus puntos de fidelidad, y publica los eventos de cita
 creada **y** atendida, que es lo que hace que las métricas por profesional y por
 servicio cuenten lo que se atiende sin cita.
+
+Una cita cuya hora ya pasó no se confirma: confirmar describe lo que iba a
+ocurrir, y lo que queda por decir es si se atendió o si no se presentó. Por eso
+`/:id/complete` admite también `PENDING` —la vencida sin confirmar que sí se
+atendió— y el listado acepta `?vencidas=true`, que devuelve las pendientes y
+confirmadas cuya hora pasó. `resumen-por-estado` las cuenta bajo la clave
+`VENCIDAS`, que no es un estado de la cita sino el cruce de esos dos.
 
 Solo se cancela lo que sigue vivo: `PENDING`, `CONFIRMED` o `IN_PROGRESS`. Una
 cita atendida, ya cancelada o marcada como **no presentado** responde 400 —el

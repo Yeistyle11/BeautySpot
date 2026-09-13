@@ -166,19 +166,45 @@ export class AppointmentsController {
     @Query("date") date?: string,
     @Query("professionalId") professionalId?: string,
     @Query("clientId") clientId?: string,
-    @Query("search") search?: string
+    @Query("search") search?: string,
+    @Query("vencidas") vencidas?: string
   ) {
-    const pagination = parsePaginationQuery(query, [
-      "date",
-      "startTime",
-      "createdAt",
-      "updatedAt",
-    ]);
+    const CAMPOS_ORDENABLES = ["date", "startTime", "createdAt", "updatedAt"];
+    const pagination = parsePaginationQuery(query, CAMPOS_ORDENABLES);
+    // El orden pedido se lee de la peticion, no del que pone por defecto.
+    const ordenPedido =
+      typeof query.sort === "string" && CAMPOS_ORDENABLES.includes(query.sort);
+
     return this.service.findByBusiness(
       businessId,
-      { status, date, professionalId, clientId, search, branchId },
+      {
+        status,
+        date,
+        professionalId,
+        clientId,
+        search,
+        branchId,
+        vencidas: vencidas === "true",
+        ordenPedido,
+      },
       pagination
     );
+  }
+
+  /** Cuántas citas hay de cada estado, para los contadores de la agenda. */
+  @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)
+  @Get("resumen-por-estado")
+  async resumenPorEstado(
+    @BusinessId() businessId: string,
+    @BranchId() branchId: string | undefined,
+    @Query("search") search?: string
+  ) {
+    // Las vencidas viajan junto a los estados, aunque no sean uno de ellos.
+    const [porEstado, vencidas] = await Promise.all([
+      this.service.contarPorEstado(businessId, { search, branchId }),
+      this.service.contarVencidas(businessId, { search, branchId }),
+    ]);
+    return { ...porEstado, VENCIDAS: vencidas };
   }
 
   @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST, Role.PROFESSIONAL)

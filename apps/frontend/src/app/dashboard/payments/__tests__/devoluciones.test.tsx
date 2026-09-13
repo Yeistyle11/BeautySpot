@@ -197,15 +197,20 @@ describe("RefundDialog", () => {
 describe("PaymentCard", () => {
   function pintarTarjeta(payment: Payment, canRefund = true) {
     const onRefund = jest.fn();
+    // La fila es un <tr> y necesita la tabla alrededor.
     render(
-      <PaymentCard
-        payment={payment}
-        canEdit
-        onEdit={jest.fn()}
-        canRefund={canRefund}
-        onRefund={onRefund}
-        clientName="María Gómez"
-      />
+      <table>
+        <tbody>
+          <PaymentCard
+            payment={payment}
+            canEdit
+            onEdit={jest.fn()}
+            canRefund={canRefund}
+            onRefund={onRefund}
+            clientName="María Gómez"
+          />
+        </tbody>
+      </table>
     );
     return onRefund;
   }
@@ -214,7 +219,7 @@ describe("PaymentCard", () => {
     const onRefund = pintarTarjeta(COBRO);
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Devolver el pago de/ })
+      screen.getByRole("button", { name: /Devolver el cobro de/ })
     );
 
     expect(onRefund).toHaveBeenCalledWith(COBRO);
@@ -224,7 +229,7 @@ describe("PaymentCard", () => {
     pintarTarjeta(COBRO, false);
 
     expect(
-      screen.queryByRole("button", { name: /Devolver el pago de/ })
+      screen.queryByRole("button", { name: /Devolver el cobro de/ })
     ).not.toBeInTheDocument();
   });
 
@@ -237,7 +242,7 @@ describe("PaymentCard", () => {
     });
 
     expect(
-      screen.queryByRole("button", { name: /Devolver el pago de/ })
+      screen.queryByRole("button", { name: /Devolver el cobro de/ })
     ).not.toBeInTheDocument();
   });
 

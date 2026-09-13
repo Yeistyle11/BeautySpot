@@ -2,6 +2,15 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import MarketplaceFeed from "../marketplace-feed";
 import type { FeedResponse, Profile } from "../schemas";
 
+// El feed lee la URL con `useSearchParams` y escribe con el router.
+const push = jest.fn();
+const replace = jest.fn();
+let parametros = new URLSearchParams();
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push, replace }),
+  useSearchParams: () => parametros,
+}));
+
 // El feed y la búsqueda salen del mismo hook; el mock decide qué devuelve cada
 // clave para poder montar los dos estados vacíos por separado.
 const respuestas: Record<string, unknown> = {};
@@ -78,6 +87,9 @@ const busqueda = (data: ReturnType<typeof perfil>[]) => ({
 beforeEach(() => {
   respuestas["/marketplace/feed"] = FEED_VACIO;
   respuestas["/marketplace/search"] = busqueda([]);
+  parametros = new URLSearchParams();
+  push.mockClear();
+  replace.mockClear();
 });
 
 describe("MarketplaceFeed", () => {
@@ -152,23 +164,31 @@ describe("MarketplaceFeed", () => {
       expect(screen.getByText("(1)")).toBeInTheDocument();
     });
 
-    it("filtra al pulsar una categoría y vuelve al pulsarla otra vez", async () => {
+    // El filtro vive en la URL.
+    it("lleva la categoría elegida a la URL y la quita al pulsarla otra vez", async () => {
       respuestas["/marketplace/search"] = busqueda([perfil()]);
-      render(<MarketplaceFeed initialFeed={FEED_CON_NEGOCIOS} />);
+      const { rerender } = render(
+        <MarketplaceFeed initialFeed={FEED_CON_NEGOCIOS} />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /barberías/i }));
+
+      expect(push).toHaveBeenCalledWith("/marketplace?tipo=BARBERIA", {
+        scroll: false,
+      });
+
+      parametros = new URLSearchParams("tipo=BARBERIA");
+      rerender(<MarketplaceFeed initialFeed={FEED_CON_NEGOCIOS} />);
 
       const barberias = screen.getByRole("button", { name: /barberías/i });
-      fireEvent.click(barberias);
-
+      expect(barberias).toHaveAttribute("aria-pressed", "true");
       await waitFor(() =>
         expect(screen.getByText("Resultados")).toBeInTheDocument()
       );
-      expect(barberias).toHaveAttribute("aria-pressed", "true");
 
       fireEvent.click(barberias);
 
-      await waitFor(() =>
-        expect(screen.queryByText("Resultados")).not.toBeInTheDocument()
-      );
+      expect(push).toHaveBeenLastCalledWith("/marketplace", { scroll: false });
     });
 
     it("dice cuántos resultados encontró la búsqueda", async () => {
@@ -180,7 +200,7 @@ describe("MarketplaceFeed", () => {
       });
 
       await waitFor(() =>
-        expect(screen.getByText("1 encontrados")).toBeInTheDocument()
+        expect(screen.getByText(/^1 encontrado$/)).toBeInTheDocument()
       );
       expect(screen.getByText("Barbería La Noche")).toBeInTheDocument();
     });

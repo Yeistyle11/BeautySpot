@@ -303,7 +303,7 @@ export function DayView({
         {/* El negocio cerrado se dibujaba con la rejilla de cualquier otro dia,
             sin decir en ninguna parte que ese dia no se abre. */}
         {cerrado && (
-          <span className="bg-muted text-muted-foreground rounded px-2 py-0.5 text-xs font-medium">
+          <span className="bg-muted text-muted-foreground rounded-sm px-2 py-0.5 text-xs font-medium">
             Cerrado
           </span>
         )}
@@ -511,7 +511,7 @@ function BloqueoPintado({
 
   return (
     <div
-      className="bg-muted-foreground/20 border-muted-foreground/40 absolute inset-x-0.5 overflow-hidden rounded border border-dashed px-1.5 py-0.5"
+      className="bg-muted-foreground/20 border-muted-foreground/40 absolute inset-x-0.5 overflow-hidden rounded-sm border border-dashed px-1.5 py-0.5"
       style={{ top: arriba, height: alto }}
       title={bloqueo.reason ?? "Agenda bloqueada"}
     >
@@ -562,7 +562,7 @@ function BloqueCita({
     <button
       onClick={onSelect}
       aria-pressed={seleccionada}
-      className={`absolute rounded border border-dashed text-left ${seleccionada ? "ring-primary z-10 ring-2" : ""}`}
+      className={`absolute rounded-sm border border-dashed text-left ${seleccionada ? "ring-primary z-10 ring-2" : ""}`}
       style={{
         top: arriba,
         height: alto,

@@ -36,7 +36,39 @@ function pintar(cita: Partial<Appointment>, props = {}) {
   );
 }
 
+/** Fecha `YYYY-MM-DD` a los días dados de hoy, en horario local. */
+function dentroDeDias(dias: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + dias);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
+}
+
 describe("AppointmentCard", () => {
+  describe("acciones de una cita pendiente", () => {
+    it("la que aún no ha llegado se confirma", () => {
+      pintar({ status: "PENDING", date: dentroDeDias(3) });
+
+      expect(screen.getByRole("button", { name: "Confirmar" })).toBeVisible();
+      expect(
+        screen.queryByRole("button", { name: "Atendida" })
+      ).not.toBeInTheDocument();
+    });
+
+    it("la vencida se cierra como atendida o como no asistió", () => {
+      pintar({ status: "PENDING", date: dentroDeDias(-3) });
+
+      expect(screen.getByRole("button", { name: "Atendida" })).toBeVisible();
+      expect(
+        screen.queryByRole("button", { name: "Confirmar" })
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /no asistió/ })
+      ).toBeInTheDocument();
+    });
+  });
+
   describe("cita cancelada", () => {
     it("dice por qué se canceló y qué se anotó", () => {
       pintar({
