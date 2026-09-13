@@ -61,7 +61,10 @@ export {
 } from "./decorators/sesion-verificable.decorator";
 export { RedisCacheService } from "./cache/redis-cache.service";
 export { RedisCacheModule } from "./cache/redis-cache.module";
-export { InternalHttpClient } from "./http/internal-http.client";
+export {
+  InternalHttpClient,
+  ErrorDeServicioInterno,
+} from "./http/internal-http.client";
 export type {
   ServicioInterno,
   OpcionesLlamada,

@@ -8,6 +8,7 @@ import {
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource, EntityManager, In, IsNull } from "typeorm";
 import {
+  ErrorDeServicioInterno,
   InternalHttpClient,
   ZonaDelNegocioService,
 } from "@beautyspot/nest-common";
@@ -338,10 +339,22 @@ export class PaymentsService {
         `/internal/clients/${clientId}/puntos/reservar`,
         { businessId, puntos }
       );
-    } catch {
-      throw new BadRequestException(
-        "El cliente no tiene puntos suficientes o no pertenece a este negocio"
+    } catch (error) {
+      // Solo el 409 de core significa que no le alcanzan: cualquier otro fallo
+      // es de la llamada, y darlo por falta de puntos deja al cajero mirando
+      // el saldo de un cliente que lo tiene, sin rastro del error real.
+      if (error instanceof ErrorDeServicioInterno && error.estado === 409) {
+        throw new BadRequestException(
+          "El cliente no tiene puntos suficientes o no pertenece a este negocio"
+        );
+      }
+
+      this.logger.error(
+        `No se pudieron reservar ${puntos} puntos del cliente ${clientId} del negocio ${businessId}: ${
+          error instanceof Error ? error.message : "error desconocido"
+        }`
       );
+      throw error;
     }
   }
 
