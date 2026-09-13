@@ -29,6 +29,7 @@ describe("PaymentsService", () => {
   let mockManager: any;
   let mockDataSource: any;
   let mockOutbox: jest.Mocked<OutboxService>;
+  let mockZonas: { de: jest.Mock };
   let mockHttp: { pedir: jest.Mock; enviar: jest.Mock };
 
   const mockPayment: PaymentEntity = {
@@ -87,6 +88,7 @@ describe("PaymentsService", () => {
     mockOutbox = {
       enqueue: jest.fn().mockResolvedValue(undefined),
     } as any;
+    mockZonas = { de: jest.fn().mockResolvedValue("America/Bogota") };
 
     // Cita de 100, que es el importe del pago del fixture.
     mockHttp = {
@@ -106,10 +108,7 @@ describe("PaymentsService", () => {
         },
         { provide: DataSource, useValue: mockDataSource },
         { provide: OutboxService, useValue: mockOutbox },
-        {
-          provide: ZonaDelNegocioService,
-          useValue: { de: jest.fn().mockResolvedValue("America/Bogota") },
-        },
+        { provide: ZonaDelNegocioService, useValue: mockZonas },
         { provide: InternalHttpClient, useValue: mockHttp },
       ],
     }).compile();
@@ -118,6 +117,34 @@ describe("PaymentsService", () => {
   });
 
   describe("create", () => {
+    // Dentro de la transaccion se sostiene el bloqueo de la unica sesion de
+    // caja abierta de la sede: salir a la red con el puesto para la caja
+    // entera del negocio mientras core responde, hasta cinco segundos.
+    it("resuelve el huso antes de abrir la transacción del cobro", async () => {
+      const orden: string[] = [];
+      mockZonas.de.mockImplementation(async () => {
+        orden.push("zona");
+        return "America/Bogota";
+      });
+      mockDataSource.transaction.mockImplementation(async (fn: any) => {
+        orden.push("transaccion");
+        return fn(mockManager);
+      });
+
+      mockRepo.create.mockReturnValue(mockPayment);
+      mockManagerRepo.save.mockResolvedValue(mockPayment);
+
+      await service.create("business-123", {
+        clientId: "client-123",
+        amount: 100,
+        method: PaymentMethod.CASH,
+        registeredBy: "user-123",
+      });
+
+      expect(orden).toEqual(["zona", "transaccion"]);
+      expect(mockZonas.de).toHaveBeenCalledTimes(1);
+    });
+
     it("debería crear un pago y encolar el evento en la misma transacción", async () => {
       const data = {
         clientId: "client-123",

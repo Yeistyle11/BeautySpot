@@ -143,6 +143,11 @@ export class PaymentsService {
       await this.reservarLosPuntos(businessId, data.clientId, puntosUsados);
     }
 
+    // La zona, antes de abrir la transaccion: dentro se sostiene el bloqueo de
+    // la unica sesion de caja abierta de la sede, y salir a la red con el
+    // bloqueo puesto para la agenda entera del negocio.
+    const zona = await this.zonas.de(businessId);
+
     try {
       return await this.registrar(
         businessId,
@@ -150,7 +155,8 @@ export class PaymentsService {
         puntosUsados,
         descuento,
         services,
-        splits
+        splits,
+        zona
       );
     } catch (error) {
       // El cobro no llegó a escribirse, así que los puntos reservados vuelven a
@@ -180,7 +186,8 @@ export class PaymentsService {
     puntosUsados: number,
     descuento: number,
     services: ServicioDeLaCita[] | undefined,
-    splits: { method: PaymentMethod; amount: number }[]
+    splits: { method: PaymentMethod; amount: number }[],
+    zona: string
   ): Promise<PaymentEntity> {
     return this.dataSource.transaction(async (manager) => {
       const payment = this.repo.create({
@@ -226,7 +233,7 @@ export class PaymentsService {
           propina: Number(savedPayment.propina),
           method: savedPayment.method,
           metodos: splits,
-          date: await this.diaDelCobro(businessId, savedPayment.createdAt),
+          date: fechaDeHoyEn(zona, savedPayment.createdAt),
           services,
         },
       });
@@ -287,11 +294,6 @@ export class PaymentsService {
       method: linea.method,
       amount: redondearAPesos(linea.amount),
     }));
-  }
-
-  /** Dia del cobro en el huso del negocio, para quien agrega por dia. */
-  private async diaDelCobro(businessId: string, cuando: Date): Promise<string> {
-    return fechaDeHoyEn(await this.zonas.de(businessId), cuando);
   }
 
   /**
