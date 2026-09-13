@@ -86,13 +86,15 @@ export class ReviewsController {
     );
   }
 
+  /** Lo que el cliente autenticado opinó de esa cita, si es que opinó. */
   @Get("appointment/:appointmentId")
   @Roles(Role.CLIENT)
   @SkipBusinessScope()
   async findByAppointment(
-    @Param("appointmentId", ParseUUIDPipe) appointmentId: string
+    @Param("appointmentId", ParseUUIDPipe) appointmentId: string,
+    @CurrentUser("userId") userId: string
   ) {
-    return this.service.findByAppointment(appointmentId);
+    return this.service.findByAppointment(appointmentId, userId);
   }
 
   @Get(":id")

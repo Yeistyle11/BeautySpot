@@ -157,6 +157,15 @@ export interface ResenaPublica {
 }
 
 /** Proyecta la reseña guardada a lo que se publica de ella. */
+/**
+ * Lo que ve quien escribió la reseña sobre su propia cita: lo público más su
+ * vínculo y su visibilidad, que son suyos. Las denuncias siguen dentro.
+ */
+export interface ResenaDeQuienLaEscribio extends ResenaPublica {
+  clientId: string;
+  status: ReviewStatus;
+}
+
 export function aResenaPublica(review: ReviewEntity): ResenaPublica {
   return {
     id: review.id,

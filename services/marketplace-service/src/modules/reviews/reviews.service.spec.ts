@@ -755,16 +755,51 @@ describe("ReviewsService", () => {
   });
 
   describe("findByAppointment", () => {
-    it("debería filtrar por la cita indicada", async () => {
-      mockRepo.find.mockResolvedValue([mockReview]);
+    // Con solo el id de una cita se veia la fila cruda de quien la hubiera
+    // reseñado: su id de usuario, su visibilidad y sus denuncias.
+    it("solo busca entre las reseñas de quien pregunta", async () => {
+      mockRepo.find.mockResolvedValue([]);
 
-      const result = await service.findByAppointment("appointment-123");
+      await service.findByAppointment("appointment-123", "user-123");
 
       expect(mockRepo.find).toHaveBeenCalledWith({
-        where: { appointmentId: "appointment-123" },
+        where: { appointmentId: "appointment-123", clientId: "user-123" },
         order: { createdAt: "DESC" },
       });
-      expect(result).toEqual([mockReview]);
+    });
+
+    it("proyecta la reseña sin las denuncias", async () => {
+      mockRepo.find.mockResolvedValue([
+        { ...mockReview, clientId: "user-123", reportCount: 7 } as never,
+      ]);
+
+      const [resena] = await service.findByAppointment(
+        "appointment-123",
+        "user-123"
+      );
+
+      expect(resena).not.toHaveProperty("reportCount");
+      expect(resena).not.toHaveProperty("appointmentId");
+    });
+
+    // El dueño de la reseña sí ve su propio vinculo y su visibilidad: el
+    // detalle de la cita los necesita para saber si ya opinó.
+    it("le devuelve su vínculo y su visibilidad", async () => {
+      mockRepo.find.mockResolvedValue([
+        {
+          ...mockReview,
+          clientId: "user-123",
+          status: ReviewStatus.OCULTA,
+        } as never,
+      ]);
+
+      const [resena] = await service.findByAppointment(
+        "appointment-123",
+        "user-123"
+      );
+
+      expect(resena.clientId).toBe("user-123");
+      expect(resena.status).toBe(ReviewStatus.OCULTA);
     });
   });
 

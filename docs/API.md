@@ -893,7 +893,7 @@ un perfil recién publicado puede tardar ese minuto en aparecer.
 | GET    | `/business/:businessId`         | PÚBLICA      | Reseñas del negocio, paginadas                |
 | GET    | `/business/:businessId/summary` | PÚBLICA      | Resumen y media de valoración                 |
 | GET    | `/mine`                         | CLIENT       | Las que ha escrito, paginadas                 |
-| GET    | `/appointment/:appointmentId`   | CLIENT       | Reseñas de una cita concreta                  |
+| GET    | `/appointment/:appointmentId`   | CLIENT       | Lo que el propio cliente opinó de esa cita    |
 | GET    | `/:id`                          | PÚBLICA      | Detalle                                       |
 | PATCH  | `/:id`                          | CLIENT       | Corrige la suya; no cambia cita ni negocio    |
 | DELETE | `/:id`                          | CLIENT       | Borra la suya; la cita vuelve a ser reseñable |
