@@ -78,6 +78,7 @@ export { CatalogoTenantService } from "./database/catalogo-tenant.service";
 export type { EntidadDeCatalogo } from "./database/catalogo-tenant.service";
 export { TenantCrudService } from "./database/tenant-crud.service";
 export type { EntidadDeNegocio } from "./database/tenant-crud.service";
+export { rechazarSiOtroGuardoAntes } from "./database/edicion-simultanea";
 export { ProcessedEventsPurgeWorker } from "./modules/idempotency/processed-events-purge.worker";
 export {
   TokenVersionStore,

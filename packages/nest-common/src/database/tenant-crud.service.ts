@@ -1,6 +1,6 @@
-import { ConflictException, NotFoundException } from "@nestjs/common";
-import { CODIGO_EDICION_SIMULTANEA } from "@beautyspot/shared-constants";
+import { NotFoundException } from "@nestjs/common";
 import { FindOptionsWhere, Repository } from "typeorm";
+import { rechazarSiOtroGuardoAntes } from "./edicion-simultanea";
 
 /** Forma mínima de una entidad que pertenece a un negocio y admite baja lógica. */
 export interface EntidadDeNegocio {
@@ -58,15 +58,7 @@ export abstract class TenantCrudService<T extends EntidadDeNegocio> {
       });
       if (!actual) throw new NotFoundException(this.mensajeNoEncontrado);
 
-      if (actual.updatedAt.getTime() !== updatedAtEsperado.getTime()) {
-        throw new ConflictException({
-          error: {
-            code: CODIGO_EDICION_SIMULTANEA,
-            message:
-              "Otra persona guardó cambios mientras editabas. Recarga para ver cómo ha quedado.",
-          },
-        });
-      }
+      rechazarSiOtroGuardoAntes(actual.updatedAt, updatedAtEsperado);
 
       await repo.update(donde, data as never);
       const guardado = await repo.findOne({ where: donde });
