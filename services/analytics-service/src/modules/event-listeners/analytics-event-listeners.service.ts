@@ -304,8 +304,13 @@ export class AnalyticsEventListeners {
   }
 
   /**
-   * Aplica el evento una sola vez y captura los errores, para que un fallo de
-   * metricas no tumbe el consumidor.
+   * Aplica el evento una sola vez, y si falla registra el motivo y lo vuelve a
+   * lanzar para que el mensaje acabe en la cola de fallidos en lugar de darse
+   * por consumido: una metrica que se pierde en silencio no se recupera, y el
+   * panel queda mintiendo sin que nadie sepa desde cuando.
+   *
+   * Reintentarlo es seguro: `once` marca el evento y hace el trabajo en la
+   * misma transaccion, asi que al fallar se deshacen los dos.
    */
   private async aplicar(
     event: IBaseEvent<unknown>,
@@ -329,6 +334,7 @@ export class AnalyticsEventListeners {
         `Error registrando métricas de ${contexto}: ${message}`,
         stack
       );
+      throw error;
     }
   }
 

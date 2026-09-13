@@ -141,18 +141,22 @@ describe("AnalyticsEventListeners", () => {
       );
     });
 
-    it("debería manejar errores sin lanzar excepción", async () => {
+    // Tragarse el fallo daba el mensaje por consumido: la metrica se perdia
+    // para siempre y el panel quedaba mintiendo sin saber desde cuando.
+    it("registra el fallo y lo relanza, para que el evento acabe en la cola de fallidos", async () => {
       mockMetricsService.incrementDailyMetric.mockRejectedValue(
         new Error("DB error")
       );
 
-      await service.handleAppointmentCreated({
-        payload: {
-          appointmentId: "apt-456",
-          businessId: "biz-456",
-          totalAmount: 30000,
-        },
-      } as any);
+      await expect(
+        service.handleAppointmentCreated({
+          payload: {
+            appointmentId: "apt-456",
+            businessId: "biz-456",
+            totalAmount: 30000,
+          },
+        } as any)
+      ).rejects.toThrow("DB error");
 
       expect(errorSpy).toHaveBeenCalledWith(
         expect.stringContaining("cita creada"),

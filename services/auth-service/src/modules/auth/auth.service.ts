@@ -31,7 +31,6 @@ import {
 import { EmailVerification } from "../../entities/email-verification.entity";
 import { EventNames } from "@beautyspot/event-types";
 import {
-  EventBusService,
   OutboxService,
   assertJwtSecret,
   TokenVersionStore,
@@ -77,7 +76,6 @@ export class AuthService {
     private readonly auditLogRepository: Repository<AuditLog>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly eventBus: EventBusService,
     private readonly dataSource: DataSource,
     private readonly outboxService: OutboxService,
     private readonly refreshTokens: RefreshTokenStore,
@@ -242,19 +240,26 @@ export class AuthService {
     refreshToken: string;
   }> {
     const user = await this.validateUser(dto.email, dto.password);
-    await this.logAction(user.id, "USER_LOGGED_IN", "users", user.id);
 
-    // El aviso de inicio de sesion no debe tumbar el login si el bus falla.
-    await this.eventBus
-      .emit(EventNames.AUTH_USER_LOGGED_IN, {
-        userId: user.id,
-        email: user.email,
-      })
-      .catch((error: unknown) => {
-        this.logger.warn(
-          `No se pudo publicar el inicio de sesion: ${String(error)}`
-        );
+    // La traza y el aviso, en la misma escritura: por el outbox el login no
+    // depende de que el bus responda, y a la vez el aviso deja de perderse
+    // cuando no responde, que es lo que pasaba al publicarlo a pelo.
+    await this.dataSource.transaction(async (manager) => {
+      await this.logAction(
+        user.id,
+        "USER_LOGGED_IN",
+        "users",
+        user.id,
+        manager
+      );
+
+      await this.outboxService.enqueue(manager, {
+        eventType: EventNames.AUTH_USER_LOGGED_IN,
+        aggregateType: "users",
+        aggregateId: user.id,
+        payload: { userId: user.id, email: user.email },
       });
+    });
 
     const { accessToken, refreshToken } = await this.generateTokens(user);
     return { user: toSafeUser(user), accessToken, refreshToken };
