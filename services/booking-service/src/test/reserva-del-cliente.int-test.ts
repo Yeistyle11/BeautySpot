@@ -130,12 +130,9 @@ describe("Integración: la reserva con sesión aparece en el panel del cliente",
     );
 
     reserva = new PublicBookingService(
-      dataSource.getRepository(Appointment),
-      dataSource.getRepository(Availability),
-      dataSource.getRepository(BlockedSlot),
-      dataSource.getRepository(AppointmentServiceEntity),
       http as unknown as InternalHttpClient,
-      citas
+      citas,
+      disponibilidad
     );
   }, 60000);
 

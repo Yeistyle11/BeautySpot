@@ -140,12 +140,9 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
     );
 
     reservaPublica = new PublicBookingService(
-      dataSource.getRepository(Appointment),
-      dataSource.getRepository(Availability),
-      dataSource.getRepository(BlockedSlot),
-      dataSource.getRepository(AppointmentServiceEntity),
       http as unknown as InternalHttpClient,
-      citas
+      citas,
+      disponibilidad
     );
   }, 60000);
 

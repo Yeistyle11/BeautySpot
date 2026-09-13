@@ -17,8 +17,10 @@ import {
   diaAnterior,
   diaAnteriorDeLaSemana,
   finExtendido,
+  repartoPorProfesional,
   MINUTOS_DEL_DIA,
   type Intervalo,
+  type LineaDeAgenda,
   type OcupacionDeProfesional,
 } from "@beautyspot/shared-utils";
 import { ZonaDelNegocioService } from "@beautyspot/nest-common";
@@ -351,22 +353,13 @@ export class AvailabilityQueryService {
     ]);
 
     const tramosPorProfesional = agruparPorProfesional(horarios);
-    const trabajan = reparto.every((ocupacion) => {
-      const tramos = tramosPorProfesional.get(ocupacion.professionalId) ?? [];
-      // Entera dentro de un mismo tramo del profesional, limpieza incluida.
-      if (!this.cabeEnAlgunTramo(tramos, ocupacion.inicio, ocupacion.fin)) {
-        return false;
-      }
-      // A la apertura del negocio solo se le exige la parte con cliente delante.
-      return (
-        !apertura ||
-        this.cabeEnAlgunTramo(
-          apertura,
-          ocupacion.inicio,
-          ocupacion.finDeCliente
-        )
-      );
-    });
+    const trabajan = reparto.every((ocupacion) =>
+      this.cabeEnLaJornada(
+        tramosPorProfesional.get(ocupacion.professionalId) ?? [],
+        apertura,
+        ocupacion
+      )
+    );
     if (!trabajan) return false;
 
     const bloqueos = agruparPorProfesional(
@@ -375,11 +368,97 @@ export class AvailabilityQueryService {
       })
     );
 
-    return reparto.every((ocupacion) =>
-      (bloqueos.get(ocupacion.professionalId) ?? []).every(
-        (b) =>
-          !timesOverlap(ocupacion.inicio, ocupacion.fin, b.startTime, b.endTime)
-      )
+    return reparto.every(
+      (ocupacion) =>
+        !this.tieneBloqueoEncima(
+          bloqueos.get(ocupacion.professionalId) ?? [],
+          ocupacion
+        )
+    );
+  }
+
+  /**
+   * Primer profesional del equipo capaz de atender la reserva entera: trabaja a
+   * esa hora, cabe en la apertura del negocio, no tiene un bloqueo encima y no
+   * se le solapa ninguna cita viva. `null` si no hay ninguno.
+   */
+  async primerProfesionalLibre(
+    businessId: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+    lineas: LineaDeAgenda[]
+  ): Promise<string | null> {
+    const dayOfWeek = new Date(date + "T12:00:00").getDay();
+    const horarios = await this.jornadasDelDia(businessId, dayOfWeek);
+    const candidatos = [...new Set(horarios.map((h) => h.professionalId))];
+    if (candidatos.length === 0) return null;
+
+    // Bloqueos, citas y apertura del día en tres consultas, sea cual sea el
+    // tamaño del equipo.
+    const [bloqueos, ocupados, apertura] = await Promise.all([
+      this.blockRepo.find({
+        where: { businessId, professionalId: In(candidatos), date },
+      }),
+      this.ocupacionDelDia(businessId, date),
+      this.aperturaDelDia(businessId, date),
+    ]);
+
+    const tramosPorProfesional = agruparPorProfesional(horarios);
+    const bloqueosPorProfesional = agruparPorProfesional(bloqueos);
+
+    for (const professionalId of candidatos) {
+      const [ocupacion] = repartoPorProfesional(
+        startTime,
+        endTime,
+        lineas,
+        professionalId
+      );
+
+      const cabe =
+        this.cabeEnLaJornada(
+          tramosPorProfesional.get(professionalId) ?? [],
+          apertura,
+          ocupacion
+        ) &&
+        !this.tieneBloqueoEncima(
+          bloqueosPorProfesional.get(professionalId) ?? [],
+          ocupacion
+        ) &&
+        !this.seSolapan(ocupados, [ocupacion]);
+
+      if (cabe) return professionalId;
+    }
+
+    return null;
+  }
+
+  /**
+   * La ocupación cabe entera en algún tramo de la jornada del profesional,
+   * limpieza incluida, y su parte con cliente delante cabe en la apertura del
+   * negocio.
+   */
+  private cabeEnLaJornada(
+    tramos: Tramo[],
+    apertura: Tramo[] | null,
+    ocupacion: OcupacionDeProfesional
+  ): boolean {
+    if (!this.cabeEnAlgunTramo(tramos, ocupacion.inicio, ocupacion.fin)) {
+      return false;
+    }
+    return (
+      !apertura ||
+      this.cabeEnAlgunTramo(apertura, ocupacion.inicio, ocupacion.finDeCliente)
+    );
+  }
+
+  /** Alguno de los bloqueos del profesional pisa lo que ocuparía la reserva. */
+  private tieneBloqueoEncima(
+    bloqueos: BlockedSlot[],
+    ocupacion: OcupacionDeProfesional
+  ): boolean {
+    return bloqueos.some((b) =>
+      timesOverlap(ocupacion.inicio, ocupacion.fin, b.startTime, b.endTime)
     );
   }
 
