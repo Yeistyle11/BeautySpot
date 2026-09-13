@@ -358,6 +358,38 @@ describe("PublicBookingService", () => {
       );
     });
 
+    // El correo del cuerpo dice como avisar; el que identifica es el del token.
+    // Mandar ambos es lo que permite al core no fiarse del primero.
+    it("manda el correo acreditado por el token, no el que se escribe", async () => {
+      await service.createPublicAppointment(
+        { ...bookingData, guestEmail: "ajeno@ejemplo.com" },
+        "usuario-propio",
+        "propio@ejemplo.com"
+      );
+
+      expect(mockHttp.enviar).toHaveBeenCalledWith(
+        "core",
+        "/internal/clients/find-or-create",
+        expect.objectContaining({
+          email: "ajeno@ejemplo.com",
+          userEmail: "propio@ejemplo.com",
+        })
+      );
+    });
+
+    it("no manda correo acreditado en la reserva de invitado", async () => {
+      await service.createPublicAppointment({
+        ...bookingData,
+        guestEmail: "invitado@ejemplo.com",
+      });
+
+      expect(mockHttp.enviar).toHaveBeenCalledWith(
+        "core",
+        "/internal/clients/find-or-create",
+        expect.not.objectContaining({ userEmail: expect.anything() })
+      );
+    });
+
     it("ignora el userId del cuerpo también con sesión", async () => {
       await service.createPublicAppointment(
         { ...bookingData, userId: "usuario-ajeno" } as never,

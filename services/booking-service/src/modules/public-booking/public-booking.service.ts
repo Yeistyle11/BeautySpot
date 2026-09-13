@@ -59,8 +59,9 @@ export class PublicBookingService {
 
   /**
    * Crea una cita del escaparate: resuelve o crea el cliente, elige profesional
-   * si no vino indicado y delega el alta. `userId` llega solo con sesión y
-   * siempre desde el token; con él la ficha queda ligada a esa cuenta.
+   * si no vino indicado y delega el alta. `userId` y `userEmail` llegan solo
+   * con sesión y siempre desde el token; con ellos la ficha queda ligada a esa
+   * cuenta.
    */
   async createPublicAppointment(
     data: {
@@ -74,7 +75,8 @@ export class PublicBookingService {
       guestEmail?: string;
       guestPhone?: string;
     },
-    userId?: string
+    userId?: string,
+    userEmail?: string
   ) {
     // 1. Resolver o crear el cliente vía el endpoint interno del core-service.
     const clientId = await this.findOrCreateGuestClient(
@@ -82,7 +84,8 @@ export class PublicBookingService {
       data.guestName,
       data.guestEmail,
       data.guestPhone,
-      userId
+      userId,
+      userEmail
     );
 
     // 2. Elegir profesional si el invitado no pidio uno, con la duracion base
@@ -149,20 +152,29 @@ export class PublicBookingService {
 
   /**
    * Pide al core-service el cliente que coincida o uno nuevo; falla si no
-   * responde. El `userId` viaja solo en la reserva con sesión, y el core lo usa
-   * para vincular la ficha cuando aún no lo está, nunca para pisar un vínculo.
+   * responde. `userId` y `userEmail` viajan solo en la reserva con sesión y
+   * salen del token: el core identifica por ellos, mientras que `email` y
+   * `phone` son lo que la persona escribió y solo dicen cómo avisarle.
    */
   private async findOrCreateGuestClient(
     businessId: string,
     name: string,
     email?: string,
     phone?: string,
-    userId?: string
+    userId?: string,
+    userEmail?: string
   ): Promise<string> {
     const client = await this.http.enviar<{ id?: unknown }>(
       "core",
       "/internal/clients/find-or-create",
-      { businessId, name, email, phone, ...(userId ? { userId } : {}) }
+      {
+        businessId,
+        name,
+        email,
+        phone,
+        ...(userId ? { userId } : {}),
+        ...(userId && userEmail ? { userEmail } : {}),
+      }
     );
 
     if (!client || typeof client.id !== "string" || client.id.length === 0) {

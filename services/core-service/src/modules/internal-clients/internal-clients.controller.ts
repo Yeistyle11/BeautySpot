@@ -1,4 +1,4 @@
-import { Internal } from "@beautyspot/nest-common";
+import { Internal, esViolacionDeUnicidad } from "@beautyspot/nest-common";
 import {
   Body,
   ConflictException,
@@ -34,7 +34,7 @@ export class InternalClientsController {
     private readonly clients: ClientsService
   ) {}
 
-  /** Devuelve el cliente que coincida por email o telefono, o lo crea. */
+  /** Devuelve la ficha de quien reserva en ese negocio, o la crea. */
   @Post("find-or-create")
   async findOrCreate(@Body() dto: FindOrCreateClientDto): Promise<Client> {
     const existing = await this.findExistingClient(dto);
@@ -159,7 +159,11 @@ export class InternalClientsController {
     return clientes.map((c) => c.id);
   }
 
-  /** Ata la ficha al usuario que reserva, si aun no tiene ninguno. */
+  /**
+   * Ata la ficha al usuario que reserva, si aun no tiene ninguno. Solo llegan
+   * aqui las fichas que ya son suyas o las que llevan el correo que su token
+   * acredita, asi que el vinculo siempre lo respalda algo comprobado.
+   */
   private async vincularUsuario(
     client: Client,
     userId?: string
@@ -170,19 +174,44 @@ export class InternalClientsController {
   }
 
   /**
-   * Busca un cliente del negocio por usuario, luego por email y luego por
-   * telefono, cotejando el contacto normalizado.
+   * Busca la ficha de quien reserva. Con sesion identifica la cuenta; sin ella,
+   * el contacto que dejo el invitado.
    */
   private async findExistingClient(
     dto: FindOrCreateClientDto
   ): Promise<Client | null> {
-    if (dto.userId) {
-      const byUser = await this.clientRepo.findOne({
-        where: { businessId: dto.businessId, userId: dto.userId },
-      });
-      if (byUser) return byUser;
-    }
+    return dto.userId ? this.fichaDeLaCuenta(dto) : this.fichaPorContacto(dto);
+  }
 
+  /**
+   * Ficha de quien reserva con sesion: la suya, o la que lleve el correo que su
+   * token acredita. El contacto del formulario no identifica a nadie aqui, o
+   * bastaria con saberse el correo ajeno para quedarse con su ficha y con todo
+   * lo que cuelga de ella.
+   */
+  private async fichaDeLaCuenta(
+    dto: FindOrCreateClientDto
+  ): Promise<Client | null> {
+    const suya = await this.clientRepo.findOne({
+      where: { businessId: dto.businessId, userId: dto.userId },
+    });
+    if (suya) return suya;
+
+    const acreditado = normalizarEmail(dto.userEmail);
+    if (!acreditado) return null;
+
+    return this.clientRepo.findOne({
+      where: { businessId: dto.businessId, email: acreditado },
+    });
+  }
+
+  /**
+   * Ficha del invitado por el contacto que dejo: primero el correo y luego el
+   * telefono.
+   */
+  private async fichaPorContacto(
+    dto: FindOrCreateClientDto
+  ): Promise<Client | null> {
     const email = normalizarEmail(dto.email);
     if (email) {
       const byEmail = await this.clientRepo.findOne({
@@ -215,6 +244,23 @@ export class InternalClientsController {
     client.phone = normalizarTelefono(dto.phone);
     client.userId = dto.userId ?? (null as unknown as string);
     client.tags = [];
-    return this.clientRepo.save(client);
+    return this.clientRepo.save(client).catch((error: unknown) => {
+      throw this.comoChoqueDeContacto(error);
+    });
+  }
+
+  /**
+   * Traduce el choque del indice unico de contacto al 409 en castellano;
+   * cualquier otro error sigue su camino. Le pasa a quien reserva con sesion y
+   * escribe el correo o el telefono de una ficha ajena: ya no se la queda, y
+   * tampoco puede duplicarlos.
+   */
+  private comoChoqueDeContacto(error: unknown): unknown {
+    if (!esViolacionDeUnicidad(error)) return error;
+
+    const porCorreo = error.constraint === "uq_clients_email_por_negocio";
+    return new ConflictException(
+      `Ya existe un cliente con ese ${porCorreo ? "correo" : "teléfono"} en este negocio`
+    );
   }
 }
