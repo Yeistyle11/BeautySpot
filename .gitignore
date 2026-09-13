@@ -29,6 +29,16 @@ yarn-error.log*
 .env
 .env*.local
 
+# Cualquier otra variante de .env (.env.bak-qa, .env.old, .env.local.mio) y las
+# copias de seguridad: llevan secretos reales y no deben versionarse. Se salvan
+# las plantillas y los entornos de test, que sí se versionan a propósito.
+.env.*
+!.env.example
+!.env.test
+!.env.*.example
+*.bak
+*.bak-*
+
 # Ficheros de entorno de producción que consume docker-compose.prod.yml.
 # La regla `.env` de arriba no los cubre: se llaman <servicio>.env, no .env.
 # Sólo se versionan las plantillas .env.example.
