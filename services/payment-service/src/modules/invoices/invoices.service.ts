@@ -8,8 +8,10 @@ import { InjectRepository } from "@nestjs/typeorm";
 import {
   InternalHttpClient,
   OutboxService,
+  ZonaDelNegocioService,
   esViolacionDeUnicidad,
 } from "@beautyspot/nest-common";
+import { fechaDeHoyEn } from "@beautyspot/shared-utils";
 import { EventNames, ServicioDeLaCita } from "@beautyspot/event-types";
 import { Between, In, Repository, DataSource, EntityManager } from "typeorm";
 import { paginate, PaginateParams } from "@beautyspot/database";
@@ -24,6 +26,9 @@ import { PaymentEntity } from "../payments/payment.entity";
 import { IVA } from "@beautyspot/shared-constants";
 import { CreateInvoiceDto } from "./dto/invoice.dto";
 import { PdfService } from "./pdf/pdf.service";
+
+/** Días que se dan para pagar una factura cuando no se indica vencimiento. */
+const DIAS_DE_VENCIMIENTO = 30;
 
 /** Redondea a céntimos, que es la escala con la que se guarda el dinero. */
 function redondear(importe: number): number {
@@ -90,7 +95,8 @@ export class InvoicesService {
     private readonly pdfService: PdfService,
     private readonly dataSource: DataSource,
     private readonly outbox: OutboxService,
-    private readonly http: InternalHttpClient
+    private readonly http: InternalHttpClient,
+    private readonly zonas: ZonaDelNegocioService
   ) {}
 
   /** Crea una factura calculando los totales de sus líneas y asignándole un número. */
@@ -98,8 +104,11 @@ export class InvoicesService {
     businessId: string,
     dto: CreateInvoiceDto
   ): Promise<InvoiceEntity> {
-    const date = dto.date || new Date().toISOString().split("T")[0];
-    const dueDate = dto.dueDate || this.getDefaultDueDate();
+    // El dia lo pone el huso del negocio, no el del servidor: en Bogota una
+    // factura de las 20:00 se fecharia manana si se mirase en UTC.
+    const zona = await this.zonas.de(businessId);
+    const date = dto.date || fechaDeHoyEn(zona);
+    const dueDate = dto.dueDate || this.vencimientoPorDefecto(date);
 
     // La serie y el tipo salen de los datos fiscales del negocio, en una sola
     // consulta y fuera de la transacción: hablar con otro servicio con la
@@ -512,10 +521,13 @@ export class InvoicesService {
     };
   }
 
-  /** Fecha de vencimiento por defecto: 30 días desde hoy. */
-  private getDefaultDueDate(): string {
-    const due = new Date();
-    due.setDate(due.getDate() + 30);
-    return due.toISOString().split("T")[0];
+  /**
+   * Vencimiento por defecto: el plazo contado desde la emisión. Se ancla a
+   * mediodía para que sumar días no cruce de día por el desfase del huso.
+   */
+  private vencimientoPorDefecto(emision: string): string {
+    const dia = new Date(`${emision}T12:00:00Z`);
+    dia.setUTCDate(dia.getUTCDate() + DIAS_DE_VENCIMIENTO);
+    return dia.toISOString().slice(0, 10);
   }
 }

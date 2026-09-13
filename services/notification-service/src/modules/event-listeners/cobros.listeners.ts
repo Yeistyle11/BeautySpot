@@ -116,7 +116,7 @@ export class CobrosListeners {
 
     try {
       await this.processedEvents.once(event, "notification:pago", async () => {
-        const { clientId, businessId, paymentId, amount, services } =
+        const { clientId, businessId, paymentId, amount, services, date } =
           event.payload;
         const [clientEmail, businessData, clientUserId] = await Promise.all([
           this.dataEnricher.enrichClientEmail(clientId),
@@ -146,7 +146,9 @@ export class CobrosListeners {
                   clientName,
                   invoiceNumber: `REC-${paymentId}`,
                   amount,
-                  dueDate: new Date().toISOString().split("T")[0],
+                  // El dia del cobro que trae el evento, ya en el huso del
+                  // negocio; el del servidor solo si el evento no lo dice.
+                  dueDate: date ?? new Date().toISOString().split("T")[0],
                   businessName: businessData.businessName,
                   // Un cobro suelto no tiene cita detrás, y entonces lo
                   // único cierto que se puede imprimir es el importe.
