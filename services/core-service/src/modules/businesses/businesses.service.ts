@@ -285,6 +285,9 @@ export class BusinessesService {
         configs: true,
         hours: true,
       },
+      // Una consulta por colección en vez de un JOIN con todas a la vez: son
+      // cinco uno-a-muchos hermanas, y unidas multiplican sus filas entre sí.
+      relationLoadStrategy: "query",
     });
 
     if (!business) throw new NotFoundException("Negocio no encontrado");
@@ -308,6 +311,7 @@ export class BusinessesService {
         services: true,
         professionals: true,
       },
+      relationLoadStrategy: "query",
     });
 
     if (!business)

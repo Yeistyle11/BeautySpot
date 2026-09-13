@@ -362,6 +362,9 @@ describe("BusinessesService", () => {
           configs: true,
           hours: true,
         },
+        // Cinco uno-a-muchos hermanas en un solo JOIN multiplican sus filas
+        // entre si: se piden por separado.
+        relationLoadStrategy: "query",
       });
     });
 
@@ -391,6 +394,7 @@ describe("BusinessesService", () => {
           services: true,
           professionals: true,
         },
+        relationLoadStrategy: "query",
       });
     });
 
