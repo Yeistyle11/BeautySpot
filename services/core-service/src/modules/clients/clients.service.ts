@@ -74,6 +74,19 @@ function normalizarContacto(data: Partial<Client>): {
   return contacto;
 }
 
+/** Datos con los que una reserva pide la ficha de quien la hace. */
+export interface DatosDeReserva {
+  businessId: string;
+  name: string;
+  /** Contacto escrito en el formulario: dice cómo avisar, no quién es. */
+  email?: string;
+  phone?: string;
+  /** Usuario que reserva; ausente en la reserva de invitado. */
+  userId?: string;
+  /** Correo que el token acredita suyo; solo viaja junto a `userId`. */
+  userEmail?: string;
+}
+
 /** CRUD de la cartera de clientes de un negocio, incluida su fidelización por puntos. */
 @Injectable()
 export class ClientsService extends TenantCrudService<Client> {
@@ -144,6 +157,83 @@ export class ClientsService extends TenantCrudService<Client> {
         `Ya existe un cliente con ese ${existente.email === contacto.email ? "correo" : "teléfono"}: ${existente.name}`
       );
     }
+  }
+
+  /**
+   * Ficha de quien reserva en ese negocio, o una nueva. Con sesión identifica
+   * el token —su usuario y el correo que acredita—; sin ella, el contacto que
+   * dejó el invitado. Lo que se escribe en el formulario nunca identifica a
+   * quien tiene sesión: bastaría con saberse el correo ajeno para quedarse con
+   * su ficha y con todo lo que cuelga de ella.
+   */
+  async resolverFichaDeReserva(datos: DatosDeReserva): Promise<Client> {
+    // Al invitado se le identifica por un contacto que nadie ha verificado:
+    // es la premisa de poder reservar sin cuenta, y el precio es que puede
+    // colgarle una cita a la ficha de otro. No hay fuga —no recibe nada de
+    // ella— y el negocio ve la cita antes de atenderla.
+    const existente = datos.userId
+      ? await this.fichaDeLaCuenta(datos)
+      : await this.buscarPorContacto(
+          datos.businessId,
+          normalizarContacto(datos)
+        );
+
+    if (existente) return this.vincularUsuario(existente, datos.userId);
+
+    return this.create(datos.businessId, {
+      name: datos.name,
+      email: datos.email,
+      phone: datos.phone,
+      userId: datos.userId ?? null,
+      tags: [],
+    }).catch((error: unknown) => {
+      throw this.sinDelatarAlTitular(error);
+    });
+  }
+
+  /**
+   * Ficha de quien reserva con sesión: la suya, o la que lleve el correo que su
+   * token acredita. El login exige el correo verificado, así que es lo único
+   * del contacto que respalda una identidad.
+   */
+  private async fichaDeLaCuenta(datos: DatosDeReserva): Promise<Client | null> {
+    const suya = await this.repo.findOne({
+      where: { businessId: datos.businessId, userId: datos.userId },
+    });
+    if (suya) return suya;
+
+    const acreditado = normalizarEmail(datos.userEmail);
+    if (!acreditado) return null;
+
+    return this.repo.findOne({
+      where: { businessId: datos.businessId, email: acreditado },
+    });
+  }
+
+  /**
+   * Ata la ficha al usuario que reserva, si aún no tiene ninguno. Solo llegan
+   * aquí las que ya son suyas o las que llevan el correo que su token acredita,
+   * así que el vínculo siempre lo respalda algo comprobado.
+   */
+  private async vincularUsuario(
+    client: Client,
+    userId?: string
+  ): Promise<Client> {
+    if (!userId || client.userId) return client;
+    client.userId = userId;
+    return this.repo.save(client);
+  }
+
+  /**
+   * Quita del choque de contacto los datos del titular antes de que salga por
+   * una ruta de reserva. El mostrador puede saber de quién es la ficha que
+   * estorba; quien reserva solo debe saber que ese contacto no le sirve.
+   */
+  private sinDelatarAlTitular(error: unknown): unknown {
+    if (!(error instanceof ConflictException)) return error;
+    return new ConflictException(
+      "Ese correo o teléfono ya está registrado en este negocio"
+    );
   }
 
   /**

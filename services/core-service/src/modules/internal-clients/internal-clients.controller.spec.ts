@@ -47,6 +47,7 @@ describe("InternalClientsController", () => {
   beforeEach(async () => {
     tabla = [];
     mockClients = {
+      resolverFichaDeReserva: jest.fn().mockResolvedValue({ id: "ficha" }),
       redeemLoyaltyPoints: jest.fn().mockResolvedValue(true),
       addLoyaltyPoints: jest.fn().mockResolvedValue(undefined),
     } as any;
@@ -83,84 +84,22 @@ describe("InternalClientsController", () => {
     );
   });
 
-  describe("find-or-create con sesión", () => {
-    // El agujero que cierra esta prueba: bastaba con saberse el correo ajeno
-    // para que la ficha de esa persona quedara atada a la cuenta de quien
-    // reserva, y con ella su historial, sus facturas y sus datos.
-    it("no se queda con la ficha ajena cuyo correo escribe quien reserva", async () => {
-      tabla.push(fichaSinDuenno());
-
-      const creada = await controller.findOrCreate({
-        businessId: NEGOCIO,
-        name: "Atacante",
-        email: CORREO_VICTIMA,
-        userId: ATACANTE,
-        userEmail: CORREO_ATACANTE,
-      });
-
-      expect(creada.id).toBeUndefined();
-      expect(creada.userId).toBe(ATACANTE);
-      expect(tabla[0].userId).toBeNull();
-    });
-
-    it("tampoco se queda con ella por el teléfono", async () => {
-      tabla.push(fichaSinDuenno());
-
-      await controller.findOrCreate({
-        businessId: NEGOCIO,
-        name: "Atacante",
-        phone: TELEFONO_VICTIMA,
-        userId: ATACANTE,
-        userEmail: CORREO_ATACANTE,
-      });
-
-      expect(tabla[0].userId).toBeNull();
-    });
-
-    it("liga la ficha que lleva el correo que el token acredita", async () => {
-      tabla.push({ ...fichaSinDuenno(), email: CORREO_ATACANTE });
-
-      const ficha = await controller.findOrCreate({
+  describe("find-or-create", () => {
+    // La resolucion vive en ClientsService, que es quien tiene la transaccion
+    // y el outbox; aqui solo se comprueba que el controlador no la reimplementa.
+    it("delega la resolución de la ficha en ClientsService", async () => {
+      const dto = {
         businessId: NEGOCIO,
         name: "Quien reserva",
+        email: "escrito@ejemplo.com",
         userId: ATACANTE,
         userEmail: CORREO_ATACANTE,
+      };
+
+      await expect(controller.findOrCreate(dto)).resolves.toEqual({
+        id: "ficha",
       });
-
-      expect(ficha.id).toBe("ficha-victima");
-      expect(ficha.userId).toBe(ATACANTE);
-    });
-
-    it("devuelve la suya sin tocar el vínculo si ya la tiene", async () => {
-      tabla.push({ ...fichaSinDuenno(), id: "ficha-propia", userId: VICTIMA });
-
-      const ficha = await controller.findOrCreate({
-        businessId: NEGOCIO,
-        name: "Quien reserva",
-        email: CORREO_VICTIMA,
-        userId: VICTIMA,
-        userEmail: CORREO_VICTIMA,
-      });
-
-      expect(ficha.id).toBe("ficha-propia");
-      expect(mockClientRepo.save).not.toHaveBeenCalled();
-    });
-
-    it("traduce el choque del índice único a un 409 en castellano", async () => {
-      mockClientRepo.save.mockRejectedValue({
-        code: "23505",
-        constraint: "uq_clients_email_por_negocio",
-      });
-
-      await expect(
-        controller.findOrCreate({
-          businessId: NEGOCIO,
-          name: "Atacante",
-          email: CORREO_VICTIMA,
-          userId: ATACANTE,
-          userEmail: CORREO_ATACANTE,
-        })
-      ).rejects.toBeInstanceOf(ConflictException);
+      expect(mockClients.resolverFichaDeReserva).toHaveBeenCalledWith(dto);
     });
   });
 
@@ -270,35 +209,6 @@ describe("InternalClientsController", () => {
     it("no busca sin negocio ni con el texto en blanco", async () => {
       await expect(controller.search("", "ana")).resolves.toEqual([]);
       await expect(controller.search(NEGOCIO, "   ")).resolves.toEqual([]);
-    });
-  });
-
-  describe("find-or-create sin sesión", () => {
-    // La reserva de invitado sigue deduplicando por contacto: es lo que evita
-    // una ficha nueva cada vez que la misma persona reserva sin cuenta.
-    it("reutiliza la ficha que coincide por correo", async () => {
-      tabla.push(fichaSinDuenno());
-
-      const ficha = await controller.findOrCreate({
-        businessId: NEGOCIO,
-        name: "Victima",
-        email: CORREO_VICTIMA,
-      });
-
-      expect(ficha.id).toBe("ficha-victima");
-      expect(ficha.userId).toBeNull();
-    });
-
-    it("reutiliza la ficha que coincide por teléfono", async () => {
-      tabla.push(fichaSinDuenno());
-
-      const ficha = await controller.findOrCreate({
-        businessId: NEGOCIO,
-        name: "Victima",
-        phone: TELEFONO_VICTIMA,
-      });
-
-      expect(ficha.id).toBe("ficha-victima");
     });
   });
 });

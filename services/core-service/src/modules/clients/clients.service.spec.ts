@@ -1162,4 +1162,161 @@ describe("ClientsService", () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe("resolverFichaDeReserva", () => {
+    const NEGOCIO = "business-123";
+    const ATACANTE = "user-atacante";
+    const CORREO_VICTIMA = "victima@example.com";
+    const CORREO_ATACANTE = "atacante@example.com";
+    const TELEFONO_VICTIMA = "+573001234567";
+
+    let tabla: Partial<Client>[];
+
+    /** Casa el valor de un `where`, venga suelto o dentro de un `In(...)`. */
+    const casa = (condicion: unknown, valor: unknown): boolean =>
+      condicion instanceof Object && "value" in (condicion as object)
+        ? ((condicion as { value: unknown[] }).value as unknown[]).includes(
+            valor
+          )
+        : condicion === valor;
+
+    beforeEach(() => {
+      tabla = [];
+      mockRepo.findOne.mockImplementation((({ where }: any) => {
+        const condiciones = Array.isArray(where) ? where : [where];
+        return Promise.resolve(
+          tabla.find((fila) =>
+            condiciones.some((cond: any) =>
+              Object.entries(cond).every(([campo, valor]) =>
+                casa(valor, (fila as any)[campo])
+              )
+            )
+          ) ?? null
+        );
+      }) as any);
+      mockRepo.create.mockImplementation(((d: any) => d) as any);
+      mockRepo.save.mockImplementation(((c: any) =>
+        Promise.resolve({ ...c, id: c.id ?? "ficha-nueva" })) as any);
+    });
+
+    const fichaSinDuenno = () => {
+      tabla.push({
+        ...mockClient,
+        id: "ficha-victima",
+        userId: null,
+        email: CORREO_VICTIMA,
+        phone: TELEFONO_VICTIMA,
+      });
+    };
+
+    // Bastaba con saberse el correo ajeno para heredar la ficha de esa persona
+    // y, con ella, su historial, sus facturas y el poder sobre sus citas.
+    it("no se queda con la ficha ajena cuyo correo escribe quien reserva", async () => {
+      fichaSinDuenno();
+
+      // Ni se la queda ni puede duplicar su contacto, que el indice unico
+      // reserva para una sola ficha: se queda sin reservar, y la ajena intacta.
+      await expect(
+        service.resolverFichaDeReserva({
+          businessId: NEGOCIO,
+          name: "Atacante",
+          email: CORREO_VICTIMA,
+          userId: ATACANTE,
+          userEmail: CORREO_ATACANTE,
+        })
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      expect(tabla[0].userId).toBeNull();
+    });
+
+    it("tampoco se queda con ella por el teléfono", async () => {
+      fichaSinDuenno();
+
+      await expect(
+        service.resolverFichaDeReserva({
+          businessId: NEGOCIO,
+          name: "Atacante",
+          phone: TELEFONO_VICTIMA,
+          userId: ATACANTE,
+          userEmail: CORREO_ATACANTE,
+        })
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      expect(tabla[0].userId).toBeNull();
+    });
+
+    it("liga la ficha que lleva el correo que el token acredita", async () => {
+      fichaSinDuenno();
+      tabla[0].email = CORREO_ATACANTE;
+
+      const ficha = await service.resolverFichaDeReserva({
+        businessId: NEGOCIO,
+        name: "Quien reserva",
+        userId: ATACANTE,
+        userEmail: CORREO_ATACANTE,
+      });
+
+      expect(ficha.id).toBe("ficha-victima");
+      expect(ficha.userId).toBe(ATACANTE);
+    });
+
+    it("devuelve la suya sin tocar el vínculo si ya la tiene", async () => {
+      tabla.push({ ...mockClient, id: "ficha-propia", userId: ATACANTE });
+
+      const ficha = await service.resolverFichaDeReserva({
+        businessId: NEGOCIO,
+        name: "Quien reserva",
+        email: CORREO_VICTIMA,
+        userId: ATACANTE,
+        userEmail: CORREO_ATACANTE,
+      });
+
+      expect(ficha.id).toBe("ficha-propia");
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+
+    // La reserva de invitado sigue deduplicando por contacto: es lo que evita
+    // una ficha nueva cada vez que la misma persona reserva sin cuenta.
+    it("el invitado reutiliza la ficha que coincide por contacto", async () => {
+      fichaSinDuenno();
+
+      const ficha = await service.resolverFichaDeReserva({
+        businessId: NEGOCIO,
+        name: "Victima",
+        email: CORREO_VICTIMA,
+      });
+
+      expect(ficha.id).toBe("ficha-victima");
+      expect(ficha.userId).toBeNull();
+    });
+
+    it("publica el alta de la ficha que crea", async () => {
+      await service.resolverFichaDeReserva({
+        businessId: NEGOCIO,
+        name: "Nueva",
+        email: "nueva@example.com",
+      });
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ eventType: "core.client.created" })
+      );
+    });
+
+    // El mostrador puede saber de quién es la ficha que estorba; quien reserva
+    // solo debe saber que ese contacto no le sirve.
+    it("no delata al titular cuando el contacto ya está cogido", async () => {
+      fichaSinDuenno();
+
+      await expect(
+        service.resolverFichaDeReserva({
+          businessId: NEGOCIO,
+          name: "Atacante",
+          email: CORREO_VICTIMA,
+          userId: ATACANTE,
+          userEmail: CORREO_ATACANTE,
+        })
+      ).rejects.toThrow("Ese correo o teléfono ya está registrado");
+    });
+  });
 });
