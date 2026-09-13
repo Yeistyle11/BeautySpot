@@ -39,6 +39,12 @@ export class PoliticaDeReservaService {
       : HORAS_MINIMAS_CANCELACION;
   }
 
+  /** Olvida la política cacheada del negocio, tras cambiar su configuración. */
+  async olvidar(businessId: string): Promise<void> {
+    if (!businessId) return;
+    await this.cache.del(`politica:reserva:${businessId}`);
+  }
+
   /** Pide la configuración a core. Falla en abierto: sin respuesta, la de serie. */
   private async consultar(businessId: string): Promise<PoliticaDeReserva> {
     const perfil = await this.http.pedirONulo<PerfilDelNegocio>(

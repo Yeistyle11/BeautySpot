@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
-import { DataSource, Repository } from "typeorm";
+import { DataSource, EntityManager, Repository } from "typeorm";
+import { OutboxService } from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
 import {
   cruzaMedianoche,
   esHoraDeCierreValida,
@@ -19,8 +21,26 @@ export class BusinessHoursService {
     @InjectRepository(BusinessHours)
     private readonly repo: Repository<BusinessHours>,
     @InjectDataSource()
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    private readonly outbox: OutboxService
   ) {}
+
+  /**
+   * Anuncia que el negocio cambió cuándo abre, en la misma escritura. Booking
+   * tiene la apertura cacheada y sin esto seguiría ofreciendo las horas viejas
+   * hasta que caducara.
+   */
+  private async anunciarCambio(
+    manager: EntityManager,
+    businessId: string
+  ): Promise<void> {
+    await this.outbox.enqueue(manager, {
+      eventType: EventNames.CORE_BUSINESS_HOURS_UPDATED,
+      aggregateType: "business",
+      aggregateId: businessId,
+      payload: { businessId },
+    });
+  }
 
   /** Devuelve los tramos horarios del negocio (o de una sede), ordenados por día y hora. */
   async findByBusiness(
@@ -57,7 +77,9 @@ export class BusinessHoursService {
         })
       );
 
-      return repo.save(hours);
+      const guardados = await repo.save(hours);
+      await this.anunciarCambio(manager, businessId);
+      return guardados;
     });
   }
 
@@ -67,13 +89,18 @@ export class BusinessHoursService {
     businessId: string,
     data: Partial<BusinessHours>
   ): Promise<BusinessHours> {
-    await this.repo.update(
-      { id, businessId },
-      data as Parameters<typeof this.repo.update>[1]
-    );
-    const hour = await this.repo.findOne({ where: { id, businessId } });
-    if (!hour) throw new Error("Horario no encontrado");
-    return hour;
+    return this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(BusinessHours);
+      await repo.update(
+        { id, businessId },
+        data as Parameters<typeof repo.update>[1]
+      );
+      const hour = await repo.findOne({ where: { id, businessId } });
+      if (!hour) throw new Error("Horario no encontrado");
+
+      await this.anunciarCambio(manager, businessId);
+      return hour;
+    });
   }
 
   /**

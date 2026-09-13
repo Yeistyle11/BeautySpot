@@ -3,6 +3,8 @@ import { RabbitSubscribe } from "@golevelup/nestjs-rabbitmq";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import {
+  BusinessConfigUpdatedEvent,
+  BusinessHoursUpdatedEvent,
   BusinessUpdatedEvent,
   ClientMergedEvent,
   ProfessionalCreatedEvent,
@@ -16,6 +18,8 @@ import {
   ZonaDelNegocioService,
 } from "@beautyspot/nest-common";
 import { AvailabilityService } from "../availability/availability.service";
+import { HorarioDelNegocioService } from "../appointments/horario-del-negocio.service";
+import { PoliticaDeReservaService } from "../appointments/politica-de-reserva.service";
 import { Appointment } from "../../entities/appointment.entity";
 
 /** Escucha eventos de RabbitMQ que afectan a las reservas (altas, pagos y recordatorios). */
@@ -27,6 +31,8 @@ export class BookingEventListeners {
     private readonly availabilityService: AvailabilityService,
     private readonly processedEvents: ProcessedEventsStore,
     private readonly zonas: ZonaDelNegocioService,
+    private readonly horarios: HorarioDelNegocioService,
+    private readonly politicas: PoliticaDeReservaService,
     @InjectRepository(Appointment)
     private readonly apptRepo: Repository<Appointment>
   ) {}
@@ -127,5 +133,39 @@ export class BookingEventListeners {
     const { businessId } = event.payload;
     await this.zonas.olvidar(businessId);
     this.logger.log(`Huso olvidado del negocio ${businessId}`);
+  }
+
+  /**
+   * Olvida la apertura cacheada cuando el negocio cambia su horario o declara
+   * un día especial: de ella salen las horas que se ofrecen, y hasta ahora
+   * seguían siendo las viejas hasta que caducaran.
+   */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.CORE_BUSINESS_HOURS_UPDATED,
+    queue: nombreDeCola("booking", EventNames.CORE_BUSINESS_HOURS_UPDATED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleBusinessHoursUpdated(
+    event: BusinessHoursUpdatedEvent
+  ): Promise<void> {
+    const { businessId } = event.payload;
+    await this.horarios.olvidar(businessId);
+    this.logger.log(`Apertura olvidada del negocio ${businessId}`);
+  }
+
+  /** Olvida la política de reserva cacheada cuando cambia la configuración. */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.CORE_BUSINESS_CONFIG_UPDATED,
+    queue: nombreDeCola("booking", EventNames.CORE_BUSINESS_CONFIG_UPDATED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleBusinessConfigUpdated(
+    event: BusinessConfigUpdatedEvent
+  ): Promise<void> {
+    const { businessId } = event.payload;
+    await this.politicas.olvidar(businessId);
+    this.logger.log(`Política de reserva olvidada del negocio ${businessId}`);
   }
 }

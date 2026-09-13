@@ -391,7 +391,9 @@ de los que hoy circulan 26.
 | `auth.membership.created`           | Auth             | —                             |
 | `auth.membership.role-changed`      | Auth             | —                             |
 | `core.business.created`             | Core             | —                             |
-| `core.business.updated`             | Core             | Marketplace                   |
+| `core.business.updated`             | Core             | Marketplace, Booking          |
+| `core.business-hours.updated`       | Core             | Booking                       |
+| `core.business-config.updated`      | Core             | Booking                       |
 | `core.professional.created`         | Core             | Booking                       |
 | `core.service.created`              | nadie            | —                             |
 | `core.service.updated`              | nadie            | —                             |
@@ -487,15 +489,15 @@ integracion, en el **5434**.
 
 ### 8.2 Reglas de propiedad de datos
 
-| Servicio     | Es dueno de                                                      | De fuera consume                                                           |
-| ------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Auth         | `users`, `memberships`, tokens de correo y reset, `audit_logs`   | Nada                                                                       |
-| Core         | El negocio y todo lo que cuelga: sedes, equipo, catalogo, fichas | Eventos de booking (cita atendida, no-show) y de payment (canje de puntos) |
-| Booking      | `appointments`, sus lineas, jornadas y bloqueos                  | `core.professional.created`; catalogo, horario y huso por API interna      |
-| Payment      | `payments`, facturas, series y caja                              | Cita y cliente por API interna                                             |
-| Notification | `notifications` y preferencias                                   | Eventos de auth, booking, core, payment y marketplace                      |
-| Marketplace  | Perfiles publicos, `reviews`, votos y denuncias                  | `core.business.updated`; el resto se sincroniza por API interna            |
-| Analytics    | Las cinco tablas de metricas                                     | Eventos de booking, core, payment y marketplace                            |
+| Servicio     | Es dueno de                                                      | De fuera consume                                                                                                           |
+| ------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Auth         | `users`, `memberships`, tokens de correo y reset, `audit_logs`   | Nada                                                                                                                       |
+| Core         | El negocio y todo lo que cuelga: sedes, equipo, catalogo, fichas | Eventos de booking (cita atendida, no-show) y de payment (canje de puntos)                                                 |
+| Booking      | `appointments`, sus lineas, jornadas y bloqueos                  | `core.professional.created` y los cambios del negocio, que le invalidan la cache; catalogo, horario y huso por API interna |
+| Payment      | `payments`, facturas, series y caja                              | Cita y cliente por API interna                                                                                             |
+| Notification | `notifications` y preferencias                                   | Eventos de auth, booking, core, payment y marketplace                                                                      |
+| Marketplace  | Perfiles publicos, `reviews`, votos y denuncias                  | `core.business.updated`; el resto se sincroniza por API interna                                                            |
+| Analytics    | Las cinco tablas de metricas                                     | Eventos de booking, core, payment y marketplace                                                                            |
 
 ### 8.3 No compartir base de datos
 

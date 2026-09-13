@@ -107,6 +107,26 @@ export interface BusinessUpdatedPayload {
 
 export type BusinessUpdatedEvent = IBaseEvent<BusinessUpdatedPayload>;
 
+/**
+ * El negocio cambió cuándo abre: su horario semanal o alguno de sus días
+ * especiales. Quien tenga cacheada la apertura debe olvidarla, sin importar de
+ * qué día se trate, porque un día especial mueve solo una fecha y el horario
+ * semanal, todas.
+ */
+export interface BusinessHoursUpdatedPayload {
+  businessId: string;
+}
+
+export type BusinessHoursUpdatedEvent = IBaseEvent<BusinessHoursUpdatedPayload>;
+
+/** El negocio cambió su configuración: reglas de reserva, facturación, avisos. */
+export interface BusinessConfigUpdatedPayload {
+  businessId: string;
+}
+
+export type BusinessConfigUpdatedEvent =
+  IBaseEvent<BusinessConfigUpdatedPayload>;
+
 export interface ProfessionalCreatedPayload {
   professionalId: string;
   businessId: string;
@@ -421,6 +441,8 @@ export const EventNames = {
 
   CORE_BUSINESS_CREATED: "core.business.created",
   CORE_BUSINESS_UPDATED: "core.business.updated",
+  CORE_BUSINESS_HOURS_UPDATED: "core.business-hours.updated",
+  CORE_BUSINESS_CONFIG_UPDATED: "core.business-config.updated",
   CORE_PROFESSIONAL_CREATED: "core.professional.created",
   CORE_SERVICE_CREATED: "core.service.created",
   CORE_SERVICE_UPDATED: "core.service.updated",

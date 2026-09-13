@@ -46,6 +46,21 @@ export class HorarioDelNegocioService {
     }));
   }
 
+  /**
+   * Etiqueta que agrupa las aperturas cacheadas de un negocio. La clave lleva
+   * la fecha, asi que sin ella no habria forma de olvidarlas todas: un cambio
+   * del horario semanal mueve cualquier dia.
+   */
+  private etiquetaDe(businessId: string): string {
+    return `etiqueta:horario:negocio:${businessId}`;
+  }
+
+  /** Olvida la apertura cacheada del negocio, sea de la fecha que sea. */
+  async olvidar(businessId: string): Promise<void> {
+    if (!businessId) return;
+    await this.cache.invalidarEtiqueta(this.etiquetaDe(businessId));
+  }
+
   /** Apertura de esa fecha, cacheada por dia. */
   private async delDia(
     businessId: string,
@@ -54,7 +69,8 @@ export class HorarioDelNegocioService {
     return this.cache.remember(
       `horario:negocio:${businessId}:${fecha}`,
       TTL_SEGUNDOS,
-      () => this.consultar(businessId, fecha)
+      () => this.consultar(businessId, fecha),
+      () => this.etiquetaDe(businessId)
     );
   }
 
