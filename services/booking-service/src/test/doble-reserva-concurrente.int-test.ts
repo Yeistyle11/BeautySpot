@@ -3,6 +3,7 @@ import { join } from "path";
 import {
   InternalHttpClient,
   OutboxService,
+  RedisCacheService,
   ZonaDelNegocioService,
 } from "@beautyspot/nest-common";
 import { HorarioDelNegocioService } from "../modules/appointments/horario-del-negocio.service";
@@ -134,6 +135,10 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
       http as unknown as InternalHttpClient,
       disponibilidad,
       zonas,
+      // Caché de paso: en integración interesa la consulta real, no el ahorro.
+      {
+        remember: (_c: string, _t: number, cargar: () => unknown) => cargar(),
+      } as unknown as RedisCacheService,
       {
         horasMinimasDeCancelacion: jest.fn().mockResolvedValue(2),
       } as unknown as PoliticaDeReservaService

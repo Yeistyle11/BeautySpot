@@ -4,13 +4,17 @@ import { Repository } from "typeorm";
 import { DashboardService } from "./dashboard.service";
 import { DailyMetricEntity } from "../../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
-import { ZonaDelNegocioService } from "@beautyspot/nest-common";
+import {
+  RedisCacheService,
+  ZonaDelNegocioService,
+} from "@beautyspot/nest-common";
 
 describe("DashboardService", () => {
   let service: DashboardService;
   let mockDailyRepo: jest.Mocked<Repository<DailyMetricEntity>>;
   let mockProfRepo: jest.Mocked<Repository<ProfessionalMetricEntity>>;
   let mockDataSource: { query: jest.Mock };
+  let mockCache: { remember: jest.Mock };
 
   const mockDailyMetric: DailyMetricEntity = {
     id: "metrics-123",
@@ -53,6 +57,18 @@ describe("DashboardService", () => {
     } as any;
 
     // Por defecto no hay capacidad materializada, y la ocupación sale 0.
+    // Caché que ejecuta la carga y recuerda el resultado, como la real: así
+    // las pruebas ven las consultas del primer cálculo y el ahorro del segundo.
+    const guardado = new Map<string, unknown>();
+    mockCache = {
+      remember: jest.fn(async (clave: string, _ttl: number, cargar) => {
+        if (guardado.has(clave)) return guardado.get(clave);
+        const valor = await cargar();
+        guardado.set(clave, valor);
+        return valor;
+      }),
+    };
+
     mockDataSource = {
       query: jest.fn().mockResolvedValue([{ vendidos: "0", disponibles: "0" }]),
     };
@@ -73,6 +89,7 @@ describe("DashboardService", () => {
           provide: ZonaDelNegocioService,
           useValue: { de: jest.fn().mockResolvedValue("America/Bogota") },
         },
+        { provide: RedisCacheService, useValue: mockCache },
       ],
     }).compile();
 
@@ -622,6 +639,30 @@ describe("DashboardService", () => {
         to: "2026-08-09",
         dias: 7,
       });
+    });
+  });
+
+  describe("caché del panel", () => {
+    // Cada carga del panel dispara seis agregados; entre recargas seguidas no
+    // hay por qué repetirlos.
+    it("no repite las consultas de una segunda carga del mismo periodo", async () => {
+      mockDataSource.query.mockResolvedValue([{ clientes: 0 }]);
+
+      await service.getRetencion("business-123");
+      const tras = mockDataSource.query.mock.calls.length;
+      await service.getRetencion("business-123");
+
+      expect(mockDataSource.query).toHaveBeenCalledTimes(tras);
+    });
+
+    it("no mezcla las cifras de dos negocios", async () => {
+      mockDataSource.query.mockResolvedValue([{ clientes: 0 }]);
+
+      await service.getRetencion("business-123");
+      const tras = mockDataSource.query.mock.calls.length;
+      await service.getRetencion("business-456");
+
+      expect(mockDataSource.query.mock.calls.length).toBeGreaterThan(tras);
     });
   });
 });

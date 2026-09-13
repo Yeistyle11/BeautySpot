@@ -3,7 +3,10 @@ import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository, Between } from "typeorm";
 import { DailyMetricEntity } from "../../entities/daily-metric.entity";
 import { ProfessionalMetricEntity } from "../../entities/professional-metric.entity";
-import { ZonaDelNegocioService } from "@beautyspot/nest-common";
+import {
+  RedisCacheService,
+  ZonaDelNegocioService,
+} from "@beautyspot/nest-common";
 import { fechaDeHoy, fechaHaceDias } from "../../common/fecha";
 import {
   diasEntre,
@@ -67,6 +70,13 @@ export interface RevenuePoint {
 }
 
 /** Calcula los KPIs del dashboard a partir de las métricas agregadas del negocio. */
+/**
+ * Lo que el panel se permite ir por detrás. Son agregados que cambian con cada
+ * cita y cada cobro: un minuto absorbe las recargas sin que las cifras dejen de
+ * parecer vivas.
+ */
+const TTL_PANEL = 60;
+
 @Injectable()
 export class DashboardService {
   constructor(
@@ -75,7 +85,8 @@ export class DashboardService {
     @InjectRepository(ProfessionalMetricEntity)
     private readonly profRepo: Repository<ProfessionalMetricEntity>,
     @InjectDataSource() private readonly dataSource: DataSource,
-    private readonly zonas: ZonaDelNegocioService
+    private readonly zonas: ZonaDelNegocioService,
+    private readonly cache: RedisCacheService
   ) {}
 
   /**
@@ -95,10 +106,31 @@ export class DashboardService {
     comparado: CifrasDelPeriodo | null;
   }> {
     // Una sola lectura del huso para las dos cosas: el día en curso y, si no
-    // llega periodo, la ventana por defecto que acaba en él.
+    // llega periodo, la ventana por defecto que acaba en él. Se resuelve fuera
+    // de la caché porque la ventana por defecto forma parte de la clave.
     const { today, from } = await this.dateRange(businessId, 29);
     const periodo = rango ?? { from, to: today };
 
+    return this.cacheado(
+      `kpis:${businessId}:${periodo.from}:${periodo.to}:${comparar}`,
+      () => this.calcularKPIs(businessId, periodo, today, comparar)
+    );
+  }
+
+  /** Cifras del periodo, del día en curso y, si se pide, del periodo anterior. */
+  private async calcularKPIs(
+    businessId: string,
+    periodo: Rango,
+    today: string,
+    comparar: boolean
+  ): Promise<{
+    today: Pick<
+      DailyMetricEntity,
+      "totalAppointments" | "totalRevenue" | "completedAppointments"
+    > | null;
+    periodo: CifrasDelPeriodo;
+    comparado: CifrasDelPeriodo | null;
+  }> {
     const [cifras, todayMetrics, comparado] = await Promise.all([
       this.cifrasDe(businessId, periodo),
       this.dailyRepo.findOne({ where: { businessId, date: today } }),
@@ -118,6 +150,19 @@ export class DashboardService {
       periodo: cifras,
       comparado,
     };
+  }
+
+  /**
+   * Envuelve una lectura del panel en la caché. Son agregados de lectura pura
+   * y la clave lleva el negocio y el periodo, así que dos personas del mismo
+   * negocio comparten el resultado y nadie ve el de otro.
+   *
+   * Solo caduca por tiempo: invalidarla desde quien escribe la métrica no
+   * serviría, porque esa escritura va dentro de la transacción del consumidor
+   * y competiría con su propio commit.
+   */
+  private cacheado<T>(clave: string, cargar: () => Promise<T>): Promise<T> {
+    return this.cache.remember(`analytics:panel:${clave}`, TTL_PANEL, cargar);
   }
 
   /**
@@ -258,6 +303,18 @@ export class DashboardService {
     tasaDeRetorno: number;
     diasEntreVisitas: number;
   }> {
+    return this.cacheado(`retencion:${businessId}`, () =>
+      this.calcularRetencion(businessId)
+    );
+  }
+
+  /** Clientes del negocio, cuántos repiten y cada cuánto vuelven. */
+  private async calcularRetencion(businessId: string): Promise<{
+    clientes: number;
+    recurrentes: number;
+    tasaDeRetorno: number;
+    diasEntreVisitas: number;
+  }> {
     const [fila] = (await this.dataSource.query(
       `SELECT COUNT(*)::int AS clientes,
               COUNT(*) FILTER (WHERE visitas > 1)::int AS recurrentes,
@@ -287,6 +344,28 @@ export class DashboardService {
   async getRentabilidadPorServicio(
     businessId: string,
     rango?: Rango
+  ): Promise<
+    {
+      serviceId: string;
+      serviceName: string;
+      veces: number;
+      ingresos: number;
+      minutos: number;
+      ingresoPorHora: number;
+    }[]
+  > {
+    const periodo = rango ?? (await this.ultimosTreintaDias(businessId));
+
+    return this.cacheado(
+      `rentabilidad:${businessId}:${periodo.from}:${periodo.to}`,
+      () => this.calcularRentabilidadPorServicio(businessId, periodo)
+    );
+  }
+
+  /** Veces, ingresos y minutos de cada servicio en el periodo. */
+  private async calcularRentabilidadPorServicio(
+    businessId: string,
+    rango: Rango
   ): Promise<
     {
       serviceId: string;
@@ -334,7 +413,21 @@ export class DashboardService {
     limit = 10,
     rango?: Rango
   ): Promise<TopProfessionalResult[]> {
-    const { from, to } = rango ?? (await this.ultimosTreintaDias(businessId));
+    const periodo = rango ?? (await this.ultimosTreintaDias(businessId));
+
+    return this.cacheado(
+      `profesionales:${businessId}:${periodo.from}:${periodo.to}:${limit}`,
+      () => this.calcularTopProfessionals(businessId, limit, periodo)
+    );
+  }
+
+  /** Profesionales del periodo ordenados por lo que han facturado. */
+  private async calcularTopProfessionals(
+    businessId: string,
+    limit: number,
+    rango: Rango
+  ): Promise<TopProfessionalResult[]> {
+    const { from, to } = rango;
 
     const rows = await this.profRepo
       .createQueryBuilder("pm")
@@ -374,6 +467,17 @@ export class DashboardService {
       Math.max(days, 1) - 1
     );
 
+    return this.cacheado(`ingresos:${businessId}:${from}:${today}`, () =>
+      this.calcularRevenueChart(businessId, from, today)
+    );
+  }
+
+  /** Serie de ingresos día a día del periodo, sin huecos. */
+  private async calcularRevenueChart(
+    businessId: string,
+    from: string,
+    today: string
+  ): Promise<RevenuePoint[]> {
     const filas = await this.dailyRepo.find({
       where: { businessId, date: Between(from, today) },
       order: { date: "ASC" },

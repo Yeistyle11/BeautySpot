@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import {
   InternalHttpClient,
+  RedisCacheService,
   ZonaDelNegocioService,
   withSerializableRetry,
 } from "@beautyspot/nest-common";
@@ -234,6 +235,14 @@ describe("AppointmentsService", () => {
             ),
         },
         { provide: ZonaDelNegocioService, useValue: mockZonas },
+        {
+          // Caché de paso: aquí interesa la consulta que se hace, no el ahorro.
+          provide: RedisCacheService,
+          useValue: {
+            remember: (_c: string, _t: number, cargar: () => unknown) =>
+              cargar(),
+          },
+        },
         { provide: PoliticaDeReservaService, useValue: mockPolitica },
         {
           provide: DataSource,

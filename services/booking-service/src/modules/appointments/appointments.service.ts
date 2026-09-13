@@ -28,6 +28,7 @@ import {
 import {
   InternalHttpClient,
   OutboxService,
+  RedisCacheService,
   withSerializableRetry,
   ZonaDelNegocioService,
 } from "@beautyspot/nest-common";
@@ -40,6 +41,13 @@ import { serviciosDelEvento } from "../../common/servicios-del-evento";
 import { AvailabilityQueryService } from "./availability-query.service";
 import { PoliticaDeReservaService } from "./politica-de-reserva.service";
 import { PROPORCION_PUNTOS_FIDELIDAD } from "@beautyspot/shared-constants";
+
+/**
+ * Lo que se guardan las sedes de un negocio. Se consultan en cada alta y abrir
+ * o cerrar una es cosa de meses, así que el desfase no tiene consecuencia: la
+ * sede que sobra deja de aceptarse unos minutos después.
+ */
+const TTL_SEDES = 300;
 import {
   ahoraEnLaZona,
   calculateEndTime,
@@ -134,6 +142,7 @@ export class AppointmentsService {
     private readonly http: InternalHttpClient,
     private readonly disponibilidad: AvailabilityQueryService,
     private readonly zonas: ZonaDelNegocioService,
+    private readonly cache: RedisCacheService,
     private readonly politica: PoliticaDeReservaService
   ) {}
 
@@ -232,17 +241,28 @@ export class AppointmentsService {
     });
   }
 
-  /** Comprueba que la sede indicada sea una sede activa del negocio. */
+  /**
+   * Comprueba que la sede indicada sea una sede activa del negocio. Las sedes
+   * se cachean unos minutos: se piden en cada alta y cada walk-in, y abrir o
+   * cerrar una es cosa de meses. No se cachea nada que se congele en la cita
+   * —el precio, la duración—, que llegar tarde ahí es cobrar de más o de menos.
+   */
   private async validarSede(
     businessId: string,
     branchId?: string
   ): Promise<void> {
     if (!branchId) return;
 
-    const sedes = await this.http.pedir<{ id: string }[]>(
-      "core",
-      `/internal/branches?businessId=${businessId}`
+    const sedes = await this.cache.remember(
+      `sedes:negocio:${businessId}`,
+      TTL_SEDES,
+      () =>
+        this.http.pedir<{ id: string }[]>(
+          "core",
+          `/internal/branches?businessId=${businessId}`
+        )
     );
+
     if (!Array.isArray(sedes) || !sedes.some((s) => s.id === branchId)) {
       throw new BadRequestException("La sede indicada no es de este negocio");
     }
