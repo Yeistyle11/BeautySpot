@@ -267,33 +267,28 @@ export class AvailabilityQueryService {
     return [...hoy, ...arrastreDeJornada(ayer ?? [])];
   }
 
-  /** Lo que cada profesional del negocio tiene ocupado ese día. */
+  /**
+   * Lo que cada profesional del negocio tiene ocupado ese día, contando el
+   * sobrante de la víspera: una cita de 23:30 que dura una hora termina a las
+   * "24:30", ya en esta madrugada.
+   */
   private async ocupacionDelDia(
     businessId: string,
     date: string,
     manager?: EntityManager,
     excludeId?: string
   ): Promise<Map<string, Intervalo[]>> {
-    const citas = await this.citasVivas(businessId, date, manager);
-    const otras = excludeId ? citas.filter((c) => c.id !== excludeId) : citas;
+    const delDia = (dia: string) =>
+      this.intervalosDelDia(businessId, dia, manager, excludeId);
 
-    const ocupacion = intervalosPorProfesional(
-      await this.repartoDe(otras, manager)
-    );
+    // El día y la víspera son dos cadenas independientes, y fuera de una
+    // transacción van a la vez. Dentro no: comparten la conexión que la
+    // sostiene, y esa no atiende dos consultas a un tiempo.
+    const [ocupacion, deAyer] = manager
+      ? [await delDia(date), await delDia(diaAnterior(date))]
+      : await Promise.all([delDia(date), delDia(diaAnterior(date))]);
 
-    // Trae el sobrante del dia anterior: una cita de 23:30 que dura una hora
-    // termina a las "24:30", ya en esta madrugada.
-    const deAyer = await this.citasVivas(
-      businessId,
-      diaAnterior(date),
-      manager
-    );
-    const arrastradas = excludeId
-      ? deAyer.filter((c) => c.id !== excludeId)
-      : deAyer;
-    for (const [profesional, intervalos] of intervalosPorProfesional(
-      await this.repartoDe(arrastradas, manager)
-    )) {
+    for (const [profesional, intervalos] of deAyer) {
       const arrastre = arrastreDelDiaAnterior(intervalos);
       if (arrastre.length === 0) continue;
       ocupacion.set(profesional, [
@@ -303,6 +298,18 @@ export class AvailabilityQueryService {
     }
 
     return ocupacion;
+  }
+
+  /** Lo que ocupan las citas vivas de un día, por profesional. */
+  private async intervalosDelDia(
+    businessId: string,
+    date: string,
+    manager?: EntityManager,
+    excludeId?: string
+  ): Promise<Map<string, Intervalo[]>> {
+    const citas = await this.citasVivas(businessId, date, manager);
+    const suyas = excludeId ? citas.filter((c) => c.id !== excludeId) : citas;
+    return intervalosPorProfesional(await this.repartoDe(suyas, manager));
   }
 
   /** Citas del día que ocupan agenda, con o sin transacción. */

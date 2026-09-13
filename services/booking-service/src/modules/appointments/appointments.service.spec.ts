@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import {
   InternalHttpClient,
   ZonaDelNegocioService,
+  withSerializableRetry,
 } from "@beautyspot/nest-common";
 import { HorarioDelNegocioService } from "./horario-del-negocio.service";
 import { PoliticaDeReservaService } from "./politica-de-reserva.service";
@@ -1276,6 +1277,32 @@ describe("AppointmentsService", () => {
     afterEach(() => {
       jest.useRealTimers();
     });
+    // Un 40001 en SERIALIZABLE es esperable, no excepcional: el alta lo
+    // reintentaba y el reagendado lo devolvia como un 500 al usuario.
+    it("reagenda a través del reintento de serialización, como el alta", async () => {
+      const manana = new Date();
+      manana.setDate(manana.getDate() + 1);
+
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        date: manana.toISOString().split("T")[0],
+        startTime: "14:00",
+        generateId: () => {},
+      } as never);
+      mockAvailRepo.find.mockResolvedValue(JORNADAS);
+      mockBlockRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([]);
+
+      await service.reschedule(
+        "appt-123",
+        "business-123",
+        FECHA_SIGUIENTE,
+        "15:00"
+      );
+
+      expect(withSerializableRetry).toHaveBeenCalled();
+    });
+
     it("debería reagendar una cita correctamente dentro de tx SERIALIZABLE", async () => {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 1);

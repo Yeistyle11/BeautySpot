@@ -754,46 +754,51 @@ export class AppointmentsService {
     )
       throw new BadRequestException("Ya existe una cita en el nuevo horario");
 
-    // Actualizar dentro de tx SERIALIZABLE con re-check autoritativo para
-    // prevenir doble-booking en el nuevo horario (race condition).
-    await this.dataSource.transaction("SERIALIZABLE", async (manager) => {
-      const conflictInTx = await this.disponibilidad.hayConflictoEn(
-        manager,
-        businessId,
-        newDate,
-        reparto,
-        id
-      );
-      if (conflictInTx)
-        throw new BadRequestException("Ya existe una cita en el nuevo horario");
+    // Dentro de la transaccion SERIALIZABLE se repite la comprobacion de
+    // conflicto, que es la autoritativa contra el doble-booking; el error
+    // 40001 lo reintenta withSerializableRetry, igual que en el alta.
+    await withSerializableRetry(() =>
+      this.dataSource.transaction("SERIALIZABLE", async (manager) => {
+        const conflictInTx = await this.disponibilidad.hayConflictoEn(
+          manager,
+          businessId,
+          newDate,
+          reparto,
+          id
+        );
+        if (conflictInTx)
+          throw new BadRequestException(
+            "Ya existe una cita en el nuevo horario"
+          );
 
-      // El estado no se toca: una cita confirmada sigue confirmada al moverla.
-      await manager.update(
-        Appointment,
-        { id, businessId },
-        {
-          date: newDate,
-          startTime: newStartTime,
-          endTime: finGuardado,
-          ocupadoHasta: ocupadoHastaGuardado,
-        }
-      );
-
-      await this.outbox.enqueue(manager, {
-        eventType: EventNames.BOOKING_APPOINTMENT_RESCHEDULED,
-        aggregateType: "appointment",
-        aggregateId: id,
-        payload: {
-          ...cuerpoDeCita(appt, businessId, {
+        // El estado no se toca: una cita confirmada sigue confirmada al moverla.
+        await manager.update(
+          Appointment,
+          { id, businessId },
+          {
             date: newDate,
             startTime: newStartTime,
             endTime: finGuardado,
-          }),
-          previousDate: appt.date,
-          previousStartTime: appt.startTime,
-        },
-      });
-    });
+            ocupadoHasta: ocupadoHastaGuardado,
+          }
+        );
+
+        await this.outbox.enqueue(manager, {
+          eventType: EventNames.BOOKING_APPOINTMENT_RESCHEDULED,
+          aggregateType: "appointment",
+          aggregateId: id,
+          payload: {
+            ...cuerpoDeCita(appt, businessId, {
+              date: newDate,
+              startTime: newStartTime,
+              endTime: finGuardado,
+            }),
+            previousDate: appt.date,
+            previousStartTime: appt.startTime,
+          },
+        });
+      })
+    );
     return this.findById(id, businessId);
   }
 
