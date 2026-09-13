@@ -29,7 +29,7 @@ const CONFIG: CategoryManagerConfig = {
     edit: "service_categories_edit",
     delete: "service_categories_delete",
   },
-  deleteConfirmMessage: "¿Desactivar esta categoría de servicio?",
+  deleteConfirmMessage: "dejará de ofrecerse al clasificar servicios nuevos.",
 };
 
 export default function ServiceCategoriesPage() {

@@ -14,7 +14,7 @@ export interface PageAccess {
 export const PAGES: PageAccess[] = [
   {
     path: "/dashboard",
-    label: "Dashboard",
+    label: "Resumen",
     icon: "LayoutDashboard",
     roles: ["SUPER_ADMIN", "OWNER", "ADMIN", "PROFESSIONAL"],
   },
@@ -44,19 +44,19 @@ export const PAGES: PageAccess[] = [
   },
   {
     path: "/dashboard/categories",
-    label: "Cat. Profesionales",
+    label: "Categorías de equipo",
     icon: "Tag",
     roles: ["SUPER_ADMIN", "OWNER", "ADMIN"],
   },
   {
     path: "/dashboard/service-categories",
-    label: "Cat. Servicios",
+    label: "Categorías de servicio",
     icon: "LayoutGrid",
     roles: ["SUPER_ADMIN", "OWNER", "ADMIN"],
   },
   {
     path: "/dashboard/staff",
-    label: "Usuarios",
+    label: "Cuentas",
     icon: "UserCog",
     roles: ["SUPER_ADMIN", "OWNER", "ADMIN"],
   },
@@ -123,10 +123,18 @@ export const PAGES: PageAccess[] = [
     roles: ["CLIENT"],
   },
   {
+    // El escaparate publico; la ficha del negocio se edita en
+    // /dashboard/marketplace.
+    path: "/marketplace",
+    label: "Buscar negocios",
+    icon: "Search",
+    roles: ["CLIENT"],
+  },
+  {
     path: "/dashboard/marketplace",
     label: "Marketplace",
     icon: "Megaphone",
-    roles: ["OWNER", "ADMIN", "CLIENT"],
+    roles: ["OWNER", "ADMIN"],
   },
   {
     path: "/dashboard/notifications",
@@ -185,6 +193,7 @@ export const ACTIONS = {
   reviews_respond: ["OWNER", "ADMIN"],
   business_hours_edit: ["OWNER", "ADMIN"],
   business_edit: ["OWNER", "ADMIN"],
+  billing_edit: ["OWNER"],
   settings_edit: ["OWNER"],
 } as const;
 

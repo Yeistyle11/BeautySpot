@@ -24,19 +24,28 @@ import {
   CalendarDays,
   Columns3,
   UserPlus,
+  Ban,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { fechasDeLaSemana, toLocalDateKey } from "@/lib/utils";
 import { useApi, paginatedSchema, revalidatePrefix } from "@/lib/swr";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { usePaginatedList } from "@/lib/use-paginated-list";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getAppointmentStatus } from "@/lib/status";
 import { AppointmentForm } from "./appointment-form";
 import { WalkInDialog } from "./walk-in-dialog";
-import { AppointmentCard } from "./appointment-card";
+import { AppointmentCard, COLUMNAS_DE_AGENDA } from "./appointment-card";
+import {
+  TablaDeRegistros,
+  type DireccionDeOrden,
+} from "@/components/ui/tabla-de-registros";
 import { RescheduleDialog } from "./reschedule-dialog";
 import { BlockedSlotFormDialog } from "../blocked-slots/blocked-slot-form-dialog";
 import {
@@ -93,6 +102,25 @@ const DayView = dynamic(
   }
 );
 
+/** Campos por los que el servidor sabe ordenar la agenda. */
+type CampoDeOrden = "date";
+
+/**
+ * Pestaña de las citas cuya hora pasó sin que se cerraran. No es un estado de
+ * la cita: cruza las pendientes y las confirmadas.
+ */
+const VENCIDAS = "VENCIDAS";
+
+/** Estados en el orden del ciclo de vida de una cita. */
+const ESTADOS_EN_ORDEN = [
+  "PENDING",
+  "CONFIRMED",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "CANCELLED",
+  "NO_SHOW",
+];
+
 /** Las tres formas de ver la agenda, en el orden en que se ofrecen. */
 const VISTAS = [
   { id: "list", etiqueta: "Lista", icono: List },
@@ -123,6 +151,20 @@ export default function AppointmentsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "day" | "calendar">("list");
+  /** Pestaña de estado en la vista lista; vacia son todas. */
+  const [estado, setEstado] = useState("");
+  const [orden, setOrden] = useState<{
+    campo: CampoDeOrden;
+    direccion: DireccionDeOrden;
+  }>({ campo: "date", direccion: "desc" });
+
+  /** Alterna el sentido si se repite la columna; si no, empieza descendente. */
+  const alternarOrden = (campo: CampoDeOrden) =>
+    setOrden((actual) =>
+      actual.campo === campo
+        ? { campo, direccion: actual.direccion === "asc" ? "desc" : "asc" }
+        : { campo, direccion: "desc" }
+    );
   const [dia, setDia] = useState(() => toLocalDateKey(new Date()));
 
   // El calendario pide el maximo del backend (100); la lista pagina de 20.
@@ -137,11 +179,53 @@ export default function AppointmentsPage() {
     basePath: APPOINTMENTS_KEY,
     itemSchema: appointmentSchema,
     // La vista día acota al servidor y no necesita traerse la semana entera.
-    params: viewMode === "day" ? { date: dia } : undefined,
+    // En lista, el estado y el orden los resuelve el servidor.
+    params:
+      viewMode === "day"
+        ? { date: dia }
+        : viewMode === "list"
+          ? {
+              ...(estado === VENCIDAS
+                ? { vencidas: "true" }
+                : estado
+                  ? { status: estado }
+                  : {}),
+              sort: orden.campo,
+              order: orden.direccion === "asc" ? "ASC" : "DESC",
+            }
+          : undefined,
     limit: viewMode === "list" ? undefined : 100,
     // La busqueda por texto solo se aplica a la vista lista.
     search: viewMode === "list" ? search : "",
   });
+
+  // Los contadores salen del servidor, sobre todo el historial.
+  const { data: resumen } = useApi<Record<string, number>>(
+    viewMode === "list"
+      ? `/booking/appointments/resumen-por-estado${search ? `?search=${encodeURIComponent(search)}` : ""}`
+      : null,
+    undefined,
+    z.record(z.string(), z.number())
+  );
+
+  /** Solo se ofrecen las pestañas de estados que existen. */
+  const pestanas = useMemo(() => {
+    const cuenta = resumen ?? {};
+    // Las vencidas cruzan dos estados y suman aparte del total.
+    const total = ESTADOS_EN_ORDEN.reduce((a, e) => a + (cuenta[e] ?? 0), 0);
+    const porCerrar = cuenta[VENCIDAS] ?? 0;
+    return [
+      { valor: "", etiqueta: "Todas", n: total },
+      ...(porCerrar
+        ? [{ valor: VENCIDAS, etiqueta: "Pendientes de cerrar", n: porCerrar }]
+        : []),
+      ...ESTADOS_EN_ORDEN.filter((e) => cuenta[e]).map((e) => ({
+        valor: e,
+        etiqueta: getAppointmentStatus(e).label,
+        n: cuenta[e],
+      })),
+    ];
+  }, [resumen]);
 
   // La vista dia pide los bloqueos de ese dia; la semana, los de los siete,
   // que es lo que le faltaba para no pintar como libre la tarde de quien esta
@@ -182,11 +266,9 @@ export default function AppointmentsPage() {
 
   // Los profesionales se cargan siempre: ademas del formulario, la lista de citas
   // los necesita para mostrar el nombre en vez del identificador.
-  const { data: professionals } = useApi<Professional[]>(
-    PROFESSIONALS_KEY,
-    undefined,
-    z.array(professionalSchema)
-  );
+  const { data: professionals, mutate: recargarProfesionales } = useApi<
+    Professional[]
+  >(PROFESSIONALS_KEY, undefined, z.array(professionalSchema));
   // Servicios y clientes solo hacen falta con un formulario abierto, y los dos
   // que los piden son el de nueva cita y el de walk-in.
   const necesitaCatalogos = showForm || walkInDialog;
@@ -195,7 +277,7 @@ export default function AppointmentsPage() {
     undefined,
     z.array(serviceSchema)
   );
-  const { data: clientsPage } = useApi(
+  const { data: clientsPage, mutate: recargarClientes } = useApi(
     necesitaCatalogos ? CLIENTS_KEY : null,
     undefined,
     paginatedSchema(clientSchema)
@@ -563,6 +645,8 @@ export default function AppointmentsPage() {
           professionals={professionals ?? []}
           clients={clients ?? []}
           services={services ?? []}
+          onRecargarClientes={recargarClientes}
+          onRecargarProfesionales={recargarProfesionales}
           selectedServices={selectedServices}
           onToggleService={toggleService}
           asignaciones={asignaciones}
@@ -604,7 +688,7 @@ export default function AppointmentsPage() {
       )}
 
       {viewMode === "day" ? (
-        <Card className="border-0 shadow-sm">
+        <Card className="shadow-flat border-0">
           <CardContent className="p-4">
             {loading ? (
               <p className="text-muted-foreground py-8 text-center">
@@ -631,7 +715,7 @@ export default function AppointmentsPage() {
           </CardContent>
         </Card>
       ) : viewMode === "calendar" ? (
-        <Card className="border-0 shadow-sm">
+        <Card className="shadow-flat border-0">
           <CardContent className="p-4">
             {loading ? (
               <p className="text-muted-foreground py-8 text-center">
@@ -659,12 +743,19 @@ export default function AppointmentsPage() {
         </Card>
       ) : (
         <div className="space-y-3">
+          {pestanas.length > 1 && (
+            <Tabs value={estado} onValueChange={setEstado}>
+              <TabsList className="flex-wrap">
+                {pestanas.map((p) => (
+                  <TabsTrigger key={p.valor || "todas"} value={p.valor}>
+                    {p.etiqueta} ({p.n})
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          )}
           {loading ? (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="text-muted-foreground p-8 text-center">
-                Cargando citas...
-              </CardContent>
-            </Card>
+            <LoadingState recurso="las citas" />
           ) : loadError ? (
             <ErrorDeCarga
               error={loadError}
@@ -672,32 +763,42 @@ export default function AppointmentsPage() {
               onReintentar={() => recargar()}
             />
           ) : filtered.length === 0 ? (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="text-muted-foreground p-8 text-center">
-                <Calendar className="mx-auto h-12 w-12 opacity-20" />
-                <p className="mt-2">No hay citas</p>
-              </CardContent>
-            </Card>
+            <EmptyState
+              icon={Calendar}
+              titulo={search ? "Ninguna cita coincide" : "Aún no hay citas"}
+              descripcion={
+                search
+                  ? "Prueba con otro nombre, correo, teléfono o servicio."
+                  : "Cuando se agende la primera, aparecerá aquí."
+              }
+            />
           ) : (
-            filtered.map((appt) => (
-              <AppointmentCard
-                key={appt.id}
-                appointment={appt}
-                professionalName={
-                  professionalMap[appt.professionalId] ||
-                  appt.professionalId.slice(0, 8)
-                }
-                clientName={clientMap[appt.clientId]}
-                canConfirm={canDo(role, "appointments_confirm")}
-                canCancel={canDo(role, "appointments_cancel")}
-                canReschedule={canDo(role, "appointments_reschedule")}
-                onConfirm={handleConfirm}
-                onComplete={openCompleteDialog}
-                onCancel={handleCancel}
-                onNoShow={handleNoShow}
-                onReschedule={abrirReagendar}
-              />
-            ))
+            <TablaDeRegistros
+              titulo="Citas del negocio"
+              columnas={COLUMNAS_DE_AGENDA}
+              orden={orden}
+              onOrdenar={alternarOrden}
+            >
+              {filtered.map((appt) => (
+                <AppointmentCard
+                  key={appt.id}
+                  appointment={appt}
+                  professionalName={
+                    professionalMap[appt.professionalId] ||
+                    appt.professionalId.slice(0, 8)
+                  }
+                  clientName={clientMap[appt.clientId]}
+                  canConfirm={canDo(role, "appointments_confirm")}
+                  canCancel={canDo(role, "appointments_cancel")}
+                  canReschedule={canDo(role, "appointments_reschedule")}
+                  onConfirm={handleConfirm}
+                  onComplete={openCompleteDialog}
+                  onCancel={handleCancel}
+                  onNoShow={handleNoShow}
+                  onReschedule={abrirReagendar}
+                />
+              ))}
+            </TablaDeRegistros>
           )}
           <Pagination meta={meta} onPageChange={setPage} itemLabel="citas" />
         </div>
@@ -734,6 +835,8 @@ export default function AppointmentsPage() {
         professionals={professionals ?? []}
         clients={clients ?? []}
         services={services ?? []}
+        onRecargarClientes={recargarClientes}
+        onRecargarProfesionales={recargarProfesionales}
         selectedServices={walkInServicios}
         onToggleService={(id) =>
           setWalkInServicios((previos) =>
@@ -759,6 +862,18 @@ export default function AppointmentsPage() {
         open={!!cancelandoId}
         onClose={() => setCancelandoId(null)}
         title="Cancelar la cita"
+        descripcion="El motivo queda en el historial y en el aviso al cliente."
+        icono={Ban}
+        pie={
+          <>
+            <Button variant="outline" onClick={() => setCancelandoId(null)}>
+              Volver
+            </Button>
+            <Button variant="destructive" onClick={confirmarCancelacion}>
+              Cancelar la cita
+            </Button>
+          </>
+        }
       >
         <div className="space-y-4">
           <Field label="Motivo">
@@ -781,14 +896,6 @@ export default function AppointmentsPage() {
               rows={2}
             />
           </Field>
-          <div className="flex gap-3">
-            <Button variant="destructive" onClick={confirmarCancelacion}>
-              Cancelar la cita
-            </Button>
-            <Button variant="outline" onClick={() => setCancelandoId(null)}>
-              Volver
-            </Button>
-          </div>
         </div>
       </Dialog>
     </div>

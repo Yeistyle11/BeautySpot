@@ -57,3 +57,11 @@ export type CashSummary = z.infer<typeof cashSummarySchema>;
 
 export const ACTIVE_KEY = "/payment/cash-register/active";
 export const HISTORY_KEY = "/payment/cash-register/history";
+export const RESUMEN_DE_SESIONES_KEY =
+  "/payment/cash-register/history/resumen-por-estado";
+
+/** Cuantas sesiones hay de cada estado, para las pestanas. */
+export const resumenDeSesionesSchema = z.object({
+  abiertas: z.number(),
+  cerradas: z.number(),
+});

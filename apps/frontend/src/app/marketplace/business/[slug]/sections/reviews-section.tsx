@@ -69,9 +69,10 @@ export function ReviewsSection({
         {ratingDist && (
           <div className="flex-1 space-y-2">
             {[5, 4, 3, 2, 1].map((star) => {
-              const count = ratingDist[
-                star as keyof RatingDistribution
-              ] as number;
+              const count =
+                ratingDist.distribution[
+                  star as keyof RatingDistribution["distribution"]
+                ];
               const pct =
                 ratingDist.total > 0 ? (count / ratingDist.total) * 100 : 0;
               return (
@@ -99,7 +100,7 @@ export function ReviewsSection({
           </p>
         ) : (
           reviews.map((r) => (
-            <Card key={r.id} className="border-0 shadow-sm">
+            <Card key={r.id} className="shadow-flat border-0">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div>

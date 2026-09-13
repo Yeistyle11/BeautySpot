@@ -1,14 +1,15 @@
 "use client";
 
 // Dialogo para registrar un walk-in: alguien que entro sin cita y ya se atendio.
-import { Button } from "@/components/ui/button";
+import { rutaDeAlta } from "@/lib/alta-por-url";
+import { UserPlus } from "lucide-react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
-import { Select } from "@/components/ui/select";
+import { SelectorDeEntidad } from "@/components/ui/selector-de-entidad";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog } from "@/components/ui/dialog";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { RadioGroup } from "@/components/ui/radio-group";
 import { formatCurrency } from "@/lib/utils";
 import { PAYMENT_METHOD_OPTIONS } from "./complete-appointment-dialog";
@@ -34,6 +35,10 @@ interface WalkInDialogProps {
   onToggleService: (id: string) => void;
   saving: boolean;
   error?: string;
+  /** Recarga la cartera tras dar de alta un cliente desde aqui. */
+  onRecargarClientes?: () => Promise<unknown>;
+  /** Recarga el equipo tras dar de alta un profesional desde aqui. */
+  onRecargarProfesionales?: () => Promise<unknown>;
 }
 
 /**
@@ -53,6 +58,8 @@ export function WalkInDialog({
   selectedServices,
   onToggleService,
   saving,
+  onRecargarClientes,
+  onRecargarProfesionales,
   error,
 }: WalkInDialogProps) {
   const set = (patch: Partial<WalkInForm>) => onChange({ ...form, ...patch });
@@ -61,8 +68,27 @@ export function WalkInDialog({
     .reduce((suma, s) => suma + s.price, 0);
 
   return (
-    <Dialog open={open} onClose={onClose} title="Registrar walk-in" wide>
-      <form onSubmit={onSubmit} className="space-y-4">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Registrar walk-in"
+      descripcion="Alguien a quien ya se atendió hoy sin cita previa."
+      icono={UserPlus}
+      wide
+      pie={
+        <>
+          <BotonDeCancelar />
+          <SubmitButton
+            form="walk-in"
+            label={form.cobrar ? "Registrar y cobrar" : "Registrar"}
+            pendingLabel="Registrando..."
+            pending={saving}
+            disabled={!walkInCompleto(form, selectedServices)}
+          />
+        </>
+      }
+    >
+      <form id="walk-in" onSubmit={onSubmit} className="space-y-4">
         {error && (
           <p role="alert" className="text-destructive text-sm">
             {error}
@@ -70,40 +96,39 @@ export function WalkInDialog({
         )}
 
         <p className="text-muted-foreground text-sm">
-          Para alguien a quien ya se atendió hoy sin cita previa. Queda como
-          atendida, con sus puntos, y cuenta en los informes del día.
+          Queda como atendida, con sus puntos, y cuenta en los informes del día.
         </p>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        {/* Dos columnas: el selector necesita el ancho del nombre. */}
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Profesional">
-            <Select
+            <SelectorDeEntidad
+              opciones={professionals.map((p) => ({
+                id: p.id,
+                nombre: p.name || "Sin nombre",
+              }))}
               value={form.professionalId}
-              onChange={(e) => set({ professionalId: e.target.value })}
+              onChange={(id) => set({ professionalId: id })}
+              placeholder="Buscar profesional..."
+              etiquetaDeAlta="Crear profesional"
+              rutaDeAlta={rutaDeAlta("/dashboard/professionals")}
+              onRecargarOpciones={onRecargarProfesionales}
               required
-            >
-              <option value="">Seleccionar...</option>
-              {professionals.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name || "Sin nombre"}
-                </option>
-              ))}
-            </Select>
+            />
           </Field>
           <Field label="Cliente">
-            <Select
+            <SelectorDeEntidad
+              opciones={clients.map((c) => ({ id: c.id, nombre: c.name }))}
               value={form.clientId}
-              onChange={(e) => set({ clientId: e.target.value })}
+              onChange={(id) => set({ clientId: id })}
+              placeholder="Buscar cliente..."
+              etiquetaDeAlta="Crear cliente"
+              rutaDeAlta={rutaDeAlta("/dashboard/clients")}
+              onRecargarOpciones={onRecargarClientes}
               required
-            >
-              <option value="">Seleccionar...</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
+            />
           </Field>
-          <Field label="Hora a la que se atendió">
+          <Field label="Hora a la que se atendió" className="sm:col-span-2">
             <Input
               type="time"
               value={form.startTime}
@@ -200,18 +225,6 @@ export function WalkInDialog({
               </p>
             </>
           )}
-        </div>
-
-        <div className="flex gap-3 pt-2">
-          <SubmitButton
-            label={form.cobrar ? "Registrar y cobrar" : "Registrar"}
-            pendingLabel="Registrando..."
-            pending={saving}
-            disabled={!walkInCompleto(form, selectedServices)}
-          />
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
         </div>
       </form>
     </Dialog>

@@ -81,7 +81,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
       if (statusCode === HttpStatus.UNAUTHORIZED) code = "AUTH_UNAUTHORIZED";
       if (statusCode === HttpStatus.FORBIDDEN) code = "AUTH_FORBIDDEN";
-      if (statusCode === HttpStatus.NOT_FOUND) code = "NOT_FOUND";
+      if (statusCode === HttpStatus.NOT_FOUND) {
+        code = "NOT_FOUND";
+        // El "Cannot GET /ruta" de Express se sustituye por el texto propio.
+        if (/^Cannot [A-Z]+ /.test(message)) {
+          message = "Recurso no encontrado";
+        }
+      }
       if (statusCode === HttpStatus.BAD_REQUEST) code = "VALIDATION_ERROR";
       if (statusCode === HttpStatus.CONFLICT) code = "CONFLICT";
       if (statusCode === HttpStatus.TOO_MANY_REQUESTS)

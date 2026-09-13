@@ -101,26 +101,26 @@ export default function ClientDashboardPage() {
               Encuentra el mejor lugar y reserva en segundos
             </p>
           </div>
-          <Link href="/marketplace">
-            <Button variant="secondary" className="gap-2">
+          <Button asChild variant="secondary" className="gap-2">
+            <Link href="/marketplace">
               Reservar ahora <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </div>
 
       <div className="mt-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Próximas citas</h2>
-          <Link href="/dashboard/client/appointments">
-            <Button variant="ghost" size="sm" className="gap-1">
+          <Button asChild variant="ghost" size="sm" className="gap-1">
+            <Link href="/dashboard/client/appointments">
               Ver todas <ArrowRight className="h-3 w-3" />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
 
         {loading ? (
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardContent className="text-muted-foreground p-8 text-center">
               Cargando...
             </CardContent>
@@ -132,18 +132,15 @@ export default function ClientDashboardPage() {
             onReintentar={() => recargar()}
           />
         ) : upcoming.length === 0 ? (
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardContent className="p-8 text-center">
               <Calendar className="text-muted-foreground mx-auto h-12 w-12 opacity-20" />
               <p className="text-muted-foreground mt-2">
                 No tienes citas próximas
               </p>
-              <Link href="/marketplace">
-                {" "}
-                <Button variant="outline" className="mt-4">
-                  Explorar negocios
-                </Button>
-              </Link>
+              <Button asChild variant="outline" className="mt-4">
+                <Link href="/marketplace">Explorar negocios</Link>
+              </Button>
             </CardContent>
           </Card>
         ) : (
@@ -155,7 +152,7 @@ export default function ClientDashboardPage() {
                   key={appt.id}
                   href={`/dashboard/client/appointments/${appt.id}`}
                 >
-                  <Card className="cursor-pointer border-0 shadow-sm transition-shadow hover:shadow-md">
+                  <Card className="shadow-flat hover:shadow-flat cursor-pointer border-0 transition-shadow">
                     <CardContent className="p-5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">

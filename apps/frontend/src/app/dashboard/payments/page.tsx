@@ -3,7 +3,6 @@
 // Pagina de pagos: lista de pagos registrados con resumen, busqueda por fecha y paginacion.
 import { useState, useMemo, useRef } from "react";
 import { z } from "zod";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -19,10 +18,12 @@ import { usePaginatedList } from "@/lib/use-paginated-list";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { PaymentSummaryCards } from "./payment-summary";
-import { PaymentCard } from "./payment-card";
+import { PaymentCard, COLUMNAS_DE_PAGOS } from "./payment-card";
+import { TablaDeRegistros } from "@/components/ui/tabla-de-registros";
 import {
   CreatePaymentDialog,
   EditPaymentDialog,
@@ -112,7 +113,7 @@ export default function PaymentsPage() {
   const [savingEdit, setSavingEdit] = useState(false);
 
   // El historial necesita la lista de clientes para nombrar cada cobro.
-  const { data: clientsPage } = useApi(
+  const { data: clientsPage, mutate: recargarClientes } = useApi(
     CLIENTS_KEY,
     undefined,
     paginatedSchema(clientSchema)
@@ -350,24 +351,28 @@ export default function PaymentsPage() {
             onReintentar={() => recargar()}
           />
         ) : payments.length === 0 ? (
-          <Card className="border-0 shadow-sm">
-            <CardContent className="text-muted-foreground p-8 text-center">
-              <DollarSign className="mx-auto h-12 w-12 opacity-20" />
-              <p className="mt-2">No hay pagos registrados</p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={DollarSign}
+            titulo="Aún no hay cobros"
+            descripcion="Los cobros que registres aparecerán aquí."
+          />
         ) : (
-          payments.map((p) => (
-            <PaymentCard
-              key={p.id}
-              payment={p}
-              canEdit={canDo(role, "payments_edit")}
-              canRefund={canDo(role, "payments_refund")}
-              onRefund={openRefund}
-              onEdit={openEdit}
-              clientName={p.clientId ? clientMap[p.clientId] : undefined}
-            />
-          ))
+          <TablaDeRegistros
+            titulo="Cobros del negocio"
+            columnas={COLUMNAS_DE_PAGOS}
+          >
+            {payments.map((p) => (
+              <PaymentCard
+                key={p.id}
+                payment={p}
+                canEdit={canDo(role, "payments_edit")}
+                canRefund={canDo(role, "payments_refund")}
+                onRefund={openRefund}
+                onEdit={openEdit}
+                clientName={p.clientId ? clientMap[p.clientId] : undefined}
+              />
+            ))}
+          </TablaDeRegistros>
         )}
       </div>
 
@@ -381,6 +386,7 @@ export default function PaymentsPage() {
         onSubmit={handleCreate}
         citasPorCobrar={citasPorCobrar}
         clients={clients ?? []}
+        onRecargarClientes={recargarClientes}
         saving={savingCreate}
         puedeDescontar={puedeDescontar}
       />

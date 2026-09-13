@@ -13,6 +13,7 @@ import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcryptjs";
 import * as crypto from "crypto";
+import { conCantidad } from "@beautyspot/shared-utils";
 import { User } from "../../entities/user.entity";
 import { PasswordReset } from "../../entities/password-reset.entity";
 import { AuditLog } from "../../entities/audit-log.entity";
@@ -376,6 +377,22 @@ export class AuthService {
     return { message: "Si el email existe, recibirás instrucciones" };
   }
 
+  /** Indica si el token de recuperación sirve todavía, sin consumirlo. */
+  async tokenDeReseteoValido(token: string): Promise<{ valido: boolean }> {
+    const reset = await this.passwordResetRepository.findOne({
+      where: { tokenHash: hashResetToken(token) },
+    });
+
+    if (!reset || reset.usedAt || reset.expiresAt < new Date()) {
+      return { valido: false };
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: reset.userId },
+    });
+    return { valido: Boolean(user?.active) };
+  }
+
   /**
    * Restablece la contraseña a partir de un token de recuperación. Consume el
    * usado y anula los demás pendientes, para que una cadena de solicitudes no
@@ -500,7 +517,10 @@ export class AuthService {
       if (user && !this.estaBloqueada(user)) {
         await this.anotarFalloDeAcceso(user);
       }
-      throw new UnauthorizedException("Credenciales inválidas");
+      // El mensaje no dice cual de los dos falla.
+      throw new UnauthorizedException(
+        "El correo o la contraseña no son correctos. Compruébalos e inténtalo otra vez."
+      );
     }
 
     // Después de comprobar la contraseña: decirle a quien no la ha acertado
@@ -531,7 +551,7 @@ export class AuthService {
 
     const minutos = Math.ceil((hasta.getTime() - Date.now()) / 60000);
     throw new UnauthorizedException(
-      `Cuenta bloqueada por varios intentos fallidos. Vuelve a intentarlo en ${minutos} minuto(s)`
+      `Cuenta bloqueada por varios intentos fallidos. Vuelve a intentarlo en ${conCantidad(minutos, "minuto", "minutos")}.`
     );
   }
 

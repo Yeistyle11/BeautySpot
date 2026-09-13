@@ -1,12 +1,19 @@
 import { applyDecorators } from "@nestjs/common";
 import { Matches } from "class-validator";
 import { PATRON_HORA, PATRON_HORA_DE_CIERRE } from "@beautyspot/shared-utils";
+import { CAMPOS_EN_CASTELLANO } from "@beautyspot/shared-constants";
+
+/** Nombre del campo tal como se le nombra al usuario. */
+function nombreDelCampo(propiedad: string): string {
+  return CAMPOS_EN_CASTELLANO[propiedad] ?? "la hora";
+}
 
 /** Valida que la hora llegue como `HH:MM` de 00:00 a 23:59. */
 export function EsHoraDelDia(): PropertyDecorator {
   return applyDecorators(
     Matches(PATRON_HORA, {
-      message: "$property debe tener el formato HH:MM, de 00:00 a 23:59",
+      message: (args) =>
+        `Revisa ${nombreDelCampo(args.property)}: se espera HH:MM, de 00:00 a 23:59`,
     })
   );
 }
@@ -18,7 +25,8 @@ export function EsHoraDelDia(): PropertyDecorator {
 export function EsHoraDeSalida(): PropertyDecorator {
   return applyDecorators(
     Matches(PATRON_HORA_DE_CIERRE, {
-      message: "$property debe tener el formato HH:MM, de 00:00 a 24:00",
+      message: (args) =>
+        `Revisa ${nombreDelCampo(args.property)}: se espera HH:MM, de 00:00 a 24:00`,
     })
   );
 }

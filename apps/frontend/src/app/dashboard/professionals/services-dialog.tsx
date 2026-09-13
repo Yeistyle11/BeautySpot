@@ -1,9 +1,10 @@
 "use client";
 
 // Dialogo de los servicios que presta un profesional, con su tarifa propia.
+import { Scissors } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog } from "@/components/ui/dialog";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { formatCurrency } from "@/lib/utils";
 import type {
@@ -58,7 +59,20 @@ export function ServicesDialog({
       open={open}
       onClose={onClose}
       title={`Servicios de ${professional?.name || ""}`}
+      descripcion="Lo que atiende, y lo que se le puede reservar."
+      icono={Scissors}
       wide
+      pie={
+        <>
+          <span className="text-muted-foreground mr-auto text-xs">
+            {prestados} de {servicios.length}
+          </span>
+          <BotonDeCancelar />
+          <Button onClick={onSave} disabled={saving || cargando}>
+            {saving ? "Guardando..." : "Guardar servicios"}
+          </Button>
+        </>
+      }
     >
       <div className="space-y-4">
         {error && (
@@ -145,18 +159,6 @@ export function ServicesDialog({
             })}
           </div>
         )}
-
-        <div className="flex items-center gap-2">
-          <Button onClick={onSave} disabled={saving || cargando}>
-            {saving ? "Guardando..." : "Guardar servicios"}
-          </Button>
-          <Button variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-          <span className="text-muted-foreground ml-auto text-xs">
-            {prestados} de {servicios.length}
-          </span>
-        </div>
       </div>
     </Dialog>
   );

@@ -416,6 +416,11 @@ describe("AgendaListeners", () => {
         expect.objectContaining({
           userId: "user-cliente",
           type: "APPOINTMENT_RESCHEDULED",
+          message: expect.stringContaining("10 de ago de 2026"),
+        })
+      );
+      expect(mockNotifications.create).not.toHaveBeenCalledWith(
+        expect.objectContaining({
           message: expect.stringContaining("2026-08-10"),
         })
       );

@@ -3,6 +3,7 @@
 // Error boundary de la app: pantalla de error generica con opcion de reintentar.
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 
@@ -26,7 +27,14 @@ export default function Error({
           Ocurrió un error inesperado. Intenta nuevamente.
         </p>
       </div>
-      <Button onClick={() => reset()}>Reintentar</Button>
+      {/* Si el fallo se repite, reintentar no saca de aqui: hace falta una
+          salida a una pantalla que si cargue. */}
+      <div className="flex gap-2">
+        <Button onClick={() => reset()}>Reintentar</Button>
+        <Button asChild variant="outline">
+          <Link href="/">Volver al inicio</Link>
+        </Button>
+      </div>
     </div>
   );
 }

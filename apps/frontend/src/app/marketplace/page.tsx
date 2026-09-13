@@ -1,4 +1,5 @@
 // Pagina publica del marketplace (server component): carga el feed inicial de negocios y define la metadata SEO.
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { fetchPublic } from "@/lib/api-server";
 import MarketplaceFeed from "./marketplace-feed";
@@ -22,5 +23,10 @@ export default async function MarketplacePage() {
   const parsed = raw ? feedResponseSchema.safeParse(raw) : null;
   const initialFeed: FeedResponse | null = parsed?.success ? parsed.data : null;
 
-  return <MarketplaceFeed initialFeed={initialFeed} />;
+  // El feed lee la URL con `useSearchParams` y va bajo Suspense.
+  return (
+    <Suspense>
+      <MarketplaceFeed initialFeed={initialFeed} />
+    </Suspense>
+  );
 }

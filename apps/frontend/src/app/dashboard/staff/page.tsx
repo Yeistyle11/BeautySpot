@@ -54,11 +54,9 @@ export default function StaffPage() {
     basePath: "/auth/users/staff",
     schema: z.array(staffMemberSchema),
   });
-  const { data: professionalsData } = useApi<Professional[]>(
-    PROFESSIONALS_KEY,
-    undefined,
-    z.array(professionalSchema)
-  );
+  const { data: professionalsData, mutate: recargarProfesionales } = useApi<
+    Professional[]
+  >(PROFESSIONALS_KEY, undefined, z.array(professionalSchema));
   const professionals = useMemo(
     () => professionalsData ?? [],
     [professionalsData]
@@ -195,7 +193,7 @@ export default function StaffPage() {
   return (
     <div>
       <PageHeader
-        titulo="Usuarios"
+        titulo="Cuentas"
         descripcion="Gestiona las cuentas de tu equipo y clientes"
         accion={
           canDo(role, "staff_create") && (
@@ -236,7 +234,7 @@ export default function StaffPage() {
       ) : staff.length === 0 ? (
         <EmptyState
           icon={Users}
-          titulo="No hay cuentas de usuario registradas"
+          titulo="Aún no hay cuentas"
           descripcion="Crea la primera para dar acceso a tu equipo."
           accion={
             <Button onClick={() => setShowCreate(true)}>
@@ -284,6 +282,7 @@ export default function StaffPage() {
         onChange={setCreateForm}
         onSubmit={handleCreate}
         unlinkedPros={unlinkedPros}
+        onRecargarProfesionales={recargarProfesionales}
         saving={saving}
         error={error}
       />
@@ -296,6 +295,7 @@ export default function StaffPage() {
         onSubmit={handleSaveEdit}
         linkedPro={editMember ? getLinkedPro(editMember.id) : undefined}
         unlinkedPros={unlinkedPros}
+        onRecargarProfesionales={recargarProfesionales}
         saving={saving}
         error={error}
       />
@@ -306,34 +306,22 @@ export default function StaffPage() {
         onConfirm={handleConfirmToggle}
         title={confirmMember?.active ? "Desactivar cuenta" : "Activar cuenta"}
         confirmLabel={
-          confirmMember?.active ? "Si, desactivar cuenta" : "Si, activar cuenta"
+          confirmMember?.active ? "Sí, desactivar cuenta" : "Sí, activar cuenta"
         }
         pending={saving}
         variant={confirmMember?.active ? "destructive" : "default"}
-      >
-        {confirmMember && (
-          <>
-            <p className="mb-2">
-              ¿Estás seguro de {confirmMember.active ? "desactivar" : "activar"}{" "}
-              la cuenta de <strong>{confirmMember.name}</strong>?
-            </p>
-            <ul className="list-disc space-y-1 pl-4 text-xs">
-              <li>
-                La cuenta de usuario{" "}
-                {confirmMember.active
-                  ? "no podrá iniciar sesión"
-                  : "podra iniciar sesión nuevamente"}
-                .
-              </li>
-              {confirmMember.role === "PROFESSIONAL" && (
-                <li className="text-success font-medium">
-                  Su perfil profesional seguira activo en el equipo del negocio.
-                </li>
-              )}
-            </ul>
-          </>
-        )}
-      </ConfirmDialog>
+        registro={confirmMember?.name}
+        consecuencias={
+          confirmMember?.active
+            ? "dejará de poder iniciar sesión en el panel."
+            : "vuelve a poder iniciar sesión en el panel."
+        }
+        seConserva={
+          confirmMember?.role === "PROFESSIONAL"
+            ? "Su perfil profesional sigue activo en el equipo del negocio."
+            : undefined
+        }
+      />
     </div>
   );
 }

@@ -49,7 +49,9 @@ describe("CreatePaymentDialog", () => {
   it("ofrece las citas atendidas del cliente con su servicio e importe", () => {
     pintar(CITAS);
 
-    expect(screen.getByLabelText("Cita")).toBeInTheDocument();
+    // Las opciones viven en la lista del selector, que se despliega al pulsar.
+    fireEvent.click(screen.getByLabelText("Cita"));
+
     expect(
       screen.getByRole("option", { name: /Corte clásico/ })
     ).toBeInTheDocument();
@@ -60,9 +62,8 @@ describe("CreatePaymentDialog", () => {
   it("al elegir la cita, el importe sale de ella", () => {
     const onChange = pintar(CITAS);
 
-    fireEvent.change(screen.getByLabelText("Cita"), {
-      target: { value: "cita-1" },
-    });
+    fireEvent.click(screen.getByLabelText("Cita"));
+    fireEvent.click(screen.getByRole("option", { name: /Corte clásico/ }));
 
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ appointmentId: "cita-1", amount: "30000" })
@@ -74,6 +75,7 @@ describe("CreatePaymentDialog", () => {
   it("deja cobrar sin cita", () => {
     pintar(CITAS);
 
+    fireEvent.click(screen.getByLabelText("Cita"));
     expect(
       screen.getByRole("option", { name: "Venta suelta, sin cita" })
     ).toBeInTheDocument();

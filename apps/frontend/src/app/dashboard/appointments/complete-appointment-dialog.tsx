@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog } from "@/components/ui/dialog";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { RadioGroup } from "@/components/ui/radio-group";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import type { Appointment } from "./schemas";
@@ -67,7 +67,30 @@ export function CompleteAppointmentDialog({
   pending,
 }: CompleteAppointmentDialogProps) {
   return (
-    <Dialog open={open} onClose={onClose} title="Completar cita" wide>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Completar cita"
+      descripcion="Cierra la cita y, si quieres, registra el cobro en el mismo paso."
+      icono={CheckCircle}
+      wide
+      pie={
+        <>
+          <BotonDeCancelar disabled={pending} />
+          <Button
+            variant="outline"
+            onClick={() => onComplete(false)}
+            disabled={pending}
+          >
+            {pending ? "Procesando..." : "Completar sin pago"}
+          </Button>
+          <Button onClick={() => onComplete(true)} disabled={pending}>
+            <CheckCircle className="mr-2 h-4 w-4" />
+            {pending ? "Procesando..." : "Completar y registrar pago"}
+          </Button>
+        </>
+      }
+    >
       {appointment && (
         <div className="space-y-6">
           <div className="bg-muted/50 space-y-3 rounded-lg p-4">
@@ -142,20 +165,6 @@ export function CompleteAppointmentDialog({
               rows={2}
             />
           </Field>
-
-          <div className="flex flex-wrap gap-3 pt-2">
-            <Button onClick={() => onComplete(true)} disabled={pending}>
-              <CheckCircle className="mr-2 h-4 w-4" />
-              {pending ? "Procesando..." : "Completar y registrar pago"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => onComplete(false)}
-              disabled={pending}
-            >
-              {pending ? "Procesando..." : "Completar sin pago"}
-            </Button>
-          </div>
         </div>
       )}
     </Dialog>

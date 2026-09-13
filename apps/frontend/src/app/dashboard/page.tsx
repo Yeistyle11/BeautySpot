@@ -208,6 +208,43 @@ export default function DashboardPage() {
     return nombres;
   }, [profesionales]);
 
+  /** La misma fila de indicadores, referida a los ultimos 30 dias. */
+  const statsDelPeriodo = useMemo(() => {
+    const periodo = kpiData?.periodo;
+    if (!periodo) return [];
+
+    return [
+      {
+        title: "Ingresos 30 días",
+        value: formatCurrency(periodo.totalRevenue),
+        icon: TrendingUp,
+        color: "text-success",
+        bg: "bg-success-soft",
+      },
+      {
+        title: "Citas 30 días",
+        value: periodo.totalAppointments,
+        icon: Calendar,
+        color: "text-info",
+        bg: "bg-info-soft",
+      },
+      {
+        title: "Tasa completado",
+        value: formatPorcentaje(periodo.completionRate),
+        icon: CheckCircle,
+        color: "text-success",
+        bg: "bg-success-soft",
+      },
+      {
+        title: "Clientes nuevos",
+        value: periodo.newClients,
+        icon: Users,
+        color: "text-primary",
+        bg: "bg-primary/10",
+      },
+    ];
+  }, [kpiData]);
+
   const maxRevenue = useMemo(
     () => Math.max(...(revenueChart ?? []).map((r) => r.revenue), 1),
     [revenueChart]
@@ -223,52 +260,13 @@ export default function DashboardPage() {
       <StatGrid stats={stats} loading={loading} />
 
       {kpiData?.periodo && (
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-4">
-              <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                <TrendingUp className="h-4 w-4" /> Ingresos 30 días
-              </div>
-              <p className="mt-1 text-xl font-bold">
-                {formatCurrency(kpiData.periodo.totalRevenue)}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-4">
-              <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4" /> Citas 30 días
-              </div>
-              <p className="mt-1 text-xl font-bold">
-                {kpiData.periodo.totalAppointments}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-4">
-              <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                <CheckCircle className="h-4 w-4" /> Tasa completado
-              </div>
-              <p className="mt-1 text-xl font-bold">
-                {formatPorcentaje(kpiData.periodo.completionRate)}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-4">
-              <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                <Users className="h-4 w-4" /> Clientes nuevos
-              </div>
-              <p className="mt-1 text-xl font-bold">
-                {kpiData.periodo.newClients}
-              </p>
-            </CardContent>
-          </Card>
+        <div className="mt-4">
+          <StatGrid stats={statsDelPeriodo} densidad="compacta" />
         </div>
       )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card className="border-0 shadow-sm">
+        <Card className="shadow-flat border-0">
           <CardHeader>
             {/* "Pendientes" y no "de hoy" a secas: la tarjeta de arriba cuenta
                 todas las citas del dia y este panel solo las que quedan por
@@ -329,12 +327,12 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-sm">
+        <Card className="shadow-flat border-0">
           <CardHeader>
             <CardTitle className="text-lg">Ingresos últimos 7 días</CardTitle>
           </CardHeader>
           <CardContent>
-            {(revenueChart ?? []).length > 0 ? (
+            {(revenueChart ?? []).some((p) => p.revenue > 0) ? (
               <div className="space-y-2">
                 {(revenueChart ?? []).map((point) => {
                   const pct =
@@ -347,7 +345,10 @@ export default function DashboardPage() {
                       <div className="bg-muted h-6 flex-1 overflow-hidden rounded-full">
                         <div
                           className="bg-primary/70 h-full rounded-full transition-all duration-500"
-                          style={{ width: `${Math.max(pct, 2)}%` }}
+                          /* Suelo del 2% para lo pequeño; el cero no pinta barra. */
+                          style={{
+                            width: pct === 0 ? 0 : `${Math.max(pct, 2)}%`,
+                          }}
                         />
                       </div>
                       <span className="w-24 text-right text-xs font-medium">
@@ -361,7 +362,9 @@ export default function DashboardPage() {
               <div className="text-muted-foreground flex items-center justify-center py-8">
                 <div className="text-center">
                   <DollarSign className="mx-auto h-12 w-12 opacity-20" />
-                  <p className="mt-2 text-sm">Sin datos de ingresos</p>
+                  <p className="mt-2 text-sm">
+                    Aún no hay ingresos registrados
+                  </p>
                 </div>
               </div>
             )}
@@ -370,7 +373,7 @@ export default function DashboardPage() {
       </div>
 
       {(topProfessionals ?? []).length > 0 && (
-        <Card className="mt-6 border-0 shadow-sm">
+        <Card className="shadow-flat mt-6 border-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Star className="text-rating h-5 w-5" /> Top profesionales (30

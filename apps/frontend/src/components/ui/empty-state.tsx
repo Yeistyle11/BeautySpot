@@ -41,7 +41,7 @@ export function EmptyState({
   if (sinTarjeta) return contenido;
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardContent className="p-0">{contenido}</CardContent>
     </Card>
   );

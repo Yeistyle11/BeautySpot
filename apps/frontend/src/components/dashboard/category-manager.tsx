@@ -1,11 +1,22 @@
 "use client";
 
-import { useState, useMemo, useDeferredValue, type ComponentType } from "react";
+import { useAltaPorUrl } from "@/lib/alta-por-url";
+import { useState, useMemo, useDeferredValue } from "react";
 import { mensajeDeError } from "@/lib/error-message";
 import { mutate } from "swr";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import type { LucideIcon } from "lucide-react";
+import { ToggleRight, ToggleLeft, Edit, Trash2 } from "lucide-react";
+import { resolveCategoryIcon } from "@/components/dashboard/category-icons";
 import { LoadingState } from "@/components/ui/loading-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  TablaDeRegistros,
+  FilaDeTabla,
+  CeldaPrincipal,
+} from "@/components/ui/tabla-de-registros";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Plus, Search } from "lucide-react";
@@ -14,7 +25,6 @@ import { useAuthStore } from "@/lib/store";
 import { canDo, type ACTIONS } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { logger } from "@/lib/logger";
-import { CategoryCard } from "./category-card";
 import { CategoryFormDialog, type CategoryForm } from "./category-form-dialog";
 
 const categoryEntitySchema = z.object({
@@ -45,8 +55,8 @@ export interface CategoryManagerConfig {
   pageSubtitle: string;
   namePlaceholder: string;
   emptyStateLabel: string;
-  emptyIcon: ComponentType<{ className?: string }>;
-  cardIcon: ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  emptyIcon: LucideIcon;
+  cardIcon: LucideIcon;
   defaultColor: string;
   colorPresets: string[];
   iconOptions: { value: string; label: string }[];
@@ -62,6 +72,8 @@ export interface CategoryManagerConfig {
  * Pantalla generica de categorias: la de profesionales y la de servicios se
  * resuelven pasando `config`.
  */
+const COLUMNAS_CATEGORIA = [{ label: "Categoría" }];
+
 export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
   const { role } = useAuthStore();
   const {
@@ -89,6 +101,7 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
   const deferredSearch = useDeferredValue(search);
 
   const [createDialog, setCreateDialog] = useState(false);
+  useAltaPorUrl(() => setCreateDialog(true));
   const [createForm, setCreateForm] = useState<CategoryForm>(
     emptyForm(defaultColor)
   );
@@ -119,15 +132,11 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
     );
   }, [categories, deferredSearch]);
 
-  const { activeCount, inactiveCount } = useMemo(() => {
-    let active = 0;
-    let inactive = 0;
-    for (const c of categories ?? []) {
-      if (c.active) active++;
-      else inactive++;
-    }
-    return { activeCount: active, inactiveCount: inactive };
-  }, [categories]);
+  const activas = useMemo(() => filtered.filter((c) => c.active), [filtered]);
+  const inactivas = useMemo(
+    () => filtered.filter((c) => !c.active),
+    [filtered]
+  );
 
   const toPayload = (form: CategoryForm, includeActive = false) => ({
     name: form.name,
@@ -216,6 +225,74 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
     }
   };
 
+  /** Las categorias, con el mismo formato para activas e inactivas. */
+  const tablaDe = (items: CategoryEntity[], titulo: string) => (
+    <TablaDeRegistros titulo={titulo} columnas={COLUMNAS_CATEGORIA}>
+      {items.map((category) => {
+        const color = category.color || defaultColor;
+        return (
+          <FilaDeTabla
+            key={category.id}
+            acciones={
+              <>
+                {canDo(role, actions.edit) && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleToggle(category)}
+                      aria-label={`${category.active ? "Desactivar" : "Activar"} la categoría ${category.name}`}
+                      title={category.active ? "Desactivar" : "Activar"}
+                    >
+                      {category.active ? (
+                        <ToggleRight className="text-success h-4 w-4" />
+                      ) : (
+                        <ToggleLeft className="text-muted-foreground h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => openEdit(category)}
+                      aria-label={`Editar la categoría ${category.name}`}
+                      title="Editar"
+                    >
+                      <Edit className="text-muted-foreground h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+                {canDo(role, actions.delete) && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                    onClick={() => {
+                      setDeleteId(category.id);
+                      setDeleteError("");
+                    }}
+                    aria-label={`Eliminar la categoría ${category.name}`}
+                    title="Eliminar"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </>
+            }
+          >
+            <CeldaPrincipal
+              icono={resolveCategoryIcon(category.icon, cardIcon)}
+              colorDelIcono={color}
+              titulo={category.name}
+              subtitulo={category.description}
+            />
+          </FilaDeTabla>
+        );
+      })}
+    </TablaDeRegistros>
+  );
+
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -242,15 +319,6 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
             aria-label="Buscar categoría"
           />
         </div>
-        <div className="text-muted-foreground flex items-center gap-3 text-sm">
-          <span>
-            {activeCount} activa{activeCount !== 1 ? "s" : ""}
-          </span>
-          <span className="text-muted-foreground/30">•</span>
-          <span>
-            {inactiveCount} inactiva{inactiveCount !== 1 ? "s" : ""}
-          </span>
-        </div>
       </div>
 
       {toggleError && (
@@ -259,42 +327,54 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
         </p>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {loading ? (
-          <LoadingState recurso="las categorías" />
-        ) : filtered.length === 0 ? (
-          <div className="col-span-full py-12 text-center">
-            <EmptyIcon className="text-muted-foreground/40 mx-auto h-12 w-12" />
-            <p className="text-muted-foreground mt-3 text-lg font-medium">
-              {search
-                ? "No se encontraron categorías"
-                : `No hay ${emptyStateLabel} creadas`}
-            </p>
-            <p className="text-muted-foreground/70 mt-1 text-sm">
-              {search
-                ? "Intenta con otro término de búsqueda"
-                : 'Haz clic en "Nueva categoría" para crear la primera'}
-            </p>
-          </div>
-        ) : (
-          filtered.map((category) => (
-            <CategoryCard
-              key={category.id}
-              category={category}
-              icon={cardIcon}
-              defaultColor={defaultColor}
-              canEdit={canDo(role, actions.edit)}
-              canDelete={canDo(role, actions.delete)}
-              onToggle={handleToggle}
-              onEdit={openEdit}
-              onDelete={(id) => {
-                setDeleteId(id);
-                setDeleteError("");
-              }}
-            />
-          ))
-        )}
-      </div>
+      {loading ? (
+        <LoadingState recurso="las categorías" />
+      ) : (
+        <Tabs defaultValue="activas">
+          <TabsList className="mb-3">
+            <TabsTrigger value="activas">
+              Activas ({activas.length})
+            </TabsTrigger>
+            <TabsTrigger value="inactivas">
+              Inactivas ({inactivas.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="activas">
+            {activas.length === 0 ? (
+              <EmptyState
+                icon={EmptyIcon}
+                sinTarjeta
+                titulo={
+                  search
+                    ? "No se encontraron categorías"
+                    : `Aún no hay ${emptyStateLabel}`
+                }
+                descripcion={
+                  search
+                    ? "Intenta con otro término de búsqueda"
+                    : 'Haz clic en "Nueva categoría" para crear la primera'
+                }
+              />
+            ) : (
+              tablaDe(activas, "Categorías activas")
+            )}
+          </TabsContent>
+
+          <TabsContent value="inactivas">
+            {inactivas.length === 0 ? (
+              <EmptyState
+                icon={EmptyIcon}
+                sinTarjeta
+                titulo="No hay categorías inactivas"
+                descripcion="Las que desactives aparecerán aquí y podrás volver a activarlas."
+              />
+            ) : (
+              tablaDe(inactivas, "Categorías inactivas")
+            )}
+          </TabsContent>
+        </Tabs>
+      )}
 
       <CategoryFormDialog
         open={createDialog}
@@ -341,14 +421,15 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
         onClose={() => setDeleteId(null)}
         onConfirm={handleDelete}
         title="Desactivar categoría"
-        confirmLabel="Si, desactivar"
+        confirmLabel="Sí, desactivar"
         pendingLabel="Desactivando..."
         pending={deleting}
         variant="destructive"
         error={deleteError}
-      >
-        {deleteConfirmMessage}
-      </ConfirmDialog>
+        registro={categories?.find((c) => c.id === deleteId)?.name}
+        consecuencias={deleteConfirmMessage}
+        seConserva="Lo que ya estaba clasificado con ella no se toca."
+      />
     </div>
   );
 }

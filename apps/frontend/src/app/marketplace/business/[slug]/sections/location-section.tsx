@@ -24,7 +24,7 @@ export function LocationSection({
         <MapPin className="text-primary h-5 w-5" />
         {title}
       </h2>
-      <Card className="border-0 shadow-sm">
+      <Card className="shadow-flat border-0">
         <CardContent className="p-5">
           <div className="flex items-start gap-3">
             <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">

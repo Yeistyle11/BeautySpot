@@ -32,7 +32,7 @@ export function SelectProfessionalStep({
     }`;
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardHeader>
         <CardTitle>Selecciona el profesional</CardTitle>
       </CardHeader>

@@ -2,10 +2,10 @@
 
 // Dialogo con el detalle completo de un profesional.
 import Image from "next/image";
-import { Star, Briefcase, Pencil } from "lucide-react";
+import { Star, Briefcase, Pencil, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog } from "@/components/ui/dialog";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { imageUnoptimized } from "@/lib/image";
 import { formatAniosExperiencia } from "@/lib/utils";
 import type { Professional } from "./schemas";
@@ -44,6 +44,17 @@ export function ProfessionalDetailDialog({
       open={!!professional}
       onClose={onClose}
       title="Detalle del profesional"
+      icono={UserRound}
+      pie={
+        professional && (
+          <>
+            <BotonDeCancelar>Cerrar</BotonDeCancelar>
+            <Button onClick={() => onEdit(professional)}>
+              <Pencil className="mr-2 h-4 w-4" /> Editar
+            </Button>
+          </>
+        )
+      }
     >
       {professional && (
         <div>
@@ -119,15 +130,6 @@ export function ProfessionalDetailDialog({
               {formatAniosExperiencia(professional.yearsExp)}
             </p>
           </DetailBlock>
-
-          <div className="flex gap-2 border-t pt-4">
-            <Button onClick={() => onEdit(professional)}>
-              <Pencil className="mr-2 h-4 w-4" /> Editar
-            </Button>
-            <Button variant="outline" onClick={onClose}>
-              Cerrar
-            </Button>
-          </div>
         </div>
       )}
     </Dialog>

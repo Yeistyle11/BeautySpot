@@ -2,6 +2,7 @@ import {
   profileResponseSchema,
   servicioPublicoSchema,
   profesionalPublicoSchema,
+  ratingDistributionSchema,
 } from "../schemas";
 
 /** Respuesta de GET /marketplace/profiles/:slug. */
@@ -129,5 +130,34 @@ describe("profesionalPublicoSchema", () => {
     const { name: _n, ...sinNombre } = profesional;
 
     expect(profesionalPublicoSchema.safeParse(sinNombre).success).toBe(false);
+  });
+});
+
+// La forma que produce marketplace-service (`ReviewSummary`).
+describe("ratingDistributionSchema", () => {
+  const resumen = {
+    average: 4.33,
+    total: 3,
+    distribution: { 5: 2, 4: 0, 3: 1, 2: 0, 1: 0 },
+  };
+
+  it("acepta el resumen tal como lo devuelve el marketplace", () => {
+    expect(ratingDistributionSchema.parse(resumen)).toEqual(resumen);
+  });
+
+  it("rechaza el resumen con las estrellas al nivel superior", () => {
+    const plano = { average: 4.33, total: 3, 5: 2, 4: 0, 3: 1, 2: 0, 1: 0 };
+
+    expect(() => ratingDistributionSchema.parse(plano)).toThrow();
+  });
+
+  it("acepta un negocio sin ninguna resena", () => {
+    expect(() =>
+      ratingDistributionSchema.parse({
+        average: 0,
+        total: 0,
+        distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+      })
+    ).not.toThrow();
   });
 });

@@ -3,6 +3,7 @@
 // Error boundary del dashboard: aviso de seccion no cargada con opcion de reintentar.
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 
@@ -26,9 +27,16 @@ export default function DashboardError({
           Ocurrió un error inesperado. Intenta nuevamente.
         </p>
       </div>
-      <Button onClick={() => reset()} size="sm">
-        Reintentar
-      </Button>
+      {/* Si el fallo se repite, reintentar no saca de aqui: hace falta una
+          salida a una pantalla que si cargue. */}
+      <div className="flex gap-2">
+        <Button onClick={() => reset()} size="sm">
+          Reintentar
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/dashboard">Volver al panel</Link>
+        </Button>
+      </div>
     </div>
   );
 }

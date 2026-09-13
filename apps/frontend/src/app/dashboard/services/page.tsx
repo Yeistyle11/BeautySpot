@@ -4,15 +4,21 @@
 import { useState, useMemo } from "react";
 import { mensajeDeError } from "@/lib/error-message";
 import { z } from "zod";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  TablaDeRegistros,
+  FilaDeTabla,
+  CeldaDeTabla,
+  CeldaPrincipal,
+  type DireccionDeOrden,
+  type ColumnaDeTabla,
+} from "@/components/ui/tabla-de-registros";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { PageHeader } from "@/components/ui/page-header";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { CategoryBadge } from "@/components/ui/category-badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Scissors, Plus, Clock, Edit, Trash2, Tag } from "lucide-react";
+import { Scissors, Plus, Edit, Power, PowerOff, Tag } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
@@ -23,7 +29,8 @@ import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FilterChip } from "@/components/ui/filter-chip";
+import { Select } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ServiceFormDialog } from "./service-form-dialog";
 import {
   CATEGORIES_KEY,
@@ -35,6 +42,22 @@ import {
   type Service,
   type ServiceCategory,
 } from "./schemas";
+
+/** Campos por los que se puede ordenar el catalogo. */
+type CampoDeOrden = "name" | "duration" | "price";
+
+const COLUMNAS: ColumnaDeTabla<CampoDeOrden>[] = [
+  { label: "Servicio", campo: "name" },
+  { label: "Categoría", ocultaEnMovil: true },
+  // En movil quedan solo el nombre y el precio.
+  {
+    label: "Duración",
+    campo: "duration",
+    alineacion: "right",
+    ocultaEnMovil: true,
+  },
+  { label: "Precio", campo: "price", alineacion: "right" },
+];
 
 /** Cajon de los servicios que no pertenecen a ninguna categoria del negocio. */
 const SIN_CATEGORIA = "Sin categoría";
@@ -55,12 +78,23 @@ export default function ServicesPage() {
     basePath: "/core/services",
     schema: z.array(serviceSchema),
   });
-  const { data: categories } = useApi<ServiceCategory[]>(
-    CATEGORIES_KEY,
-    undefined,
-    z.array(serviceCategorySchema)
-  );
+  const { data: categories, mutate: recargarCategorias } = useApi<
+    ServiceCategory[]
+  >(CATEGORIES_KEY, undefined, z.array(serviceCategorySchema));
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [pestana, setPestana] = useState<"activos" | "inactivos">("activos");
+  const [orden, setOrden] = useState<{
+    campo: CampoDeOrden;
+    direccion: DireccionDeOrden;
+  }>({ campo: "name", direccion: "asc" });
+
+  /** Alterna el sentido si se repite la columna; si no, empieza ascendente. */
+  const alternarOrden = (campo: CampoDeOrden) =>
+    setOrden((actual) =>
+      actual.campo === campo
+        ? { campo, direccion: actual.direccion === "asc" ? "desc" : "asc" }
+        : { campo, direccion: "asc" }
+    );
 
   const [createDialog, setCreateDialog] = useState(false);
   const [createForm, setCreateForm] = useState(emptyForm);
@@ -76,7 +110,8 @@ export default function ServicesPage() {
   const [editForm, setEditForm] = useState(emptyForm);
   const [savingEdit, setSavingEdit] = useState(false);
 
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [desactivarId, setDesactivarId] = useState<string | null>(null);
+  const [reactivandoId, setReactivandoId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
@@ -91,6 +126,16 @@ export default function ServicesPage() {
     [categories]
   );
 
+  // Etiquetas fuera del catalogo, que el filtro no reconoce.
+  const etiquetasHeredadas = useMemo(() => {
+    const nombres = new Set(
+      services
+        .map((s) => s.category ?? "")
+        .filter((c) => c && !categoryNames.includes(c))
+    );
+    return [...nombres].sort();
+  }, [services, categoryNames]);
+
   const filtered = useMemo(() => {
     if (filterCategory === "all") return services;
     if (filterCategory === SIN_CATEGORIA) {
@@ -99,9 +144,30 @@ export default function ServicesPage() {
     return services.filter((s) => s.category === filterCategory);
   }, [services, filterCategory, categoryNames]);
 
+  const ordenados = useMemo(() => {
+    const factor = orden.direccion === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) =>
+      orden.campo === "name"
+        ? factor * a.name.localeCompare(b.name, "es")
+        : factor * (Number(a[orden.campo]) - Number(b[orden.campo]))
+    );
+  }, [filtered, orden]);
+
+  // Activos e inactivos viven en pestanas separadas: el catalogo que se
+  // agenda es el de los activos.
+  const activos = useMemo(() => ordenados.filter((s) => s.active), [ordenados]);
+  const inactivos = useMemo(
+    () => ordenados.filter((s) => !s.active),
+    [ordenados]
+  );
+
+  // Los contadores cuentan dentro de la pestana visible.
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const s of services) {
+    const delEstado = services.filter(
+      (s) => s.active === (pestana === "activos")
+    );
+    for (const s of delEstado) {
       const nombre = s.category ?? "";
       // Lo que no encaja con ninguna categoria del negocio se agrupa aparte,
       // para que ningun servicio desaparezca del listado.
@@ -109,7 +175,7 @@ export default function ServicesPage() {
       counts.set(clave, (counts.get(clave) ?? 0) + 1);
     }
     return counts;
-  }, [services, categoryNames]);
+  }, [services, categoryNames, pestana]);
 
   const chips = useMemo(() => {
     const conServicios = categoryNames.filter((c) => categoryCounts.get(c));
@@ -206,21 +272,114 @@ export default function ServicesPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
+  const handleDesactivar = async () => {
+    if (!desactivarId) return;
     setDeleting(true);
     setDeleteError("");
     try {
-      await removeService(deleteId);
-      setDeleteId(null);
+      await removeService(desactivarId);
+      setDesactivarId(null);
+      toast.exito("Servicio desactivado");
     } catch (err) {
       logger.error(err);
       toast.error(mensajeDeError(err));
-      setDeleteError(mensajeDeError(err, "No se pudo eliminar el servicio"));
+      setDeleteError(mensajeDeError(err, "No se pudo desactivar el servicio"));
     } finally {
       setDeleting(false);
     }
   };
+
+  /** Devuelve el servicio al catalogo que se puede agendar. */
+  const reactivar = async (s: Service) => {
+    setReactivandoId(s.id);
+    try {
+      await updateService(s.id, { active: true });
+      toast.exito(`"${s.name}" vuelve a estar disponible`);
+    } catch (err) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
+    } finally {
+      setReactivandoId(null);
+    }
+  };
+
+  /** La tabla del catalogo, con el mismo formato para activos e inactivos. */
+  const tablaDe = (items: Service[], titulo: string) => (
+    <TablaDeRegistros
+      titulo={titulo}
+      columnas={COLUMNAS}
+      orden={orden}
+      onOrdenar={alternarOrden}
+    >
+      {items.map((s) => (
+        <FilaDeTabla
+          key={s.id}
+          acciones={
+            <>
+              {canDo(role, "services_edit") && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => openEdit(s)}
+                  aria-label={`Editar el servicio ${s.name}`}
+                  title="Editar servicio"
+                >
+                  <Edit className="text-muted-foreground h-4 w-4" />
+                </Button>
+              )}
+              {/* Desactiva, no borra: al servicio lo referencian citas y cobros. */}
+              {canDo(role, "services_delete") &&
+                (s.active ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                    onClick={() => {
+                      setDesactivarId(s.id);
+                      setDeleteError("");
+                    }}
+                    aria-label={`Desactivar el servicio ${s.name}`}
+                    title="Desactivar servicio"
+                  >
+                    <PowerOff className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hover:text-success h-8 w-8"
+                    onClick={() => void reactivar(s)}
+                    disabled={reactivandoId === s.id}
+                    aria-label={`Activar el servicio ${s.name}`}
+                    title="Activar servicio"
+                  >
+                    <Power className="h-4 w-4" />
+                  </Button>
+                ))}
+            </>
+          }
+        >
+          <CeldaPrincipal titulo={s.name} subtitulo={s.description} />
+          <CeldaDeTabla ocultaEnMovil>
+            <CategoryBadge
+              nombre={s.category ?? ""}
+              delCatalogo={categoryNames.includes(s.category ?? "")}
+            />
+          </CeldaDeTabla>
+          <CeldaDeTabla alineacion="right" apagada ocultaEnMovil>
+            {s.duration} min
+          </CeldaDeTabla>
+          <CeldaDeTabla
+            alineacion="right"
+            className="text-primary font-semibold"
+          >
+            {formatCurrency(s.price)}
+          </CeldaDeTabla>
+        </FilaDeTabla>
+      ))}
+    </TablaDeRegistros>
+  );
 
   return (
     <div>
@@ -258,134 +417,111 @@ export default function ServicesPage() {
         </div>
       )}
 
+      {!loading &&
+        categoryNames.length > 0 &&
+        etiquetasHeredadas.length > 0 && (
+          <div className="bg-muted/40 text-muted-foreground mb-4 flex flex-wrap items-center gap-2 rounded-lg p-3 text-sm">
+            <Tag className="h-4 w-4 shrink-0" />
+            <span>
+              {etiquetasHeredadas.length === 1
+                ? `La etiqueta "${etiquetasHeredadas[0]}" no está en el catálogo, así que no se puede filtrar por ella.`
+                : `${etiquetasHeredadas.length} etiquetas no están en el catálogo, así que no se puede filtrar por ellas: ${etiquetasHeredadas.join(", ")}.`}
+            </span>
+            <Link
+              href="/dashboard/service-categories"
+              className="text-primary font-medium underline-offset-4 hover:underline"
+            >
+              Crear categorías
+            </Link>
+          </div>
+        )}
+
+      {/* Filtro por categoria. Cada opcion lleva cuantos servicios tiene. */}
       {chips.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <Tag className="text-muted-foreground h-4 w-4" />
-          <FilterChip
-            activo={filterCategory === "all"}
-            onClick={() => setFilterCategory("all")}
+        <div className="mb-4 flex items-center gap-2">
+          <Tag className="text-muted-foreground h-4 w-4 shrink-0" />
+          <Select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            aria-label="Filtrar los servicios por categoría"
+            className="h-9 w-auto min-w-[260px]"
           >
-            Todos ({services.length})
-          </FilterChip>
-          {chips.map((cat) => {
-            const count = categoryCounts.get(cat) ?? 0;
-            return (
-              <FilterChip
-                key={cat}
-                activo={filterCategory === cat}
-                onClick={() => setFilterCategory(cat)}
-              >
-                {cat} ({count})
-              </FilterChip>
-            );
-          })}
+            <option value="all">
+              Todas las categorías (
+              {pestana === "activos" ? activos.length : inactivos.length})
+            </option>
+            {chips.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat} ({categoryCounts.get(cat) ?? 0})
+              </option>
+            ))}
+          </Select>
         </div>
       )}
 
-      {!loading && !loadError && filtered.length === 0 && (
-        <EmptyState
-          icon={Scissors}
-          titulo={
-            services.length === 0
-              ? "Aun no hay servicios"
-              : "Ningun servicio en esta categoría"
-          }
-          descripcion={
-            services.length === 0
-              ? "Crea el primero para poder agendarlo y cobrarlo."
-              : "Prueba con otra categoría o quita el filtro."
-          }
-          accion={
-            services.length === 0 &&
-            canDo(role, "services_create") && (
-              <Button onClick={() => setCreateDialog(true)}>
-                Nuevo servicio
-              </Button>
-            )
-          }
+      {loading ? (
+        <LoadingState recurso="los servicios" />
+      ) : loadError ? (
+        <ErrorDeCarga
+          error={loadError}
+          recurso="los servicios"
+          onReintentar={() => void reload()}
         />
-      )}
+      ) : (
+        <Tabs
+          value={pestana}
+          onValueChange={(v) => setPestana(v as "activos" | "inactivos")}
+        >
+          <TabsList className="mb-3">
+            <TabsTrigger value="activos">
+              Activos ({activos.length})
+            </TabsTrigger>
+            <TabsTrigger value="inactivos">
+              Inactivos ({inactivos.length})
+            </TabsTrigger>
+          </TabsList>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {loading ? (
-          <LoadingState recurso="los servicios" />
-        ) : loadError ? (
-          <ErrorDeCarga
-            error={loadError}
-            recurso="los servicios"
-            onReintentar={() => void reload()}
-          />
-        ) : (
-          filtered.map((s) => (
-            <Card
-              key={s.id}
-              className={`border-0 shadow-sm transition-shadow [contain-intrinsic-size:auto_180px] [content-visibility:auto] hover:shadow-md ${!s.active ? "opacity-60" : ""}`}
-            >
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
-                      <Scissors className="text-primary h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">{s.name}</p>
-                      <CategoryBadge
-                        nombre={s.category ?? ""}
-                        delCatalogo={categoryNames.includes(s.category ?? "")}
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {canDo(role, "services_edit") && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEdit(s)}
-                        aria-label={`Editar el servicio ${s.name}`}
-                      >
-                        <Edit className="text-muted-foreground h-4 w-4" />
-                      </Button>
-                    )}
-                    {canDo(role, "services_delete") && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setDeleteId(s.id);
-                          setDeleteError("");
-                        }}
-                        aria-label={`Eliminar el servicio ${s.name}`}
-                      >
-                        <Trash2 className="text-muted-foreground h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                {s.description && (
-                  <p className="text-muted-foreground mt-2 text-sm">
-                    {s.description}
-                  </p>
-                )}
-                <div className="mt-3 flex items-center gap-4 text-sm">
-                  <span className="text-primary font-semibold">
-                    {formatCurrency(s.price)}
-                  </span>
-                  <span className="text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
-                    {s.duration} min
-                  </span>
-                  {!s.active && (
-                    <Badge variant="secondary" className="text-xs">
-                      Inactivo
-                    </Badge>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+          <TabsContent value="activos">
+            {activos.length === 0 ? (
+              <EmptyState
+                icon={Scissors}
+                titulo={
+                  services.length === 0
+                    ? "Aún no hay servicios"
+                    : "Ningún servicio activo con este filtro"
+                }
+                descripcion={
+                  services.length === 0
+                    ? "Crea el primero para poder agendarlo y cobrarlo."
+                    : "Prueba con otra categoría o mira la pestaña de inactivos."
+                }
+                accion={
+                  services.length === 0 &&
+                  canDo(role, "services_create") && (
+                    <Button onClick={() => setCreateDialog(true)}>
+                      Nuevo servicio
+                    </Button>
+                  )
+                }
+              />
+            ) : (
+              tablaDe(activos, "Servicios activos")
+            )}
+          </TabsContent>
+
+          <TabsContent value="inactivos">
+            {inactivos.length === 0 ? (
+              <EmptyState
+                icon={Scissors}
+                titulo="No hay servicios inactivos"
+                descripcion="Los servicios que desactives aparecerán aquí y podrás volver a activarlos."
+              />
+            ) : (
+              tablaDe(inactivos, "Servicios inactivos")
+            )}
+          </TabsContent>
+        </Tabs>
+      )}
 
       <ServiceFormDialog
         open={createDialog}
@@ -396,6 +532,7 @@ export default function ServicesPage() {
         onSubmit={handleCreate}
         guardando={savingCreate}
         categorias={categories ?? []}
+        onRecargarCategorias={recargarCategorias}
       />
 
       <ServiceFormDialog
@@ -407,24 +544,26 @@ export default function ServicesPage() {
         onSubmit={handleUpdate}
         guardando={savingEdit}
         categorias={categories ?? []}
+        onRecargarCategorias={recargarCategorias}
         conflicto={conflicto}
         onRecargar={() => void recargarEnEdicion()}
         recargando={recargando}
       />
 
       <ConfirmDialog
-        open={!!deleteId}
-        onClose={() => setDeleteId(null)}
-        onConfirm={handleDelete}
-        title="Eliminar servicio"
-        confirmLabel="Si, eliminar"
-        pendingLabel="Eliminando..."
+        open={!!desactivarId}
+        onClose={() => setDesactivarId(null)}
+        onConfirm={handleDesactivar}
+        title="Desactivar servicio"
+        confirmLabel="Sí, desactivar"
+        pendingLabel="Desactivando..."
         pending={deleting}
         variant="destructive"
         error={deleteError}
-      >
-        Esta accion no se puede deshacer.
-      </ConfirmDialog>
+        registro={services.find((s) => s.id === desactivarId)?.name}
+        consecuencias="dejará de poder agendarse y saldrá del catálogo activo."
+        seConserva="Las citas y los cobros que ya lo incluyen no se tocan, y puedes volver a activarlo cuando quieras desde la pestaña «Inactivos»."
+      />
     </div>
   );
 }

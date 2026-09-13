@@ -19,6 +19,7 @@ import {
   CalendarClock,
   AlertTriangle,
   FileText,
+  Ban,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
@@ -31,6 +32,7 @@ import Link from "next/link";
 import {
   appointmentSchema,
   reviewSchema,
+  MY_APPOINTMENTS_KEY,
   type Appointment,
   type Review,
 } from "@/lib/schemas/appointment";
@@ -67,7 +69,8 @@ export default function AppointmentDetailPage() {
       // El motivo lo fija el backend: desde aqui solo cancela el cliente.
       await api.post(`/booking/appointments/mine/${appointment.id}/cancel`, {});
       await mutateAppointment();
-      await mutate("/booking/appointments");
+      // La lista del cliente cuelga de su propia clave.
+      await mutate(MY_APPOINTMENTS_KEY);
       setCancelDialogOpen(false);
     } catch (err: unknown) {
       logger.error(err);
@@ -113,12 +116,12 @@ export default function AppointmentDetailPage() {
       <div className="flex flex-col items-center justify-center py-20">
         <AlertTriangle className="mb-3 h-12 w-12 text-red-400" />
         <p className="text-destructive">{error}</p>
-        <Link href="/dashboard/client/appointments">
-          <Button variant="outline" className="mt-4 gap-2">
+        <Button asChild variant="outline" className="mt-4 gap-2">
+          <Link href="/dashboard/client/appointments">
             <ArrowLeft className="h-4 w-4" />
             Volver a mis citas
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
     );
   }
@@ -151,7 +154,7 @@ export default function AppointmentDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Scissors className="h-4 w-4" />
@@ -189,7 +192,7 @@ export default function AppointmentDetailPage() {
           </Card>
 
           {appointment.notes && (
-            <Card className="border-0 shadow-sm">
+            <Card className="shadow-flat border-0">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <FileText className="h-4 w-4" />
@@ -206,7 +209,7 @@ export default function AppointmentDetailPage() {
         </div>
 
         <div className="space-y-4">
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Calendar className="h-4 w-4" />
@@ -230,21 +233,21 @@ export default function AppointmentDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardHeader>
               <CardTitle className="text-base">Acciones</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {canReschedule && (
-                <Link
-                  href={`/dashboard/client/appointments/${appointment.id}/reschedule`}
-                  className="block"
-                >
-                  <Button variant="outline" className="w-full gap-2">
+                <Button asChild variant="outline" className="w-full gap-2">
+                  <Link
+                    href={`/dashboard/client/appointments/${appointment.id}/reschedule`}
+                    className="block"
+                  >
                     <CalendarClock className="h-4 w-4" />
                     Reagendar
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               )}
               {canCancel && (
                 <Button
@@ -256,15 +259,15 @@ export default function AppointmentDetailPage() {
                 </Button>
               )}
               {canReview && (
-                <Link
-                  href={`/dashboard/client/appointments/${appointment.id}/review`}
-                  className="block"
-                >
-                  <Button className="w-full gap-2">
+                <Button asChild className="w-full gap-2">
+                  <Link
+                    href={`/dashboard/client/appointments/${appointment.id}/review`}
+                    className="block"
+                  >
                     <Star className="h-4 w-4" />
                     Dejar reseña
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               )}
               {!canCancel && !canReschedule && !canReview && (
                 <p className="text-muted-foreground py-2 text-center text-sm">
@@ -280,13 +283,9 @@ export default function AppointmentDetailPage() {
         open={cancelDialogOpen}
         onClose={() => setCancelDialogOpen(false)}
         title="Cancelar cita"
-      >
-        <div className="space-y-4">
-          <p className="text-muted-foreground text-sm">
-            ¿Estás seguro de que deseas cancelar esta cita? Esta acción no se
-            puede deshacer.
-          </p>
-          <div className="flex justify-end gap-3">
+        icono={Ban}
+        pie={
+          <>
             <Button
               variant="outline"
               onClick={() => setCancelDialogOpen(false)}
@@ -299,9 +298,16 @@ export default function AppointmentDetailPage() {
               onClick={handleCancel}
               disabled={cancelling}
             >
-              {cancelling ? "Cancelando..." : "Si, cancelar cita"}
+              {cancelling ? "Cancelando..." : "Sí, cancelar cita"}
             </Button>
-          </div>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-muted-foreground text-sm">
+            ¿Estás seguro de que deseas cancelar esta cita? Esta acción no se
+            puede deshacer.
+          </p>
         </div>
       </Dialog>
     </div>

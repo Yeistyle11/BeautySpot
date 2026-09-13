@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { timeToMinutes } from "@beautyspot/shared-utils";
-import { franjaDeHoras, type HorarioDelNegocio } from "@/lib/franja-horaria";
+import {
+  franjaDeHoras,
+  franjaDeJornada,
+  type HorarioDelNegocio,
+} from "@/lib/franja-horaria";
 import {
   desplazarDia,
   fechasDeLaSemana,
@@ -88,10 +92,9 @@ export function CalendarView({
 
   const todayKey = toLocalDateKey(new Date());
 
-  // La rejilla se estira hasta donde haya algo que pintar. Con una franja fija
-  // de 7 a 18, un negocio nocturno veia la semana entera vacia —con aspecto de
-  // disponible— aunque el dato llegara: no habia fila donde dibujarlo.
-  const horas = useMemo(
+  // Todo lo que hay que poder pintar: la jornada del negocio y ademas las citas
+  // y bloqueos que caigan fuera de ella.
+  const todasLasHoras = useMemo(
     () =>
       franjaDeHoras(
         [
@@ -133,6 +136,33 @@ export function CalendarView({
     return mapa;
   }, [bloqueos]);
 
+  // La jornada del negocio mas las horas de fuera que tengan algo; las filas
+  // vacias se pliegan.
+  const jornada = useMemo(() => franjaDeJornada(horarios), [horarios]);
+  const [verTodo, setVerTodo] = useState(false);
+
+  // Solo cuenta lo que cae en los siete dias que se pintan.
+  const conContenido = useMemo(() => {
+    const horasConAlgo = new Set<number>();
+    for (const mapa of [appointmentsByHour, bloqueosPorHora]) {
+      for (const [clave, valor] of Object.entries(mapa)) {
+        if (!valor.length) continue;
+        const corte = clave.lastIndexOf("-");
+        if (!weekDates.includes(clave.slice(0, corte))) continue;
+        horasConAlgo.add(Number(clave.slice(corte + 1)));
+      }
+    }
+    return horasConAlgo;
+  }, [appointmentsByHour, bloqueosPorHora, weekDates]);
+
+  const visibles = useMemo(
+    () =>
+      todasLasHoras.filter((h) => jornada.includes(h) || conContenido.has(h)),
+    [todasLasHoras, jornada, conContenido]
+  );
+  const horas = verTodo ? todasLasHoras : visibles;
+  const plegadas = todasLasHoras.length - visibles.length;
+
   const prevWeek = () => onDateChange(desplazarDia(date, -7));
   const nextWeek = () => onDateChange(desplazarDia(date, 7));
   const thisWeek = () => onDateChange(todayKey);
@@ -171,9 +201,11 @@ export function CalendarView({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* La rejilla se desplaza sola, con su propio scroll. */}
+      <div className="max-h-[70vh] overflow-auto">
         <div className="min-w-[700px]">
-          <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b">
+          {/* Cabecera fija con los siete dias. */}
+          <div className="bg-background sticky top-0 z-10 grid grid-cols-[60px_repeat(7,1fr)] border-b">
             <div className="text-muted-foreground p-2 text-center text-xs">
               Hora
             </div>
@@ -225,7 +257,7 @@ export function CalendarView({
                     {hourBloqueos.map((bloqueo) => (
                       <p
                         key={bloqueo.id}
-                        className="text-muted-foreground bg-muted-foreground/20 border-muted-foreground/40 mb-0.5 truncate rounded border border-dashed px-1.5 py-0.5 text-xs"
+                        className="text-muted-foreground bg-muted-foreground/20 border-muted-foreground/40 mb-0.5 truncate rounded-sm border border-dashed px-1.5 py-0.5 text-xs"
                         title={`${bloqueo.reason || "Agenda bloqueada"} · ${
                           nombresDeProfesional[bloqueo.professionalId] ??
                           "profesional"
@@ -249,7 +281,7 @@ export function CalendarView({
                             )
                           }
                           aria-pressed={selectedId === appt.id}
-                          className={`w-full cursor-pointer rounded border px-1.5 py-0.5 text-left text-xs ${colorClass} ${selectedId === appt.id ? "ring-primary ring-2" : ""}`}
+                          className={`w-full cursor-pointer rounded-sm border px-1.5 py-0.5 text-left text-xs ${colorClass} ${selectedId === appt.id ? "ring-primary ring-2" : ""}`}
                         >
                           <p className="truncate font-medium">
                             {clientNames[appt.clientId] || "Cliente"}
@@ -269,6 +301,18 @@ export function CalendarView({
           ))}
         </div>
       </div>
+
+      {plegadas > 0 && (
+        <button
+          type="button"
+          onClick={() => setVerTodo((v) => !v)}
+          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring mt-2 rounded-lg px-2 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2"
+        >
+          {verTodo
+            ? "Ocultar las horas sin actividad"
+            : `Mostrar ${plegadas} ${plegadas === 1 ? "hora" : "horas"} fuera del horario`}
+        </button>
+      )}
 
       {selectedAppt && (
         <div className="bg-muted/30 mt-4 rounded-lg border p-4">

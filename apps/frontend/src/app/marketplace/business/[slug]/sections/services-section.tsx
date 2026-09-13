@@ -25,7 +25,7 @@ export function ServicesSection({
       </h2>
       <div className="grid gap-4 sm:grid-cols-2">
         {services.map((s) => (
-          <Card key={s.id} className="border-0 shadow-sm">
+          <Card key={s.id} className="shadow-flat border-0">
             <CardContent className="p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -53,11 +53,14 @@ export function ServicesSection({
                     {s.precioVariable ? "desde " : ""}
                     {formatCurrency(s.price)}
                   </p>
-                  <Link href={`/marketplace/business/${slug}/book`}>
-                    <Button size="sm" variant="outline" className="mt-2">
+                  <Button asChild size="sm" variant="outline" className="mt-2">
+                    {/* El servicio elegido viaja en la URL. */}
+                    <Link
+                      href={`/marketplace/business/${slug}/book?serviceId=${s.id}`}
+                    >
                       Reservar
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 </div>
               </div>
             </CardContent>

@@ -2,11 +2,11 @@
 
 // Dialogo para anadir una imagen a la galeria del perfil publico.
 import Image from "next/image";
-import { Plus } from "lucide-react";
+import { ImagePlus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
-import { Dialog } from "@/components/ui/dialog";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { imageUnoptimized } from "@/lib/image";
 
 export const emptyGalleryForm = { url: "", title: "", category: "" };
@@ -31,7 +31,21 @@ export function AddImageDialog({
   const set = (patch: Partial<GalleryForm>) => onChange({ ...form, ...patch });
 
   return (
-    <Dialog open={open} onClose={onClose} title="Agregar imagen">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Agregar imagen"
+      descripcion="Se añade a la galería del perfil público."
+      icono={ImagePlus}
+      pie={
+        <>
+          <BotonDeCancelar />
+          <Button onClick={onSubmit} disabled={!form.url}>
+            <Plus className="mr-2 h-4 w-4" /> Agregar
+          </Button>
+        </>
+      }
+    >
       <div className="space-y-4">
         <Field label="URL de la imagen">
           <Input
@@ -64,9 +78,6 @@ export function AddImageDialog({
             onChange={(e) => set({ category: e.target.value })}
           />
         </Field>
-        <Button onClick={onSubmit} disabled={!form.url}>
-          <Plus className="mr-2 h-4 w-4" /> Agregar
-        </Button>
       </div>
     </Dialog>
   );

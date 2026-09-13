@@ -2,15 +2,33 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { BusinessConfigService } from "./business-config.service";
 import { BusinessConfig } from "../../entities/business-config.entity";
+import { v4 as uuidv4 } from "uuid";
 
 describe("BusinessConfigService", () => {
   let service: BusinessConfigService;
-  let mockRepo: { findOne: jest.Mock; upsert: jest.Mock };
+  let mockRepo: { findOne: jest.Mock; createQueryBuilder: jest.Mock };
+  let valoresInsertados: Record<string, unknown>;
+  let columnasPisadas: string[];
 
   beforeEach(async () => {
+    valoresInsertados = {};
+    columnasPisadas = [];
+    const builder = {
+      insert: () => builder,
+      into: () => builder,
+      values: (v: Record<string, unknown>) => {
+        valoresInsertados = v;
+        return builder;
+      },
+      orUpdate: (columnas: string[]) => {
+        columnasPisadas = columnas;
+        return builder;
+      },
+      execute: jest.fn().mockResolvedValue(undefined),
+    };
     mockRepo = {
       findOne: jest.fn().mockResolvedValue(null),
-      upsert: jest.fn().mockResolvedValue(undefined),
+      createQueryBuilder: jest.fn(() => builder),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -48,14 +66,27 @@ describe("BusinessConfigService", () => {
       });
 
       expect(resultado).toEqual({ nit: "900123", serie: "FA" });
-      expect(mockRepo.upsert).toHaveBeenCalledWith(
+      expect(valoresInsertados).toEqual(
         expect.objectContaining({
           businessId: "business-123",
           key: "facturacion",
           value: { nit: "900123", serie: "FA" },
-        }),
-        ["businessId", "key"]
+        })
       );
+    });
+
+    it("pone el id de la fila que inserta", async () => {
+      (uuidv4 as jest.Mock).mockReturnValue("config-1");
+
+      await service.guardar("business-123", "facturacion", { serie: "FA" });
+
+      expect(valoresInsertados.id).toBe("config-1");
+    });
+
+    it("al chocar solo pisa el valor, no el id de la fila", async () => {
+      await service.guardar("business-123", "facturacion", { serie: "FA" });
+
+      expect(columnasPisadas).toEqual(["value", "updated_at"]);
     });
   });
 });

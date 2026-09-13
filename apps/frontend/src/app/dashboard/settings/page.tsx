@@ -433,7 +433,7 @@ export default function SettingsPage() {
               <Award className="h-4 w-4" /> Fidelidad
             </TabsTrigger>
           )}
-          {canDo(role, "business_edit") && (
+          {canDo(role, "billing_edit") && (
             <TabsTrigger value="billing" className="gap-2">
               <Receipt className="h-4 w-4" /> Facturación
             </TabsTrigger>
@@ -515,7 +515,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="billing">
-          {canDo(role, "business_edit") && (
+          {canDo(role, "billing_edit") && (
             <BillingTab
               facturacion={facturacion}
               onChange={setFacturacion}

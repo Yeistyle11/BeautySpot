@@ -1,9 +1,6 @@
 import { LOCALE_POR_DEFECTO } from "@beautyspot/shared-utils";
 
-/**
- * Cómo escribe el producto una fecha y una hora en los correos: «5 de sept de
- * 2026» y «8:00 pm», y no los valores crudos con los que viajan por el bus.
- */
+/** Cómo se escriben la fecha y la hora en los correos: «5 de sept de 2026», «20:00». */
 
 /** Fecha "YYYY-MM-DD" como «5 de sept de 2026»; el valor tal cual si no lo es. */
 export function fechaEnCastellano(fecha?: unknown): string {
@@ -25,8 +22,8 @@ export function fechaEnCastellano(fecha?: unknown): string {
 }
 
 /**
- * Hora "HH:MM" como «8:00 pm», bajando al reloj las que pasan de 24 —«24:30»
- * son las 12:30 am—, que es la convención con la que se guarda la madrugada.
+ * Hora "HH:MM" en reloj de 24 horas, bajando las que pasan de 24 —«24:30» son
+ * las «00:30»—, que es la convención con la que se guarda la madrugada.
  */
 export function horaEnCastellano(hora?: unknown): string {
   if (typeof hora !== "string") return "";
@@ -36,12 +33,10 @@ export function horaEnCastellano(hora?: unknown): string {
   if (Number.isNaN(numero) || m === undefined) return hora;
 
   const enReloj = numero % 24;
-  const sufijo = enReloj >= 12 ? "pm" : "am";
-  const doceHoras = enReloj > 12 ? enReloj - 12 : enReloj === 0 ? 12 : enReloj;
-  return `${doceHoras}:${m} ${sufijo}`;
+  return `${String(enReloj).padStart(2, "0")}:${m}`;
 }
 
-/** Fecha y hora juntas: «5 de sept de 2026, 8:00 pm». */
+/** Fecha y hora juntas: «5 de sept de 2026, 20:00». */
 export function fechaYHoraEnCastellano(
   fecha?: unknown,
   hora?: unknown

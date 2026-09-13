@@ -28,6 +28,7 @@ export class BusinessConfigController {
 
   /** Guarda los datos fiscales con los que se emiten las facturas. */
   @Patch("facturacion")
+  @Roles(Role.OWNER)
   async guardarFacturacion(
     @BusinessId() businessId: string,
     @Body() dto: FacturacionDto

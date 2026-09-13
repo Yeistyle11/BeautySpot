@@ -1,14 +1,15 @@
 "use client";
 
 // Dialogo para editar un miembro: datos, rol, estado y vinculo con un profesional.
+import { rutaDeAlta } from "@/lib/alta-por-url";
 import { Link2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { UserCog } from "lucide-react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Field } from "@/components/ui/field";
-import { Select } from "@/components/ui/select";
-import { Dialog } from "@/components/ui/dialog";
+import { SelectorDeEntidad } from "@/components/ui/selector-de-entidad";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { LONGITUD_MINIMA_CONTRASENA } from "@beautyspot/shared-constants";
 import type { EditForm, Professional, StaffMember } from "./schemas";
@@ -39,6 +40,8 @@ interface EditMemberDialogProps {
   /** Profesional ya vinculado a esta cuenta, si lo hay. */
   linkedPro: Professional | undefined;
   unlinkedPros: Professional[];
+  /** Recarga el equipo tras dar de alta un profesional desde aqui. */
+  onRecargarProfesionales?: () => Promise<unknown>;
   saving: boolean;
   error: string;
 }
@@ -56,6 +59,7 @@ export function EditMemberDialog({
   onSubmit,
   linkedPro,
   unlinkedPros,
+  onRecargarProfesionales,
   saving,
   error,
 }: EditMemberDialogProps) {
@@ -66,10 +70,24 @@ export function EditMemberDialog({
       open={!!member}
       onClose={onClose}
       title={member ? `Editar: ${member.name}` : "Editar cuenta"}
+      icono={UserCog}
       wide
+      pie={
+        member && (
+          <>
+            <BotonDeCancelar />
+            <SubmitButton
+              form="cuenta-de-usuario"
+              label="Guardar todos los cambios"
+              pendingLabel="Guardando..."
+              pending={saving}
+            />
+          </>
+        )
+      }
     >
       {member && (
-        <form onSubmit={onSubmit} className="space-y-6">
+        <form id="cuenta-de-usuario" onSubmit={onSubmit} className="space-y-6">
           {error && (
             <p
               role="alert"
@@ -168,7 +186,7 @@ export function EditMemberDialog({
                   <label className="flex cursor-pointer items-center gap-2">
                     <input
                       type="checkbox"
-                      className="border-input rounded"
+                      className="border-input rounded-sm"
                       checked={form.unlinkProfessional}
                       onChange={(e) =>
                         set({
@@ -188,18 +206,20 @@ export function EditMemberDialog({
                     Vincular a profesional
                   </Label>
                   {unlinkedPros.length > 0 ? (
-                    <Select
+                    <SelectorDeEntidad
                       id="edit-link-professional"
+                      opciones={unlinkedPros.map((p) => ({
+                        id: p.id,
+                        nombre: p.name || "Sin nombre",
+                      }))}
                       value={form.professionalId}
-                      onChange={(e) => set({ professionalId: e.target.value })}
-                    >
-                      <option value="">Sin vincular</option>
-                      {unlinkedPros.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name || "Sin nombre"}
-                        </option>
-                      ))}
-                    </Select>
+                      onChange={(id) => set({ professionalId: id })}
+                      etiquetaDeVacio="Sin vincular"
+                      placeholder="Buscar profesional..."
+                      etiquetaDeAlta="Crear profesional"
+                      rutaDeAlta={rutaDeAlta("/dashboard/professionals")}
+                      onRecargarOpciones={onRecargarProfesionales}
+                    />
                   ) : (
                     <p className="text-muted-foreground text-xs">
                       No hay profesionales disponibles para vincular.
@@ -209,17 +229,6 @@ export function EditMemberDialog({
               )}
             </Section>
           )}
-
-          <div className="flex gap-2 border-t pt-2">
-            <SubmitButton
-              label="Guardar todos los cambios"
-              pendingLabel="Guardando..."
-              pending={saving}
-            />
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
-          </div>
         </form>
       )}
     </Dialog>

@@ -2,20 +2,24 @@
 
 // Pagina de bloqueos de agenda: vacaciones, descansos y ausencias de cada
 // profesional, sueltos o repetidos.
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { z } from "zod";
-import { CalendarOff, Plus, Trash2, Repeat } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { CalendarOff, Plus, Trash2, Repeat, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Field } from "@/components/ui/field";
-import { Select } from "@/components/ui/select";
-import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
+import { Select } from "@/components/ui/select";
 import { useApi } from "@/lib/swr";
+import { LoadingState } from "@/components/ui/loading-state";
+import {
+  TablaDeRegistros,
+  FilaDeTabla,
+  CeldaDeTabla,
+  CeldaPrincipal,
+} from "@/components/ui/tabla-de-registros";
 import { useCrudResource } from "@/lib/use-crud-resource";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
@@ -35,30 +39,69 @@ import {
   type Professional,
 } from "./schemas";
 
+/** Bloqueos futuros de todo el negocio; el equipo se filtra en la pantalla. */
+const BLOQUEOS_DEL_NEGOCIO = "/booking/blocked-slots";
+
+const COLUMNAS = [
+  { label: "Profesional" },
+  { label: "Día" },
+  { label: "Franja" },
+  { label: "Motivo", ocultaEnMovil: true },
+  { label: "Repetición" },
+];
+
 export default function BlockedSlotsPage() {
   const toast = useToast();
   const { role } = useAuthStore();
   const puedeCrear = canDo(role, "blocked_slots_create");
   const puedeBorrar = canDo(role, "blocked_slots_delete");
 
-  const { data: profesionales, isLoading: cargandoEquipo } = useApi<
-    Professional[]
-  >(PROFESSIONALS_KEY, undefined, z.array(professionalSchema));
+  const { data: profesionales } = useApi<Professional[]>(
+    PROFESSIONALS_KEY,
+    undefined,
+    z.array(professionalSchema)
+  );
 
+  /** Filtro del listado; vacio muestra los de todo el equipo. */
+  const [filtroProfesional, setFiltroProfesional] = useState("");
+  /** A quien se le bloquea la agenda al crear; lo pide el propio dialogo. */
   const [profesionalId, setProfesionalId] = useState("");
 
-  // Los bloqueos cuelgan del profesional: sin uno elegido, la clave va a null
-  // y no se pide nada.
+  // El listado trae los bloqueos futuros de todo el negocio; el filtro por
+  // profesional se aplica aqui.
   const {
-    items: bloqueos,
+    items: todos,
     isLoading,
     error,
     reload,
   } = useCrudResource<BlockedSlot>({
-    listKey: profesionalId ? blockedSlotsPath(profesionalId) : "",
-    basePath: profesionalId ? blockedSlotsPath(profesionalId) : "",
+    listKey: BLOQUEOS_DEL_NEGOCIO,
+    basePath: BLOQUEOS_DEL_NEGOCIO,
     schema: z.array(blockedSlotSchema),
   });
+
+  const nombreDeProfesional = useMemo(() => {
+    const mapa: Record<string, string> = {};
+    for (const p of profesionales ?? []) mapa[p.id] = p.name;
+    return mapa;
+  }, [profesionales]);
+
+  const bloqueos = useMemo(
+    () =>
+      filtroProfesional
+        ? todos.filter((b) => b.professionalId === filtroProfesional)
+        : todos,
+    [todos, filtroProfesional]
+  );
+
+  /** Cuantos bloqueos futuros tiene cada persona, para el filtro. */
+  const cuentaPorProfesional = useMemo(() => {
+    const cuenta: Record<string, number> = {};
+    for (const b of todos) {
+      cuenta[b.professionalId] = (cuenta[b.professionalId] ?? 0) + 1;
+    }
+    return cuenta;
+  }, [todos]);
 
   const [dialogo, setDialogo] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -96,7 +139,7 @@ export default function BlockedSlotsPage() {
     if (!aBorrar) return;
     setBorrando(true);
     try {
-      const ruta = `${blockedSlotsPath(profesionalId)}/${aBorrar.id}`;
+      const ruta = `${blockedSlotsPath(aBorrar.professionalId)}/${aBorrar.id}`;
       await api.delete(borrarSerie ? `${ruta}/serie` : ruta);
       setABorrar(null);
       await reload();
@@ -119,7 +162,7 @@ export default function BlockedSlotsPage() {
             franja.
           </p>
         </div>
-        {puedeCrear && profesionalId && (
+        {puedeCrear && (
           <Button onClick={() => setDialogo(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Bloquear agenda
@@ -127,89 +170,104 @@ export default function BlockedSlotsPage() {
         )}
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <Field label="Profesional">
-            <Select
-              value={profesionalId}
-              onChange={(e) => setProfesionalId(e.target.value)}
-              disabled={cargandoEquipo}
-            >
-              <option value="">Selecciona un profesional</option>
-              {(profesionales ?? []).map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </CardContent>
-      </Card>
+      {/* Filtro por profesional. Cada opcion lleva cuantos bloqueos tiene. */}
+      {(profesionales ?? []).length > 0 && (
+        <div className="flex items-center gap-2">
+          <Users className="text-muted-foreground h-4 w-4 shrink-0" />
+          <Select
+            value={filtroProfesional}
+            onChange={(e) => setFiltroProfesional(e.target.value)}
+            aria-label="Filtrar los bloqueos por profesional"
+            className="h-9 w-auto min-w-[260px]"
+          >
+            <option value="">Todo el equipo ({todos.length})</option>
+            {(profesionales ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} ({cuentaPorProfesional[p.id] ?? 0})
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
 
-      {!profesionalId ? (
-        <EmptyState
-          icon={CalendarOff}
-          titulo="Elige un profesional"
-          descripcion="Los bloqueos son de la agenda de cada persona del equipo."
-        />
-      ) : error ? (
+      {error ? (
         <ErrorDeCarga
           error={error}
           recurso="los bloqueos"
           onReintentar={reload}
         />
       ) : isLoading ? (
-        <div className="flex justify-center py-12">
-          <Spinner />
-        </div>
+        <LoadingState recurso="los bloqueos" />
       ) : bloqueos.length === 0 ? (
         <EmptyState
           icon={CalendarOff}
-          titulo="Sin bloqueos"
-          descripcion="Su agenda está libre en todas las fechas futuras."
+          titulo={
+            filtroProfesional ? "Sin bloqueos de esta persona" : "Sin bloqueos"
+          }
+          descripcion={
+            filtroProfesional
+              ? "Su agenda está libre en todas las fechas futuras."
+              : "Nadie del equipo tiene la agenda bloqueada próximamente."
+          }
         />
       ) : (
-        <div className="space-y-3">
+        <TablaDeRegistros titulo="Bloqueos de agenda" columnas={COLUMNAS}>
           {bloqueos.map((b) => (
-            <Card key={b.id}>
-              <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-                <div>
-                  <p className="font-medium">
-                    {formatDate(b.date)} · {formatTime(b.startTime)}–
-                    {formatTime(b.endTime)}
-                  </p>
-                  {b.reason && (
-                    <p className="text-muted-foreground text-sm">{b.reason}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {b.serieId && (
-                    <Badge variant="secondary">
-                      <Repeat className="mr-1 h-3 w-3" />
-                      Se repite
-                    </Badge>
-                  )}
-                  {puedeBorrar && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setABorrar(b);
-                        setBorrarSerie(false);
-                      }}
-                      aria-label={`Eliminar el bloqueo del ${formatDate(b.date)}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <FilaDeTabla
+              key={b.id}
+              acciones={
+                puedeBorrar && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                    onClick={() => {
+                      setABorrar(b);
+                      setBorrarSerie(false);
+                    }}
+                    aria-label={`Eliminar el bloqueo del ${formatDate(b.date)}`}
+                    title="Eliminar bloqueo"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )
+              }
+            >
+              <CeldaPrincipal
+                inicial={(nombreDeProfesional[b.professionalId] || "?").charAt(
+                  0
+                )}
+                titulo={
+                  nombreDeProfesional[b.professionalId] ||
+                  b.professionalId.slice(0, 8)
+                }
+              />
+              <CeldaDeTabla apagada>{formatDate(b.date)}</CeldaDeTabla>
+              <CeldaDeTabla apagada>
+                <span className="whitespace-nowrap">
+                  {formatTime(b.startTime)}–{formatTime(b.endTime)}
+                </span>
+              </CeldaDeTabla>
+              <CeldaDeTabla apagada ocultaEnMovil>
+                {b.reason || "—"}
+              </CeldaDeTabla>
+              <CeldaDeTabla>
+                {b.serieId && (
+                  <Badge variant="secondary">
+                    <Repeat className="mr-1 h-3 w-3" />
+                    Se repite
+                  </Badge>
+                )}
+              </CeldaDeTabla>
+            </FilaDeTabla>
           ))}
-        </div>
+        </TablaDeRegistros>
       )}
 
       <BlockedSlotFormDialog
+        profesionales={profesionales ?? []}
+        profesionalId={profesionalId}
+        onProfesionalChange={setProfesionalId}
         open={dialogo}
         onClose={() => setDialogo(false)}
         form={form}

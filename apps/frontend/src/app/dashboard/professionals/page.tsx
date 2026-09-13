@@ -9,17 +9,36 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { PageHeader } from "@/components/ui/page-header";
+import {
+  TablaDeRegistros,
+  FilaDeTabla,
+  CeldaDeTabla,
+  CeldaPrincipal,
+} from "@/components/ui/tabla-de-registros";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Plus } from "lucide-react";
+import {
+  Plus,
+  Eye,
+  Pencil,
+  Clock,
+  Scissors,
+  Trash2,
+  Star,
+  Users,
+} from "lucide-react";
 import { api } from "@/lib/api";
+import { formatAniosExperiencia } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { useCrudResource } from "@/lib/use-crud-resource";
+import { useAltaPorUrl } from "@/lib/alta-por-url";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
-import { ProCard } from "./pro-card";
+import { CategoryBadge } from "@/components/ui/category-badge";
 import Link from "next/link";
 import {
   cambiosDeTarifas,
@@ -81,30 +100,12 @@ function defaultWeek(): Record<number, DayHours> {
   );
 }
 
-function ProfessionalGroup({
-  title,
-  dotColor,
-  items,
-  children,
-}: {
-  title: string;
-  dotColor: string;
-  items: Professional[];
-  children: (p: Professional) => React.ReactNode;
-}) {
-  if (items.length === 0) return null;
-  return (
-    <div className="mb-8">
-      <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-        <span className={`h-2.5 w-2.5 rounded-full ${dotColor}`} />
-        {title} ({items.length})
-      </h2>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map(children)}
-      </div>
-    </div>
-  );
-}
+const COLUMNAS_EQUIPO = [
+  { label: "Profesional" },
+  { label: "Especialidades", ocultaEnMovil: true },
+  { label: "Experiencia", ocultaEnMovil: true },
+  { label: "Valoración", alineacion: "right" as const, ocultaEnMovil: true },
+];
 
 export default function ProfessionalsPage() {
   const toast = useToast();
@@ -122,14 +123,13 @@ export default function ProfessionalsPage() {
     basePath: "/core/professionals",
     schema: z.array(professionalSchema),
   });
-  const { data: categoriesData } = useApi<Category[]>(
-    CATEGORIES_KEY,
-    undefined,
-    z.array(categorySchema)
-  );
+  const { data: categoriesData, mutate: recargarCategorias } = useApi<
+    Category[]
+  >(CATEGORIES_KEY, undefined, z.array(categorySchema));
   const categories = useMemo(() => categoriesData ?? [], [categoriesData]);
 
   const [showCreate, setShowCreate] = useState(false);
+  useAltaPorUrl(() => setShowCreate(true));
   const [viewId, setViewId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -366,18 +366,123 @@ export default function ProfessionalsPage() {
     return { active, inactive };
   }, [professionals]);
 
-  const renderCard = (p: Professional) => (
-    <ProCard
-      key={p.id}
-      p={p}
-      categoryMap={categoryMap}
-      role={role}
-      onView={setViewId}
-      onEdit={startEdit}
-      onDelete={setDeleteConfirm}
-      onSchedule={openSchedule}
-      onServices={openServices}
-    />
+  /** El equipo, con el mismo formato para activos e inactivos. */
+  const tablaDe = (items: Professional[], titulo: string) => (
+    <TablaDeRegistros titulo={titulo} columnas={COLUMNAS_EQUIPO}>
+      {items.map((p) => {
+        const nombre = p.name || "Sin nombre";
+        return (
+          <FilaDeTabla
+            key={p.id}
+            acciones={
+              <>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  onClick={() => setViewId(p.id)}
+                  aria-label={`Ver la ficha de ${nombre}`}
+                  title="Ver ficha"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+                {canDo(role, "professionals_edit") && (
+                  <>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      onClick={() => startEdit(p)}
+                      aria-label={`Editar a ${nombre}`}
+                      title="Editar"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      onClick={() => openSchedule(p)}
+                      aria-label={`Horarios de ${nombre}`}
+                      title="Horarios"
+                    >
+                      <Clock className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      onClick={() => openServices(p)}
+                      aria-label={`Servicios de ${nombre}`}
+                      title="Servicios"
+                    >
+                      <Scissors className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+                {canDo(role, "professionals_delete") && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                    onClick={() => setDeleteConfirm(p.id)}
+                    aria-label={`Inactivar a ${nombre}`}
+                    title="Inactivar"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </>
+            }
+          >
+            <CeldaPrincipal
+              grande
+              foto={p.photo}
+              inicial={nombre.charAt(0)}
+              titulo={nombre}
+              subtitulo={
+                <CategoryBadge
+                  nombre={p.category ?? ""}
+                  delCatalogo={Boolean(
+                    p.categoryId && categoryMap.has(p.categoryId)
+                  )}
+                  color={
+                    (p.categoryId
+                      ? categoryMap.get(p.categoryId)?.color
+                      : undefined) ?? undefined
+                  }
+                />
+              }
+            />
+            <CeldaDeTabla ocultaEnMovil apagada>
+              {p.specialties?.length
+                ? p.specialties.slice(0, 2).join(", ") +
+                  (p.specialties.length > 2
+                    ? ` +${p.specialties.length - 2}`
+                    : "")
+                : "—"}
+            </CeldaDeTabla>
+            <CeldaDeTabla ocultaEnMovil apagada>
+              {formatAniosExperiencia(p.yearsExp)}
+            </CeldaDeTabla>
+            <CeldaDeTabla alineacion="right" ocultaEnMovil>
+              {/* Sin resenas no hay nota, que no es lo mismo que un cero. */}
+              {Number(p.rating) > 0 ? (
+                <span className="inline-flex items-center gap-1">
+                  <Star className="fill-rating text-rating h-3.5 w-3.5" />
+                  {Number(p.rating).toFixed(1)}
+                  <span className="text-muted-foreground">
+                    ({p.totalReviews})
+                  </span>
+                </span>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </CeldaDeTabla>
+          </FilaDeTabla>
+        );
+      })}
+    </TablaDeRegistros>
   );
 
   return (
@@ -427,27 +532,53 @@ export default function ProfessionalsPage() {
           recurso="los profesionales"
           onReintentar={() => void reload()}
         />
-      ) : professionals.length === 0 ? (
-        <p className="text-muted-foreground">
-          No hay profesionales registrados
-        </p>
       ) : (
-        <>
-          <ProfessionalGroup
-            title="Activos"
-            dotColor="bg-success"
-            items={activePros}
-          >
-            {renderCard}
-          </ProfessionalGroup>
-          <ProfessionalGroup
-            title="Inactivos"
-            dotColor="bg-muted-foreground"
-            items={inactivePros}
-          >
-            {renderCard}
-          </ProfessionalGroup>
-        </>
+        <Tabs defaultValue="activos">
+          <TabsList className="mb-3">
+            <TabsTrigger value="activos">
+              Activos ({activePros.length})
+            </TabsTrigger>
+            <TabsTrigger value="inactivos">
+              Inactivos ({inactivePros.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="activos">
+            {activePros.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                titulo="Aún no hay profesionales"
+                descripcion="Da de alta a quien atiende para poder asignarle citas."
+                accion={
+                  canDo(role, "professionals_create") && (
+                    <Button
+                      onClick={() => {
+                        setShowCreate(true);
+                        setForm(emptyForm);
+                      }}
+                    >
+                      Nuevo profesional
+                    </Button>
+                  )
+                }
+              />
+            ) : (
+              tablaDe(activePros, "Profesionales activos")
+            )}
+          </TabsContent>
+
+          <TabsContent value="inactivos">
+            {inactivePros.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                titulo="No hay profesionales inactivos"
+                descripcion="Quien des de baja aparecerá aquí y podrás volver a activarlo."
+              />
+            ) : (
+              tablaDe(inactivePros, "Profesionales inactivos")
+            )}
+          </TabsContent>
+        </Tabs>
       )}
 
       <ProfessionalDetailDialog
@@ -463,6 +594,7 @@ export default function ProfessionalsPage() {
         form={form}
         onChange={setForm}
         categories={categories}
+        onRecargarCategorias={recargarCategorias}
         title="Nuevo profesional"
         submitLabel="Crear profesional"
       />
@@ -477,6 +609,7 @@ export default function ProfessionalsPage() {
         form={form}
         onChange={setForm}
         categories={categories}
+        onRecargarCategorias={recargarCategorias}
         title="Editar profesional"
         submitLabel="Guardar cambios"
       />
@@ -492,14 +625,12 @@ export default function ProfessionalsPage() {
         confirmLabel="Sí, inactivar"
         variant="destructive"
         error={deleteError}
-      >
-        ¿Estás seguro de inactivar a{" "}
-        <strong>
-          {professionals.find((p) => p.id === deleteConfirm)?.name}
-        </strong>
-        ? Quedará marcado como inactivo; si tiene citas pendientes, la acción
-        será rechazada.
-      </ConfirmDialog>
+        registro={
+          professionals.find((p) => p.id === deleteConfirm)?.name ?? undefined
+        }
+        consecuencias="quedará marcado como inactivo y dejará de recibir citas nuevas."
+        seConserva="Su historial se conserva, y si tiene citas pendientes la acción será rechazada."
+      />
 
       <ServicesDialog
         open={servicesDialog}

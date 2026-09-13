@@ -3,7 +3,6 @@
 // Pagina de clientes: alta, edicion y listado de la base de clientes del negocio.
 import { useMemo, useState } from "react";
 import { z } from "zod";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -26,7 +25,17 @@ import {
   Trash2,
   Users,
   Merge,
+  Eye,
+  UserRound,
 } from "lucide-react";
+import {
+  TablaDeRegistros,
+  FilaDeTabla,
+  CeldaDeTabla,
+  CeldaPrincipal,
+  type DireccionDeOrden,
+  type ColumnaDeTabla,
+} from "@/components/ui/tabla-de-registros";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
@@ -35,6 +44,7 @@ import { esConflictoDeEdicion } from "@/lib/api-error";
 import { useApi, paginatedSchema } from "@/lib/swr";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { usePaginatedCrudResource } from "@/lib/use-crud-resource";
+import { useAltaPorUrl } from "@/lib/alta-por-url";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
@@ -60,10 +70,33 @@ import {
   type ServicioBreve,
 } from "./schemas";
 
+/** Campos por los que ordena el servidor. La lista viene paginada. */
+type CampoDeOrden = "name" | "createdAt";
+
+const COLUMNAS: ColumnaDeTabla<CampoDeOrden>[] = [
+  { label: "Cliente", campo: "name" },
+  { label: "Email", ocultaEnMovil: true },
+  { label: "Teléfono" },
+  { label: "Alta", campo: "createdAt", ocultaEnMovil: true },
+  { label: "Puntos", alineacion: "right", ocultaEnMovil: true },
+];
+
 export default function ClientsPage() {
   const toast = useToast();
   const { role } = useAuthStore();
   const [search, setSearch] = useState("");
+  const [orden, setOrden] = useState<{
+    campo: CampoDeOrden;
+    direccion: DireccionDeOrden;
+  }>({ campo: "name", direccion: "asc" });
+
+  /** Alterna el sentido si se repite la columna; si no, empieza ascendente. */
+  const alternarOrden = (campo: CampoDeOrden) =>
+    setOrden((actual) =>
+      actual.campo === campo
+        ? { campo, direccion: actual.direccion === "asc" ? "desc" : "asc" }
+        : { campo, direccion: "asc" }
+    );
   const {
     items: clients,
     meta,
@@ -78,9 +111,14 @@ export default function ClientsPage() {
     basePath: CLIENTS_KEY,
     itemSchema: clientSchema,
     search,
+    params: {
+      sort: orden.campo,
+      order: orden.direccion === "asc" ? "ASC" : "DESC",
+    },
   });
 
   const [createDialog, setCreateDialog] = useState(false);
+  useAltaPorUrl(() => setCreateDialog(true));
   const [createForm, setCreateForm] = useState<ClientForm>(emptyClientForm);
   const [savingCreate, setSavingCreate] = useState(false);
   // Fichas que podrían ser la misma persona, mientras se teclea el nombre. El
@@ -366,7 +404,7 @@ export default function ClientsPage() {
       {!loading && !loadError && !isEmptySearch && clients.length === 0 && (
         <EmptyState
           icon={Users}
-          titulo="Aun no hay clientes"
+          titulo="Aún no hay clientes"
           descripcion="Registra a quien atiendes para llevar su historial y sus citas."
           accion={
             canDo(role, "clients_create") && (
@@ -378,63 +416,121 @@ export default function ClientsPage() {
         />
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {loading ? (
-          <LoadingState recurso="los clientes" />
-        ) : (
-          clients.map((c) => (
-            <Card
+      {loading ? (
+        <LoadingState recurso="los clientes" />
+      ) : clients.length > 0 ? (
+        <TablaDeRegistros
+          titulo="Clientes del negocio"
+          columnas={COLUMNAS}
+          orden={orden}
+          onOrdenar={alternarOrden}
+        >
+          {clients.map((c) => (
+            <FilaDeTabla
               key={c.id}
-              className="border-0 shadow-sm transition-shadow [contain-intrinsic-size:auto_140px] [content-visibility:auto] hover:shadow-md"
-            >
-              {/* La tarjeta entera abre la ficha, y es la unica via de acceso a
-                  ella: tiene que ser un boton para que llegue el teclado. El
-                  anillo va en el boton y con focus-visible, como el resto del
-                  panel: en la tarjeta y con focus-within se pintaba tambien al
-                  hacer clic con el raton, y no se veia al tabular. */}
-              <button
-                type="button"
-                onClick={() => openDetail(c)}
-                aria-label={`Ver la ficha de ${c.name}`}
-                className="focus-visible:ring-ring w-full cursor-pointer rounded-xl text-left focus-visible:outline-none focus-visible:ring-2"
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-11 w-11">
-                      <AvatarFallback className="bg-info-soft text-info-soft-foreground font-bold">
-                        {c.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold">{c.name}</p>
-                      <div className="mt-1 space-y-0.5">
-                        {c.email && (
-                          <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                            <Mail className="h-3 w-3" />
-                            {c.email}
-                          </p>
-                        )}
-                        {c.phone && (
-                          <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                            <Phone className="h-3 w-3" />
-                            {c.phone}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {c.loyaltyPoints > 0 && (
-                    <div className="text-warning mt-3 flex items-center gap-1.5 text-sm">
-                      <Award className="h-4 w-4" />
-                      {c.loyaltyPoints} puntos
-                    </div>
+              acciones={
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => openDetail(c)}
+                    aria-label={`Ver la ficha de ${c.name}`}
+                    title="Ver ficha"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  {/* Una ficha anonimizada no se edita ni se fusiona. */}
+                  {canDo(role, "clients_edit") && !c.anonymizedAt && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openEdit(c)}
+                        aria-label={`Editar a ${c.name}`}
+                        title="Editar"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      {canDo(role, "clients_merge") && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => openFusion(c)}
+                          aria-label={`Fusionar la ficha de ${c.name} con otra`}
+                          title="Fusionar"
+                        >
+                          <Merge className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                        onClick={() => setClienteASuprimir(c)}
+                        aria-label={`Suprimir los datos de ${c.name}`}
+                        title="Suprimir datos"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
                   )}
-                </CardContent>
-              </button>
-            </Card>
-          ))
-        )}
-      </div>
+                </>
+              }
+            >
+              <CeldaPrincipal
+                inicial={c.name.charAt(0)}
+                titulo={
+                  /* El nombre abre la ficha, tambien con teclado. */
+                  <button
+                    type="button"
+                    onClick={() => openDetail(c)}
+                    aria-label={`Ver la ficha de ${c.name}`}
+                    className="focus-visible:ring-ring hover:text-primary rounded-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2"
+                  >
+                    {c.name}
+                  </button>
+                }
+              />
+              <CeldaDeTabla apagada ocultaEnMovil>
+                {c.email ? (
+                  <span className="flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{c.email}</span>
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </CeldaDeTabla>
+              <CeldaDeTabla apagada>
+                {c.phone ? (
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 shrink-0" />
+                    {c.phone}
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </CeldaDeTabla>
+              <CeldaDeTabla apagada ocultaEnMovil>
+                {c.createdAt ? formatDate(c.createdAt) : "—"}
+              </CeldaDeTabla>
+              <CeldaDeTabla alineacion="right" ocultaEnMovil>
+                {c.loyaltyPoints > 0 ? (
+                  <span className="text-warning inline-flex items-center gap-1">
+                    <Award className="h-4 w-4" />
+                    {c.loyaltyPoints}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </CeldaDeTabla>
+            </FilaDeTabla>
+          ))}
+        </TablaDeRegistros>
+      ) : null}
 
       <Pagination meta={meta} onPageChange={setPage} itemLabel="clientes" />
 
@@ -458,7 +554,14 @@ export default function ClientsPage() {
         open={!!selectedClient}
         onClose={() => setSelectedClient(null)}
         title="Detalle del cliente"
+        descripcion="Su contacto, sus puntos y sus últimas citas."
+        icono={UserRound}
         wide
+        pie={
+          <Button variant="outline" onClick={() => setSelectedClient(null)}>
+            Cerrar
+          </Button>
+        }
       >
         {selectedClient && (
           <div className="space-y-6">
@@ -486,37 +589,6 @@ export default function ClientsPage() {
                     )}
                   </div>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                {canDo(role, "clients_edit") &&
-                  !selectedClient.anonymizedAt && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openEdit(selectedClient)}
-                      >
-                        <Edit className="mr-1 h-3 w-3" /> Editar
-                      </Button>
-                      {canDo(role, "clients_merge") && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openFusion(selectedClient)}
-                        >
-                          <Merge className="mr-1 h-3 w-3" /> Fusionar
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive"
-                        onClick={() => setClienteASuprimir(selectedClient)}
-                      >
-                        <Trash2 className="mr-1 h-3 w-3" /> Suprimir datos
-                      </Button>
-                    </>
-                  )}
               </div>
             </div>
 
@@ -637,16 +709,10 @@ export default function ClientsPage() {
         confirmLabel="Suprimir los datos"
         pendingLabel="Suprimiendo..."
         pending={suprimiendo}
-      >
-        <p className="text-sm">
-          Se borrarán el nombre, el correo, el teléfono, el documento y las
-          notas de <strong>{clienteASuprimir?.name}</strong>. Sus citas y sus
-          facturas se conservan, porque son documentos contables.
-        </p>
-        <p className="text-muted-foreground text-sm">
-          No se puede deshacer, y la ficha ya no se podrá editar.
-        </p>
-      </ConfirmDialog>
+        registro={clienteASuprimir?.name}
+        consecuencias="pierde el nombre, el correo, el teléfono, el documento y las notas. No se puede deshacer, y la ficha ya no se podrá editar."
+        seConserva="Sus citas y sus facturas se conservan, porque son documentos contables."
+      />
     </div>
   );
 }

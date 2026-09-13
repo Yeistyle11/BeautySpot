@@ -15,6 +15,14 @@ export const profileResponseSchema = z.object({
 });
 export type ProfileResponse = z.infer<typeof profileResponseSchema>;
 
+/** Jornada del negocio en un día de la semana (0 = domingo). */
+export const jornadaPublicaSchema = z.object({
+  dayOfWeek: z.number(),
+  openTime: z.string(),
+  closeTime: z.string(),
+});
+export type JornadaPublica = z.infer<typeof jornadaPublicaSchema>;
+
 export const serviceSchema = z.object({
   id: z.string(),
   name: z.string(),

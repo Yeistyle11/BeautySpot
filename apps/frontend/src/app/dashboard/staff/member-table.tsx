@@ -1,9 +1,10 @@
 "use client";
 
 // Tabla de miembros del equipo, con ordenamiento, exportacion a CSV y acciones por fila.
+import { useState, useMemo } from "react";
 import { Pencil, Trash2, Download, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { canDo } from "@/lib/permissions";
 import { downloadCsv } from "@/lib/export-csv";
@@ -41,7 +42,6 @@ const COLUMNS: {
   { label: "Email", field: "email" },
   { label: "Teléfono", hiddenOnMobile: true },
   { label: "Rol", field: "role" },
-  { label: "Estado", field: "active" },
 ];
 
 function exportMembers(members: StaffMember[], filename: string) {
@@ -85,6 +85,14 @@ export function MemberTable({
   onEdit,
   onRequestToggle,
 }: MemberTableProps) {
+  const [pestana, setPestana] = useState<"activos" | "inactivos">("activos");
+
+  // Activas e inactivas van en pestañas separadas: quien tiene acceso son las
+  // de la primera.
+  const activos = useMemo(() => members.filter((m) => m.active), [members]);
+  const inactivos = useMemo(() => members.filter((m) => !m.active), [members]);
+  const visibles = pestana === "activos" ? activos : inactivos;
+
   if (members.length === 0) return null;
 
   return (
@@ -98,126 +106,142 @@ export function MemberTable({
           size="sm"
           variant="outline"
           className="h-7 gap-1 text-xs"
+          // Se exporta la pestaña que se esta viendo, no el total.
           onClick={() =>
-            exportMembers(members, title.toLowerCase().replace(/ /g, "_"))
+            exportMembers(
+              visibles,
+              `${title.toLowerCase().replace(/ /g, "_")}_${pestana}`
+            )
           }
         >
           <Download className="h-3 w-3" /> Exportar CSV
         </Button>
       </div>
-      <div className="bg-card overflow-hidden rounded-lg border">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <caption className="sr-only">{title}</caption>
-            <thead>
-              <tr className="bg-muted/50 border-b">
-                {COLUMNS.map((col) => (
-                  <th
-                    key={col.label}
-                    scope="col"
-                    // Sin aria-sort la flecha solo existe para quien la ve: el
-                    // lector de pantalla nombra la columna y nada mas.
-                    aria-sort={
-                      col.field && col.field === sortField
-                        ? sortDir === "asc"
-                          ? "ascending"
-                          : "descending"
-                        : undefined
-                    }
-                    className={`px-4 py-3 text-left font-medium ${col.hiddenOnMobile ? "hidden md:table-cell" : ""}`}
-                  >
-                    {col.field ? (
-                      <button
-                        className="hover:text-foreground focus-visible:ring-ring flex items-center rounded transition-colors focus-visible:outline-none focus-visible:ring-2"
-                        onClick={() => onToggleSort(col.field!)}
-                      >
-                        {col.label}{" "}
-                        <SortIcon field={col.field} sortField={sortField} />
-                      </button>
-                    ) : (
-                      col.label
-                    )}
-                  </th>
-                ))}
-                <th scope="col" className="px-4 py-3 text-right font-medium">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((s) => (
-                <tr
-                  key={s.id}
-                  className={`hover:bg-muted/30 border-b transition-colors last:border-0 ${!s.active ? "opacity-50" : ""}`}
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                          {s.name?.charAt(0) || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="max-w-[180px] truncate font-medium">
-                        {s.name}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="text-muted-foreground max-w-[200px] truncate px-4 py-3">
-                    {s.email}
-                  </td>
-                  <td className="text-muted-foreground hidden px-4 py-3 md:table-cell">
-                    {s.phone || "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[s.role] || "bg-muted text-muted-foreground"}`}
+
+      <Tabs
+        value={pestana}
+        onValueChange={(v) => setPestana(v as "activos" | "inactivos")}
+      >
+        <TabsList className="mb-3">
+          <TabsTrigger value="activos">Activos ({activos.length})</TabsTrigger>
+          <TabsTrigger value="inactivos">
+            Inactivos ({inactivos.length})
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {visibles.length === 0 ? (
+        <p className="text-muted-foreground border-muted rounded-lg border border-dashed py-8 text-center text-sm">
+          {pestana === "activos"
+            ? "Ninguna cuenta activa en este grupo."
+            : "Ninguna cuenta desactivada en este grupo."}
+        </p>
+      ) : (
+        <div className="bg-card overflow-hidden rounded-lg border">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <caption className="sr-only">{title}</caption>
+              <thead>
+                <tr className="bg-muted/50 border-b">
+                  {COLUMNS.map((col) => (
+                    <th
+                      key={col.label}
+                      scope="col"
+                      // La flecha solo la ve quien mira; esto lo anuncia.
+                      aria-sort={
+                        col.field && col.field === sortField
+                          ? sortDir === "asc"
+                            ? "ascending"
+                            : "descending"
+                          : undefined
+                      }
+                      className={`px-4 py-3 text-left font-medium ${col.hiddenOnMobile ? "hidden md:table-cell" : ""}`}
                     >
-                      {ROLE_LABELS[s.role] || s.role}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge
-                      variant={s.active ? "default" : "secondary"}
-                      className="text-xs"
-                    >
-                      {s.active ? "Activo" : "Inactivo"}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-1">
-                      {canDo(role, "staff_edit") && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => onEdit(s)}
-                          aria-label={`Editar la cuenta de ${s.name}`}
-                          title="Editar cuenta"
+                      {col.field ? (
+                        <button
+                          className="hover:text-foreground focus-visible:ring-ring flex items-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2"
+                          onClick={() => onToggleSort(col.field!)}
                         >
-                          <Pencil className="h-3 w-3" />
-                        </Button>
+                          {col.label}{" "}
+                          <SortIcon field={col.field} sortField={sortField} />
+                        </button>
+                      ) : (
+                        col.label
                       )}
-                      {canDo(role, "staff_deactivate") &&
-                        s.role !== "OWNER" && (
+                    </th>
+                  ))}
+                  <th scope="col" className="px-4 py-3 text-right font-medium">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibles.map((s) => (
+                  <tr
+                    key={s.id}
+                    className={`hover:bg-muted/30 border-b transition-colors last:border-0 ${!s.active ? "opacity-50" : ""}`}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                            {s.name?.charAt(0) || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="max-w-[180px] truncate font-medium">
+                          {s.name}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="text-muted-foreground max-w-[200px] truncate px-4 py-3">
+                      {s.email}
+                    </td>
+                    <td className="text-muted-foreground hidden px-4 py-3 md:table-cell">
+                      {s.phone || "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[s.role] || "bg-muted text-muted-foreground"}`}
+                      >
+                        {ROLE_LABELS[s.role] || s.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        {canDo(role, "staff_edit") && (
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="text-destructive hover:text-destructive h-7 px-2 text-xs"
-                            onClick={() => onRequestToggle(s.id)}
-                            aria-label={`${s.active ? "Desactivar" : "Activar"} la cuenta de ${s.name}`}
-                            title={s.active ? "Desactivar" : "Activar"}
+                            className="h-7 px-2 text-xs"
+                            onClick={() => onEdit(s)}
+                            aria-label={`Editar la cuenta de ${s.name}`}
+                            title="Editar cuenta"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Pencil className="h-3 w-3" />
                           </Button>
                         )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        {canDo(role, "staff_deactivate") &&
+                          s.role !== "OWNER" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive h-7 px-2 text-xs"
+                              onClick={() => onRequestToggle(s.id)}
+                              aria-label={`${s.active ? "Desactivar" : "Activar"} la cuenta de ${s.name}`}
+                              title={s.active ? "Desactivar" : "Activar"}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

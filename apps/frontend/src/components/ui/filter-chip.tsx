@@ -33,7 +33,7 @@ export function FilterChip({
             ? "bg-primary text-primary-foreground"
             : "bg-muted text-muted-foreground hover:bg-primary/20"
           : activo
-            ? "bg-background text-foreground shadow-sm"
+            ? "bg-background text-foreground shadow-flat"
             : "text-muted-foreground hover:text-foreground",
         className
       )}

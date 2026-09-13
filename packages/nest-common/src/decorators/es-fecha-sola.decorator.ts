@@ -5,6 +5,7 @@ import type {
   ValidationArguments,
 } from "class-validator";
 import { PATRON_FECHA, esFechaValida } from "@beautyspot/shared-utils";
+import { CAMPOS_EN_CASTELLANO } from "@beautyspot/shared-constants";
 
 /** Comprueba que el dia exista de verdad, no solo que tenga la forma. */
 @ValidatorConstraint({ name: "esDiaDelCalendario" })
@@ -17,8 +18,13 @@ export class EsDiaDelCalendario implements ValidatorConstraintInterface {
   }
 
   defaultMessage(args: ValidationArguments): string {
-    return `${args.property}: el ${args.value} no existe en el calendario`;
+    return `Revisa ${nombreDelCampo(args.property)}: el ${args.value} no existe en el calendario`;
   }
+}
+
+/** Nombre del campo tal como se le nombra al usuario. */
+function nombreDelCampo(propiedad: string): string {
+  return CAMPOS_EN_CASTELLANO[propiedad] ?? "la fecha";
 }
 
 /**
@@ -28,7 +34,8 @@ export class EsDiaDelCalendario implements ValidatorConstraintInterface {
 export function EsFechaSola(): PropertyDecorator {
   return applyDecorators(
     Matches(PATRON_FECHA, {
-      message: "$property debe tener el formato YYYY-MM-DD",
+      message: (args) =>
+        `Revisa ${nombreDelCampo(args.property)}: se espera el formato YYYY-MM-DD`,
     }),
     Validate(EsDiaDelCalendario)
   );

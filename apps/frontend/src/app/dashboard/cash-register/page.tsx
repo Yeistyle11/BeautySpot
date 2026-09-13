@@ -10,11 +10,13 @@ import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup } from "@/components/ui/radio-group";
 import { Dialog } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Wallet,
   Plus,
+  ArrowDown,
   ArrowDownCircle,
+  ArrowUp,
   ArrowUpCircle,
   X,
   Loader2,
@@ -24,6 +26,13 @@ import {
   DollarSign,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import {
+  TablaDeRegistros,
+  FilaDeTabla,
+  CeldaDeTabla,
+  CeldaPrincipal,
+  type ColumnaDeTabla,
+} from "@/components/ui/tabla-de-registros";
 import { formatCurrency, formatDate, formatTimeStamp } from "@/lib/utils";
 import { nombreDelMetodo } from "@/lib/metodos-de-pago";
 import { useAuthStore } from "@/lib/store";
@@ -38,8 +47,10 @@ import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import {
   cashSessionSchema,
   cashSummarySchema,
+  resumenDeSesionesSchema,
   ACTIVE_KEY,
   HISTORY_KEY,
+  RESUMEN_DE_SESIONES_KEY,
   type CashSession,
   type CashSummary,
 } from "./schemas";
@@ -57,6 +68,27 @@ const movementTypeOptions = [
   },
 ];
 
+/** Tonos del descuadre, compartidos por el arqueo y el historial. */
+function clasesDeDescuadre(diferencia: number): string {
+  return diferencia < 0
+    ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+    : "bg-warning-soft text-warning-soft-foreground";
+}
+
+const COLUMNAS_DE_SESIONES: ColumnaDeTabla[] = [
+  { label: "Sesión" },
+  { label: "Apertura", alineacion: "right", ocultaEnMovil: true },
+  { label: "Cierre", alineacion: "right", ocultaEnMovil: true },
+  { label: "Descuadre", alineacion: "right" },
+];
+
+const COLUMNAS_DE_MOVIMIENTOS: ColumnaDeTabla[] = [
+  { label: "Concepto" },
+  { label: "Cliente" },
+  { label: "Hora", ocultaEnMovil: true },
+  { label: "Importe", alineacion: "right" },
+];
+
 export default function CashRegisterPage() {
   const toast = useToast();
   const { role } = useAuthStore();
@@ -70,6 +102,8 @@ export default function CashRegisterPage() {
     undefined,
     cashSessionSchema.nullable()
   );
+  /** Pestaña del historial: las cerradas primero, que son casi todas. */
+  const [estadoDeSesiones, setEstadoDeSesiones] = useState("cerrada");
   const {
     items: history,
     meta: historyMeta,
@@ -78,7 +112,18 @@ export default function CashRegisterPage() {
   } = usePaginatedList<CashSession>({
     basePath: HISTORY_KEY,
     itemSchema: cashSessionSchema,
+    // El filtro lo aplica el servidor.
+    params: { estado: estadoDeSesiones },
   });
+
+  // Los contadores salen del servidor, sobre todo el historial.
+  const { data: resumenDeSesiones, mutate: mutateResumen } = useApi<{
+    abiertas: number;
+    cerradas: number;
+  }>(RESUMEN_DE_SESIONES_KEY, undefined, resumenDeSesionesSchema);
+
+  const haySesiones =
+    (resumenDeSesiones?.abiertas ?? 0) + (resumenDeSesiones?.cerradas ?? 0) > 0;
 
   const movementsKey = activeSession?.id
     ? `/payment/cash-register/${activeSession.id}/summary`
@@ -118,7 +163,7 @@ export default function CashRegisterPage() {
       setOpenDialog(false);
       setOpenAmount("");
       setOpenNotes("");
-      await mutateActive();
+      await Promise.all([mutateActive(), mutateHistory(), mutateResumen()]);
     } catch (err) {
       logger.error(err);
       toast.error(mensajeDeError(err));
@@ -159,7 +204,7 @@ export default function CashRegisterPage() {
       setCloseDialog(false);
       setCloseAmount("");
       setCloseNotes("");
-      await Promise.all([mutateActive(), mutateHistory()]);
+      await Promise.all([mutateActive(), mutateHistory(), mutateResumen()]);
     } catch (err) {
       logger.error(err);
       toast.error(mensajeDeError(err));
@@ -183,6 +228,21 @@ export default function CashRegisterPage() {
         .sort((a, b) => b.entradas - a.entradas),
     [arqueo]
   );
+  // Lo cobrado que no acaba en el cajon: datafono y transferencias.
+  const fueraDelCajon = useMemo(() => {
+    const porMetodo = arqueo?.porMetodo ?? {};
+    const enCajon =
+      (porMetodo.CASH?.entradas ?? 0) + (porMetodo.MANUAL?.entradas ?? 0);
+    const importe = totalIn - enCajon;
+    const medios = Object.entries(porMetodo)
+      .filter(
+        ([metodo, { entradas }]) =>
+          entradas > 0 && metodo !== "CASH" && metodo !== "MANUAL"
+      )
+      .map(([metodo]) => nombreDelMetodo(metodo));
+    return { importe, medios };
+  }, [arqueo, totalIn]);
+
   // Descuadre del arqueo mientras se teclea: negativo falta, positivo sobra.
   const diferenciaCierre =
     closeAmount === "" || Number.isNaN(Number(closeAmount))
@@ -194,8 +254,8 @@ export default function CashRegisterPage() {
   if (loading) {
     return (
       <div>
-        <h1 className="text-2xl font-bold">Caja Registradora</h1>
-        <Card className="mt-4 border-0 shadow-sm">
+        <h1 className="text-2xl font-bold">Caja</h1>
+        <Card className="shadow-flat mt-4 border-0">
           <CardContent className="text-muted-foreground p-8 text-center">
             Cargando...
           </CardContent>
@@ -208,7 +268,7 @@ export default function CashRegisterPage() {
     return (
       <div>
         <div className="mb-6">
-          <h1 className="text-2xl font-bold">Caja Registradora</h1>
+          <h1 className="text-2xl font-bold">Caja</h1>
           <p className="text-muted-foreground">
             Gestiona la caja de tu negocio
           </p>
@@ -225,12 +285,12 @@ export default function CashRegisterPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Caja Registradora</h1>
+        <h1 className="text-2xl font-bold">Caja</h1>
         <p className="text-muted-foreground">Gestiona la caja de tu negocio</p>
       </div>
 
       {!activeSession ? (
-        <Card className="border-0 shadow-sm">
+        <Card className="shadow-flat border-0">
           <CardContent className="space-y-4 p-8 text-center">
             <Wallet className="text-muted-foreground mx-auto h-16 w-16 opacity-30" />
             <div>
@@ -246,8 +306,8 @@ export default function CashRegisterPage() {
         </Card>
       ) : (
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-0 shadow-sm">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Card className="shadow-flat border-0">
               <CardContent className="p-4">
                 <p className="text-muted-foreground text-xs">Monto inicial</p>
                 <p className="text-xl font-bold">
@@ -258,7 +318,7 @@ export default function CashRegisterPage() {
                 </p>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-sm">
+            <Card className="shadow-flat border-0">
               <CardContent className="flex items-center gap-3 p-4">
                 <TrendingUp className="text-success h-8 w-8" />
                 <div>
@@ -269,7 +329,7 @@ export default function CashRegisterPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-sm">
+            <Card className="shadow-flat border-0">
               <CardContent className="flex items-center gap-3 p-4">
                 <TrendingDown className="text-destructive h-8 w-8" />
                 <div>
@@ -280,32 +340,45 @@ export default function CashRegisterPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-4">
-                <p className="text-muted-foreground text-xs">Total esperado</p>
-                {/* El arqueo es a ciegas: el modal no revela el esperado hasta
-                    que se escribe el conteo, y esta tarjeta quedaba legible
-                    detras. Un control que se lee de reojo no controla. */}
-                {closeDialog ? (
-                  <>
-                    <p className="text-muted-foreground text-xl font-bold">
-                      •••••
-                    </p>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      Oculto mientras cuentas el cajón
-                    </p>
-                  </>
-                ) : (
+          </div>
+
+          {/* Fuera de la fila y con fondo propio: cuenta solo el efectivo. */}
+          <Card className="border-primary/30 bg-primary/5 shadow-none">
+            <CardContent className="p-4">
+              <p className="text-muted-foreground text-xs">
+                Efectivo esperado en cajón
+              </p>
+              {/* El esperado se tapa mientras el arqueo esta abierto. */}
+              {closeDialog ? (
+                <>
+                  <p className="text-muted-foreground text-xl font-bold">
+                    •••••
+                  </p>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    Oculto mientras cuentas el cajón
+                  </p>
+                </>
+              ) : (
+                <>
                   <p className="text-primary text-xl font-bold">
                     {formatCurrency(expectedTotal)}
                   </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                  {fueraDelCajon.importe > 0 && (
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      De {formatCurrency(totalIn)} cobrados,{" "}
+                      {formatCurrency(fueraDelCajon.importe)} no entran al cajón
+                      {fueraDelCajon.medios.length > 0 &&
+                        ` (${fueraDelCajon.medios.join(", ")})`}
+                      .
+                    </p>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
 
           {desglose.length > 0 && (
-            <Card className="border-0 shadow-sm">
+            <Card className="shadow-flat border-0">
               <CardContent className="p-4">
                 <p className="text-muted-foreground text-xs">
                   Entradas por medio de cobro
@@ -349,7 +422,7 @@ export default function CashRegisterPage() {
             )}
           </div>
 
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-flat border-0">
             <CardHeader>
               <CardTitle className="text-lg">
                 Movimientos ({movements.length})
@@ -361,95 +434,123 @@ export default function CashRegisterPage() {
                   No hay movimientos registrados
                 </p>
               ) : (
-                <div className="space-y-2">
+                <TablaDeRegistros
+                  titulo="Movimientos de la caja abierta"
+                  columnas={COLUMNAS_DE_MOVIMIENTOS}
+                  conAcciones={false}
+                >
                   {[...movements].reverse().map((m) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center justify-between rounded-lg border p-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        {m.type === "IN" ? (
-                          <ArrowUpCircle className="text-success h-5 w-5" />
-                        ) : (
-                          <ArrowDownCircle className="text-destructive h-5 w-5" />
-                        )}
-                        <div>
-                          <p className="text-sm font-medium">{m.concept}</p>
-                          {/*
-                            Este es el listado que se repasa cuando la caja no
-                            cuadra: sin saber de quien es cada entrada no se
-                            puede cruzar con nada.
-                          */}
-                          <p className="text-muted-foreground text-xs">
-                            {m.clientName ? `${m.clientName} · ` : ""}
-                            {formatTimeStamp(m.createdAt)}
-                          </p>
-                        </div>
-                      </div>
-                      <span
-                        className={`font-semibold ${m.type === "IN" ? "text-success" : "text-destructive"}`}
+                    <FilaDeTabla key={m.id}>
+                      <CeldaPrincipal
+                        icono={
+                          m.type === "IN" ? ArrowUpCircle : ArrowDownCircle
+                        }
+                        colorDelIcono={m.type === "IN" ? "#157E3C" : "#C81E1E"}
+                        titulo={m.concept}
+                      />
+                      {/* Quien registro cada entrada. */}
+                      <CeldaDeTabla apagada>{m.clientName || "—"}</CeldaDeTabla>
+                      <CeldaDeTabla apagada ocultaEnMovil>
+                        <span className="whitespace-nowrap">
+                          {formatTimeStamp(m.createdAt)}
+                        </span>
+                      </CeldaDeTabla>
+                      <CeldaDeTabla
+                        alineacion="right"
+                        className={
+                          m.type === "IN"
+                            ? "text-success font-semibold"
+                            : "text-destructive font-semibold"
+                        }
                       >
                         {m.type === "IN" ? "+" : "-"}
                         {formatCurrency(m.amount)}
-                      </span>
-                    </div>
+                      </CeldaDeTabla>
+                    </FilaDeTabla>
                   ))}
-                </div>
+                </TablaDeRegistros>
               )}
             </CardContent>
           </Card>
         </div>
       )}
 
-      {history.length > 0 && (
-        <Card className="mt-6 border-0 shadow-sm">
-          <CardHeader>
+      {haySesiones && (
+        <Card className="shadow-flat mt-6 border-0">
+          <CardHeader className="gap-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <History className="h-5 w-5" /> Historial de sesiones
             </CardTitle>
+            <Tabs
+              value={estadoDeSesiones}
+              onValueChange={(v) => {
+                setEstadoDeSesiones(v);
+                setHistoryPage(1);
+              }}
+            >
+              <TabsList>
+                <TabsTrigger value="cerrada">
+                  Cerradas ({resumenDeSesiones?.cerradas ?? 0})
+                </TabsTrigger>
+                <TabsTrigger value="abierta">
+                  Abiertas ({resumenDeSesiones?.abiertas ?? 0})
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {history.map((s) => (
-                <div
-                  key={s.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
-                >
-                  <div>
-                    <p className="text-sm font-medium">
-                      {formatDate(s.openedAt)} -{" "}
-                      {s.closedAt ? formatDate(s.closedAt) : "En curso"}
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      Apertura: {formatCurrency(s.openingAmount)}
-                      {s.closingAmount != null &&
-                        ` · Cierre: ${formatCurrency(s.closingAmount)}`}
-                    </p>
-                    {/*
-                      El descuadre se ve en la lista, no restando sesión a
-                      sesión: un sobrante sin explicar tiene que saltar a la
-                      vista de quien repase la semana.
-                    */}
-                    {!!s.difference && (
-                      <p
-                        className={
-                          s.difference < 0
-                            ? "text-destructive mt-1 text-xs font-medium"
-                            : "text-warning mt-1 text-xs font-medium"
-                        }
-                      >
-                        {s.difference < 0 ? "Faltaron " : "Sobraron "}
-                        {formatCurrency(Math.abs(s.difference))}
-                        {s.notes ? ` · ${s.notes}` : ""}
-                      </p>
-                    )}
-                  </div>
-                  <Badge variant={s.closedAt ? "secondary" : "success"}>
-                    {s.closedAt ? "Cerrada" : "Abierta"}
-                  </Badge>
-                </div>
-              ))}
-            </div>
+            {history.length === 0 ? (
+              <p className="text-muted-foreground py-8 text-center text-sm">
+                {estadoDeSesiones === "abierta"
+                  ? "No hay ninguna caja abierta ahora mismo."
+                  : "Todavía no se ha cerrado ninguna caja."}
+              </p>
+            ) : (
+              <TablaDeRegistros
+                titulo="Historial de sesiones de caja"
+                columnas={COLUMNAS_DE_SESIONES}
+                conAcciones={false}
+              >
+                {history.map((s) => (
+                  <FilaDeTabla key={s.id}>
+                    <CeldaPrincipal
+                      icono={History}
+                      titulo={`${formatDate(s.openedAt)} – ${
+                        s.closedAt ? formatDate(s.closedAt) : "En curso"
+                      }`}
+                      subtitulo={s.notes || undefined}
+                    />
+                    <CeldaDeTabla alineacion="right" apagada ocultaEnMovil>
+                      {formatCurrency(s.openingAmount)}
+                    </CeldaDeTabla>
+                    <CeldaDeTabla alineacion="right" apagada ocultaEnMovil>
+                      {s.closingAmount != null
+                        ? formatCurrency(s.closingAmount)
+                        : "—"}
+                    </CeldaDeTabla>
+                    {/* El descuadre de cada sesion. */}
+                    <CeldaDeTabla alineacion="right">
+                      {s.difference ? (
+                        <span
+                          className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-base font-semibold ${clasesDeDescuadre(s.difference)}`}
+                        >
+                          {/* El icono lleva el signo: si falta o si sobra. */}
+                          {s.difference < 0 ? (
+                            <ArrowDown className="h-4 w-4" aria-hidden />
+                          ) : (
+                            <ArrowUp className="h-4 w-4" aria-hidden />
+                          )}
+                          {s.difference < 0 ? "Faltaron " : "Sobraron "}
+                          {formatCurrency(Math.abs(s.difference))}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </CeldaDeTabla>
+                  </FilaDeTabla>
+                ))}
+              </TablaDeRegistros>
+            )}
             <Pagination
               meta={historyMeta}
               onPageChange={setHistoryPage}
@@ -463,6 +564,23 @@ export default function CashRegisterPage() {
         open={openDialog}
         onClose={() => setOpenDialog(false)}
         title="Abrir caja"
+        descripcion="Cuenta el dinero con el que arranca el turno."
+        icono={Wallet}
+        pie={
+          <>
+            <Button variant="outline" onClick={() => setOpenDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleOpen} disabled={opening}>
+              {opening ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Wallet className="mr-2 h-4 w-4" />
+              )}
+              Abrir caja
+            </Button>
+          </>
+        }
       >
         <div className="space-y-4">
           <Field
@@ -485,19 +603,6 @@ export default function CashRegisterPage() {
               placeholder="Observaciones..."
             />
           </Field>
-          <div className="flex gap-3">
-            <Button onClick={handleOpen} disabled={opening}>
-              {opening ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Wallet className="mr-2 h-4 w-4" />
-              )}
-              Abrir caja
-            </Button>
-            <Button variant="outline" onClick={() => setOpenDialog(false)}>
-              Cancelar
-            </Button>
-          </div>
         </div>
       </Dialog>
 
@@ -505,6 +610,26 @@ export default function CashRegisterPage() {
         open={movementDialog}
         onClose={() => setMovementDialog(false)}
         title="Registrar movimiento"
+        descripcion="Una entrada o una salida de dinero del cajón."
+        icono={DollarSign}
+        pie={
+          <>
+            <Button variant="outline" onClick={() => setMovementDialog(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleMovement}
+              disabled={registering || !moveAmount || !moveConcept}
+            >
+              {registering ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <DollarSign className="mr-2 h-4 w-4" />
+              )}
+              Registrar
+            </Button>
+          </>
+        }
       >
         <div className="space-y-4">
           <Field label="Tipo de movimiento">
@@ -533,17 +658,6 @@ export default function CashRegisterPage() {
               required
             />
           </Field>
-          <Button
-            onClick={handleMovement}
-            disabled={registering || !moveAmount || !moveConcept}
-          >
-            {registering ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <DollarSign className="mr-2 h-4 w-4" />
-            )}
-            Registrar
-          </Button>
         </div>
       </Dialog>
 
@@ -551,13 +665,32 @@ export default function CashRegisterPage() {
         open={closeDialog}
         onClose={() => setCloseDialog(false)}
         title="Cerrar caja"
+        descripcion="Arqueo del turno: cuenta el cajón y cierra la sesión."
+        icono={X}
+        pie={
+          <>
+            <Button variant="outline" onClick={() => setCloseDialog(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleClose}
+              disabled={
+                closing || !closeAmount || (hayDescuadre && !closeNotes.trim())
+              }
+            >
+              {closing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <X className="mr-2 h-4 w-4" />
+              )}
+              Cerrar caja
+            </Button>
+          </>
+        }
       >
         <div className="space-y-4">
-          {/*
-            Conteo a ciegas: el total esperado no se enseña hasta que el cajero
-            ha escrito lo que contó. Verlo antes convierte el arqueo en copiar
-            una cifra, y un cierre que siempre cuadra no prueba nada.
-          */}
+          {/* El total esperado no se enseña hasta que el cajero escribe su conteo. */}
           <Field
             label="Monto final en caja (COP)"
             hint="Cuenta el dinero del cajón y escribe lo que haya"
@@ -574,7 +707,7 @@ export default function CashRegisterPage() {
           {diferenciaCierre !== null && (
             <div className="bg-muted/50 space-y-1 rounded-lg p-4">
               <p className="text-muted-foreground text-sm">
-                Total esperado en caja
+                Efectivo esperado en cajón
               </p>
               <p className="text-xl font-bold">
                 {formatCurrency(expectedTotal)}
@@ -583,11 +716,7 @@ export default function CashRegisterPage() {
           )}
           {diferenciaCierre !== null && diferenciaCierre !== 0 && (
             <div
-              className={
-                diferenciaCierre < 0
-                  ? "rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"
-                  : "bg-warning-soft text-warning-soft-foreground rounded-lg p-3 text-sm"
-              }
+              className={`rounded-lg p-3 text-sm ${clasesDeDescuadre(diferenciaCierre)}`}
             >
               {diferenciaCierre < 0 ? "Faltan " : "Sobran "}
               <strong>{formatCurrency(Math.abs(diferenciaCierre))}</strong>{" "}
@@ -609,20 +738,6 @@ export default function CashRegisterPage() {
               required={hayDescuadre}
             />
           </Field>
-          <Button
-            variant="destructive"
-            onClick={handleClose}
-            disabled={
-              closing || !closeAmount || (hayDescuadre && !closeNotes.trim())
-            }
-          >
-            {closing ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <X className="mr-2 h-4 w-4" />
-            )}
-            Cerrar caja
-          </Button>
         </div>
       </Dialog>
     </div>

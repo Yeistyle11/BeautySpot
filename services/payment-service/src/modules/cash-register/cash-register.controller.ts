@@ -8,7 +8,10 @@ import {
   Query,
 } from "@nestjs/common";
 import { parsePaginationQuery } from "@beautyspot/shared-utils";
-import { CashRegisterService } from "./cash-register.service";
+import {
+  CashRegisterService,
+  type EstadoDeSesion,
+} from "./cash-register.service";
 import {
   OpenSessionDto,
   CloseSessionDto,
@@ -85,10 +88,25 @@ export class CashRegisterController {
   async getSessionHistory(
     @BusinessId() businessId: string,
     @BranchId() branchId: string | undefined,
-    @Query() query: Record<string, unknown>
+    @Query() query: Record<string, unknown>,
+    @Query("estado") estado?: EstadoDeSesion
   ) {
     const pagination = parsePaginationQuery(query, ["openedAt", "closedAt"]);
-    return this.service.getSessionHistory(businessId, pagination, branchId);
+    return this.service.getSessionHistory(
+      businessId,
+      pagination,
+      branchId,
+      estado
+    );
+  }
+
+  /** Cuántas sesiones hay abiertas y cerradas, para las pestañas. */
+  @Get("history/resumen-por-estado")
+  async resumenDeSesiones(
+    @BusinessId() businessId: string,
+    @BranchId() branchId: string | undefined
+  ) {
+    return this.service.contarSesionesPorEstado(businessId, branchId);
   }
 
   /** Corte X: el arqueo de la sesión sin cerrarla, desglosado por método. */

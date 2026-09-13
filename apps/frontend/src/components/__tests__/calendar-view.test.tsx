@@ -136,7 +136,7 @@ describe("CalendarView", () => {
         />
       );
 
-      expect(screen.getByText("9:00 pm")).toBeInTheDocument();
+      expect(screen.getByText("21:00")).toBeInTheDocument();
       expect(screen.getByText("María")).toBeInTheDocument();
     });
 
@@ -146,7 +146,7 @@ describe("CalendarView", () => {
       });
 
       // El cierre es del día siguiente: la rejilla tiene que ofrecer la una.
-      expect(screen.getByText("1:00 am")).toBeInTheDocument();
+      expect(screen.getByText("01:00")).toBeInTheDocument();
     });
 
     it("pinta el bloqueo nocturno que la franja fija ocultaba", () => {

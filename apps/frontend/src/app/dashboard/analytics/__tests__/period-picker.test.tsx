@@ -24,7 +24,9 @@ describe("PeriodPicker", () => {
   it("ofrece los periodos con los que trabaja un negocio", () => {
     pintar();
 
-    for (const etiqueta of [
+    const opciones = screen.getAllByRole("option").map((o) => o.textContent);
+
+    expect(opciones).toEqual([
       "Hoy",
       "Ayer",
       "Esta semana",
@@ -33,41 +35,36 @@ describe("PeriodPicker", () => {
       "Últimos 30 días",
       "Este año",
       "Personalizado",
-    ]) {
-      expect(
-        screen.getByRole("button", { name: etiqueta })
-      ).toBeInTheDocument();
-    }
+    ]);
   });
 
   it("marca cuál está elegido", () => {
     pintar("mes");
 
-    expect(screen.getByRole("button", { name: "Este mes" })).toHaveAttribute(
-      "aria-pressed",
-      "true"
-    );
-    expect(screen.getByRole("button", { name: "Hoy" })).toHaveAttribute(
-      "aria-pressed",
-      "false"
-    );
+    expect(screen.getByLabelText("Periodo")).toHaveValue("mes");
   });
 
   it("avisa del periodo elegido", () => {
     const { onSeleccionar } = pintar();
 
-    fireEvent.click(screen.getByRole("button", { name: "Mes pasado" }));
+    fireEvent.change(screen.getByLabelText("Periodo"), {
+      target: { value: "mesPasado" },
+    });
 
     expect(onSeleccionar).toHaveBeenCalledWith("mesPasado");
   });
 
-  it("solo pide fechas cuando el periodo es personalizado", () => {
+  // Las fechas se ven resueltas para cualquier periodo y se pueden escribir
+  // siempre.
+  it("muestra las fechas resueltas del atajo elegido", () => {
     pintar("mes");
-    expect(screen.queryByLabelText("Desde")).not.toBeInTheDocument();
+
+    expect(screen.getByLabelText("Desde")).toHaveValue("2026-08-01");
+    expect(screen.getByLabelText("Hasta")).toHaveValue("2026-08-31");
   });
 
-  it("deja escribir las dos fechas del periodo personalizado", () => {
-    const { onPersonalizar } = pintar("personalizado");
+  it("deja escribir las dos fechas sin elegir antes el periodo a medida", () => {
+    const { onPersonalizar } = pintar("mes");
 
     fireEvent.change(screen.getByLabelText("Desde"), {
       target: { value: "2026-07-01" },
@@ -77,6 +74,12 @@ describe("PeriodPicker", () => {
       from: "2026-07-01",
       to: "2026-08-31",
     });
+  });
+
+  it("dice cuántos días abarca el periodo", () => {
+    pintar("mes");
+
+    expect(screen.getByText("31 días")).toBeInTheDocument();
   });
 
   // Darle la vuelta a las fechas devolvería cifras de un periodo que nadie

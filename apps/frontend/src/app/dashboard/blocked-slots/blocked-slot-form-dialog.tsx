@@ -1,12 +1,13 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { CalendarOff } from "lucide-react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
+import { SelectorDeEntidad } from "@/components/ui/selector-de-entidad";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog } from "@/components/ui/dialog";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import type { BlockedSlotForm } from "./schemas";
 
 interface BlockedSlotFormDialogProps {
@@ -16,6 +17,10 @@ interface BlockedSlotFormDialogProps {
   onFormChange: (form: BlockedSlotForm) => void;
   onSubmit: (e: React.FormEvent) => void;
   guardando: boolean;
+  /** Equipo entre el que elegir. */
+  profesionales?: { id: string; name: string }[];
+  profesionalId?: string;
+  onProfesionalChange?: (id: string) => void;
 }
 
 /** Alta de un bloqueo de agenda, con repetición opcional. */
@@ -26,13 +31,47 @@ export function BlockedSlotFormDialog({
   onFormChange,
   onSubmit,
   guardando,
+  profesionales,
+  profesionalId,
+  onProfesionalChange,
 }: BlockedSlotFormDialogProps) {
   const set = (cambios: Partial<BlockedSlotForm>) =>
     onFormChange({ ...form, ...cambios });
 
   return (
-    <Dialog open={open} onClose={onClose} title="Bloquear agenda">
-      <form onSubmit={onSubmit} className="space-y-4">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Bloquear agenda"
+      descripcion="Una franja en la que no se pueden reservar citas."
+      icono={CalendarOff}
+      pie={
+        <>
+          <BotonDeCancelar />
+          <SubmitButton
+            form="bloqueo"
+            label="Bloquear"
+            pendingLabel="Guardando..."
+            pending={guardando}
+          />
+        </>
+      }
+    >
+      <form id="bloqueo" onSubmit={onSubmit} className="space-y-4">
+        {profesionales && onProfesionalChange && (
+          <Field label="Profesional *">
+            <SelectorDeEntidad
+              opciones={profesionales.map((p) => ({
+                id: p.id,
+                nombre: p.name,
+              }))}
+              value={profesionalId ?? ""}
+              onChange={onProfesionalChange}
+              placeholder="Elige a quién se le bloquea"
+              required
+            />
+          </Field>
+        )}
         <Field label="Día *">
           <Input
             type="date"
@@ -92,16 +131,6 @@ export function BlockedSlotFormDialog({
             maxLength={200}
           />
         </Field>
-        <div className="flex gap-3 pt-2">
-          <SubmitButton
-            label="Bloquear"
-            pendingLabel="Guardando..."
-            pending={guardando}
-          />
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-        </div>
       </form>
     </Dialog>
   );

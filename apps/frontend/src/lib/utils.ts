@@ -92,16 +92,13 @@ export function haComenzado(date: string, startTime: string): boolean {
   return `${date} ${startTime}` <= `${toLocalDateKey(ahora)} ${hora}`;
 }
 
-/**
- * Convierte una hora "HH:MM" (24h) a formato de 12h con am/pm, bajando al
- * reloj las horas que pasan de 24 ("24:30" son las 12:30 am).
- */
+/** Normaliza una hora "HH:MM" al reloj de 24 horas. */
 export function formatTime(time: string): string {
   const [h, m] = time.split(":");
+  // El modulo baja al reloj las horas que pasan de 24: la madrugada se guarda
+  // como continuacion del mismo dia, y "25:00" es la una.
   const hour = parseInt(h) % 24;
-  const ampm = hour >= 12 ? "pm" : "am";
-  const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-  return `${displayHour}:${m} ${ampm}`;
+  return `${String(hour).padStart(2, "0")}:${m}`;
 }
 
 /** Combina fecha y hora ya formateadas en una sola cadena legible. */
@@ -117,6 +114,7 @@ export function formatDateTimeStamp(isoTimestamp: string): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
 }
 
@@ -125,6 +123,7 @@ export function formatTimeStamp(isoTimestamp: string): string {
   return new Date(isoTimestamp).toLocaleTimeString("es-CO", {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
 }
 

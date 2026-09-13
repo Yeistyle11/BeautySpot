@@ -2,9 +2,11 @@
 
 // Pestana de galeria: gestion de las imagenes del perfil publico.
 import Image from "next/image";
+import { useState } from "react";
 import { Camera, Plus, Trash2, Image as ImageIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { canDo } from "@/lib/permissions";
 import { imageUnoptimized } from "@/lib/image";
 import type { Role } from "@/lib/store";
@@ -25,9 +27,10 @@ export function GalleryTab({
   onRemove,
 }: GalleryTabProps) {
   const canEdit = canDo(role, "marketplace_edit");
+  const [aQuitar, setAQuitar] = useState<number | null>(null);
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">
@@ -76,7 +79,7 @@ export function GalleryTab({
                     <Button
                       size="sm"
                       variant="destructive"
-                      onClick={() => onRemove(i)}
+                      onClick={() => setAQuitar(i)}
                       aria-label={`Eliminar ${img.title || `imagen ${i + 1}`}`}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -93,6 +96,25 @@ export function GalleryTab({
           </div>
         )}
       </CardContent>
+
+      <ConfirmDialog
+        open={aQuitar !== null}
+        onClose={() => setAQuitar(null)}
+        onConfirm={() => {
+          if (aQuitar !== null) onRemove(aQuitar);
+          setAQuitar(null);
+        }}
+        title="Eliminar la imagen"
+        registro={
+          aQuitar !== null
+            ? gallery[aQuitar]?.title || `Imagen ${aQuitar + 1}`
+            : undefined
+        }
+        consecuencias="desaparece del perfil público del negocio."
+        seConserva="El resto de la galería no se toca."
+        confirmLabel="Sí, eliminar la imagen"
+        variant="destructive"
+      />
     </Card>
   );
 }

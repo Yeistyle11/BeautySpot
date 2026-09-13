@@ -43,11 +43,11 @@ const OPACOS = new Set([
 const RUTA_INEXISTENTE = /^Cannot [A-Z]+ \//;
 
 /**
- * Errores de validacion que el backend no redacta: los emite el validador
- * cuando el cuerpo trae campos que el DTO no admite. Son un desajuste de
- * contrato, no algo que el usuario pueda corregir desde el formulario.
+ * Detalles de validacion sin redactar: los del campo que el DTO no admite y
+ * los que empiezan nombrando el campo interno en camelCase.
  */
-const DETALLE_INTERNO = /should not exist$/;
+const DETALLE_INTERNO =
+  /should not exist$|^(?:each value in )?[a-z]+[A-Z]\w*\s/;
 
 const GENERICO = "Ocurrió un error inesperado. Vuelve a intentarlo.";
 

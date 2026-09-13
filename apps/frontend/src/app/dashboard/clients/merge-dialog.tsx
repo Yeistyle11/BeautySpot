@@ -2,9 +2,10 @@
 
 // Dialogo para fusionar dos fichas del mismo cliente en una.
 import { ArrowRight } from "lucide-react";
+import { Merge } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
-import { Select } from "@/components/ui/select";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
+import { SelectorDeEntidad } from "@/components/ui/selector-de-entidad";
 import { Field } from "@/components/ui/field";
 import type { Client } from "./schemas";
 
@@ -48,7 +49,22 @@ export function MergeDialog({
   const absorbido = candidatos.find((c) => c.id === absorbidoId);
 
   return (
-    <Dialog open={open} onClose={onClose} title="Fusionar fichas" wide>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Fusionar fichas"
+      descripcion="Une una ficha duplicada con la que se queda."
+      icono={Merge}
+      wide
+      pie={
+        <>
+          <BotonDeCancelar />
+          <Button onClick={onFusionar} disabled={!absorbidoId || saving}>
+            {saving ? "Fusionando..." : "Fusionar"}
+          </Button>
+        </>
+      }
+    >
       <div className="space-y-4">
         {error && (
           <p role="alert" className="text-destructive text-sm">
@@ -60,18 +76,16 @@ export function MergeDialog({
           label="Ficha duplicada"
           hint="Su historial pasa a la ficha de abajo, y deja de aparecer en la cartera."
         >
-          <Select
+          <SelectorDeEntidad
+            opciones={candidatos.map((c) => ({
+              id: c.id,
+              nombre: c.name,
+              detalle: contactoDe(c) || undefined,
+            }))}
             value={absorbidoId}
-            onChange={(e) => onAbsorbidoChange(e.target.value)}
-          >
-            <option value="">Seleccionar...</option>
-            {candidatos.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-                {contactoDe(c) ? ` · ${contactoDe(c)}` : ""}
-              </option>
-            ))}
-          </Select>
+            onChange={onAbsorbidoChange}
+            placeholder="Buscar la ficha duplicada..."
+          />
         </Field>
 
         <div className="flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm">
@@ -106,15 +120,6 @@ export function MergeDialog({
           </ul>
           {/* Que sea irreversible se dice antes, no en el mensaje de error. */}
           <p className="text-foreground font-medium">No se puede deshacer.</p>
-        </div>
-
-        <div className="flex gap-3">
-          <Button onClick={onFusionar} disabled={!absorbidoId || saving}>
-            {saving ? "Fusionando..." : "Fusionar"}
-          </Button>
-          <Button variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
         </div>
       </div>
     </Dialog>

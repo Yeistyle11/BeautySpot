@@ -81,7 +81,7 @@ function ToastItem({
 
   return (
     <div
-      className={`pointer-events-auto flex items-start gap-3 rounded-lg border p-4 shadow-lg ${
+      className={`shadow-raised pointer-events-auto flex items-start gap-3 rounded-lg border p-4 ${
         esError
           ? "border-destructive/30 bg-destructive/10 text-destructive"
           : "border-success/30 bg-success-soft text-success-soft-foreground"

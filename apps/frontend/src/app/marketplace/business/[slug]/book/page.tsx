@@ -1,14 +1,15 @@
 "use client";
 
 // Flujo de reserva publica: asistente por pasos (servicios, profesional, horario y datos) hasta confirmar la cita.
-import { useState, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { mensajeDeError } from "@/lib/error-message";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Check } from "lucide-react";
 import { z } from "zod";
 import { api, apiPublic } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
+import { desplazarDia, toLocalDateKey } from "@/lib/utils";
 import { useApiPublic, revalidatePrefix } from "@/lib/swr";
 import { useSeededForm } from "@/lib/use-seeded-form";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
@@ -27,22 +28,40 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import {
   BOOKING_STEPS,
+  jornadaPublicaSchema,
   professionalSchema,
   profileResponseSchema,
   serviceSchema,
   type BookingConfirmation as Confirmation,
+  type JornadaPublica,
   type Profile,
   type Professional,
   type Service,
 } from "./schemas";
 
+/** Dias que se miran para proponer el primero en el que el negocio abre. */
+const DIAS_PARA_PROPONER = 14;
+
 function PublicBookingPageInner() {
   const { slug } = useParams<{ slug: string }>();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const preselectedProfId = searchParams.get("professionalId") || "";
+  // Admite varios: `?serviceId=a&serviceId=b` llega de la ficha del negocio.
+  const serviciosPreelegidos = searchParams.getAll("serviceId");
+  // Primera lectura de lo que el asistente guarda en la URL; los datos de
+  // quien reserva se quedan fuera.
+  const [inicial] = useState(() => ({
+    paso: Number(searchParams.get("paso")) || 1,
+    fecha: searchParams.get("fecha") ?? "",
+    hora: searchParams.get("hora") ?? "",
+  }));
 
-  const { user, hydrated } = useAuthStore();
+  const { user, role, hydrated } = useAuthStore();
   const isAuthenticated = hydrated && !!user;
+  // Con cuenta de cliente la cita se liga a la cuenta; el resto reserva como
+  // invitado.
+  const reservaComoCliente = isAuthenticated && role === "CLIENT";
 
   const {
     data: profileResponse,
@@ -63,6 +82,40 @@ function PublicBookingPageInner() {
     z.array(professionalSchema)
   );
 
+  const { data: horarios } = useApiPublic<JornadaPublica[]>(
+    profile?.businessId
+      ? `/core/public/businesses/${profile.businessId}/horarios`
+      : null,
+    undefined,
+    z.array(jornadaPublicaSchema)
+  );
+
+  /** Días de la semana con hueco, contando la cola de las jornadas nocturnas. */
+  const diasAbiertos = useMemo(() => {
+    const dias = new Set<number>();
+    for (const jornada of horarios ?? []) {
+      dias.add(jornada.dayOfWeek);
+      if (jornada.closeTime <= jornada.openTime) {
+        dias.add((jornada.dayOfWeek + 1) % 7);
+      }
+    }
+    return [...dias];
+  }, [horarios]);
+
+  /** El primer dia con jornada a partir de hoy, que es el que se propone. */
+  const primerDiaAbierto = useMemo(() => {
+    if (diasAbiertos.length === 0) return "";
+
+    const hoy = toLocalDateKey(new Date());
+    for (let i = 0; i < DIAS_PARA_PROPONER; i++) {
+      const candidato = desplazarDia(hoy, i);
+      if (diasAbiertos.includes(new Date(`${candidato}T12:00:00`).getDay())) {
+        return candidato;
+      }
+    }
+    return "";
+  }, [diasAbiertos]);
+
   // El perfil publico y el profesional son entidades distintas; para reservar
   // hace falta el id del profesional, no el del perfil.
   const professionals = (rawProfessionals ?? []).map((p) => ({
@@ -71,16 +124,23 @@ function PublicBookingPageInner() {
     specialties: p.specialties || [],
   }));
 
-  const [step, setStep] = useState(1);
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  // El paso sale de la URL; lo demas que se elige vive en el componente.
+  const step = Math.min(
+    Math.max(Number(searchParams.get("paso")) || 1, 1),
+    BOOKING_STEPS.length
+  );
+  const [selectedServices, setSelectedServices] =
+    useState<string[]>(serviciosPreelegidos);
   const [selectedProfessional, setSelectedProfessional] =
     useState(preselectedProfId);
-  const [date, setDate] = useState("");
+  const [fechaElegida, setDate] = useState(inicial.fecha);
+  /** La elegida, o la que se propone mientras nadie toca la fecha. */
+  const date = fechaElegida || primerDiaAbierto;
   // La hora se guarda junto a la combinacion con la que se eligio, para poder
   // derivar si sigue valiendo en vez de tener que borrarla desde un efecto.
   const [horaElegida, setHoraElegida] = useState({
     combinacion: "",
-    startTime: "",
+    startTime: inicial.hora,
   });
   const [guest, setGuest] = useState<GuestDetails>({
     name: "",
@@ -148,10 +208,54 @@ function PublicBookingPageInner() {
   // Cambiar de fecha, profesional o servicios invalida la hora ya elegida: el
   // hueco de las 10:00 del martes no existe necesariamente el miercoles.
   const combinacionDeHora = `${date}|${selectedProfessional}|${totalDuration}`;
+  // La hora que llega por la URL solo vale si el hueco sigue en la lista.
+  const horaRestaurada =
+    horaElegida.combinacion === "" && availableSlots.includes(inicial.hora)
+      ? inicial.hora
+      : "";
   const startTime =
-    horaElegida.combinacion === combinacionDeHora ? horaElegida.startTime : "";
+    horaElegida.combinacion === combinacionDeHora
+      ? horaElegida.startTime
+      : horaRestaurada;
   const setStartTime = (valor: string) =>
     setHoraElegida({ combinacion: combinacionDeHora, startTime: valor });
+
+  // Lo que el usuario elige se refleja en la URL con `replace`, sin apilar
+  // historial: el que se apila es el paso, y lo hace `setStep`.
+  const rutaDelPaso = `/marketplace/business/${slug}/book`;
+
+  /** Cambia de paso apilando historial, que es lo que Atras deshace. */
+  const setStep = (paso: number) => {
+    const q = new URLSearchParams(searchParams.toString());
+    if (paso > 1) q.set("paso", String(paso));
+    else q.delete("paso");
+    router.push(`${rutaDelPaso}?${q}`, { scroll: false });
+  };
+
+  useEffect(() => {
+    // Hecha la reserva, el asistente deja de escribir en la URL.
+    if (confirmation) return;
+
+    const q = new URLSearchParams();
+    if (step > 1) q.set("paso", String(step));
+    selectedServices.forEach((id) => q.append("serviceId", id));
+    if (selectedProfessional) q.set("professionalId", selectedProfessional);
+    if (date) q.set("fecha", date);
+    if (startTime) q.set("hora", startTime);
+    const destino = q.toString() ? `${rutaDelPaso}?${q}` : rutaDelPaso;
+    if (destino !== window.location.pathname + window.location.search) {
+      router.replace(destino, { scroll: false });
+    }
+  }, [
+    router,
+    rutaDelPaso,
+    step,
+    selectedServices,
+    selectedProfessional,
+    date,
+    startTime,
+    confirmation,
+  ]);
 
   useSeededForm(isAuthenticated ? user : null, (u) =>
     setGuest({
@@ -179,9 +283,8 @@ function PublicBookingPageInner() {
         serviceIds: selectedServices,
         date,
         startTime,
-        // Con quién contactar. Con sesión no se pide el formulario —la pantalla
-        // dice «Reservando como …»—, así que los datos salen de la cuenta.
-        ...(isAuthenticated && user
+        // Con quién contactar: de la cuenta del cliente, o del formulario.
+        ...(reservaComoCliente && user
           ? {
               guestName: user.name,
               guestEmail: user.email || undefined,
@@ -194,16 +297,16 @@ function PublicBookingPageInner() {
             }),
       };
 
-      // Con sesión, la reserva va por la ruta autenticada: es la que liga la
-      // ficha del negocio a la cuenta, y de ahí salen *Mis Citas* y el poder
-      // cancelar, reagendar o reseñar. El id del usuario sale del token.
-      const result = isAuthenticated
+      // Con cuenta de cliente, la reserva va por la ruta autenticada.
+      const result = reservaComoCliente
         ? await api.post<Confirmation>("/booking/appointments/mine", body)
         : await apiPublic.post<Confirmation>(
             "/booking/public/appointments",
             body
           );
       setConfirmation(result);
+      // Se limpia la URL del formulario.
+      router.replace(rutaDelPaso, { scroll: false });
       await revalidatePrefix("/booking/appointments");
     } catch (err) {
       setError(mensajeDeError(err, "Error al crear la reserva"));
@@ -253,9 +356,9 @@ function PublicBookingPageInner() {
         businessName={profile.name}
         slug={slug}
         date={date}
-        isAuthenticated={isAuthenticated}
+        isAuthenticated={reservaComoCliente}
         contacto={
-          isAuthenticated && user
+          reservaComoCliente && user
             ? { email: user.email, phone: user.phone }
             : { email: guest.email, phone: guest.phone }
         }
@@ -277,24 +380,42 @@ function PublicBookingPageInner() {
         Agendar cita en {profile.name}
       </h1>
 
+      {/* Tres estados: hecho con su check, actual marcado y pendiente en gris.
+          Los hechos vuelven a su paso al pulsarlos. */}
       <ol className="mb-8 flex gap-2">
-        {BOOKING_STEPS.map((s) => (
-          <li
-            key={s.n}
-            aria-current={step === s.n ? "step" : undefined}
-            className={`flex-1 rounded-lg py-2 text-center text-sm font-medium transition-colors ${
-              step >= s.n
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {s.n}. {s.label}
-          </li>
-        ))}
+        {BOOKING_STEPS.map((s) => {
+          const hecho = step > s.n;
+          const actual = step === s.n;
+          return (
+            <li key={s.n} className="flex-1">
+              <button
+                type="button"
+                onClick={() => hecho && setStep(s.n)}
+                disabled={!hecho}
+                aria-current={actual ? "step" : undefined}
+                className={`focus-visible:ring-ring flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${
+                  hecho
+                    ? "bg-primary/15 text-primary hover:bg-primary/25 cursor-pointer"
+                    : actual
+                      ? "bg-primary text-primary-foreground ring-primary/30 ring-2 ring-offset-2"
+                      : "bg-muted text-muted-foreground cursor-default"
+                }`}
+              >
+                {hecho ? (
+                  <Check className="h-4 w-4" aria-hidden />
+                ) : (
+                  <span>{s.n}.</span>
+                )}
+                {s.label}
+              </button>
+            </li>
+          );
+        })}
       </ol>
 
       {step === 1 && (
         <SelectServicesStep
+          rutaDelNegocio={`/marketplace/business/${slug}`}
           services={services}
           selected={selectedServices}
           onToggle={toggleService}
@@ -319,6 +440,7 @@ function PublicBookingPageInner() {
       {step === 3 && (
         <SelectSlotStep
           date={date}
+          diasAbiertos={diasAbiertos}
           onDateChange={setDate}
           startTime={startTime}
           onStartTimeChange={setStartTime}
@@ -338,7 +460,7 @@ function PublicBookingPageInner() {
           totalDuration={totalDuration}
           totalAmount={totalAmount}
           precioPorConfirmar={precioPorConfirmar}
-          user={isAuthenticated && user ? user : null}
+          user={reservaComoCliente && user ? user : null}
           guest={guest}
           onGuestChange={setGuest}
           error={error}

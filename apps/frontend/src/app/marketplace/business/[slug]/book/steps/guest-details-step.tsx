@@ -53,7 +53,7 @@ export function GuestDetailsStep({
     onGuestChange({ ...guest, ...patch });
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardHeader>
         <CardTitle>Tus datos</CardTitle>
       </CardHeader>

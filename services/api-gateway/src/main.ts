@@ -1,8 +1,9 @@
 import { NestFactory, Reflector } from "@nestjs/core";
-import { Logger, ValidationPipe } from "@nestjs/common";
+import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AppModule } from "./app.module";
 import {
+  crearValidationPipe,
   HttpExceptionFilter,
   InternalSecretGuard,
   TransformInterceptor,
@@ -61,13 +62,7 @@ async function bootstrap() {
 
   app.enableCors(buildCorsOptions(configService));
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    })
-  );
+  app.useGlobalPipes(crearValidationPipe());
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor());
 

@@ -14,6 +14,8 @@ export const clientSchema = z.object({
   /** Valores de la ficha configurable, indexados por id de campo. */
   ficha: z.record(z.string(), z.unknown()).nullish(),
   anonymizedAt: z.string().nullish(),
+  /** Fecha de alta de la ficha; el listado ordena por ella. */
+  createdAt: z.string().nullish(),
   /** Versión con la que se cargó la ficha; el guardado la devuelve para cotejar. */
   updatedAt: z.string(),
 });

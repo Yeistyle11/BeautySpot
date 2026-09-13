@@ -2,9 +2,10 @@
 
 // Dialogo para configurar el horario semanal de un profesional.
 import { Plus, X } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog } from "@/components/ui/dialog";
+import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { HoraDeCierre } from "@/components/ui/hora-de-cierre";
 import {
@@ -57,7 +58,17 @@ export function ScheduleDialog({
       open={open}
       onClose={onClose}
       title={`Horarios de ${professional?.name || ""}`}
+      descripcion="Los días y las horas en que se le pueden reservar citas."
+      icono={CalendarDays}
       wide
+      pie={
+        <>
+          <BotonDeCancelar />
+          <Button onClick={onSave} disabled={saving}>
+            {saving ? "Guardando..." : "Guardar horarios"}
+          </Button>
+        </>
+      }
     >
       <div className="space-y-4">
         {error && (
@@ -157,14 +168,6 @@ export function ScheduleDialog({
               </div>
             );
           })}
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={onSave} disabled={saving}>
-            {saving ? "Guardando..." : "Guardar horarios"}
-          </Button>
-          <Button variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
         </div>
       </div>
     </Dialog>

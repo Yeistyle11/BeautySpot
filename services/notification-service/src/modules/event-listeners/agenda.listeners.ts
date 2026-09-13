@@ -92,7 +92,7 @@ export class AgendaListeners {
             businessId,
             NotificationType.APPOINTMENT_CREATED,
             "Cita reservada",
-            `Tu cita en ${data.businessName} el ${date} a las ${startTime} quedó reservada.`,
+            `Tu cita en ${data.businessName} el ${fechaEnCastellano(date)} a las ${horaEnCastellano(startTime)} quedó reservada.`,
             { appointmentId }
           );
 
@@ -100,7 +100,7 @@ export class AgendaListeners {
             businessId,
             NotificationType.APPOINTMENT_CREATED,
             "Cita nueva",
-            `${data.clientName} reservó el ${date} a las ${startTime} con ${data.professionalName}.`,
+            `${data.clientName} reservó el ${fechaEnCastellano(date)} a las ${horaEnCastellano(startTime)} con ${data.professionalName}.`,
             { appointmentId }
           );
 
@@ -182,7 +182,7 @@ export class AgendaListeners {
             businessId,
             NotificationType.APPOINTMENT_RESCHEDULED,
             "Cita reagendada",
-            `Tu cita en ${data.businessName} pasó del ${previousDate} a las ${previousStartTime} al ${date} a las ${startTime}.`,
+            `Tu cita en ${data.businessName} pasó del ${fechaEnCastellano(previousDate)} a las ${horaEnCastellano(previousStartTime)} al ${fechaEnCastellano(date)} a las ${horaEnCastellano(startTime)}.`,
             { appointmentId }
           );
 
@@ -190,7 +190,7 @@ export class AgendaListeners {
             businessId,
             NotificationType.APPOINTMENT_RESCHEDULED,
             "Cita reagendada",
-            `La cita de ${data.clientName} con ${data.professionalName} pasó al ${date} a las ${startTime}.`,
+            `La cita de ${data.clientName} con ${data.professionalName} pasó al ${fechaEnCastellano(date)} a las ${horaEnCastellano(startTime)}.`,
             { appointmentId }
           );
         }
@@ -314,7 +314,7 @@ export class AgendaListeners {
             businessId,
             NotificationType.APPOINTMENT_CONFIRMED,
             "Cita confirmada",
-            `Tu cita en ${data.businessName} el ${date} a las ${startTime} está confirmada.`,
+            `Tu cita en ${data.businessName} el ${fechaEnCastellano(date)} a las ${horaEnCastellano(startTime)} está confirmada.`,
             { appointmentId }
           );
 
@@ -539,7 +539,7 @@ export class AgendaListeners {
             NotificationType.APPOINTMENT_REMINDER,
             "Recordatorio de cita",
             reminderType === "24h"
-              ? `Mañana tienes cita en ${data.businessName} a las ${startTime}.`
+              ? `Mañana tienes cita en ${data.businessName} a las ${horaEnCastellano(startTime)}.`
               : `Tu cita en ${data.businessName} empieza en una hora.`,
             { appointmentId }
           );

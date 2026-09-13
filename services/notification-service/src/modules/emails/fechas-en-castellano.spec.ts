@@ -29,17 +29,17 @@ describe("fechaEnCastellano", () => {
 });
 
 describe("horaEnCastellano", () => {
-  it("convierte a doce horas con am y pm", () => {
-    expect(horaEnCastellano("20:00")).toBe("8:00 pm");
-    expect(horaEnCastellano("09:30")).toBe("9:30 am");
-    expect(horaEnCastellano("12:00")).toBe("12:00 pm");
-    expect(horaEnCastellano("00:15")).toBe("12:15 am");
+  it("usa el reloj de 24 horas", () => {
+    expect(horaEnCastellano("20:00")).toBe("20:00");
+    expect(horaEnCastellano("09:30")).toBe("09:30");
+    expect(horaEnCastellano("12:00")).toBe("12:00");
+    expect(horaEnCastellano("00:15")).toBe("00:15");
   });
 
-  // La madrugada se guarda como continuacion del dia: «24:30» son las 12:30 am.
+  // La madrugada se guarda como continuacion del dia: «24:30» son las «00:30».
   it("baja al reloj las horas de madrugada", () => {
-    expect(horaEnCastellano("24:30")).toBe("12:30 am");
-    expect(horaEnCastellano("25:00")).toBe("1:00 am");
+    expect(horaEnCastellano("24:30")).toBe("00:30");
+    expect(horaEnCastellano("25:00")).toBe("01:00");
   });
 
   it("devuelve el valor tal cual si no es una hora", () => {
@@ -54,7 +54,7 @@ describe("horaEnCastellano", () => {
 describe("fechaYHoraEnCastellano", () => {
   it("junta las dos como las escribe el panel", () => {
     expect(fechaYHoraEnCastellano("2026-09-05", "20:00")).toBe(
-      "5 de sept de 2026, 8:00 pm"
+      "5 de sept de 2026, 20:00"
     );
   });
 

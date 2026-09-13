@@ -5,7 +5,14 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
-import { Repository, DataSource, ILike, In } from "typeorm";
+import {
+  Repository,
+  DataSource,
+  ILike,
+  In,
+  LessThan,
+  type FindOptionsWhere,
+} from "typeorm";
 import { Appointment } from "../../entities/appointment.entity";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 import {
@@ -30,6 +37,7 @@ import { AvailabilityQueryService } from "./availability-query.service";
 import { PoliticaDeReservaService } from "./politica-de-reserva.service";
 import { PROPORCION_PUNTOS_FIDELIDAD } from "@beautyspot/shared-constants";
 import {
+  ahoraEnLaZona,
   calculateEndTime,
   escapeLikePattern,
   esInstantePasadoEn,
@@ -492,6 +500,13 @@ export class AppointmentsService {
         `No se puede confirmar una cita en estado ${appt.status}`
       );
     }
+    // Una cita que ya empezó se cierra como atendida o como no asistió.
+    const zona = await this.zonas.de(businessId);
+    if (esInstantePasadoEn(zona, appt.date, appt.startTime)) {
+      throw new BadRequestException(
+        "Esta cita ya pasó: márcala como atendida o como no asistió"
+      );
+    }
     await this.dataSource.transaction(async (manager) => {
       await manager.update(
         Appointment,
@@ -529,12 +544,14 @@ export class AppointmentsService {
   /** Da la cita por atendida y suma los puntos de fidelidad al cliente. */
   async complete(id: string, businessId: string): Promise<Appointment> {
     const appt = await this.findById(id, businessId);
+    // La pendiente entra: una cita vencida sin confirmar tambien se atiende.
     if (
+      appt.status !== AppointmentStatus.PENDING &&
       appt.status !== AppointmentStatus.CONFIRMED &&
       appt.status !== AppointmentStatus.IN_PROGRESS
     ) {
       throw new BadRequestException(
-        "Solo se puede completar una cita confirmada o en progreso"
+        "Solo se puede completar una cita pendiente, confirmada o en progreso"
       );
     }
     // No se da por atendida una cita que aun no ha empezado: completar
@@ -802,6 +819,10 @@ export class AppointmentsService {
       clientId?: string;
       search?: string;
       branchId?: string;
+      /** Solo las que ya pasaron sin cerrarse. */
+      vencidas?: boolean;
+      /** Quien pregunta pidio un orden concreto por columna. */
+      ordenPedido?: boolean;
     },
     pagination: PaginateParams
   ): Promise<IPaginatedResponse<Appointment>> {
@@ -812,11 +833,105 @@ export class AppointmentsService {
     if (filters.clientId) base.clientId = filters.clientId;
     if (filters.branchId) base.branchId = filters.branchId;
 
+    const where = await this.condicionesDeBusqueda(
+      businessId,
+      base,
+      filters.search
+    );
+
     return paginate(this.apptRepo, pagination, {
-      where: await this.condicionesDeBusqueda(businessId, base, filters.search),
+      where: filters.vencidas
+        ? await this.soloLasVencidas(businessId, where)
+        : where,
       relations: ["appointmentServices"],
-      order: { date: "DESC", startTime: "ASC" },
+      // Sin orden pedido manda el de la agenda: lo mas reciente primero. Al
+      // ordenar por dia, la hora es el segundo criterio.
+      order: filters.ordenPedido
+        ? pagination.sort === "date"
+          ? { date: pagination.order, startTime: "ASC" }
+          : { [pagination.sort]: pagination.order }
+        : { date: "DESC", startTime: "ASC" },
     });
+  }
+
+  /** Estados de los que una cita todavia tiene que salir. */
+  private static readonly SIN_CERRAR = [
+    AppointmentStatus.PENDING,
+    AppointmentStatus.CONFIRMED,
+  ];
+
+  /** Acota las condiciones a las citas cuya hora ya pasó y siguen sin cerrar. */
+  private async soloLasVencidas(
+    businessId: string,
+    where: FindOptionsWhere<Appointment> | FindOptionsWhere<Appointment>[]
+  ): Promise<FindOptionsWhere<Appointment>[]> {
+    const zona = await this.zonas.de(businessId);
+    const { fecha, hora } = ahoraEnLaZona(zona);
+    const condiciones = Array.isArray(where) ? where : [where];
+
+    return condiciones.flatMap((condicion) => [
+      {
+        ...condicion,
+        status: In(AppointmentsService.SIN_CERRAR),
+        date: LessThan(fecha),
+      },
+      {
+        ...condicion,
+        status: In(AppointmentsService.SIN_CERRAR),
+        date: fecha,
+        startTime: LessThan(hora),
+      },
+    ]);
+  }
+
+  /** Cuantas citas quedan por cerrar, para el contador de su pestaña. */
+  async contarVencidas(
+    businessId: string,
+    filters: { search?: string; branchId?: string } = {}
+  ): Promise<number> {
+    const base: Record<string, unknown> = { businessId };
+    if (filters.branchId) base.branchId = filters.branchId;
+    const where = await this.condicionesDeBusqueda(
+      businessId,
+      base,
+      filters.search
+    );
+
+    return this.apptRepo.count({
+      where: await this.soloLasVencidas(businessId, where),
+    });
+  }
+
+  /** Cuantas citas hay de cada estado, respetando la busqueda. */
+  async contarPorEstado(
+    businessId: string,
+    filters: { search?: string; branchId?: string } = {}
+  ): Promise<Record<string, number>> {
+    const base: Record<string, unknown> = { businessId };
+    if (filters.branchId) base.branchId = filters.branchId;
+    const where = await this.condicionesDeBusqueda(
+      businessId,
+      base,
+      filters.search
+    );
+
+    // `condicionesDeBusqueda` puede devolver varias condiciones (un OR): se
+    // cuenta sobre cada una y se suma por estado.
+    const condiciones = Array.isArray(where) ? where : [where];
+    const cuenta: Record<string, number> = {};
+    for (const condicion of condiciones) {
+      const filas = await this.apptRepo
+        .createQueryBuilder("a")
+        .select("a.status", "status")
+        .addSelect("COUNT(*)", "total")
+        .where(condicion)
+        .groupBy("a.status")
+        .getRawMany<{ status: string; total: string }>();
+      for (const fila of filas) {
+        cuenta[fila.status] = (cuenta[fila.status] ?? 0) + Number(fila.total);
+      }
+    }
+    return cuenta;
   }
 
   /**

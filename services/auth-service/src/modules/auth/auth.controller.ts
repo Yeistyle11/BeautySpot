@@ -10,7 +10,7 @@ import { AuthService } from "./auth.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
-import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { ResetPasswordDto, ValidarTokenDto } from "./dto/reset-password.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { VerifyEmailDto } from "./dto/verify-email.dto";
 import {
@@ -70,6 +70,14 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto.email);
+  }
+
+  /** Dice si el enlace de recuperación sigue sirviendo, sin gastarlo. */
+  @Public()
+  @Post("reset-password/validez")
+  @HttpCode(HttpStatus.OK)
+  async validezDelReseteo(@Body() dto: ValidarTokenDto) {
+    return this.authService.tokenDeReseteoValido(dto.token);
   }
 
   /** Restablece la contraseña usando el token de recuperación. */

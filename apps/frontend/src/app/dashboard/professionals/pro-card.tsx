@@ -51,7 +51,7 @@ export const ProCard = memo(function ProCard({
 
   return (
     <Card
-      className={`border-0 shadow-sm transition-shadow [contain-intrinsic-size:auto_260px] [content-visibility:auto] hover:shadow-md ${!p.active ? "opacity-60" : ""}`}
+      className={`shadow-flat hover:shadow-flat border-0 transition-shadow [contain-intrinsic-size:auto_260px] [content-visibility:auto] ${!p.active ? "opacity-60" : ""}`}
     >
       <CardContent className="p-5">
         <div className="flex items-start gap-4">

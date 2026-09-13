@@ -115,7 +115,7 @@ export default function ClientProfilePage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="border-0 shadow-sm lg:col-span-1">
+        <Card className="shadow-flat border-0 lg:col-span-1">
           <CardContent className="p-6">
             <div className="mb-4 flex items-center gap-2">
               <Award className="text-primary h-5 w-5" />
@@ -164,7 +164,7 @@ export default function ClientProfilePage() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-sm lg:col-span-2">
+        <Card className="shadow-flat border-0 lg:col-span-2">
           <CardContent className="p-6">
             <h2 className="mb-6 font-semibold">Información personal</h2>
 

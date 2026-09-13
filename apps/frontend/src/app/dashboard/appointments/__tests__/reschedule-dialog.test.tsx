@@ -46,18 +46,16 @@ describe("RescheduleDialog", () => {
   it("dice dónde está la cita ahora", () => {
     pintar();
 
-    expect(screen.getByText(/10:00 am/)).toBeInTheDocument();
+    expect(screen.getByText(/10:00/)).toBeInTheDocument();
     expect(screen.getByText(/30 minutos/)).toBeInTheDocument();
   });
 
   it("ofrece solo los huecos libres", () => {
     pintar();
 
+    expect(screen.getByRole("button", { name: "11:00" })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "11:00 am" })
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "12:00 pm" })
+      screen.queryByRole("button", { name: "12:00" })
     ).not.toBeInTheDocument();
   });
 
@@ -65,7 +63,7 @@ describe("RescheduleDialog", () => {
     const onConfirm = jest.fn();
     pintar({ onConfirm });
 
-    fireEvent.click(screen.getByRole("button", { name: "11:00 am" }));
+    fireEvent.click(screen.getByRole("button", { name: "11:00" }));
     fireEvent.click(screen.getByRole("button", { name: /Mover la cita/ }));
 
     expect(onConfirm).toHaveBeenCalledWith("2026-08-20", "11:00");

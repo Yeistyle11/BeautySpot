@@ -4,6 +4,7 @@ import { PublicService } from "./public.service";
 import { Business } from "../../entities/business.entity";
 import { Service } from "../../entities/service.entity";
 import { Professional } from "../../entities/professional.entity";
+import { BusinessHours } from "../../entities/business-hours.entity";
 import { PreciosService } from "../precios/precios.service";
 
 describe("PublicService", () => {
@@ -11,6 +12,7 @@ describe("PublicService", () => {
   let mockBusinessRepo: jest.Mocked<any>;
   let mockServiceRepo: jest.Mocked<any>;
   let mockProRepo: jest.Mocked<any>;
+  let mockHorasRepo: jest.Mocked<any>;
   let mockPrecios: jest.Mocked<any>;
 
   beforeEach(async () => {
@@ -50,6 +52,8 @@ describe("PublicService", () => {
       })),
     } as any;
 
+    mockHorasRepo = { find: jest.fn().mockResolvedValue([]) } as any;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PublicService,
@@ -58,6 +62,10 @@ describe("PublicService", () => {
         {
           provide: getRepositoryToken(Professional),
           useValue: mockProRepo,
+        },
+        {
+          provide: getRepositoryToken(BusinessHours),
+          useValue: mockHorasRepo,
         },
         { provide: PreciosService, useValue: mockPrecios },
       ],
@@ -239,6 +247,37 @@ describe("PublicService", () => {
       const { select } = mockProRepo.find.mock.calls[0][0];
       expect(select).toContain("name");
       expect(select).toContain("photo");
+    });
+  });
+
+  describe("getBusinessHours", () => {
+    it("solo devuelve las jornadas activas del negocio", async () => {
+      mockHorasRepo.find.mockResolvedValue([]);
+
+      await service.getBusinessHours("biz-1");
+
+      expect(mockHorasRepo.find).toHaveBeenCalledWith({
+        where: { businessId: "biz-1", active: true },
+        order: { dayOfWeek: "ASC", openTime: "ASC" },
+      });
+    });
+
+    it("devuelve el día y las horas, y nada más", async () => {
+      mockHorasRepo.find.mockResolvedValue([
+        {
+          id: "hora-1",
+          businessId: "biz-1",
+          branchId: null,
+          dayOfWeek: 6,
+          openTime: "20:00",
+          closeTime: "02:00",
+          active: true,
+        },
+      ]);
+
+      expect(await service.getBusinessHours("biz-1")).toEqual([
+        { dayOfWeek: 6, openTime: "20:00", closeTime: "02:00" },
+      ]);
     });
   });
 });

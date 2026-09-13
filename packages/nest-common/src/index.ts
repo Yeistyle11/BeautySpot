@@ -20,6 +20,7 @@ export { BranchId, BRANCH_ID_HEADER } from "./decorators/branch-id.decorator";
 export { TransformInterceptor } from "./interceptors/transform.interceptor";
 export type { ApiResponse } from "./interceptors/transform.interceptor";
 export { HttpExceptionFilter } from "./filters/http-exception.filter";
+export { crearValidationPipe } from "./pipes/validacion.pipe";
 export { InternalSecretGuard } from "./guards/internal-secret.guard";
 export { EventBusService } from "./modules/event-bus/event-bus.service";
 export { EventBusModule } from "./modules/event-bus/event-bus.module";

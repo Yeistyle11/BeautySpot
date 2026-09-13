@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { canDo } from "@/lib/permissions";
 import { useAuthStore } from "@/lib/store";
 import {
@@ -61,7 +62,20 @@ export function FieldsTab({
 }: FieldsTabProps) {
   const { role } = useAuthStore();
   const [nuevo, setNuevo] = useState<NuevoCampo>(campoVacio);
+  const [aQuitar, setAQuitar] = useState<CampoDeFicha | null>(null);
+  const [quitando, setQuitando] = useState(false);
   const puedeEditar = canDo(role, "business_edit");
+
+  const confirmarQuitar = async () => {
+    if (!aQuitar) return;
+    setQuitando(true);
+    try {
+      await onRemove(aQuitar.id);
+      setAQuitar(null);
+    } finally {
+      setQuitando(false);
+    }
+  };
 
   const handleCreate = async () => {
     if (!nuevo.etiqueta.trim()) return;
@@ -79,7 +93,7 @@ export function FieldsTab({
   };
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardHeader>
         <CardTitle className="text-lg">Ficha del cliente</CardTitle>
       </CardHeader>
@@ -129,7 +143,7 @@ export function FieldsTab({
                     size="icon"
                     variant="ghost"
                     aria-label={`Quitar ${campo.etiqueta}`}
-                    onClick={() => onRemove(campo.id)}
+                    onClick={() => setAQuitar(campo)}
                     className="text-destructive shrink-0"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -237,6 +251,20 @@ export function FieldsTab({
           </div>
         )}
       </CardContent>
+
+      <ConfirmDialog
+        open={aQuitar !== null}
+        onClose={() => setAQuitar(null)}
+        onConfirm={confirmarQuitar}
+        title="Quitar el campo de la ficha"
+        registro={aQuitar?.etiqueta}
+        consecuencias="deja de pedirse y se borra lo que cada cliente hubiera respondido en él."
+        seConserva="El resto de la ficha de cada cliente no se toca."
+        confirmLabel="Sí, quitar el campo"
+        pendingLabel="Quitando..."
+        pending={quitando}
+        variant="destructive"
+      />
     </Card>
   );
 }

@@ -35,7 +35,7 @@ export function BillingTab({
     onChange({ ...facturacion, ...cambios });
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardHeader>
         <CardTitle className="text-lg">Datos de facturación</CardTitle>
         <p className="text-muted-foreground text-sm">

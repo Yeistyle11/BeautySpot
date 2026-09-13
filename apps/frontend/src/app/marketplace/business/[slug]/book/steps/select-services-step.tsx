@@ -1,7 +1,9 @@
 "use client";
 
 // Paso de seleccion de servicios en el flujo de reserva.
+import { conCantidad } from "@beautyspot/shared-utils";
 import { Clock } from "lucide-react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
@@ -13,6 +15,8 @@ interface SelectServicesStepProps {
   onToggle: (id: string) => void;
   totalAmount: number;
   totalDuration: number;
+  /** A donde se sale del asistente: la ficha del negocio. */
+  rutaDelNegocio: string;
   onContinue: () => void;
 }
 
@@ -21,12 +25,13 @@ export function SelectServicesStep({
   services,
   selected,
   onToggle,
+  rutaDelNegocio,
   totalAmount,
   totalDuration,
   onContinue,
 }: SelectServicesStepProps) {
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardHeader>
         <CardTitle>Selecciona los servicios</CardTitle>
       </CardHeader>
@@ -60,24 +65,31 @@ export function SelectServicesStep({
             </button>
           ))}
         </div>
+        {/* Lo que se lleva, lo que dura y lo que cuesta. */}
         {selected.length > 0 && (
           <div className="bg-muted mt-4 rounded-lg p-3 text-sm">
             <p>
-              Total:{" "}
+              {conCantidad(selected.length, "servicio", "servicios")} ·{" "}
+              {totalDuration} min ·{" "}
               <span className="font-semibold">
                 {formatCurrency(totalAmount)}
-              </span>{" "}
-              · Duración: {totalDuration} min
+              </span>
             </p>
           </div>
         )}
-        <Button
-          className="mt-4 w-full"
-          disabled={selected.length === 0}
-          onClick={onContinue}
-        >
-          Continuar
-        </Button>
+        {/* El primer paso no retrocede, pero si sale del asistente. */}
+        <div className="mt-4 flex gap-2">
+          <Button asChild variant="outline" className="flex-1">
+            <Link href={rutaDelNegocio}>Cancelar</Link>
+          </Button>
+          <Button
+            className="flex-1"
+            disabled={selected.length === 0}
+            onClick={onContinue}
+          >
+            Continuar
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

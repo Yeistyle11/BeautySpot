@@ -29,7 +29,7 @@ export function BookingRulesTab({
   const horas = reservas.horasMinimasCancelacion;
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-flat border-0">
       <CardHeader>
         <CardTitle className="text-lg">Reservas y cancelaciones</CardTitle>
         <p className="text-muted-foreground text-sm">

@@ -4,6 +4,7 @@
 // gestionar su local y todavia solo tiene cuenta de cliente.
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,7 +83,7 @@ export default function OnboardingPage() {
         </p>
       </div>
 
-      <Card className="border-0 shadow-sm">
+      <Card className="shadow-flat border-0">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Store className="h-4 w-4" />
@@ -168,10 +169,15 @@ export default function OnboardingPage() {
                 placeholder="Que ofrece tu negocio"
               />
             </Field>
-            <Button type="submit" disabled={saving || !form.name.trim()}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Crear negocio
-            </Button>
+            <div className="flex gap-2">
+              <Button asChild variant="outline" type="button">
+                <Link href="/dashboard/client">Ahora no</Link>
+              </Button>
+              <Button type="submit" disabled={saving || !form.name.trim()}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Crear negocio
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>

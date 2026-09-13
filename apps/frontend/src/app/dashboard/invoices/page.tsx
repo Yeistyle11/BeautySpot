@@ -3,16 +3,22 @@
 // Pagina de facturas del negocio: listado con filtros, detalle, PDF, cambio de
 // estado y emision desde un cobro.
 import { useMemo, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
+import {
+  TablaDeRegistros,
+  FilaDeTabla,
+  CeldaDeTabla,
+  CeldaPrincipal,
+  type ColumnaDeTabla,
+} from "@/components/ui/tabla-de-registros";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Download, Plus, Receipt } from "lucide-react";
+import { Download, FileText, Plus, Receipt } from "lucide-react";
 import { api } from "@/lib/api";
 import { useApi, paginatedSchema, revalidatePrefix } from "@/lib/swr";
 import { usePaginatedList } from "@/lib/use-paginated-list";
@@ -40,6 +46,14 @@ import {
 
 /** Cobros completados entre los que se elige al emitir. */
 const COBROS_KEY = "/payment/payments?status=COMPLETED&limit=50";
+
+const COLUMNAS_DE_FACTURAS: ColumnaDeTabla[] = [
+  { label: "Factura" },
+  { label: "Cliente" },
+  { label: "Fecha", ocultaEnMovil: true },
+  { label: "Total", alineacion: "right" },
+  { label: "Estado" },
+];
 
 export default function InvoicesPage() {
   const toast = useToast();
@@ -175,7 +189,7 @@ export default function InvoicesPage() {
           icon={Receipt}
           titulo={
             estado === "all"
-              ? "Todavía no has emitido ninguna factura"
+              ? "Aún no hay facturas"
               : "Ninguna factura en ese estado"
           }
           descripcion={
@@ -185,48 +199,66 @@ export default function InvoicesPage() {
           }
         />
       ) : (
-        <div className="space-y-3">
-          {invoices.map((invoice) => {
-            const badge = ESTADOS[invoice.status] ?? {
-              label: invoice.status,
-              variant: "secondary" as const,
-            };
-            return (
-              <Card key={invoice.id} className="border-0 shadow-sm">
-                <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-                  <button
-                    type="button"
-                    onClick={() => setDetalle(invoice)}
-                    className="focus-visible:ring-ring flex-1 rounded text-left focus-visible:outline-none focus-visible:ring-2"
-                    aria-label={`Ver la factura ${invoice.number}`}
-                  >
-                    <p className="font-medium">{invoice.number}</p>
-                    <p className="text-muted-foreground text-sm">
-                      {clientes[invoice.clientId] || "Cliente"} ·{" "}
-                      {formatDate(invoice.date)}
-                    </p>
-                  </button>
-                  <div className="flex items-center gap-3">
-                    <span className="font-semibold">
-                      {formatCurrency(invoice.total)}
-                    </span>
-                    <Badge variant={badge.variant}>{badge.label}</Badge>
+        <>
+          <TablaDeRegistros
+            titulo="Facturas emitidas"
+            columnas={COLUMNAS_DE_FACTURAS}
+          >
+            {invoices.map((invoice) => {
+              const badge = ESTADOS[invoice.status] ?? {
+                label: invoice.status,
+                variant: "secondary" as const,
+              };
+              return (
+                <FilaDeTabla
+                  key={invoice.id}
+                  acciones={
                     <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
                       onClick={() => descargar(invoice)}
                       aria-label={`Descargar la factura ${invoice.number}`}
+                      title="Descargar PDF"
                     >
-                      <Download className="h-3 w-3" /> PDF
+                      <Download className="h-4 w-4" />
                     </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                  }
+                >
+                  <CeldaPrincipal
+                    icono={FileText}
+                    titulo={
+                      /* El numero abre el desglose, tambien con teclado. */
+                      <button
+                        type="button"
+                        onClick={() => setDetalle(invoice)}
+                        aria-label={`Ver la factura ${invoice.number}`}
+                        className="focus-visible:ring-ring hover:text-primary rounded-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2"
+                      >
+                        {invoice.number}
+                      </button>
+                    }
+                  />
+                  <CeldaDeTabla apagada>
+                    {clientes[invoice.clientId] || "Cliente"}
+                  </CeldaDeTabla>
+                  <CeldaDeTabla apagada ocultaEnMovil>
+                    <span className="whitespace-nowrap">
+                      {formatDate(invoice.date)}
+                    </span>
+                  </CeldaDeTabla>
+                  <CeldaDeTabla alineacion="right" className="font-semibold">
+                    {formatCurrency(invoice.total)}
+                  </CeldaDeTabla>
+                  <CeldaDeTabla>
+                    <Badge variant={badge.variant}>{badge.label}</Badge>
+                  </CeldaDeTabla>
+                </FilaDeTabla>
+              );
+            })}
+          </TablaDeRegistros>
           <Pagination meta={meta} onPageChange={setPage} itemLabel="facturas" />
-        </div>
+        </>
       )}
 
       <InvoiceDetailDialog

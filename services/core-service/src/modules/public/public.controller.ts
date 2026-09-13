@@ -31,6 +31,12 @@ export class PublicController {
     return this.publicService.getBusinessServices(businessId, professionalId);
   }
 
+  /** Días y horas en los que el negocio abre, para el asistente de reserva. */
+  @Get("businesses/:id/horarios")
+  async getBusinessHours(@Param("id", ParseUUIDPipe) businessId: string) {
+    return this.publicService.getBusinessHours(businessId);
+  }
+
   @Get("businesses/:id/professionals")
   async getBusinessProfessionals(
     @Param("id", ParseUUIDPipe) businessId: string

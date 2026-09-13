@@ -85,25 +85,25 @@ describe("formatDate con timestamp ISO completo", () => {
 
 describe("formatTime", () => {
   it("convierte horas de la manana a formato 12h", () => {
-    expect(formatTime("09:30")).toBe("9:30 am");
+    expect(formatTime("09:30")).toBe("09:30");
   });
 
   it("convierte horas de la tarde a formato 12h", () => {
-    expect(formatTime("14:00")).toBe("2:00 pm");
+    expect(formatTime("14:00")).toBe("14:00");
   });
 
-  it("maneja mediodia como 12pm", () => {
-    expect(formatTime("12:00")).toBe("12:00 pm");
+  it("deja el mediodia en 12:00", () => {
+    expect(formatTime("12:00")).toBe("12:00");
   });
 
-  it("maneja medianoche como 12am", () => {
-    expect(formatTime("00:00")).toBe("12:00 am");
+  it("deja la medianoche en 00:00", () => {
+    expect(formatTime("00:00")).toBe("00:00");
   });
 
   it("baja al reloj las horas que se pasan del dia", () => {
-    expect(formatTime("24:30")).toBe("12:30 am");
-    expect(formatTime("25:00")).toBe("1:00 am");
-    expect(formatTime("26:00")).toBe("2:00 am");
+    expect(formatTime("24:30")).toBe("00:30");
+    expect(formatTime("25:00")).toBe("01:00");
+    expect(formatTime("26:00")).toBe("02:00");
   });
 });
 
@@ -123,9 +123,10 @@ describe("formatDateTimeStamp", () => {
 });
 
 describe("formatTimeStamp", () => {
+  // Reloj de 24 horas y sin am/pm, como el resto del producto.
   it("formatea solo la hora de un timestamp ISO", () => {
     const result = formatTimeStamp("2026-03-15T14:30:00.000Z");
-    expect(result).toMatch(/^\d{1,2}:\d{2}\s?(a\.?\s?m\.?|p\.?\s?m\.?)$/i);
+    expect(result).toMatch(/^\d{2}:\d{2}$/);
   });
 });
 
