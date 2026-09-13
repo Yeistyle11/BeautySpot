@@ -837,16 +837,16 @@ Perfiles públicos, búsqueda, feed y reseñas. Base de datos `beautyspot_market
 
 ### Perfiles de negocio (gestión) — `/api/v1/marketplace/business-profiles`
 
-| Método | Ruta              | Roles        | Descripción                 |
-| ------ | ----------------- | ------------ | --------------------------- |
-| POST   | `/`               | OWNER, ADMIN | Da de alta el perfil        |
-| GET    | `/`               | OWNER, ADMIN | Perfil del negocio propio   |
-| PUT    | `/config`         | OWNER, ADMIN | Actualiza la configuración  |
-| POST   | `/gallery`        | OWNER, ADMIN | Añade imágenes a la galería |
-| PUT    | `/gallery`        | OWNER, ADMIN | Actualiza una imagen        |
-| DELETE | `/gallery/:index` | OWNER, ADMIN | Quita una imagen            |
-| POST   | `/publish`        | OWNER, ADMIN | Publica el perfil           |
-| POST   | `/unpublish`      | OWNER, ADMIN | Lo retira del marketplace   |
+| Método | Ruta              | Roles        | Descripción                                                                   |
+| ------ | ----------------- | ------------ | ----------------------------------------------------------------------------- |
+| POST   | `/`               | OWNER, ADMIN | Da de alta el perfil                                                          |
+| GET    | `/`               | OWNER, ADMIN | Perfil del negocio propio                                                     |
+| PUT    | `/config`         | OWNER, ADMIN | Actualiza la configuración; con `updatedAt`, 409 si otra persona guardó antes |
+| POST   | `/gallery`        | OWNER, ADMIN | Añade imágenes a la galería                                                   |
+| PUT    | `/gallery`        | OWNER, ADMIN | Actualiza una imagen                                                          |
+| DELETE | `/gallery/:index` | OWNER, ADMIN | Quita una imagen                                                              |
+| POST   | `/publish`        | OWNER, ADMIN | Publica el perfil                                                             |
+| POST   | `/unpublish`      | OWNER, ADMIN | Lo retira del marketplace                                                     |
 
 `POST /` es por donde el negocio entra en el marketplace, y es el que usa el
 panel; `/internal/business-profiles/sync` queda para la sincronización entre

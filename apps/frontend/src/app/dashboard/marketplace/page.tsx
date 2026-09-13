@@ -15,7 +15,8 @@ import { useToast } from "@/components/ui/toast";
 import { mensajeDeError } from "@/lib/error-message";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { EmptyState } from "@/components/ui/empty-state";
-import { isNotFoundError } from "@/lib/api-error";
+import { esConflictoDeEdicion, isNotFoundError } from "@/lib/api-error";
+import { AvisoDeConflicto } from "@/components/ui/aviso-de-conflicto";
 import { canDo } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { OverviewTab } from "./overview-tab";
@@ -89,8 +90,14 @@ export default function MarketplacePage() {
 
   const [configForm, setConfigForm] = useState<ConfigForm>(emptyConfigForm);
   const [sections, setSections] = useState<SectionItem[]>(defaultSections);
+  // Version con la que se abrio el formulario: viaja en el guardado para que
+  // el servidor rechace pisar lo que otra persona guardo mientras tanto.
+  const [versionCargada, setVersionCargada] = useState<string | null>(null);
+  const [conflictoConfig, setConflictoConfig] = useState("");
 
   useSeededForm(profile, (p) => {
+    setVersionCargada(p.updatedAt ?? null);
+    setConflictoConfig("");
     setConfigForm({
       tagline: p.tagline || "",
       storyTitle: p.storyTitle || "",
@@ -149,10 +156,18 @@ export default function MarketplacePage() {
     }
   };
 
+  /** Cambia lo escrito por lo que hay guardado, dejando la pestaña abierta. */
+  const recargarPerfil = async () => {
+    await mutateProfile();
+    setConflictoConfig("");
+  };
+
   const saveConfig = async () => {
     setSaving("config");
+    setConflictoConfig("");
     try {
       await api.put("/marketplace/business-profiles/config", {
+        updatedAt: versionCargada ?? undefined,
         tagline: configForm.tagline || undefined,
         storyTitle: configForm.storyTitle || undefined,
         storyText: configForm.storyText || undefined,
@@ -172,7 +187,10 @@ export default function MarketplacePage() {
       await mutateProfile();
     } catch (err) {
       logger.error(err);
-      toast.error(mensajeDeError(err));
+      // Lo escrito se queda en pantalla: hay algo que decidir, y un aviso que
+      // se va solo no da tiempo a decidirlo.
+      if (esConflictoDeEdicion(err)) setConflictoConfig(mensajeDeError(err));
+      else toast.error(mensajeDeError(err));
     } finally {
       setSaving(null);
     }
@@ -386,6 +404,14 @@ export default function MarketplacePage() {
           onTogglePublish={togglePublish}
         />
       )}
+
+      {conflictoConfig &&
+        (activeTab === "profile" || activeTab === "sections") && (
+          <AvisoDeConflicto
+            mensaje={conflictoConfig}
+            onRecargar={() => void recargarPerfil()}
+          />
+        )}
 
       {activeTab === "profile" && (
         <ProfileTab

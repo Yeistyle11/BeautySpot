@@ -121,9 +121,26 @@ describe("BusinessProfilesController · resto de rutas", () => {
   it("guarda la configuración sobre ese mismo negocio", async () => {
     await controller.updateConfig(NEGOCIO, { descripcion: "Hola" } as never);
 
-    expect(service.updateConfig).toHaveBeenCalledWith(NEGOCIO, {
+    expect(service.updateConfig).toHaveBeenCalledWith(
+      NEGOCIO,
+      { descripcion: "Hola" },
+      undefined
+    );
+  });
+
+  // La version se separa del resto: es con que se coteja, no un campo del
+  // perfil que haya que volcar sobre la fila.
+  it("separa la versión que trae el formulario de los campos a guardar", async () => {
+    await controller.updateConfig(NEGOCIO, {
       descripcion: "Hola",
-    });
+      updatedAt: "2026-01-15T10:00:00.000Z",
+    } as never);
+
+    expect(service.updateConfig).toHaveBeenCalledWith(
+      NEGOCIO,
+      { descripcion: "Hola" },
+      new Date("2026-01-15T10:00:00.000Z")
+    );
   });
 
   describe("galería", () => {
