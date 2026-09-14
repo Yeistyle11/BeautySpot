@@ -11,6 +11,7 @@ import {
 } from "@/lib/franja-horaria";
 import {
   desplazarDia,
+  esDiaCerrado,
   fechasDeLaSemana,
   formatCurrency,
   formatTime,
@@ -51,15 +52,6 @@ interface CalendarViewProps {
 const ANULABLES = ["PENDING", "CONFIRMED"];
 
 const DAYS_ES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
-
-/**
- * Un dia sin horario de apertura. Sin `diasAbiertos` —el horario aun no ha
- * cargado— no se afirma que el negocio este cerrado.
- */
-function esCerrado(fecha: string, diasAbiertos?: number[]): boolean {
-  if (!diasAbiertos) return false;
-  return !diasAbiertos.includes(new Date(`${fecha}T12:00:00`).getDay());
-}
 
 /**
  * Vista semanal de la agenda: reparte las citas por dia y franja horaria, y
@@ -222,7 +214,7 @@ export function CalendarView({
                   >
                     {Number(d.slice(8))}
                   </p>
-                  {esCerrado(d, diasAbiertos) && (
+                  {esDiaCerrado(d, diasAbiertos) && (
                     <p className="text-muted-foreground text-[10px] uppercase">
                       Cerrado
                     </p>
@@ -248,7 +240,7 @@ export function CalendarView({
                   <div
                     key={d}
                     className={`relative min-h-[48px] p-0.5 ${
-                      esCerrado(d, diasAbiertos) ? "bg-muted/40" : ""
+                      esDiaCerrado(d, diasAbiertos) ? "bg-muted/40" : ""
                     }`}
                   >
                     {/* Los bloqueos van antes que las citas: la tarde de quien

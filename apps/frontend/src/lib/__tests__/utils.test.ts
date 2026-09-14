@@ -1,5 +1,7 @@
 import {
   cn,
+  diaDeLaSemana,
+  esDiaCerrado,
   formatAniosExperiencia,
   formatCurrency,
   formatDate,
@@ -193,5 +195,33 @@ describe("haComenzado", () => {
 
   it("no da por empezada una cita de un dia posterior", () => {
     expect(haComenzado("2999-01-15", "00:00")).toBe(false);
+  });
+});
+
+describe("diaDeLaSemana", () => {
+  it("numera el domingo como 0 y el sabado como 6", () => {
+    expect(diaDeLaSemana("2026-03-15")).toBe(0);
+    expect(diaDeLaSemana("2026-03-21")).toBe(6);
+  });
+
+  it("no corre de dia por el huso: la fecha suelta se ancla al mediodia", () => {
+    expect(diaDeLaSemana("2026-03-16")).toBe(1);
+  });
+});
+
+describe("esDiaCerrado", () => {
+  const lunesAViernes = [1, 2, 3, 4, 5];
+
+  it("dice que cierra el dia que no esta en la jornada", () => {
+    expect(esDiaCerrado("2026-03-15", lunesAViernes)).toBe(true);
+    expect(esDiaCerrado("2026-03-16", lunesAViernes)).toBe(false);
+  });
+
+  it("sin horario cargado no afirma que el negocio este cerrado", () => {
+    expect(esDiaCerrado("2026-03-15", undefined)).toBe(false);
+  });
+
+  it("un horario vacio si dice que no abre ningun dia", () => {
+    expect(esDiaCerrado("2026-03-16", [])).toBe(true);
   });
 });

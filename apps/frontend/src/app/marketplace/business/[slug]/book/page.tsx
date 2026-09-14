@@ -9,7 +9,7 @@ import { ArrowLeft, Check } from "lucide-react";
 import { z } from "zod";
 import { api, apiPublic } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
-import { desplazarDia, toLocalDateKey } from "@/lib/utils";
+import { desplazarDia, esDiaCerrado, toLocalDateKey } from "@/lib/utils";
 import { useApiPublic, revalidatePrefix } from "@/lib/swr";
 import { useSeededForm } from "@/lib/use-seeded-form";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
@@ -90,10 +90,16 @@ function PublicBookingPageInner() {
     z.array(jornadaPublicaSchema)
   );
 
-  /** Días de la semana con hueco, contando la cola de las jornadas nocturnas. */
+  /**
+   * Días de la semana con hueco, contando la cola de las jornadas nocturnas.
+   * `undefined` mientras el horario no ha cargado, para no dar por cerrado lo
+   * que todavía no se sabe.
+   */
   const diasAbiertos = useMemo(() => {
+    if (!horarios) return undefined;
+
     const dias = new Set<number>();
-    for (const jornada of horarios ?? []) {
+    for (const jornada of horarios) {
       dias.add(jornada.dayOfWeek);
       if (jornada.closeTime <= jornada.openTime) {
         dias.add((jornada.dayOfWeek + 1) % 7);
@@ -104,14 +110,12 @@ function PublicBookingPageInner() {
 
   /** El primer dia con jornada a partir de hoy, que es el que se propone. */
   const primerDiaAbierto = useMemo(() => {
-    if (diasAbiertos.length === 0) return "";
+    if (!diasAbiertos?.length) return "";
 
     const hoy = toLocalDateKey(new Date());
     for (let i = 0; i < DIAS_PARA_PROPONER; i++) {
       const candidato = desplazarDia(hoy, i);
-      if (diasAbiertos.includes(new Date(`${candidato}T12:00:00`).getDay())) {
-        return candidato;
-      }
+      if (!esDiaCerrado(candidato, diasAbiertos)) return candidato;
     }
     return "";
   }, [diasAbiertos]);

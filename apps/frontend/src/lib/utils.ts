@@ -24,14 +24,33 @@ export function formatPorcentaje(valor: number): string {
   return `${Number(valor.toFixed(1))}%`;
 }
 
+/**
+ * Parsea una fecha "YYYY-MM-DD" o ISO. Las que llegan sin hora se anclan al
+ * mediodia: parseadas como medianoche UTC, en husos negativos caerian en el
+ * dia anterior, y el mediodia deja margen al cambio de horario de verano.
+ */
+function parsearFecha(date: string): Date {
+  return new Date(date.includes("T") ? date : `${date}T12:00:00`);
+}
+
+/** Dia de la semana de una fecha, de domingo (0) a sabado (6). */
+export function diaDeLaSemana(date: string): number {
+  return parsearFecha(date).getDay();
+}
+
+/**
+ * Si el negocio no abre ese dia de la semana. Sin `diasAbiertos` —el horario
+ * aun no ha cargado— no se afirma que este cerrado; una lista vacia si dice
+ * que no abre ningun dia.
+ */
+export function esDiaCerrado(date: string, diasAbiertos?: number[]): boolean {
+  if (!diasAbiertos) return false;
+  return !diasAbiertos.includes(diaDeLaSemana(date));
+}
+
 /** Formatea una fecha "YYYY-MM-DD" o ISO como "5 mar 2026" en locale es-CO. */
 export function formatDate(date: string): string {
-  // Las fechas sin hora ("YYYY-MM-DD") se parsean como medianoche UTC; sin
-  // el mediodia fijo, en timezones negativos se mostraria el dia anterior.
-  const parsed = date.includes("T")
-    ? new Date(date)
-    : new Date(`${date}T12:00:00`);
-  return parsed.toLocaleDateString("es-CO", {
+  return parsearFecha(date).toLocaleDateString("es-CO", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -43,10 +62,7 @@ export function formatDate(date: string): string {
  * cabe la fecha completa.
  */
 export function formatDayMonth(date: string): string {
-  const parsed = date.includes("T")
-    ? new Date(date)
-    : new Date(`${date}T12:00:00`);
-  return parsed.toLocaleDateString("es-CO", {
+  return parsearFecha(date).toLocaleDateString("es-CO", {
     day: "numeric",
     month: "short",
   });
@@ -62,19 +78,17 @@ export function toLocalDateKey(date: Date): string {
 
 /** Suma (o resta) dias a una fecha "YYYY-MM-DD", en horario local. */
 export function desplazarDia(date: string, dias: number): string {
-  // El mediodia evita que el cambio de horario de verano corra un dia.
-  const d = new Date(`${date}T12:00:00`);
+  const d = parsearFecha(date);
   d.setDate(d.getDate() + dias);
   return toLocalDateKey(d);
 }
 
 /**
- * Los siete dias de la semana que contiene esa fecha, de lunes a domingo.
- * `getDay()` numera el domingo como 0, que aqui cierra la semana en vez de
- * abrirla.
+ * Los siete dias de la semana que contiene esa fecha, de lunes a domingo. El
+ * domingo se numera como 0, que aqui cierra la semana en vez de abrirla.
  */
 export function fechasDeLaSemana(date: string): string[] {
-  const dia = new Date(`${date}T12:00:00`).getDay();
+  const dia = diaDeLaSemana(date);
   const lunes = desplazarDia(date, dia === 0 ? -6 : 1 - dia);
   return Array.from({ length: 7 }, (_, i) => desplazarDia(lunes, i));
 }
