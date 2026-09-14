@@ -2,6 +2,8 @@
 
 // Facturas del cliente, de todos los negocios donde haya comprado.
 import { z } from "zod";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -39,6 +41,7 @@ const ESTADOS: Record<
   CANCELLED: { label: "Anulada", variant: "destructive" },
 };
 
+/** Facturas del cliente en todos los negocios donde ha reservado. */
 export default function ClientInvoicesPage() {
   const toast = useToast();
   const {
@@ -76,17 +79,15 @@ export default function ClientInvoicesPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Mis facturas</h1>
-        <p className="text-muted-foreground">
-          Las facturas de todos los negocios donde has reservado
-        </p>
-      </div>
+      <PageHeader
+        titulo="Mis facturas"
+        descripcion="Las facturas de todos los negocios donde has reservado"
+      />
 
       {isLoading ? (
         <Card className="shadow-flat border-0">
-          <CardContent className="text-muted-foreground p-8 text-center">
-            Cargando facturas...
+          <CardContent className="p-0">
+            <LoadingState recurso="las facturas" />
           </CardContent>
         </Card>
       ) : invoices.length === 0 ? (

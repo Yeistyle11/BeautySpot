@@ -60,7 +60,7 @@ export function FieldsTab({
   onRemove,
   saving,
 }: FieldsTabProps) {
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
   const [nuevo, setNuevo] = useState<NuevoCampo>(campoVacio);
   const [aQuitar, setAQuitar] = useState<CampoDeFicha | null>(null);
   const [quitando, setQuitando] = useState(false);

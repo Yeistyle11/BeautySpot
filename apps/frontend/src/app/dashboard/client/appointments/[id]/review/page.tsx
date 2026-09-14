@@ -3,6 +3,8 @@
 // Resena de una cita completada: calificacion y comentario del cliente.
 
 import { useRef, useState } from "react";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { useParams } from "next/navigation";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -90,10 +92,11 @@ function StarRating({
   );
 }
 
+/** Alta o edicion de la reseña que el cliente deja sobre una cita. */
 export default function ReviewPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
-  const { businessId } = useAuthStore();
+  const businessId = useAuthStore((s) => s.businessId);
 
   const {
     data: appointment,
@@ -232,11 +235,7 @@ export default function ReviewPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-muted-foreground">Cargando cita...</p>
-      </div>
-    );
+    return <LoadingState recurso="la cita" className="py-20" />;
   }
 
   if (!appointment && loadError) {
@@ -290,9 +289,7 @@ export default function ReviewPage() {
         Volver al detalle de la cita
       </Link>
 
-      <h1 className="mb-6 text-2xl font-bold">
-        {existente ? "Editar reseña" : "Dejar reseña"}
-      </h1>
+      <PageHeader titulo={existente ? "Editar reseña" : "Dejar reseña"} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">

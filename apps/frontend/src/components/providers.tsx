@@ -46,6 +46,7 @@ function useUnauthorizedRedirect() {
   }, [router, pathname, logout]);
 }
 
+/** Proveedores globales: configuracion de SWR, avisos y el 401 compartido. */
 export function Providers({ children }: { children: React.ReactNode }) {
   useUnauthorizedRedirect();
 

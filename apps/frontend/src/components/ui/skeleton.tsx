@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 
+/** Bloque gris que ocupa el sitio de un contenido mientras carga. */
 function Skeleton({
   className,
   ...props

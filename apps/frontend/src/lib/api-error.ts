@@ -33,6 +33,7 @@ export class ApiError extends Error {
   }
 }
 
+/** Indica si el error viene del backend y trae estado y codigo. */
 export function isApiError(err: unknown): err is ApiError {
   return err instanceof ApiError;
 }

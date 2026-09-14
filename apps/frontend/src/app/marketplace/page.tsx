@@ -18,6 +18,7 @@ export const metadata: Metadata = {
   },
 };
 
+/** Escaparate publico: carga el feed en el servidor y lo entrega al cliente. */
 export default async function MarketplacePage() {
   const raw = await fetchPublic<unknown>("/marketplace/feed");
   const parsed = raw ? feedResponseSchema.safeParse(raw) : null;

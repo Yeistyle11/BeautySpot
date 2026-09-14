@@ -17,7 +17,9 @@ type Sede = z.infer<typeof sedeSchema>;
 
 /** Cambia la sede activa. Se oculta si el negocio tiene una sola sede. */
 export function BranchSwitcher() {
-  const { branchId, role, setSedeActiva } = useAuthStore();
+  const branchId = useAuthStore((s) => s.branchId);
+  const role = useAuthStore((s) => s.role);
+  const setSedeActiva = useAuthStore((s) => s.setSedeActiva);
   // El listado de sedes no se pide para el rol CLIENT.
   const { data: sedes } = useApi<Sede[]>(
     role && role !== "CLIENT" ? "/core/branches" : null,

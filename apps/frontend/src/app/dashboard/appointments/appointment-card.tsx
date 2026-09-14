@@ -49,6 +49,7 @@ interface AppointmentCardProps {
 /** Estados desde los que la cita todavia puede anularse. */
 const ANULABLES = ["PENDING", "CONFIRMED"];
 
+/** Fila de una cita en la agenda, con las acciones que permita su estado. */
 export const AppointmentCard = memo(function AppointmentCard({
   appointment,
   professionalName,

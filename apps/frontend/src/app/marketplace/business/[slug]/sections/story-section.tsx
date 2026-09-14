@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Clock, Quote } from "lucide-react";
 import { imageUnoptimized } from "@/lib/image";
 
+/** Presentacion del negocio: su texto y su foto. */
 export function StorySection({
   title,
   storyTitle,

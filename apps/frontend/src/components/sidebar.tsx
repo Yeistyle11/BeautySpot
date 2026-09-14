@@ -1,10 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
+import { nombreDelRol } from "@/lib/auth";
 import { useLogout } from "@/lib/use-logout";
+import { useEsEscritorio } from "@/lib/use-punto-de-ruptura";
 import { getPagesForRole } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -63,7 +65,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, role } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+  const role = useAuthStore((s) => s.role);
   const cerrarSesion = useLogout();
   // El panel movil se guarda junto a la ruta en que se abrio. Navegar cambia la
   // ruta y con eso deja de estar abierto, sin importar desde donde se navegue:
@@ -71,6 +74,42 @@ export function Sidebar() {
   const [panel, setPanel] = useState({ abierto: false, ruta: pathname });
   const open = panel.abierto && panel.ruta === pathname;
   const setOpen = (abierto: boolean) => setPanel({ abierto, ruta: pathname });
+
+  // En movil el menu es una capa que tapa la pagina; en escritorio es parte de
+  // ella y esta siempre a la vista.
+  const esModal = !useEsEscritorio();
+  const disparador = useRef<HTMLButtonElement>(null);
+  const botonDeCerrar = useRef<HTMLButtonElement>(null);
+  const lateral = useRef<HTMLElement>(null);
+
+  // Al abrir el panel el foco entra en el, y al cerrarlo vuelve al boton que lo
+  // abrio, que es donde el usuario lo dejo.
+  useEffect(() => {
+    if (!open || !esModal) return;
+    const abridor = disparador.current;
+    botonDeCerrar.current?.focus();
+    return () => {
+      if (abridor?.isConnected) abridor.focus();
+    };
+  }, [open, esModal]);
+
+  /** Mantiene el tabulador dentro del panel mientras este tapa la pagina. */
+  const atraparFoco = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab" || !open || !esModal) return;
+    const focusables = lateral.current?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (!focusables?.length) return;
+    const primero = focusables[0];
+    const ultimo = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === primero) {
+      e.preventDefault();
+      ultimo.focus();
+    } else if (!e.shiftKey && document.activeElement === ultimo) {
+      e.preventDefault();
+      primero.focus();
+    }
+  };
 
   // Escape cierra el panel movil, como en cualquier capa que tape la pagina.
   useEffect(() => {
@@ -95,6 +134,7 @@ export function Sidebar() {
       {/* Barra superior solo movil: el sidebar fijo no cabe en pantallas estrechas. */}
       <div className="bg-card fixed left-0 right-0 top-0 z-40 flex h-14 items-center gap-3 border-b px-4 lg:hidden">
         <button
+          ref={disparador}
           onClick={() => setOpen(true)}
           className="hover:bg-accent rounded-lg p-2 transition-colors"
           aria-label="Abrir menú de navegación"
@@ -119,6 +159,15 @@ export function Sidebar() {
 
       <aside
         id="sidebar-nav"
+        ref={lateral}
+        // Cerrado en movil sigue estando en el documento, y una transformacion
+        // no saca del orden de tabulacion: sin `inert` se tabula por sus enlaces
+        // invisibles antes de llegar al contenido.
+        inert={esModal && !open}
+        role={esModal && open ? "dialog" : undefined}
+        aria-modal={esModal && open ? true : undefined}
+        aria-label={esModal && open ? "Menú de navegación" : undefined}
+        onKeyDown={atraparFoco}
         className={cn(
           "bg-card fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r transition-transform lg:z-40 lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full"
@@ -133,6 +182,7 @@ export function Sidebar() {
             <p className="text-muted-foreground text-xs">Panel de gestión</p>
           </div>
           <button
+            ref={botonDeCerrar}
             onClick={() => setOpen(false)}
             className="hover:bg-accent rounded-lg p-1 transition-colors lg:hidden"
             aria-label="Cerrar menú de navegación"
@@ -182,7 +232,7 @@ export function Sidebar() {
                 {user?.name || "Usuario"}
               </p>
               <p className="text-muted-foreground truncate text-xs">
-                {role || ""}
+                {nombreDelRol(role)}
               </p>
             </div>
             <ThemeToggle className="p-1" />

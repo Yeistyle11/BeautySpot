@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 
+/** Pantalla de error del panel, con opcion de reintentar. */
 export default function DashboardError({
   error,
   reset,

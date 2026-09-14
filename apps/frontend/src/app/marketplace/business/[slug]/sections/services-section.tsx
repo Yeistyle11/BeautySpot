@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
 import type { ServicioPublico } from "../schemas";
 
+/** Catalogo publico del negocio, agrupado por categoria. */
 export function ServicesSection({
   title,
   services,

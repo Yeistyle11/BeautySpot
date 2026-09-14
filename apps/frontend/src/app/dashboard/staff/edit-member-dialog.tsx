@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { LONGITUD_MINIMA_CONTRASENA } from "@beautyspot/shared-constants";
 import type { EditForm, Professional, StaffMember } from "./schemas";
 
+/** Grupo de campos del formulario, con su titulo. */
 function Section({
   title,
   children,

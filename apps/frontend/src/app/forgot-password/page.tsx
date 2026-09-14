@@ -21,6 +21,7 @@ import { mensajeDeError } from "@/lib/error-message";
 
 const ERROR_ID = "forgot-error";
 
+/** Pide el correo con el que enviar el enlace de recuperacion. */
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);

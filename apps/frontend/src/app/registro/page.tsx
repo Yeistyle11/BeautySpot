@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { AuthForm } from "../login/auth-form";
 import { Spinner } from "@/components/ui/spinner";
 
+/** Alta de una cuenta nueva. */
 export default function RegistroPage() {
   return (
     <Suspense

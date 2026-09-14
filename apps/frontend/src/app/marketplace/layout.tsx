@@ -4,23 +4,20 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Scissors, LogIn, User, LogOut } from "lucide-react";
-import { useAuthStore } from "@/lib/store";
+import { useSesion } from "@/lib/use-sesion";
 import { useLogout } from "@/lib/use-logout";
 
+/** Cabecera y pie comunes a las paginas publicas del escaparate. */
 export default function PublicLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { role, user, hydrate, hydrated } = useAuthStore();
+  const { hydrated, role, user } = useSesion();
   const cerrarSesion = useLogout();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const botonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    hydrate();
-  }, [hydrate]);
 
   // El menu se cierra al pulsar fuera y con Escape; sin lo segundo, quien navega
   // con teclado no tiene forma de descartarlo.
@@ -47,7 +44,7 @@ export default function PublicLayout({
     };
   }, []);
 
-  const isAuthenticated = hydrated && !!role && !!user;
+  const isAuthenticated = hydrated && !!role;
 
   return (
     <div className="from-primary/5 via-background to-primary/10 min-h-screen bg-gradient-to-br">
@@ -78,9 +75,11 @@ export default function PublicLayout({
                 className="hover:bg-accent focus-visible:ring-ring flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2"
               >
                 <div className="bg-primary text-primary-foreground flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold">
-                  {user!.name.charAt(0).toUpperCase()}
+                  {(user?.name ?? "U").charAt(0).toUpperCase()}
                 </div>
-                <span className="hidden sm:inline">{user!.name}</span>
+                <span className="hidden sm:inline">
+                  {user?.name ?? "Mi cuenta"}
+                </span>
               </button>
               {dropdownOpen && (
                 <div

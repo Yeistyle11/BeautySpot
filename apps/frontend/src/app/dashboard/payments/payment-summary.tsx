@@ -7,6 +7,7 @@ import { formatCurrency } from "@/lib/utils";
 import { nombreDelMetodo } from "@/lib/metodos-de-pago";
 import type { PaymentSummary as Summary } from "./schemas";
 
+/** Tarjeta de una cifra del resumen de cobros. */
 function SummaryCard({
   icon,
   iconClass,

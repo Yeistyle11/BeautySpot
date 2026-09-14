@@ -1,5 +1,5 @@
 import { ZodError } from "zod";
-import { isApiError } from "./api-error";
+import { esConflictoDeEdicion, isApiError } from "./api-error";
 
 /** Texto para los fallos de infraestructura, donde el del backend no orienta. */
 const POR_ESTADO_SERVIDOR: Record<number, string> = {
@@ -95,4 +95,18 @@ export function mensajeDeError(error: unknown, respaldo = GENERICO): string {
   }
 
   return respaldo;
+}
+
+/**
+ * Reparte el fallo de un guardado. El conflicto de edicion se queda en el
+ * formulario, porque hay algo que decidir; el resto va al aviso flotante.
+ */
+export function repartirFalloAlGuardar(
+  err: unknown,
+  alConflicto: (mensaje: string) => void,
+  alAvisar: (mensaje: string) => void
+): void {
+  const mensaje = mensajeDeError(err);
+  if (esConflictoDeEdicion(err)) alConflicto(mensaje);
+  else alAvisar(mensaje);
 }

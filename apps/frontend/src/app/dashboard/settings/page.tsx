@@ -2,6 +2,8 @@
 
 // Pagina de configuracion: pestanas de cuenta, negocio y horarios.
 import { useState } from "react";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import dynamic from "next/dynamic";
 import { mensajeDeError } from "@/lib/error-message";
 import { z } from "zod";
@@ -24,10 +26,36 @@ import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { AccountTab } from "./account-tab";
 import { type NuevoCampo } from "./fields-tab";
+import { FIDELIZACION_KEY, nivelSchema, type Nivel } from "@/lib/niveles";
+import {
+  businessDataSchema,
+  businessHourSchema,
+  campoDeFichaSchema,
+  servicioBreveSchema,
+  defaultHours,
+  type BusinessData,
+  type BusinessHour,
+  type BusinessHourForm,
+  sembrarHorarios,
+  type CampoDeFicha,
+  type ServicioBreve,
+  type Feedback,
+  facturacionParaGuardar,
+  facturacionSchema,
+  reservasSchema,
+  diaEspecialSchema,
+  DIAS_ESPECIALES_KEY,
+  type DiaEspecial,
+  type NuevoDiaEspecial,
+  FACTURACION_KEY,
+  RESERVAS_KEY,
+  type Facturacion,
+  type Reservas,
+} from "./schemas";
 
 // Solo se ve una pestana a la vez, y varias estan detras de un permiso: cargarlas
 // todas por adelantado hace descargar al usuario codigo que quiza no llegue a ver.
-const cargando = () => <p className="text-muted-foreground p-4">Cargando...</p>;
+const cargando = () => <LoadingState />;
 
 const BusinessTab = dynamic(
   () => import("./business-tab").then((m) => m.BusinessTab),
@@ -56,42 +84,19 @@ const BookingRulesTab = dynamic(
   () => import("./booking-rules-tab").then((m) => m.BookingRulesTab),
   { loading: cargando }
 );
-import { FIDELIZACION_KEY, nivelSchema, type Nivel } from "@/lib/niveles";
-import {
-  businessDataSchema,
-  businessHourSchema,
-  campoDeFichaSchema,
-  servicioBreveSchema,
-  defaultHours,
-  type BusinessData,
-  type BusinessHour,
-  type BusinessHourForm,
-  sembrarHorarios,
-  type CampoDeFicha,
-  type ServicioBreve,
-  type Feedback,
-  facturacionParaGuardar,
-  facturacionSchema,
-  reservasSchema,
-  diaEspecialSchema,
-  DIAS_ESPECIALES_KEY,
-  type DiaEspecial,
-  type NuevoDiaEspecial,
-  FACTURACION_KEY,
-  RESERVAS_KEY,
-  type Facturacion,
-  type Reservas,
-} from "./schemas";
-
+/** Ajustes de la cuenta y del negocio, repartidos en pestañas. */
 export default function SettingsPage() {
   const toast = useToast();
-  const { user, businessId, role } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+  const businessId = useAuthStore((s) => s.businessId);
+  const role = useAuthStore((s) => s.role);
   const [saving, setSaving] = useState<string | null>(null);
 
-  const [accountForm, setAccountForm] = useState({
-    name: user?.name || "",
-    phone: user?.phone || "",
-  });
+  const [accountForm, setAccountForm] = useState({ name: "", phone: "" });
+  // El usuario llega de `/auth/me`, no del primer render.
+  useSeededForm(user, (datos) =>
+    setAccountForm({ name: datos.name || "", phone: datos.phone || "" })
+  );
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -403,10 +408,10 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Configuración</h1>
-        <p className="text-muted-foreground">Ajustes de tu cuenta y negocio</p>
-      </div>
+      <PageHeader
+        titulo="Configuración"
+        descripcion="Ajustes de tu cuenta y negocio"
+      />
 
       <Tabs defaultValue="account" className="max-w-3xl">
         <TabsList className="mb-4">

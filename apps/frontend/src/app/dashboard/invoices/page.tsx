@@ -2,41 +2,33 @@
 
 // Pagina de facturas del negocio: listado con filtros, detalle, PDF, cambio de
 // estado y emision desde un cobro.
-import { useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
-import {
-  TablaDeRegistros,
-  FilaDeTabla,
-  CeldaDeTabla,
-  CeldaPrincipal,
-  type ColumnaDeTabla,
-} from "@/components/ui/tabla-de-registros";
+import { TablaDeRegistros } from "@/components/ui/tabla-de-registros";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Download, FileText, Plus, Receipt } from "lucide-react";
+import { Plus, Receipt } from "lucide-react";
 import { api } from "@/lib/api";
 import { useApi, paginatedSchema, revalidatePrefix } from "@/lib/swr";
 import { usePaginatedList } from "@/lib/use-paginated-list";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { descargarPdf } from "@/lib/descargar";
-import { formatCurrency, formatDate } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import { mensajeDeError } from "@/lib/error-message";
 import { useToast } from "@/components/ui/toast";
 import { InvoiceDetailDialog } from "./invoice-detail-dialog";
+import { InvoiceRow, COLUMNAS_DE_FACTURAS } from "./invoice-row";
 import { EmitirDialog } from "./emitir-dialog";
 import {
   clientSchema,
   cobroFacturableSchema,
   invoiceSchema,
   CLIENTS_KEY,
-  ESTADOS,
   FILTROS_DE_ESTADO,
   INVOICES_KEY,
   type Client,
@@ -47,17 +39,10 @@ import {
 /** Cobros completados entre los que se elige al emitir. */
 const COBROS_KEY = "/payment/payments?status=COMPLETED&limit=50";
 
-const COLUMNAS_DE_FACTURAS: ColumnaDeTabla[] = [
-  { label: "Factura" },
-  { label: "Cliente" },
-  { label: "Fecha", ocultaEnMovil: true },
-  { label: "Total", alineacion: "right" },
-  { label: "Estado" },
-];
-
+/** Facturas emitidas por el negocio, con su emision y su detalle. */
 export default function InvoicesPage() {
   const toast = useToast();
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
   const puedeEmitir = canDo(role, "invoices_create");
 
   const [estado, setEstado] = useState("all");
@@ -107,17 +92,20 @@ export default function InvoicesPage() {
     paginatedSchema(cobroFacturableSchema)
   );
 
-  const descargar = async (invoice: Invoice) => {
-    try {
-      await descargarPdf(
-        `${INVOICES_KEY}/${invoice.id}/pdf`,
-        `factura-${invoice.number}.pdf`
-      );
-    } catch (err) {
-      logger.error(err);
-      toast.error(mensajeDeError(err));
-    }
-  };
+  const descargar = useCallback(
+    async (invoice: Invoice) => {
+      try {
+        await descargarPdf(
+          `${INVOICES_KEY}/${invoice.id}/pdf`,
+          `factura-${invoice.number}.pdf`
+        );
+      } catch (err) {
+        logger.error(err);
+        toast.error(mensajeDeError(err));
+      }
+    },
+    [toast]
+  );
 
   const emitir = async (cobro: CobroFacturable) => {
     setEmitiendo(cobro.id);
@@ -204,58 +192,15 @@ export default function InvoicesPage() {
             titulo="Facturas emitidas"
             columnas={COLUMNAS_DE_FACTURAS}
           >
-            {invoices.map((invoice) => {
-              const badge = ESTADOS[invoice.status] ?? {
-                label: invoice.status,
-                variant: "secondary" as const,
-              };
-              return (
-                <FilaDeTabla
-                  key={invoice.id}
-                  acciones={
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8"
-                      onClick={() => descargar(invoice)}
-                      aria-label={`Descargar la factura ${invoice.number}`}
-                      title="Descargar PDF"
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  }
-                >
-                  <CeldaPrincipal
-                    icono={FileText}
-                    titulo={
-                      /* El numero abre el desglose, tambien con teclado. */
-                      <button
-                        type="button"
-                        onClick={() => setDetalle(invoice)}
-                        aria-label={`Ver la factura ${invoice.number}`}
-                        className="focus-visible:ring-ring hover:text-primary rounded-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2"
-                      >
-                        {invoice.number}
-                      </button>
-                    }
-                  />
-                  <CeldaDeTabla apagada>
-                    {clientes[invoice.clientId] || "Cliente"}
-                  </CeldaDeTabla>
-                  <CeldaDeTabla apagada ocultaEnMovil>
-                    <span className="whitespace-nowrap">
-                      {formatDate(invoice.date)}
-                    </span>
-                  </CeldaDeTabla>
-                  <CeldaDeTabla alineacion="right" className="font-semibold">
-                    {formatCurrency(invoice.total)}
-                  </CeldaDeTabla>
-                  <CeldaDeTabla>
-                    <Badge variant={badge.variant}>{badge.label}</Badge>
-                  </CeldaDeTabla>
-                </FilaDeTabla>
-              );
-            })}
+            {invoices.map((invoice) => (
+              <InvoiceRow
+                key={invoice.id}
+                invoice={invoice}
+                cliente={clientes[invoice.clientId]}
+                onVerDetalle={setDetalle}
+                onDescargar={descargar}
+              />
+            ))}
           </TablaDeRegistros>
           <Pagination meta={meta} onPageChange={setPage} itemLabel="facturas" />
         </>

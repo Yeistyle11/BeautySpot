@@ -56,6 +56,7 @@ export function useApi<T>(
   );
 }
 
+/** Como useApi, pero contra los endpoints publicos, sin sesion. */
 export function useApiPublic<T>(
   path: Key,
   options?: SWRConfiguration<T>,
@@ -71,16 +72,13 @@ export function useApiPublic<T>(
   );
 }
 
-export async function revalidatePath(path: string): Promise<void> {
-  const { mutate } = await import("swr");
-  await mutate(path);
-}
-
+/** Revalida todo lo que SWR tenga en cache. */
 export async function revalidateAll(): Promise<void> {
   const { mutate } = await import("swr");
   await mutate(() => true, undefined, { revalidate: true });
 }
 
+/** Revalida las claves que empiezan por ese prefijo. */
 export async function revalidatePrefix(prefix: string): Promise<void> {
   const { mutate } = await import("swr");
   await mutate(

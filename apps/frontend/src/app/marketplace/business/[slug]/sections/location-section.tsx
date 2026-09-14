@@ -2,6 +2,7 @@
 import { ExternalLink, MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
+/** Direccion del negocio, con enlace al mapa. */
 export function LocationSection({
   title,
   address,

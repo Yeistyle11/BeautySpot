@@ -7,6 +7,7 @@ export type Theme = "light" | "dark";
 
 export { THEME_STORAGE_KEY } from "./tema-inicial";
 
+/** Pone o quita la clase `dark` en el documento. */
 function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
 }
@@ -22,10 +23,12 @@ export function temaGuardado(): Theme {
 // leerlo con useSyncExternalStore, sin un efecto que lo copie tras montar.
 const oyentes = new Set<() => void>();
 
+/** Avisa a los componentes suscritos de que el tema cambio. */
 function avisarDelCambio() {
   oyentes.forEach((oyente) => oyente());
 }
 
+/** Suscribe un oyente a los cambios de tema, propios y de otra pestaña. */
 function suscribirseAlTema(oyente: () => void): () => void {
   oyentes.add(oyente);
   // Otra pestaña del mismo usuario tambien puede cambiarlo.

@@ -3,6 +3,7 @@ import {
   getRoleFromToken,
   getBusinessIdFromToken,
   authResponseSchema,
+  nombreDelRol,
 } from "../auth";
 
 function makeToken(payload: Record<string, unknown>): string {
@@ -120,5 +121,21 @@ describe("authResponseSchema", () => {
       user: { id: "u1" },
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("nombreDelRol", () => {
+  it("traduce los roles del sistema", () => {
+    expect(nombreDelRol("RECEPTIONIST")).toBe("Recepcionista");
+    expect(nombreDelRol("OWNER")).toBe("Dueño");
+  });
+
+  it("deja pasar un rol desconocido tal cual", () => {
+    expect(nombreDelRol("MARCIANO")).toBe("MARCIANO");
+  });
+
+  it("sin rol no escribe nada", () => {
+    expect(nombreDelRol(null)).toBe("");
+    expect(nombreDelRol(undefined)).toBe("");
   });
 });

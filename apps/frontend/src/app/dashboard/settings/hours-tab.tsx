@@ -24,7 +24,7 @@ interface HoursTabProps {
 
 /** Horario de apertura del negocio, dia a dia. */
 export function HoursTab({ hours, onUpdate, onSave, saving }: HoursTabProps) {
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
   return (
     <Card className="shadow-flat border-0">
       <CardHeader>

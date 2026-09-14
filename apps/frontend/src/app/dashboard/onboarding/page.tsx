@@ -3,6 +3,7 @@
 // Alta del negocio propio: la puerta de entrada de quien se registra para
 // gestionar su local y todavia solo tiene cuenta de cliente.
 import { useState } from "react";
+import { PageHeader } from "@/components/ui/page-header";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,10 +21,12 @@ import { mensajeDeError } from "@/lib/error-message";
 import { useToast } from "@/components/ui/toast";
 import { TIPOS_DE_NEGOCIO } from "@beautyspot/shared-constants";
 
+/** Alta del primer negocio de quien entra sin ninguno. */
 export default function OnboardingPage() {
   const router = useRouter();
   const toast = useToast();
-  const { setBusinessId, setRole } = useAuthStore();
+  const setBusinessId = useAuthStore((s) => s.setBusinessId);
+  const setRole = useAuthStore((s) => s.setRole);
 
   const [form, setForm] = useState({
     name: "",
@@ -75,13 +78,10 @@ export default function OnboardingPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Crea tu negocio</h1>
-        <p className="text-muted-foreground">
-          Con esto tendras tu agenda, tu equipo y tu caja. Puedes cambiar
-          cualquier dato despues.
-        </p>
-      </div>
+      <PageHeader
+        titulo="Crea tu negocio"
+        descripcion="Con esto tendrás tu agenda, tu equipo y tu caja. Puedes cambiar cualquier dato después."
+      />
 
       <Card className="shadow-flat border-0">
         <CardHeader>

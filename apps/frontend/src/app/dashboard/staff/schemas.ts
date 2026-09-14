@@ -1,5 +1,6 @@
 // Esquemas Zod, tipos y formularios de los miembros del equipo.
 import { z } from "zod";
+import type { BadgeProps } from "@/components/ui/badge";
 
 export const staffMemberSchema = z.object({
   id: z.string(),
@@ -24,24 +25,15 @@ export const professionalSchema = z.object({
 });
 export type Professional = z.infer<typeof professionalSchema>;
 
-export const ROLE_LABELS: Record<string, string> = {
-  SUPER_ADMIN: "Super Admin",
-  OWNER: "Dueño",
-  ADMIN: "Administrador",
-  PROFESSIONAL: "Profesional",
-  RECEPTIONIST: "Recepcionista",
-  CLIENT: "Cliente",
-};
-
-// Paleta categorica por rol (no semantica): cada rol tiene su color para
-// distinguirlos de un vistazo en la tabla.
-export const ROLE_COLORS: Record<string, string> = {
-  SUPER_ADMIN: "bg-purple-100 text-purple-700",
-  OWNER: "bg-amber-100 text-amber-700",
-  ADMIN: "bg-blue-100 text-blue-700",
-  PROFESSIONAL: "bg-green-100 text-green-700",
-  RECEPTIONIST: "bg-cyan-100 text-cyan-700",
-  CLIENT: "bg-muted text-muted-foreground",
+// Variante de `Badge` por rol. El uso es categorico, no semantico: son las seis
+// que el sistema distingue entre si, y responden al tema claro y al oscuro.
+export const ROLE_BADGE: Record<string, BadgeProps["variant"]> = {
+  SUPER_ADMIN: "accent",
+  OWNER: "warning",
+  ADMIN: "info",
+  PROFESSIONAL: "success",
+  RECEPTIONIST: "muted",
+  CLIENT: "outline",
 };
 
 /** Roles que forman el equipo del negocio; el resto se lista como clientes. */

@@ -1,8 +1,10 @@
+/** Hosts desde los que next/image puede optimizar, segun next.config.js. */
 const ALLOWED_HOSTS = (process.env.NEXT_PUBLIC_IMAGE_HOSTS || "")
   .split(",")
   .map((host) => host.trim().toLowerCase())
   .filter(Boolean);
 
+/** Indica si un host encaja con un patron de la lista, comodin incluido. */
 function hostMatches(hostname: string, pattern: string): boolean {
   if (pattern.startsWith("*.")) {
     const suffix = pattern.slice(1); // ".ejemplo.com"

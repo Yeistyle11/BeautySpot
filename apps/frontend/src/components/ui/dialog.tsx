@@ -247,6 +247,7 @@ function ConfirmarDescarte({
   );
 }
 
+/** Nombre accesible de los dialogos que no muestran titulo. */
 function VisuallyHiddenTitle() {
   return (
     <DialogPrimitive.Title className="sr-only">Dialogo</DialogPrimitive.Title>

@@ -49,13 +49,11 @@ describe("useAuthStore", () => {
     it("cae al almacenamiento local cuando no hay pista", () => {
       localStorage.setItem("auth:v1:role", "ADMIN");
       localStorage.setItem("auth:v1:businessId", "biz-9");
-      localStorage.setItem("auth:v1:user", JSON.stringify(usuario));
 
       useAuthStore.getState().hydrate();
 
       expect(useAuthStore.getState().role).toBe("ADMIN");
       expect(useAuthStore.getState().businessId).toBe("biz-9");
-      expect(useAuthStore.getState().user).toEqual(usuario);
     });
 
     it("la pista pisa lo que quedo guardado de una sesion anterior", () => {
@@ -86,40 +84,21 @@ describe("useAuthStore", () => {
       expect(useAuthStore.getState().user).toBeNull();
       expect(useAuthStore.getState().hydrated).toBe(true);
     });
-
-    // Las claves sin prefijo son de una version anterior del store; se mueven
-    // al espacio nuevo para no expulsar a quien ya tenia la sesion abierta.
-    it("migra las claves antiguas y las retira", () => {
-      localStorage.setItem("role", "OWNER");
-      localStorage.setItem("businessId", "biz-legacy");
-      localStorage.setItem("user", JSON.stringify(usuario));
-
-      useAuthStore.getState().hydrate();
-
-      expect(useAuthStore.getState().role).toBe("OWNER");
-      expect(useAuthStore.getState().businessId).toBe("biz-legacy");
-      expect(localStorage.getItem("role")).toBeNull();
-      expect(localStorage.getItem("auth:v1:role")).toBe("OWNER");
-    });
-
-    it("no pisa la clave nueva con la antigua", () => {
-      localStorage.setItem("auth:v1:role", "ADMIN");
-      localStorage.setItem("role", "OWNER");
-
-      useAuthStore.getState().hydrate();
-
-      expect(useAuthStore.getState().role).toBe("ADMIN");
-    });
   });
 
   describe("escritura", () => {
-    it("guarda el usuario para la siguiente carga", () => {
+    // Sus datos son personales y la sesion no los necesita guardados: en un
+    // equipo compartido sobrevivirian a quien los dejo.
+    it("tiene al usuario solo en memoria, sin guardarlo en el navegador", () => {
       useAuthStore.getState().setAuth(usuario);
 
       expect(useAuthStore.getState().user).toEqual(usuario);
-      expect(localStorage.getItem("auth:v1:user")).toBe(
-        JSON.stringify(usuario)
-      );
+      expect(localStorage.getItem("auth:v1:user")).toBeNull();
+      expect(
+        Object.keys(localStorage).some((k) =>
+          localStorage.getItem(k)?.includes(usuario.email)
+        )
+      ).toBe(false);
     });
 
     it("guarda el negocio y el rol activos", () => {

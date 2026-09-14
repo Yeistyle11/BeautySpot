@@ -39,6 +39,7 @@ const categoryEntitySchema = z.object({
 });
 export type CategoryEntity = z.infer<typeof categoryEntitySchema>;
 
+/** Formulario de categoria en blanco, con el color que toque por defecto. */
 const emptyForm = (defaultColor: string): CategoryForm => ({
   name: "",
   description: "",
@@ -74,8 +75,9 @@ export interface CategoryManagerConfig {
  */
 const COLUMNAS_CATEGORIA = [{ label: "Categoría" }];
 
+/** Gestor de categorias reutilizado por las dos taxonomias del negocio. */
 export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
   const {
     apiBasePath,
     queryKey,

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { imageUnoptimized } from "@/lib/image";
 import type { Professional } from "../schemas";
 
+/** Equipo del negocio que se muestra en el perfil publico. */
 export function TeamSection({
   title,
   professionals,

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { decodeJwt, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { getDefaultPath } from "@/lib/permissions";
 
+/** Raiz del sitio: manda al panel o al login segun haya sesion. */
 export default async function Home() {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
   const payload = token ? decodeJwt(token) : null;

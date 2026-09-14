@@ -68,6 +68,7 @@ export async function generateMetadata({
   };
 }
 
+/** Perfil publico de un negocio, resuelto por slug en el servidor. */
 export default async function BusinessProfilePage({ params }: PageProps) {
   const { slug } = await params;
   const profile = await getProfile(slug);

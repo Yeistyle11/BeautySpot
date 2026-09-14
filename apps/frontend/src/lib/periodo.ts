@@ -40,6 +40,7 @@ function sumarDias(fecha: Date, dias: number): Date {
   return movida;
 }
 
+/** El lunes de la semana que contiene esa fecha. */
 function lunesDe(fecha: Date): Date {
   const dia = fecha.getDay();
   // getDay() da 0 para domingo, que pertenece a la semana que empezo hace seis.

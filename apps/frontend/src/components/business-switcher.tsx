@@ -29,7 +29,8 @@ type Membresia = z.infer<typeof membresiaSchema>;
  */
 export function BusinessSwitcher() {
   const router = useRouter();
-  const { businessId, setNegocioActivo } = useAuthStore();
+  const businessId = useAuthStore((s) => s.businessId);
+  const setNegocioActivo = useAuthStore((s) => s.setNegocioActivo);
   const { data: membresias } = useApi<Membresia[]>(
     "/auth/users/memberships",
     undefined,

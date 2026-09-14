@@ -1,7 +1,7 @@
 import { CODIGO_EDICION_SIMULTANEA } from "@beautyspot/shared-constants";
 import { z } from "zod";
 import { ApiError } from "../api-error";
-import { mensajeDeError } from "../error-message";
+import { mensajeDeError, repartirFalloAlGuardar } from "../error-message";
 
 describe("mensajeDeError", () => {
   describe("desajustes de schema", () => {
@@ -233,5 +233,37 @@ describe("mensajeDeError", () => {
         )
       ).toContain("no está disponible");
     });
+  });
+});
+
+describe("repartirFalloAlGuardar", () => {
+  // El conflicto pide revisar lo escrito, asi que se queda en el formulario;
+  // un aviso flotante se iria antes de que se pueda decidir nada.
+  it("deja el conflicto de edicion en el formulario", () => {
+    const alConflicto = jest.fn();
+    const alAvisar = jest.fn();
+    const conflicto = new ApiError(
+      409,
+      "Otra persona lo cambió",
+      [],
+      CODIGO_EDICION_SIMULTANEA
+    );
+
+    repartirFalloAlGuardar(conflicto, alConflicto, alAvisar);
+
+    expect(alConflicto).toHaveBeenCalledWith("Otra persona lo cambió");
+    expect(alAvisar).not.toHaveBeenCalled();
+  });
+
+  it("manda el resto de fallos al aviso flotante", () => {
+    const alConflicto = jest.fn();
+    const alAvisar = jest.fn();
+
+    repartirFalloAlGuardar(new ApiError(500, "", []), alConflicto, alAvisar);
+
+    expect(alConflicto).not.toHaveBeenCalled();
+    expect(alAvisar).toHaveBeenCalledWith(
+      "Algo falló en el servidor. Vuelve a intentarlo en un momento."
+    );
   });
 });

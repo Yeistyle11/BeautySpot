@@ -42,6 +42,7 @@ import {
 /** Dias que se miran para proponer el primero en el que el negocio abre. */
 const DIAS_PARA_PROPONER = 14;
 
+/** Asistente de reserva publica, paso a paso hasta la confirmacion. */
 function PublicBookingPageInner() {
   const { slug } = useParams<{ slug: string }>();
   const searchParams = useSearchParams();
@@ -57,7 +58,11 @@ function PublicBookingPageInner() {
     hora: searchParams.get("hora") ?? "",
   }));
 
-  const { user, role, hydrated } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+
+  const role = useAuthStore((s) => s.role);
+
+  const hydrated = useAuthStore((s) => s.hydrated);
   const isAuthenticated = hydrated && !!user;
   // Con cuenta de cliente la cita se liga a la cuenta; el resto reserva como
   // invitado.
@@ -473,6 +478,7 @@ function PublicBookingPageInner() {
   );
 }
 
+/** Monta el asistente bajo Suspense, que es lo que exige leer la URL. */
 export default function PublicBookingPage() {
   return (
     <Suspense

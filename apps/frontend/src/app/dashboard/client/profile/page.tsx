@@ -2,6 +2,7 @@
 
 // Perfil del cliente: edicion de sus datos personales.
 import { useState } from "react";
+import { PageHeader } from "@/components/ui/page-header";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,8 +37,9 @@ type ClientProfile = z.infer<typeof clientProfileSchema>;
 /** Lo que hay que gastar para ganar un punto, en la moneda del negocio. */
 const GASTO_POR_PUNTO = Math.round(1 / PROPORCION_PUNTOS_FIDELIDAD);
 
+/** Datos personales del cliente y su progreso de fidelizacion. */
 export default function ClientProfilePage() {
-  const { user } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
   const toast = useToast();
   const {
     data: client,
@@ -107,12 +109,10 @@ export default function ClientProfilePage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Mi Perfil</h1>
-        <p className="text-muted-foreground">
-          Administra tu información personal
-        </p>
-      </div>
+      <PageHeader
+        titulo="Mi perfil"
+        descripcion="Administra tu información personal"
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="shadow-flat border-0 lg:col-span-1">

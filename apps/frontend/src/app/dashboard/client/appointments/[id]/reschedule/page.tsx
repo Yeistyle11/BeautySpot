@@ -3,6 +3,8 @@
 // Reprogramacion de una cita: seleccion de nueva fecha y horario disponibles.
 
 import { useState, useMemo } from "react";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { useParams } from "next/navigation";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +39,7 @@ import {
   type AvailabilitySlot,
 } from "@/lib/schemas/appointment";
 
+/** Mueve una cita del cliente al hueco libre que elija. */
 export default function ReschedulePage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -114,11 +117,7 @@ export default function ReschedulePage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-muted-foreground">Cargando cita...</p>
-      </div>
-    );
+    return <LoadingState recurso="la cita" className="py-20" />;
   }
 
   if (!appointment && loadError) {
@@ -172,7 +171,7 @@ export default function ReschedulePage() {
         Volver al detalle de la cita
       </Link>
 
-      <h1 className="mb-6 text-2xl font-bold">Reagendar cita</h1>
+      <PageHeader titulo="Reagendar cita" />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">

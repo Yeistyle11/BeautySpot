@@ -2,6 +2,8 @@
 
 // Panel del cliente: resumen de sus proximas citas y accesos rapidos.
 import { Card, CardContent } from "@/components/ui/card";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { StatGrid } from "@/components/ui/stat-grid";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,8 +28,9 @@ import {
   type Appointment,
 } from "@/lib/schemas/appointment";
 
+/** Panel del cliente: sus cifras, su proxima cita y accesos al marketplace. */
 export default function ClientDashboardPage() {
-  const { user } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
   const {
     data: pagina,
     isLoading: loading,
@@ -82,12 +85,10 @@ export default function ClientDashboardPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">
-          Hola, {user?.name?.split(" ")[0] || "Cliente"}
-        </h1>
-        <p className="text-muted-foreground">Bienvenido a tu panel de citas</p>
-      </div>
+      <PageHeader
+        titulo={`Hola, ${user?.name?.split(" ")[0] || "Cliente"}`}
+        descripcion="Bienvenido a tu panel de citas"
+      />
 
       <StatGrid stats={stats} loading={loading} />
 
@@ -121,8 +122,8 @@ export default function ClientDashboardPage() {
 
         {loading ? (
           <Card className="shadow-flat border-0">
-            <CardContent className="text-muted-foreground p-8 text-center">
-              Cargando...
+            <CardContent className="p-0">
+              <LoadingState recurso="tus citas" />
             </CardContent>
           </Card>
         ) : loadError ? (
