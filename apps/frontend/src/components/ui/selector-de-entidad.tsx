@@ -65,6 +65,8 @@ export function SelectorDeEntidad({
   const [resaltada, setResaltada] = useState(0);
   const contenedor = useRef<HTMLDivElement>(null);
   const buscador = useRef<HTMLInputElement>(null);
+  /** Identificador de una opcion, que es lo que `aria-activedescendant` señala. */
+  const idDeOpcion = (i: number) => `${idLista}-opcion-${i}`;
 
   const elegida = opciones.find((o) => o.id === value);
   const etiqueta =
@@ -107,6 +109,15 @@ export function SelectorDeEntidad({
   useEffect(() => {
     if (abierto) buscador.current?.focus();
   }, [abierto]);
+
+  // La lista se desplaza sola: con las flechas se llega a opciones que quedan
+  // fuera de los 224px que mide como mucho.
+  useEffect(() => {
+    if (!abierto) return;
+    document
+      .getElementById(idDeOpcion(resaltada))
+      ?.scrollIntoView?.({ block: "nearest" });
+  });
 
   const abrir = () => {
     if (disabled) return;
@@ -221,7 +232,16 @@ export function SelectorDeEntidad({
                   onKeyDown={teclas}
                   placeholder="Buscar..."
                   aria-label="Buscar"
+                  // El buscador es el control que tiene el foco, asi que es el
+                  // que declara la lista y cual de sus opciones esta resaltada:
+                  // sin esto el resaltado de las flechas es solo un color.
+                  role="combobox"
+                  aria-expanded
+                  aria-autocomplete="list"
                   aria-controls={idLista}
+                  aria-activedescendant={
+                    items.length ? idDeOpcion(resaltada) : undefined
+                  }
                   className="border-input bg-background focus-visible:ring-ring h-9 w-full rounded-md border pl-8 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2"
                 />
               </div>
@@ -233,8 +253,11 @@ export function SelectorDeEntidad({
               className="max-h-56 overflow-y-auto py-1"
             >
               {items.map((o, i) => (
-                <li key={o.id || "__vacio"}>
+                // La opcion es el boton: el `li` solo lo maqueta, y un listbox
+                // no admite otros hijos que sus opciones.
+                <li key={o.id || "__vacio"} role="presentation">
                   <button
+                    id={idDeOpcion(i)}
                     type="button"
                     role="option"
                     aria-selected={o.id === value}

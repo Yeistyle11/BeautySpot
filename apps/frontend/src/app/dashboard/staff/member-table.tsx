@@ -6,17 +6,19 @@ import { Pencil, Trash2, Download, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { canDo } from "@/lib/permissions";
+import { nombreDelRol } from "@/lib/auth";
 import { downloadCsv } from "@/lib/export-csv";
 import type { Role } from "@/lib/store";
 import {
-  ROLE_COLORS,
-  ROLE_LABELS,
+  ROLE_BADGE,
   type SortField,
   type SortDir,
   type StaffMember,
 } from "./schemas";
 
+/** Flecha de orden de una columna, resaltada si ordena por ella. */
 function SortIcon({
   field,
   sortField,
@@ -44,6 +46,7 @@ const COLUMNS: {
   { label: "Rol", field: "role" },
 ];
 
+/** Descarga el equipo como CSV. */
 function exportMembers(members: StaffMember[], filename: string) {
   downloadCsv(
     filename,
@@ -52,7 +55,7 @@ function exportMembers(members: StaffMember[], filename: string) {
       s.name,
       s.email,
       s.phone,
-      ROLE_LABELS[s.role] || s.role,
+      nombreDelRol(s.role),
       s.active ? "Activo" : "Inactivo",
       s.joinedAt ? new Date(s.joinedAt).toLocaleDateString("es-CO") : "",
     ])
@@ -200,11 +203,9 @@ export function MemberTable({
                       {s.phone || "—"}
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[s.role] || "bg-muted text-muted-foreground"}`}
-                      >
-                        {ROLE_LABELS[s.role] || s.role}
-                      </span>
+                      <Badge variant={ROLE_BADGE[s.role] ?? "muted"}>
+                        {nombreDelRol(s.role)}
+                      </Badge>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">

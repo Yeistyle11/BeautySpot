@@ -18,6 +18,22 @@ export const ROLES = [
   "CLIENT",
 ] as const;
 
+/** Como se nombra cada rol en el panel. */
+export const ETIQUETAS_DE_ROL: Record<string, string> = {
+  SUPER_ADMIN: "Super Admin",
+  OWNER: "Dueño",
+  ADMIN: "Administrador",
+  PROFESSIONAL: "Profesional",
+  RECEPTIONIST: "Recepcionista",
+  CLIENT: "Cliente",
+};
+
+/** Nombre del rol, o el codigo tal cual si llega uno que no conocemos. */
+export function nombreDelRol(rol: string | null | undefined): string {
+  if (!rol) return "";
+  return ETIQUETAS_DE_ROL[rol] ?? rol;
+}
+
 // Campos opcionales: un JWT puede traer solo un subconjunto. Un payload que no
 // encaja se descarta entero.
 const jwtPayloadSchema = z
@@ -61,6 +77,7 @@ export const authResponseSchema = z.object({
 
 export type AuthResponse = z.infer<typeof authResponseSchema>;
 
+/** Decodifica un segmento del JWT, que viaja en base64url. */
 function base64UrlDecode(segment: string): string {
   const normalized = segment.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized.padEnd(

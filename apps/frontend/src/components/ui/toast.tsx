@@ -4,7 +4,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { AlertCircle, CheckCircle2, X } from "lucide-react";
@@ -30,6 +32,12 @@ const DURACION_MS = 6000;
 /** Avisos efímeros de la interfaz, compartidos por todo el panel. */
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [avisos, setAvisos] = useState<Aviso[]>([]);
+  const temporizadores = useRef(new Set<ReturnType<typeof setTimeout>>());
+
+  useEffect(() => {
+    const pendientes = temporizadores.current;
+    return () => pendientes.forEach(clearTimeout);
+  }, []);
 
   const retirar = useCallback((id: number) => {
     setAvisos((actuales) => actuales.filter((a) => a.id !== id));
@@ -39,7 +47,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     (tono: Tono, mensaje: string) => {
       const id = siguienteId();
       setAvisos((actuales) => [...actuales, { id, tono, mensaje }]);
-      setTimeout(() => retirar(id), DURACION_MS);
+      const temporizador = setTimeout(() => {
+        temporizadores.current.delete(temporizador);
+        retirar(id);
+      }, DURACION_MS);
+      temporizadores.current.add(temporizador);
     },
     [retirar]
   );
@@ -55,20 +67,45 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <Contexto.Provider value={valor}>
       {children}
-      <div
-        // `assertive` para los errores: el lector de pantalla los anuncia al aparecer.
-        role="alert"
-        aria-live="assertive"
-        className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-2"
-      >
-        {avisos.map((aviso) => (
-          <ToastItem key={aviso.id} aviso={aviso} onCerrar={retirar} />
-        ))}
+      <div className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-2">
+        {/* Cada tono tiene su region: un error interrumpe la lectura en curso,
+            pero un «guardado» que hiciera lo mismo cortaria al usuario sin
+            necesidad, asi que espera a que haya una pausa. */}
+        <Region tono="exito" avisos={avisos} onCerrar={retirar} />
+        <Region tono="error" avisos={avisos} onCerrar={retirar} />
       </div>
     </Contexto.Provider>
   );
 }
 
+/** Region viva de un tono, con los avisos de ese tono que siguen en pantalla. */
+function Region({
+  tono,
+  avisos,
+  onCerrar,
+}: {
+  tono: Tono;
+  avisos: Aviso[];
+  onCerrar: (id: number) => void;
+}) {
+  const esError = tono === "error";
+
+  return (
+    <div
+      role={esError ? "alert" : "status"}
+      aria-live={esError ? "assertive" : "polite"}
+      className="flex flex-col gap-2 empty:hidden"
+    >
+      {avisos
+        .filter((a) => a.tono === tono)
+        .map((aviso) => (
+          <ToastItem key={aviso.id} aviso={aviso} onCerrar={onCerrar} />
+        ))}
+    </div>
+  );
+}
+
+/** Tarjeta de un aviso, con su icono segun el tono y su boton de cierre. */
 function ToastItem({
   aviso,
   onCerrar,
@@ -102,6 +139,7 @@ function ToastItem({
 }
 
 let contador = 0;
+/** Identificador del siguiente aviso. */
 function siguienteId(): number {
   contador += 1;
   return contador;
