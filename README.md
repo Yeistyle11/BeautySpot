@@ -243,10 +243,10 @@ CORS_ORIGINS=http://localhost:3000
 
 **Tests**
 
-|             | Cantidad                                             |
-| ----------- | ---------------------------------------------------- |
-| Unitarios   | **2942 tests / 212 suites**                          |
-| Integración | 37 suites (contra Postgres, Redis y RabbitMQ reales) |
+|             | Cantidad                                                         |
+| ----------- | ---------------------------------------------------------------- |
+| Unitarios   | **2942 tests / 212 suites**                                      |
+| Integración | 124 tests / 37 suites (contra Postgres, Redis y RabbitMQ reales) |
 
 Cobertura: **92,29 %** statements, **80,88 %** branches, **83,30 %** functions,
 **93,66 %** lines. El gate de `jest.config.js` falla el CI si baja de 92/80/80/93.
