@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+/** Envoltorio de las paginas del cliente dentro del panel. */
 export default function ClientLayout({
   children,
 }: {

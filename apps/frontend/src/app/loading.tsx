@@ -1,4 +1,5 @@
 import { Spinner } from "@/components/ui/spinner";
+/** Espera de las rutas publicas mientras Next resuelve la pagina. */
 export default function Loading() {
   return (
     <div className="flex h-screen items-center justify-center">

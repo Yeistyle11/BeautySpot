@@ -1,30 +1,21 @@
 "use client";
 
 // Pagina de servicios: catalogo de servicios del negocio con alta, edicion y baja.
-import { useState, useMemo } from "react";
-import { mensajeDeError } from "@/lib/error-message";
+import { useCallback, useState, useMemo } from "react";
+import { mensajeDeError, repartirFalloAlGuardar } from "@/lib/error-message";
 import { z } from "zod";
-import {
-  TablaDeRegistros,
-  FilaDeTabla,
-  CeldaDeTabla,
-  CeldaPrincipal,
-  type DireccionDeOrden,
-  type ColumnaDeTabla,
-} from "@/components/ui/tabla-de-registros";
+import { TablaDeRegistros } from "@/components/ui/tabla-de-registros";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { PageHeader } from "@/components/ui/page-header";
 import Link from "next/link";
-import { CategoryBadge } from "@/components/ui/category-badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Scissors, Plus, Edit, Power, PowerOff, Tag } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { Scissors, Plus, Tag } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { useCrudResource } from "@/lib/use-crud-resource";
-import { esConflictoDeEdicion } from "@/lib/api-error";
+import { useOrdenDeTabla } from "@/lib/use-orden-de-tabla";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
@@ -32,6 +23,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Select } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ServiceFormDialog } from "./service-form-dialog";
+import {
+  ServiceRow,
+  COLUMNAS_DE_SERVICIOS,
+  type CampoDeOrden,
+} from "./service-row";
 import {
   CATEGORIES_KEY,
   emptyForm,
@@ -43,28 +39,13 @@ import {
   type ServiceCategory,
 } from "./schemas";
 
-/** Campos por los que se puede ordenar el catalogo. */
-type CampoDeOrden = "name" | "duration" | "price";
-
-const COLUMNAS: ColumnaDeTabla<CampoDeOrden>[] = [
-  { label: "Servicio", campo: "name" },
-  { label: "Categoría", ocultaEnMovil: true },
-  // En movil quedan solo el nombre y el precio.
-  {
-    label: "Duración",
-    campo: "duration",
-    alineacion: "right",
-    ocultaEnMovil: true,
-  },
-  { label: "Precio", campo: "price", alineacion: "right" },
-];
-
 /** Cajon de los servicios que no pertenecen a ninguna categoria del negocio. */
 const SIN_CATEGORIA = "Sin categoría";
 
+/** Catalogo de servicios del negocio: alta, edicion, baja y reactivacion. */
 export default function ServicesPage() {
   const toast = useToast();
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
   const {
     items: services,
     isLoading: loading,
@@ -83,18 +64,7 @@ export default function ServicesPage() {
   >(CATEGORIES_KEY, undefined, z.array(serviceCategorySchema));
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [pestana, setPestana] = useState<"activos" | "inactivos">("activos");
-  const [orden, setOrden] = useState<{
-    campo: CampoDeOrden;
-    direccion: DireccionDeOrden;
-  }>({ campo: "name", direccion: "asc" });
-
-  /** Alterna el sentido si se repite la columna; si no, empieza ascendente. */
-  const alternarOrden = (campo: CampoDeOrden) =>
-    setOrden((actual) =>
-      actual.campo === campo
-        ? { campo, direccion: actual.direccion === "asc" ? "desc" : "asc" }
-        : { campo, direccion: "asc" }
-    );
+  const { orden, alternarOrden } = useOrdenDeTabla<CampoDeOrden>("name");
 
   const [createDialog, setCreateDialog] = useState(false);
   const [createForm, setCreateForm] = useState(emptyForm);
@@ -214,6 +184,16 @@ export default function ServicesPage() {
     active: s.active,
   });
 
+  // Los permisos se calculan una vez, no por fila.
+  const puedeEditar = canDo(role, "services_edit");
+  const puedeDesactivar = canDo(role, "services_delete");
+
+  /** Pide confirmacion antes de retirar el servicio del catalogo. */
+  const pedirDesactivacion = useCallback((s: Service) => {
+    setDesactivarId(s.id);
+    setDeleteError("");
+  }, []);
+
   const openEdit = (s: Service) => {
     setEditId(s.id);
     setEditForm(comoFormulario(s));
@@ -263,10 +243,7 @@ export default function ServicesPage() {
       setEditId(null);
     } catch (err) {
       logger.error(err);
-      // El formulario se queda abierto con lo escrito: hay algo que decidir, y
-      // un aviso que se va solo no da tiempo a decidirlo.
-      if (esConflictoDeEdicion(err)) setConflicto(mensajeDeError(err));
-      else toast.error(mensajeDeError(err));
+      repartirFalloAlGuardar(err, setConflicto, toast.error);
     } finally {
       setSavingEdit(false);
     }
@@ -307,76 +284,22 @@ export default function ServicesPage() {
   const tablaDe = (items: Service[], titulo: string) => (
     <TablaDeRegistros
       titulo={titulo}
-      columnas={COLUMNAS}
+      columnas={COLUMNAS_DE_SERVICIOS}
       orden={orden}
       onOrdenar={alternarOrden}
     >
       {items.map((s) => (
-        <FilaDeTabla
+        <ServiceRow
           key={s.id}
-          acciones={
-            <>
-              {canDo(role, "services_edit") && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => openEdit(s)}
-                  aria-label={`Editar el servicio ${s.name}`}
-                  title="Editar servicio"
-                >
-                  <Edit className="text-muted-foreground h-4 w-4" />
-                </Button>
-              )}
-              {/* Desactiva, no borra: al servicio lo referencian citas y cobros. */}
-              {canDo(role, "services_delete") &&
-                (s.active ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                    onClick={() => {
-                      setDesactivarId(s.id);
-                      setDeleteError("");
-                    }}
-                    aria-label={`Desactivar el servicio ${s.name}`}
-                    title="Desactivar servicio"
-                  >
-                    <PowerOff className="h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="hover:text-success h-8 w-8"
-                    onClick={() => void reactivar(s)}
-                    disabled={reactivandoId === s.id}
-                    aria-label={`Activar el servicio ${s.name}`}
-                    title="Activar servicio"
-                  >
-                    <Power className="h-4 w-4" />
-                  </Button>
-                ))}
-            </>
-          }
-        >
-          <CeldaPrincipal titulo={s.name} subtitulo={s.description} />
-          <CeldaDeTabla ocultaEnMovil>
-            <CategoryBadge
-              nombre={s.category ?? ""}
-              delCatalogo={categoryNames.includes(s.category ?? "")}
-            />
-          </CeldaDeTabla>
-          <CeldaDeTabla alineacion="right" apagada ocultaEnMovil>
-            {s.duration} min
-          </CeldaDeTabla>
-          <CeldaDeTabla
-            alineacion="right"
-            className="text-primary font-semibold"
-          >
-            {formatCurrency(s.price)}
-          </CeldaDeTabla>
-        </FilaDeTabla>
+          service={s}
+          categoriaDelCatalogo={categoryNames.includes(s.category ?? "")}
+          puedeEditar={puedeEditar}
+          puedeDesactivar={puedeDesactivar}
+          reactivando={reactivandoId === s.id}
+          onEditar={openEdit}
+          onDesactivar={pedirDesactivacion}
+          onReactivar={reactivar}
+        />
       ))}
     </TablaDeRegistros>
   );

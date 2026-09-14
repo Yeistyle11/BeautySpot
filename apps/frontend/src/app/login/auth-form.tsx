@@ -52,6 +52,7 @@ interface Problema {
   mensaje: string;
 }
 
+/** Primer campo mal rellenado del formulario, o null si todo esta correcto. */
 function validar(form: typeof emptyForm, modo: ModoAuth): Problema | null {
   if (!form.email.trim())
     return { campo: "email", mensaje: "Escribe tu email" };
@@ -134,10 +135,13 @@ function ConfirmacionPendiente({ email }: { email: string }) {
   );
 }
 
+/** Formulario de entrada y de alta, segun el modo con el que se monte. */
 export function AuthForm({ modo }: { modo: ModoAuth }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setAuth, setBusinessId, setRole } = useAuthStore();
+  const setAuth = useAuthStore((s) => s.setAuth);
+  const setBusinessId = useAuthStore((s) => s.setBusinessId);
+  const setRole = useAuthStore((s) => s.setRole);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

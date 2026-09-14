@@ -2,8 +2,9 @@
 
 // Pagina de gestion del perfil publico: pestanas para editar la ficha del negocio en el marketplace.
 import { useState } from "react";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import dynamic from "next/dynamic";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Megaphone, ExternalLink } from "lucide-react";
 import { api } from "@/lib/api";
@@ -12,13 +13,13 @@ import { useApi, usePaginatedApi } from "@/lib/swr";
 import { useSeededForm } from "@/lib/use-seeded-form";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
-import { mensajeDeError } from "@/lib/error-message";
+import { mensajeDeError, repartirFalloAlGuardar } from "@/lib/error-message";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { EmptyState } from "@/components/ui/empty-state";
-import { esConflictoDeEdicion, isNotFoundError } from "@/lib/api-error";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { isNotFoundError } from "@/lib/api-error";
 import { AvisoDeConflicto } from "@/components/ui/aviso-de-conflicto";
 import { canDo } from "@/lib/permissions";
-import { cn } from "@/lib/utils";
 import { OverviewTab } from "./overview-tab";
 import { emptyGalleryForm, type GalleryForm } from "./add-image-dialog";
 import {
@@ -69,9 +70,11 @@ const TAB_LABELS: Record<string, string> = {
 };
 const TAB_IDS = Object.keys(TAB_LABELS);
 
+/** Edicion del perfil publico del negocio, por pestañas. */
 export default function MarketplacePage() {
   const toast = useToast();
-  const { businessId, role } = useAuthStore();
+  const businessId = useAuthStore((s) => s.businessId);
+  const role = useAuthStore((s) => s.role);
   const {
     data: profile,
     isLoading: loading,
@@ -187,10 +190,7 @@ export default function MarketplacePage() {
       await mutateProfile();
     } catch (err) {
       logger.error(err);
-      // Lo escrito se queda en pantalla: hay algo que decidir, y un aviso que
-      // se va solo no da tiempo a decidirlo.
-      if (esConflictoDeEdicion(err)) setConflictoConfig(mensajeDeError(err));
-      else toast.error(mensajeDeError(err));
+      repartirFalloAlGuardar(err, setConflictoConfig, toast.error);
     } finally {
       setSaving(null);
     }
@@ -282,12 +282,8 @@ export default function MarketplacePage() {
   if (loading) {
     return (
       <div>
-        <h1 className="text-2xl font-bold">Marketplace</h1>
-        <Card className="shadow-flat mt-4 border-0">
-          <CardContent className="text-muted-foreground p-8 text-center">
-            Cargando perfil...
-          </CardContent>
-        </Card>
+        <PageHeader titulo="Marketplace" />
+        <LoadingState recurso="el perfil público" />
       </div>
     );
   }
@@ -297,8 +293,8 @@ export default function MarketplacePage() {
   if (profileError && !sinPerfil) {
     return (
       <div>
-        <h1 className="text-2xl font-bold">Marketplace</h1>
-        <div className="mt-4">
+        <PageHeader titulo="Marketplace" />
+        <div>
           <ErrorDeCarga
             error={profileError}
             recurso="los datos del perfil público"
@@ -313,7 +309,7 @@ export default function MarketplacePage() {
     const puedeCrear = canDo(role, "marketplace_edit");
     return (
       <div>
-        <h1 className="text-2xl font-bold">Marketplace</h1>
+        <PageHeader titulo="Marketplace" />
         <div className="mt-4">
           {creando ? (
             <CreateProfileCard
@@ -356,106 +352,100 @@ export default function MarketplacePage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Marketplace</h1>
-          <p className="text-muted-foreground">Perfil publico y visibilidad</p>
-        </div>
-        {profile.slug && (
-          <Button
-            variant="outline"
-            onClick={() =>
-              window.open(`/marketplace/business/${profile.slug}`, "_blank")
-            }
-          >
-            <ExternalLink className="mr-2 h-4 w-4" /> Ver perfil publico
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Marketplace"
+        descripcion="Perfil público y visibilidad"
+        accion={
+          profile.slug && (
+            <Button
+              variant="outline"
+              onClick={() =>
+                window.open(`/marketplace/business/${profile.slug}`, "_blank")
+              }
+            >
+              <ExternalLink className="mr-2 h-4 w-4" /> Ver perfil público
+            </Button>
+          )
+        }
+      />
 
-      <div
-        role="tablist"
-        aria-label="Secciones del marketplace"
-        className="bg-muted mb-6 flex w-fit max-w-full gap-1 overflow-x-auto rounded-md p-1"
-      >
-        {TAB_IDS.map((tab) => (
-          <button
-            key={tab}
-            role="tab"
-            aria-selected={activeTab === tab}
-            onClick={() => setActiveTab(tab)}
-            className={cn(
-              "whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-colors",
-              activeTab === tab
-                ? "bg-background shadow-flat"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {TAB_LABELS[tab]}
-          </button>
-        ))}
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList
+          aria-label="Secciones del marketplace"
+          className="mb-6 flex max-w-full gap-1 overflow-x-auto"
+        >
+          {TAB_IDS.map((tab) => (
+            <TabsTrigger key={tab} value={tab} className="whitespace-nowrap">
+              {TAB_LABELS[tab]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-      {activeTab === "overview" && (
-        <OverviewTab
-          profile={profile}
-          gallery={gallery}
-          role={role}
-          onTogglePublish={togglePublish}
-        />
-      )}
-
-      {conflictoConfig &&
-        (activeTab === "profile" || activeTab === "sections") && (
-          <AvisoDeConflicto
-            mensaje={conflictoConfig}
-            onRecargar={() => void recargarPerfil()}
+        <TabsContent value="overview">
+          <OverviewTab
+            profile={profile}
+            gallery={gallery}
+            role={role}
+            onTogglePublish={togglePublish}
           />
-        )}
+        </TabsContent>
 
-      {activeTab === "profile" && (
-        <ProfileTab
-          form={configForm}
-          onChange={setConfigForm}
-          onSave={saveConfig}
-          saving={saving === "config"}
-          role={role}
-        />
-      )}
+        <TabsContent value="profile">
+          {conflictoConfig && (
+            <AvisoDeConflicto
+              mensaje={conflictoConfig}
+              onRecargar={() => void recargarPerfil()}
+            />
+          )}
+          <ProfileTab
+            form={configForm}
+            onChange={setConfigForm}
+            onSave={saveConfig}
+            saving={saving === "config"}
+            role={role}
+          />
+        </TabsContent>
 
-      {activeTab === "gallery" && (
-        <GalleryTab
-          gallery={gallery}
-          role={role}
-          onAdd={() => setGalleryDialog(true)}
-          onRemove={removeGalleryImage}
-        />
-      )}
+        <TabsContent value="gallery">
+          <GalleryTab
+            gallery={gallery}
+            role={role}
+            onAdd={() => setGalleryDialog(true)}
+            onRemove={removeGalleryImage}
+          />
+        </TabsContent>
 
-      {activeTab === "sections" && (
-        <SectionsTab
-          sections={sections}
-          onChange={setSections}
-          onMove={(type, direction) =>
-            setSections((prev) => reorderSections(prev, type, direction))
-          }
-          onSave={saveConfig}
-          saving={saving === "config"}
-          role={role}
-        />
-      )}
+        <TabsContent value="sections">
+          {conflictoConfig && (
+            <AvisoDeConflicto
+              mensaje={conflictoConfig}
+              onRecargar={() => void recargarPerfil()}
+            />
+          )}
+          <SectionsTab
+            sections={sections}
+            onChange={setSections}
+            onMove={(type, direction) =>
+              setSections((prev) => reorderSections(prev, type, direction))
+            }
+            onSave={saveConfig}
+            saving={saving === "config"}
+            role={role}
+          />
+        </TabsContent>
 
-      {activeTab === "reviews" && (
-        <ReviewsTab
-          reviews={reviews}
-          role={role}
-          drafts={reviewDrafts}
-          onDraftChange={setReviewDrafts}
-          onRespond={respondToReview}
-          onRemoveResponse={removeReviewResponse}
-          onModerar={moderarReview}
-        />
-      )}
+        <TabsContent value="reviews">
+          <ReviewsTab
+            reviews={reviews}
+            role={role}
+            drafts={reviewDrafts}
+            onDraftChange={setReviewDrafts}
+            onRespond={respondToReview}
+            onRemoveResponse={removeReviewResponse}
+            onModerar={moderarReview}
+          />
+        </TabsContent>
+      </Tabs>
 
       <AddImageDialog
         open={galleryDialog}

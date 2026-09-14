@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
+/** Envoltorio del asistente de reserva publica. */
 export default function BookLayout({
   children,
 }: {

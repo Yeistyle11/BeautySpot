@@ -2,6 +2,7 @@
 
 // Pagina de notificaciones: bandeja del usuario con marcado de leidas y paginacion.
 import { useCallback } from "react";
+import { PageHeader } from "@/components/ui/page-header";
 import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -29,6 +30,7 @@ type Notification = z.infer<typeof notificationSchema>;
 
 const NOTIFICATIONS_KEY = "/notification/notifications";
 
+/** Centro de avisos del usuario, con marcado de leidos. */
 export default function NotificationsPage() {
   const {
     items: list,
@@ -74,10 +76,10 @@ export default function NotificationsPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Notificaciones</h1>
-        <p className="text-muted-foreground">Centro de notificaciones</p>
-      </div>
+      <PageHeader
+        titulo="Notificaciones"
+        descripcion="Centro de notificaciones"
+      />
       <div className="space-y-3">
         {loading ? (
           <LoadingState recurso="los avisos" />

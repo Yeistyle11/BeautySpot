@@ -9,6 +9,7 @@ interface ProgressProps {
   label?: string;
 }
 
+/** Barra de progreso de un valor entre 0 y 100. */
 export function Progress({
   value,
   max = 100,

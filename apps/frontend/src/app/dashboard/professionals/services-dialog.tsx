@@ -2,6 +2,7 @@
 
 // Dialogo de los servicios que presta un profesional, con su tarifa propia.
 import { Scissors } from "lucide-react";
+import { LoadingState } from "@/components/ui/loading-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
@@ -88,7 +89,7 @@ export function ServicesDialog({
 
         {cargando ? (
           <p className="text-muted-foreground py-6 text-center text-sm">
-            Cargando servicios...
+            <LoadingState recurso="los servicios" />
           </p>
         ) : servicios.length === 0 ? (
           <p className="text-muted-foreground py-6 text-center text-sm">

@@ -40,7 +40,7 @@ export function AccountTab({
   savingPassword,
   passwordFeedback,
 }: AccountTabProps) {
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
   const canSave = canDo(role, "settings_edit");
 
   return (

@@ -2,11 +2,11 @@
 
 // Pagina de bloqueos de agenda: vacaciones, descansos y ausencias de cada
 // profesional, sueltos o repetidos.
-import { useState, useMemo } from "react";
+import { useCallback, useState, useMemo } from "react";
+import { PageHeader } from "@/components/ui/page-header";
 import { z } from "zod";
-import { CalendarOff, Plus, Trash2, Repeat, Users } from "lucide-react";
+import { CalendarOff, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -14,20 +14,15 @@ import { useToast } from "@/components/ui/toast";
 import { Select } from "@/components/ui/select";
 import { useApi } from "@/lib/swr";
 import { LoadingState } from "@/components/ui/loading-state";
-import {
-  TablaDeRegistros,
-  FilaDeTabla,
-  CeldaDeTabla,
-  CeldaPrincipal,
-} from "@/components/ui/tabla-de-registros";
+import { TablaDeRegistros } from "@/components/ui/tabla-de-registros";
 import { useCrudResource } from "@/lib/use-crud-resource";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { mensajeDeError } from "@/lib/error-message";
-import { formatDate, formatTime } from "@/lib/utils";
 import { BlockedSlotFormDialog } from "./blocked-slot-form-dialog";
+import { BlockedSlotRow, COLUMNAS_DE_BLOQUEOS } from "./blocked-slot-row";
 import {
   blockedSlotSchema,
   blockedSlotsPath,
@@ -42,17 +37,10 @@ import {
 /** Bloqueos futuros de todo el negocio; el equipo se filtra en la pantalla. */
 const BLOQUEOS_DEL_NEGOCIO = "/booking/blocked-slots";
 
-const COLUMNAS = [
-  { label: "Profesional" },
-  { label: "Día" },
-  { label: "Franja" },
-  { label: "Motivo", ocultaEnMovil: true },
-  { label: "Repetición" },
-];
-
+/** Bloqueos de agenda del equipo: alta, filtro por profesional y baja. */
 export default function BlockedSlotsPage() {
   const toast = useToast();
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
   const puedeCrear = canDo(role, "blocked_slots_create");
   const puedeBorrar = canDo(role, "blocked_slots_delete");
 
@@ -108,8 +96,15 @@ export default function BlockedSlotsPage() {
   const [guardando, setGuardando] = useState(false);
 
   const [aBorrar, setABorrar] = useState<BlockedSlot | null>(null);
+
   const [borrarSerie, setBorrarSerie] = useState(false);
   const [borrando, setBorrando] = useState(false);
+
+  /** Pide confirmacion antes de levantar un bloqueo. */
+  const pedirBorrado = useCallback((bloqueo: BlockedSlot) => {
+    setABorrar(bloqueo);
+    setBorrarSerie(false);
+  }, []);
 
   const crear = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,21 +149,19 @@ export default function BlockedSlotsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Bloqueos de agenda</h1>
-          <p className="text-muted-foreground text-sm">
-            Vacaciones, descansos y ausencias. Un bloqueo impide reservar en esa
-            franja.
-          </p>
-        </div>
-        {puedeCrear && (
-          <Button onClick={() => setDialogo(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Bloquear agenda
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        className="mb-0"
+        titulo="Bloqueos de agenda"
+        descripcion="Vacaciones, descansos y ausencias. Un bloqueo impide reservar en esa franja."
+        accion={
+          puedeCrear && (
+            <Button onClick={() => setDialogo(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Bloquear agenda
+            </Button>
+          )
+        }
+      />
 
       {/* Filtro por profesional. Cada opcion lleva cuantos bloqueos tiene. */}
       {(profesionales ?? []).length > 0 && (
@@ -211,55 +204,18 @@ export default function BlockedSlotsPage() {
           }
         />
       ) : (
-        <TablaDeRegistros titulo="Bloqueos de agenda" columnas={COLUMNAS}>
+        <TablaDeRegistros
+          titulo="Bloqueos de agenda"
+          columnas={COLUMNAS_DE_BLOQUEOS}
+        >
           {bloqueos.map((b) => (
-            <FilaDeTabla
+            <BlockedSlotRow
               key={b.id}
-              acciones={
-                puedeBorrar && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                    onClick={() => {
-                      setABorrar(b);
-                      setBorrarSerie(false);
-                    }}
-                    aria-label={`Eliminar el bloqueo del ${formatDate(b.date)}`}
-                    title="Eliminar bloqueo"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )
-              }
-            >
-              <CeldaPrincipal
-                inicial={(nombreDeProfesional[b.professionalId] || "?").charAt(
-                  0
-                )}
-                titulo={
-                  nombreDeProfesional[b.professionalId] ||
-                  b.professionalId.slice(0, 8)
-                }
-              />
-              <CeldaDeTabla apagada>{formatDate(b.date)}</CeldaDeTabla>
-              <CeldaDeTabla apagada>
-                <span className="whitespace-nowrap">
-                  {formatTime(b.startTime)}–{formatTime(b.endTime)}
-                </span>
-              </CeldaDeTabla>
-              <CeldaDeTabla apagada ocultaEnMovil>
-                {b.reason || "—"}
-              </CeldaDeTabla>
-              <CeldaDeTabla>
-                {b.serieId && (
-                  <Badge variant="secondary">
-                    <Repeat className="mr-1 h-3 w-3" />
-                    Se repite
-                  </Badge>
-                )}
-              </CeldaDeTabla>
-            </FilaDeTabla>
+              bloqueo={b}
+              profesional={nombreDeProfesional[b.professionalId]}
+              puedeBorrar={puedeBorrar}
+              onBorrar={pedirBorrado}
+            />
           ))}
         </TablaDeRegistros>
       )}

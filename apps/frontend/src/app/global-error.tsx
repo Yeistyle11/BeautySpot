@@ -6,6 +6,7 @@
 
 import { useEffect } from "react";
 
+/** Ultimo recurso: sustituye al documento entero si falla el layout raiz. */
 export default function GlobalError({
   error,
   reset,

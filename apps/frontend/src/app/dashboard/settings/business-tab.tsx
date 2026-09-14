@@ -2,6 +2,7 @@
 
 // Pestana de negocio: edicion de los datos y la informacion de contacto del negocio.
 import { Loader2, Save } from "lucide-react";
+import { LoadingState } from "@/components/ui/loading-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,12 +52,12 @@ export function BusinessTab({
   saving,
   loading,
 }: BusinessTabProps) {
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
   if (loading) {
     return (
       <Card className="shadow-flat border-0">
         <CardContent className="text-muted-foreground p-8 text-center">
-          Cargando...
+          <LoadingState />
         </CardContent>
       </Card>
     );

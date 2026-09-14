@@ -127,12 +127,16 @@ export function cambiosDeTarifas(
   return cambios;
 }
 
-export interface AvailabilitySlot {
-  dayOfWeek: number;
-  active: boolean;
-  startTime: string;
-  endTime: string;
-}
+/** Tramo de disponibilidad tal como lo devuelve booking. */
+export const availabilitySlotSchema = z.object({
+  dayOfWeek: z.number(),
+  // Un tramo desactivado sigue guardado, pero no cuenta como horario.
+  active: z.boolean().optional(),
+  startTime: z.string(),
+  endTime: z.string(),
+});
+
+export type AvailabilitySlot = z.infer<typeof availabilitySlotSchema>;
 
 /** Un tramo de trabajo; un dia puede tener varios. */
 export type Tramo = { startTime: string; endTime: string };

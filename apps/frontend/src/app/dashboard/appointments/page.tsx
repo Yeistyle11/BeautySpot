@@ -1,7 +1,7 @@
 "use client";
 
 // Pagina de agenda: lista y calendario de citas, con busqueda, paginacion y acciones de crear/confirmar/cancelar/completar.
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { mensajeDeError } from "@/lib/error-message";
 import dynamic from "next/dynamic";
 import { z } from "zod";
@@ -35,32 +35,22 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import { usePaginatedList } from "@/lib/use-paginated-list";
-import { logger } from "@/lib/logger";
-import { useToast } from "@/components/ui/toast";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAppointmentStatus } from "@/lib/status";
 import { AppointmentForm } from "./appointment-form";
 import { WalkInDialog } from "./walk-in-dialog";
 import { AppointmentCard, COLUMNAS_DE_AGENDA } from "./appointment-card";
-import {
-  TablaDeRegistros,
-  type DireccionDeOrden,
-} from "@/components/ui/tabla-de-registros";
+import { TablaDeRegistros } from "@/components/ui/tabla-de-registros";
+import { useOrdenDeTabla } from "@/lib/use-orden-de-tabla";
 import { RescheduleDialog } from "./reschedule-dialog";
 import { BlockedSlotFormDialog } from "../blocked-slots/blocked-slot-form-dialog";
-import {
-  blockedSlotSchema,
-  blockedSlotsPath,
-  emptyForm as emptyBlockedSlotForm,
-  toBlockedSlotPayload,
-  type BlockedSlot,
-} from "../blocked-slots/schemas";
+import { blockedSlotSchema, type BlockedSlot } from "../blocked-slots/schemas";
 import { businessHourSchema, type BusinessHour } from "../settings/schemas";
-import {
-  CompleteAppointmentDialog,
-  emptyPaymentDraft,
-  type PaymentDraft,
-} from "./complete-appointment-dialog";
+import { CompleteAppointmentDialog } from "./complete-appointment-dialog";
+import { useAccionesDeCita } from "./use-acciones-de-cita";
+import { useBloqueoRapido } from "./use-bloqueo-rapido";
+import { useCierreDeCita } from "./use-cierre-de-cita";
+import { useWalkIn } from "./use-walk-in";
 import {
   appointmentSchema,
   APPOINTMENTS_KEY,
@@ -69,14 +59,11 @@ import {
   clientSchema,
   CLIENTS_KEY,
   emptyForm,
-  emptyWalkInForm,
-  horaActual,
   MOTIVOS_DE_CANCELACION,
   professionalSchema,
   PROFESSIONALS_KEY,
   serviceSchema,
   SERVICES_KEY,
-  walkInParaEnviar,
   type Appointment,
   type AppointmentForm as FormValues,
   type Client,
@@ -90,7 +77,7 @@ const CalendarView = dynamic(
   () => import("@/components/calendar-view").then((m) => m.CalendarView),
   {
     ssr: false,
-    loading: () => <p className="text-muted-foreground">Cargando...</p>,
+    loading: () => <LoadingState recurso="la agenda" />,
   }
 );
 
@@ -98,7 +85,7 @@ const DayView = dynamic(
   () => import("@/components/day-view").then((m) => m.DayView),
   {
     ssr: false,
-    loading: () => <p className="text-muted-foreground">Cargando...</p>,
+    loading: () => <LoadingState recurso="la agenda" />,
   }
 );
 
@@ -128,43 +115,22 @@ const VISTAS = [
   { id: "calendar", etiqueta: "Semana", icono: CalendarDays },
 ] as const;
 
-/** Media hora despues, que es lo que dura por defecto un bloqueo rapido. */
-function sumarMediaHora(hora: string): string {
-  const [h, m] = hora.split(":").map(Number);
-  const total = h * 60 + m + 30;
-  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(
-    total % 60
-  ).padStart(2, "0")}`;
-}
-
+/** Agenda del negocio en lista, dia o semana, con las acciones sobre cada cita. */
 export default function AppointmentsPage() {
-  const toast = useToast();
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
 
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [walkInDialog, setWalkInDialog] = useState(false);
-  const [walkInForm, setWalkInForm] = useState(emptyWalkInForm);
-  const [walkInServicios, setWalkInServicios] = useState<string[]>([]);
-  const [savingWalkIn, setSavingWalkIn] = useState(false);
-  const [walkInError, setWalkInError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "day" | "calendar">("list");
   /** Pestaña de estado en la vista lista; vacia son todas. */
   const [estado, setEstado] = useState("");
-  const [orden, setOrden] = useState<{
-    campo: CampoDeOrden;
-    direccion: DireccionDeOrden;
-  }>({ campo: "date", direccion: "desc" });
-
-  /** Alterna el sentido si se repite la columna; si no, empieza descendente. */
-  const alternarOrden = (campo: CampoDeOrden) =>
-    setOrden((actual) =>
-      actual.campo === campo
-        ? { campo, direccion: actual.direccion === "asc" ? "desc" : "asc" }
-        : { campo, direccion: "desc" }
-    );
+  const {
+    orden,
+    alternarOrden,
+    params: ordenParaElServidor,
+  } = useOrdenDeTabla<CampoDeOrden>("date", "desc");
   const [dia, setDia] = useState(() => toLocalDateKey(new Date()));
 
   // El calendario pide el maximo del backend (100); la lista pagina de 20.
@@ -190,8 +156,7 @@ export default function AppointmentsPage() {
                 : estado
                   ? { status: estado }
                   : {}),
-              sort: orden.campo,
-              order: orden.direccion === "asc" ? "ASC" : "DESC",
+              ...ordenParaElServidor,
             }
           : undefined,
     limit: viewMode === "list" ? undefined : 100,
@@ -258,20 +223,22 @@ export default function AppointmentsPage() {
     [horarios]
   );
 
-  const [bloqueoForm, setBloqueoForm] = useState(emptyBlockedSlotForm);
-  const [bloqueoProfesional, setBloqueoProfesional] = useState<string | null>(
-    null
-  );
-  const [guardandoBloqueo, setGuardandoBloqueo] = useState(false);
-
   // Los profesionales se cargan siempre: ademas del formulario, la lista de citas
   // los necesita para mostrar el nombre en vez del identificador.
   const { data: professionals, mutate: recargarProfesionales } = useApi<
     Professional[]
   >(PROFESSIONALS_KEY, undefined, z.array(professionalSchema));
+
+  const [form, setForm] = useState<FormValues>(emptyForm);
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  // Servicio -> profesional que lo atiende; los que no estan los hace el titular.
+  const [asignaciones, setAsignaciones] = useState<Record<string, string>>({});
+
+  const walkIn = useWalkIn(asignaciones);
+
   // Servicios y clientes solo hacen falta con un formulario abierto, y los dos
   // que los piden son el de nueva cita y el de walk-in.
-  const necesitaCatalogos = showForm || walkInDialog;
+  const necesitaCatalogos = showForm || walkIn.abierto;
   const { data: services } = useApi<Service[]>(
     necesitaCatalogos ? SERVICES_KEY : null,
     undefined,
@@ -288,26 +255,6 @@ export default function AppointmentsPage() {
     () => clientsPage?.data ?? [],
     [clientsPage]
   );
-
-  const [form, setForm] = useState<FormValues>(emptyForm);
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  // Servicio -> profesional que lo atiende; los que no estan los hace el titular.
-  const [asignaciones, setAsignaciones] = useState<Record<string, string>>({});
-
-  const [completingAppt, setCompletingAppt] = useState<Appointment | null>(
-    null
-  );
-  const [payment, setPayment] = useState<PaymentDraft>(emptyPaymentDraft);
-  const [completingAction, setCompletingAction] = useState(false);
-
-  const [cancelandoId, setCancelandoId] = useState<string | null>(null);
-  const [motivoCancelacion, setMotivoCancelacion] = useState<string>(
-    MOTIVOS_DE_CANCELACION[0].value
-  );
-  const [notaCancelacion, setNotaCancelacion] = useState("");
-  const [reagendando, setReagendando] = useState<Appointment | null>(null);
-  const [moviendo, setMoviendo] = useState(false);
-  const [errorAlMover, setErrorAlMover] = useState("");
 
   // Pide a core, por id, los nombres de los clientes que salen en pantalla.
   const idsEnPantalla = useMemo(
@@ -341,222 +288,9 @@ export default function AppointmentsPage() {
     return map;
   }, [professionals]);
 
-  // La busqueda la resuelve el backend sobre todo el historial, por cliente y
-  // por servicio.
-  const filtered = appointments;
-
-  // Los tres handlers que reciben las tarjetas van memoizados.
-  const handleAction = useCallback(
-    async (id: string, action: string, cuerpo: unknown = {}) => {
-      try {
-        await api.post(`/booking/appointments/${id}/${action}`, cuerpo);
-        await revalidatePrefix(APPOINTMENTS_KEY);
-      } catch (err) {
-        logger.error(err);
-        toast.error(mensajeDeError(err));
-      }
-    },
-    [toast]
-  );
-
-  const handleConfirm = useCallback(
-    (id: string) => handleAction(id, "confirm"),
-    [handleAction]
-  );
-  // Cancelar pide motivo: el diálogo se abre con el id y confirma después.
-  const handleCancel = useCallback((id: string) => setCancelandoId(id), []);
-
-  const confirmarCancelacion = useCallback(async () => {
-    if (!cancelandoId) return;
-    await handleAction(cancelandoId, "cancel", {
-      motivo: motivoCancelacion,
-      nota: notaCancelacion || undefined,
-    });
-    setCancelandoId(null);
-    setMotivoCancelacion(MOTIVOS_DE_CANCELACION[0].value);
-    setNotaCancelacion("");
-  }, [cancelandoId, handleAction, motivoCancelacion, notaCancelacion]);
-  const handleNoShow = useCallback(
-    (id: string) => handleAction(id, "no-show"),
-    [handleAction]
-  );
-
-  const abrirReagendar = useCallback((appt: Appointment) => {
-    setErrorAlMover("");
-    setReagendando(appt);
-  }, []);
-
-  // Reagendar no pasa por handleAction: es un PATCH y su fallo se lee en el
-  // dialogo, junto al hueco que se acaba de elegir.
-  const confirmarReagendado = useCallback(
-    async (date: string, startTime: string) => {
-      if (!reagendando) return;
-      setMoviendo(true);
-      setErrorAlMover("");
-      try {
-        await api.patch(`/booking/appointments/${reagendando.id}/reschedule`, {
-          date,
-          startTime,
-        });
-        await revalidatePrefix(APPOINTMENTS_KEY);
-        setReagendando(null);
-        toast.exito("Cita reagendada");
-      } catch (err) {
-        logger.error(err);
-        setErrorAlMover(mensajeDeError(err, "No se pudo reagendar la cita"));
-      } finally {
-        setMoviendo(false);
-      }
-    },
-    [reagendando, toast]
-  );
-
-  const openCompleteDialog = useCallback((appt: Appointment) => {
-    setCompletingAppt(appt);
-    setPayment(emptyPaymentDraft);
-  }, []);
-
-  /** Abre el formulario de bloqueo sembrado con el hueco que se pulsó. */
-  const abrirBloqueo = useCallback(
-    (professionalId: string, hora: string) => {
-      setBloqueoProfesional(professionalId);
-      setBloqueoForm({
-        ...emptyBlockedSlotForm,
-        date: dia,
-        startTime: hora,
-        endTime: sumarMediaHora(hora),
-      });
-    },
-    [dia]
-  );
-
-  const crearBloqueo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!bloqueoProfesional) return;
-    setGuardandoBloqueo(true);
-    try {
-      const creados = await api.post<BlockedSlot[]>(
-        blockedSlotsPath(bloqueoProfesional),
-        toBlockedSlotPayload(bloqueoForm)
-      );
-      setBloqueoProfesional(null);
-      await recargarBloqueos();
-      toast.exito(
-        creados.length > 1
-          ? `Se bloquearon ${creados.length} días`
-          : "Agenda bloqueada"
-      );
-    } catch (err) {
-      logger.error(err);
-      toast.error(mensajeDeError(err));
-    } finally {
-      setGuardandoBloqueo(false);
-    }
-  };
-
-  /**
-   * Cierra la cita y, si se pide, la cobra. Son dos escrituras encadenadas sin
-   * transaccion: si falla la del pago, la cita queda completada y el cobro se
-   * registra despues desde Pagos. Por eso la caja se comprueba antes.
-   */
-  const handleCompleteWithPayment = async (registerPayment: boolean) => {
-    if (!completingAppt) return;
-    setCompletingAction(true);
-    try {
-      // El cobro en efectivo exige una caja abierta; se comprueba antes
-      // de completar la cita.
-      if (registerPayment && payment.method === "CASH") {
-        const caja = await api.get<{ id: string } | null>(
-          "/payment/cash-register/active"
-        );
-        if (!caja) {
-          toast.error(
-            "No hay una caja abierta: abre la caja antes de cobrar en efectivo"
-          );
-          return;
-        }
-      }
-
-      await api.post(`/booking/appointments/${completingAppt.id}/complete`, {});
-
-      if (registerPayment) {
-        await api.post("/payment/payments", {
-          appointmentId: completingAppt.id,
-          clientId: completingAppt.clientId,
-          amount: completingAppt.totalAmount,
-          method: payment.method,
-          reference: payment.reference || undefined,
-          notes: payment.notes || undefined,
-        });
-      }
-
-      await revalidatePrefix(APPOINTMENTS_KEY);
-      await revalidatePrefix("/payment/payments");
-      setCompletingAppt(null);
-    } catch (err) {
-      logger.error(err);
-      toast.error(mensajeDeError(err));
-    } finally {
-      setCompletingAction(false);
-    }
-  };
-
-  const openWalkIn = () => {
-    // Se propone la hora de ahora: lo normal es anotarlo recién atendido.
-    setWalkInForm({ ...emptyWalkInForm, startTime: horaActual() });
-    setWalkInServicios([]);
-    setWalkInError("");
-    setWalkInDialog(true);
-  };
-
-  const handleWalkIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingWalkIn(true);
-    setWalkInError("");
-    try {
-      // El cobro en efectivo exige caja abierta; se comprueba antes de
-      // registrar nada, para no dejar la cita anotada y el cobro sin hacer.
-      if (walkInForm.cobrar && walkInForm.metodo === "CASH") {
-        const caja = await api.get<{ id: string } | null>(
-          "/payment/cash-register/active"
-        );
-        if (!caja) {
-          setWalkInError(
-            "No hay una caja abierta: ábrela antes de cobrar en efectivo"
-          );
-          return;
-        }
-      }
-
-      const cita = await api.post<Appointment>(
-        `${APPOINTMENTS_KEY}/walk-in`,
-        walkInParaEnviar(walkInForm, walkInServicios, asignaciones)
-      );
-
-      if (walkInForm.cobrar) {
-        await api.post("/payment/payments", {
-          appointmentId: cita.id,
-          clientId: cita.clientId,
-          amount: cita.totalAmount,
-          method: walkInForm.metodo,
-          reference: walkInForm.referencia || undefined,
-        });
-      }
-
-      setWalkInDialog(false);
-      await recargar();
-      await revalidatePrefix("/payment/payments");
-      await revalidatePrefix("/payment/cash-register");
-      toast.exito("Walk-in registrado");
-    } catch (err) {
-      logger.error(err);
-      // El motivo se lee en el diálogo: el aviso flotante se lo llevaría y hay
-      // que corregir algo antes de reintentar.
-      setWalkInError(mensajeDeError(err));
-    } finally {
-      setSavingWalkIn(false);
-    }
-  };
+  const acciones = useAccionesDeCita();
+  const cierre = useCierreDeCita();
+  const bloqueo = useBloqueoRapido(dia, recargarBloqueos);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -619,7 +353,7 @@ export default function AppointmentsPage() {
               ))}
             </div>
             {canDo(role, "appointments_create") && (
-              <Button variant="outline" onClick={openWalkIn}>
+              <Button variant="outline" onClick={walkIn.abrir}>
                 <UserPlus className="mr-2 h-4 w-4" /> Walk-in
               </Button>
             )}
@@ -691,25 +425,23 @@ export default function AppointmentsPage() {
         <Card className="shadow-flat border-0">
           <CardContent className="p-4">
             {loading ? (
-              <p className="text-muted-foreground py-8 text-center">
-                Cargando...
-              </p>
+              <LoadingState recurso="las citas" />
             ) : (
               <DayView
                 appointments={appointments}
                 professionals={professionals ?? []}
                 date={dia}
                 onDateChange={setDia}
-                onComplete={openCompleteDialog}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-                onNoShow={handleNoShow}
+                onComplete={cierre.abrir}
+                onConfirm={acciones.confirmar}
+                onCancel={acciones.pedirCancelacion}
+                onNoShow={acciones.marcarAusencia}
                 canConfirm={canDo(role, "appointments_confirm")}
                 canCancel={canDo(role, "appointments_cancel")}
                 clientNames={clientMap}
                 bloqueos={bloqueos ?? []}
                 diasAbiertos={diasAbiertos}
-                onBloquearHueco={puedeBloquear ? abrirBloqueo : undefined}
+                onBloquearHueco={puedeBloquear ? bloqueo.abrir : undefined}
               />
             )}
           </CardContent>
@@ -718,18 +450,16 @@ export default function AppointmentsPage() {
         <Card className="shadow-flat border-0">
           <CardContent className="p-4">
             {loading ? (
-              <p className="text-muted-foreground py-8 text-center">
-                Cargando...
-              </p>
+              <LoadingState recurso="las citas" />
             ) : (
               <CalendarView
                 appointments={appointments}
                 date={dia}
                 onDateChange={setDia}
-                onComplete={openCompleteDialog}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-                onNoShow={handleNoShow}
+                onComplete={cierre.abrir}
+                onConfirm={acciones.confirmar}
+                onCancel={acciones.pedirCancelacion}
+                onNoShow={acciones.marcarAusencia}
                 canConfirm={canDo(role, "appointments_confirm")}
                 canCancel={canDo(role, "appointments_cancel")}
                 clientNames={clientMap}
@@ -762,7 +492,7 @@ export default function AppointmentsPage() {
               recurso="las citas"
               onReintentar={() => recargar()}
             />
-          ) : filtered.length === 0 ? (
+          ) : appointments.length === 0 ? (
             <EmptyState
               icon={Calendar}
               titulo={search ? "Ninguna cita coincide" : "Aún no hay citas"}
@@ -779,7 +509,7 @@ export default function AppointmentsPage() {
               orden={orden}
               onOrdenar={alternarOrden}
             >
-              {filtered.map((appt) => (
+              {appointments.map((appt) => (
                 <AppointmentCard
                   key={appt.id}
                   appointment={appt}
@@ -791,11 +521,11 @@ export default function AppointmentsPage() {
                   canConfirm={canDo(role, "appointments_confirm")}
                   canCancel={canDo(role, "appointments_cancel")}
                   canReschedule={canDo(role, "appointments_reschedule")}
-                  onConfirm={handleConfirm}
-                  onComplete={openCompleteDialog}
-                  onCancel={handleCancel}
-                  onNoShow={handleNoShow}
-                  onReschedule={abrirReagendar}
+                  onConfirm={acciones.confirmar}
+                  onComplete={cierre.abrir}
+                  onCancel={acciones.pedirCancelacion}
+                  onNoShow={acciones.marcarAusencia}
+                  onReschedule={acciones.abrirReagendar}
                 />
               ))}
             </TablaDeRegistros>
@@ -807,69 +537,66 @@ export default function AppointmentsPage() {
       <RescheduleDialog
         // Remonta al cambiar de cita: la fecha y la hora del formulario salen
         // de la cita que se esta moviendo.
-        key={reagendando?.id}
-        open={!!reagendando}
-        onClose={() => setReagendando(null)}
-        appointment={reagendando}
-        onConfirm={confirmarReagendado}
-        pending={moviendo}
-        error={errorAlMover}
+        key={acciones.reagendando?.id}
+        open={!!acciones.reagendando}
+        onClose={acciones.cerrarReagendar}
+        appointment={acciones.reagendando}
+        onConfirm={acciones.confirmarReagendado}
+        pending={acciones.moviendo}
+        error={acciones.errorAlMover}
       />
 
       <CompleteAppointmentDialog
-        open={!!completingAppt}
-        onClose={() => setCompletingAppt(null)}
-        appointment={completingAppt}
-        payment={payment}
-        onPaymentChange={setPayment}
-        onComplete={handleCompleteWithPayment}
-        pending={completingAction}
+        open={!!cierre.cita}
+        onClose={cierre.cancelar}
+        appointment={cierre.cita}
+        payment={cierre.cobro}
+        onPaymentChange={cierre.setCobro}
+        onComplete={cierre.confirmar}
+        pending={cierre.cerrando}
       />
 
       <WalkInDialog
-        open={walkInDialog}
-        onClose={() => setWalkInDialog(false)}
-        onSubmit={handleWalkIn}
-        form={walkInForm}
-        onChange={setWalkInForm}
+        open={walkIn.abierto}
+        onClose={walkIn.cerrar}
+        onSubmit={walkIn.enviar}
+        form={walkIn.form}
+        onChange={walkIn.setForm}
         professionals={professionals ?? []}
         clients={clients ?? []}
         services={services ?? []}
         onRecargarClientes={recargarClientes}
         onRecargarProfesionales={recargarProfesionales}
-        selectedServices={walkInServicios}
-        onToggleService={(id) =>
-          setWalkInServicios((previos) =>
-            previos.includes(id)
-              ? previos.filter((s) => s !== id)
-              : [...previos, id]
-          )
-        }
-        saving={savingWalkIn}
-        error={walkInError}
+        selectedServices={walkIn.servicios}
+        onToggleService={walkIn.alternarServicio}
+        saving={walkIn.guardando}
+        error={walkIn.error}
       />
 
       <BlockedSlotFormDialog
-        open={bloqueoProfesional !== null}
-        onClose={() => setBloqueoProfesional(null)}
-        form={bloqueoForm}
-        onFormChange={setBloqueoForm}
-        onSubmit={crearBloqueo}
-        guardando={guardandoBloqueo}
+        open={bloqueo.profesional !== null}
+        onClose={bloqueo.cerrar}
+        form={bloqueo.form}
+        onFormChange={bloqueo.setForm}
+        onSubmit={bloqueo.enviar}
+        guardando={bloqueo.guardando}
       />
 
       <Dialog
-        open={!!cancelandoId}
-        onClose={() => setCancelandoId(null)}
+        open={!!acciones.cancelandoId}
+        onClose={acciones.cerrarCancelacion}
         title="Cancelar la cita"
         descripcion="El motivo queda en el historial y en el aviso al cliente."
         icono={Ban}
         pie={
           <>
-            <Button variant="outline" onClick={() => setCancelandoId(null)}>
+            <Button variant="outline" onClick={acciones.cerrarCancelacion}>
               Volver
             </Button>
-            <Button variant="destructive" onClick={confirmarCancelacion}>
+            <Button
+              variant="destructive"
+              onClick={acciones.confirmarCancelacion}
+            >
               Cancelar la cita
             </Button>
           </>
@@ -878,8 +605,8 @@ export default function AppointmentsPage() {
         <div className="space-y-4">
           <Field label="Motivo">
             <Select
-              value={motivoCancelacion}
-              onChange={(e) => setMotivoCancelacion(e.target.value)}
+              value={acciones.motivoCancelacion}
+              onChange={(e) => acciones.setMotivoCancelacion(e.target.value)}
             >
               {MOTIVOS_DE_CANCELACION.map((m) => (
                 <option key={m.value} value={m.value}>
@@ -891,8 +618,8 @@ export default function AppointmentsPage() {
           <Field label="Nota (opcional)">
             <Textarea
               placeholder="Detalle para el historial"
-              value={notaCancelacion}
-              onChange={(e) => setNotaCancelacion(e.target.value)}
+              value={acciones.notaCancelacion}
+              onChange={(e) => acciones.setNotaCancelacion(e.target.value)}
               rows={2}
             />
           </Field>

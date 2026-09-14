@@ -63,6 +63,7 @@ import {
 /** Lo que hace falta del equipo para poner nombre a cada fila del reporte. */
 const profesionalRefSchema = z.object({ id: z.string(), name: z.string() });
 
+/** Reportes del negocio sobre el periodo elegido, con su exportacion. */
 export default function AnalyticsPage() {
   const [seleccionado, setSeleccionado] =
     useState<PeriodoId>(PERIODO_POR_DEFECTO);

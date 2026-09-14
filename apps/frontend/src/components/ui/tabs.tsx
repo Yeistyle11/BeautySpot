@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 
 const Tabs = TabsPrimitive.Root;
 
+/** Barra con los disparadores de las pestañas. */
 const TabsList = ({
   className,
   ...props
@@ -18,6 +19,7 @@ const TabsList = ({
   />
 );
 
+/** Disparador de una pestaña. */
 const TabsTrigger = ({
   className,
   ...props
@@ -31,6 +33,7 @@ const TabsTrigger = ({
   />
 );
 
+/** Contenido de una pestaña; solo se monta el de la activa. */
 const TabsContent = ({
   className,
   ...props

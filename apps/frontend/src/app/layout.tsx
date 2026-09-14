@@ -22,6 +22,7 @@ export const metadata: Metadata = {
     "Plataforma de gestión para barberías, salones de belleza, spas y centros estéticos",
 };
 
+/** Envuelve toda la aplicacion con la fuente, los estilos y los Providers. */
 export default function RootLayout({
   children,
 }: {

@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { AuthForm } from "./auth-form";
 import { Spinner } from "@/components/ui/spinner";
 
+/** Pantalla de entrada a la aplicacion. */
 export default function LoginPage() {
   return (
     <Suspense

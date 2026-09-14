@@ -42,8 +42,9 @@ import {
 const STAFF_KEY = "/auth/users/business";
 const PROFESSIONALS_KEY = "/core/professionals";
 
+/** Equipo con acceso al panel: invitacion, rol y baja. */
 export default function StaffPage() {
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
   const {
     items: staff,
     isLoading: loading,

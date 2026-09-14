@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 
+/** Pantalla de error de las rutas publicas, con opcion de reintentar. */
 export default function Error({
   error,
   reset,

@@ -1,4 +1,5 @@
 import { Spinner } from "@/components/ui/spinner";
+/** Espera del panel mientras Next resuelve la pagina. */
 export default function DashboardLoading() {
   return (
     <div className="flex h-64 items-center justify-center">

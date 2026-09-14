@@ -2,6 +2,7 @@
 
 // Dialogo para emitir una factura a partir de un cobro ya registrado.
 import { FileText } from "lucide-react";
+import { LoadingState } from "@/components/ui/loading-state";
 import { Button } from "@/components/ui/button";
 import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { ETIQUETAS_DE_METODO } from "@/lib/metodos-de-pago";
@@ -64,7 +65,7 @@ export function EmitirDialog({
 
         {cargando ? (
           <p className="text-muted-foreground py-6 text-center text-sm">
-            Cargando cobros...
+            <LoadingState recurso="los cobros" />
           </p>
         ) : errorAlCargar ? (
           // Un fallo al pedirlos no es «no hay ninguno»: presentarlo como lista

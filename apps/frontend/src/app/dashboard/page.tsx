@@ -2,6 +2,7 @@
 
 // Pagina principal del dashboard: resumen del dia con KPIs y proximas citas.
 import { useMemo } from "react";
+import { PageHeader } from "@/components/ui/page-header";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatGrid } from "@/components/ui/stat-grid";
@@ -80,8 +81,9 @@ const rawAppointmentSchema = z.object({
 });
 type RawAppointment = z.infer<typeof rawAppointmentSchema>;
 
+/** Panel de inicio: cifras del negocio, agenda del dia y accesos rapidos. */
 export default function DashboardPage() {
-  const { businessId } = useAuthStore();
+  const businessId = useAuthStore((s) => s.businessId);
 
   const today = toLocalDateKey(new Date());
   const appointmentsKey = businessId
@@ -252,10 +254,11 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Resumen de tu negocio</p>
-      </div>
+      <PageHeader
+        className="mb-8"
+        titulo="Dashboard"
+        descripcion="Resumen de tu negocio"
+      />
 
       <StatGrid stats={stats} loading={loading} />
 

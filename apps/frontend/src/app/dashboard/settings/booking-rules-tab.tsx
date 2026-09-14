@@ -24,7 +24,7 @@ export function BookingRulesTab({
   onSave,
   saving,
 }: BookingRulesTabProps) {
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
   const puedeEditar = canDo(role, "business_edit");
   const horas = reservas.horasMinimasCancelacion;
 

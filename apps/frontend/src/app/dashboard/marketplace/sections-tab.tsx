@@ -11,6 +11,7 @@ import { canDo } from "@/lib/permissions";
 import type { Role } from "@/lib/store";
 import { SECTION_TYPES, type SectionItem } from "./schemas";
 
+/** Fila de una seccion del perfil: orden, visibilidad y nombre. */
 function SectionRow({
   section,
   label,

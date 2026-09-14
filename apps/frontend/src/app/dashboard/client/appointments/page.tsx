@@ -3,6 +3,8 @@
 // Mis citas: historial y proximas citas del cliente.
 
 import { useMemo, useState } from "react";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +35,7 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: "cancelled", label: "Canceladas" },
 ];
 
+/** Se queda con las citas que corresponden a la pestaña elegida. */
 function filterByTab(appointments: Appointment[], tab: TabKey): Appointment[] {
   switch (tab) {
     case "upcoming":
@@ -50,6 +53,7 @@ function filterByTab(appointments: Appointment[], tab: TabKey): Appointment[] {
   }
 }
 
+/** Listado de las citas del cliente, repartidas por estado en pestañas. */
 export default function AppointmentsPage() {
   const {
     data: pagina,
@@ -111,18 +115,18 @@ export default function AppointmentsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Mis citas</h1>
-          <p className="text-muted-foreground">Gestiona tus citas agendadas</p>
-        </div>
-        <Button asChild className="gap-2">
-          <Link href="/marketplace">
-            <Plus className="h-4 w-4" />
-            Reservar nueva cita
-          </Link>
-        </Button>
-      </div>
+      <PageHeader
+        titulo="Mis citas"
+        descripcion="Gestiona tus citas agendadas"
+        accion={
+          <Button asChild className="gap-2">
+            <Link href="/marketplace">
+              <Plus className="h-4 w-4" />
+              Reservar nueva cita
+            </Link>
+          </Button>
+        }
+      />
 
       <div
         role="group"
@@ -143,8 +147,8 @@ export default function AppointmentsPage() {
 
       {loading ? (
         <Card className="shadow-flat border-0">
-          <CardContent className="text-muted-foreground p-8 text-center">
-            Cargando citas...
+          <CardContent className="p-0">
+            <LoadingState recurso="las citas" />
           </CardContent>
         </Card>
       ) : loadError ? (

@@ -1,6 +1,7 @@
 "use client";
 
 // Fila de un cobro en la lista, con su metodo, estado y acciones.
+import { memo } from "react";
 import {
   Banknote,
   CreditCard,
@@ -52,7 +53,8 @@ interface PaymentCardProps {
   clientName?: string;
 }
 
-export function PaymentCard({
+/** Fila de un cobro: metodo, importe, estado y las acciones que permita el rol. */
+export const PaymentCard = memo(function PaymentCard({
   payment,
   canEdit,
   onEdit,
@@ -159,4 +161,4 @@ export function PaymentCard({
       </CeldaDeTabla>
     </FilaDeTabla>
   );
-}
+});

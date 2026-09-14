@@ -1,7 +1,7 @@
 "use client";
 
 // Pagina de clientes: alta, edicion y listado de la base de clientes del negocio.
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -21,46 +21,41 @@ import {
   Mail,
   Award,
   Calendar,
-  Edit,
-  Trash2,
   Users,
-  Merge,
-  Eye,
   UserRound,
 } from "lucide-react";
-import {
-  TablaDeRegistros,
-  FilaDeTabla,
-  CeldaDeTabla,
-  CeldaPrincipal,
-  type DireccionDeOrden,
-  type ColumnaDeTabla,
-} from "@/components/ui/tabla-de-registros";
+import { TablaDeRegistros } from "@/components/ui/tabla-de-registros";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { canDo } from "@/lib/permissions";
 import { api } from "@/lib/api";
-import { esConflictoDeEdicion } from "@/lib/api-error";
 import { useApi, paginatedSchema } from "@/lib/swr";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { usePaginatedCrudResource } from "@/lib/use-crud-resource";
+import { useOrdenDeTabla } from "@/lib/use-orden-de-tabla";
 import { useAltaPorUrl } from "@/lib/alta-por-url";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/toast";
-import { mensajeDeError } from "@/lib/error-message";
+import { mensajeDeError, repartirFalloAlGuardar } from "@/lib/error-message";
 import { getAppointmentStatus } from "@/lib/status";
 import { appointmentSchema, type Appointment } from "@/lib/schemas/appointment";
 import { FichaSection } from "./ficha-section";
-import {
-  ClientFormDialog,
-  emptyClientForm,
-  type ClientForm,
-} from "./client-form-dialog";
+import { ClientFormDialog } from "./client-form-dialog";
 import { MergeDialog } from "./merge-dialog";
+import {
+  ClientRow,
+  COLUMNAS_DE_CLIENTES,
+  type CampoDeOrden,
+} from "./client-row";
+import {
+  useAltaDeCliente,
+  useEdicionDeCliente,
+  useFusionDeClientes,
+  useSupresionDeCliente,
+} from "./use-clientes";
 import {
   clavePosiblesDuplicados,
   clientSchema,
-  cambiosDelCliente,
   campoDeFichaSchema,
   servicioBreveSchema,
   CLIENTS_KEY,
@@ -70,33 +65,16 @@ import {
   type ServicioBreve,
 } from "./schemas";
 
-/** Campos por los que ordena el servidor. La lista viene paginada. */
-type CampoDeOrden = "name" | "createdAt";
-
-const COLUMNAS: ColumnaDeTabla<CampoDeOrden>[] = [
-  { label: "Cliente", campo: "name" },
-  { label: "Email", ocultaEnMovil: true },
-  { label: "Teléfono" },
-  { label: "Alta", campo: "createdAt", ocultaEnMovil: true },
-  { label: "Puntos", alineacion: "right", ocultaEnMovil: true },
-];
-
+/** Base de clientes del negocio: alta, edicion, ficha y fusion de duplicados. */
 export default function ClientsPage() {
   const toast = useToast();
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
   const [search, setSearch] = useState("");
-  const [orden, setOrden] = useState<{
-    campo: CampoDeOrden;
-    direccion: DireccionDeOrden;
-  }>({ campo: "name", direccion: "asc" });
-
-  /** Alterna el sentido si se repite la columna; si no, empieza ascendente. */
-  const alternarOrden = (campo: CampoDeOrden) =>
-    setOrden((actual) =>
-      actual.campo === campo
-        ? { campo, direccion: actual.direccion === "asc" ? "desc" : "asc" }
-        : { campo, direccion: "asc" }
-    );
+  const {
+    orden,
+    alternarOrden,
+    params: ordenParaElServidor,
+  } = useOrdenDeTabla<CampoDeOrden>("name");
   const {
     items: clients,
     meta,
@@ -111,22 +89,17 @@ export default function ClientsPage() {
     basePath: CLIENTS_KEY,
     itemSchema: clientSchema,
     search,
-    params: {
-      sort: orden.campo,
-      order: orden.direccion === "asc" ? "ASC" : "DESC",
-    },
+    params: ordenParaElServidor,
   });
 
-  const [createDialog, setCreateDialog] = useState(false);
-  useAltaPorUrl(() => setCreateDialog(true));
-  const [createForm, setCreateForm] = useState<ClientForm>(emptyClientForm);
-  const [savingCreate, setSavingCreate] = useState(false);
+  const alta = useAltaDeCliente(createClient);
+  useAltaPorUrl(alta.abrir);
   // Fichas que podrían ser la misma persona, mientras se teclea el nombre. El
   // contacto repetido ya lo rechaza el servidor; esto atrapa al duplicado que
   // no comparte ninguno, que es el que acaba pidiendo una fusión.
-  const nombreTecleado = useDebouncedValue(createForm.name);
+  const nombreTecleado = useDebouncedValue(alta.form.name);
   const { data: parecidas } = useApi(
-    createDialog ? clavePosiblesDuplicados(nombreTecleado) : null,
+    alta.abierto ? clavePosiblesDuplicados(nombreTecleado) : null,
     undefined,
     paginatedSchema(clientSchema)
   );
@@ -134,32 +107,8 @@ export default function ClientsPage() {
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
-  const [editDialog, setEditDialog] = useState(false);
-  const [editForm, setEditForm] = useState<ClientForm>({
-    ...emptyClientForm,
-    notes: "",
-  });
-  // La ficha tal como se cargo, para enviar en el guardado solo lo modificado.
-  const [editOriginal, setEditOriginal] = useState<ClientForm>({
-    ...emptyClientForm,
-    notes: "",
-  });
-  const [editId, setEditId] = useState<string | null>(null);
-  const [savingEdit, setSavingEdit] = useState(false);
-  // Version de la ficha al abrir el formulario. Viaja en el guardado para que
-  // el servidor avise si otra persona la cambio mientras tanto, en vez de
-  // dejar que la ultima escritura gane sin que nadie se entere.
-  const [editVersion, setEditVersion] = useState<string | null>(null);
-  const [conflictoEdicion, setConflictoEdicion] = useState("");
   const [conflictoFicha, setConflictoFicha] = useState("");
   const [recargando, setRecargando] = useState(false);
-
-  const [clienteASuprimir, setClienteASuprimir] = useState<Client | null>(null);
-  const [fusionCon, setFusionCon] = useState<Client | null>(null);
-  const [absorbidoId, setAbsorbidoId] = useState("");
-  const [fusionando, setFusionando] = useState(false);
-  const [fusionError, setFusionError] = useState("");
-  const [suprimiendo, setSuprimiendo] = useState(false);
 
   const { data: campos } = useApi<CampoDeFicha[] | null>(
     CLIENT_FIELDS_KEY,
@@ -174,21 +123,42 @@ export default function ClientsPage() {
   const [guardandoFicha, setGuardandoFicha] = useState(false);
 
   /** Trae del servidor la ficha tal como esta guardada ahora mismo. */
-  const recargarCliente = async (id: string): Promise<Client | null> => {
-    setRecargando(true);
-    try {
-      const fresca = clientSchema.parse(await api.get(`${CLIENTS_KEY}/${id}`));
-      await recargarClientes();
-      if (selectedClient?.id === id) setSelectedClient(fresca);
-      return fresca;
-    } catch (err) {
-      logger.error(err);
-      toast.error(mensajeDeError(err));
-      return null;
-    } finally {
-      setRecargando(false);
-    }
-  };
+  const recargarCliente = useCallback(
+    async (id: string): Promise<Client | null> => {
+      setRecargando(true);
+      try {
+        const fresca = clientSchema.parse(
+          await api.get(`${CLIENTS_KEY}/${id}`)
+        );
+        await recargarClientes();
+        if (selectedClient?.id === id) setSelectedClient(fresca);
+        return fresca;
+      } catch (err) {
+        logger.error(err);
+        toast.error(mensajeDeError(err));
+        return null;
+      } finally {
+        setRecargando(false);
+      }
+    },
+    [recargarClientes, selectedClient, toast]
+  );
+
+  const edicion = useEdicionDeCliente({
+    actualizar: updateClient,
+    recargarCliente,
+    alGuardar: (guardada: Client) => {
+      if (selectedClient?.id === guardada.id) setSelectedClient(guardada);
+    },
+  });
+
+  const fusion = useFusionDeClientes(recargarClientes, () =>
+    setSelectedClient(null)
+  );
+
+  const supresion = useSupresionDeCliente(recargarClientes, () =>
+    setSelectedClient(null)
+  );
 
   const handleSaveFicha = async (ficha: Record<string, unknown>) => {
     if (!selectedClient) return;
@@ -206,147 +176,20 @@ export default function ClientsPage() {
       toast.exito("Ficha guardada");
     } catch (err) {
       logger.error(err);
-      if (esConflictoDeEdicion(err)) setConflictoFicha(mensajeDeError(err));
-      else toast.error(mensajeDeError(err));
+      repartirFalloAlGuardar(err, setConflictoFicha, toast.error);
     } finally {
       setGuardandoFicha(false);
     }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingCreate(true);
-    try {
-      await createClient({
-        name: createForm.name.trim(),
-        email: createForm.email || undefined,
-        phone: createForm.phone || undefined,
-        birthDate: createForm.birthDate || undefined,
-      });
-      setCreateForm(emptyClientForm);
-      setCreateDialog(false);
-    } catch (err) {
-      logger.error(err);
-      toast.error(mensajeDeError(err));
-    } finally {
-      setSavingCreate(false);
-    }
-  };
-
-  const openFusion = (client: Client) => {
-    setFusionCon(client);
-    setAbsorbidoId("");
-    setFusionError("");
-  };
-
-  const fusionar = async () => {
-    if (!fusionCon || !absorbidoId) return;
-    setFusionando(true);
-    setFusionError("");
-    try {
-      await api.post(`/core/clients/${fusionCon.id}/merge`, { absorbidoId });
-      setFusionCon(null);
-      setSelectedClient(null);
-      await recargarClientes();
-      toast.exito("Fichas fusionadas");
-    } catch (err) {
-      logger.error(err);
-      // El motivo se lee en el diálogo: dos cuentas distintas o una ficha ya
-      // fusionada piden revisar antes de reintentar.
-      setFusionError(mensajeDeError(err));
-    } finally {
-      setFusionando(false);
-    }
-  };
-
-  const openDetail = (client: Client) => {
+  /** Abre el panel de detalle de una ficha. */
+  const openDetail = useCallback((client: Client) => {
     setSelectedClient(client);
-  };
+  }, []);
 
-  /** Ejerce el derecho de supresion, previa confirmacion explicita. */
-  const handleAnonymize = async () => {
-    if (!clienteASuprimir) return;
-    setSuprimiendo(true);
-    try {
-      await api.post(`/core/clients/${clienteASuprimir.id}/anonymize`, {});
-      await recargarClientes();
-      setClienteASuprimir(null);
-      setSelectedClient(null);
-      toast.exito("Los datos del cliente se suprimieron");
-    } catch (err) {
-      logger.error(err);
-      toast.error(mensajeDeError(err));
-    } finally {
-      setSuprimiendo(false);
-    }
-  };
-
-  /** Los campos del formulario, tal como se leen de una ficha. */
-  const comoFormulario = (client: Client): ClientForm => ({
-    name: client.name,
-    email: client.email || "",
-    phone: client.phone || "",
-    notes: client.notes || "",
-    birthDate: client.birthDate || "",
-  });
-
-  const openEdit = (client: Client) => {
-    const cargado = comoFormulario(client);
-    setEditId(client.id);
-    setEditForm(cargado);
-    // Se guarda la ficha tal como se cargo para poder enviar despues solo lo
-    // que el usuario haya tocado.
-    setEditOriginal(cargado);
-    setEditVersion(client.updatedAt);
-    setConflictoEdicion("");
-    setEditDialog(true);
-  };
-
-  /** Cambia lo escrito por lo que hay guardado, dejando el formulario abierto. */
-  const recargarEnEdicion = async () => {
-    if (!editId) return;
-    const fresca = await recargarCliente(editId);
-    if (!fresca) return;
-    const cargada = comoFormulario(fresca);
-    setEditForm(cargada);
-    setEditOriginal(cargada);
-    setEditVersion(fresca.updatedAt);
-    setConflictoEdicion("");
-  };
-
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editId) return;
-    const cambios = cambiosDelCliente(editOriginal, editForm);
-    // Sin cambios no hay nada que mandar, y un PATCH vacio solo serviria para
-    // pisar la ficha con lo que esta pestana tenia cargado.
-    if (Object.keys(cambios).length === 0) {
-      setEditDialog(false);
-      setEditId(null);
-      return;
-    }
-    setSavingEdit(true);
-    setConflictoEdicion("");
-    try {
-      const guardada = clientSchema.parse(
-        await updateClient(editId, {
-          ...cambios,
-          updatedAt: editVersion ?? undefined,
-        })
-      );
-      setEditDialog(false);
-      setEditId(null);
-      if (selectedClient?.id === editId) setSelectedClient(guardada);
-    } catch (err) {
-      logger.error(err);
-      // El formulario se queda abierto con lo escrito: hay algo que decidir, y
-      // un aviso que se va solo no da tiempo a decidirlo.
-      if (esConflictoDeEdicion(err)) setConflictoEdicion(mensajeDeError(err));
-      else toast.error(mensajeDeError(err));
-    } finally {
-      setSavingEdit(false);
-    }
-  };
+  // Los permisos se calculan una vez, no por fila.
+  const puedeEditar = canDo(role, "clients_edit");
+  const puedeFusionar = canDo(role, "clients_merge");
 
   const detailKey = selectedClient
     ? `/booking/appointments?clientId=${selectedClient.id}`
@@ -365,7 +208,7 @@ export default function ClientsPage() {
         descripcion="Administra tu cartera de clientes"
         accion={
           canDo(role, "clients_create") && (
-            <Button onClick={() => setCreateDialog(true)}>
+            <Button onClick={alta.abrir}>
               <Plus className="mr-2 h-4 w-4" />
               Nuevo cliente
             </Button>
@@ -408,9 +251,7 @@ export default function ClientsPage() {
           descripcion="Registra a quien atiendes para llevar su historial y sus citas."
           accion={
             canDo(role, "clients_create") && (
-              <Button onClick={() => setCreateDialog(true)}>
-                Nuevo cliente
-              </Button>
+              <Button onClick={alta.abrir}>Nuevo cliente</Button>
             )
           }
         />
@@ -421,113 +262,21 @@ export default function ClientsPage() {
       ) : clients.length > 0 ? (
         <TablaDeRegistros
           titulo="Clientes del negocio"
-          columnas={COLUMNAS}
+          columnas={COLUMNAS_DE_CLIENTES}
           orden={orden}
           onOrdenar={alternarOrden}
         >
           {clients.map((c) => (
-            <FilaDeTabla
+            <ClientRow
               key={c.id}
-              acciones={
-                <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => openDetail(c)}
-                    aria-label={`Ver la ficha de ${c.name}`}
-                    title="Ver ficha"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  {/* Una ficha anonimizada no se edita ni se fusiona. */}
-                  {canDo(role, "clients_edit") && !c.anonymizedAt && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEdit(c)}
-                        aria-label={`Editar a ${c.name}`}
-                        title="Editar"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      {canDo(role, "clients_merge") && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => openFusion(c)}
-                          aria-label={`Fusionar la ficha de ${c.name} con otra`}
-                          title="Fusionar"
-                        >
-                          <Merge className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                        onClick={() => setClienteASuprimir(c)}
-                        aria-label={`Suprimir los datos de ${c.name}`}
-                        title="Suprimir datos"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </>
-                  )}
-                </>
-              }
-            >
-              <CeldaPrincipal
-                inicial={c.name.charAt(0)}
-                titulo={
-                  /* El nombre abre la ficha, tambien con teclado. */
-                  <button
-                    type="button"
-                    onClick={() => openDetail(c)}
-                    aria-label={`Ver la ficha de ${c.name}`}
-                    className="focus-visible:ring-ring hover:text-primary rounded-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2"
-                  >
-                    {c.name}
-                  </button>
-                }
-              />
-              <CeldaDeTabla apagada ocultaEnMovil>
-                {c.email ? (
-                  <span className="flex items-center gap-1.5">
-                    <Mail className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{c.email}</span>
-                  </span>
-                ) : (
-                  "—"
-                )}
-              </CeldaDeTabla>
-              <CeldaDeTabla apagada>
-                {c.phone ? (
-                  <span className="flex items-center gap-1.5">
-                    <Phone className="h-3.5 w-3.5 shrink-0" />
-                    {c.phone}
-                  </span>
-                ) : (
-                  "—"
-                )}
-              </CeldaDeTabla>
-              <CeldaDeTabla apagada ocultaEnMovil>
-                {c.createdAt ? formatDate(c.createdAt) : "—"}
-              </CeldaDeTabla>
-              <CeldaDeTabla alineacion="right" ocultaEnMovil>
-                {c.loyaltyPoints > 0 ? (
-                  <span className="text-warning inline-flex items-center gap-1">
-                    <Award className="h-4 w-4" />
-                    {c.loyaltyPoints}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </CeldaDeTabla>
-            </FilaDeTabla>
+              client={c}
+              puedeEditar={puedeEditar}
+              puedeFusionar={puedeFusionar}
+              onVerFicha={openDetail}
+              onEditar={edicion.abrir}
+              onFusionar={fusion.abrir}
+              onSuprimir={supresion.pedir}
+            />
           ))}
         </TablaDeRegistros>
       ) : null}
@@ -535,17 +284,17 @@ export default function ClientsPage() {
       <Pagination meta={meta} onPageChange={setPage} itemLabel="clientes" />
 
       <ClientFormDialog
-        open={createDialog}
-        onClose={() => setCreateDialog(false)}
-        onSubmit={handleCreate}
-        form={createForm}
-        onChange={setCreateForm}
+        open={alta.abierto}
+        onClose={alta.cerrar}
+        onSubmit={alta.enviar}
+        form={alta.form}
+        onChange={alta.setForm}
         title="Nuevo cliente"
         submitLabel="Crear cliente"
-        saving={savingCreate}
+        saving={alta.guardando}
         posiblesDuplicados={posiblesDuplicados}
         onAbrirFicha={(cliente) => {
-          setCreateDialog(false);
+          alta.cerrar();
           openDetail(cliente);
         }}
       />
@@ -670,46 +419,46 @@ export default function ClientsPage() {
       </Dialog>
 
       <ClientFormDialog
-        open={editDialog}
-        onClose={() => setEditDialog(false)}
-        onSubmit={handleUpdate}
-        form={editForm}
-        onChange={setEditForm}
+        open={edicion.abierto}
+        onClose={edicion.cerrar}
+        onSubmit={edicion.enviar}
+        form={edicion.form}
+        onChange={edicion.setForm}
         title="Editar cliente"
         submitLabel="Guardar cambios"
-        saving={savingEdit}
+        saving={edicion.guardando}
         conNotas
-        conflicto={conflictoEdicion}
-        onRecargar={() => void recargarEnEdicion()}
+        conflicto={edicion.conflicto}
+        onRecargar={() => void edicion.recargar()}
         recargando={recargando}
       />
 
       <MergeDialog
-        open={fusionCon !== null}
-        onClose={() => setFusionCon(null)}
-        onFusionar={fusionar}
-        superviviente={fusionCon}
+        open={fusion.superviviente !== null}
+        onClose={fusion.cerrar}
+        onFusionar={fusion.confirmar}
+        superviviente={fusion.superviviente}
         // Cualquier otra ficha viva de la cartera: los duplicados no siempre
         // comparten contacto, que es justo por lo que hacen falta.
         candidatos={clients.filter(
-          (c) => c.id !== fusionCon?.id && !c.anonymizedAt
+          (c) => c.id !== fusion.superviviente?.id && !c.anonymizedAt
         )}
-        absorbidoId={absorbidoId}
-        onAbsorbidoChange={setAbsorbidoId}
-        saving={fusionando}
-        error={fusionError}
+        absorbidoId={fusion.absorbidoId}
+        onAbsorbidoChange={fusion.setAbsorbidoId}
+        saving={fusion.fusionando}
+        error={fusion.error}
       />
 
       <ConfirmDialog
-        open={!!clienteASuprimir}
-        onClose={() => setClienteASuprimir(null)}
-        onConfirm={handleAnonymize}
+        open={!!supresion.cliente}
+        onClose={supresion.cancelar}
+        onConfirm={supresion.confirmar}
         title="Suprimir los datos del cliente"
         variant="destructive"
         confirmLabel="Suprimir los datos"
         pendingLabel="Suprimiendo..."
-        pending={suprimiendo}
-        registro={clienteASuprimir?.name}
+        pending={supresion.suprimiendo}
+        registro={supresion.cliente?.name}
         consecuencias="pierde el nombre, el correo, el teléfono, el documento y las notas. No se puede deshacer, y la ficha ya no se podrá editar."
         seConserva="Sus citas y sus facturas se conservan, porque son documentos contables."
       />

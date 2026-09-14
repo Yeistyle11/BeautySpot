@@ -33,6 +33,7 @@ const MINIMO = LONGITUD_MINIMA_CONTRASENA;
 /** Qué se sabe del enlace mientras la pantalla lo comprueba. */
 type Validez = "comprobando" | "valido" | "invalido";
 
+/** Formulario de contraseña nueva a partir del testigo de la URL. */
 function ResetPasswordInner() {
   const router = useRouter();
   const token = useSearchParams().get("token") ?? "";
@@ -211,6 +212,7 @@ function ResetPasswordInner() {
   );
 }
 
+/** Monta el formulario bajo Suspense, que es lo que exige leer la URL. */
 export default function ResetPasswordPage() {
   return (
     <Suspense

@@ -1,8 +1,9 @@
 "use client";
 
 // Pagina de caja: apertura, cierre y movimientos de la sesion de caja del dia.
-import { useMemo, useState } from "react";
-import { mutate } from "swr";
+import { useCallback, useMemo, useState } from "react";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,35 +15,35 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Wallet,
   Plus,
-  ArrowDown,
   ArrowDownCircle,
-  ArrowUp,
   ArrowUpCircle,
+  History,
   X,
   Loader2,
-  History,
   TrendingUp,
   TrendingDown,
   DollarSign,
 } from "lucide-react";
-import { api } from "@/lib/api";
-import {
-  TablaDeRegistros,
-  FilaDeTabla,
-  CeldaDeTabla,
-  CeldaPrincipal,
-  type ColumnaDeTabla,
-} from "@/components/ui/tabla-de-registros";
-import { formatCurrency, formatDate, formatTimeStamp } from "@/lib/utils";
+import { TablaDeRegistros } from "@/components/ui/tabla-de-registros";
+import { formatCurrency, formatTimeStamp } from "@/lib/utils";
 import { nombreDelMetodo } from "@/lib/metodos-de-pago";
 import { useAuthStore } from "@/lib/store";
+import {
+  clasesDeDescuadre,
+  COLUMNAS_DE_MOVIMIENTOS,
+  COLUMNAS_DE_SESIONES,
+  MovementRow,
+  SessionRow,
+} from "./cash-rows";
+import {
+  useAperturaDeCaja,
+  useCierreDeCaja,
+  useMovimientoDeCaja,
+} from "./use-caja";
 import { canDo } from "@/lib/permissions";
 import { useApi } from "@/lib/swr";
 import { usePaginatedList } from "@/lib/use-paginated-list";
 import { Pagination } from "@/components/ui/pagination";
-import { logger } from "@/lib/logger";
-import { useToast } from "@/components/ui/toast";
-import { mensajeDeError } from "@/lib/error-message";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import {
   cashSessionSchema,
@@ -68,30 +69,9 @@ const movementTypeOptions = [
   },
 ];
 
-/** Tonos del descuadre, compartidos por el arqueo y el historial. */
-function clasesDeDescuadre(diferencia: number): string {
-  return diferencia < 0
-    ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
-    : "bg-warning-soft text-warning-soft-foreground";
-}
-
-const COLUMNAS_DE_SESIONES: ColumnaDeTabla[] = [
-  { label: "Sesión" },
-  { label: "Apertura", alineacion: "right", ocultaEnMovil: true },
-  { label: "Cierre", alineacion: "right", ocultaEnMovil: true },
-  { label: "Descuadre", alineacion: "right" },
-];
-
-const COLUMNAS_DE_MOVIMIENTOS: ColumnaDeTabla[] = [
-  { label: "Concepto" },
-  { label: "Cliente" },
-  { label: "Hora", ocultaEnMovil: true },
-  { label: "Importe", alineacion: "right" },
-];
-
+/** Caja del negocio: apertura, movimientos, arqueo y cierre de sesion. */
 export default function CashRegisterPage() {
-  const toast = useToast();
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
   const {
     data: activeSession,
     isLoading: loadingActive,
@@ -137,81 +117,16 @@ export default function CashRegisterPage() {
   const arqueo = summary?.summary;
   const loading = loadingActive;
 
-  const [openDialog, setOpenDialog] = useState(false);
-  const [openAmount, setOpenAmount] = useState("");
-  const [openNotes, setOpenNotes] = useState("");
-  const [opening, setOpening] = useState(false);
+  // La sesion activa, el historial y sus contadores cambian juntos: abrir o
+  // cerrar caja mueve los tres.
+  const recargarCaja = useCallback(
+    () => Promise.all([mutateActive(), mutateHistory(), mutateResumen()]),
+    [mutateActive, mutateHistory, mutateResumen]
+  );
 
-  const [movementDialog, setMovementDialog] = useState(false);
-  const [moveType, setMoveType] = useState("IN");
-  const [moveAmount, setMoveAmount] = useState("");
-  const [moveConcept, setMoveConcept] = useState("");
-  const [registering, setRegistering] = useState(false);
-
-  const [closeDialog, setCloseDialog] = useState(false);
-  const [closeAmount, setCloseAmount] = useState("");
-  const [closeNotes, setCloseNotes] = useState("");
-  const [closing, setClosing] = useState(false);
-
-  const handleOpen = async () => {
-    setOpening(true);
-    try {
-      await api.post("/payment/cash-register/open", {
-        openingAmount: openAmount ? parseFloat(openAmount) : 0,
-        notes: openNotes || undefined,
-      });
-      setOpenDialog(false);
-      setOpenAmount("");
-      setOpenNotes("");
-      await Promise.all([mutateActive(), mutateHistory(), mutateResumen()]);
-    } catch (err) {
-      logger.error(err);
-      toast.error(mensajeDeError(err));
-    } finally {
-      setOpening(false);
-    }
-  };
-
-  const handleMovement = async () => {
-    if (!activeSession) return;
-    setRegistering(true);
-    try {
-      await api.post(`/payment/cash-register/${activeSession.id}/movements`, {
-        type: moveType,
-        amount: parseFloat(moveAmount),
-        concept: moveConcept,
-      });
-      setMovementDialog(false);
-      setMoveAmount("");
-      setMoveConcept("");
-      await mutate(movementsKey);
-    } catch (err) {
-      logger.error(err);
-      toast.error(mensajeDeError(err));
-    } finally {
-      setRegistering(false);
-    }
-  };
-
-  const handleClose = async () => {
-    if (!activeSession) return;
-    setClosing(true);
-    try {
-      await api.post(`/payment/cash-register/${activeSession.id}/close`, {
-        closingAmount: parseFloat(closeAmount),
-        notes: closeNotes || undefined,
-      });
-      setCloseDialog(false);
-      setCloseAmount("");
-      setCloseNotes("");
-      await Promise.all([mutateActive(), mutateHistory(), mutateResumen()]);
-    } catch (err) {
-      logger.error(err);
-      toast.error(mensajeDeError(err));
-    } finally {
-      setClosing(false);
-    }
-  };
+  const apertura = useAperturaDeCaja(recargarCaja);
+  const movimiento = useMovimientoDeCaja(activeSession?.id, movementsKey);
+  const cierre = useCierreDeCaja(activeSession?.id, recargarCaja);
 
   // El arqueo lo hace el servicio, que es quien sabe que un movimiento con
   // datafono deja rastro para el desglose pero no pone dinero en el cajon:
@@ -245,21 +160,17 @@ export default function CashRegisterPage() {
 
   // Descuadre del arqueo mientras se teclea: negativo falta, positivo sobra.
   const diferenciaCierre =
-    closeAmount === "" || Number.isNaN(Number(closeAmount))
+    cierre.importe === "" || Number.isNaN(Number(cierre.importe))
       ? null
-      : Number(closeAmount) - expectedTotal;
+      : Number(cierre.importe) - expectedTotal;
   /** Con descuadre el motivo es obligatorio, aquí y en el servicio. */
   const hayDescuadre = diferenciaCierre !== null && diferenciaCierre !== 0;
 
   if (loading) {
     return (
       <div>
-        <h1 className="text-2xl font-bold">Caja</h1>
-        <Card className="shadow-flat mt-4 border-0">
-          <CardContent className="text-muted-foreground p-8 text-center">
-            Cargando...
-          </CardContent>
-        </Card>
+        <PageHeader titulo="Caja" />
+        <LoadingState recurso="la caja" />
       </div>
     );
   }
@@ -267,12 +178,10 @@ export default function CashRegisterPage() {
   if (errorActive) {
     return (
       <div>
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Caja</h1>
-          <p className="text-muted-foreground">
-            Gestiona la caja de tu negocio
-          </p>
-        </div>
+        <PageHeader
+          titulo="Caja"
+          descripcion="Gestiona la caja de tu negocio"
+        />
         <ErrorDeCarga
           error={errorActive}
           recurso="los datos de la caja"
@@ -284,10 +193,7 @@ export default function CashRegisterPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Caja</h1>
-        <p className="text-muted-foreground">Gestiona la caja de tu negocio</p>
-      </div>
+      <PageHeader titulo="Caja" descripcion="Gestiona la caja de tu negocio" />
 
       {!activeSession ? (
         <Card className="shadow-flat border-0">
@@ -299,7 +205,7 @@ export default function CashRegisterPage() {
                 Abre la caja para empezar a registrar movimientos
               </p>
             </div>
-            <Button onClick={() => setOpenDialog(true)}>
+            <Button onClick={apertura.abrir}>
               <Plus className="mr-2 h-4 w-4" /> Abrir caja
             </Button>
           </CardContent>
@@ -349,7 +255,7 @@ export default function CashRegisterPage() {
                 Efectivo esperado en cajón
               </p>
               {/* El esperado se tapa mientras el arqueo esta abierto. */}
-              {closeDialog ? (
+              {cierre.abierto ? (
                 <>
                   <p className="text-muted-foreground text-xl font-bold">
                     •••••
@@ -386,7 +292,7 @@ export default function CashRegisterPage() {
                 {/* Solo el efectivo esta en el cajon; el resto se cuadra contra
                     el datafono o el banco. Un cobro repartido aporta a dos
                     lineas, que es para lo que se guarda por separado. */}
-                {closeDialog ? (
+                {cierre.abierto ? (
                   <p className="text-muted-foreground mt-2 text-sm">
                     Oculto mientras cuentas el cajón
                   </p>
@@ -409,14 +315,11 @@ export default function CashRegisterPage() {
           )}
 
           <div className="flex gap-3">
-            <Button onClick={() => setMovementDialog(true)}>
+            <Button onClick={movimiento.abrir}>
               <Plus className="mr-2 h-4 w-4" /> Registrar movimiento
             </Button>
             {canDo(role, "cash_register_close") && (
-              <Button
-                variant="destructive"
-                onClick={() => setCloseDialog(true)}
-              >
+              <Button variant="destructive" onClick={cierre.abrir}>
                 <X className="mr-2 h-4 w-4" /> Cerrar caja
               </Button>
             )}
@@ -440,33 +343,7 @@ export default function CashRegisterPage() {
                   conAcciones={false}
                 >
                   {[...movements].reverse().map((m) => (
-                    <FilaDeTabla key={m.id}>
-                      <CeldaPrincipal
-                        icono={
-                          m.type === "IN" ? ArrowUpCircle : ArrowDownCircle
-                        }
-                        colorDelIcono={m.type === "IN" ? "#157E3C" : "#C81E1E"}
-                        titulo={m.concept}
-                      />
-                      {/* Quien registro cada entrada. */}
-                      <CeldaDeTabla apagada>{m.clientName || "—"}</CeldaDeTabla>
-                      <CeldaDeTabla apagada ocultaEnMovil>
-                        <span className="whitespace-nowrap">
-                          {formatTimeStamp(m.createdAt)}
-                        </span>
-                      </CeldaDeTabla>
-                      <CeldaDeTabla
-                        alineacion="right"
-                        className={
-                          m.type === "IN"
-                            ? "text-success font-semibold"
-                            : "text-destructive font-semibold"
-                        }
-                      >
-                        {m.type === "IN" ? "+" : "-"}
-                        {formatCurrency(m.amount)}
-                      </CeldaDeTabla>
-                    </FilaDeTabla>
+                    <MovementRow key={m.id} movimiento={m} />
                   ))}
                 </TablaDeRegistros>
               )}
@@ -512,42 +389,7 @@ export default function CashRegisterPage() {
                 conAcciones={false}
               >
                 {history.map((s) => (
-                  <FilaDeTabla key={s.id}>
-                    <CeldaPrincipal
-                      icono={History}
-                      titulo={`${formatDate(s.openedAt)} – ${
-                        s.closedAt ? formatDate(s.closedAt) : "En curso"
-                      }`}
-                      subtitulo={s.notes || undefined}
-                    />
-                    <CeldaDeTabla alineacion="right" apagada ocultaEnMovil>
-                      {formatCurrency(s.openingAmount)}
-                    </CeldaDeTabla>
-                    <CeldaDeTabla alineacion="right" apagada ocultaEnMovil>
-                      {s.closingAmount != null
-                        ? formatCurrency(s.closingAmount)
-                        : "—"}
-                    </CeldaDeTabla>
-                    {/* El descuadre de cada sesion. */}
-                    <CeldaDeTabla alineacion="right">
-                      {s.difference ? (
-                        <span
-                          className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-base font-semibold ${clasesDeDescuadre(s.difference)}`}
-                        >
-                          {/* El icono lleva el signo: si falta o si sobra. */}
-                          {s.difference < 0 ? (
-                            <ArrowDown className="h-4 w-4" aria-hidden />
-                          ) : (
-                            <ArrowUp className="h-4 w-4" aria-hidden />
-                          )}
-                          {s.difference < 0 ? "Faltaron " : "Sobraron "}
-                          {formatCurrency(Math.abs(s.difference))}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </CeldaDeTabla>
-                  </FilaDeTabla>
+                  <SessionRow key={s.id} sesion={s} />
                 ))}
               </TablaDeRegistros>
             )}
@@ -561,18 +403,18 @@ export default function CashRegisterPage() {
       )}
 
       <Dialog
-        open={openDialog}
-        onClose={() => setOpenDialog(false)}
+        open={apertura.abierto}
+        onClose={apertura.cerrar}
         title="Abrir caja"
         descripcion="Cuenta el dinero con el que arranca el turno."
         icono={Wallet}
         pie={
           <>
-            <Button variant="outline" onClick={() => setOpenDialog(false)}>
+            <Button variant="outline" onClick={apertura.cerrar}>
               Cancelar
             </Button>
-            <Button onClick={handleOpen} disabled={opening}>
-              {opening ? (
+            <Button onClick={apertura.confirmar} disabled={apertura.guardando}>
+              {apertura.guardando ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Wallet className="mr-2 h-4 w-4" />
@@ -591,14 +433,14 @@ export default function CashRegisterPage() {
               type="number"
               min={0}
               placeholder="50000"
-              value={openAmount}
-              onChange={(e) => setOpenAmount(e.target.value)}
+              value={apertura.importe}
+              onChange={(e) => apertura.setImporte(e.target.value)}
             />
           </Field>
           <Field label="Notas (opcional)">
             <Textarea
-              value={openNotes}
-              onChange={(e) => setOpenNotes(e.target.value)}
+              value={apertura.notas}
+              onChange={(e) => apertura.setNotas(e.target.value)}
               rows={2}
               placeholder="Observaciones..."
             />
@@ -607,21 +449,21 @@ export default function CashRegisterPage() {
       </Dialog>
 
       <Dialog
-        open={movementDialog}
-        onClose={() => setMovementDialog(false)}
+        open={movimiento.abierto}
+        onClose={movimiento.cerrar}
         title="Registrar movimiento"
         descripcion="Una entrada o una salida de dinero del cajón."
         icono={DollarSign}
         pie={
           <>
-            <Button variant="outline" onClick={() => setMovementDialog(false)}>
+            <Button variant="outline" onClick={movimiento.cerrar}>
               Cancelar
             </Button>
             <Button
-              onClick={handleMovement}
-              disabled={registering || !moveAmount || !moveConcept}
+              onClick={movimiento.confirmar}
+              disabled={movimiento.guardando || !movimiento.completo}
             >
-              {registering ? (
+              {movimiento.guardando ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <DollarSign className="mr-2 h-4 w-4" />
@@ -635,8 +477,8 @@ export default function CashRegisterPage() {
           <Field label="Tipo de movimiento">
             <RadioGroup
               options={movementTypeOptions}
-              value={moveType}
-              onChange={setMoveType}
+              value={movimiento.tipo}
+              onChange={movimiento.setTipo}
               label="Tipo de movimiento"
             />
           </Field>
@@ -645,16 +487,16 @@ export default function CashRegisterPage() {
               type="number"
               min={0}
               placeholder="10000"
-              value={moveAmount}
-              onChange={(e) => setMoveAmount(e.target.value)}
+              value={movimiento.importe}
+              onChange={(e) => movimiento.setImporte(e.target.value)}
               required
             />
           </Field>
           <Field label="Concepto">
             <Input
               placeholder="Ej: Pago de proveedor, Venta de producto..."
-              value={moveConcept}
-              onChange={(e) => setMoveConcept(e.target.value)}
+              value={movimiento.concepto}
+              onChange={(e) => movimiento.setConcepto(e.target.value)}
               required
             />
           </Field>
@@ -662,24 +504,26 @@ export default function CashRegisterPage() {
       </Dialog>
 
       <Dialog
-        open={closeDialog}
-        onClose={() => setCloseDialog(false)}
+        open={cierre.abierto}
+        onClose={cierre.cerrar}
         title="Cerrar caja"
         descripcion="Arqueo del turno: cuenta el cajón y cierra la sesión."
         icono={X}
         pie={
           <>
-            <Button variant="outline" onClick={() => setCloseDialog(false)}>
+            <Button variant="outline" onClick={cierre.cerrar}>
               Cancelar
             </Button>
             <Button
               variant="destructive"
-              onClick={handleClose}
+              onClick={cierre.confirmar}
               disabled={
-                closing || !closeAmount || (hayDescuadre && !closeNotes.trim())
+                cierre.guardando ||
+                !cierre.importe ||
+                (hayDescuadre && !cierre.notas.trim())
               }
             >
-              {closing ? (
+              {cierre.guardando ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <X className="mr-2 h-4 w-4" />
@@ -699,8 +543,8 @@ export default function CashRegisterPage() {
               type="number"
               min={0}
               placeholder="0"
-              value={closeAmount}
-              onChange={(e) => setCloseAmount(e.target.value)}
+              value={cierre.importe}
+              onChange={(e) => cierre.setImporte(e.target.value)}
               required
             />
           </Field>
@@ -727,8 +571,8 @@ export default function CashRegisterPage() {
             label={hayDescuadre ? "Motivo del descuadre" : "Notas (opcional)"}
           >
             <Textarea
-              value={closeNotes}
-              onChange={(e) => setCloseNotes(e.target.value)}
+              value={cierre.notas}
+              onChange={(e) => cierre.setNotas(e.target.value)}
               rows={2}
               placeholder={
                 hayDescuadre

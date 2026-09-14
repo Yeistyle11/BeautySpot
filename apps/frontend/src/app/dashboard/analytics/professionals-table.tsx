@@ -32,6 +32,7 @@ const COLUMNAS_DE_RENDIMIENTO = [
   { label: "Días activos", alineacion: "right" as const },
 ];
 
+/** Cruza el reporte con el equipo para dar a cada fila el nombre del profesional. */
 export function filasDeProfesionales(
   reporte: ReporteProfesionales | undefined,
   equipo: { id: string; name: string }[] | undefined

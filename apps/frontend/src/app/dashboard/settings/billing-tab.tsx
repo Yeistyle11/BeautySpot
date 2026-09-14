@@ -29,7 +29,7 @@ export function BillingTab({
   onSave,
   saving,
 }: BillingTabProps) {
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
   const puedeEditar = canDo(role, "business_edit");
   const set = (cambios: Partial<Facturacion>) =>
     onChange({ ...facturacion, ...cambios });

@@ -3,6 +3,9 @@
 // Detalle de una cita del cliente, con sus acciones (reprogramar, resenar, cancelar).
 
 import { useState } from "react";
+import { ErrorDeCarga } from "@/components/ui/error-de-carga";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { useParams } from "next/navigation";
 import { mutate } from "swr";
 import { z } from "zod";
@@ -17,7 +20,6 @@ import {
   Star,
   ArrowLeft,
   CalendarClock,
-  AlertTriangle,
   FileText,
   Ban,
 } from "lucide-react";
@@ -37,6 +39,7 @@ import {
   type Review,
 } from "@/lib/schemas/appointment";
 
+/** Detalle de una cita del cliente, con cancelar, reagendar y reseñar. */
 export default function AppointmentDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -104,24 +107,25 @@ export default function AppointmentDetailPage() {
     appointment && appointment.status === "COMPLETED" && !hasReview;
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-muted-foreground">Cargando cita...</p>
-      </div>
-    );
+    return <LoadingState recurso="la cita" className="py-20" />;
   }
 
   if (error && !appointment) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <AlertTriangle className="mb-3 h-12 w-12 text-red-400" />
-        <p className="text-destructive">{error}</p>
-        <Button asChild variant="outline" className="mt-4 gap-2">
-          <Link href="/dashboard/client/appointments">
-            <ArrowLeft className="h-4 w-4" />
-            Volver a mis citas
-          </Link>
-        </Button>
+      <div className="py-8">
+        <ErrorDeCarga
+          error={fetchError ?? error}
+          recurso="la cita"
+          onReintentar={() => void mutateAppointment()}
+        />
+        <div className="mt-4 text-center">
+          <Button asChild variant="outline" className="gap-2">
+            <Link href="/dashboard/client/appointments">
+              <ArrowLeft className="h-4 w-4" />
+              Volver a mis citas
+            </Link>
+          </Button>
+        </div>
       </div>
     );
   }
@@ -145,12 +149,10 @@ export default function AppointmentDetailPage() {
         Volver a mis citas
       </Link>
 
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Detalle de cita</h1>
-          <Badge variant={status.variant}>{status.label}</Badge>
-        </div>
-      </div>
+      <PageHeader
+        titulo="Detalle de cita"
+        accion={<Badge variant={status.variant}>{status.label}</Badge>}
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">

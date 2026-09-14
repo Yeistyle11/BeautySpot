@@ -12,6 +12,7 @@ import { useAuthStore } from "@/lib/store";
 import { logger } from "@/lib/logger";
 import type { RatingDistribution, Review } from "../schemas";
 
+/** Reseñas del negocio, con su nota media. */
 export function ReviewsSection({
   title,
   reviews,
@@ -25,7 +26,7 @@ export function ReviewsSection({
   rating: number;
   totalReviews: number;
 }) {
-  const { user } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
   const [denunciadas, setDenunciadas] = useState<string[]>([]);
 
   const denunciar = async (reviewId: string) => {

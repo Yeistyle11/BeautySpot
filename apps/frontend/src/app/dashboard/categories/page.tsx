@@ -34,6 +34,7 @@ const CONFIG: CategoryManagerConfig = {
     "dejará de ofrecerse, y los profesionales asignados perderán la asociación.",
 };
 
+/** Categorias del negocio, gestionadas con el gestor compartido. */
 export default function CategoriesPage() {
   return <CategoryManager config={CONFIG} />;
 }

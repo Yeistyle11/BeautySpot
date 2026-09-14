@@ -20,6 +20,7 @@ import { MarcaBeautySpot } from "@/components/ui/marca-beautyspot";
 
 type Estado = "verificando" | "confirmado" | "fallido";
 
+/** Canjea el testigo de la URL y cuenta como fue la confirmacion. */
 function VerifyEmailInner() {
   const token = useSearchParams().get("token") ?? "";
   const [estado, setEstado] = useState<Estado>(
@@ -95,6 +96,7 @@ function VerifyEmailInner() {
   );
 }
 
+/** Monta la confirmacion bajo Suspense, que es lo que exige leer la URL. */
 export default function VerifyEmailPage() {
   return (
     <Suspense

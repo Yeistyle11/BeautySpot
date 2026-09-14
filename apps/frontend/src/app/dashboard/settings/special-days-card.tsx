@@ -40,7 +40,7 @@ export function SpecialDaysCard({
   onRemove,
   saving,
 }: SpecialDaysCardProps) {
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
   const puedeEditar = canDo(role, "business_hours_edit");
   const [aQuitar, setAQuitar] = useState<DiaEspecial | null>(null);
   const [form, setForm] = useState<NuevoDiaEspecial>(nuevoDiaEspecial);

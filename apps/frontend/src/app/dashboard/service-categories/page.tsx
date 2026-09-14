@@ -32,6 +32,7 @@ const CONFIG: CategoryManagerConfig = {
   deleteConfirmMessage: "dejará de ofrecerse al clasificar servicios nuevos.",
 };
 
+/** Categorias del catalogo de servicios, con el gestor compartido. */
 export default function ServiceCategoriesPage() {
   return <CategoryManager config={CONFIG} />;
 }

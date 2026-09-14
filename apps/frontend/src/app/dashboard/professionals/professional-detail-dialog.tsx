@@ -10,6 +10,7 @@ import { imageUnoptimized } from "@/lib/image";
 import { formatAniosExperiencia } from "@/lib/utils";
 import type { Professional } from "./schemas";
 
+/** Bloque de un dato de la ficha, con su etiqueta encima. */
 function DetailBlock({
   label,
   children,

@@ -274,6 +274,7 @@ export default function MarketplaceFeed({
   );
 }
 
+/** Carrusel de una seccion del escaparate, con su icono y su titulo. */
 function FeedSection({ section }: { section: FeedSectionData }) {
   const sectionIcon =
     section.id === "popular_nearby" ? (
@@ -309,6 +310,7 @@ function FeedSection({ section }: { section: FeedSectionData }) {
   );
 }
 
+/** Tarjeta de un negocio en el escaparate. */
 function ProfileCard({ profile: p }: { profile: Profile }) {
   const featuredImage =
     p.galleryImages?.find((img) => img.featured)?.url ||

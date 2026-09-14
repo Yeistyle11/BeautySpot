@@ -18,6 +18,7 @@ interface CategoryCardProps {
   onDelete: (id: string) => void;
 }
 
+/** Tarjeta de una categoria, con su icono, su color y sus acciones. */
 export function CategoryCard({
   category,
   icon: iconoPorDefecto,

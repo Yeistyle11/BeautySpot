@@ -38,6 +38,7 @@ interface TablaProps<C extends string> {
   children: React.ReactNode;
 }
 
+/** Flecha de orden de una columna, resaltada si ordena por ella. */
 function IconoDeOrden({ activo }: { activo: boolean }) {
   return (
     <ArrowUpDown
@@ -49,6 +50,7 @@ function IconoDeOrden({ activo }: { activo: boolean }) {
   );
 }
 
+/** Tabla de una coleccion del panel, con su cabecera ordenable. */
 export function TablaDeRegistros<C extends string>({
   titulo,
   columnas,
@@ -136,6 +138,7 @@ export function FilaDeTabla({
   );
 }
 
+/** Celda normal de la tabla, con su alineacion y su visibilidad en movil. */
 export function CeldaDeTabla({
   alineacion,
   ocultaEnMovil,

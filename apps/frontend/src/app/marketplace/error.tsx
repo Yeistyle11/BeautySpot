@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 
+/** Pantalla de error del escaparate, con opcion de reintentar. */
 export default function MarketplaceError({
   error,
   reset,

@@ -1,7 +1,7 @@
 "use client";
 
 // Pagina de pagos: lista de pagos registrados con resumen, busqueda por fecha y paginacion.
-import { useState, useMemo, useRef } from "react";
+import { useCallback, useState, useMemo, useRef } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -51,9 +51,10 @@ import {
   type Payment,
 } from "./schemas";
 
+/** Cobros registrados, con su resumen del dia, alta, edicion y devolucion. */
 export default function PaymentsPage() {
   const toast = useToast();
-  const { role } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
   // El descuento sale del margen del negocio, asi que la pantalla solo se lo
   // ofrece a quien el servidor se lo va a admitir.
   const puedeDescontar = role === "OWNER" || role === "ADMIN";
@@ -221,12 +222,13 @@ export default function PaymentsPage() {
     }
   };
 
-  const openRefund = (p: Payment) => {
+  /** Abre el dialogo de devolucion sobre un cobro. Memoizado: lo recibe cada fila. */
+  const openRefund = useCallback((p: Payment) => {
     setRefundPayment(p);
     setRefundForm(emptyDevolucionForm);
     setRefundError("");
     setRefundDialog(true);
-  };
+  }, []);
 
   const handleRefund = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,7 +255,8 @@ export default function PaymentsPage() {
     }
   };
 
-  const openEdit = (p: Payment) => {
+  /** Abre el dialogo de edicion sembrado con el cobro. Memoizado por lo mismo. */
+  const openEdit = useCallback((p: Payment) => {
     setEditId(p.id);
     setEditForm({
       amount: String(p.amount),
@@ -263,7 +266,7 @@ export default function PaymentsPage() {
       reason: "",
     });
     setEditDialog(true);
-  };
+  }, []);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
