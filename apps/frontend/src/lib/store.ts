@@ -34,39 +34,15 @@ interface AuthState {
   hydrate: () => void;
 }
 
+// El usuario no esta aqui a proposito: vive solo en memoria, y se pide a
+// `/auth/me` en cada carga (ver lib/use-sesion.ts).
 const KEYS = {
-  user: "auth:v1:user",
   businessId: "auth:v1:businessId",
   role: "auth:v1:role",
   branchId: "auth:v1:branchId",
 } as const;
 
-const LEGACY_KEYS = {
-  user: "user",
-  businessId: "businessId",
-  role: "role",
-} as const;
-
-function migrateLegacyKeys(): void {
-  if (typeof window === "undefined") return;
-  (Object.keys(LEGACY_KEYS) as (keyof typeof LEGACY_KEYS)[]).forEach((k) => {
-    const legacy = localStorage.getItem(LEGACY_KEYS[k]);
-    if (legacy !== null && localStorage.getItem(KEYS[k]) === null) {
-      localStorage.setItem(KEYS[k], legacy);
-    }
-    if (legacy !== null) localStorage.removeItem(LEGACY_KEYS[k]);
-  });
-}
-
-function safeParse<T>(value: string | null): T | null {
-  if (value === null) return null;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return null;
-  }
-}
-
+/** Lee el rol guardado, o null si no hay ninguno. */
 function readRole(): Role | null {
   const raw = localStorage.getItem(KEYS.role);
   if (!raw) return null;
@@ -99,8 +75,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   hydrated: false,
   hydrate: () => {
     if (typeof window === "undefined") return;
-    migrateLegacyKeys();
-    const user = safeParse<User>(localStorage.getItem(KEYS.user));
     // La pista del gateway manda sobre lo guardado: refleja la sesión que el
     // navegador tiene de verdad, mientras que el localStorage puede haber
     // quedado de una sesión anterior.
@@ -109,12 +83,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       pista?.businessId ?? localStorage.getItem(KEYS.businessId);
     const role = pista?.role ?? readRole();
     const branchId = localStorage.getItem(KEYS.branchId);
-    set({ user, businessId, role, branchId, hydrated: true });
+    set({ businessId, role, branchId, hydrated: true });
   },
-  setAuth: (user) => {
-    localStorage.setItem(KEYS.user, JSON.stringify(user));
-    set({ user });
-  },
+  setAuth: (user) => set({ user }),
   setBusinessId: (id) => {
     localStorage.setItem(KEYS.businessId, id);
     set({ businessId: id });

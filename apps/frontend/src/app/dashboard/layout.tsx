@@ -1,21 +1,17 @@
 "use client";
 
 // Layout del dashboard: rehidrata la sesion, exige sesion activa y monta el sidebar alrededor de las paginas.
-import { useEffect } from "react";
 import { Sidebar } from "@/components/sidebar";
-import { useAuthStore } from "@/lib/store";
+import { useSesion } from "@/lib/use-sesion";
 import { Spinner } from "@/components/ui/spinner";
 
+/** Rehidrata la sesion, exige rol y monta el sidebar alrededor de las paginas. */
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { hydrated, hydrate, role } = useAuthStore();
-
-  useEffect(() => {
-    hydrate();
-  }, [hydrate]);
+  const { hydrated, role } = useSesion();
 
   if (!hydrated) {
     return (
