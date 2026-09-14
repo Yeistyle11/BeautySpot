@@ -22,7 +22,7 @@ cambia cómo hay que interpretar cada documento:
 | -------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------- |
 | [API.md](API.md)                                   | 🟢    | Las 216 rutas de los 48 controladores, con roles, paginación, errores y enrutado del gateway |
 | [04-ARQUITECTURA.md](04-ARQUITECTURA.md)           | 🟢/🔵 | Arquitectura, ADRs, comunicación entre servicios, multi-tenancy, eventos, circuit breaker    |
-| [05-BASE-DATOS.md](05-BASE-DATOS.md)               | 🟢    | Las 47 tablas de las 7 bases, con sus columnas, índices y por qué                            |
+| [05-BASE-DATOS.md](05-BASE-DATOS.md)               | 🟢    | Las 49 tablas de las 7 bases, con sus columnas, índices y por qué                            |
 | [13-SCHEMA-BASEDATOS.md](13-SCHEMA-BASEDATOS.md)   | 🟢    | Escribir SQL a mano: volcar el DDL real, los tipos enum y qué hay en una base recién creada  |
 | [08-ROLES-PERMISOS.md](08-ROLES-PERMISOS.md)       | 🟢/🔵 | Los 6 roles y la matriz de permisos                                                          |
 | [16-AUDITORIA-TECNICA.md](16-AUDITORIA-TECNICA.md) | 🟢    | Estado medido en seguridad, arquitectura, rendimiento, calidad e interfaz, con fecha         |

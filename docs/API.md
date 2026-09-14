@@ -291,7 +291,7 @@ interno dice de dónde viene la petición, no qué puede conceder.
 ## core-service (3002)
 
 Negocios, sucursales, profesionales, servicios, clientes e imágenes. Base de datos
-`beautyspot_core`. Es el servicio más grande: 11 entidades y 18 controladores.
+`beautyspot_core`. Es el servicio más grande: 12 entidades y 19 controladores.
 
 ### Negocios — `/api/v1/core/businesses`
 

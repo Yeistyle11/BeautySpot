@@ -270,7 +270,7 @@ Los más usados:
 | [docs/SETUP.md](docs/SETUP.md)                     | Entorno de desarrollo paso a paso |
 | [docs/API.md](docs/API.md)                         | Referencia de las 216 rutas       |
 | [docs/04-ARQUITECTURA.md](docs/04-ARQUITECTURA.md) | Arquitectura y ADRs               |
-| [docs/05-BASE-DATOS.md](docs/05-BASE-DATOS.md)     | Las 47 tablas, columna a columna  |
+| [docs/05-BASE-DATOS.md](docs/05-BASE-DATOS.md)     | Las 49 tablas, columna a columna  |
 | [docs/TESTING.md](docs/TESTING.md)                 | Estrategia de tests               |
 | [docs/CI-CD.md](docs/CI-CD.md)                     | Pipeline de CI                    |
 | [DEPLOY.md](DEPLOY.md)                             | Despliegue en producción          |

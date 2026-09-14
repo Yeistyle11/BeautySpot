@@ -17,9 +17,9 @@ servicios con base de datos tienen el suyo completo:
 | Servicio               | Migraciones | Tablas |
 | ---------------------- | ----------- | ------ |
 | `auth-service`         | 4           | 6      |
-| `core-service`         | 20          | 13     |
+| `core-service`         | 20          | 14     |
 | `booking-service`      | 14          | 6      |
-| `payment-service`      | 20          | 7      |
+| `payment-service`      | 20          | 8      |
 | `notification-service` | 6           | 3      |
 | `marketplace-service`  | 12          | 6      |
 | `analytics-service`    | 6           | 6      |

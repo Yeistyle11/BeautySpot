@@ -1,9 +1,9 @@
 # Base de datos
 
-Las **47 tablas** de BeautySpot, repartidas en siete bases de datos —una por
+Las **49 tablas** de BeautySpot, repartidas en siete bases de datos —una por
 servicio con estado—, tal y como están definidas hoy en las entidades y las
-migraciones. Son 47 contando la copia de `outbox_messages` y `processed_events`
-que cada base lleva por su cuenta; formas distintas de tabla hay 40.
+migraciones. Son 49 contando la copia de `outbox_messages` y `processed_events`
+que cada base lleva por su cuenta; formas distintas de tabla hay 42.
 
 ## Cómo leer este documento
 
@@ -31,9 +31,9 @@ comprometido no alcanza los datos de los otros seis.
 | Base                      | Servicio     | Tablas |
 | ------------------------- | ------------ | ------ |
 | `beautyspot_auth`         | auth         | 6      |
-| `beautyspot_core`         | core         | 13     |
+| `beautyspot_core`         | core         | 14     |
 | `beautyspot_booking`      | booking      | 6      |
-| `beautyspot_payment`      | payment      | 7      |
+| `beautyspot_payment`      | payment      | 8      |
 | `beautyspot_notification` | notification | 3      |
 | `beautyspot_marketplace`  | marketplace  | 6      |
 | `beautyspot_analytics`    | analytics    | 6      |
@@ -355,6 +355,14 @@ Ajustes sin columnas propias, guardados como pares clave–valor: `key` (varchar
 `value` (jsonb), únicos por `(business_id, key)`. Las claves en uso son
 `facturacion`, `reservas` y `fidelizacion`.
 
+### `business_special_days`
+
+El día que no sigue al horario de la semana: un festivo, unas vacaciones o una
+jornada reducida. `branch_id` (nulo = todo el negocio), el rango `start_date`–
+`end_date` con `CHK_special_days_rango` exigiendo que no vaya al revés,
+`closed` —y si es `false` valen `open_time` y `close_time`— y `motivo`. Índice
+por `(business_id, start_date, end_date)`, que es como lo consulta la agenda.
+
 ### `professional_categories` y `service_categories`
 
 Misma forma: `name`, `description`, `icon`, `color`, `sort_order`, `active`, con
@@ -511,6 +519,14 @@ es una factura.
 y una columna `last_number`. El siguiente se reserva con un
 `INSERT … ON CONFLICT DO UPDATE … RETURNING` atómico, que es lo que evita que dos
 facturas simultáneas se lleven el mismo número.
+
+### `payment_splits`
+
+Lo que se pagó por cada medio dentro de un cobro: `payment_id`, `method` y
+`amount`. Un cobro de un solo medio también guarda su línea, para que la caja
+lea de una sola vía. `CHK_payment_splits_method` acota el catálogo y deja fuera
+`MIXED`, que describe el cobro entero y no una línea. La clave ajena
+`FK_payment_splits_cobro` borra en cascada.
 
 ### `cash_sessions`
 
