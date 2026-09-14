@@ -87,7 +87,7 @@ una de ellas**:
 
 **Quien autoriza es cada servicio**, con `@Roles(...)` y `RolesGuard` sobre el
 token que el gateway reenvia. Ponerlo en el gateway obligaria a tener aqui una
-copia de los roles de las 215 rutas, que se separaria de los controladores a la
+copia de los roles de las 235 rutas, que se separaria de los controladores a la
 primera.
 
 ### Que se reenvia

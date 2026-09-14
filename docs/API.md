@@ -1,10 +1,15 @@
 # Referencia de la API — BeautySpot
 
-Referencia completa de la API HTTP de BeautySpot: **48 controladores y 216 rutas**
+Referencia completa de la API HTTP de BeautySpot: **51 controladores y 235 rutas**
 repartidos en 8 microservicios NestJS, todos accesibles a través del API Gateway.
 
 Este documento se genera a partir de los controladores reales (`services/*/src/**/*.controller.ts`).
 Si una ruta no aparece aquí, no existe.
+
+La cuenta es de clases con `@Controller` y de decoradores de método declarados
+ahí: el comodín del gateway cuenta como **una** ruta, y el `HealthController`
+compartido de `nest-common` no cuenta, porque es una clase que montan siete
+servicios. Cada ruta tiene su fila en las tablas de abajo.
 
 ## Índice
 
