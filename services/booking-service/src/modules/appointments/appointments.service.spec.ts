@@ -1,7 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import {
+  FichasDelUsuarioService,
   InternalHttpClient,
+  RedisCacheService,
   ZonaDelNegocioService,
+  withSerializableRetry,
 } from "@beautyspot/nest-common";
 import { HorarioDelNegocioService } from "./horario-del-negocio.service";
 import { PoliticaDeReservaService } from "./politica-de-reserva.service";
@@ -233,6 +236,14 @@ describe("AppointmentsService", () => {
             ),
         },
         { provide: ZonaDelNegocioService, useValue: mockZonas },
+        {
+          // Caché de paso: aquí interesa la consulta que se hace, no el ahorro.
+          provide: RedisCacheService,
+          useValue: {
+            remember: (_c: string, _t: number, cargar: () => unknown) =>
+              cargar(),
+          },
+        },
         { provide: PoliticaDeReservaService, useValue: mockPolitica },
         {
           provide: DataSource,
@@ -245,6 +256,14 @@ describe("AppointmentsService", () => {
         {
           provide: InternalHttpClient,
           useValue: mockHttp,
+        },
+        {
+          // Resolutor real sobre el core simulado.
+          provide: FichasDelUsuarioService,
+          useFactory: () =>
+            new FichasDelUsuarioService(
+              mockHttp as unknown as InternalHttpClient
+            ),
         },
       ],
     }).compile();
@@ -1276,6 +1295,32 @@ describe("AppointmentsService", () => {
     afterEach(() => {
       jest.useRealTimers();
     });
+    // Un 40001 en SERIALIZABLE es esperable, no excepcional: el alta lo
+    // reintentaba y el reagendado lo devolvia como un 500 al usuario.
+    it("reagenda a través del reintento de serialización, como el alta", async () => {
+      const manana = new Date();
+      manana.setDate(manana.getDate() + 1);
+
+      mockApptRepo.findOne.mockResolvedValue({
+        ...mockAppointment,
+        date: manana.toISOString().split("T")[0],
+        startTime: "14:00",
+        generateId: () => {},
+      } as never);
+      mockAvailRepo.find.mockResolvedValue(JORNADAS);
+      mockBlockRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([]);
+
+      await service.reschedule(
+        "appt-123",
+        "business-123",
+        FECHA_SIGUIENTE,
+        "15:00"
+      );
+
+      expect(withSerializableRetry).toHaveBeenCalled();
+    });
+
     it("debería reagendar una cita correctamente dentro de tx SERIALIZABLE", async () => {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 1);
@@ -1547,6 +1592,30 @@ describe("AppointmentsService", () => {
     function coreDevuelve(clients: { id: string }[]) {
       mockHttp.pedir.mockResolvedValue(clients);
     }
+
+    // El sobre de la pagina vacia lo arma el helper compartido, que es lo que
+    // impide que cada servicio conteste un `hasPrev` distinto.
+    it("arma la página vacía como el resto de listados", async () => {
+      coreDevuelve([]);
+
+      const vacia = await service.findByClientUser("user-1", {
+        ...pagination,
+        page: 2,
+        offset: 20,
+      });
+
+      expect(vacia).toEqual({
+        data: [],
+        meta: {
+          page: 2,
+          limit: 20,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: true,
+        },
+      });
+    });
 
     it("busca las citas de todas las fichas del usuario", async () => {
       coreDevuelve([{ id: "cliente-a" }, { id: "cliente-b" }]);

@@ -3,8 +3,16 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { LessThanOrEqual, MoreThanOrEqual, Repository } from "typeorm";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
+import {
+  DataSource,
+  EntityManager,
+  LessThanOrEqual,
+  MoreThanOrEqual,
+  Repository,
+} from "typeorm";
+import { OutboxService } from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
 import {
   cruzaMedianoche,
   esHoraDeCierreValida,
@@ -29,8 +37,27 @@ export interface TramoDelDia {
 export class SpecialDaysService {
   constructor(
     @InjectRepository(BusinessSpecialDay)
-    private readonly repo: Repository<BusinessSpecialDay>
+    private readonly repo: Repository<BusinessSpecialDay>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+    private readonly outbox: OutboxService
   ) {}
+
+  /**
+   * Anuncia que el negocio cambió cuándo abre, en la misma escritura: un día
+   * especial mueve la apertura de esa fecha, y booking la tiene cacheada.
+   */
+  private async anunciarCambio(
+    manager: EntityManager,
+    businessId: string
+  ): Promise<void> {
+    await this.outbox.enqueue(manager, {
+      eventType: EventNames.CORE_BUSINESS_HOURS_UPDATED,
+      aggregateType: "business",
+      aggregateId: businessId,
+      payload: { businessId },
+    });
+  }
 
   /** Días especiales del negocio, del más próximo al más lejano. */
   async findByBusiness(businessId: string): Promise<BusinessSpecialDay[]> {
@@ -48,26 +75,39 @@ export class SpecialDaysService {
     this.validar(dto);
     await this.exigirQueNoSeSolape(businessId, dto);
 
-    return this.repo.save(
-      this.repo.create({
-        businessId,
-        branchId: dto.branchId ?? null,
-        startDate: dto.startDate,
-        endDate: dto.endDate,
-        closed: dto.closed ?? true,
-        openTime: dto.closed === false ? (dto.openTime ?? null) : null,
-        closeTime: dto.closed === false ? (dto.closeTime ?? null) : null,
-        motivo: dto.motivo.trim(),
-      })
-    );
+    return this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(BusinessSpecialDay);
+      const guardado = await repo.save(
+        repo.create({
+          businessId,
+          branchId: dto.branchId ?? null,
+          startDate: dto.startDate,
+          endDate: dto.endDate,
+          closed: dto.closed ?? true,
+          openTime: dto.closed === false ? (dto.openTime ?? null) : null,
+          closeTime: dto.closed === false ? (dto.closeTime ?? null) : null,
+          motivo: dto.motivo.trim(),
+        })
+      );
+
+      await this.anunciarCambio(manager, businessId);
+      return guardado;
+    });
   }
 
   /** Retira un día especial del negocio; lanza 404 si no existe. */
   async remove(id: string, businessId: string): Promise<void> {
-    const borrado = await this.repo.delete({ id, businessId });
-    if (!borrado.affected) {
-      throw new NotFoundException("Ese día especial no existe");
-    }
+    await this.dataSource.transaction(async (manager) => {
+      const borrado = await manager.delete(BusinessSpecialDay, {
+        id,
+        businessId,
+      });
+      if (!borrado.affected) {
+        throw new NotFoundException("Ese día especial no existe");
+      }
+
+      await this.anunciarCambio(manager, businessId);
+    });
   }
 
   /**

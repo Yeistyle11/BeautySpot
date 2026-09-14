@@ -16,7 +16,11 @@ import {
   Internal,
 } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
-import { CreateMembershipDto, UpdateRoleDto } from "./dto/membership.dto";
+import {
+  CreateMembershipDto,
+  CrearMembresiaInternaDto,
+  UpdateRoleDto,
+} from "./dto/membership.dto";
 
 /** Endpoints de gestión de membresías para dueños y administradores de un negocio. */
 @Controller("memberships")
@@ -98,7 +102,7 @@ export class InternalMembershipsController {
 
   /** Crea una membresía a petición de otro microservicio (p. ej. al registrar un negocio). */
   @Post()
-  async create(@Body() dto: CreateMembershipDto & { invitedBy?: string }) {
+  async create(@Body() dto: CrearMembresiaInternaDto) {
     return this.membershipsService.create({
       userId: dto.userId,
       businessId: dto.businessId,

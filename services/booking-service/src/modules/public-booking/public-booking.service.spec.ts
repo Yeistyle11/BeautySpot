@@ -1,11 +1,6 @@
 import { Test } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import { PublicBookingService } from "./public-booking.service";
 import { Appointment } from "../../entities/appointment.entity";
-import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
-import { Availability } from "../../entities/availability.entity";
-import { BlockedSlot } from "../../entities/blocked-slot.entity";
 import { AppointmentStatus } from "@beautyspot/shared-types";
 import {
   BadRequestException,
@@ -13,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { InternalHttpClient } from "@beautyspot/nest-common";
 import { AppointmentsService } from "../appointments/appointments.service";
+import { AvailabilityQueryService } from "../appointments/availability-query.service";
 
 const CORTE = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const BARBA = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -38,12 +34,9 @@ const CATALOGO = [
 
 describe("PublicBookingService", () => {
   let service: PublicBookingService;
-  let mockApptRepo: jest.Mocked<Repository<Appointment>>;
-  let mockApptServiceRepo: jest.Mocked<Repository<AppointmentServiceEntity>>;
-  let mockAvailRepo: jest.Mocked<Repository<Availability>>;
-  let mockBlockRepo: jest.Mocked<Repository<BlockedSlot>>;
   let mockHttp: { enviar: jest.Mock; pedir: jest.Mock };
   let mockAppointments: { create: jest.Mock };
+  let mockDisponibilidad: { primerProfesionalLibre: jest.Mock };
 
   const mockAppointment: Appointment = {
     id: "appt-123",
@@ -66,55 +59,7 @@ describe("PublicBookingService", () => {
     generateId: () => {},
   } as any;
 
-  const mockAvailability: Availability = {
-    id: "avail-123",
-    businessId: "business-123",
-    professionalId: "prof-123",
-    dayOfWeek: 1,
-    startTime: "08:00",
-    endTime: "18:00",
-    active: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    generateId: () => {},
-  } as any;
-
-  const mockApptService: AppointmentServiceEntity = {
-    id: "as-123",
-    appointmentId: "appt-123",
-    serviceId: "service-123",
-    serviceName: "Corte de cabello",
-    price: 30000,
-    duration: 30,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    generateId: () => {},
-  } as any;
-
   beforeEach(async () => {
-    mockApptRepo = {
-      create: jest.fn(),
-      save: jest.fn(),
-      findOne: jest.fn(),
-      find: jest.fn(),
-    } as any;
-
-    mockApptServiceRepo = {
-      create: jest.fn(),
-      save: jest.fn(),
-      // Líneas de las citas ya reservadas.
-      find: jest.fn().mockResolvedValue([]),
-    } as any;
-
-    mockAvailRepo = {
-      findOne: jest.fn(),
-      find: jest.fn(),
-    } as any;
-
-    mockBlockRepo = {
-      find: jest.fn(),
-    } as any;
-
     // Por el cliente interno van dos cosas: el alta del cliente invitado y la
     // resolución del catálogo, así que el mock responde según la ruta.
     mockHttp = {
@@ -134,25 +79,15 @@ describe("PublicBookingService", () => {
       create: jest.fn().mockResolvedValue(mockAppointment),
     };
 
+    // Quién está libre lo decide el motor de la agenda; aquí solo se comprueba
+    // que se le pregunta a él y que se respeta su respuesta.
+    mockDisponibilidad = {
+      primerProfesionalLibre: jest.fn().mockResolvedValue("prof-123"),
+    };
+
     const module = await Test.createTestingModule({
       providers: [
         PublicBookingService,
-        {
-          provide: getRepositoryToken(Appointment),
-          useValue: mockApptRepo,
-        },
-        {
-          provide: getRepositoryToken(AppointmentServiceEntity),
-          useValue: mockApptServiceRepo,
-        },
-        {
-          provide: getRepositoryToken(Availability),
-          useValue: mockAvailRepo,
-        },
-        {
-          provide: getRepositoryToken(BlockedSlot),
-          useValue: mockBlockRepo,
-        },
         {
           provide: InternalHttpClient,
           useValue: mockHttp,
@@ -160,6 +95,10 @@ describe("PublicBookingService", () => {
         {
           provide: AppointmentsService,
           useValue: mockAppointments,
+        },
+        {
+          provide: AvailabilityQueryService,
+          useValue: mockDisponibilidad,
         },
       ],
     }).compile();
@@ -181,14 +120,6 @@ describe("PublicBookingService", () => {
     };
 
     it("debería crear una cita pública exitosamente", async () => {
-      mockApptRepo.create.mockReturnValue(mockAppointment);
-      mockApptRepo.save.mockResolvedValue(mockAppointment);
-      mockApptRepo.find.mockResolvedValue([]);
-      mockAvailRepo.findOne.mockResolvedValue(mockAvailability);
-      mockBlockRepo.find.mockResolvedValue([]);
-      mockApptServiceRepo.create.mockReturnValue(mockApptService);
-      mockApptServiceRepo.save.mockResolvedValue(mockApptService);
-
       const result = await service.createPublicAppointment(bookingData);
 
       expect(result).toEqual({
@@ -207,45 +138,8 @@ describe("PublicBookingService", () => {
       /** Reserva de "cualquier profesional": el cuerpo omite professionalId. */
       const sinPreferencia = { ...bookingData, professionalId: undefined };
 
-      beforeEach(() => {
-        mockApptRepo.create.mockReturnValue(mockAppointment);
-        mockApptRepo.save.mockResolvedValue(mockAppointment);
-        mockApptServiceRepo.create.mockReturnValue(mockApptService);
-        mockApptServiceRepo.save.mockResolvedValue(mockApptService);
-        mockBlockRepo.find.mockResolvedValue([]);
-      });
-
-      /** Horarios del dia, en el orden en que los devuelve la tabla. */
-      function equipoDelDia(ids: string[]) {
-        mockAvailRepo.find.mockResolvedValue(
-          ids.map((professionalId) => ({
-            ...mockAvailability,
-            professionalId,
-          })) as never
-        );
-      }
-
-      it("asigna el primero del equipo que tenga libre la franja", async () => {
-        equipoDelDia(["prof-a", "prof-b"]);
-        mockApptRepo.find.mockResolvedValue([]);
-
-        await service.createPublicAppointment(sinPreferencia);
-
-        expect(mockAppointments.create).toHaveBeenCalledWith(
-          "business-123",
-          expect.objectContaining({ professionalId: "prof-a" })
-        );
-      });
-
-      it("salta al siguiente cuando el primero ya tiene una cita a esa hora", async () => {
-        equipoDelDia(["prof-a", "prof-b"]);
-        mockApptRepo.find.mockResolvedValue([
-          {
-            professionalId: "prof-a",
-            startTime: "10:00",
-            endTime: "10:50",
-          },
-        ] as never);
+      it("reserva con el profesional que le da el motor de la agenda", async () => {
+        mockDisponibilidad.primerProfesionalLibre.mockResolvedValue("prof-b");
 
         await service.createPublicAppointment(sinPreferencia);
 
@@ -255,15 +149,20 @@ describe("PublicBookingService", () => {
         );
       });
 
-      it("avisa cuando nadie del equipo tiene libre esa franja", async () => {
-        equipoDelDia(["prof-a"]);
-        mockApptRepo.find.mockResolvedValue([
-          {
-            professionalId: "prof-a",
-            startTime: "10:00",
-            endTime: "10:50",
-          },
-        ] as never);
+      it("le pasa la franja y las líneas del catálogo", async () => {
+        await service.createPublicAppointment(sinPreferencia);
+
+        expect(mockDisponibilidad.primerProfesionalLibre).toHaveBeenCalledWith(
+          "business-123",
+          "2024-01-15",
+          "10:00",
+          "10:50",
+          expect.arrayContaining([expect.objectContaining({ id: CORTE })])
+        );
+      });
+
+      it("avisa cuando el motor no encuentra a nadie libre", async () => {
+        mockDisponibilidad.primerProfesionalLibre.mockResolvedValue(null);
 
         await expect(
           service.createPublicAppointment(sinPreferencia)
@@ -271,26 +170,12 @@ describe("PublicBookingService", () => {
         expect(mockAppointments.create).not.toHaveBeenCalled();
       });
 
-      it("consulta el equipo entero de una vez", async () => {
-        equipoDelDia(["prof-a", "prof-b", "prof-c", "prof-d"]);
-        mockApptRepo.find.mockResolvedValue([]);
+      it("no pregunta por disponibilidad si ya viene el profesional", async () => {
+        await service.createPublicAppointment(bookingData);
 
-        await service.createPublicAppointment(sinPreferencia);
-
-        // Horarios, bloqueos y citas: una consulta cada uno, sea cual sea el
-        // tamaño del equipo.
-        expect(mockAvailRepo.find).toHaveBeenCalledTimes(1);
-        expect(mockBlockRepo.find).toHaveBeenCalledTimes(1);
-        expect(mockApptRepo.find).toHaveBeenCalledTimes(1);
-        expect(mockAvailRepo.findOne).not.toHaveBeenCalled();
-      });
-
-      it("avisa cuando nadie trabaja ese dia", async () => {
-        equipoDelDia([]);
-
-        await expect(
-          service.createPublicAppointment(sinPreferencia)
-        ).rejects.toThrow(BadRequestException);
+        expect(
+          mockDisponibilidad.primerProfesionalLibre
+        ).not.toHaveBeenCalled();
       });
     });
 
@@ -327,7 +212,6 @@ describe("PublicBookingService", () => {
         startTime: "10:00",
         notes: "Primera visita",
       });
-      expect(mockApptRepo.save).not.toHaveBeenCalled();
     });
 
     it("no ata la ficha del invitado a ninguna cuenta", async () => {
@@ -358,6 +242,38 @@ describe("PublicBookingService", () => {
       );
     });
 
+    // El correo del cuerpo dice como avisar; el que identifica es el del token.
+    // Mandar ambos es lo que permite al core no fiarse del primero.
+    it("manda el correo acreditado por el token, no el que se escribe", async () => {
+      await service.createPublicAppointment(
+        { ...bookingData, guestEmail: "ajeno@ejemplo.com" },
+        "usuario-propio",
+        "propio@ejemplo.com"
+      );
+
+      expect(mockHttp.enviar).toHaveBeenCalledWith(
+        "core",
+        "/internal/clients/find-or-create",
+        expect.objectContaining({
+          email: "ajeno@ejemplo.com",
+          userEmail: "propio@ejemplo.com",
+        })
+      );
+    });
+
+    it("no manda correo acreditado en la reserva de invitado", async () => {
+      await service.createPublicAppointment({
+        ...bookingData,
+        guestEmail: "invitado@ejemplo.com",
+      });
+
+      expect(mockHttp.enviar).toHaveBeenCalledWith(
+        "core",
+        "/internal/clients/find-or-create",
+        expect.not.objectContaining({ userEmail: expect.anything() })
+      );
+    });
+
     it("ignora el userId del cuerpo también con sesión", async () => {
       await service.createPublicAppointment(
         { ...bookingData, userId: "usuario-ajeno" } as never,
@@ -368,31 +284,6 @@ describe("PublicBookingService", () => {
         "core",
         "/internal/clients/find-or-create",
         expect.objectContaining({ userId: "usuario-propio" })
-      );
-    });
-
-    it("descarta a un profesional con una cita confirmada a esa hora", async () => {
-      const sinPreferencia = { ...bookingData, professionalId: undefined };
-      mockAvailRepo.find.mockResolvedValue([
-        { ...mockAvailability, professionalId: "prof-a" },
-        { ...mockAvailability, professionalId: "prof-b" },
-      ] as never);
-      mockBlockRepo.find.mockResolvedValue([]);
-      mockApptRepo.find.mockResolvedValue([
-        {
-          professionalId: "prof-a",
-          startTime: "10:00",
-          endTime: "10:50",
-          status: AppointmentStatus.CONFIRMED,
-        },
-      ] as never);
-
-      await service.createPublicAppointment(sinPreferencia);
-
-      // Una cita confirmada ocupa la franja igual que una pendiente.
-      expect(mockAppointments.create).toHaveBeenCalledWith(
-        "business-123",
-        expect.objectContaining({ professionalId: "prof-b" })
       );
     });
 

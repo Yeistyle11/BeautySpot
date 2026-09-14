@@ -202,6 +202,14 @@ export function arrastreDeJornada<
     }));
 }
 
+/**
+ * Día de la semana de una fecha, de domingo (0) a sábado (6), anclada a
+ * mediodía UTC.
+ */
+export function diaDeLaSemana(fecha: string): number {
+  return new Date(`${fecha}T12:00:00Z`).getUTCDay();
+}
+
 /** Día de la semana anterior, con la vuelta del domingo (0) al sábado (6). */
 export function diaAnteriorDeLaSemana(dayOfWeek: number): number {
   return (dayOfWeek + 6) % 7;

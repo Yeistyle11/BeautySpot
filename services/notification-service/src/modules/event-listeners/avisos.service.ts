@@ -7,7 +7,7 @@ import {
   NotificationType,
   Role,
 } from "@beautyspot/shared-types";
-import { EVENTS_EXCHANGE } from "@beautyspot/event-types";
+import { EVENTS_EXCHANGE, EventNames } from "@beautyspot/event-types";
 import { NotificationsService } from "../notifications/notifications.service";
 import { NotificationPreferencesService } from "../notification-preferences/notification-preferences.service";
 
@@ -39,12 +39,12 @@ export class AvisosService {
     try {
       await this.amqpConnection.publish(
         EVENTS_EXCHANGE,
-        "notification.email.queued",
+        EventNames.NOTIFICATION_EMAIL_QUEUED,
         {
-          // Se publica por AmqpConnection, sin pasar por EventBusService: el
-          // eventId se pone aqui.
+          // El sobre va a mano: este servicio solo trae el RabbitMQ de los
+          // consumidores.
           eventId: randomUUID(),
-          eventType: "notification.email.queued",
+          eventType: EventNames.NOTIFICATION_EMAIL_QUEUED,
           timestamp: new Date(),
           correlationId: jobId,
           payload: { jobId, to, template, subject },

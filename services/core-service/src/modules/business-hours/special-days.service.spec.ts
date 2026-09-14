@@ -1,5 +1,8 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
+import { DataSource } from "typeorm";
+import { OutboxService } from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { SpecialDaysService } from "./special-days.service";
 import { BusinessSpecialDay } from "../../entities/business-special-day.entity";
@@ -26,6 +29,7 @@ const guardado = (
 
 describe("SpecialDaysService", () => {
   let service: SpecialDaysService;
+  let outbox: { enqueue: jest.Mock };
   let repo: {
     find: jest.Mock;
     save: jest.Mock;
@@ -41,10 +45,25 @@ describe("SpecialDaysService", () => {
       delete: jest.fn().mockResolvedValue({ affected: 1 }),
     };
 
+    outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
+
     const modulo = await Test.createTestingModule({
       providers: [
         SpecialDaysService,
         { provide: getRepositoryToken(BusinessSpecialDay), useValue: repo },
+        // La transacción entrega el mismo repositorio simulado del test.
+        {
+          provide: DataSource,
+          useValue: {
+            transaction: jest.fn((cb: (m: unknown) => unknown) =>
+              cb({
+                getRepository: jest.fn().mockReturnValue(repo),
+                delete: repo.delete,
+              })
+            ),
+          },
+        },
+        { provide: OutboxService, useValue: outbox },
       ],
     }).compile();
 
@@ -191,7 +210,8 @@ describe("SpecialDaysService", () => {
     it("borra el día especial del negocio", async () => {
       await service.remove("dia-1", NEGOCIO);
 
-      expect(repo.delete).toHaveBeenCalledWith({
+      // El borrado va por el manager de la transaccion que lleva el aviso.
+      expect(repo.delete).toHaveBeenCalledWith(BusinessSpecialDay, {
         id: "dia-1",
         businessId: NEGOCIO,
       });
@@ -202,6 +222,37 @@ describe("SpecialDaysService", () => {
 
       await expect(service.remove("dia-1", NEGOCIO)).rejects.toThrow(
         NotFoundException
+      );
+    });
+  });
+
+  describe("anuncio del cambio", () => {
+    // Booking cachea la apertura por dia: un dia especial la mueve, y sin el
+    // aviso seguiria ofreciendo horas de un dia que el negocio cerro.
+    it("avisa al declarar un día especial", async () => {
+      await service.create(NEGOCIO, {
+        startDate: "2026-12-25",
+        endDate: "2026-12-25",
+        motivo: "Navidad",
+      } as never);
+
+      expect(outbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.CORE_BUSINESS_HOURS_UPDATED,
+          payload: { businessId: NEGOCIO },
+        })
+      );
+    });
+
+    it("avisa al retirarlo", async () => {
+      await service.remove("dia-1", NEGOCIO);
+
+      expect(outbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.CORE_BUSINESS_HOURS_UPDATED,
+        })
       );
     });
   });

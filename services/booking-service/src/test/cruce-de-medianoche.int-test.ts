@@ -1,8 +1,10 @@
 import { DataSource } from "typeorm";
 import { join } from "path";
 import {
+  FichasDelUsuarioService,
   InternalHttpClient,
   OutboxService,
+  RedisCacheService,
   ZonaDelNegocioService,
 } from "@beautyspot/nest-common";
 import { createMigrationDataSourceOptions } from "@beautyspot/database";
@@ -143,9 +145,14 @@ describe("Integración: la cita de anoche ocupa la madrugada", () => {
       http as unknown as InternalHttpClient,
       disponibilidad,
       zonas,
+      // Caché de paso: en integración interesa la consulta real, no el ahorro.
+      {
+        remember: (_c: string, _t: number, cargar: () => unknown) => cargar(),
+      } as unknown as RedisCacheService,
       {
         horasMinimasDeCancelacion: jest.fn().mockResolvedValue(2),
-      } as unknown as PoliticaDeReservaService
+      } as unknown as PoliticaDeReservaService,
+      new FichasDelUsuarioService(http as unknown as InternalHttpClient)
     );
   }, 60000);
 

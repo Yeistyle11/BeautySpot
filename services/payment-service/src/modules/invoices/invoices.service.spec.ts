@@ -13,7 +13,11 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { PdfService } from "./pdf/pdf.service";
-import { InternalHttpClient } from "@beautyspot/nest-common";
+import {
+  FichasDelUsuarioService,
+  InternalHttpClient,
+  ZonaDelNegocioService,
+} from "@beautyspot/nest-common";
 
 /** Emisor y receptor tal y como los resuelve el core-service. */
 const PERFILES = {
@@ -39,6 +43,7 @@ describe("InvoicesService", () => {
   let mockPdfService: jest.Mocked<PdfService>;
   let mockReservarNumero: jest.Mock;
   let mockHttp: { pedir: jest.Mock; pedirONulo: jest.Mock };
+  let mockZonas: { de: jest.Mock };
 
   const mockInvoiceItem: InvoiceItemEntity = {
     id: "item-123",
@@ -99,6 +104,7 @@ describe("InvoicesService", () => {
       // La serie de numeración sale de los datos fiscales del negocio.
       pedirONulo: jest.fn().mockResolvedValue(PERFILES),
     };
+    mockZonas = { de: jest.fn().mockResolvedValue("America/Bogota") };
 
     const mockOutboxSpec = { enqueue: jest.fn().mockResolvedValue(undefined) };
     // La transacción entrega el repositorio simulado y resuelve la reserva del
@@ -138,6 +144,18 @@ describe("InvoicesService", () => {
           provide: InternalHttpClient,
           useValue: mockHttp,
         },
+        {
+          provide: ZonaDelNegocioService,
+          useValue: mockZonas,
+        },
+        {
+          // Resolutor real sobre el core simulado.
+          provide: FichasDelUsuarioService,
+          useFactory: () =>
+            new FichasDelUsuarioService(
+              mockHttp as unknown as InternalHttpClient
+            ),
+        },
       ],
     }).compile();
 
@@ -168,37 +186,50 @@ describe("InvoicesService", () => {
       expect(result).toEqual(mockInvoice);
     });
 
-    it("debería usar fecha actual si no se proporciona", async () => {
+    describe("la fecha sale del huso del negocio", () => {
+      // 01:00 UTC del 16 son las 20:00 del 15 en Bogota: mirar el reloj del
+      // servidor fecharia la factura un dia por delante.
+      beforeEach(() => {
+        jest.useFakeTimers().setSystemTime(new Date("2024-01-16T01:00:00Z"));
+      });
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
       const dto = {
         clientId: "client-123",
         items: [{ description: "Corte", quantity: 1, unitPrice: 30000 }],
       };
 
-      mockItemRepo.create.mockReturnValue(mockInvoiceItem);
-      mockInvoiceRepo.create.mockReturnValue(mockInvoice);
-      mockInvoiceRepo.save.mockResolvedValue(mockInvoice);
+      beforeEach(() => {
+        mockItemRepo.create.mockReturnValue(mockInvoiceItem);
+        mockInvoiceRepo.create.mockReturnValue(mockInvoice);
+        mockInvoiceRepo.save.mockResolvedValue(mockInvoice);
+      });
 
-      await service.create("business-123", dto);
+      it("fecha la factura en el día del negocio, no en el del servidor", async () => {
+        await service.create("business-123", dto);
 
-      const createCall = mockInvoiceRepo.create.mock.calls[0][0];
-      expect(createCall.date).toBeDefined();
-    });
+        expect(mockZonas.de).toHaveBeenCalledWith("business-123");
+        expect(mockInvoiceRepo.create.mock.calls[0][0].date).toBe("2024-01-15");
+      });
 
-    it("debería usar fecha de vencimiento por defecto", async () => {
-      const dto = {
-        clientId: "client-123",
-        items: [{ description: "Corte", quantity: 1, unitPrice: 30000 }],
-      };
+      it("cuenta el vencimiento desde el día de emisión", async () => {
+        await service.create("business-123", dto);
 
-      mockItemRepo.create.mockReturnValue(mockInvoiceItem);
-      mockInvoiceRepo.create.mockReturnValue(mockInvoice);
-      mockInvoiceRepo.save.mockResolvedValue(mockInvoice);
+        const creada = mockInvoiceRepo.create.mock.calls[0][0];
+        expect(creada.dueDate).toBe("2024-02-14");
+        expect(creada.status).toBe(InvoiceStatus.DRAFT);
+      });
 
-      await service.create("business-123", dto);
+      it("respeta la fecha que venga en el cuerpo", async () => {
+        await service.create("business-123", { ...dto, date: "2024-03-01" });
 
-      const createCall = mockInvoiceRepo.create.mock.calls[0][0];
-      expect(createCall.dueDate).toBeDefined();
-      expect(createCall.status).toBe(InvoiceStatus.DRAFT);
+        const creada = mockInvoiceRepo.create.mock.calls[0][0];
+        expect(creada.date).toBe("2024-03-01");
+        expect(creada.dueDate).toBe("2024-03-31");
+      });
     });
 
     it("guarda el desglose del impuesto, no solo el total", async () => {
@@ -541,7 +572,7 @@ describe("InvoicesService", () => {
     const paginacion = { page: 1, limit: 20, offset: 0 } as never;
 
     it("acota a las fichas del usuario", async () => {
-      mockHttp.pedirONulo.mockResolvedValue([{ id: "cli-1" }, { id: "cli-2" }]);
+      mockHttp.pedir.mockResolvedValue([{ id: "cli-1" }, { id: "cli-2" }]);
       mockInvoiceRepo.findAndCount.mockResolvedValue([[], 0]);
 
       await service.findByClientUser("user-1", paginacion);
@@ -554,11 +585,21 @@ describe("InvoicesService", () => {
     });
 
     it("no consulta nada si el usuario no tiene fichas", async () => {
-      mockHttp.pedirONulo.mockResolvedValue([]);
+      mockHttp.pedir.mockResolvedValue([]);
 
       const resultado = await service.findByClientUser("user-1", paginacion);
 
       expect(resultado.data).toEqual([]);
+      expect(mockInvoiceRepo.findAndCount).not.toHaveBeenCalled();
+    });
+
+    // Una caida de core no puede pasar por "no tienes facturas".
+    it("falla en vez de decir que no hay facturas si core no responde", async () => {
+      mockHttp.pedir.mockRejectedValue(new Error("core no responde"));
+
+      await expect(
+        service.findByClientUser("user-1", paginacion)
+      ).rejects.toThrow("core no responde");
       expect(mockInvoiceRepo.findAndCount).not.toHaveBeenCalled();
     });
 

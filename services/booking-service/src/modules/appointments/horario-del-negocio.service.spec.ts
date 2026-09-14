@@ -14,7 +14,7 @@ const semanal = (tramos: { openTime: string; closeTime: string }[]) => ({
 
 describe("HorarioDelNegocioService", () => {
   let http: { pedirONulo: jest.Mock };
-  let cache: { remember: jest.Mock };
+  let cache: { remember: jest.Mock; invalidarEtiqueta: jest.Mock };
   let service: HorarioDelNegocioService;
 
   beforeEach(() => {
@@ -35,6 +35,10 @@ describe("HorarioDelNegocioService", () => {
         const valor = await cargar();
         guardado.set(clave, valor);
         return valor;
+      }),
+      invalidarEtiqueta: jest.fn(async () => {
+        guardado.clear();
+        return 0;
       }),
     };
 
@@ -127,5 +131,28 @@ describe("HorarioDelNegocioService", () => {
     http.pedirONulo.mockResolvedValue(null);
 
     await expect(service.tramosDelDia(NEGOCIO, MIERCOLES)).resolves.toBeNull();
+  });
+
+  describe("olvidar", () => {
+    // La clave lleva la fecha, asi que la etiqueta es lo unico que permite
+    // olvidar todas las del negocio: el horario semanal mueve cualquier dia.
+    it("agrupa las aperturas del negocio bajo una etiqueta y la invalida", async () => {
+      // Primero se cachea una apertura, que es lo que se etiqueta.
+      await service.tramosDelDia(NEGOCIO, MIERCOLES);
+      const etiquetaDe = cache.remember.mock.calls[0][3];
+
+      await service.olvidar(NEGOCIO);
+
+      expect(etiquetaDe()).toBe(`etiqueta:horario:negocio:${NEGOCIO}`);
+      expect(cache.invalidarEtiqueta).toHaveBeenCalledWith(
+        `etiqueta:horario:negocio:${NEGOCIO}`
+      );
+    });
+
+    it("no invalida nada si no hay negocio", async () => {
+      await service.olvidar("");
+
+      expect(cache.invalidarEtiqueta).not.toHaveBeenCalled();
+    });
   });
 });

@@ -1,6 +1,9 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { ZonaDelNegocioModule } from "@beautyspot/nest-common";
+import {
+  FichasDelUsuarioModule,
+  ZonaDelNegocioModule,
+} from "@beautyspot/nest-common";
 import { AppointmentsService } from "./appointments.service";
 import { AvailabilityQueryService } from "./availability-query.service";
 import { HorarioDelNegocioService } from "./horario-del-negocio.service";
@@ -23,6 +26,7 @@ import { BlockedSlot } from "../../entities/blocked-slot.entity";
       BlockedSlot,
     ]),
     ZonaDelNegocioModule,
+    FichasDelUsuarioModule,
   ],
   controllers: [AppointmentsController, InternalAppointmentsController],
   providers: [
@@ -31,7 +35,14 @@ import { BlockedSlot } from "../../entities/blocked-slot.entity";
     HorarioDelNegocioService,
     PoliticaDeReservaService,
   ],
-  exports: [AppointmentsService, AvailabilityQueryService],
+  exports: [
+    AppointmentsService,
+    AvailabilityQueryService,
+    // Los consumidores de eventos olvidan lo que estos dos cachean cuando core
+    // anuncia que el negocio cambio de horario o de configuracion.
+    HorarioDelNegocioService,
+    PoliticaDeReservaService,
+  ],
 })
 /** Cablea la gestión de citas (controlador público e interno y su servicio). */
 export class AppointmentsModule {}

@@ -22,4 +22,12 @@ export class FindOrCreateClientDto {
   @IsUUID()
   @IsOptional()
   userId?: string;
+
+  /**
+   * Correo que el token de quien reserva acredita suyo; solo viaja junto a
+   * `userId` y es el único contacto que identifica.
+   */
+  @IsString()
+  @IsOptional()
+  userEmail?: string;
 }

@@ -1,9 +1,14 @@
 import { Test } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import type { IBaseEvent } from "@beautyspot/event-types";
-import { ProcessedEventsStore } from "@beautyspot/nest-common";
+import {
+  ProcessedEventsStore,
+  ZonaDelNegocioService,
+} from "@beautyspot/nest-common";
 import { BookingEventListeners } from "./booking-event-listeners.service";
 import { AvailabilityService } from "../availability/availability.service";
+import { HorarioDelNegocioService } from "../appointments/horario-del-negocio.service";
+import { PoliticaDeReservaService } from "../appointments/politica-de-reserva.service";
 import { Appointment } from "../../entities/appointment.entity";
 import { getRepositoryToken } from "@nestjs/typeorm";
 
@@ -21,6 +26,9 @@ function makeEvent<T>(payload: T): IBaseEvent<T> {
 describe("BookingEventListeners", () => {
   /** Reasignación de citas al fusionar dos fichas. */
   const reasignarCitas = jest.fn().mockResolvedValue({ affected: 3 });
+  const mockZonas = { olvidar: jest.fn().mockResolvedValue(undefined) };
+  const mockHorarios = { olvidar: jest.fn().mockResolvedValue(undefined) };
+  const mockPoliticas = { olvidar: jest.fn().mockResolvedValue(undefined) };
 
   let service: BookingEventListeners;
   let mockAvailabilityService: jest.Mocked<AvailabilityService>;
@@ -47,6 +55,9 @@ describe("BookingEventListeners", () => {
           provide: AvailabilityService,
           useValue: mockAvailabilityService,
         },
+        { provide: ZonaDelNegocioService, useValue: mockZonas },
+        { provide: HorarioDelNegocioService, useValue: mockHorarios },
+        { provide: PoliticaDeReservaService, useValue: mockPoliticas },
         {
           // El store real se prueba aparte; aquí basta con que deje pasar el
           // trabajo, que es el comportamiento cuando el evento es nuevo.
@@ -189,6 +200,37 @@ describe("BookingEventListeners", () => {
         { businessId: "biz-1", clientId: "c-duplicada" },
         { clientId: "c-buena" }
       );
+    });
+  });
+
+  describe("handleBusinessUpdated", () => {
+    // El huso se cachea una hora.
+    it("olvida el huso cacheado del negocio que cambió", async () => {
+      await service.handleBusinessUpdated(
+        makeEvent({ businessId: "negocio-1", slug: "x", changes: {} })
+      );
+
+      expect(mockZonas.olvidar).toHaveBeenCalledWith("negocio-1");
+    });
+  });
+
+  describe("cambios que mueven la apertura", () => {
+    // De la apertura salen las horas que se ofrecen: sin olvidarla, cerrar un
+    // dia seguia dejando reservar en el hasta que caducara la cache.
+    it("olvida la apertura cacheada cuando cambia el horario", async () => {
+      await service.handleBusinessHoursUpdated(
+        makeEvent({ businessId: "negocio-1" })
+      );
+
+      expect(mockHorarios.olvidar).toHaveBeenCalledWith("negocio-1");
+    });
+
+    it("olvida la política cacheada cuando cambia la configuración", async () => {
+      await service.handleBusinessConfigUpdated(
+        makeEvent({ businessId: "negocio-1" })
+      );
+
+      expect(mockPoliticas.olvidar).toHaveBeenCalledWith("negocio-1");
     });
   });
 });

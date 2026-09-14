@@ -38,8 +38,9 @@ export class MiReservaController {
   @Post("mine")
   async createMine(
     @Body() dto: MiReservaDto,
-    @CurrentUser("userId") userId: string
+    @CurrentUser("userId") userId: string,
+    @CurrentUser("email") userEmail: string
   ) {
-    return this.service.createPublicAppointment(dto, userId);
+    return this.service.createPublicAppointment(dto, userId, userEmail);
   }
 }

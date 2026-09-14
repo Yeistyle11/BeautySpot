@@ -11,6 +11,7 @@ import {
 } from "@beautyspot/shared-utils";
 import {
   desplazarDia,
+  esDiaCerrado,
   formatCurrency,
   formatTime,
   haComenzado,
@@ -259,10 +260,7 @@ export function DayView({
   }, [bloquesPorProfesional, professionals]);
 
   const esHoy = date === toLocalDateKey(new Date());
-  // Sin horario cargado no se afirma que el negocio este cerrado.
-  const cerrado = diasAbiertos
-    ? !diasAbiertos.includes(new Date(`${date}T12:00:00`).getDay())
-    : false;
+  const cerrado = esDiaCerrado(date, diasAbiertos);
   const etiqueta = new Date(date + "T12:00:00").toLocaleDateString("es-CO", {
     weekday: "long",
     day: "numeric",

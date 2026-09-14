@@ -353,11 +353,16 @@ describe("AuthService", () => {
         mockUser.password
       );
       expect(mockAuditLogRepository.create).toHaveBeenCalled();
-      expect(mockEventBus.emit).toHaveBeenCalledWith(
-        EventNames.AUTH_USER_LOGGED_IN,
+      // Por el outbox y no por el bus: asi el aviso no se pierde cuando
+      // RabbitMQ no responde, y el login no depende de que responda.
+      expect(mockOutboxService.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
-          userId: mockUser.id,
-          email: mockUser.email,
+          eventType: EventNames.AUTH_USER_LOGGED_IN,
+          payload: expect.objectContaining({
+            userId: mockUser.id,
+            email: mockUser.email,
+          }),
         })
       );
       expect(mockJwtService.sign).toHaveBeenCalledTimes(2);

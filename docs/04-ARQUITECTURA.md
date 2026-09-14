@@ -87,7 +87,7 @@ una de ellas**:
 
 **Quien autoriza es cada servicio**, con `@Roles(...)` y `RolesGuard` sobre el
 token que el gateway reenvia. Ponerlo en el gateway obligaria a tener aqui una
-copia de los roles de las 215 rutas, que se separaria de los controladores a la
+copia de los roles de las 235 rutas, que se separaria de los controladores a la
 primera.
 
 ### Que se reenvia
@@ -378,42 +378,46 @@ el negocio, pero vive en la base de auth, junto a `users`.
 
 Los nombres canonicos viven en `packages/event-types/src/index.ts` (`EventNames`),
 compartidos por productores y consumidores para que nadie escriba la cadena a
-mano. Son **31 nombres declarados** con el patron `{servicio}.{agregado}.{accion}`,
-de los que hoy circulan 26.
+mano. Son **35 nombres declarados** con el patron `{servicio}.{agregado}.{accion}`,
+de los que hoy circulan 30.
 
-| Routing key                         | Publica          | Consume                       |
-| ----------------------------------- | ---------------- | ----------------------------- |
-| `auth.user.registered`              | Auth             | Notification                  |
-| `auth.registro.duplicado`           | Auth             | Notification                  |
-| `auth.user.logged-in`               | Auth             | —                             |
-| `auth.password-reset.requested`     | Auth             | Notification                  |
-| `auth.email-verification.requested` | Auth             | Notification                  |
-| `auth.membership.created`           | Auth             | —                             |
-| `auth.membership.role-changed`      | Auth             | —                             |
-| `core.business.created`             | Core             | —                             |
-| `core.business.updated`             | Core             | Marketplace                   |
-| `core.professional.created`         | Core             | Booking                       |
-| `core.service.created`              | nadie            | —                             |
-| `core.service.updated`              | nadie            | —                             |
-| `core.client.created`               | Core             | Analytics                     |
-| `core.client.birthday`              | Core (sondeo)    | Notification                  |
-| `booking.appointment.created`       | Booking          | Notification, Analytics       |
-| `booking.appointment.confirmed`     | Booking          | Notification, Analytics       |
-| `booking.appointment.cancelled`     | Booking          | Notification, Analytics       |
-| `booking.appointment.completed`     | Booking          | Notification, Analytics, Core |
-| `booking.appointment.no-showed`     | Booking          | Analytics, Core               |
-| `booking.appointment.rescheduled`   | Booking          | Notification                  |
-| `booking.appointment.reminder-due`  | Booking (sondeo) | Notification                  |
-| `payment.payment.registered`        | Payment          | Notification, Analytics       |
-| `payment.invoice.generated`         | Payment          | Notification                  |
-| `payment.points.redeemed`           | Payment          | Core                          |
-| `payment.refund.processed`          | Payment          | —                             |
-| `payment.cash.session.closed`       | Payment          | —                             |
-| `marketplace.review.created`        | Marketplace      | Notification, Analytics       |
-| `marketplace.review.updated`        | nadie            | —                             |
-| `notification.email.queued`         | Notification     | —                             |
-| `notification.email.sent`           | nadie            | —                             |
-| `notification.email.failed`         | nadie            | —                             |
+| Routing key                         | Publica          | Consume                                  |
+| ----------------------------------- | ---------------- | ---------------------------------------- |
+| `auth.user.registered`              | Auth             | Notification                             |
+| `auth.registro.duplicado`           | Auth             | Notification                             |
+| `auth.user.logged-in`               | Auth             | —                                        |
+| `auth.password-reset.requested`     | Auth             | Notification                             |
+| `auth.email-verification.requested` | Auth             | Notification                             |
+| `auth.membership.created`           | Auth             | —                                        |
+| `auth.membership.role-changed`      | Auth             | —                                        |
+| `core.business.created`             | Core             | —                                        |
+| `core.business.updated`             | Core             | Marketplace, Booking                     |
+| `core.business-hours.updated`       | Core             | Booking                                  |
+| `core.business-config.updated`      | Core             | Booking                                  |
+| `core.professional.created`         | Core             | Booking                                  |
+| `core.service.created`              | nadie            | —                                        |
+| `core.service.updated`              | nadie            | —                                        |
+| `core.client.created`               | Core             | Analytics                                |
+| `core.client.birthday`              | Core (sondeo)    | Notification                             |
+| `core.client.merged`                | Core             | Booking, Payment, Marketplace, Analytics |
+| `booking.appointment.created`       | Booking          | Notification, Analytics                  |
+| `booking.appointment.confirmed`     | Booking          | Notification, Analytics                  |
+| `booking.appointment.cancelled`     | Booking          | Notification, Analytics                  |
+| `booking.appointment.completed`     | Booking          | Notification, Analytics, Core            |
+| `booking.appointment.no-showed`     | Booking          | Analytics, Core                          |
+| `booking.appointment.rescheduled`   | Booking          | Notification                             |
+| `booking.appointment.reminder-due`  | Booking (sondeo) | Notification                             |
+| `payment.payment.registered`        | Payment          | Notification, Analytics                  |
+| `payment.payment.corrected`         | Payment          | Analytics                                |
+| `payment.invoice.generated`         | Payment          | Notification                             |
+| `payment.points.redeemed`           | Payment          | Core                                     |
+| `payment.refund.processed`          | Payment          | —                                        |
+| `payment.cash.session.closed`       | Payment          | —                                        |
+| `marketplace.review.created`        | Marketplace      | Notification, Analytics                  |
+| `marketplace.review.updated`        | nadie            | —                                        |
+| `notification.email.queued`         | Notification     | —                                        |
+| `notification.email.sent`           | nadie            | —                                        |
+| `notification.email.failed`         | nadie            | —                                        |
 
 Dos columnas que conviene leer con cuidado:
 
@@ -487,15 +491,15 @@ integracion, en el **5434**.
 
 ### 8.2 Reglas de propiedad de datos
 
-| Servicio     | Es dueno de                                                      | De fuera consume                                                           |
-| ------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Auth         | `users`, `memberships`, tokens de correo y reset, `audit_logs`   | Nada                                                                       |
-| Core         | El negocio y todo lo que cuelga: sedes, equipo, catalogo, fichas | Eventos de booking (cita atendida, no-show) y de payment (canje de puntos) |
-| Booking      | `appointments`, sus lineas, jornadas y bloqueos                  | `core.professional.created`; catalogo, horario y huso por API interna      |
-| Payment      | `payments`, facturas, series y caja                              | Cita y cliente por API interna                                             |
-| Notification | `notifications` y preferencias                                   | Eventos de auth, booking, core, payment y marketplace                      |
-| Marketplace  | Perfiles publicos, `reviews`, votos y denuncias                  | `core.business.updated`; el resto se sincroniza por API interna            |
-| Analytics    | Las cinco tablas de metricas                                     | Eventos de booking, core, payment y marketplace                            |
+| Servicio     | Es dueno de                                                      | De fuera consume                                                                                                           |
+| ------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Auth         | `users`, `memberships`, tokens de correo y reset, `audit_logs`   | Nada                                                                                                                       |
+| Core         | El negocio y todo lo que cuelga: sedes, equipo, catalogo, fichas | Eventos de booking (cita atendida, no-show) y de payment (canje de puntos)                                                 |
+| Booking      | `appointments`, sus lineas, jornadas y bloqueos                  | `core.professional.created` y los cambios del negocio, que le invalidan la cache; catalogo, horario y huso por API interna |
+| Payment      | `payments`, facturas, series y caja                              | Cita y cliente por API interna                                                                                             |
+| Notification | `notifications` y preferencias                                   | Eventos de auth, booking, core, payment y marketplace                                                                      |
+| Marketplace  | Perfiles publicos, `reviews`, votos y denuncias                  | `core.business.updated`; el resto se sincroniza por API interna                                                            |
+| Analytics    | Las cinco tablas de metricas                                     | Eventos de booking, core, payment y marketplace                                                                            |
 
 ### 8.3 No compartir base de datos
 

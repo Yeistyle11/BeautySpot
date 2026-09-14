@@ -26,6 +26,19 @@ const PUERTOS: Record<ServicioInterno, number> = {
   analytics: 3007,
 };
 
+/**
+ * Fallo de una llamada entre servicios: un 503 que lleva el estado con el que
+ * respondió el otro lado.
+ */
+export class ErrorDeServicioInterno extends ServiceUnavailableException {
+  constructor(
+    readonly estado: number,
+    mensaje: string
+  ) {
+    super(mensaje);
+  }
+}
+
 const TIMEOUT_POR_DEFECTO_MS = 5000;
 
 /** Ajustes de una llamada concreta. */
@@ -75,7 +88,8 @@ export class InternalHttpClient {
     if (respuesta.status === 404 && opciones.noEncontradoComoNulo) return null;
 
     if (!respuesta.ok) {
-      throw new ServiceUnavailableException(
+      throw new ErrorDeServicioInterno(
+        respuesta.status,
         `${servicio}-service respondió ${respuesta.status} en ${ruta}`
       );
     }

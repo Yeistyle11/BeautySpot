@@ -1,8 +1,10 @@
 import { DataSource } from "typeorm";
 import { join } from "path";
 import {
+  FichasDelUsuarioService,
   InternalHttpClient,
   OutboxService,
+  RedisCacheService,
   ZonaDelNegocioService,
 } from "@beautyspot/nest-common";
 import { createMigrationDataSourceOptions } from "@beautyspot/database";
@@ -124,18 +126,20 @@ describe("Integración: la reserva con sesión aparece en el panel del cliente",
       http as unknown as InternalHttpClient,
       disponibilidad,
       zonas,
+      // Caché de paso: en integración interesa la consulta real, no el ahorro.
+      {
+        remember: (_c: string, _t: number, cargar: () => unknown) => cargar(),
+      } as unknown as RedisCacheService,
       {
         horasMinimasDeCancelacion: jest.fn().mockResolvedValue(2),
-      } as unknown as PoliticaDeReservaService
+      } as unknown as PoliticaDeReservaService,
+      new FichasDelUsuarioService(http as unknown as InternalHttpClient)
     );
 
     reserva = new PublicBookingService(
-      dataSource.getRepository(Appointment),
-      dataSource.getRepository(Availability),
-      dataSource.getRepository(BlockedSlot),
-      dataSource.getRepository(AppointmentServiceEntity),
       http as unknown as InternalHttpClient,
-      citas
+      citas,
+      disponibilidad
     );
   }, 60000);
 

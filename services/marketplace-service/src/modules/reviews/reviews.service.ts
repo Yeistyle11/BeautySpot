@@ -30,6 +30,7 @@ import {
 import { EventNames } from "@beautyspot/event-types";
 import {
   aResenaPublica,
+  ResenaDeQuienLaEscribio,
   CreateReviewDto,
   ResenaPublica,
   ReviewQueryDto,
@@ -427,12 +428,24 @@ export class ReviewsService {
     });
   }
 
-  /** Reseñas asociadas a una cita; el listado del cliente comprueba si ya opinó. */
-  async findByAppointment(appointmentId: string): Promise<ReviewEntity[]> {
-    return this.repo.find({
-      where: { appointmentId },
+  /**
+   * Reseñas que el usuario escribió sobre esa cita, acotadas a las suyas: el
+   * listado del cliente comprueba así si ya opinó.
+   */
+  async findByAppointment(
+    appointmentId: string,
+    userId: string
+  ): Promise<ResenaDeQuienLaEscribio[]> {
+    const reviews = await this.repo.find({
+      where: { appointmentId, clientId: userId },
       order: { createdAt: "DESC" },
     });
+
+    return reviews.map((review) => ({
+      ...aResenaPublica(review),
+      clientId: review.clientId,
+      status: review.status,
+    }));
   }
 
   /**

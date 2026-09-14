@@ -1197,4 +1197,219 @@ describe("AvailabilityQueryService", () => {
       expect(mockBlockRepo.find).not.toHaveBeenCalled();
     });
   });
+
+  describe("primerProfesionalLibre", () => {
+    /** Un lunes: es el `dayOfWeek` 1 de los horarios del fixture. */
+    const LUNES = "2024-01-15";
+    /** Una hora seguida, sin procesado ni limpieza. */
+    const UNA_HORA = [
+      {
+        duration: 60,
+        orden: 0,
+        procesadoDesde: null,
+        procesadoMinutos: null,
+        bufferDespues: 0,
+      },
+    ];
+
+    /** Tramo de jornada de un profesional ese lunes. */
+    const tramo = (
+      professionalId: string,
+      startTime: string,
+      endTime: string
+    ) => ({
+      ...mockAvailability,
+      professionalId,
+      startTime,
+      endTime,
+      dayOfWeek: 1,
+    });
+
+    const libre = () => {
+      mockBlockRepo.find.mockResolvedValue([]);
+      mockApptRepo.find.mockResolvedValue([]);
+      mockLineaRepo.find.mockResolvedValue([]);
+    };
+
+    it("elige al primero del equipo que tenga la franja libre", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        tramo("prof-a", "09:00", "18:00"),
+        tramo("prof-b", "09:00", "18:00"),
+      ] as never);
+      libre();
+
+      await expect(
+        service.primerProfesionalLibre(
+          "business-123",
+          LUNES,
+          "10:00",
+          "11:00",
+          UNA_HORA
+        )
+      ).resolves.toBe("prof-a");
+    });
+
+    it("salta al siguiente cuando el primero ya tiene una cita encima", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        tramo("prof-a", "09:00", "18:00"),
+        tramo("prof-b", "09:00", "18:00"),
+      ] as never);
+      libre();
+      mockApptRepo.find.mockResolvedValue([
+        {
+          ...mockAppointment,
+          id: "ocupada",
+          professionalId: "prof-a",
+          date: LUNES,
+          startTime: "10:00",
+          endTime: "11:00",
+          status: AppointmentStatus.CONFIRMED,
+        },
+      ] as never);
+
+      await expect(
+        service.primerProfesionalLibre(
+          "business-123",
+          LUNES,
+          "10:00",
+          "11:00",
+          UNA_HORA
+        )
+      ).resolves.toBe("prof-b");
+    });
+
+    it("salta al siguiente cuando el primero tiene un bloqueo encima", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        tramo("prof-a", "09:00", "18:00"),
+        tramo("prof-b", "09:00", "18:00"),
+      ] as never);
+      libre();
+      mockBlockRepo.find.mockResolvedValue([
+        { professionalId: "prof-a", startTime: "09:30", endTime: "11:30" },
+      ] as never);
+
+      await expect(
+        service.primerProfesionalLibre(
+          "business-123",
+          LUNES,
+          "10:00",
+          "11:00",
+          UNA_HORA
+        )
+      ).resolves.toBe("prof-b");
+    });
+
+    // La reserva del escaparate comprueba la apertura del negocio.
+    it("no da profesional si el negocio está cerrado ese día", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        tramo("prof-a", "09:00", "18:00"),
+      ] as never);
+      libre();
+      mockHorario.tramosDelDia.mockResolvedValue([]);
+
+      await expect(
+        service.primerProfesionalLibre(
+          "business-123",
+          LUNES,
+          "10:00",
+          "11:00",
+          UNA_HORA
+        )
+      ).resolves.toBeNull();
+    });
+
+    it("respeta la apertura del negocio aunque el profesional trabaje antes", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        tramo("prof-a", "08:00", "18:00"),
+      ] as never);
+      libre();
+      mockHorario.tramosDelDia.mockResolvedValue([
+        { startTime: "10:00", endTime: "18:00" },
+      ]);
+
+      await expect(
+        service.primerProfesionalLibre(
+          "business-123",
+          LUNES,
+          "08:30",
+          "09:30",
+          UNA_HORA
+        )
+      ).resolves.toBeNull();
+    });
+
+    // Con jornada partida solo se evaluaba el primer tramo, asi que la tarde
+    // de quien libra a mediodia quedaba sin poder reservarse.
+    it("acepta el segundo tramo de una jornada partida", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        tramo("prof-a", "09:00", "13:00"),
+        tramo("prof-a", "15:00", "19:00"),
+      ] as never);
+      libre();
+
+      await expect(
+        service.primerProfesionalLibre(
+          "business-123",
+          LUNES,
+          "16:00",
+          "17:00",
+          UNA_HORA
+        )
+      ).resolves.toBe("prof-a");
+    });
+
+    it("no da profesional en el hueco de una jornada partida", async () => {
+      mockAvailRepo.find.mockResolvedValue([
+        tramo("prof-a", "09:00", "13:00"),
+        tramo("prof-a", "15:00", "19:00"),
+      ] as never);
+      libre();
+
+      await expect(
+        service.primerProfesionalLibre(
+          "business-123",
+          LUNES,
+          "13:30",
+          "14:30",
+          UNA_HORA
+        )
+      ).resolves.toBeNull();
+    });
+
+    it("no da profesional si nadie trabaja ese día", async () => {
+      mockAvailRepo.find.mockResolvedValue([]);
+      libre();
+
+      await expect(
+        service.primerProfesionalLibre(
+          "business-123",
+          LUNES,
+          "10:00",
+          "11:00",
+          UNA_HORA
+        )
+      ).resolves.toBeNull();
+    });
+
+    it("consulta al equipo entero de una vez, sea cual sea su tamaño", async () => {
+      mockAvailRepo.find.mockResolvedValue(
+        ["a", "b", "c", "d"].map((id) => tramo(id, "09:00", "18:00")) as never
+      );
+      libre();
+
+      await service.primerProfesionalLibre(
+        "business-123",
+        LUNES,
+        "10:00",
+        "11:00",
+        UNA_HORA
+      );
+
+      // Horarios y bloqueos, una consulta cada uno; las citas, dos: las del
+      // dia y las de la vispera, que son las que arrastran su madrugada.
+      expect(mockAvailRepo.find).toHaveBeenCalledTimes(1);
+      expect(mockBlockRepo.find).toHaveBeenCalledTimes(1);
+      expect(mockApptRepo.find).toHaveBeenCalledTimes(2);
+    });
+  });
 });

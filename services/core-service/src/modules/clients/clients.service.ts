@@ -35,6 +35,7 @@ import {
 } from "@beautyspot/shared-constants";
 import {
   contieneTexto,
+  metadataDePaginacion,
   paginarQueryBuilder,
   paginate,
   PaginateParams,
@@ -72,6 +73,19 @@ function normalizarContacto(data: Partial<Client>): {
   if (data.email !== undefined) contacto.email = normalizarEmail(data.email);
   if (data.phone !== undefined) contacto.phone = normalizarTelefono(data.phone);
   return contacto;
+}
+
+/** Datos con los que una reserva pide la ficha de quien la hace. */
+export interface DatosDeReserva {
+  businessId: string;
+  name: string;
+  /** Contacto escrito en el formulario: dice cómo avisar, no quién es. */
+  email?: string;
+  phone?: string;
+  /** Usuario que reserva; ausente en la reserva de invitado. */
+  userId?: string;
+  /** Correo que el token acredita suyo; solo viaja junto a `userId`. */
+  userEmail?: string;
 }
 
 /** CRUD de la cartera de clientes de un negocio, incluida su fidelización por puntos. */
@@ -144,6 +158,72 @@ export class ClientsService extends TenantCrudService<Client> {
         `Ya existe un cliente con ese ${existente.email === contacto.email ? "correo" : "teléfono"}: ${existente.name}`
       );
     }
+  }
+
+  /**
+   * Ficha de quien reserva en ese negocio, o una nueva. Con sesión identifica
+   * el token —usuario y correo acreditado—; al invitado, su contacto.
+   */
+  async resolverFichaDeReserva(datos: DatosDeReserva): Promise<Client> {
+    // Al invitado se le identifica por un contacto que nadie ha verificado, que
+    // es la premisa de poder reservar sin cuenta.
+    const existente = datos.userId
+      ? await this.fichaDeLaCuenta(datos)
+      : await this.buscarPorContacto(
+          datos.businessId,
+          normalizarContacto(datos)
+        );
+
+    if (existente) return this.vincularUsuario(existente, datos.userId);
+
+    return this.create(datos.businessId, {
+      name: datos.name,
+      email: datos.email,
+      phone: datos.phone,
+      userId: datos.userId ?? null,
+      tags: [],
+    }).catch((error: unknown) => {
+      throw this.sinDelatarAlTitular(error);
+    });
+  }
+
+  /**
+   * Ficha de quien reserva con sesión: la suya, o la que lleve el correo que su
+   * token acredita.
+   */
+  private async fichaDeLaCuenta(datos: DatosDeReserva): Promise<Client | null> {
+    const suya = await this.repo.findOne({
+      where: { businessId: datos.businessId, userId: datos.userId },
+    });
+    if (suya) return suya;
+
+    const acreditado = normalizarEmail(datos.userEmail);
+    if (!acreditado) return null;
+
+    return this.repo.findOne({
+      where: { businessId: datos.businessId, email: acreditado },
+    });
+  }
+
+  /** Ata la ficha al usuario que reserva, si aún no tiene ninguno. */
+  private async vincularUsuario(
+    client: Client,
+    userId?: string
+  ): Promise<Client> {
+    if (!userId || client.userId) return client;
+    client.userId = userId;
+    return this.repo.save(client);
+  }
+
+  /**
+   * Quita los datos del titular del choque de contacto antes de que salga por
+   * una ruta de reserva.
+   */
+  private sinDelatarAlTitular(error: unknown): unknown {
+    if (!(error instanceof ConflictException)) return error;
+    return new ConflictException(
+      "Ese correo o teléfono ya está registrado en este negocio"
+    );
   }
 
   /**
@@ -578,17 +658,7 @@ export class ClientsService extends TenantCrudService<Client> {
   private paginaVacia(
     pagination: PaginateParams
   ): IPaginatedResponse<Pick<Client, "id" | "name">> {
-    return {
-      data: [],
-      meta: {
-        page: pagination.page,
-        limit: pagination.limit,
-        total: 0,
-        totalPages: 0,
-        hasNext: false,
-        hasPrev: pagination.page > 1,
-      },
-    };
+    return { data: [], meta: metadataDePaginacion(pagination, 0) };
   }
 
   /** Nombre de los clientes pedidos, acotado al negocio: solo id y nombre. */

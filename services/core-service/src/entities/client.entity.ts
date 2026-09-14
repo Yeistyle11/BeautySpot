@@ -21,11 +21,9 @@ import { Business } from "./business.entity";
 // La ruta interna que resuelve los clientes de un usuario consulta por user_id
 // sin negocio: lleva su propio indice.
 @Index("idx_clients_usuario", ["userId"])
-// El sondeo de cumpleaños solo mira las fichas que traen fecha, que son minoría.
-@Index("idx_clients_cumpleanos", ["birthDate"], {
-  where: '"birth_date" IS NOT NULL',
-})
-// Las fichas fusionadas son minoria y se consultan por su superviviente.
+// El indice del sondeo de cumpleanos es de expresion —dia y mes— y vive solo en
+// la migracion: `@Index` no sabe declararlo. Las fichas fusionadas son minoria
+// y se consultan por su superviviente.
 @Index("idx_clients_fusionadas", ["mergedIntoId"], {
   where: '"merged_into_id" IS NOT NULL',
 })

@@ -6,11 +6,23 @@ const SERIALIZATION_FAILURE = "40001";
 const DEADLOCK_DETECTED = "40P01";
 
 const DEFAULT_MAX_ATTEMPTS = 3;
+/**
+ * Espera del primer reintento. Un conflicto de serialización se resuelve en
+ * cuanto la otra transacción termina, así que el orden es el de milisegundos.
+ */
+const ESPERA_BASE_MS = 20;
 const logger = new Logger("SerializableRetry");
 
 function isRetryable(error: unknown): boolean {
   const code = (error as { code?: string })?.code;
   return code === SERIALIZATION_FAILURE || code === DEADLOCK_DETECTED;
+}
+
+/**
+ * Espera del intento, al doble de la anterior y repartida al azar en ese tope.
+ */
+function esperaDelIntento(intento: number, baseMs: number): number {
+  return Math.random() * baseMs * 2 ** (intento - 1);
 }
 
 /**
@@ -20,7 +32,8 @@ function isRetryable(error: unknown): boolean {
  */
 export async function withSerializableRetry<T>(
   operation: () => Promise<T>,
-  maxAttempts: number = DEFAULT_MAX_ATTEMPTS
+  maxAttempts: number = DEFAULT_MAX_ATTEMPTS,
+  esperaBaseMs: number = ESPERA_BASE_MS
 ): Promise<T> {
   let lastError: unknown;
 
@@ -34,6 +47,9 @@ export async function withSerializableRetry<T>(
       lastError = error;
       logger.warn(
         `Conflicto de serialización (intento ${attempt}/${maxAttempts}), reintentando`
+      );
+      await new Promise((sigue) =>
+        setTimeout(sigue, esperaDelIntento(attempt, esperaBaseMs))
       );
     }
   }

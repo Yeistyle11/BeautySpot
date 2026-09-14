@@ -31,7 +31,7 @@ Next.js, PostgreSQL, Redis, RabbitMQ y Docker.
 | marketplace-service  | 3006   | `beautyspot_marketplace`  | Perfiles públicos, búsqueda, feed, reseñas                          |
 | analytics-service    | 3007   | `beautyspot_analytics`    | KPIs, métricas, reportes                                            |
 
-En total **48 controladores y 216 rutas**, todas accesibles a través del gateway.
+En total **51 controladores y 235 rutas**, todas accesibles a través del gateway.
 Referencia completa en [docs/API.md](docs/API.md).
 
 **Decisiones de arquitectura destacadas**
@@ -114,7 +114,7 @@ cd apps/frontend && npm run dev   # sólo frontend (8080)
 npm run build                     # turbo build de servicios y paquetes
 
 # Tests
-npm test                          # 1870 tests unitarios (13 proyectos Jest)
+npm test                          # 2942 tests unitarios (13 proyectos Jest)
 npm run test:watch
 npm run test:coverage             # con cobertura y gate
 
@@ -156,7 +156,7 @@ BeautySpot/
 │   └── frontend/              # Next.js 16 (8080) — fuente de verdad de la UI
 ├── packages/
 │   ├── database/              # Configuración TypeORM, entidades base, paginación
-│   ├── event-types/           # Contratos de los 30 eventos de RabbitMQ
+│   ├── event-types/           # Contratos de los 35 eventos de RabbitMQ
 │   ├── nest-common/           # Módulo compartido: caché, event bus, outbox, filtros
 │   ├── shared-constants/      # Reglas de negocio con nombre
 │   ├── shared-types/          # Enums e interfaces del dominio
@@ -243,13 +243,13 @@ CORS_ORIGINS=http://localhost:3000
 
 **Tests**
 
-|             | Cantidad                                                        |
-| ----------- | --------------------------------------------------------------- |
-| Unitarios   | **1870 tests / 136 suites**                                     |
-| Integración | 75 tests / 25 suites (contra Postgres, Redis y RabbitMQ reales) |
+|             | Cantidad                                             |
+| ----------- | ---------------------------------------------------- |
+| Unitarios   | **2942 tests / 212 suites**                          |
+| Integración | 37 suites (contra Postgres, Redis y RabbitMQ reales) |
 
-Cobertura: **92,34 %** statements, **81,41 %** branches, **83,90 %** functions,
-**93,69 %** lines. El gate de `jest.config.js` falla el CI si baja de 92/80/80/93.
+Cobertura: **92,29 %** statements, **80,88 %** branches, **83,30 %** functions,
+**93,66 %** lines. El gate de `jest.config.js` falla el CI si baja de 92/80/80/93.
 
 Detalle en [docs/TESTING.md](docs/TESTING.md).
 
@@ -268,9 +268,9 @@ Los más usados:
 | Documento                                          | Contenido                         |
 | -------------------------------------------------- | --------------------------------- |
 | [docs/SETUP.md](docs/SETUP.md)                     | Entorno de desarrollo paso a paso |
-| [docs/API.md](docs/API.md)                         | Referencia de las 216 rutas       |
+| [docs/API.md](docs/API.md)                         | Referencia de las 235 rutas       |
 | [docs/04-ARQUITECTURA.md](docs/04-ARQUITECTURA.md) | Arquitectura y ADRs               |
-| [docs/05-BASE-DATOS.md](docs/05-BASE-DATOS.md)     | Las 47 tablas, columna a columna  |
+| [docs/05-BASE-DATOS.md](docs/05-BASE-DATOS.md)     | Las 49 tablas, columna a columna  |
 | [docs/TESTING.md](docs/TESTING.md)                 | Estrategia de tests               |
 | [docs/CI-CD.md](docs/CI-CD.md)                     | Pipeline de CI                    |
 | [DEPLOY.md](DEPLOY.md)                             | Despliegue en producción          |

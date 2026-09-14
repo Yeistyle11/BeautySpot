@@ -1,4 +1,4 @@
-import { IsString, IsIn } from "class-validator";
+import { IsString, IsIn, IsOptional } from "class-validator";
 import { Role } from "@beautyspot/shared-types";
 
 /** Roles que un administrador puede asignar; SUPER_ADMIN queda excluido a propósito. */
@@ -20,6 +20,16 @@ export class CreateMembershipDto {
 
   @IsIn(ASSIGNABLE_ROLES, { message: "No se puede asignar el rol SUPER_ADMIN" })
   role!: Role;
+}
+
+/**
+ * Alta de membresía pedida por otro servicio. Declara `invitedBy` en el propio
+ * tipo: de una intersección, el ValidationPipe no recibe metadato utilizable.
+ */
+export class CrearMembresiaInternaDto extends CreateMembershipDto {
+  @IsOptional()
+  @IsString()
+  invitedBy?: string;
 }
 
 /** Nuevo rol a asignar a una membresía existente. */

@@ -111,9 +111,15 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
       let cursor: Cursor | null = null;
       for (let pagina = 0; pagina < MAXIMO_PAGINAS; pagina++) {
         const candidatas = await this.paginaDeCandidatas(desde, hasta, cursor);
+        const zonas = await this.zonasDeLaPagina(candidatas);
 
         for (const cita of candidatas) {
-          await this.resolver(cita, ahora);
+          // El mapa se construye con estos mismos negocios: siempre responde.
+          await this.resolver(
+            cita,
+            ahora,
+            zonas.get(cita.businessId) as string
+          );
         }
 
         if (candidatas.length < MAXIMO_POR_SONDEO) return;
@@ -172,9 +178,23 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
     return qb.getMany();
   }
 
+  /** Huso de cada negocio de la página, resuelto una vez por negocio. */
+  private async zonasDeLaPagina(
+    citas: Appointment[]
+  ): Promise<Map<string, string>> {
+    const negocios = [...new Set(citas.map((cita) => cita.businessId))];
+    const zonas = await Promise.all(
+      negocios.map((businessId) => this.zonas.de(businessId))
+    );
+    return new Map(negocios.map((businessId, i) => [businessId, zonas[i]]));
+  }
+
   /** Aplica a una cita lo que toque en cada uno de sus recordatorios pendientes. */
-  private async resolver(cita: Appointment, ahora: Date): Promise<void> {
-    const zona = await this.zonas.de(cita.businessId);
+  private async resolver(
+    cita: Appointment,
+    ahora: Date,
+    zona: string
+  ): Promise<void> {
     const inicio = instanteDe(zona, cita.date, cita.startTime);
     const faltan = (inicio.getTime() - ahora.getTime()) / 3600000;
     const antelacion =

@@ -36,13 +36,19 @@ export class BusinessProfilesController {
     return this.service.crearParaNegocio(businessId, dto);
   }
 
+  /** Guarda el perfil inmersivo; 409 si otra persona lo guardó entremedias. */
   @Put("config")
   @Roles(Role.OWNER, Role.ADMIN)
   async updateConfig(
     @BusinessId() businessId: string,
     @Body() dto: UpdateProfileConfigDto
   ) {
-    return this.service.updateConfig(businessId, dto);
+    const { updatedAt, ...cambios } = dto;
+    return this.service.updateConfig(
+      businessId,
+      cambios,
+      updatedAt ? new Date(updatedAt) : undefined
+    );
   }
 
   @Post("gallery")

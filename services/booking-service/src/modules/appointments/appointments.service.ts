@@ -26,19 +26,29 @@ import {
   ServicioDeLaCita,
 } from "@beautyspot/event-types";
 import {
+  FichasDelUsuarioService,
   InternalHttpClient,
   OutboxService,
+  RedisCacheService,
   withSerializableRetry,
   ZonaDelNegocioService,
 } from "@beautyspot/nest-common";
-import { paginate, PaginateParams } from "@beautyspot/database";
+import {
+  metadataDePaginacion,
+  paginate,
+  PaginateParams,
+} from "@beautyspot/database";
 import { serviciosDelEvento } from "../../common/servicios-del-evento";
 import { AvailabilityQueryService } from "./availability-query.service";
 import { PoliticaDeReservaService } from "./politica-de-reserva.service";
 import { PROPORCION_PUNTOS_FIDELIDAD } from "@beautyspot/shared-constants";
+
+/** Lo que se guardan las sedes de un negocio. */
+const TTL_SEDES = 300;
 import {
   ahoraEnLaZona,
   calculateEndTime,
+  diaDeLaSemana,
   escapeLikePattern,
   esInstantePasadoEn,
   fechaDeHoyEn,
@@ -129,7 +139,9 @@ export class AppointmentsService {
     private readonly http: InternalHttpClient,
     private readonly disponibilidad: AvailabilityQueryService,
     private readonly zonas: ZonaDelNegocioService,
-    private readonly politica: PoliticaDeReservaService
+    private readonly cache: RedisCacheService,
+    private readonly politica: PoliticaDeReservaService,
+    private readonly fichas: FichasDelUsuarioService
   ) {}
 
   /** Indica si a la cita le falta menos de la antelación mínima. */
@@ -227,17 +239,26 @@ export class AppointmentsService {
     });
   }
 
-  /** Comprueba que la sede indicada sea una sede activa del negocio. */
+  /**
+   * Comprueba que la sede indicada sea una sede activa del negocio. Las sedes
+   * se cachean unos minutos; nada de lo que se congela en la cita se cachea.
+   */
   private async validarSede(
     businessId: string,
     branchId?: string
   ): Promise<void> {
     if (!branchId) return;
 
-    const sedes = await this.http.pedir<{ id: string }[]>(
-      "core",
-      `/internal/branches?businessId=${businessId}`
+    const sedes = await this.cache.remember(
+      `sedes:negocio:${businessId}`,
+      TTL_SEDES,
+      () =>
+        this.http.pedir<{ id: string }[]>(
+          "core",
+          `/internal/branches?businessId=${businessId}`
+        )
     );
+
     if (!Array.isArray(sedes) || !sedes.some((s) => s.id === branchId)) {
       throw new BadRequestException("La sede indicada no es de este negocio");
     }
@@ -293,7 +314,7 @@ export class AppointmentsService {
 
     // Pre-check rapido (UX): fast-fail en slots obviamente invalidos fuera
     // de transaccion. El check autoritativo corre DENTRO de la tx SERIALIZABLE.
-    const dayOfWeek = new Date(data.date + "T12:00:00").getDay();
+    const dayOfWeek = diaDeLaSemana(data.date);
     const available = await this.disponibilidad.franjaDentroDelHorario(
       businessId,
       data.date,
@@ -738,7 +759,7 @@ export class AppointmentsService {
     );
     const finGuardado = horaDeReloj(newEndTime);
     const ocupadoHastaGuardado = horaDeReloj(nuevoOcupadoHasta);
-    const dayOfWeek = new Date(newDate + "T12:00:00").getDay();
+    const dayOfWeek = diaDeLaSemana(newDate);
     const available = await this.disponibilidad.franjaDentroDelHorario(
       businessId,
       newDate,
@@ -754,46 +775,50 @@ export class AppointmentsService {
     )
       throw new BadRequestException("Ya existe una cita en el nuevo horario");
 
-    // Actualizar dentro de tx SERIALIZABLE con re-check autoritativo para
-    // prevenir doble-booking en el nuevo horario (race condition).
-    await this.dataSource.transaction("SERIALIZABLE", async (manager) => {
-      const conflictInTx = await this.disponibilidad.hayConflictoEn(
-        manager,
-        businessId,
-        newDate,
-        reparto,
-        id
-      );
-      if (conflictInTx)
-        throw new BadRequestException("Ya existe una cita en el nuevo horario");
+    // Dentro de la transaccion SERIALIZABLE se repite la comprobacion de
+    // conflicto; el error 40001 lo reintenta withSerializableRetry.
+    await withSerializableRetry(() =>
+      this.dataSource.transaction("SERIALIZABLE", async (manager) => {
+        const conflictInTx = await this.disponibilidad.hayConflictoEn(
+          manager,
+          businessId,
+          newDate,
+          reparto,
+          id
+        );
+        if (conflictInTx)
+          throw new BadRequestException(
+            "Ya existe una cita en el nuevo horario"
+          );
 
-      // El estado no se toca: una cita confirmada sigue confirmada al moverla.
-      await manager.update(
-        Appointment,
-        { id, businessId },
-        {
-          date: newDate,
-          startTime: newStartTime,
-          endTime: finGuardado,
-          ocupadoHasta: ocupadoHastaGuardado,
-        }
-      );
-
-      await this.outbox.enqueue(manager, {
-        eventType: EventNames.BOOKING_APPOINTMENT_RESCHEDULED,
-        aggregateType: "appointment",
-        aggregateId: id,
-        payload: {
-          ...cuerpoDeCita(appt, businessId, {
+        // El estado no se toca: una cita confirmada sigue confirmada al moverla.
+        await manager.update(
+          Appointment,
+          { id, businessId },
+          {
             date: newDate,
             startTime: newStartTime,
             endTime: finGuardado,
-          }),
-          previousDate: appt.date,
-          previousStartTime: appt.startTime,
-        },
-      });
-    });
+            ocupadoHasta: ocupadoHastaGuardado,
+          }
+        );
+
+        await this.outbox.enqueue(manager, {
+          eventType: EventNames.BOOKING_APPOINTMENT_RESCHEDULED,
+          aggregateType: "appointment",
+          aggregateId: id,
+          payload: {
+            ...cuerpoDeCita(appt, businessId, {
+              date: newDate,
+              startTime: newStartTime,
+              endTime: finGuardado,
+            }),
+            previousDate: appt.date,
+            previousStartTime: appt.startTime,
+          },
+        });
+      })
+    );
     return this.findById(id, businessId);
   }
 
@@ -970,19 +995,9 @@ export class AppointmentsService {
     userId: string,
     pagination: PaginateParams
   ): Promise<IPaginatedResponse<Appointment>> {
-    const clientIds = await this.clientIdsDelUsuario(userId);
+    const clientIds = await this.fichas.de(userId);
     if (clientIds.length === 0) {
-      return {
-        data: [],
-        meta: {
-          page: pagination.page,
-          limit: pagination.limit,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false,
-        },
-      };
+      return { data: [], meta: metadataDePaginacion(pagination, 0) };
     }
 
     return paginate(this.apptRepo, pagination, {
@@ -1006,7 +1021,7 @@ export class AppointmentsService {
     });
     if (!cita) throw new NotFoundException("Cita no encontrada");
 
-    const clientIds = await this.clientIdsDelUsuario(userId);
+    const clientIds = await this.fichas.de(userId);
     if (!clientIds.includes(cita.clientId)) {
       throw new NotFoundException("Cita no encontrada");
     }
@@ -1040,20 +1055,6 @@ export class AppointmentsService {
     return this.reschedule(id, cita.businessId, newDate, newStartTime, {
       esCliente: true,
     });
-  }
-
-  /** Pregunta a core qué fichas de cliente pertenecen a este usuario. */
-  private async clientIdsDelUsuario(userId: string): Promise<string[]> {
-    const fichas = await this.http.pedir<{ id?: unknown }[]>(
-      "core",
-      `/internal/clients/by-user/${userId}`
-    );
-
-    return Array.isArray(fichas)
-      ? fichas
-          .map((c) => c.id)
-          .filter((id): id is string => typeof id === "string")
-      : [];
   }
 
   /**
@@ -1167,7 +1168,7 @@ export class AppointmentsService {
       return { resenable: false };
     }
 
-    const fichas = await this.clientIdsDelUsuario(userId);
+    const fichas = await this.fichas.de(userId);
     if (!fichas.includes(cita.clientId)) return { resenable: false };
 
     return {

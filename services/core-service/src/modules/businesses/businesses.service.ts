@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { OutboxService, InternalHttpClient } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
+import { metadataDePaginacion } from "@beautyspot/database";
 import { In, Repository, DataSource, EntityManager } from "typeorm";
 import { Business } from "../../entities/business.entity";
 import { Branch } from "../../entities/branch.entity";
@@ -219,18 +220,9 @@ export class BusinessesService {
     const [data, total] = await qb.getManyAndCount();
     await this.adjuntarColecciones(data);
 
-    const totalPages = Math.ceil(total / params.limit);
-    return {
-      data,
-      meta: {
-        page: params.page,
-        limit: params.limit,
-        total,
-        totalPages,
-        hasNext: params.page < totalPages,
-        hasPrev: params.page > 1,
-      },
-    };
+    // El sobre lo arma el helper: las colecciones se adjuntan a la página ya
+    // traída.
+    return { data, meta: metadataDePaginacion(params, total) };
   }
 
   /**
@@ -285,6 +277,9 @@ export class BusinessesService {
         configs: true,
         hours: true,
       },
+      // Una consulta por colección: son cinco uno-a-muchos hermanas, y unidas
+      // multiplican sus filas entre sí.
+      relationLoadStrategy: "query",
     });
 
     if (!business) throw new NotFoundException("Negocio no encontrado");
@@ -308,6 +303,7 @@ export class BusinessesService {
         services: true,
         professionals: true,
       },
+      relationLoadStrategy: "query",
     });
 
     if (!business)

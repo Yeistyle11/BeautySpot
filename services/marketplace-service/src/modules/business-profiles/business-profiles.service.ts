@@ -27,6 +27,7 @@ import {
 } from "./dto/profile.dto";
 import {
   esViolacionDeUnicidad,
+  rechazarSiOtroGuardoAntes,
   RedisCacheService,
 } from "@beautyspot/nest-common";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
@@ -243,13 +244,39 @@ export class BusinessProfilesService {
     return profile;
   }
 
-  /** Actualiza los campos del perfil inmersivo (historia, redes, secciones) y recalcula la completitud. */
+  /**
+   * Actualiza los campos del perfil inmersivo (historia, redes, secciones) y
+   * recalcula la completitud. Con `versionCargada` la escritura es condicional.
+   */
   async updateConfig(
     businessId: string,
-    dto: UpdateProfileConfigDto
+    dto: Omit<UpdateProfileConfigDto, "updatedAt">,
+    versionCargada?: Date
   ): Promise<BusinessProfileEntity> {
-    const profile = await this.findByBusinessId(businessId);
+    if (versionCargada) {
+      return this.repo.manager.transaction(async (manager) => {
+        const actual = await manager
+          .getRepository(BusinessProfileEntity)
+          .findOne({
+            where: { businessId },
+            lock: { mode: "pessimistic_write" },
+          });
+        if (!actual) {
+          throw new NotFoundException("Perfil de negocio no encontrado");
+        }
+        rechazarSiOtroGuardoAntes(actual.updatedAt, versionCargada);
+        return this.aplicarConfig(actual, dto);
+      });
+    }
 
+    return this.aplicarConfig(await this.findByBusinessId(businessId), dto);
+  }
+
+  /** Vuelca los campos que vengan sobre el perfil y lo guarda. */
+  private async aplicarConfig(
+    profile: BusinessProfileEntity,
+    dto: Omit<UpdateProfileConfigDto, "updatedAt">
+  ): Promise<BusinessProfileEntity> {
     if (dto.tagline !== undefined) profile.tagline = dto.tagline;
     if (dto.storyTitle !== undefined) profile.storyTitle = dto.storyTitle;
     if (dto.storyText !== undefined) profile.storyText = dto.storyText;

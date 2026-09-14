@@ -7,7 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
-import { desplazarDia, toLocalDateKey } from "@/lib/utils";
+import {
+  desplazarDia,
+  diaDeLaSemana,
+  esDiaCerrado,
+  toLocalDateKey,
+} from "@/lib/utils";
 import { ordenarPorJornada } from "@/lib/franja-horaria";
 
 /** Días que se ofrecen de un vistazo, empezando por hoy. */
@@ -29,15 +34,10 @@ const DIA_EN_PLURAL = [
   "los sábados",
 ];
 
-/** Día de la semana de una fecha `YYYY-MM-DD`, leída en horario local. */
-function diaDeLaSemana(fecha: string): number {
-  return new Date(`${fecha}T12:00:00`).getDay();
-}
-
 interface SelectSlotStepProps {
   date: string;
-  /** Días de la semana con jornada; vacío mientras el horario no ha cargado. */
-  diasAbiertos: number[];
+  /** Días con jornada; `undefined` mientras el horario no ha cargado. */
+  diasAbiertos?: number[];
   onDateChange: (date: string) => void;
   startTime: string;
   onStartTimeChange: (time: string) => void;
@@ -74,21 +74,17 @@ export function SelectSlotStep({
   const proximosDias = useMemo(() => {
     return Array.from({ length: DIAS_A_LA_VISTA }, (_, i) => {
       const fecha = desplazarDia(hoy, i);
-      const dia = diaDeLaSemana(fecha);
       return {
         fecha,
-        etiqueta: NOMBRE_DEL_DIA[dia],
+        etiqueta: NOMBRE_DEL_DIA[diaDeLaSemana(fecha)],
         numero: Number(fecha.slice(8)),
-        abierto: diasAbiertos.length === 0 || diasAbiertos.includes(dia),
+        abierto: !esDiaCerrado(fecha, diasAbiertos),
       };
     });
   }, [hoy, diasAbiertos]);
 
   // Si el dia elegido es uno de los que el negocio cierra.
-  const cerradoEseDia =
-    date.length > 0 &&
-    diasAbiertos.length > 0 &&
-    !diasAbiertos.includes(diaDeLaSemana(date));
+  const cerradoEseDia = date.length > 0 && esDiaCerrado(date, diasAbiertos);
 
   return (
     <Card className="shadow-flat border-0">

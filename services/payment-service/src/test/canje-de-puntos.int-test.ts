@@ -1,5 +1,9 @@
 import { DataSource, Repository } from "typeorm";
-import { OutboxMessageEntity, OutboxService } from "@beautyspot/nest-common";
+import {
+  ErrorDeServicioInterno,
+  OutboxMessageEntity,
+  OutboxService,
+} from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { PaymentMethod } from "@beautyspot/shared-types";
 import { entities } from "../orm-entities";
@@ -72,7 +76,9 @@ describe("Integración: el canje de puntos va con el cobro", () => {
             saldo += 40;
             return { loyaltyPoints: saldo };
           }
-          if (saldo < 40) throw new Error("409");
+          if (saldo < 40) {
+            throw new ErrorDeServicioInterno(409, "core-service respondió 409");
+          }
           saldo -= 40;
           return { loyaltyPoints: saldo };
         }),

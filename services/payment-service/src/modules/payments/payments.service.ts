@@ -8,6 +8,7 @@ import {
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource, EntityManager, In, IsNull } from "typeorm";
 import {
+  ErrorDeServicioInterno,
   InternalHttpClient,
   ZonaDelNegocioService,
 } from "@beautyspot/nest-common";
@@ -143,6 +144,10 @@ export class PaymentsService {
       await this.reservarLosPuntos(businessId, data.clientId, puntosUsados);
     }
 
+    // La zona, antes de abrir la transaccion: dentro se sostiene el bloqueo de
+    // la unica sesion de caja abierta de la sede.
+    const zona = await this.zonas.de(businessId);
+
     try {
       return await this.registrar(
         businessId,
@@ -150,7 +155,8 @@ export class PaymentsService {
         puntosUsados,
         descuento,
         services,
-        splits
+        splits,
+        zona
       );
     } catch (error) {
       // El cobro no llegó a escribirse, así que los puntos reservados vuelven a
@@ -180,7 +186,8 @@ export class PaymentsService {
     puntosUsados: number,
     descuento: number,
     services: ServicioDeLaCita[] | undefined,
-    splits: { method: PaymentMethod; amount: number }[]
+    splits: { method: PaymentMethod; amount: number }[],
+    zona: string
   ): Promise<PaymentEntity> {
     return this.dataSource.transaction(async (manager) => {
       const payment = this.repo.create({
@@ -226,7 +233,7 @@ export class PaymentsService {
           propina: Number(savedPayment.propina),
           method: savedPayment.method,
           metodos: splits,
-          date: await this.diaDelCobro(businessId, savedPayment.createdAt),
+          date: fechaDeHoyEn(zona, savedPayment.createdAt),
           services,
         },
       });
@@ -289,11 +296,6 @@ export class PaymentsService {
     }));
   }
 
-  /** Dia del cobro en el huso del negocio, para quien agrega por dia. */
-  private async diaDelCobro(businessId: string, cuando: Date): Promise<string> {
-    return fechaDeHoyEn(await this.zonas.de(businessId), cuando);
-  }
-
   /**
    * De las citas indicadas, las que ya tienen un cobro vivo; un cobro anulado
    * no cuenta.
@@ -336,10 +338,21 @@ export class PaymentsService {
         `/internal/clients/${clientId}/puntos/reservar`,
         { businessId, puntos }
       );
-    } catch {
-      throw new BadRequestException(
-        "El cliente no tiene puntos suficientes o no pertenece a este negocio"
+    } catch (error) {
+      // Solo el 409 de core significa que no le alcanzan los puntos; cualquier
+      // otro fallo es de la llamada.
+      if (error instanceof ErrorDeServicioInterno && error.estado === 409) {
+        throw new BadRequestException(
+          "El cliente no tiene puntos suficientes o no pertenece a este negocio"
+        );
+      }
+
+      this.logger.error(
+        `No se pudieron reservar ${puntos} puntos del cliente ${clientId} del negocio ${businessId}: ${
+          error instanceof Error ? error.message : "error desconocido"
+        }`
       );
+      throw error;
     }
   }
 

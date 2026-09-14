@@ -3,13 +3,19 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { ConfigService } from "@nestjs/config";
 import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { EVENTS_EXCHANGE, DEAD_LETTER_EXCHANGE } from "@beautyspot/event-types";
+import { ZonaDelNegocioModule } from "@beautyspot/nest-common";
 import { BookingEventListeners } from "./booking-event-listeners.service";
 import { AvailabilityModule } from "../availability/availability.module";
+import { AppointmentsModule } from "../appointments/appointments.module";
 import { Appointment } from "../../entities/appointment.entity";
 
 @Module({
   imports: [
     AvailabilityModule,
+    // De aqui salen los servicios que cachean el horario y la politica.
+    AppointmentsModule,
+    // El huso cacheado se olvida cuando core anuncia que el negocio cambio.
+    ZonaDelNegocioModule,
     // Las citas de la ficha absorbida se reasignan al fusionar dos clientes.
     TypeOrmModule.forFeature([Appointment]),
     RabbitMQModule.forRootAsync({

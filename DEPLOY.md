@@ -16,13 +16,13 @@ servicios con base de datos tienen el suyo completo:
 
 | Servicio               | Migraciones | Tablas |
 | ---------------------- | ----------- | ------ |
-| `auth-service`         | 3           | 6      |
-| `core-service`         | 12          | 13     |
-| `booking-service`      | 11          | 6      |
-| `payment-service`      | 12          | 7      |
+| `auth-service`         | 4           | 6      |
+| `core-service`         | 20          | 14     |
+| `booking-service`      | 14          | 6      |
+| `payment-service`      | 20          | 8      |
 | `notification-service` | 6           | 3      |
-| `marketplace-service`  | 6           | 6      |
-| `analytics-service`    | 5           | 6      |
+| `marketplace-service`  | 12          | 6      |
+| `analytics-service`    | 6           | 6      |
 
 La primera de cada servicio (`InitialSchema`) levanta el esquema entero; las
 demás son los cambios posteriores, en orden.
@@ -134,7 +134,7 @@ El endpoint es público por diseño: `@Public()` lo exime de `JwtAuthGuard` y de
 | Node.js    | 20.x           | Es la versión con la que se construye en CI  |
 | npm        | 10.x           | El repo declara `packageManager: npm@10.8.0` |
 | Docker     | 24+            | Con Compose v2 (`docker compose`)            |
-| PostgreSQL | 16             | Puede ser gestionado (RDS, Cloud SQL…)       |
+| PostgreSQL | 16             | Gestionado sirve, con `pg_trgm` disponible   |
 | Redis      | 7              | Sesiones, caché de tenants y rate limiting   |
 | RabbitMQ   | 3              | Bus de eventos entre servicios               |
 
@@ -204,6 +204,11 @@ docker compose -f docker-compose.prod.yml up -d
 
 Puntos importantes:
 
+- La migración `BusquedaDeClientes` de core ejecuta
+  `CREATE EXTENSION IF NOT EXISTS "pg_trgm"`, que exige permiso de superusuario
+  en la base. En un Postgres gestionado con un usuario por base hay que
+  habilitar la extensión antes, desde la consola del proveedor, o la migración
+  falla.
 - **Sólo el gateway y el frontend publican puertos**, y sólo en `127.0.0.1`:
   se espera un reverse proxy con TLS por delante. Postgres, Redis, RabbitMQ y los
   7 microservicios no son accesibles desde fuera del host.
@@ -344,7 +349,9 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 ```
 
 Reglas: un valor distinto por secreto, nunca los del `.env.example`, y fuera del
-control de versiones (los `.env` están en `.gitignore`; sólo se versiona `.env.example`).
+control de versiones. El `.gitignore` cubre cualquier variante de `.env` y las
+copias de seguridad; solo se versionan las plantillas `.env.example` y los
+`.env.test`, que apuntan a la infraestructura de pruebas y no llevan secreto real.
 
 ---
 

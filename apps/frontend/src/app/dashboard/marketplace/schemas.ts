@@ -22,6 +22,8 @@ export type SectionItem = z.infer<typeof sectionItemSchema>;
 export const profileSchema = z.object({
   id: z.string(),
   businessId: z.string(),
+  /** Version del perfil, con la que el guardado detecta una edicion simultanea. */
+  updatedAt: z.string().nullish(),
   slug: z.string(),
   name: z.string(),
   description: z.string().nullish(),

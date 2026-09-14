@@ -1,6 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { getRepositoryToken } from "@nestjs/typeorm";
+import { OutboxService } from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
 import { DataSource, Repository } from "typeorm";
 import { BusinessHoursService } from "./business-hours.service";
 import { BusinessHours } from "../../entities/business-hours.entity";
@@ -8,6 +10,7 @@ import { BusinessHours } from "../../entities/business-hours.entity";
 describe("BusinessHoursService", () => {
   let service: BusinessHoursService;
   let mockRepo: jest.Mocked<Repository<BusinessHours>>;
+  let mockOutbox: { enqueue: jest.Mock };
 
   const mockHours: BusinessHours = {
     id: "hours-123",
@@ -35,6 +38,8 @@ describe("BusinessHoursService", () => {
       findOne: jest.fn(),
     } as any;
 
+    mockOutbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BusinessHoursService,
@@ -51,6 +56,7 @@ describe("BusinessHoursService", () => {
             ),
           },
         },
+        { provide: OutboxService, useValue: mockOutbox },
       ],
     }).compile();
 
@@ -93,6 +99,26 @@ describe("BusinessHoursService", () => {
   });
 
   describe("batchUpsert", () => {
+    // Booking tiene la apertura cacheada: sin el aviso seguiria ofreciendo las
+    // horas viejas hasta que caducara.
+    it("anuncia el cambio de apertura en la misma escritura", async () => {
+      mockRepo.find.mockResolvedValue([]);
+      mockRepo.create.mockReturnValue(mockHours);
+      mockRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+
+      await service.batchUpsert("business-123", [
+        { dayOfWeek: 1, openTime: "09:00", closeTime: "18:00" },
+      ]);
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.CORE_BUSINESS_HOURS_UPDATED,
+          payload: { businessId: "business-123" },
+        })
+      );
+    });
+
     it("debería crear nuevos horarios cuando no existen existentes", async () => {
       const items = [
         { dayOfWeek: 1, openTime: "09:00", closeTime: "18:00" },

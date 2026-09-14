@@ -11,12 +11,7 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ILike, In, Repository } from "typeorm";
-import {
-  escapeLikePattern,
-  normalizarEmail,
-  normalizarTelefono,
-  variantesDeTelefono,
-} from "@beautyspot/shared-utils";
+import { escapeLikePattern } from "@beautyspot/shared-utils";
 import { Client } from "../../entities/client.entity";
 import { FindOrCreateClientDto } from "./dto/find-or-create-client.dto";
 import { MoverPuntosDto } from "./dto/mover-puntos.dto";
@@ -34,12 +29,10 @@ export class InternalClientsController {
     private readonly clients: ClientsService
   ) {}
 
-  /** Devuelve el cliente que coincida por email o telefono, o lo crea. */
+  /** Devuelve la ficha de quien reserva en ese negocio, o la crea. */
   @Post("find-or-create")
   async findOrCreate(@Body() dto: FindOrCreateClientDto): Promise<Client> {
-    const existing = await this.findExistingClient(dto);
-    if (existing) return this.vincularUsuario(existing, dto.userId);
-    return this.createNewClient(dto);
+    return this.clients.resolverFichaDeReserva(dto);
   }
 
   /** Puntos de fidelidad disponibles del cliente, para quien vaya a canjearlos. */
@@ -157,64 +150,5 @@ export class InternalClientsController {
     });
 
     return clientes.map((c) => c.id);
-  }
-
-  /** Ata la ficha al usuario que reserva, si aun no tiene ninguno. */
-  private async vincularUsuario(
-    client: Client,
-    userId?: string
-  ): Promise<Client> {
-    if (!userId || client.userId) return client;
-    client.userId = userId;
-    return this.clientRepo.save(client);
-  }
-
-  /**
-   * Busca un cliente del negocio por usuario, luego por email y luego por
-   * telefono, cotejando el contacto normalizado.
-   */
-  private async findExistingClient(
-    dto: FindOrCreateClientDto
-  ): Promise<Client | null> {
-    if (dto.userId) {
-      const byUser = await this.clientRepo.findOne({
-        where: { businessId: dto.businessId, userId: dto.userId },
-      });
-      if (byUser) return byUser;
-    }
-
-    const email = normalizarEmail(dto.email);
-    if (email) {
-      const byEmail = await this.clientRepo.findOne({
-        where: { businessId: dto.businessId, email },
-      });
-      if (byEmail) return byEmail;
-    }
-
-    // Las formas equivalentes y no solo la canónica: quien reservó antes de
-    // canonizar tiene su teléfono guardado sin indicativo.
-    const phone = normalizarTelefono(dto.phone);
-    if (phone) {
-      const byPhone = await this.clientRepo.findOne({
-        where: {
-          businessId: dto.businessId,
-          phone: In(variantesDeTelefono(phone)),
-        },
-      });
-      if (byPhone) return byPhone;
-    }
-    return null;
-  }
-
-  /** Crea un cliente mínimo en el negocio a partir de los datos de la reserva. */
-  private async createNewClient(dto: FindOrCreateClientDto): Promise<Client> {
-    const client = new Client();
-    client.businessId = dto.businessId;
-    client.name = dto.name;
-    client.email = normalizarEmail(dto.email);
-    client.phone = normalizarTelefono(dto.phone);
-    client.userId = dto.userId ?? (null as unknown as string);
-    client.tags = [];
-    return this.clientRepo.save(client);
   }
 }

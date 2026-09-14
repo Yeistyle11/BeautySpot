@@ -6,13 +6,20 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
+  FichasDelUsuarioService,
   InternalHttpClient,
   OutboxService,
+  ZonaDelNegocioService,
   esViolacionDeUnicidad,
 } from "@beautyspot/nest-common";
+import { fechaDeHoyEn } from "@beautyspot/shared-utils";
 import { EventNames, ServicioDeLaCita } from "@beautyspot/event-types";
 import { Between, In, Repository, DataSource, EntityManager } from "typeorm";
-import { paginate, PaginateParams } from "@beautyspot/database";
+import {
+  metadataDePaginacion,
+  paginate,
+  PaginateParams,
+} from "@beautyspot/database";
 import { InvoiceEntity } from "./invoice.entity";
 import { InvoiceItemEntity } from "./invoice-item.entity";
 import {
@@ -24,6 +31,9 @@ import { PaymentEntity } from "../payments/payment.entity";
 import { IVA } from "@beautyspot/shared-constants";
 import { CreateInvoiceDto } from "./dto/invoice.dto";
 import { PdfService } from "./pdf/pdf.service";
+
+/** Días que se dan para pagar una factura cuando no se indica vencimiento. */
+const DIAS_DE_VENCIMIENTO = 30;
 
 /** Redondea a céntimos, que es la escala con la que se guarda el dinero. */
 function redondear(importe: number): number {
@@ -90,7 +100,9 @@ export class InvoicesService {
     private readonly pdfService: PdfService,
     private readonly dataSource: DataSource,
     private readonly outbox: OutboxService,
-    private readonly http: InternalHttpClient
+    private readonly http: InternalHttpClient,
+    private readonly zonas: ZonaDelNegocioService,
+    private readonly fichas: FichasDelUsuarioService
   ) {}
 
   /** Crea una factura calculando los totales de sus líneas y asignándole un número. */
@@ -98,8 +110,11 @@ export class InvoicesService {
     businessId: string,
     dto: CreateInvoiceDto
   ): Promise<InvoiceEntity> {
-    const date = dto.date || new Date().toISOString().split("T")[0];
-    const dueDate = dto.dueDate || this.getDefaultDueDate();
+    // El dia lo pone el huso del negocio, no el del servidor: en Bogota una
+    // factura de las 20:00 se fecharia manana si se mirase en UTC.
+    const zona = await this.zonas.de(businessId);
+    const date = dto.date || fechaDeHoyEn(zona);
+    const dueDate = dto.dueDate || this.vencimientoPorDefecto(date);
 
     // La serie y el tipo salen de los datos fiscales del negocio, en una sola
     // consulta y fuera de la transacción: hablar con otro servicio con la
@@ -322,19 +337,9 @@ export class InvoicesService {
     userId: string,
     pagination: PaginateParams
   ): Promise<IPaginatedResponse<InvoiceEntity>> {
-    const clientIds = await this.clientIdsDelUsuario(userId);
+    const clientIds = await this.fichas.de(userId);
     if (clientIds.length === 0) {
-      return {
-        data: [],
-        meta: {
-          page: pagination.page,
-          limit: pagination.limit,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false,
-        },
-      };
+      return { data: [], meta: metadataDePaginacion(pagination, 0) };
     }
 
     return paginate(this.invoiceRepo, pagination, {
@@ -358,7 +363,7 @@ export class InvoicesService {
     invoiceId: string,
     userId: string
   ): Promise<InvoiceEntity> {
-    const clientIds = await this.clientIdsDelUsuario(userId);
+    const clientIds = await this.fichas.de(userId);
     const invoice = clientIds.length
       ? await this.invoiceRepo.findOne({
           where: { id: invoiceId, clientId: In(clientIds) },
@@ -366,18 +371,6 @@ export class InvoicesService {
       : null;
     if (!invoice) throw new NotFoundException("Factura no encontrada");
     return invoice;
-  }
-
-  private async clientIdsDelUsuario(userId: string): Promise<string[]> {
-    const fichas = await this.http.pedirONulo<{ id?: unknown }[]>(
-      "core",
-      `/internal/clients/by-user/${userId}`
-    );
-    if (!Array.isArray(fichas)) return [];
-
-    return fichas
-      .map((c) => c.id)
-      .filter((id): id is string => typeof id === "string");
   }
 
   /** Obtiene una factura con sus líneas; lanza 404 si no existe. */
@@ -512,10 +505,13 @@ export class InvoicesService {
     };
   }
 
-  /** Fecha de vencimiento por defecto: 30 días desde hoy. */
-  private getDefaultDueDate(): string {
-    const due = new Date();
-    due.setDate(due.getDate() + 30);
-    return due.toISOString().split("T")[0];
+  /**
+   * Vencimiento por defecto: el plazo contado desde la emisión. Se ancla a
+   * mediodía para que sumar días no cruce de día por el desfase del huso.
+   */
+  private vencimientoPorDefecto(emision: string): string {
+    const dia = new Date(`${emision}T12:00:00Z`);
+    dia.setUTCDate(dia.getUTCDate() + DIAS_DE_VENCIMIENTO);
+    return dia.toISOString().slice(0, 10);
   }
 }

@@ -12,6 +12,7 @@ describe("RemindersWorker", () => {
   let mockQb: Record<string, jest.Mock>;
   let mockManager: { update: jest.Mock };
   let mockOutbox: { enqueue: jest.Mock };
+  let mockZonas: { de: jest.Mock };
 
   /**
    * Construye una cita que empieza dentro de `horas` horas, reservada con
@@ -42,6 +43,13 @@ describe("RemindersWorker", () => {
   };
 
   beforeEach(async () => {
+    // La zona del proceso: así `citaEn` puede armar la hora de pared con el
+    // reloj local y el worker leerla igual.
+    mockZonas = {
+      de: jest
+        .fn()
+        .mockResolvedValue(Intl.DateTimeFormat().resolvedOptions().timeZone),
+    };
     mockQb = {
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -65,18 +73,7 @@ describe("RemindersWorker", () => {
         RemindersWorker,
         { provide: getDataSourceToken(), useValue: mockDataSource },
         { provide: OutboxService, useValue: mockOutbox },
-        {
-          provide: ZonaDelNegocioService,
-          // La zona del proceso: así `citaEn` puede armar la hora de pared con
-          // el reloj local y el worker leerla igual.
-          useValue: {
-            de: jest
-              .fn()
-              .mockResolvedValue(
-                Intl.DateTimeFormat().resolvedOptions().timeZone
-              ),
-          },
-        },
+        { provide: ZonaDelNegocioService, useValue: mockZonas },
         { provide: ConfigService, useValue: { get: () => undefined } },
       ],
     }).compile();
@@ -243,5 +240,30 @@ describe("RemindersWorker", () => {
 
     resolver([]);
     await primero;
+  });
+
+  // El huso es dato del negocio, no de la cita: se pedia uno por cita y en
+  // serie, hasta diez mil por ciclo para responder siempre lo mismo.
+  it("resuelve el huso una vez por negocio, no una por cita", async () => {
+    mockQb.getMany.mockResolvedValue([
+      citaEn(24, { id: "a", businessId: "negocio-1" }),
+      citaEn(24, { id: "b", businessId: "negocio-1" }),
+      citaEn(24, { id: "c", businessId: "negocio-1" }),
+      citaEn(24, { id: "d", businessId: "negocio-2" }),
+    ]);
+
+    await worker.poll();
+
+    expect(mockZonas.de).toHaveBeenCalledTimes(2);
+    expect(mockZonas.de).toHaveBeenCalledWith("negocio-1");
+    expect(mockZonas.de).toHaveBeenCalledWith("negocio-2");
+  });
+
+  it("no pregunta por ningún huso si la página viene vacía", async () => {
+    mockQb.getMany.mockResolvedValue([]);
+
+    await worker.poll();
+
+    expect(mockZonas.de).not.toHaveBeenCalled();
   });
 });

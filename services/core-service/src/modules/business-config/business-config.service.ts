@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
+import { DataSource, Repository } from "typeorm";
+import { OutboxService } from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
 import { QueryDeepPartialEntity } from "typeorm/query-builder/QueryPartialEntity";
 import { v4 as uuidv4 } from "uuid";
 import { BusinessConfig } from "../../entities/business-config.entity";
@@ -17,7 +19,10 @@ export const CLAVE_FIDELIZACION = "fidelizacion";
 export class BusinessConfigService {
   constructor(
     @InjectRepository(BusinessConfig)
-    private readonly repo: Repository<BusinessConfig>
+    private readonly repo: Repository<BusinessConfig>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+    private readonly outbox: OutboxService
   ) {}
 
   /** Valor de una clave, o un objeto vacío si el negocio no la ha tocado. */
@@ -38,21 +43,32 @@ export class BusinessConfigService {
     const actual = await this.leer(businessId, key);
     const value = { ...actual, ...cambios };
 
-    // El id lo pone la aplicacion: la columna no tiene DEFAULT. Al chocar solo
-    // se pisan el valor y la marca de tiempo.
-    await this.repo
-      .createQueryBuilder()
-      .insert()
-      .into(BusinessConfig)
-      .values({
-        id: uuidv4(),
-        businessId,
-        key,
-        value: value as QueryDeepPartialEntity<Record<string, unknown>>,
-        updatedAt: new Date(),
-      })
-      .orUpdate(["value", "updated_at"], ["business_id", "key"])
-      .execute();
+    await this.dataSource.transaction(async (manager) => {
+      // El id lo pone la aplicacion: la columna no tiene DEFAULT. Al chocar solo
+      // se pisan el valor y la marca de tiempo.
+      await manager
+        .createQueryBuilder()
+        .insert()
+        .into(BusinessConfig)
+        .values({
+          id: uuidv4(),
+          businessId,
+          key,
+          value: value as QueryDeepPartialEntity<Record<string, unknown>>,
+          updatedAt: new Date(),
+        })
+        .orUpdate(["value", "updated_at"], ["business_id", "key"])
+        .execute();
+
+      // De aquí sale la política de reserva que booking cachea.
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.CORE_BUSINESS_CONFIG_UPDATED,
+        aggregateType: "business",
+        aggregateId: businessId,
+        payload: { businessId },
+      });
+    });
+
     return value;
   }
 }

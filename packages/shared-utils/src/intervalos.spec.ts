@@ -3,6 +3,7 @@ import {
   arrastreDelDiaAnterior,
   arrastreDeJornada,
   diaAnteriorDeLaSemana,
+  diaDeLaSemana,
   duracionDeCliente,
   finDeOcupacion,
   intervalosDeAgenda,
@@ -283,5 +284,28 @@ describe("repartoPorProfesional", () => {
     it("del domingo vuelve al sábado", () => {
       expect(diaAnteriorDeLaSemana(0)).toBe(6);
     });
+  });
+});
+
+describe("diaDeLaSemana", () => {
+  it("da el día de la semana de una fecha de calendario", () => {
+    // 2024-01-15 fue lunes; 2024-01-14, domingo.
+    expect(diaDeLaSemana("2024-01-15")).toBe(1);
+    expect(diaDeLaSemana("2024-01-14")).toBe(0);
+    expect(diaDeLaSemana("2024-01-20")).toBe(6);
+  });
+
+  // El dia de una fecha suelta no depende de donde corra el proceso: el ancla
+  // a mediodia deja doce horas de margen por cada lado.
+  it("no cambia con el huso del proceso", () => {
+    const tz = process.env.TZ;
+    try {
+      for (const zona of ["Pacific/Kiritimati", "Pacific/Midway", "UTC"]) {
+        process.env.TZ = zona;
+        expect(diaDeLaSemana("2024-01-15")).toBe(1);
+      }
+    } finally {
+      process.env.TZ = tz;
+    }
   });
 });

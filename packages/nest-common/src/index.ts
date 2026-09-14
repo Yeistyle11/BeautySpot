@@ -61,7 +61,10 @@ export {
 } from "./decorators/sesion-verificable.decorator";
 export { RedisCacheService } from "./cache/redis-cache.service";
 export { RedisCacheModule } from "./cache/redis-cache.module";
-export { InternalHttpClient } from "./http/internal-http.client";
+export {
+  InternalHttpClient,
+  ErrorDeServicioInterno,
+} from "./http/internal-http.client";
 export type {
   ServicioInterno,
   OpcionesLlamada,
@@ -75,6 +78,7 @@ export { CatalogoTenantService } from "./database/catalogo-tenant.service";
 export type { EntidadDeCatalogo } from "./database/catalogo-tenant.service";
 export { TenantCrudService } from "./database/tenant-crud.service";
 export type { EntidadDeNegocio } from "./database/tenant-crud.service";
+export { rechazarSiOtroGuardoAntes } from "./database/edicion-simultanea";
 export { ProcessedEventsPurgeWorker } from "./modules/idempotency/processed-events-purge.worker";
 export {
   TokenVersionStore,
@@ -100,5 +104,7 @@ export {
   esIdentificadorInvalido,
   esViolacionDeCatalogo,
 } from "./database/errores-de-postgres";
+export { FichasDelUsuarioService } from "./fichas/fichas-del-usuario.service";
+export { FichasDelUsuarioModule } from "./fichas/fichas-del-usuario.module";
 export { ZonaDelNegocioService } from "./zona/zona-del-negocio.service";
 export { ZonaDelNegocioModule } from "./zona/zona-del-negocio.module";

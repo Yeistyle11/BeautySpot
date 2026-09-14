@@ -70,6 +70,11 @@ describe("BusinessProfilesService", () => {
       createQueryBuilder: jest.fn(),
       manager: {
         createQueryBuilder: jest.fn(),
+        // La transacción entrega un manager que devuelve el mismo repositorio
+        // simulado, para poder mirar el bloqueo que pide.
+        transaction: jest.fn((cb: (m: unknown) => unknown) =>
+          cb({ getRepository: () => mockRepo })
+        ),
       },
     } as any;
 
@@ -445,6 +450,67 @@ describe("BusinessProfilesService", () => {
   });
 
   describe("updateConfig", () => {
+    const CARGADO = new Date("2026-01-15T10:00:00.000Z");
+
+    // Dos personas con el formulario abierto: sin cotejo, la segunda pisaba en
+    // silencio lo que guardó la primera.
+    it("rechaza el guardado si el perfil cambió desde que se cargó", async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockBusinessProfile,
+        updatedAt: new Date("2026-01-15T10:05:00.000Z"),
+      } as any);
+
+      await expect(
+        service.updateConfig("business-123", { tagline: "Nuevo" }, CARGADO)
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("guarda cuando el perfil sigue como se cargó", async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockBusinessProfile,
+        updatedAt: CARGADO,
+      } as any);
+      mockRepo.save.mockImplementation(async (p) => p as any);
+      mockProfessionalService.findVisibleByBusiness.mockResolvedValue([]);
+
+      const guardado = await service.updateConfig(
+        "business-123",
+        { tagline: "Nuevo" },
+        CARGADO
+      );
+
+      expect(guardado.tagline).toBe("Nuevo");
+    });
+
+    // El cotejo no vale solo: entre leer y escribir cabe otro guardado.
+    it("sostiene la fila con un bloqueo mientras coteja", async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockBusinessProfile,
+        updatedAt: CARGADO,
+      } as any);
+      mockRepo.save.mockImplementation(async (p) => p as any);
+      mockProfessionalService.findVisibleByBusiness.mockResolvedValue([]);
+
+      await service.updateConfig("business-123", { tagline: "Nuevo" }, CARGADO);
+
+      expect(mockRepo.findOne).toHaveBeenCalledWith({
+        where: { businessId: "business-123" },
+        lock: { mode: "pessimistic_write" },
+      });
+    });
+
+    // Las rutas de un solo editor no mandan versión: se guarda sin cotejar.
+    it("guarda sin cotejar cuando no se dice desde qué versión se edita", async () => {
+      mockRepo.findOne.mockResolvedValue({ ...mockBusinessProfile } as any);
+      mockRepo.save.mockImplementation(async (p) => p as any);
+      mockProfessionalService.findVisibleByBusiness.mockResolvedValue([]);
+
+      await service.updateConfig("business-123", { tagline: "Nuevo" });
+
+      expect(mockRepo.manager.transaction).not.toHaveBeenCalled();
+    });
+
     it("actualiza los campos del perfil inmersivo y recalcula completitud", async () => {
       const profile = { ...mockBusinessProfile } as any;
       mockRepo.findOne.mockResolvedValue(profile);

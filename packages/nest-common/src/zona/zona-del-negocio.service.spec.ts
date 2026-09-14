@@ -7,7 +7,7 @@ const NEGOCIO = "11111111-1111-4111-8111-111111111111";
 
 describe("ZonaDelNegocioService", () => {
   let http: { pedirONulo: jest.Mock };
-  let cache: { remember: jest.Mock };
+  let cache: { remember: jest.Mock; del: jest.Mock };
 
   /** Caché que ejecuta la carga y recuerda el resultado, como la real. */
   function cacheDeVerdad() {
@@ -18,6 +18,9 @@ describe("ZonaDelNegocioService", () => {
         const valor = await cargar();
         guardado.set(clave, valor);
         return valor;
+      }),
+      del: jest.fn(async (clave: string) => {
+        guardado.delete(clave);
       }),
     };
   }
@@ -90,5 +93,19 @@ describe("ZonaDelNegocioService", () => {
 
     expect(http.pedirONulo).not.toHaveBeenCalled();
     expect(cache.remember).not.toHaveBeenCalled();
+  });
+
+  describe("olvidar", () => {
+    it("borra el huso cacheado del negocio", async () => {
+      await construir().olvidar(NEGOCIO);
+
+      expect(cache.del).toHaveBeenCalledWith(`zona:negocio:${NEGOCIO}`);
+    });
+
+    it("no borra nada si no hay negocio", async () => {
+      await construir().olvidar("");
+
+      expect(cache.del).not.toHaveBeenCalled();
+    });
   });
 });

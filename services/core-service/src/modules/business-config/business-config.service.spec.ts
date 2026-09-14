@@ -1,11 +1,15 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
+import { DataSource } from "typeorm";
+import { OutboxService } from "@beautyspot/nest-common";
+import { EventNames } from "@beautyspot/event-types";
 import { BusinessConfigService } from "./business-config.service";
 import { BusinessConfig } from "../../entities/business-config.entity";
 import { v4 as uuidv4 } from "uuid";
 
 describe("BusinessConfigService", () => {
   let service: BusinessConfigService;
+  let outbox: { enqueue: jest.Mock };
   let mockRepo: { findOne: jest.Mock; createQueryBuilder: jest.Mock };
   let valoresInsertados: Record<string, unknown>;
   let columnasPisadas: string[];
@@ -31,10 +35,22 @@ describe("BusinessConfigService", () => {
       createQueryBuilder: jest.fn(() => builder),
     };
 
+    outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BusinessConfigService,
         { provide: getRepositoryToken(BusinessConfig), useValue: mockRepo },
+        // La transacción entrega el mismo constructor de consultas del test.
+        {
+          provide: DataSource,
+          useValue: {
+            transaction: jest.fn((cb: (m: unknown) => unknown) =>
+              cb({ createQueryBuilder: jest.fn(() => builder) })
+            ),
+          },
+        },
+        { provide: OutboxService, useValue: outbox },
       ],
     }).compile();
 
@@ -87,6 +103,21 @@ describe("BusinessConfigService", () => {
       await service.guardar("business-123", "facturacion", { serie: "FA" });
 
       expect(columnasPisadas).toEqual(["value", "updated_at"]);
+    });
+  });
+
+  describe("anuncio del cambio", () => {
+    // De esta clave sale la politica de reserva que booking cachea.
+    it("avisa de que la configuración cambió, en la misma escritura", async () => {
+      await service.guardar("business-123", "reservas", { horas: 4 });
+
+      expect(outbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: EventNames.CORE_BUSINESS_CONFIG_UPDATED,
+          payload: { businessId: "business-123" },
+        })
+      );
     });
   });
 });

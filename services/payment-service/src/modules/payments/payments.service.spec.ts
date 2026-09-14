@@ -7,6 +7,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from "@nestjs/common";
 import {
   METODO_MIXTO,
@@ -16,6 +17,7 @@ import {
   Role,
 } from "@beautyspot/shared-types";
 import {
+  ErrorDeServicioInterno,
   InternalHttpClient,
   OutboxService,
   ZonaDelNegocioService,
@@ -29,6 +31,7 @@ describe("PaymentsService", () => {
   let mockManager: any;
   let mockDataSource: any;
   let mockOutbox: jest.Mocked<OutboxService>;
+  let mockZonas: { de: jest.Mock };
   let mockHttp: { pedir: jest.Mock; enviar: jest.Mock };
 
   const mockPayment: PaymentEntity = {
@@ -87,6 +90,7 @@ describe("PaymentsService", () => {
     mockOutbox = {
       enqueue: jest.fn().mockResolvedValue(undefined),
     } as any;
+    mockZonas = { de: jest.fn().mockResolvedValue("America/Bogota") };
 
     // Cita de 100, que es el importe del pago del fixture.
     mockHttp = {
@@ -106,10 +110,7 @@ describe("PaymentsService", () => {
         },
         { provide: DataSource, useValue: mockDataSource },
         { provide: OutboxService, useValue: mockOutbox },
-        {
-          provide: ZonaDelNegocioService,
-          useValue: { de: jest.fn().mockResolvedValue("America/Bogota") },
-        },
+        { provide: ZonaDelNegocioService, useValue: mockZonas },
         { provide: InternalHttpClient, useValue: mockHttp },
       ],
     }).compile();
@@ -118,6 +119,33 @@ describe("PaymentsService", () => {
   });
 
   describe("create", () => {
+    // Dentro de la transaccion se sostiene el bloqueo de la unica sesion de
+    // caja abierta de la sede.
+    it("resuelve el huso antes de abrir la transacción del cobro", async () => {
+      const orden: string[] = [];
+      mockZonas.de.mockImplementation(async () => {
+        orden.push("zona");
+        return "America/Bogota";
+      });
+      mockDataSource.transaction.mockImplementation(async (fn: any) => {
+        orden.push("transaccion");
+        return fn(mockManager);
+      });
+
+      mockRepo.create.mockReturnValue(mockPayment);
+      mockManagerRepo.save.mockResolvedValue(mockPayment);
+
+      await service.create("business-123", {
+        clientId: "client-123",
+        amount: 100,
+        method: PaymentMethod.CASH,
+        registeredBy: "user-123",
+      });
+
+      expect(orden).toEqual(["zona", "transaccion"]);
+      expect(mockZonas.de).toHaveBeenCalledTimes(1);
+    });
+
     it("debería crear un pago y encolar el evento en la misma transacción", async () => {
       const data = {
         clientId: "client-123",
@@ -576,14 +604,47 @@ describe("PaymentsService", () => {
       });
 
       // Core descuenta con la condicion dentro del UPDATE y responde 409 si el
-      // saldo no llega; aqui eso llega como fallo de la llamada.
+      // saldo no llega: esa es su negativa razonada, y la unica que se le
+      // cuenta al cajero como falta de puntos.
       it("rechaza gastar más puntos de los que tiene el cliente", async () => {
-        mockHttp.enviar.mockRejectedValue(new Error("409"));
+        mockHttp.enviar.mockRejectedValue(
+          new ErrorDeServicioInterno(409, "core-service respondió 409")
+        );
 
         await expect(service.create("business-123", conPuntos)).rejects.toThrow(
           BadRequestException
         );
         expect(mockDataSource.transaction).not.toHaveBeenCalled();
+      });
+
+      // Antes cualquier fallo se le presentaba al cajero como falta de puntos:
+      // el cliente los tenia, core estaba caido y no quedaba rastro.
+      it("no da por falta de puntos que core no responda", async () => {
+        const caido = new ErrorDeServicioInterno(
+          503,
+          "core-service respondió 503"
+        );
+        mockHttp.enviar.mockRejectedValue(caido);
+
+        await expect(
+          service.create("business-123", conPuntos)
+        ).rejects.toBeInstanceOf(ErrorDeServicioInterno);
+        expect(mockDataSource.transaction).not.toHaveBeenCalled();
+      });
+
+      it("deja rastro del error real en el registro", async () => {
+        const registro = jest
+          .spyOn(Logger.prototype, "error")
+          .mockImplementation(() => undefined);
+        mockHttp.enviar.mockRejectedValue(new Error("se agotó el tiempo"));
+
+        await expect(service.create("business-123", conPuntos)).rejects.toThrow(
+          "se agotó el tiempo"
+        );
+        expect(registro).toHaveBeenCalledWith(
+          expect.stringContaining("se agotó el tiempo")
+        );
+        registro.mockRestore();
       });
 
       it("reserva los puntos en core antes de escribir el cobro", async () => {
@@ -637,8 +698,11 @@ describe("PaymentsService", () => {
         );
       });
 
+      // Core responde 409 tambien cuando la ficha es de otro negocio.
       it("rechaza el canje si la ficha no es del negocio", async () => {
-        mockHttp.enviar.mockRejectedValue(new Error("409"));
+        mockHttp.enviar.mockRejectedValue(
+          new ErrorDeServicioInterno(409, "core-service respondió 409")
+        );
 
         await expect(service.create("business-123", conPuntos)).rejects.toThrow(
           BadRequestException

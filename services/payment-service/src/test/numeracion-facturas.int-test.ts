@@ -1,5 +1,10 @@
 import { DataSource } from "typeorm";
-import { InternalHttpClient, OutboxService } from "@beautyspot/nest-common";
+import {
+  FichasDelUsuarioService,
+  InternalHttpClient,
+  OutboxService,
+  ZonaDelNegocioService,
+} from "@beautyspot/nest-common";
 import { entities } from "../orm-entities";
 import { InvoiceEntity } from "../modules/invoices/invoice.entity";
 import { InvoicesService } from "../modules/invoices/invoices.service";
@@ -47,7 +52,14 @@ describe("Integración: numeración de facturas por negocio", () => {
       // Sin serie configurada: numera con la de por defecto.
       {
         pedirONulo: jest.fn().mockResolvedValue(null),
-      } as unknown as InternalHttpClient
+      } as unknown as InternalHttpClient,
+      {
+        de: jest.fn().mockResolvedValue("America/Bogota"),
+      } as unknown as ZonaDelNegocioService,
+      // Aqui no se listan las facturas de ningun cliente.
+      {
+        de: jest.fn().mockResolvedValue([]),
+      } as unknown as FichasDelUsuarioService
     );
   }, 60000);
 

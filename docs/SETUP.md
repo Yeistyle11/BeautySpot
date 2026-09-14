@@ -180,7 +180,7 @@ npm run format
 npm run format:check
 
 # Tests
-npm test                 # los 1870 tests unitarios
+npm test                 # los 2942 tests unitarios
 npm run test:coverage    # con cobertura y gate
 
 # Infraestructura
