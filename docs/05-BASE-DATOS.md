@@ -317,10 +317,18 @@ fichas, unidas sólo por `user_id`.
 | `anonymized_at`         | timestamptz  | sí   | Derecho de supresión ejercido               |
 
 Índices: `(business_id, email)`, `(business_id, phone)`,
-`idx_clients_negocio_usuario (business_id, user_id)`,
-`idx_clients_usuario (user_id)` —el endpoint interno consulta sin negocio— y
-`idx_clients_cumpleanos (birth_date) WHERE birth_date IS NOT NULL`, parcial porque
-la mayoría de las fichas no traen fecha.
+`idx_clients_negocio_usuario (business_id, user_id)` e
+`idx_clients_usuario (user_id)` —el endpoint interno consulta sin negocio—.
+
+Otros cuatro son **de expresión**, así que `@Index` no sabe declararlos y viven
+solo en la migración: en desarrollo no existen y cambia el plan, no el resultado.
+`idx_clients_dia_de_cumpleanos` indexa `(EXTRACT(MONTH FROM birth_date),
+EXTRACT(DAY FROM birth_date))` —que es como filtra el sondeo— y es parcial sobre
+las fichas vivas con fecha (`birth_date IS NOT NULL AND active AND anonymized_at
+IS NULL`). `idx_clients_nombre_texto`, `idx_clients_correo_texto` e
+`idx_clients_telefono_texto` son GIN de trigramas sobre la misma expresión sin
+tildes con la que compara el listado del panel, y necesitan la extensión
+`pg_trgm`, que crea esa migración.
 
 `ficha` va en jsonb y no en columnas porque los campos los decide cada negocio y
 cambian sin migrar el esquema.

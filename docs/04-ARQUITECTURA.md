@@ -378,44 +378,46 @@ el negocio, pero vive en la base de auth, junto a `users`.
 
 Los nombres canonicos viven en `packages/event-types/src/index.ts` (`EventNames`),
 compartidos por productores y consumidores para que nadie escriba la cadena a
-mano. Son **31 nombres declarados** con el patron `{servicio}.{agregado}.{accion}`,
-de los que hoy circulan 26.
+mano. Son **35 nombres declarados** con el patron `{servicio}.{agregado}.{accion}`,
+de los que hoy circulan 30.
 
-| Routing key                         | Publica          | Consume                       |
-| ----------------------------------- | ---------------- | ----------------------------- |
-| `auth.user.registered`              | Auth             | Notification                  |
-| `auth.registro.duplicado`           | Auth             | Notification                  |
-| `auth.user.logged-in`               | Auth             | —                             |
-| `auth.password-reset.requested`     | Auth             | Notification                  |
-| `auth.email-verification.requested` | Auth             | Notification                  |
-| `auth.membership.created`           | Auth             | —                             |
-| `auth.membership.role-changed`      | Auth             | —                             |
-| `core.business.created`             | Core             | —                             |
-| `core.business.updated`             | Core             | Marketplace, Booking          |
-| `core.business-hours.updated`       | Core             | Booking                       |
-| `core.business-config.updated`      | Core             | Booking                       |
-| `core.professional.created`         | Core             | Booking                       |
-| `core.service.created`              | nadie            | —                             |
-| `core.service.updated`              | nadie            | —                             |
-| `core.client.created`               | Core             | Analytics                     |
-| `core.client.birthday`              | Core (sondeo)    | Notification                  |
-| `booking.appointment.created`       | Booking          | Notification, Analytics       |
-| `booking.appointment.confirmed`     | Booking          | Notification, Analytics       |
-| `booking.appointment.cancelled`     | Booking          | Notification, Analytics       |
-| `booking.appointment.completed`     | Booking          | Notification, Analytics, Core |
-| `booking.appointment.no-showed`     | Booking          | Analytics, Core               |
-| `booking.appointment.rescheduled`   | Booking          | Notification                  |
-| `booking.appointment.reminder-due`  | Booking (sondeo) | Notification                  |
-| `payment.payment.registered`        | Payment          | Notification, Analytics       |
-| `payment.invoice.generated`         | Payment          | Notification                  |
-| `payment.points.redeemed`           | Payment          | Core                          |
-| `payment.refund.processed`          | Payment          | —                             |
-| `payment.cash.session.closed`       | Payment          | —                             |
-| `marketplace.review.created`        | Marketplace      | Notification, Analytics       |
-| `marketplace.review.updated`        | nadie            | —                             |
-| `notification.email.queued`         | Notification     | —                             |
-| `notification.email.sent`           | nadie            | —                             |
-| `notification.email.failed`         | nadie            | —                             |
+| Routing key                         | Publica          | Consume                                  |
+| ----------------------------------- | ---------------- | ---------------------------------------- |
+| `auth.user.registered`              | Auth             | Notification                             |
+| `auth.registro.duplicado`           | Auth             | Notification                             |
+| `auth.user.logged-in`               | Auth             | —                                        |
+| `auth.password-reset.requested`     | Auth             | Notification                             |
+| `auth.email-verification.requested` | Auth             | Notification                             |
+| `auth.membership.created`           | Auth             | —                                        |
+| `auth.membership.role-changed`      | Auth             | —                                        |
+| `core.business.created`             | Core             | —                                        |
+| `core.business.updated`             | Core             | Marketplace, Booking                     |
+| `core.business-hours.updated`       | Core             | Booking                                  |
+| `core.business-config.updated`      | Core             | Booking                                  |
+| `core.professional.created`         | Core             | Booking                                  |
+| `core.service.created`              | nadie            | —                                        |
+| `core.service.updated`              | nadie            | —                                        |
+| `core.client.created`               | Core             | Analytics                                |
+| `core.client.birthday`              | Core (sondeo)    | Notification                             |
+| `core.client.merged`                | Core             | Booking, Payment, Marketplace, Analytics |
+| `booking.appointment.created`       | Booking          | Notification, Analytics                  |
+| `booking.appointment.confirmed`     | Booking          | Notification, Analytics                  |
+| `booking.appointment.cancelled`     | Booking          | Notification, Analytics                  |
+| `booking.appointment.completed`     | Booking          | Notification, Analytics, Core            |
+| `booking.appointment.no-showed`     | Booking          | Analytics, Core                          |
+| `booking.appointment.rescheduled`   | Booking          | Notification                             |
+| `booking.appointment.reminder-due`  | Booking (sondeo) | Notification                             |
+| `payment.payment.registered`        | Payment          | Notification, Analytics                  |
+| `payment.payment.corrected`         | Payment          | Analytics                                |
+| `payment.invoice.generated`         | Payment          | Notification                             |
+| `payment.points.redeemed`           | Payment          | Core                                     |
+| `payment.refund.processed`          | Payment          | —                                        |
+| `payment.cash.session.closed`       | Payment          | —                                        |
+| `marketplace.review.created`        | Marketplace      | Notification, Analytics                  |
+| `marketplace.review.updated`        | nadie            | —                                        |
+| `notification.email.queued`         | Notification     | —                                        |
+| `notification.email.sent`           | nadie            | —                                        |
+| `notification.email.failed`         | nadie            | —                                        |
 
 Dos columnas que conviene leer con cuidado:
 
