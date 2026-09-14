@@ -429,10 +429,8 @@ export class ReviewsService {
   }
 
   /**
-   * Reseñas que el usuario escribió sobre esa cita; el listado del cliente
-   * comprueba así si ya opinó. Acotadas a las suyas: con solo el id de una
-   * cita, la fila cruda deja ver quién opinó, si está oculta y cuántas
-   * denuncias lleva. Su propio estado sí lo ve, que es cosa suya.
+   * Reseñas que el usuario escribió sobre esa cita, acotadas a las suyas: el
+   * listado del cliente comprueba así si ya opinó.
    */
   async findByAppointment(
     appointmentId: string,

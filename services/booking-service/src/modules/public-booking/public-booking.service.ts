@@ -31,9 +31,8 @@ export class PublicBookingService {
 
   /**
    * Crea una cita del escaparate: resuelve o crea el cliente, elige profesional
-   * si no vino indicado y delega el alta. `userId` y `userEmail` llegan solo
-   * con sesión y siempre desde el token; con ellos la ficha queda ligada a esa
-   * cuenta.
+   * si no vino indicado y delega el alta. `userId` y `userEmail` salen del
+   * token.
    */
   async createPublicAppointment(
     data: {
@@ -87,9 +86,8 @@ export class PublicBookingService {
   }
 
   /**
-   * Busca el primer profesional libre usando la duración base del catálogo. La
-   * disponibilidad la decide el motor de la agenda, que es quien conoce la
-   * apertura del negocio, las jornadas partidas y lo que arrastra la madrugada.
+   * Busca el primer profesional libre con la duración base del catálogo; la
+   * disponibilidad la decide el motor de la agenda.
    */
   private async elegirProfesional(
     businessId: string,
@@ -128,9 +126,8 @@ export class PublicBookingService {
 
   /**
    * Pide al core-service el cliente que coincida o uno nuevo; falla si no
-   * responde. `userId` y `userEmail` viajan solo en la reserva con sesión y
-   * salen del token: el core identifica por ellos, mientras que `email` y
-   * `phone` son lo que la persona escribió y solo dicen cómo avisarle.
+   * responde. Identifican `userId` y `userEmail`; `email` y `phone` solo
+   * avisan.
    */
   private async findOrCreateGuestClient(
     businessId: string,

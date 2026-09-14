@@ -60,8 +60,7 @@ export class BusinessConfigService {
         .orUpdate(["value", "updated_at"], ["business_id", "key"])
         .execute();
 
-      // De aquí sale la política de reserva que booking cachea: sin el aviso,
-      // cambiarla tardaba en llegar lo que tardara en caducar.
+      // De aquí sale la política de reserva que booking cachea.
       await this.outbox.enqueue(manager, {
         eventType: EventNames.CORE_BUSINESS_CONFIG_UPDATED,
         aggregateType: "business",

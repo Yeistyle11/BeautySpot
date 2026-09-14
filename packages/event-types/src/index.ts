@@ -108,10 +108,7 @@ export interface BusinessUpdatedPayload {
 export type BusinessUpdatedEvent = IBaseEvent<BusinessUpdatedPayload>;
 
 /**
- * El negocio cambió cuándo abre: su horario semanal o alguno de sus días
- * especiales. Quien tenga cacheada la apertura debe olvidarla, sin importar de
- * qué día se trate, porque un día especial mueve solo una fecha y el horario
- * semanal, todas.
+ * El negocio cambió cuándo abre: su horario semanal o un día especial.
  */
 export interface BusinessHoursUpdatedPayload {
   businessId: string;

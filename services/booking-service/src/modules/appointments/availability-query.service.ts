@@ -270,8 +270,7 @@ export class AvailabilityQueryService {
 
   /**
    * Lo que cada profesional del negocio tiene ocupado ese día, contando el
-   * sobrante de la víspera: una cita de 23:30 que dura una hora termina a las
-   * "24:30", ya en esta madrugada.
+   * sobrante de la víspera.
    */
   private async ocupacionDelDia(
     businessId: string,
@@ -282,9 +281,8 @@ export class AvailabilityQueryService {
     const delDia = (dia: string) =>
       this.intervalosDelDia(businessId, dia, manager, excludeId);
 
-    // El día y la víspera son dos cadenas independientes, y fuera de una
-    // transacción van a la vez. Dentro no: comparten la conexión que la
-    // sostiene, y esa no atiende dos consultas a un tiempo.
+    // El día y la víspera se consultan en serie: dentro de la transacción
+    // comparten la conexión que la sostiene.
     const [ocupacion, deAyer] = manager
       ? [await delDia(date), await delDia(diaAnterior(date))]
       : await Promise.all([delDia(date), delDia(diaAnterior(date))]);
@@ -386,9 +384,8 @@ export class AvailabilityQueryService {
   }
 
   /**
-   * Primer profesional del equipo capaz de atender la reserva entera: trabaja a
-   * esa hora, cabe en la apertura del negocio, no tiene un bloqueo encima y no
-   * se le solapa ninguna cita viva. `null` si no hay ninguno.
+   * Primer profesional del equipo capaz de atender la reserva entera: horario,
+   * apertura, bloqueos y solapes. `null` si no hay ninguno.
    */
   async primerProfesionalLibre(
     businessId: string,
@@ -442,9 +439,8 @@ export class AvailabilityQueryService {
   }
 
   /**
-   * La ocupación cabe entera en algún tramo de la jornada del profesional,
-   * limpieza incluida, y su parte con cliente delante cabe en la apertura del
-   * negocio.
+   * Si la ocupación cabe entera en un tramo de la jornada del profesional,
+   * limpieza incluida, y su parte con cliente en la apertura del negocio.
    */
   private cabeEnLaJornada(
     tramos: Tramo[],

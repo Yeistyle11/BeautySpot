@@ -23,10 +23,8 @@ export class CreateMembershipDto {
 }
 
 /**
- * Alta de membresía pedida por otro servicio. `invitedBy` va declarado aquí y
- * no añadido con una intersección: de un tipo intersección TypeScript emite
- * `Object` como metadato, y con ese el ValidationPipe se salta el handler
- * entero —ni el rol asignable, ni los campos de más—.
+ * Alta de membresía pedida por otro servicio. Declara `invitedBy` en el propio
+ * tipo: de una intersección, el ValidationPipe no recibe metadato utilizable.
  */
 export class CrearMembresiaInternaDto extends CreateMembershipDto {
   @IsOptional()

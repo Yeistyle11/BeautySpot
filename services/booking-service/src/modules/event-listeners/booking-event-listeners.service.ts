@@ -116,13 +116,7 @@ export class BookingEventListeners {
     );
   }
 
-  /**
-   * Olvida el huso cacheado del negocio cuando cambian sus datos. Se cachea una
-   * hora, y hasta ahora un cambio de huso tardaba eso en llegar a la agenda:
-   * las horas que ve quien reserva salen de él.
-   *
-   * No lleva guarda de idempotencia porque olvidar dos veces es olvidar.
-   */
+  /** Olvida el huso cacheado del negocio cuando cambian sus datos. */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
     routingKey: EventNames.CORE_BUSINESS_UPDATED,
@@ -137,8 +131,7 @@ export class BookingEventListeners {
 
   /**
    * Olvida la apertura cacheada cuando el negocio cambia su horario o declara
-   * un día especial: de ella salen las horas que se ofrecen, y hasta ahora
-   * seguían siendo las viejas hasta que caducaran.
+   * un día especial.
    */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,

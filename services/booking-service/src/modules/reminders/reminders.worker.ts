@@ -178,11 +178,7 @@ export class RemindersWorker implements OnModuleInit, OnModuleDestroy {
     return qb.getMany();
   }
 
-  /**
-   * Huso de cada negocio de la página, resuelto una vez por negocio. La zona es
-   * dato del negocio y no de la cita: pedirla por cita repetía hasta diez mil
-   * consultas por ciclo, en serie, para responder siempre lo mismo.
-   */
+  /** Huso de cada negocio de la página, resuelto una vez por negocio. */
   private async zonasDeLaPagina(
     citas: Appointment[]
   ): Promise<Map<string, string>> {

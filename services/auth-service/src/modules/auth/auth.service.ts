@@ -241,9 +241,7 @@ export class AuthService {
   }> {
     const user = await this.validateUser(dto.email, dto.password);
 
-    // La traza y el aviso, en la misma escritura: por el outbox el login no
-    // depende de que el bus responda, y a la vez el aviso deja de perderse
-    // cuando no responde, que es lo que pasaba al publicarlo a pelo.
+    // La traza y el aviso salen por el outbox, en la misma escritura.
     await this.dataSource.transaction(async (manager) => {
       await this.logAction(
         user.id,

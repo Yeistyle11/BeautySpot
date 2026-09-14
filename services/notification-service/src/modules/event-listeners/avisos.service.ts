@@ -41,9 +41,8 @@ export class AvisosService {
         EVENTS_EXCHANGE,
         EventNames.NOTIFICATION_EMAIL_QUEUED,
         {
-          // El sobre va a mano porque aqui no hay EventBusService: este
-          // servicio solo trae el RabbitMQ de los consumidores, y sumarle el
-          // bus abriria una segunda conexion para publicar esta unica traza.
+          // El sobre va a mano: este servicio solo trae el RabbitMQ de los
+          // consumidores.
           eventId: randomUUID(),
           eventType: EventNames.NOTIFICATION_EMAIL_QUEUED,
           timestamp: new Date(),

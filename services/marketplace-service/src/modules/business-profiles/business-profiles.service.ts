@@ -246,9 +246,7 @@ export class BusinessProfilesService {
 
   /**
    * Actualiza los campos del perfil inmersivo (historia, redes, secciones) y
-   * recalcula la completitud. Con `versionCargada` la escritura es condicional:
-   * el bloqueo sostiene la fila entre el cotejo y el guardado, porque sin él
-   * dos guardados con la misma marca de partida pasarían los dos.
+   * recalcula la completitud. Con `versionCargada` la escritura es condicional.
    */
   async updateConfig(
     businessId: string,

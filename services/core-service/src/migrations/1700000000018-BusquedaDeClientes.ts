@@ -1,15 +1,8 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Índices que sirven la búsqueda de clientes del panel: la consulta compara
- * `translate(lower(columna), …) LIKE '%texto%'`, y a eso solo responde un GIN
- * de trigramas sobre esa misma expresión, la de `columnaSinTildes`. Sin ellos
- * cada búsqueda recorre la tabla entera evaluando el `translate` fila a fila,
- * y dos veces, porque el listado pide también el total.
- *
- * Son índices de expresión, que `@Index` no sabe declarar: en desarrollo, donde
- * el esquema sale de las entidades, no existen. Aquí no cambia el resultado,
- * solo el plan.
+ * Índices GIN de trigramas sobre la expresión sin tildes con la que la búsqueda
+ * de clientes compara. Son de expresión: solo existen en producción.
  */
 export class BusquedaDeClientes1700000000018 implements MigrationInterface {
   name = "BusquedaDeClientes1700000000018";

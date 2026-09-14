@@ -19,10 +19,7 @@ function isRetryable(error: unknown): boolean {
 }
 
 /**
- * Espera del intento, creciendo al doble y repartida al azar dentro de ese
- * tope. Sin el azar, las dos transacciones que acaban de chocar esperarían lo
- * mismo y volverían a chocar; sin la espera, los tres intentos se agolpan y
- * amplifican la contienda en vez de disiparla.
+ * Espera del intento, al doble de la anterior y repartida al azar en ese tope.
  */
 function esperaDelIntento(intento: number, baseMs: number): number {
   return Math.random() * baseMs * 2 ** (intento - 1);

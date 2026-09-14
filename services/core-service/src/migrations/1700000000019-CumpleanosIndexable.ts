@@ -1,14 +1,8 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Índice que el sondeo de cumpleaños puede usar de verdad. Busca por día y mes
- * de nacimiento, no por la fecha entera, y `EXTRACT(...)` sobre la columna deja
- * fuera cualquier índice declarado sobre `birth_date`: el que había no llegaba
- * a usarse nunca y el sondeo recorría la tabla cada hora.
- *
- * El predicado parcial es el del propio sondeo, que solo mira fichas vivas con
- * fecha puesta. Es un índice de expresión, que `@Index` no sabe declarar, así
- * que en desarrollo no existe: cambia el plan, no el resultado.
+ * Índice de expresión sobre el día y el mes de nacimiento, parcial sobre las
+ * fichas vivas con fecha, que es lo que mira el sondeo. Solo en producción.
  */
 export class CumpleanosIndexable1700000000019 implements MigrationInterface {
   name = "CumpleanosIndexable1700000000019";

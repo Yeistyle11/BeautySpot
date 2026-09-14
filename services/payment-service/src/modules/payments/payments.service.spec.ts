@@ -120,8 +120,7 @@ describe("PaymentsService", () => {
 
   describe("create", () => {
     // Dentro de la transaccion se sostiene el bloqueo de la unica sesion de
-    // caja abierta de la sede: salir a la red con el puesto para la caja
-    // entera del negocio mientras core responde, hasta cinco segundos.
+    // caja abierta de la sede.
     it("resuelve el huso antes de abrir la transacción del cobro", async () => {
       const orden: string[] = [];
       mockZonas.de.mockImplementation(async () => {

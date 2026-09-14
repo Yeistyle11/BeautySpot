@@ -25,11 +25,7 @@ export class BusinessHoursService {
     private readonly outbox: OutboxService
   ) {}
 
-  /**
-   * Anuncia que el negocio cambió cuándo abre, en la misma escritura. Booking
-   * tiene la apertura cacheada y sin esto seguiría ofreciendo las horas viejas
-   * hasta que caducara.
-   */
+  /** Anuncia que el negocio cambió cuándo abre, en la misma escritura. */
   private async anunciarCambio(
     manager: EntityManager,
     businessId: string

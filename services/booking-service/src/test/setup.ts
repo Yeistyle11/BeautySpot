@@ -39,9 +39,8 @@ jest.mock("@beautyspot/nest-common", () => ({
   OutboxService: jest.fn().mockImplementation(() => ({
     enqueue: jest.fn().mockResolvedValue(undefined),
   })),
-  // Passthrough: ejecuta la operación una vez, sin la lógica real de reintento
-  // —esa se prueba en nest-common—. Es un `jest.fn` para que un spec pueda
-  // comprobar que la escritura pasa por él.
+  // Passthrough: ejecuta la operación una vez, sin la lógica real de reintento.
+  // Es un `jest.fn` para que un spec compruebe que la escritura pasa por él.
   withSerializableRetry: jest.fn((op: () => Promise<unknown>) => op()),
   // Clases reales de token: los specs las sustituyen por su propio doble en el
   // contenedor de Nest, pero necesitan que existan para poder referenciarlas.

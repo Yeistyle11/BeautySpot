@@ -1299,9 +1299,7 @@ describe("AvailabilityQueryService", () => {
       ).resolves.toBe("prof-b");
     });
 
-    // La reserva del escaparate no miraba la apertura del negocio, asi que
-    // dejaba reservar un dia cerrado: el negocio recibia una cita que no podia
-    // atender.
+    // La reserva del escaparate comprueba la apertura del negocio.
     it("no da profesional si el negocio está cerrado ese día", async () => {
       mockAvailRepo.find.mockResolvedValue([
         tramo("prof-a", "09:00", "18:00"),

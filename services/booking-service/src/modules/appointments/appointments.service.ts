@@ -43,11 +43,7 @@ import { AvailabilityQueryService } from "./availability-query.service";
 import { PoliticaDeReservaService } from "./politica-de-reserva.service";
 import { PROPORCION_PUNTOS_FIDELIDAD } from "@beautyspot/shared-constants";
 
-/**
- * Lo que se guardan las sedes de un negocio. Se consultan en cada alta y abrir
- * o cerrar una es cosa de meses, así que el desfase no tiene consecuencia: la
- * sede que sobra deja de aceptarse unos minutos después.
- */
+/** Lo que se guardan las sedes de un negocio. */
 const TTL_SEDES = 300;
 import {
   ahoraEnLaZona,
@@ -245,9 +241,7 @@ export class AppointmentsService {
 
   /**
    * Comprueba que la sede indicada sea una sede activa del negocio. Las sedes
-   * se cachean unos minutos: se piden en cada alta y cada walk-in, y abrir o
-   * cerrar una es cosa de meses. No se cachea nada que se congele en la cita
-   * —el precio, la duración—, que llegar tarde ahí es cobrar de más o de menos.
+   * se cachean unos minutos; nada de lo que se congela en la cita se cachea.
    */
   private async validarSede(
     businessId: string,
@@ -782,8 +776,7 @@ export class AppointmentsService {
       throw new BadRequestException("Ya existe una cita en el nuevo horario");
 
     // Dentro de la transaccion SERIALIZABLE se repite la comprobacion de
-    // conflicto, que es la autoritativa contra el doble-booking; el error
-    // 40001 lo reintenta withSerializableRetry, igual que en el alta.
+    // conflicto; el error 40001 lo reintenta withSerializableRetry.
     await withSerializableRetry(() =>
       this.dataSource.transaction("SERIALIZABLE", async (manager) => {
         const conflictInTx = await this.disponibilidad.hayConflictoEn(

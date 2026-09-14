@@ -70,11 +70,7 @@ export interface RevenuePoint {
 }
 
 /** Calcula los KPIs del dashboard a partir de las métricas agregadas del negocio. */
-/**
- * Lo que el panel se permite ir por detrás. Son agregados que cambian con cada
- * cita y cada cobro: un minuto absorbe las recargas sin que las cifras dejen de
- * parecer vivas.
- */
+/** Lo que el panel se permite ir por detrás. */
 const TTL_PANEL = 60;
 
 @Injectable()
@@ -105,9 +101,8 @@ export class DashboardService {
     periodo: CifrasDelPeriodo;
     comparado: CifrasDelPeriodo | null;
   }> {
-    // Una sola lectura del huso para las dos cosas: el día en curso y, si no
-    // llega periodo, la ventana por defecto que acaba en él. Se resuelve fuera
-    // de la caché porque la ventana por defecto forma parte de la clave.
+    // Una sola lectura del huso para el día en curso y para la ventana por
+    // defecto, que se resuelve fuera de la caché: forma parte de la clave.
     const { today, from } = await this.dateRange(businessId, 29);
     const periodo = rango ?? { from, to: today };
 
@@ -153,13 +148,8 @@ export class DashboardService {
   }
 
   /**
-   * Envuelve una lectura del panel en la caché. Son agregados de lectura pura
-   * y la clave lleva el negocio y el periodo, así que dos personas del mismo
-   * negocio comparten el resultado y nadie ve el de otro.
-   *
-   * Solo caduca por tiempo: invalidarla desde quien escribe la métrica no
-   * serviría, porque esa escritura va dentro de la transacción del consumidor
-   * y competiría con su propio commit.
+   * Envuelve una lectura del panel en la caché, con el negocio y el periodo en
+   * la clave. Solo caduca por tiempo.
    */
   private cacheado<T>(clave: string, cargar: () => Promise<T>): Promise<T> {
     return this.cache.remember(`analytics:panel:${clave}`, TTL_PANEL, cargar);

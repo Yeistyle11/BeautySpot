@@ -145,8 +145,7 @@ export class PaymentsService {
     }
 
     // La zona, antes de abrir la transaccion: dentro se sostiene el bloqueo de
-    // la unica sesion de caja abierta de la sede, y salir a la red con el
-    // bloqueo puesto para la agenda entera del negocio.
+    // la unica sesion de caja abierta de la sede.
     const zona = await this.zonas.de(businessId);
 
     try {
@@ -340,9 +339,8 @@ export class PaymentsService {
         { businessId, puntos }
       );
     } catch (error) {
-      // Solo el 409 de core significa que no le alcanzan: cualquier otro fallo
-      // es de la llamada, y darlo por falta de puntos deja al cajero mirando
-      // el saldo de un cliente que lo tiene, sin rastro del error real.
+      // Solo el 409 de core significa que no le alcanzan los puntos; cualquier
+      // otro fallo es de la llamada.
       if (error instanceof ErrorDeServicioInterno && error.estado === 409) {
         throw new BadRequestException(
           "El cliente no tiene puntos suficientes o no pertenece a este negocio"

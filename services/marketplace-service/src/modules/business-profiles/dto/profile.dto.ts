@@ -96,8 +96,7 @@ export class UpdateProfileConfigDto {
 
   /**
    * Marca de la versión que se cargó al abrir el formulario. Si viene y el
-   * perfil ya cambió, la escritura se rechaza en vez de pisar lo que otra
-   * persona guardó mientras tanto.
+   * perfil ya cambió, la escritura se rechaza.
    */
   @IsOptional()
   @IsDateString({}, { message: "La versión del perfil no es una fecha válida" })

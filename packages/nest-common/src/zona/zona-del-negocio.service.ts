@@ -36,9 +36,8 @@ export class ZonaDelNegocioService {
   }
 
   /**
-   * Olvida el huso cacheado de un negocio, para que la proxima consulta lo
-   * vuelva a pedir. La clave no lleva prefijo de servicio, asi que olvidarla
-   * desde uno vale para todos los que la leen.
+   * Olvida el huso cacheado de un negocio; la clave es la misma para todos los
+   * servicios que la leen.
    */
   async olvidar(businessId: string): Promise<void> {
     if (!businessId) return;

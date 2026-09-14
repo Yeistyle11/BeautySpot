@@ -90,11 +90,7 @@ function PublicBookingPageInner() {
     z.array(jornadaPublicaSchema)
   );
 
-  /**
-   * Días de la semana con hueco, contando la cola de las jornadas nocturnas.
-   * `undefined` mientras el horario no ha cargado, para no dar por cerrado lo
-   * que todavía no se sabe.
-   */
+  /** Días con hueco, con la cola de las nocturnas; `undefined` sin cargar. */
   const diasAbiertos = useMemo(() => {
     if (!horarios) return undefined;
 

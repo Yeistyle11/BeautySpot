@@ -258,8 +258,7 @@ describe("AppointmentsService", () => {
           useValue: mockHttp,
         },
         {
-          // Resolutor real sobre el core simulado: las fichas del usuario
-          // salen de lo que conteste `mockHttp`.
+          // Resolutor real sobre el core simulado.
           provide: FichasDelUsuarioService,
           useFactory: () =>
             new FichasDelUsuarioService(

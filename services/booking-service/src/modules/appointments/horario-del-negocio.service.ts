@@ -47,9 +47,8 @@ export class HorarioDelNegocioService {
   }
 
   /**
-   * Etiqueta que agrupa las aperturas cacheadas de un negocio. La clave lleva
-   * la fecha, asi que sin ella no habria forma de olvidarlas todas: un cambio
-   * del horario semanal mueve cualquier dia.
+   * Etiqueta que agrupa las aperturas cacheadas de un negocio, cuya clave lleva
+   * la fecha, para poder olvidarlas todas de una vez.
    */
   private etiquetaDe(businessId: string): string {
     return `etiqueta:horario:negocio:${businessId}`;

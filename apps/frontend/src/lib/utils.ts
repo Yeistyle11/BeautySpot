@@ -24,11 +24,7 @@ export function formatPorcentaje(valor: number): string {
   return `${Number(valor.toFixed(1))}%`;
 }
 
-/**
- * Parsea una fecha "YYYY-MM-DD" o ISO. Las que llegan sin hora se anclan al
- * mediodia: parseadas como medianoche UTC, en husos negativos caerian en el
- * dia anterior, y el mediodia deja margen al cambio de horario de verano.
- */
+/** Parsea un ISO completo, o una fecha "YYYY-MM-DD" anclada al mediodia. */
 function parsearFecha(date: string): Date {
   return new Date(date.includes("T") ? date : `${date}T12:00:00`);
 }
@@ -38,11 +34,7 @@ export function diaDeLaSemana(date: string): number {
   return parsearFecha(date).getDay();
 }
 
-/**
- * Si el negocio no abre ese dia de la semana. Sin `diasAbiertos` —el horario
- * aun no ha cargado— no se afirma que este cerrado; una lista vacia si dice
- * que no abre ningun dia.
- */
+/** Si el negocio no abre ese dia. Sin `diasAbiertos`, responde que no. */
 export function esDiaCerrado(date: string, diasAbiertos?: number[]): boolean {
   if (!diasAbiertos) return false;
   return !diasAbiertos.includes(diaDeLaSemana(date));
@@ -83,10 +75,7 @@ export function desplazarDia(date: string, dias: number): string {
   return toLocalDateKey(d);
 }
 
-/**
- * Los siete dias de la semana que contiene esa fecha, de lunes a domingo. El
- * domingo se numera como 0, que aqui cierra la semana en vez de abrirla.
- */
+/** Los siete dias de la semana que contiene esa fecha, de lunes a domingo. */
 export function fechasDeLaSemana(date: string): string[] {
   const dia = diaDeLaSemana(date);
   const lunes = desplazarDia(date, dia === 0 ? -6 : 1 - dia);

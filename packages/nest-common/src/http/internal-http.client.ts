@@ -27,9 +27,8 @@ const PUERTOS: Record<ServicioInterno, number> = {
 };
 
 /**
- * Fallo de una llamada entre servicios. Sigue siendo un 503 —quien llama no
- * puede seguir— pero lleva el estado que respondió el otro lado, para que
- * pueda distinguir su negativa razonada de que se haya caído.
+ * Fallo de una llamada entre servicios: un 503 que lleva el estado con el que
+ * respondió el otro lado.
  */
 export class ErrorDeServicioInterno extends ServiceUnavailableException {
   constructor(

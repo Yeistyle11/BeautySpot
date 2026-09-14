@@ -149,8 +149,7 @@ describe("InvoicesService", () => {
           useValue: mockZonas,
         },
         {
-          // Resolutor real sobre el core simulado: las fichas del usuario
-          // salen de lo que conteste `mockHttp`.
+          // Resolutor real sobre el core simulado.
           provide: FichasDelUsuarioService,
           useFactory: () =>
             new FichasDelUsuarioService(
@@ -594,8 +593,7 @@ describe("InvoicesService", () => {
       expect(mockInvoiceRepo.findAndCount).not.toHaveBeenCalled();
     });
 
-    // Devolver una pagina vacia convertiria la caida en un "no tienes
-    // facturas", y eso nadie lo mira dos veces.
+    // Una caida de core no puede pasar por "no tienes facturas".
     it("falla en vez de decir que no hay facturas si core no responde", async () => {
       mockHttp.pedir.mockRejectedValue(new Error("core no responde"));
 

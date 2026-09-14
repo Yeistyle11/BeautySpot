@@ -204,8 +204,7 @@ describe("BookingEventListeners", () => {
   });
 
   describe("handleBusinessUpdated", () => {
-    // El huso se cachea una hora: sin esto, cambiarlo tardaba eso en llegar a
-    // las horas que ve quien reserva.
+    // El huso se cachea una hora.
     it("olvida el huso cacheado del negocio que cambió", async () => {
       await service.handleBusinessUpdated(
         makeEvent({ businessId: "negocio-1", slug: "x", changes: {} })

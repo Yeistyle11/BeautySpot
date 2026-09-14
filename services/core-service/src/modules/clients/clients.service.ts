@@ -162,16 +162,11 @@ export class ClientsService extends TenantCrudService<Client> {
 
   /**
    * Ficha de quien reserva en ese negocio, o una nueva. Con sesión identifica
-   * el token —su usuario y el correo que acredita—; sin ella, el contacto que
-   * dejó el invitado. Lo que se escribe en el formulario nunca identifica a
-   * quien tiene sesión: bastaría con saberse el correo ajeno para quedarse con
-   * su ficha y con todo lo que cuelga de ella.
+   * el token —usuario y correo acreditado—; al invitado, su contacto.
    */
   async resolverFichaDeReserva(datos: DatosDeReserva): Promise<Client> {
-    // Al invitado se le identifica por un contacto que nadie ha verificado:
-    // es la premisa de poder reservar sin cuenta, y el precio es que puede
-    // colgarle una cita a la ficha de otro. No hay fuga —no recibe nada de
-    // ella— y el negocio ve la cita antes de atenderla.
+    // Al invitado se le identifica por un contacto que nadie ha verificado, que
+    // es la premisa de poder reservar sin cuenta.
     const existente = datos.userId
       ? await this.fichaDeLaCuenta(datos)
       : await this.buscarPorContacto(
@@ -194,8 +189,7 @@ export class ClientsService extends TenantCrudService<Client> {
 
   /**
    * Ficha de quien reserva con sesión: la suya, o la que lleve el correo que su
-   * token acredita. El login exige el correo verificado, así que es lo único
-   * del contacto que respalda una identidad.
+   * token acredita.
    */
   private async fichaDeLaCuenta(datos: DatosDeReserva): Promise<Client | null> {
     const suya = await this.repo.findOne({
@@ -211,11 +205,7 @@ export class ClientsService extends TenantCrudService<Client> {
     });
   }
 
-  /**
-   * Ata la ficha al usuario que reserva, si aún no tiene ninguno. Solo llegan
-   * aquí las que ya son suyas o las que llevan el correo que su token acredita,
-   * así que el vínculo siempre lo respalda algo comprobado.
-   */
+  /** Ata la ficha al usuario que reserva, si aún no tiene ninguno. */
   private async vincularUsuario(
     client: Client,
     userId?: string
@@ -226,9 +216,8 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * Quita del choque de contacto los datos del titular antes de que salga por
-   * una ruta de reserva. El mostrador puede saber de quién es la ficha que
-   * estorba; quien reserva solo debe saber que ese contacto no le sirve.
+   * Quita los datos del titular del choque de contacto antes de que salga por
+   * una ruta de reserva.
    */
   private sinDelatarAlTitular(error: unknown): unknown {
     if (!(error instanceof ConflictException)) return error;

@@ -6,21 +6,12 @@ interface FichaDeCliente {
   id?: unknown;
 }
 
-/**
- * Traduce un usuario a las fichas de cliente que le pertenecen, una por cada
- * negocio donde haya reservado. Es lo que separa «mis citas» y «mis facturas»
- * de las de los demas, asi que quien liste lo propio de un cliente pasa por
- * aqui en vez de preguntarle a core por su cuenta.
- */
+/** Resuelve las fichas de cliente que pertenecen a un usuario. */
 @Injectable()
 export class FichasDelUsuarioService {
   constructor(private readonly http: InternalHttpClient) {}
 
-  /**
-   * Ids de las fichas del usuario. Falla si core no responde: dar la lista por
-   * vacia convertiria una caida en un «no tienes nada», que es peor que un
-   * error, porque nadie lo mira dos veces.
-   */
+  /** Ids de las fichas del usuario. Falla si core no responde. */
   async de(userId: string): Promise<string[]> {
     const fichas = await this.http.pedir<FichaDeCliente[]>(
       "core",

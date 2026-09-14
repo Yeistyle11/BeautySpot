@@ -107,8 +107,7 @@ describe("BusinessConfigService", () => {
   });
 
   describe("anuncio del cambio", () => {
-    // De esta clave sale la politica de reserva que booking cachea: sin el
-    // aviso, cambiarla tardaba en llegar lo que tardara en caducar.
+    // De esta clave sale la politica de reserva que booking cachea.
     it("avisa de que la configuración cambió, en la misma escritura", async () => {
       await service.guardar("business-123", "reservas", { horas: 4 });
 

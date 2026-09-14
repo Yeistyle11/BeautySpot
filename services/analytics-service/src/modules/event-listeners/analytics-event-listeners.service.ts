@@ -304,13 +304,8 @@ export class AnalyticsEventListeners {
   }
 
   /**
-   * Aplica el evento una sola vez, y si falla registra el motivo y lo vuelve a
-   * lanzar para que el mensaje acabe en la cola de fallidos en lugar de darse
-   * por consumido: una metrica que se pierde en silencio no se recupera, y el
-   * panel queda mintiendo sin que nadie sepa desde cuando.
-   *
-   * Reintentarlo es seguro: `once` marca el evento y hace el trabajo en la
-   * misma transaccion, asi que al fallar se deshacen los dos.
+   * Aplica el evento una sola vez; si falla, registra el motivo y lo relanza
+   * para que acabe en la cola de fallidos.
    */
   private async aplicar(
     event: IBaseEvent<unknown>,

@@ -220,8 +220,8 @@ export class BusinessesService {
     const [data, total] = await qb.getManyAndCount();
     await this.adjuntarColecciones(data);
 
-    // El sobre lo arma el helper: `paginarQueryBuilder` no sirve aquí porque
-    // las colecciones se adjuntan a la página ya traída.
+    // El sobre lo arma el helper: las colecciones se adjuntan a la página ya
+    // traída.
     return { data, meta: metadataDePaginacion(params, total) };
   }
 
@@ -277,8 +277,8 @@ export class BusinessesService {
         configs: true,
         hours: true,
       },
-      // Una consulta por colección en vez de un JOIN con todas a la vez: son
-      // cinco uno-a-muchos hermanas, y unidas multiplican sus filas entre sí.
+      // Una consulta por colección: son cinco uno-a-muchos hermanas, y unidas
+      // multiplican sus filas entre sí.
       relationLoadStrategy: "query",
     });
 
