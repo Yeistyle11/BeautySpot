@@ -191,8 +191,21 @@ faltar:
 - **Índices para los patrones reales**, incluido uno **parcial** para el worker de
   recordatorios (`idx_appointments_recordatorios`), que busca por fecha sin acotar
   por negocio y al que ningún otro índice le servía.
+
+  > **13 de septiembre de 2026.** Core suma cuatro índices de expresión: tres GIN
+  > de trigramas para la búsqueda de clientes y uno sobre el día y el mes de
+  > nacimiento para el sondeo de cumpleaños, que sustituye al de `birth_date`.
+
 - **Caché en Redis** de lo que se consulta en cada petición y cambia poco: huso
   del negocio (1 h), horario de apertura (10 min), resolución de tenant (5 min).
+
+  > **13 de septiembre de 2026.** El inventario creció: política de reserva
+  > (10 min), sedes del negocio (5 min) y las seis cifras del panel de métricas
+  > (1 min). El huso, la apertura y la política ya no caducan solo por tiempo:
+  > core anuncia el cambio por el bus y booking olvida la clave. El catálogo de
+  > servicios y los datos fiscales siguen sin cachearse, porque de ahí sale lo que
+  > se congela en la cita y en la factura.
+
 - El frontend carga la vista día y el calendario con `dynamic()`, así que no pesan
   en el arranque. Bundle compartido: **87,5 kB**.
 
@@ -227,6 +240,10 @@ cobertura están tomados el 12 de agosto, ya con las dos correcciones dentro:
 | Tests unitarios              | 1870 en 136 suites                        |
 | Tests de integración         | 75 en 25 suites                           |
 | Cobertura (gate 92/80/80/93) | 92,34 / 81,41 / 83,90 / 93,69             |
+
+> **13 de septiembre de 2026.** Los unitarios son **2942 en 212 suites** y la
+> cobertura **92,29 / 80,88 / 83,30 / 93,66**. Las cifras de arriba son las de
+> agosto y se dejan como estaban: este documento fecha lo que mide.
 
 `no-explicit-any` es **error** en código de producción y está desactivado solo en
 tests, donde los mocks lo usan legítimamente. El gate de cobertura rompe la build,

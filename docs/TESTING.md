@@ -11,7 +11,7 @@ PostgreSQL, Redis y RabbitMQ reales.
 | Patrón de fichero | `*.spec.ts`                       | `*.int-test.ts`                       |
 | Config            | `jest.config.js` de cada proyecto | `jest.integration.config.js`          |
 | Dependencias      | Mockeadas (BD, Redis, RabbitMQ)   | Reales, vía `docker-compose.test.yml` |
-| Cuántos           | **1903 tests / 141 suites**       | 75 tests / 25 suites                  |
+| Cuántos           | **2942 tests / 212 suites**       | 37 suites                             |
 | En CI             | Job `test`                        | Job `integration`                     |
 | Comando           | `npm test`                        | `npm run test:int` (por servicio)     |
 
@@ -19,14 +19,16 @@ Cobertura actual, medida sobre los unitarios:
 
 | Métrica    | Actual  | Gate mínimo |
 | ---------- | ------- | ----------- |
-| Statements | 92,45 % | 92          |
-| Branches   | 81,58 % | 80          |
-| Functions  | 83,83 % | 80          |
-| Lines      | 93,79 % | 93          |
+| Statements | 92,29 % | 92          |
+| Branches   | 80,88 % | 80          |
+| Functions  | 83,30 % | 80          |
+| Lines      | 93,66 % | 93          |
 
 El gate está en `coverageThreshold` de `jest.config.js` (raíz) y **falla el CI si
-la cobertura baja**. Los valores están fijados un poco por debajo de la medición
-real para que una variación de décimas no rompa el pipeline.
+la cobertura baja**. Los valores están fijados por debajo de la medición real
+para que una variación de décimas no rompa el pipeline, pero el margen es fino:
+en branches son ocho centésimas, así que un fichero nuevo sin cubrir rompe la
+compilación.
 
 ---
 
@@ -260,7 +262,7 @@ Con honestidad, para que nadie asuma más de lo que hay:
   servicios → base de datos.
 - **Los smoke tests de integración sólo comprueban la conexión.** Salvo las dos
   suites de payment-service, el resto no valida comportamiento.
-- **No hay tests de contrato entre servicios.** Los 27 eventos de RabbitMQ se tipan
+- **No hay tests de contrato entre servicios.** Los 35 eventos de RabbitMQ se tipan
   con `@beautyspot/event-types`, pero nada verifica que emisor y receptor coincidan
   en tiempo de ejecución. Ya apareció un fallo de este tipo: dos listeners leían
   `event.payload.role` en `auth.user.registered`, campo que el emisor nunca envía.

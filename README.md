@@ -114,7 +114,7 @@ cd apps/frontend && npm run dev   # sólo frontend (8080)
 npm run build                     # turbo build de servicios y paquetes
 
 # Tests
-npm test                          # 1870 tests unitarios (13 proyectos Jest)
+npm test                          # 2942 tests unitarios (13 proyectos Jest)
 npm run test:watch
 npm run test:coverage             # con cobertura y gate
 
@@ -156,7 +156,7 @@ BeautySpot/
 │   └── frontend/              # Next.js 16 (8080) — fuente de verdad de la UI
 ├── packages/
 │   ├── database/              # Configuración TypeORM, entidades base, paginación
-│   ├── event-types/           # Contratos de los 30 eventos de RabbitMQ
+│   ├── event-types/           # Contratos de los 35 eventos de RabbitMQ
 │   ├── nest-common/           # Módulo compartido: caché, event bus, outbox, filtros
 │   ├── shared-constants/      # Reglas de negocio con nombre
 │   ├── shared-types/          # Enums e interfaces del dominio
@@ -243,13 +243,13 @@ CORS_ORIGINS=http://localhost:3000
 
 **Tests**
 
-|             | Cantidad                                                        |
-| ----------- | --------------------------------------------------------------- |
-| Unitarios   | **1870 tests / 136 suites**                                     |
-| Integración | 75 tests / 25 suites (contra Postgres, Redis y RabbitMQ reales) |
+|             | Cantidad                                             |
+| ----------- | ---------------------------------------------------- |
+| Unitarios   | **2942 tests / 212 suites**                          |
+| Integración | 37 suites (contra Postgres, Redis y RabbitMQ reales) |
 
-Cobertura: **92,34 %** statements, **81,41 %** branches, **83,90 %** functions,
-**93,69 %** lines. El gate de `jest.config.js` falla el CI si baja de 92/80/80/93.
+Cobertura: **92,29 %** statements, **80,88 %** branches, **83,30 %** functions,
+**93,66 %** lines. El gate de `jest.config.js` falla el CI si baja de 92/80/80/93.
 
 Detalle en [docs/TESTING.md](docs/TESTING.md).
 
