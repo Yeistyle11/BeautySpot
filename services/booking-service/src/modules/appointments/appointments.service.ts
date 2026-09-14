@@ -26,6 +26,7 @@ import {
   ServicioDeLaCita,
 } from "@beautyspot/event-types";
 import {
+  FichasDelUsuarioService,
   InternalHttpClient,
   OutboxService,
   RedisCacheService,
@@ -143,7 +144,8 @@ export class AppointmentsService {
     private readonly disponibilidad: AvailabilityQueryService,
     private readonly zonas: ZonaDelNegocioService,
     private readonly cache: RedisCacheService,
-    private readonly politica: PoliticaDeReservaService
+    private readonly politica: PoliticaDeReservaService,
+    private readonly fichas: FichasDelUsuarioService
   ) {}
 
   /** Indica si a la cita le falta menos de la antelación mínima. */
@@ -1000,7 +1002,7 @@ export class AppointmentsService {
     userId: string,
     pagination: PaginateParams
   ): Promise<IPaginatedResponse<Appointment>> {
-    const clientIds = await this.clientIdsDelUsuario(userId);
+    const clientIds = await this.fichas.de(userId);
     if (clientIds.length === 0) {
       return { data: [], meta: metadataDePaginacion(pagination, 0) };
     }
@@ -1026,7 +1028,7 @@ export class AppointmentsService {
     });
     if (!cita) throw new NotFoundException("Cita no encontrada");
 
-    const clientIds = await this.clientIdsDelUsuario(userId);
+    const clientIds = await this.fichas.de(userId);
     if (!clientIds.includes(cita.clientId)) {
       throw new NotFoundException("Cita no encontrada");
     }
@@ -1060,20 +1062,6 @@ export class AppointmentsService {
     return this.reschedule(id, cita.businessId, newDate, newStartTime, {
       esCliente: true,
     });
-  }
-
-  /** Pregunta a core qué fichas de cliente pertenecen a este usuario. */
-  private async clientIdsDelUsuario(userId: string): Promise<string[]> {
-    const fichas = await this.http.pedir<{ id?: unknown }[]>(
-      "core",
-      `/internal/clients/by-user/${userId}`
-    );
-
-    return Array.isArray(fichas)
-      ? fichas
-          .map((c) => c.id)
-          .filter((id): id is string => typeof id === "string")
-      : [];
   }
 
   /**
@@ -1187,7 +1175,7 @@ export class AppointmentsService {
       return { resenable: false };
     }
 
-    const fichas = await this.clientIdsDelUsuario(userId);
+    const fichas = await this.fichas.de(userId);
     if (!fichas.includes(cita.clientId)) return { resenable: false };
 
     return {

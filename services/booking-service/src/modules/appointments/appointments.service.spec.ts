@@ -1,5 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import {
+  FichasDelUsuarioService,
   InternalHttpClient,
   RedisCacheService,
   ZonaDelNegocioService,
@@ -255,6 +256,15 @@ describe("AppointmentsService", () => {
         {
           provide: InternalHttpClient,
           useValue: mockHttp,
+        },
+        {
+          // Resolutor real sobre el core simulado: las fichas del usuario
+          // salen de lo que conteste `mockHttp`.
+          provide: FichasDelUsuarioService,
+          useFactory: () =>
+            new FichasDelUsuarioService(
+              mockHttp as unknown as InternalHttpClient
+            ),
         },
       ],
     }).compile();

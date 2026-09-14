@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
+  FichasDelUsuarioService,
   InternalHttpClient,
   OutboxService,
   ZonaDelNegocioService,
@@ -100,7 +101,8 @@ export class InvoicesService {
     private readonly dataSource: DataSource,
     private readonly outbox: OutboxService,
     private readonly http: InternalHttpClient,
-    private readonly zonas: ZonaDelNegocioService
+    private readonly zonas: ZonaDelNegocioService,
+    private readonly fichas: FichasDelUsuarioService
   ) {}
 
   /** Crea una factura calculando los totales de sus líneas y asignándole un número. */
@@ -335,7 +337,7 @@ export class InvoicesService {
     userId: string,
     pagination: PaginateParams
   ): Promise<IPaginatedResponse<InvoiceEntity>> {
-    const clientIds = await this.clientIdsDelUsuario(userId);
+    const clientIds = await this.fichas.de(userId);
     if (clientIds.length === 0) {
       return { data: [], meta: metadataDePaginacion(pagination, 0) };
     }
@@ -361,7 +363,7 @@ export class InvoicesService {
     invoiceId: string,
     userId: string
   ): Promise<InvoiceEntity> {
-    const clientIds = await this.clientIdsDelUsuario(userId);
+    const clientIds = await this.fichas.de(userId);
     const invoice = clientIds.length
       ? await this.invoiceRepo.findOne({
           where: { id: invoiceId, clientId: In(clientIds) },
@@ -369,24 +371,6 @@ export class InvoicesService {
       : null;
     if (!invoice) throw new NotFoundException("Factura no encontrada");
     return invoice;
-  }
-
-  /**
-   * Pregunta a core qué fichas de cliente pertenecen a este usuario. Falla si
-   * core no responde: dar la lista por vacía convertiría una caída en un "no
-   * tienes facturas", que es peor que un error, porque nadie lo mira dos veces.
-   */
-  private async clientIdsDelUsuario(userId: string): Promise<string[]> {
-    const fichas = await this.http.pedir<{ id?: unknown }[]>(
-      "core",
-      `/internal/clients/by-user/${userId}`
-    );
-
-    return Array.isArray(fichas)
-      ? fichas
-          .map((c) => c.id)
-          .filter((id): id is string => typeof id === "string")
-      : [];
   }
 
   /** Obtiene una factura con sus líneas; lanza 404 si no existe. */

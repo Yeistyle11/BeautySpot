@@ -1,6 +1,7 @@
 import { DataSource } from "typeorm";
 import { join } from "path";
 import {
+  FichasDelUsuarioService,
   InternalHttpClient,
   OutboxService,
   RedisCacheService,
@@ -150,7 +151,8 @@ describe("Integración: la cita de anoche ocupa la madrugada", () => {
       } as unknown as RedisCacheService,
       {
         horasMinimasDeCancelacion: jest.fn().mockResolvedValue(2),
-      } as unknown as PoliticaDeReservaService
+      } as unknown as PoliticaDeReservaService,
+      new FichasDelUsuarioService(http as unknown as InternalHttpClient)
     );
   }, 60000);
 

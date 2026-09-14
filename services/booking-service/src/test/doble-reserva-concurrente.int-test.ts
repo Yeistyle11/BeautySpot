@@ -1,6 +1,7 @@
 import { DataSource } from "typeorm";
 import { join } from "path";
 import {
+  FichasDelUsuarioService,
   InternalHttpClient,
   OutboxService,
   RedisCacheService,
@@ -141,7 +142,8 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
       } as unknown as RedisCacheService,
       {
         horasMinimasDeCancelacion: jest.fn().mockResolvedValue(2),
-      } as unknown as PoliticaDeReservaService
+      } as unknown as PoliticaDeReservaService,
+      new FichasDelUsuarioService(http as unknown as InternalHttpClient)
     );
 
     reservaPublica = new PublicBookingService(

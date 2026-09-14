@@ -1,5 +1,6 @@
 import { DataSource } from "typeorm";
 import {
+  FichasDelUsuarioService,
   InternalHttpClient,
   OutboxService,
   ZonaDelNegocioService,
@@ -54,7 +55,11 @@ describe("Integración: numeración de facturas por negocio", () => {
       } as unknown as InternalHttpClient,
       {
         de: jest.fn().mockResolvedValue("America/Bogota"),
-      } as unknown as ZonaDelNegocioService
+      } as unknown as ZonaDelNegocioService,
+      // Aqui no se listan las facturas de ningun cliente.
+      {
+        de: jest.fn().mockResolvedValue([]),
+      } as unknown as FichasDelUsuarioService
     );
   }, 60000);
 

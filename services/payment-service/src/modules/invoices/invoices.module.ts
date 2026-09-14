@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import {
+  FichasDelUsuarioModule,
   InternalHttpModule,
   ZonaDelNegocioModule,
 } from "@beautyspot/nest-common";
@@ -17,6 +18,7 @@ import { PdfModule } from "./pdf/pdf.module";
     TypeOrmModule.forFeature([InvoiceEntity, InvoiceItemEntity, PaymentEntity]),
     InternalHttpModule,
     ZonaDelNegocioModule,
+    FichasDelUsuarioModule,
     PdfModule,
   ],
   controllers: [InvoicesController],

@@ -14,6 +14,7 @@ import {
 } from "@nestjs/common";
 import { PdfService } from "./pdf/pdf.service";
 import {
+  FichasDelUsuarioService,
   InternalHttpClient,
   ZonaDelNegocioService,
 } from "@beautyspot/nest-common";
@@ -146,6 +147,15 @@ describe("InvoicesService", () => {
         {
           provide: ZonaDelNegocioService,
           useValue: mockZonas,
+        },
+        {
+          // Resolutor real sobre el core simulado: las fichas del usuario
+          // salen de lo que conteste `mockHttp`.
+          provide: FichasDelUsuarioService,
+          useFactory: () =>
+            new FichasDelUsuarioService(
+              mockHttp as unknown as InternalHttpClient
+            ),
         },
       ],
     }).compile();
