@@ -1,11 +1,14 @@
 # Plan de remediación — BeautySpot
 
-Rama de trabajo: `fix/tanda-22-next-16` (PR #99). Dos campañas, en orden:
+Rama de trabajo: `fix/tanda-24-auditoria`. Tres campañas, en orden:
 
 1. **`QA-REPORT-BeautySpot-2026-08-22`** — 28 hallazgos `BS-001`…`BS-028`
    (1 bloqueante, 5 altos, 15 medios, 7 bajos). Cerrada.
 2. **`QA-REPORT-BeautySpot-2026-09-04`** — 15 hallazgos `BS-029`…`BS-043`
-   (7 altos, 7 medios, 1 bajo). Al final del documento.
+   (7 altos, 7 medios, 1 bajo). Cerrada.
+3. **Auditoría de código 2026-09-13** — 16 hallazgos `BS-044`…`BS-059`
+   (4 altos, 11 medios, 1 bajo). Al final del documento. Sin informe previo:
+   los hallazgos salen de leer el repositorio, no de recorrer la interfaz.
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 propuesta `[PM]` (no se implementa) · ❓ necesita aclaración
 
@@ -943,3 +946,200 @@ inválido.
   son decisiones de producto, no defectos: van a `QA-PROPUESTAS-PM.md`.
 - Las observaciones 2, 3, 5 y 6 del informe siguen en seguimiento; la 4 se cerró
   al abrirse como BS-040.
+
+---
+
+# Campaña 2026-09-13 — `BS-044`…`BS-059`
+
+Origen: auditoría de código sobre el repositorio, sin informe que la preceda.
+Las dos campañas anteriores salieron de recorrer la interfaz; ésta, de leer lo
+que hay detrás, así que el reparto es otro: **nada de lo que cae aquí se ve en
+pantalla**. Son dos fugas de datos entre cuentas, un endpoint que dejó de
+validarse, reglas de negocio que una segunda implementación no respeta, y un
+grupo grande de consultas y cachés que hacen su trabajo de más.
+
+16 hallazgos: **4 Alta, 11 Media, 1 Baja**.
+
+## Decisiones tomadas
+
+| Tema   | Decisión                                                                                              |
+| ------ | ----------------------------------------------------------------------------------------------------- |
+| BS-045 | La identidad de quien reserva con sesión sale **del token**; el contacto del formulario solo avisa    |
+| BS-045 | La reserva de invitado sigue deduplicando por contacto: es la premisa de reservar sin cuenta          |
+| BS-044 | El fichero se saca del repositorio y se cierra la regla; **no** se rota el secreto (es de desarrollo) |
+| BS-054 | Las cachés se invalidan por evento del bus; sin guarda de idempotencia, olvidar dos veces es olvidar  |
+| BS-059 | El catálogo de servicios y los datos fiscales **no** se cachean: de ahí sale lo que se congela        |
+| BS-058 | Las transacciones por cita del sondeo se quedan: son la garantía de no avisar dos veces               |
+
+## Agrupación por causa raíz
+
+| Causa                                                                       | Hallazgos              |
+| --------------------------------------------------------------------------- | ---------------------- |
+| I1 · Un fichero de entorno con secretos que ninguna regla del ignore cubría | BS-044                 |
+| I2 · La identidad de quien llama se toma del cuerpo y no del token          | BS-045                 |
+| I3 · Se devuelve la fila cruda, sin proyectar ni acotar a quien pregunta    | BS-046                 |
+| I4 · El metatipo del handler deja al ValidationPipe sin nada que validar    | BS-047                 |
+| I5 · Una segunda implementación de una regla que ya tiene dueño             | BS-048                 |
+| I6 · El instante lo pone el reloj del proceso y no el huso del negocio      | BS-049                 |
+| I7 · El `catch` traduce cualquier fallo a una negativa de negocio           | BS-050                 |
+| I8 · Escritura concurrente sin reintento ni cotejo de versión               | BS-051, BS-053         |
+| I9 · El consumidor da por consumido lo que no pudo escribir                 | BS-052                 |
+| I10 · Caché que solo caduca por tiempo, sin aviso de quien escribe          | BS-054, BS-059         |
+| I11 · Se sale a la red con un bloqueo de fila puesto                        | BS-055                 |
+| I12 · Consulta recurrente sin índice utilizable, o que multiplica sus filas | BS-056, BS-057, BS-058 |
+
+## Tablero
+
+| ID     | Sev   | Módulo          | Causa | Esfuerzo | Estado |
+| ------ | ----- | --------------- | ----- | -------- | ------ |
+| BS-044 | Alta  | Infraestructura | I1    | XS       | ✅     |
+| BS-045 | Alta  | Clientes        | I2    | M        | ✅     |
+| BS-046 | Alta  | Marketplace     | I3    | S        | ✅     |
+| BS-047 | Alta  | Sesión          | I4    | S        | ✅     |
+| BS-048 | Media | Agenda          | I5    | M        | ✅     |
+| BS-049 | Media | Facturación     | I6    | S        | ✅     |
+| BS-050 | Media | Pagos           | I7    | S        | ✅     |
+| BS-051 | Media | Agenda          | I8    | M        | ✅     |
+| BS-052 | Media | Métricas        | I9    | S        | ✅     |
+| BS-053 | Media | Marketplace     | I8    | M        | ✅     |
+| BS-054 | Media | Agenda          | I10   | M        | ✅     |
+| BS-055 | Media | Caja            | I11   | XS       | ✅     |
+| BS-056 | Media | Clientes        | I12   | S        | ✅     |
+| BS-057 | Media | Marketplace     | I12   | XS       | ✅     |
+| BS-058 | Media | Agenda          | I12   | S        | ✅     |
+| BS-059 | Baja  | Métricas        | I10   | S        | ✅     |
+
+## Detalle
+
+### BS-044 · Un fichero de entorno con secretos viajaba en el repositorio ✅
+
+`services/notification-service/.env.bak-qa` llevaba las credenciales de
+desarrollo y el `JWT_SECRET` que comparten los ocho servicios en local. Ninguna
+regla del `.gitignore` cubría el sufijo: `.env` casa por nombre exacto y
+`env/*.env` solo mira esa carpeta. La regla pasa a cubrir cualquier variante y
+las copias de seguridad, salvando las plantillas y los `.env.test`.
+
+### BS-045 · Quien sabía un correo ajeno se quedaba con la ficha ✅
+
+Quien reservaba con sesión mandaba su contacto en el cuerpo y el core lo usaba
+para **identificar**: buscaba la ficha del negocio por correo o teléfono y, si la
+encontraba sin dueño, se la ataba a la cuenta que llamaba. Con eso se heredaba el
+historial de citas, las facturas y el poder de cancelar y reagendar. La ficha sin
+dueño es el caso corriente: así nacen la reserva de invitado y la que abre el
+mostrador. Ahora la identidad sale del token, y el contacto del formulario vuelve
+a ser lo que su DTO decía: cómo avisar.
+
+### BS-046 · La reseña de una cita la veía cualquiera ✅
+
+`GET /reviews/appointment/:id` devolvía la fila cruda de cualquier reseña de esa
+cita: con un id, cualquier cliente autenticado veía quién opinó, si su reseña
+estaba oculta y cuántas denuncias llevaba. Se acota a las suyas y se proyecta,
+como ya hacía `findById`.
+
+### BS-047 · El alta interna de membresías no validaba nada ✅
+
+El handler declaraba el cuerpo como `CreateMembershipDto & { invitedBy?: string }`,
+y de un tipo intersección TypeScript emite `Object` como metadato. Con ese
+metatipo el ValidationPipe se salta el handler entero: ni el rol asignable, ni
+`whitelist`, ni `forbidNonWhitelisted`. Es el endpoint que concede roles. Pasa a
+un DTO propio que declara `invitedBy`.
+
+### BS-048 · La reserva del escaparate no respetaba el horario ✅
+
+`primerProfesionalLibre` vivía en `PublicBookingService` rehaciendo a mano lo que
+el motor de la agenda ya resuelve, y se dejaba tres reglas: la apertura del
+negocio —se podía reservar un día cerrado—, el arrastre de la madrugada y las
+jornadas partidas, de las que solo evaluaba un tramo. El método pasa al motor.
+
+### BS-049 · La factura llevaba el día del servidor ✅
+
+Emisión y vencimiento salían del reloj del proceso en UTC, así que en Bogotá una
+factura de las 20:00 se fechaba al día siguiente. Salen del huso del negocio,
+como ya hacía el cobro, y el vencimiento cuenta desde la emisión.
+
+### BS-050 · Un core caído se le contaba al cajero como falta de puntos ✅
+
+El canje atrapaba el fallo con un `catch` vacío y lo convertía siempre en «el
+cliente no tiene puntos suficientes», sin dejar rastro del error real. Solo el
+409 de core es su negativa razonada: el cliente HTTP interno pasa a lanzar
+`ErrorDeServicioInterno`, que lleva el estado del otro lado.
+
+### BS-051 · Reagendar daba un 500 donde bastaba repetir ✅
+
+El alta envolvía su transacción SERIALIZABLE en `withSerializableRetry`; el
+reagendado abría la misma sin él, así que dos personas moviendo citas a la vez
+recibían un 500. El helper además reintentaba de inmediato: ahora espera entre
+intentos, doblando el tope y repartiendo al azar.
+
+### BS-052 · Una métrica que fallaba se perdía en silencio ✅
+
+`aplicar` registraba el error y daba el mensaje por consumido, así que la métrica
+se perdía y el panel quedaba mintiendo sin que nadie supiera desde cuándo. Ahora
+lo relanza y el mensaje se aparta en la cola de fallidos.
+
+### BS-053 · Dos personas editando el perfil se pisaban en silencio ✅
+
+El guardado del perfil inmersivo era un lee-modifica-escribe: la segunda persona
+en guardar borraba lo de la primera. Pasa al mismo trato que la ficha de cliente:
+el formulario manda la versión con la que se abrió y el servidor coteja bajo
+bloqueo.
+
+### BS-054 · Cambiar el horario tardaba en notarse en la reserva ✅
+
+La apertura y la política de reserva se cachean diez minutos, el huso una hora, y
+solo caducaban por tiempo: durante ese rato el escaparate seguía vendiendo horas
+que el negocio ya no tenía. Core no anunciaba ninguno de los dos cambios. Se
+añaden `core.business-hours.updated` y `core.business-config.updated`, por el
+outbox, y booking los escucha y olvida lo que tenga.
+
+### BS-055 · Cobrar salía a la red con el cajón bloqueado ✅
+
+`registrar` resolvía el huso dentro de su transacción, y esa transacción sostiene
+el bloqueo sobre la única sesión de caja abierta de la sede. Con la caché fría
+son hasta cinco segundos con todos los cobros de la sede esperando detrás.
+
+### BS-056 · Buscar un cliente recorría la tabla entera ✅
+
+El listado compara `translate(lower(columna), …) LIKE '%texto%'`, a lo que solo
+responde un GIN de trigramas sobre esa expresión. El sondeo de cumpleaños filtra
+por `EXTRACT`, que deja fuera el índice sobre `birth_date`. Medido con 59.500
+fichas: búsqueda de 469 ms a 5,8 ms; cumpleaños de 24,7 ms a 2,4 ms.
+
+### BS-057 · Cargar un negocio multiplicaba sus filas ✅
+
+`findById` pedía cinco colecciones uno-a-muchos hermanas y `findBySlug` tres, que
+con la estrategia por defecto es un LEFT JOIN con todas a la vez. Cada colección
+pasa a pedirse en su propia consulta.
+
+### BS-058 · El sondeo de recordatorios preguntaba el huso por cita ✅
+
+Hasta diez mil consultas por ciclo, cada minuto, en serie, para responder siempre
+lo mismo. El huso es dato del negocio: se resuelve una vez por negocio de la
+página y en paralelo.
+
+### BS-059 · El panel repetía seis agregados en cada recarga ✅
+
+Ninguna cifra del panel se cacheaba. Pasan por la caché un minuto, con el negocio
+y el periodo ya resuelto en la clave. Las sedes del negocio, que se piden en cada
+alta de cita, se cachean cinco minutos.
+
+## Deuda técnica saldada de paso
+
+No son hallazgos: son duplicaciones que las correcciones dejaron a la vista y se
+cerraron en la misma tanda.
+
+| Commit    | Qué se unificó                                                                       |
+| --------- | ------------------------------------------------------------------------------------ |
+| `e5148fc` | La resolución de la ficha de una reserva, del controlador interno a `ClientsService` |
+| `312285c` | El 409 de edición simultánea, de `TenantCrudService` a `rechazarSiOtroGuardoAntes`   |
+| `d97d53e` | El sobre `{data, meta}` de la página vacía y el día de la semana, en el backend      |
+| `b8961e5` | El día de la semana y «¿abre ese día?» en el frontend, a `lib/utils`                 |
+| `ad572bf` | Las fichas de cliente de un usuario, a `FichasDelUsuarioService` en nest-common      |
+| `5642822` | Los comentarios de la tanda: de 218 líneas a 86, sin justificaciones ni historia     |
+
+## Verificación
+
+`npm run type-check` en los 22 workspaces, Prettier sobre los 105 ficheros que
+cambian respecto a `main`, y la suite completa: **212 suites, 2942 pruebas**. Los
+tests de integración no se han ejecutado en local —Docker no está disponible en
+esta máquina—; los corre CI.
