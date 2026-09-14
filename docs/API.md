@@ -205,13 +205,20 @@ Todos los servicios normalizan los errores con `HttpExceptionFilter`
 
 Códigos estables:
 
-| HTTP | `error.code`        | Cuándo                                         |
-| ---- | ------------------- | ---------------------------------------------- |
-| 400  | `VALIDATION_ERROR`  | Falla la validación del DTO (`ValidationPipe`) |
-| 401  | `AUTH_UNAUTHORIZED` | Sin token, token inválido o expirado           |
-| 403  | `AUTH_FORBIDDEN`    | Autenticado pero sin el rol necesario          |
-| 404  | `NOT_FOUND`         | El recurso no existe                           |
-| 500  | `INTERNAL_ERROR`    | Fallo no controlado (solo los 5xx se loguean)  |
+| HTTP | `error.code`          | Cuándo                                            |
+| ---- | --------------------- | ------------------------------------------------- |
+| 400  | `VALIDATION_ERROR`    | Falla la validación del DTO (`ValidationPipe`)    |
+| 401  | `AUTH_UNAUTHORIZED`   | Sin token, token inválido o expirado              |
+| 403  | `AUTH_FORBIDDEN`      | Autenticado pero sin el rol necesario             |
+| 404  | `NOT_FOUND`           | El recurso no existe                              |
+| 409  | `CONFLICT`            | Choca con algo que ya existe o con otra escritura |
+| 429  | `RATE_LIMIT_EXCEEDED` | Pasa del presupuesto de peticiones                |
+| 500  | `INTERNAL_ERROR`      | Fallo no controlado (solo los 5xx se loguean)     |
+| 503  | `INTERNAL_ERROR`      | Otro servicio no responde, o el circuito abierto  |
+
+Un 409 puede llevar `EDICION_SIMULTANEA` en vez de `CONFLICT`: es el de guardar
+sobre una fila que cambió mientras se editaba, y lo emiten servicios, clientes y
+el perfil del escaparate.
 
 Sólo los errores 5xx se escriben en el log del servidor.
 
@@ -268,11 +275,16 @@ entra hasta confirmar el correo.
 
 ### Internos
 
-| Método | Ruta                                         | Descripción                                      |
-| ------ | -------------------------------------------- | ------------------------------------------------ |
-| POST   | `/internal/memberships`                      | Crea membresía sin comprobar el rol del llamante |
-| GET    | `/internal/memberships/business/:businessId` | Quién trabaja en el negocio y con qué rol        |
-| GET    | `/internal/users/:id/token-version`          | Versión de token vigente, para validar sesiones  |
+| Método | Ruta                                         | Descripción                                           |
+| ------ | -------------------------------------------- | ----------------------------------------------------- |
+| POST   | `/internal/memberships`                      | Crea membresía; valida el DTO y rechaza `SUPER_ADMIN` |
+| GET    | `/internal/memberships/business/:businessId` | Quién trabaja en el negocio y con qué rol             |
+| GET    | `/internal/users/:id/token-version`          | Versión de token vigente, para validar sesiones       |
+
+`POST /internal/memberships` acepta `invitedBy`, que por defecto es el propio
+`userId`. El rol va contra la misma lista asignable que las rutas con sesión, así
+que un `role: SUPER_ADMIN` por la vía interna responde **400**: el secreto
+interno dice de dónde viene la petición, no qué puede conceder.
 
 ---
 
@@ -537,6 +549,15 @@ elegido, el precio del catálogo es un «desde» y no una promesa. Un
 | GET    | `/internal/business-hours/dia`          | Apertura de una fecha, ya resuelta contra los días especiales; lo consume la agenda                                                               |
 | POST   | `/internal/services/resolve`            | Precio y duración reales de los servicios de una cita                                                                                             |
 
+**Qué identifica a quien reserva.** `find-or-create` recibe `userId` y
+`userEmail`, y el correo solo identifica si viaja junto al usuario: es el que el
+token acredita, no el que se escribe en el formulario. Primero busca la ficha del
+usuario, y si no tiene, la que lleve ese correo acreditado. `email` y `phone` del
+cuerpo dicen cómo avisar y nada más; sin `userId` —reserva de invitado— son lo
+único que hay y la ficha se busca por ellos. El **409** por contacto ya
+registrado sale sin decir de quién es la ficha que estorba: quien reserva solo
+necesita saber que ese contacto no le sirve.
+
 ---
 
 ## booking-service (3003)
@@ -602,6 +623,10 @@ pública, pero **el usuario sale del token y nunca del cuerpo**: enviar un
 `userId` se rechaza, igual que en la ruta pública, porque aceptarlo dejaría
 reservar a nombre de otro. Sin sesión se sigue usando
 `POST /booking/public/appointments`, que reserva como invitado.
+
+Las dos rutas pueden responder **409** si el correo o el teléfono que se manda ya
+es de otra ficha de ese negocio: el contacto es único por negocio y el 409 de
+core sube tal cual, sin decir de quién es la ficha.
 
 ### Disponibilidad — `/api/v1/booking/professionals/:professionalId/availability`
 
@@ -712,6 +737,12 @@ es una venta suelta, con el importe tecleado a mano.
   viene, el cobro se guarda con `method: "MIXED"` y el detalle en sus líneas;
   la caja recibe un movimiento por medio, de modo que el arqueo solo cuadra el
   cajón contra la parte en efectivo.
+
+`puntosUsados` los reserva core antes de registrar el cobro. Su **409** —el
+cliente no tiene puntos suficientes o no es de ese negocio— se traduce a **400**
+con ese mensaje. Cualquier otro fallo de la llamada responde **503** y se
+escribe en el log: que core no conteste no es lo mismo que un saldo corto, y al
+cajero se le dice cuál de las dos cosas pasa.
 
 `PATCH /:id` no corrige un cobro repartido: tiene varias partes y varios
 movimientos de caja detrás, así que la vía es la devolución.
@@ -855,6 +886,13 @@ publica: el perfil nace en borrador y sale a la portada cuando el dueño pulsa
 `POST /publish`. El enlace público se deriva del nombre si no se manda, numerando
 al chocar; el que llega escrito se respeta o se rechaza con 409, porque puede
 estar ya repartido. También responde 409 si el negocio ya tiene perfil.
+
+**Guardar sobre un perfil que cambió avisa.** El `PUT /config` admite
+`updatedAt`, que no es un campo del perfil sino la versión con la que se cargó el
+formulario. Si viene y el perfil ya cambió, se responde **409** con código
+`EDICION_SIMULTANEA` en vez de dejar que la última escritura gane en silencio; el
+cotejo va bajo bloqueo de la fila, así que dos guardados simultáneos no pasan los
+dos. Sin él se escribe sin cotejar, como en clientes y servicios.
 
 ### Perfiles públicos — `/api/v1/marketplace/profiles`
 
@@ -1011,20 +1049,20 @@ segundos y vuelve a intentarlo."
 
 ## Eventos de RabbitMQ
 
-La API no es el único contrato entre servicios: hay 30 nombres de evento
+La API no es el único contrato entre servicios: hay 35 nombres de evento
 declarados como constantes en `packages/event-types/src/` —de los que hoy
-circulan 26; el detalle de quién publica y quién consume cada uno está en
+circulan 30; el detalle de quién publica y quién consume cada uno está en
 [04-ARQUITECTURA.md](04-ARQUITECTURA.md#71-catalogo-de-eventos)—. Siguen el
 patrón `{servicio}.{agregado}.{acción}`:
 
-| Familia          | Eventos                                                                                                                                                                |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth.*`         | `user.registered`, `registro.duplicado`, `user.logged-in`, `password-reset.requested`, `email-verification.requested`, `membership.created`, `membership.role-changed` |
-| `core.*`         | `business.created`, `business.updated`, `professional.created`, `service.created`, `service.updated`, `client.created`, `client.birthday`                              |
-| `booking.*`      | `appointment.created`, `.confirmed`, `.cancelled`, `.completed`, `.no-showed`, `.rescheduled`, `.reminder-due`                                                         |
-| `payment.*`      | `payment.registered`, `invoice.generated`, `points.redeemed`, `refund.processed`, `cash.session.closed`                                                                |
-| `marketplace.*`  | `review.created`, `review.updated`                                                                                                                                     |
-| `notification.*` | `email.queued`, `email.sent`, `email.failed`                                                                                                                           |
+| Familia          | Eventos                                                                                                                                                                                                         |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.*`         | `user.registered`, `registro.duplicado`, `user.logged-in`, `password-reset.requested`, `email-verification.requested`, `membership.created`, `membership.role-changed`                                          |
+| `core.*`         | `business.created`, `business.updated`, `business-hours.updated`, `business-config.updated`, `professional.created`, `service.created`, `service.updated`, `client.created`, `client.birthday`, `client.merged` |
+| `booking.*`      | `appointment.created`, `.confirmed`, `.cancelled`, `.completed`, `.no-showed`, `.rescheduled`, `.reminder-due`                                                                                                  |
+| `payment.*`      | `payment.registered`, `payment.corrected`, `invoice.generated`, `points.redeemed`, `refund.processed`, `cash.session.closed`                                                                                    |
+| `marketplace.*`  | `review.created`, `review.updated`                                                                                                                                                                              |
+| `notification.*` | `email.queued`, `email.sent`, `email.failed`                                                                                                                                                                    |
 
 Los servicios que publican eventos de forma crítica (auth, booking, core,
 marketplace y payment) usan el patrón **Transactional Outbox**: el evento se
