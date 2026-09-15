@@ -37,10 +37,18 @@ export class PublicController {
     return this.publicService.getBusinessHours(businessId);
   }
 
+  /** Sedes del negocio, para que quien reserva elija a cuál va. */
+  @Get("businesses/:id/branches")
+  async getBusinessBranches(@Param("id", ParseUUIDPipe) businessId: string) {
+    return this.publicService.getBusinessBranches(businessId);
+  }
+
+  /** Equipo del negocio; con `branchId`, solo el de esa sede. */
   @Get("businesses/:id/professionals")
   async getBusinessProfessionals(
-    @Param("id", ParseUUIDPipe) businessId: string
+    @Param("id", ParseUUIDPipe) businessId: string,
+    @Query("branchId") branchId?: string
   ) {
-    return this.publicService.getBusinessProfessionals(businessId);
+    return this.publicService.getBusinessProfessionals(businessId, branchId);
   }
 }

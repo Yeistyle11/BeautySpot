@@ -27,11 +27,13 @@ import {
   ratingDistributionSchema,
   servicioPublicoSchema,
   profesionalPublicoSchema,
+  sedePublicaSchema,
   SECTION_TITLES,
   type Profile,
   type ProfileResponse,
   type Professional,
   type ProfesionalPublico,
+  type SedePublica,
   type Review,
   type RatingDistribution,
   type ServicioPublico,
@@ -78,6 +80,13 @@ export default function BusinessProfile({
     bid ? `/core/public/businesses/${bid}/professionals` : null,
     undefined,
     z.array(profesionalPublicoSchema)
+  );
+  // Las sedes, para que la ficha diga todas las direcciones y no solo la del
+  // negocio, que es la de una de ellas.
+  const { data: sedes } = useApiPublic<SedePublica[]>(
+    bid ? `/core/public/businesses/${bid}/branches` : null,
+    undefined,
+    z.array(sedePublicaSchema)
   );
 
   // El equipo personalizado del escaparate manda; si no lo hay, se pinta la
@@ -334,7 +343,9 @@ export default function BusinessProfile({
               );
             case "location":
               return (
-                (profile.address || profile.city) && (
+                (profile.address ||
+                  profile.city ||
+                  (sedes ?? []).length > 0) && (
                   <LocationSection
                     key={section.id}
                     title={title}
@@ -342,6 +353,7 @@ export default function BusinessProfile({
                     city={profile.city}
                     state={profile.state}
                     country={profile.country}
+                    sedes={sedes ?? []}
                   />
                 )
               );

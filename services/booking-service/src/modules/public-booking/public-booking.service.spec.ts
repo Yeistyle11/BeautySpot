@@ -36,7 +36,10 @@ describe("PublicBookingService", () => {
   let service: PublicBookingService;
   let mockHttp: { enviar: jest.Mock; pedir: jest.Mock };
   let mockAppointments: { create: jest.Mock };
-  let mockDisponibilidad: { primerProfesionalLibre: jest.Mock };
+  let mockDisponibilidad: {
+    primerProfesionalLibre: jest.Mock;
+    equipoDeLaSede: jest.Mock;
+  };
 
   const mockAppointment: Appointment = {
     id: "appt-123",
@@ -83,6 +86,8 @@ describe("PublicBookingService", () => {
     // que se le pregunta a él y que se respeta su respuesta.
     mockDisponibilidad = {
       primerProfesionalLibre: jest.fn().mockResolvedValue("prof-123"),
+      // Sin sede pedida, el equipo no se acota.
+      equipoDeLaSede: jest.fn().mockResolvedValue(undefined),
     };
 
     const module = await Test.createTestingModule({
@@ -157,7 +162,8 @@ describe("PublicBookingService", () => {
           "2024-01-15",
           "10:00",
           "10:50",
-          expect.arrayContaining([expect.objectContaining({ id: CORTE })])
+          expect.arrayContaining([expect.objectContaining({ id: CORTE })]),
+          undefined
         );
       });
 

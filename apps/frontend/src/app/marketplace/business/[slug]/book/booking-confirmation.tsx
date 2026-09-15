@@ -11,6 +11,8 @@ import type { BookingConfirmation as Confirmation } from "./schemas";
 interface BookingConfirmationProps {
   confirmation: Confirmation;
   businessName: string;
+  /** Sede a la que va el cliente; solo se enseña si el negocio tiene varias. */
+  sede?: { name: string; address?: string | null; city?: string | null } | null;
   slug: string;
   date: string;
   isAuthenticated: boolean;
@@ -37,6 +39,7 @@ function avisoDeContacto(contacto: {
 export function BookingConfirmation({
   confirmation,
   businessName,
+  sede,
   slug,
   date,
   isAuthenticated,
@@ -54,6 +57,17 @@ export function BookingConfirmation({
           <p className="text-sm">
             <span className="font-medium">Negocio:</span> {businessName}
           </p>
+          {sede && (
+            <p className="text-sm">
+              <span className="font-medium">Sede:</span> {sede.name}
+              {sede.address && (
+                <span className="text-muted-foreground">
+                  {" "}
+                  — {[sede.address, sede.city].filter(Boolean).join(", ")}
+                </span>
+              )}
+            </p>
+          )}
           <p className="text-sm">
             <span className="font-medium">Fecha:</span> {formatDate(date)}
           </p>

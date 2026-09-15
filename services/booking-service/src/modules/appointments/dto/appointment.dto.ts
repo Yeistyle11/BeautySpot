@@ -95,6 +95,8 @@ export class AvailabilityQueryDto {
   @IsOptional() @IsUUID() professionalId?: string;
   /** Negocio entero: devuelve las franjas libres de cualquiera de su equipo. */
   @IsOptional() @IsUUID() businessId?: string;
+  /** Acota esas franjas al equipo de una sede. Solo aplica con `businessId`. */
+  @IsOptional() @IsUUID() branchId?: string;
   @EsFechaSola() date!: string;
   @Type(() => Number)
   @IsNumber()

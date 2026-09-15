@@ -99,6 +99,7 @@ describe("AppointmentsController", () => {
   let disponibilidad: Record<string, jest.Mock>;
 
   const NEGOCIO = "biz-1";
+  const SEDE = "11111111-1111-4111-8111-111111111111";
   const CITA = "1a2b3c4d-0000-4000-8000-000000000000";
 
   beforeEach(async () => {
@@ -124,6 +125,8 @@ describe("AppointmentsController", () => {
       capacidadDelDia: jest.fn(),
       franjasDeProfesionalPublico: jest.fn().mockResolvedValue([]),
       franjasDelNegocio: jest.fn().mockResolvedValue([]),
+      // Sin sede en la consulta, no acota a nadie.
+      equipoDeLaSede: jest.fn().mockResolvedValue(undefined),
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -186,7 +189,27 @@ describe("AppointmentsController", () => {
       expect(disponibilidad.franjasDelNegocio).toHaveBeenCalledWith(
         NEGOCIO,
         "2026-09-20",
-        30
+        30,
+        undefined
+      );
+    });
+
+    it("con sede acota las franjas a su equipo", async () => {
+      disponibilidad.equipoDeLaSede.mockResolvedValue(["pro-1", "pro-2"]);
+
+      await controller.getAvailability({
+        businessId: NEGOCIO,
+        branchId: SEDE,
+        date: "2026-09-20",
+        duration: 30,
+      } as never);
+
+      expect(disponibilidad.equipoDeLaSede).toHaveBeenCalledWith(SEDE);
+      expect(disponibilidad.franjasDelNegocio).toHaveBeenCalledWith(
+        NEGOCIO,
+        "2026-09-20",
+        30,
+        ["pro-1", "pro-2"]
       );
     });
 

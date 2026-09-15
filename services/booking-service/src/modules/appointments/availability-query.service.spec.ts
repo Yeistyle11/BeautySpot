@@ -8,7 +8,10 @@ import { Appointment } from "../../entities/appointment.entity";
 import { Availability } from "../../entities/availability.entity";
 import { BlockedSlot } from "../../entities/blocked-slot.entity";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
-import { ZonaDelNegocioService } from "@beautyspot/nest-common";
+import {
+  InternalHttpClient,
+  ZonaDelNegocioService,
+} from "@beautyspot/nest-common";
 import { HorarioDelNegocioService } from "./horario-del-negocio.service";
 
 /**
@@ -115,6 +118,12 @@ describe("AvailabilityQueryService", () => {
         },
         { provide: ZonaDelNegocioService, useValue: mockZonas },
         { provide: HorarioDelNegocioService, useValue: mockHorario },
+        // Solo se usa para resolver el equipo de una sede, que estas pruebas
+        // no ejercitan.
+        {
+          provide: InternalHttpClient,
+          useValue: { pedir: jest.fn() },
+        },
       ],
     }).compile();
 

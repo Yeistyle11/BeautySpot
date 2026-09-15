@@ -87,7 +87,8 @@ export class AppointmentsController {
       return this.disponibilidad.franjasDelNegocio(
         query.businessId,
         query.date,
-        query.duration
+        query.duration,
+        await this.disponibilidad.equipoDeLaSede(query.branchId)
       );
     }
 

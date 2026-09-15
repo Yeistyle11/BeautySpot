@@ -27,15 +27,17 @@ import {
 } from "./steps/guest-details-step";
 import { Spinner } from "@/components/ui/spinner";
 import {
-  BOOKING_STEPS,
   jornadaPublicaSchema,
+  pasosDeReserva,
   professionalSchema,
   profileResponseSchema,
+  sedePublicaSchema,
   serviceSchema,
   type BookingConfirmation as Confirmation,
   type JornadaPublica,
   type Profile,
   type Professional,
+  type SedePublica,
   type Service,
 } from "./schemas";
 
@@ -79,13 +81,15 @@ function PublicBookingPageInner() {
     profileResponseSchema
   );
   const profile: Profile | undefined = profileResponse?.profile;
-  const { data: rawProfessionals } = useApiPublic<Professional[]>(
+  const { data: rawSedes } = useApiPublic<SedePublica[]>(
     profile?.businessId
-      ? `/core/public/businesses/${profile.businessId}/professionals`
+      ? `/core/public/businesses/${profile.businessId}/branches`
       : null,
     undefined,
-    z.array(professionalSchema)
+    z.array(sedePublicaSchema)
   );
+  const sedes = useMemo(() => rawSedes ?? [], [rawSedes]);
+  const variasSedes = sedes.length > 1;
 
   const { data: horarios } = useApiPublic<JornadaPublica[]>(
     profile?.businessId
@@ -121,6 +125,25 @@ function PublicBookingPageInner() {
     return "";
   }, [diasAbiertos]);
 
+  // El paso sale de la URL; lo demas que se elige vive en el componente.
+  const step = Math.min(
+    Math.max(Number(searchParams.get("paso")) || 1, 1),
+    pasosDeReserva(false).length
+  );
+  const [selectedServices, setSelectedServices] =
+    useState<string[]>(serviciosPreelegidos);
+  // Con una sola sede se resuelve sola; con varias la elige el cliente.
+  const [sedeElegidaManual, setSedeElegida] = useState("");
+  const sedeElegida = variasSedes ? sedeElegidaManual : (sedes[0]?.id ?? "");
+  const { data: rawProfessionals } = useApiPublic<Professional[]>(
+    profile?.businessId && (!variasSedes || sedeElegida)
+      ? `/core/public/businesses/${profile.businessId}/professionals` +
+          (sedeElegida ? `?branchId=${sedeElegida}` : "")
+      : null,
+    undefined,
+    z.array(professionalSchema)
+  );
+
   // El perfil publico y el profesional son entidades distintas; para reservar
   // hace falta el id del profesional, no el del perfil.
   const professionals = (rawProfessionals ?? []).map((p) => ({
@@ -129,13 +152,6 @@ function PublicBookingPageInner() {
     specialties: p.specialties || [],
   }));
 
-  // El paso sale de la URL; lo demas que se elige vive en el componente.
-  const step = Math.min(
-    Math.max(Number(searchParams.get("paso")) || 1, 1),
-    BOOKING_STEPS.length
-  );
-  const [selectedServices, setSelectedServices] =
-    useState<string[]>(serviciosPreelegidos);
   const [selectedProfessional, setSelectedProfessional] =
     useState(preselectedProfId);
   const [fechaElegida, setDate] = useState(inicial.fecha);
@@ -195,7 +211,8 @@ function PublicBookingPageInner() {
   // Con "cualquier profesional" la disponibilidad se pide del negocio entero, que
   // devuelve la union de las agendas; con uno concreto, solo la suya.
   const alcanceSlots = isAnyProfessional
-    ? `businessId=${profile?.businessId}`
+    ? `businessId=${profile?.businessId}` +
+      (sedeElegida ? `&branchId=${sedeElegida}` : "")
     : `professionalId=${selectedProfessional}`;
   // Sin fecha, sin profesional o sin servicios elegidos no hay nada que
   // consultar: la key en null deja la peticion sin lanzar.
@@ -284,6 +301,9 @@ function PublicBookingPageInner() {
       const body: Record<string, unknown> = {
         businessId: profile.businessId,
         professionalId: isAnyProfessional ? undefined : selectedProfessional,
+        // La sede viaja con la reserva: es lo que le dice al cliente a dónde
+        // ir, y lo que pone la cita en la lista de la recepción de ese local.
+        branchId: sedeElegida || undefined,
         // Solo los ids: el precio y la duración los pone el catálogo.
         serviceIds: selectedServices,
         date,
@@ -359,6 +379,9 @@ function PublicBookingPageInner() {
       <BookingConfirmation
         confirmation={confirmation}
         businessName={profile.name}
+        sede={
+          variasSedes ? (sedes.find((x) => x.id === sedeElegida) ?? null) : null
+        }
         slug={slug}
         date={date}
         isAuthenticated={reservaComoCliente}
@@ -388,7 +411,7 @@ function PublicBookingPageInner() {
       {/* Tres estados: hecho con su check, actual marcado y pendiente en gris.
           Los hechos vuelven a su paso al pulsarlos. */}
       <ol className="mb-8 flex gap-2">
-        {BOOKING_STEPS.map((s) => {
+        {pasosDeReserva(variasSedes).map((s) => {
           const hecho = step > s.n;
           const actual = step === s.n;
           return (
@@ -437,6 +460,13 @@ function PublicBookingPageInner() {
           professionals={professionals}
           selected={selectedProfessional}
           onSelect={setSelectedProfessional}
+          sedes={sedes}
+          sedeElegida={sedeElegida}
+          onSedeChange={(id) => {
+            setSedeElegida(id);
+            // Quien estuviera elegido puede no atender en la nueva sede.
+            setSelectedProfessional("");
+          }}
           onBack={() => setStep(1)}
           onContinue={() => setStep(3)}
         />

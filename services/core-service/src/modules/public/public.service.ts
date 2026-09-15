@@ -6,6 +6,7 @@ import { Business } from "../../entities/business.entity";
 import { BusinessHours } from "../../entities/business-hours.entity";
 import { Service } from "../../entities/service.entity";
 import { Professional } from "../../entities/professional.entity";
+import { Branch } from "../../entities/branch.entity";
 import { PreciosService } from "../precios/precios.service";
 
 /** Servicio tal como lo ve quien reserva desde el escaparate. */
@@ -21,6 +22,15 @@ export interface ServicioPublico {
    * elegido: lo que se enseña es el del catálogo, y se dice «desde».
    */
   precioVariable?: boolean;
+}
+
+/** Sede tal como la ve quien reserva: dónde tendría que presentarse. */
+export interface SedePublica {
+  id: string;
+  name: string;
+  address: string | null;
+  city: string | null;
+  phone: string | null;
 }
 
 /** Jornada de un día de la semana, tal como la ve quien va a reservar. */
@@ -45,6 +55,8 @@ export class PublicService {
     private readonly proRepo: Repository<Professional>,
     @InjectRepository(BusinessHours)
     private readonly horasRepo: Repository<BusinessHours>,
+    @InjectRepository(Branch)
+    private readonly sedeRepo: Repository<Branch>,
     private readonly precios: PreciosService
   ) {}
 
@@ -195,9 +207,34 @@ export class PublicService {
   }
 
   /** Lista los profesionales activos de un negocio para su perfil público. */
-  async getBusinessProfessionals(businessId: string) {
-    return this.proRepo.find({
+  /**
+   * Sedes activas del negocio. Quien reserva tiene que saber a cuál de ellas
+   * va: con dos locales, el nombre del negocio no basta para presentarse en el
+   * sitio correcto.
+   */
+  async getBusinessBranches(businessId: string): Promise<SedePublica[]> {
+    const sedes = await this.sedeRepo.find({
       where: { businessId, active: true },
+      order: { name: "ASC" },
+    });
+
+    return sedes.map((s) => ({
+      id: s.id,
+      name: s.name,
+      address: s.address ?? null,
+      city: s.city ?? null,
+      phone: s.phone ?? null,
+    }));
+  }
+
+  /**
+   * Equipo del negocio. Con `branchId`, solo quien atiende en esa sede: al
+   * elegir local, ofrecer a alguien de la otra punta de la ciudad es ofrecer
+   * una cita a la que el cliente no puede llegar.
+   */
+  async getBusinessProfessionals(businessId: string, branchId?: string) {
+    return this.proRepo.find({
+      where: { businessId, active: true, ...(branchId ? { branchId } : {}) },
       select: [
         "id",
         "name",
@@ -207,6 +244,7 @@ export class PublicService {
         "yearsExp",
         "rating",
         "totalReviews",
+        "branchId",
       ],
     });
   }

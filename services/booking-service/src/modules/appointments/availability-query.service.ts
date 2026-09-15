@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { EntityManager, In, Repository } from "typeorm";
 import { Appointment } from "../../entities/appointment.entity";
@@ -24,7 +24,10 @@ import {
   type LineaDeAgenda,
   type OcupacionDeProfesional,
 } from "@beautyspot/shared-utils";
-import { ZonaDelNegocioService } from "@beautyspot/nest-common";
+import {
+  InternalHttpClient,
+  ZonaDelNegocioService,
+} from "@beautyspot/nest-common";
 import { HorarioDelNegocioService, Tramo } from "./horario-del-negocio.service";
 import { AppointmentServiceEntity } from "../../entities/appointment-service.entity";
 import {
@@ -94,8 +97,32 @@ export class AvailabilityQueryService {
     @InjectRepository(AppointmentServiceEntity)
     private readonly lineaRepo: Repository<AppointmentServiceEntity>,
     private readonly zonas: ZonaDelNegocioService,
-    private readonly horarioDelNegocio: HorarioDelNegocioService
+    private readonly horarioDelNegocio: HorarioDelNegocioService,
+    private readonly http: InternalHttpClient
   ) {}
+
+  /**
+   * Quiénes atienden en una sede. Booking no guarda a qué local pertenece cada
+   * profesional —eso vive en core—, así que se pregunta. Sin sede no acota.
+   */
+  async equipoDeLaSede(branchId?: string): Promise<string[] | undefined> {
+    if (!branchId) return undefined;
+
+    const equipo = await this.http.pedir<{ id: string }[]>(
+      "core",
+      `/internal/branches/${branchId}/professionals`
+    );
+
+    if (!Array.isArray(equipo) || equipo.length === 0) {
+      // No se puede distinguir aquí una sede inexistente de una vacía: quien
+      // decide si la sede es del negocio es `validarSede`, en el alta.
+      throw new BadRequestException(
+        "Esa sede no existe o todavía no tiene equipo"
+      );
+    }
+
+    return equipo.map((p) => p.id);
+  }
 
   /** Franjas de un profesional, con el negocio resuelto desde su horario. */
   async franjasDeProfesionalPublico(
@@ -127,11 +154,24 @@ export class AvailabilityQueryService {
   async franjasDelNegocio(
     businessId: string,
     date: string,
-    duration: number
+    duration: number,
+    /**
+     * Acota el equipo que se tiene en cuenta. Lo usa la reserva por sede: sin
+     * esto se ofrecerían huecos de un profesional del otro local, y el cliente
+     * elegiría una hora a la que no puede llegar.
+     */
+    soloEstos?: string[]
   ): Promise<Franja[]> {
     const dayOfWeek = diaDeLaSemana(date);
     const horarios = await this.jornadasDelDia(businessId, dayOfWeek);
-    const profesionales = [...new Set(horarios.map((h) => h.professionalId))];
+    const permitidos = soloEstos ? new Set(soloEstos) : null;
+    const profesionales = [
+      ...new Set(
+        horarios
+          .map((h) => h.professionalId)
+          .filter((id) => !permitidos || permitidos.has(id))
+      ),
+    ];
     if (profesionales.length === 0) return [];
 
     // Bloqueos y citas del día de todo el equipo en dos consultas, sea cual sea
@@ -392,11 +432,20 @@ export class AvailabilityQueryService {
     date: string,
     startTime: string,
     endTime: string,
-    lineas: LineaDeAgenda[]
+    lineas: LineaDeAgenda[],
+    /** Acota el equipo elegible; la reserva por sede pasa el de esa sede. */
+    soloEstos?: string[]
   ): Promise<string | null> {
     const dayOfWeek = diaDeLaSemana(date);
     const horarios = await this.jornadasDelDia(businessId, dayOfWeek);
-    const candidatos = [...new Set(horarios.map((h) => h.professionalId))];
+    const permitidos = soloEstos ? new Set(soloEstos) : null;
+    const candidatos = [
+      ...new Set(
+        horarios
+          .map((h) => h.professionalId)
+          .filter((id) => !permitidos || permitidos.has(id))
+      ),
+    ];
     if (candidatos.length === 0) return null;
 
     // Bloqueos, citas y apertura del día en tres consultas, sea cual sea el

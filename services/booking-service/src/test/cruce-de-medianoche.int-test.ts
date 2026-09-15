@@ -135,7 +135,9 @@ describe("Integración: la cita de anoche ocupa la madrugada", () => {
       dataSource.getRepository(BlockedSlot),
       dataSource.getRepository(AppointmentServiceEntity),
       zonas,
-      horarioDelNegocio
+      horarioDelNegocio,
+      // Sin sede que resolver en estas pruebas.
+      { pedir: jest.fn() } as unknown as InternalHttpClient
     );
 
     citas = new AppointmentsService(

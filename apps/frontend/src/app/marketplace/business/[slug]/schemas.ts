@@ -128,6 +128,16 @@ export type Professional = z.infer<typeof professionalSchema>;
  * Respuesta de `GET /marketplace/profiles/:slug`: el perfil y, si la sección
  * "team" del escaparate está activa, el equipo del negocio.
  */
+/** Sede del negocio, tal como la enseña la ficha pública. */
+export const sedePublicaSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  address: z.string().nullish(),
+  city: z.string().nullish(),
+  phone: z.string().nullish(),
+});
+export type SedePublica = z.infer<typeof sedePublicaSchema>;
+
 export const profileResponseSchema = z.object({
   profile: profileSchema,
   professionals: z.array(professionalSchema).optional(),

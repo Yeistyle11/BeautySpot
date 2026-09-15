@@ -311,6 +311,14 @@ Roles a nivel de clase: **OWNER, ADMIN, SUPER_ADMIN**.
 | PATCH  | `/:id`        | Actualiza                                                                                           |
 | DELETE | `/:id`        | Desactiva (borrado lógico)                                                                          |
 
+`POST /` **siembra el negocio según su `businessType`**: los servicios típicos
+de su sector con duración y precio orientativos, las categorías de servicio y de
+profesional, y un horario de apertura. Va en la misma transacción que el negocio
+—o nace entero o no nace— y nada queda marcado como sembrado: se edita y se borra
+como lo escrito a mano. `sembrar: false` en el cuerpo lo deja en blanco, y un
+tipo sin plantilla no siembra nada sin que el alta falle. Lo que **no** crea es
+una sucursal: un negocio nace sin ninguna.
+
 ### Sucursales — `/api/v1/core/branches`
 
 Roles a nivel de clase: **OWNER, ADMIN, SUPER_ADMIN**.
@@ -323,12 +331,11 @@ Roles a nivel de clase: **OWNER, ADMIN, SUPER_ADMIN**.
 | PATCH  | `/:id` | Actualiza        |
 | DELETE | `/:id` | Desactiva        |
 
-El alta **siembra el negocio según su `businessType`**: los servicios típicos de
-su sector con duración y precio orientativos, las categorías de servicio y de
-profesional, y un horario de apertura. Va en la misma transacción que el negocio
-—o nace entero o no nace— y nada queda marcado como sembrado: se edita y se borra
-como lo escrito a mano. `sembrar: false` en el cuerpo lo deja en blanco, y un
-tipo sin plantilla no siembra nada sin que el alta falle.
+Un negocio no nace con sucursal, así que mientras no se cree ninguna sus citas
+no tienen sede. En cuanto hay más de una pasa a importar de verdad: la reserva
+pública pregunta a cuál va el cliente, acota el equipo y las franjas a esa sede,
+y la guarda en la cita (ver `POST /booking/public/appointments`). La ficha
+pública las lista todas con su dirección.
 
 ### Horarios — `/api/v1/core/business-hours`
 
@@ -520,12 +527,21 @@ Controlador `@Public()`: sin token. Alimenta el marketplace y la reserva públic
 | GET    | `/businesses/slug/:slug`        | Negocio por slug          |
 | GET    | `/businesses/:id/services`      | Servicios del negocio     |
 | GET    | `/businesses/:id/professionals` | Profesionales del negocio |
+| GET    | `/businesses/:id/branches`      | Sedes activas del negocio |
 | GET    | `/businesses/:id/horarios`      | Jornadas activas por día  |
 
 `/businesses/:id/horarios` devuelve las jornadas activas (`dayOfWeek`,
 `openTime`, `closeTime`) sin exigir token: el asistente de reserva las usa para
 proponer el primer día abierto y para no ofrecer un domingo cerrado como si
 fuera a tener huecos.
+
+`/businesses/:id/branches` es lo que permite a quien reserva saber **a qué local
+va**: devuelve nombre, dirección, ciudad y teléfono de cada sede activa. Con una
+sola sede el asistente no pregunta; con varias, elegirla es obligatorio.
+
+`/businesses/:id/professionals` admite `?branchId=` y entonces devuelve solo a
+quien atiende en esa sede. Ofrecer al resto sería ofrecer citas a las que el
+cliente no puede llegar.
 
 `/businesses/:id/services` admite `?professionalId=`, y entonces devuelve el
 **precio y la duración de ese profesional**, que son los que la agenda aplicará
@@ -550,6 +566,7 @@ elegido, el precio del catálogo es un «desde» y no una promesa. Un
 | GET    | `/internal/clients/names`               | Nombre de los clientes pedidos, acotado al negocio                                                                                                |
 | GET    | `/internal/profiles/resolve`            | Resuelve perfiles                                                                                                                                 |
 | GET    | `/internal/branches`                    | Sedes activas del negocio                                                                                                                         |
+| GET    | `/internal/branches/:id/professionals`  | Quién atiende en una sede; booking lo usa para no asignar a alguien del otro local                                                                |
 | GET    | `/internal/business-hours`              | Horario semanal de apertura                                                                                                                       |
 | GET    | `/internal/business-hours/dia`          | Apertura de una fecha, ya resuelta contra los días especiales; lo consume la agenda                                                               |
 | POST   | `/internal/services/resolve`            | Precio y duración reales de los servicios de una cita                                                                                             |
@@ -586,6 +603,11 @@ patrón **Outbox** para publicar eventos de forma fiable.
 | POST   | `/:id/cancel`         | OWNER, ADMIN, RECEPTIONIST               | Cancela con motivo                       |
 | POST   | `/:id/no-show`        | OWNER, ADMIN, PROFESSIONAL               | Marca no presentado                      |
 | PATCH  | `/:id/reschedule`     | OWNER, ADMIN, RECEPTIONIST               | Reprograma                               |
+
+`GET /availability` acepta `professionalId` —la agenda de uno— o `businessId`
+—la unión de todo el equipo—. Con `businessId` admite además `branchId`, que
+acota esas franjas al equipo de esa sede: sin acotar, el escaparate ofrecería un
+hueco del otro local y el cliente elegiría una hora a la que no puede llegar.
 
 Un **walk-in** es quien entró sin cita, ya se atendió y se anota después. No es
 una reserva: no lleva fecha —la pone el servicio, que solo admite el día en curso
@@ -692,6 +714,13 @@ confirmar la víspera, ni avisar de un retraso, ni recolocar el hueco si el
 cliente cancela— y el cliente no puede recuperar su cita porque no dejó rastro
 con el que identificarse. El teléfono se valida con el mismo formato que la
 ficha de cliente, que es de donde sale.
+
+**`branchId` dice a qué sede va el cliente**, y con más de una es obligatorio de
+hecho: sin él la cita nace sin local, quien reserva no sabe dónde presentarse y
+la recepción de la otra sede no la ve al filtrar. El alta comprueba que la sede
+sea del negocio. Cuando además se reserva «con cualquier profesional», se elige
+solo entre el equipo de esa sede. Lo mismo vale para `POST /appointments/mine`,
+la reserva con sesión iniciada.
 
 ### Internos
 

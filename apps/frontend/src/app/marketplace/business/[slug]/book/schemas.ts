@@ -70,9 +70,28 @@ export function datosDeReservaCompletos(guest: {
   );
 }
 
-export const BOOKING_STEPS = [
-  { n: 1, label: "Servicios" },
-  { n: 2, label: "Profesional" },
-  { n: 3, label: "Horario" },
-  { n: 4, label: "Tus datos" },
-];
+/** Sede del negocio, tal como la elige quien reserva. */
+export const sedePublicaSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  address: z.string().nullish(),
+  city: z.string().nullish(),
+  phone: z.string().nullish(),
+});
+export type SedePublica = z.infer<typeof sedePublicaSchema>;
+
+/**
+ * Los pasos del asistente. Con varias sedes, el segundo pregunta también el
+ * local: es lo que decide quién puede atender y, sobre todo, a dónde tiene que
+ * ir el cliente el día de la cita.
+ */
+export function pasosDeReserva(variasSedes: boolean) {
+  return [
+    { n: 1, label: "Servicios" },
+    { n: 2, label: variasSedes ? "Sede y profesional" : "Profesional" },
+    { n: 3, label: "Horario" },
+    { n: 4, label: "Tus datos" },
+  ];
+}
+
+export const BOOKING_STEPS = pasosDeReserva(false);

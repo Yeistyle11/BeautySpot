@@ -38,6 +38,7 @@ export class PublicBookingService {
     data: {
       businessId: string;
       professionalId?: string;
+      branchId?: string;
       serviceIds: string[];
       date: string;
       startTime: string;
@@ -63,7 +64,12 @@ export class PublicBookingService {
     //    del catalogo; el alta la vuelve a resolver con el ya elegido.
     const professionalId =
       data.professionalId ??
-      (await this.elegirProfesional(data.businessId, data.serviceIds, data));
+      (await this.elegirProfesional(
+        data.businessId,
+        data.serviceIds,
+        data,
+        data.branchId
+      ));
 
     const saved = await this.appointments.create(data.businessId, {
       professionalId,
@@ -72,6 +78,10 @@ export class PublicBookingService {
       date: data.date,
       startTime: data.startTime,
       notes: data.notes,
+      // El alta comprueba que la sede sea del negocio. Es lo que ata la cita
+      // a un local: de ahí salen la dirección que se le da al cliente y el
+      // filtro por sede de la recepción.
+      branchId: data.branchId,
     });
 
     return {
@@ -92,7 +102,8 @@ export class PublicBookingService {
   private async elegirProfesional(
     businessId: string,
     serviceIds: string[],
-    horario: { date: string; startTime: string }
+    horario: { date: string; startTime: string },
+    branchId?: string
   ): Promise<string> {
     const servicios = await this.http.enviar<LineaResuelta[]>(
       "core",
@@ -112,12 +123,15 @@ export class PublicBookingService {
       horario.date,
       horario.startTime,
       calculateEndTime(horario.startTime, duracionDeCliente(lineas)),
-      lineas
+      lineas,
+      await this.disponibilidad.equipoDeLaSede(branchId)
     );
 
     if (!professionalId) {
       throw new BadRequestException(
-        "Ningun profesional tiene libre ese horario. Elige otra hora."
+        branchId
+          ? "Nadie de esa sede tiene libre ese horario. Elige otra hora."
+          : "Ningun profesional tiene libre ese horario. Elige otra hora."
       );
     }
 
