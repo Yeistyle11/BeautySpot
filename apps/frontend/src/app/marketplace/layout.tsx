@@ -3,7 +3,8 @@
 // Layout publico del marketplace: barra superior con acceso o identidad del usuario.
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Scissors, LogIn, User, LogOut } from "lucide-react";
+import { LogIn, User, LogOut } from "lucide-react";
+import { LogoBeautySpot } from "@/components/ui/logo-beautyspot";
 import { useSesion } from "@/lib/use-sesion";
 import { useLogout } from "@/lib/use-logout";
 
@@ -60,10 +61,7 @@ export default function PublicLayout({
           className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4"
         >
           <Link href="/marketplace" className="flex items-center gap-2">
-            <div className="bg-primary text-primary-foreground flex h-9 w-9 items-center justify-center rounded-lg">
-              <Scissors className="h-4 w-4" />
-            </div>
-            <span className="text-lg font-bold">BeautySpot</span>
+            <LogoBeautySpot tamano="md" tono="bitono" />
           </Link>
           {isAuthenticated ? (
             <div className="relative" ref={dropdownRef}>
