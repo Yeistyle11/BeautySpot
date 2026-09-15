@@ -47,7 +47,16 @@ export const feedCategorySchema = z.object({
 
 export const feedResponseSchema = z.object({
   categories: z.array(feedCategorySchema),
-  sections: z.array(feedSectionSchema),
+  // El feed trae tambien una seccion de profesionales destacados, cuyos items
+  // no son perfiles de negocio y que esta pantalla no pinta. Se descartan las
+  // secciones que no encajan en vez de invalidar la respuesta entera: una
+  // seccion que no se sabe representar no puede dejar el escaparate en blanco.
+  sections: z.array(z.unknown()).transform((secciones) =>
+    secciones
+      .map((seccion) => feedSectionSchema.safeParse(seccion))
+      .filter((r): r is { success: true; data: FeedSection } => r.success)
+      .map((r) => r.data)
+  ),
 });
 export type FeedResponse = z.infer<typeof feedResponseSchema>;
 

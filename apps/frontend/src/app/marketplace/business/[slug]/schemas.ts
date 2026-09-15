@@ -134,9 +134,10 @@ export const profileResponseSchema = z.object({
 });
 export type ProfileResponse = z.infer<typeof profileResponseSchema>;
 
+// Sin `clientId`: el listado publico sirve una proyeccion sin el cliente que
+// escribio la resena, asi que el esquema no puede exigirlo.
 export const reviewSchema = z.object({
   id: z.string(),
-  clientId: z.string(),
   rating: z.number(),
   comment: z.string().nullable(),
   response: z.string().nullable(),
