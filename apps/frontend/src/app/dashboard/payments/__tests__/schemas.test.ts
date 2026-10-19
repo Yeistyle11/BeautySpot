@@ -9,6 +9,11 @@ import {
   emptyEditForm,
   PAYMENTS_KEY,
   CLIENTS_KEY,
+  cobroListo,
+  cobroParaEnviar,
+  importeACobrar,
+  mediosDelCobro,
+  totalDelCobro,
 } from "../schemas";
 
 /** Un pago tal y como lo devuelve `GET /payment/payments`. */
@@ -126,5 +131,71 @@ describe("constantes de la pantalla", () => {
       new URLSearchParams(CLIENTS_KEY.split("?")[1]).get("limit")
     );
     expect(limite).toBeGreaterThanOrEqual(100);
+  });
+});
+
+describe("importe del cobro", () => {
+  const deUnaCita = {
+    ...emptyCreateForm,
+    clientId: "cli-1",
+    appointmentId: "cita-1",
+    amount: "42000",
+  };
+
+  it("en una cita resta del total el descuento y los puntos", () => {
+    const form = {
+      ...deUnaCita,
+      descuentoComercial: "2000",
+      puntosUsados: "500",
+    };
+
+    expect(importeACobrar(form)).toBe(39500);
+    expect(cobroParaEnviar(form).amount).toBe(39500);
+  });
+
+  it("en una venta suelta el monto es lo que se paga", () => {
+    const form = {
+      ...emptyCreateForm,
+      amount: "30000",
+      descuentoComercial: "2000",
+    };
+
+    expect(importeACobrar(form)).toBe(30000);
+  });
+
+  it("la propina va encima de lo que se paga por los servicios", () => {
+    const form = { ...deUnaCita, descuentoComercial: "2000", propina: "5000" };
+
+    expect(totalDelCobro(form)).toBe(45000);
+  });
+
+  it("los medios son los del reparto, o el único elegido", () => {
+    expect(mediosDelCobro(deUnaCita)).toEqual(["CASH"]);
+    expect(
+      mediosDelCobro({
+        ...deUnaCita,
+        metodos: [
+          { method: "CARD", amount: "30000" },
+          { method: "TRANSFER", amount: "12000" },
+        ],
+      })
+    ).toEqual(["CARD", "TRANSFER"]);
+  });
+
+  it("no está listo con un reparto que no cuadra ni con descuento sin motivo", () => {
+    expect(cobroListo(deUnaCita)).toBe(true);
+    expect(
+      cobroListo({ ...deUnaCita, metodos: [{ method: "CASH", amount: "1" }] })
+    ).toBe(false);
+    expect(cobroListo({ ...deUnaCita, descuentoComercial: "1000" })).toBe(
+      false
+    );
+    expect(
+      cobroListo({
+        ...deUnaCita,
+        descuentoComercial: "1000",
+        motivoDescuento: "Cumpleaños",
+      })
+    ).toBe(true);
   });
 });

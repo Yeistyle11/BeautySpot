@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { VALOR_DEL_PUNTO } from "@beautyspot/shared-constants";
 
 export const paymentSchema = z.object({
   id: z.string(),
@@ -93,9 +94,38 @@ export const emptyCreateForm = {
 };
 export type CreateForm = typeof emptyCreateForm;
 
+/**
+ * Lo que paga el cliente por los servicios. En una cita `amount` es su total, y
+ * el descuento y los puntos se restan de él; en una venta suelta es lo tecleado.
+ */
+export function importeACobrar(form: CreateForm): number {
+  const importe = Number(form.amount) || 0;
+  if (!form.appointmentId) return redondear(importe);
+  const rebaja =
+    (Number(form.descuentoComercial) || 0) +
+    (Number(form.puntosUsados) || 0) * VALOR_DEL_PUNTO;
+  return redondear(Math.max(0, importe - rebaja));
+}
+
 /** Lo que entra en el cobro: los servicios más la propina. */
 export function totalDelCobro(form: CreateForm): number {
-  return redondear((Number(form.amount) || 0) + (Number(form.propina) || 0));
+  return redondear(importeACobrar(form) + (Number(form.propina) || 0));
+}
+
+/** Medios por los que entra el cobro: el reparto si lo hay, si no el único. */
+export function mediosDelCobro(form: CreateForm): string[] {
+  return form.metodos.length > 0
+    ? form.metodos.map((linea) => linea.method)
+    : [form.method];
+}
+
+/** Si el cobro se puede enviar: el reparto cuadra y el descuento lleva motivo. */
+export function cobroListo(form: CreateForm): boolean {
+  if (form.metodos.length > 0 && faltaPorRepartir(form) !== 0) return false;
+  if (Number(form.descuentoComercial) > 0 && !form.motivoDescuento.trim()) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -127,7 +157,7 @@ export function cobroParaEnviar(
   return {
     clientId: form.clientId,
     appointmentId: form.appointmentId || undefined,
-    amount: parseFloat(form.amount),
+    amount: importeACobrar(form),
     method: form.method,
     reference: form.reference || undefined,
     notes: form.notes || undefined,

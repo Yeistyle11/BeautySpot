@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { motivoParaNoCobrar } from "@/lib/caja-abierta";
 import { descargarPdf } from "@/lib/descargar";
@@ -9,9 +9,11 @@ import { logger } from "@/lib/logger";
 import { revalidatePrefix } from "@/lib/swr";
 import { useToast } from "@/components/ui/toast";
 import {
+  cobroDeLaCita,
   emptyPaymentDraft,
   type PaymentDraft,
 } from "./complete-appointment-dialog";
+import { cobroParaEnviar, mediosDelCobro } from "../payments/schemas";
 import { APPOINTMENTS_KEY, type Appointment } from "./schemas";
 
 /** Factura recién emitida: lo que hace falta para descargarla. */
@@ -26,11 +28,14 @@ export function useCierreDeCita(puedeFacturar = false) {
   const [cita, setCita] = useState<Appointment | null>(null);
   const [cobro, setCobro] = useState<PaymentDraft>(emptyPaymentDraft);
   const [cerrando, setCerrando] = useState(false);
+  /** Identifica el intento de cobro; se renueva al abrir el dialogo. */
+  const solicitudId = useRef("");
 
-  /** Abre el dialogo de cierre con el cobro en blanco. */
+  /** Abre el dialogo de cierre con el cobro de la cita por rellenar. */
   const abrir = useCallback((aCerrar: Appointment) => {
+    solicitudId.current = crypto.randomUUID();
     setCita(aCerrar);
-    setCobro(emptyPaymentDraft);
+    setCobro(cobroDeLaCita(aCerrar));
   }, []);
 
   /** Cierra el dialogo sin completar la cita. */
@@ -70,8 +75,8 @@ export function useCierreDeCita(puedeFacturar = false) {
       if (!cita) return;
       setCerrando(true);
       try {
-        if (conCobro) {
-          const motivo = await motivoParaNoCobrar(cobro.method);
+        if (conCobro && mediosDelCobro(cobro).includes("CASH")) {
+          const motivo = await motivoParaNoCobrar("CASH");
           if (motivo) {
             toast.error(motivo);
             return;
@@ -81,14 +86,10 @@ export function useCierreDeCita(puedeFacturar = false) {
         await api.post(`${APPOINTMENTS_KEY}/${cita.id}/complete`, {});
 
         if (conCobro) {
-          const pago = await api.post<{ id: string }>("/payment/payments", {
-            appointmentId: cita.id,
-            clientId: cita.clientId,
-            amount: cita.totalAmount,
-            method: cobro.method,
-            reference: cobro.reference || undefined,
-            notes: cobro.notes || undefined,
-          });
+          const pago = await api.post<{ id: string }>(
+            "/payment/payments",
+            cobroParaEnviar(cobro, solicitudId.current)
+          );
 
           if (puedeFacturar && cobro.facturar) {
             await facturar(pago.id);

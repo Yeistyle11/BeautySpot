@@ -1,53 +1,41 @@
 "use client";
 
-// Dialogo para completar una cita registrando el pago (metodo y monto).
-import {
-  Banknote,
-  Calendar,
-  CheckCircle,
-  Clock,
-  CreditCard,
-  Smartphone,
-} from "lucide-react";
+// Dialogo para completar una cita registrando su cobro y su factura.
+import { Calendar, CheckCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Field } from "@/components/ui/field";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
-import { RadioGroup } from "@/components/ui/radio-group";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
+import { CamposDelCobro } from "../payments/campos-del-cobro";
+import {
+  cobroListo,
+  emptyCreateForm,
+  type CreateForm,
+} from "../payments/schemas";
 import type { Appointment } from "./schemas";
-import { nombreDelMetodo } from "@/lib/metodos-de-pago";
 
-export const PAYMENT_METHOD_OPTIONS = [
-  { value: "CASH", label: "Efectivo", icon: <Banknote className="h-5 w-5" /> },
-  {
-    value: "CARD",
-    label: nombreDelMetodo("CARD"),
-    icon: <CreditCard className="h-5 w-5" />,
-  },
-  {
-    value: "TRANSFER",
-    label: "Transferencia",
-    icon: <Smartphone className="h-5 w-5" />,
-  },
-];
+export { PAYMENT_METHOD_OPTIONS } from "../payments/campos-del-cobro";
 
-export interface PaymentDraft {
-  method: string;
-  reference: string;
-  notes: string;
+/** El cobro de la cita, con lo mismo que admite un cobro suelto, y su factura. */
+export interface PaymentDraft extends CreateForm {
   /** Emite la factura del cobro en el mismo paso. */
   facturar: boolean;
 }
 
 export const emptyPaymentDraft: PaymentDraft = {
-  method: "CASH",
-  reference: "",
-  notes: "",
+  ...emptyCreateForm,
   facturar: true,
 };
+
+/** Borrador del cobro de una cita: su cliente, la cita y su total. */
+export function cobroDeLaCita(cita: Appointment): PaymentDraft {
+  return {
+    ...emptyPaymentDraft,
+    clientId: cita.clientId,
+    appointmentId: cita.id,
+    amount: String(Number(cita.totalAmount)),
+  };
+}
 
 interface CompleteAppointmentDialogProps {
   open: boolean;
@@ -60,9 +48,13 @@ interface CompleteAppointmentDialogProps {
   pending: boolean;
   /** Muestra la opción de facturar el cobro. */
   puedeFacturar?: boolean;
+  /** Si quien cobra puede además conceder un descuento. */
+  puedeDescontar?: boolean;
+  /** Saldo de puntos del cliente de la cita. */
+  puntosDisponibles?: number;
 }
 
-/** Cierre de una cita, con la opcion de cobrarla en el mismo paso. */
+/** Cierre de una cita, con la opcion de cobrarla y facturarla en el mismo paso. */
 export function CompleteAppointmentDialog({
   open,
   onClose,
@@ -72,6 +64,8 @@ export function CompleteAppointmentDialog({
   onComplete,
   pending,
   puedeFacturar = false,
+  puedeDescontar = false,
+  puntosDisponibles = 0,
 }: CompleteAppointmentDialogProps) {
   const conFactura = puedeFacturar && payment.facturar;
 
@@ -93,7 +87,10 @@ export function CompleteAppointmentDialog({
           >
             {pending ? "Procesando..." : "Completar sin pago"}
           </Button>
-          <Button onClick={() => onComplete(true)} disabled={pending}>
+          <Button
+            onClick={() => onComplete(true)}
+            disabled={pending || !cobroListo(payment)}
+          >
             <CheckCircle className="mr-2 h-4 w-4" />
             {pending
               ? "Procesando..."
@@ -140,44 +137,14 @@ export function CompleteAppointmentDialog({
             </div>
           </div>
 
-          <div
-            className="space-y-3"
-            role="group"
-            aria-labelledby="payment-method-label"
-          >
-            <p id="payment-method-label" className="text-base font-semibold">
-              Método de pago
-            </p>
-            <RadioGroup
-              options={PAYMENT_METHOD_OPTIONS}
-              value={payment.method}
-              onChange={(method) => onPaymentChange({ ...payment, method })}
-              label="Método de pago"
+          <div className="space-y-4">
+            <CamposDelCobro
+              form={payment}
+              onChange={(cobro) => onPaymentChange({ ...payment, ...cobro })}
+              puedeDescontar={puedeDescontar}
+              puntosDisponibles={puntosDisponibles}
             />
           </div>
-
-          {payment.method === "TRANSFER" && (
-            <Field label="Referencia de la transferencia">
-              <Input
-                placeholder="Ej: #123456789"
-                value={payment.reference}
-                onChange={(e) =>
-                  onPaymentChange({ ...payment, reference: e.target.value })
-                }
-              />
-            </Field>
-          )}
-
-          <Field label="Notas adicionales">
-            <Textarea
-              placeholder="Notas sobre el pago..."
-              value={payment.notes}
-              onChange={(e) =>
-                onPaymentChange({ ...payment, notes: e.target.value })
-              }
-              rows={2}
-            />
-          </Field>
 
           {puedeFacturar && (
             <label className="flex items-center justify-between gap-4 rounded-lg border p-3">
