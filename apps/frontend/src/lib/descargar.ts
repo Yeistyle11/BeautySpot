@@ -13,7 +13,8 @@ export async function descargarPdf(
     headers: { Accept: "application/pdf" },
   });
 
-  if (!res.ok) {
+  const tipo = res.headers.get("content-type") ?? "";
+  if (!res.ok || !tipo.includes("application/pdf")) {
     throw new ApiError(res.status, "No se pudo descargar el documento");
   }
 
