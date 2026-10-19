@@ -751,6 +751,11 @@ Pagos manuales, facturas y caja. Base de datos `beautyspot_payment`. Usa el patr
 | PATCH  | `/:id`           | OWNER, ADMIN               | Corrige el cobro                  |
 | POST   | `/:id/refund`    | OWNER, ADMIN               | Procesa devolución                |
 
+El listado filtra por `status`, `method` (que alcanza también las líneas de un
+cobro repartido), `from` + `to` y la sede activa. Con `sinFactura=true` deja
+fuera los cobros que ya tienen una factura no anulada: son los que el diálogo
+de emitir factura ofrece.
+
 Un cobro puede llevar `appointmentId`: entonces el importe tiene que coincidir
 con el de la cita —contando lo que rebajen los puntos y el descuento
 concedido—, esa cita no se puede cobrar dos veces mientras el cobro siga vivo, y

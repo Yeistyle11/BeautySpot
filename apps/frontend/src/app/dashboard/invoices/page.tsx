@@ -38,7 +38,8 @@ import {
 } from "./schemas";
 
 /** Cobros completados entre los que se elige al emitir. */
-const COBROS_KEY = "/payment/payments?status=COMPLETED&limit=50";
+const COBROS_KEY =
+  "/payment/payments?status=COMPLETED&sinFactura=true&limit=50";
 
 /** Facturas emitidas por el negocio, con su emision y su detalle. */
 export default function InvoicesPage() {
