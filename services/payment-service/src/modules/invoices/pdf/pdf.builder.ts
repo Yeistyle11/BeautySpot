@@ -60,9 +60,10 @@ const COLUMNAS: { x: number; width: number; align: "left" | "right" }[] = [
 /** Espacio que necesitan los totales y el pie bajo la última línea. */
 const RESERVA_FINAL = 220;
 
-/** Formatea una fecha en español de Colombia (día, mes y año). */
+/** Formatea un día en español de Colombia; llega como medianoche UTC. */
 function formatDate(date: Date): string {
   return new Date(date).toLocaleDateString("es-CO", {
+    timeZone: "UTC",
     year: "numeric",
     month: "long",
     day: "numeric",

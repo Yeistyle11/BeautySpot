@@ -178,6 +178,19 @@ describe("construirPdfFactura", () => {
     expect(escrito).not.toContain("Notas:");
   });
 
+  it("imprime el día guardado, sin correrlo por el huso", async () => {
+    await construirPdfFactura(
+      facturaDeEjemplo({
+        invoiceDate: new Date("2026-10-19"),
+        dueDate: new Date("2026-11-18"),
+      })
+    );
+
+    const escrito = doc.text.mock.calls.map((c) => String(c[0]));
+    expect(escrito).toContain("Fecha: 19 de octubre de 2026");
+    expect(escrito).toContain("Vence: 18 de noviembre de 2026");
+  });
+
   it("omite las etiquetas sin dato en vez de dejarlas vacías", async () => {
     await construirPdfFactura(
       facturaDeEjemplo({
