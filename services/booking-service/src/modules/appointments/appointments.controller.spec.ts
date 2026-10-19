@@ -1,5 +1,8 @@
 import { Test } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
+import { ROLES_KEY } from "@beautyspot/nest-common";
+import { Role } from "@beautyspot/shared-types";
 import {
   AppointmentsController,
   InternalAppointmentsController,
@@ -252,6 +255,18 @@ describe("AppointmentsController", () => {
       expect(service.startService).toHaveBeenCalledWith(CITA, NEGOCIO);
       expect(service.complete).toHaveBeenCalledWith(CITA, NEGOCIO);
       expect(service.markNoShow).toHaveBeenCalledWith(CITA, NEGOCIO);
+    });
+
+    it("recepción confirma, completa y marca el plantón", () => {
+      const rolesDe = (metodo: keyof AppointmentsController) =>
+        new Reflector().getAllAndOverride<Role[]>(ROLES_KEY, [
+          AppointmentsController.prototype[metodo],
+          AppointmentsController,
+        ]);
+
+      expect(rolesDe("confirm")).toContain(Role.RECEPTIONIST);
+      expect(rolesDe("complete")).toContain(Role.RECEPTIONIST);
+      expect(rolesDe("noShow")).toContain(Role.RECEPTIONIST);
     });
 
     it("la cancelación lleva el motivo, la nota y quién la firma", async () => {

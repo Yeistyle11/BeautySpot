@@ -289,7 +289,8 @@ export default function AppointmentsPage() {
   }, [professionals]);
 
   const acciones = useAccionesDeCita();
-  const cierre = useCierreDeCita();
+  const puedeFacturar = canDo(role, "invoices_create");
+  const cierre = useCierreDeCita(puedeFacturar);
   const bloqueo = useBloqueoRapido(dia, recargarBloqueos);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -554,6 +555,7 @@ export default function AppointmentsPage() {
         onPaymentChange={cierre.setCobro}
         onComplete={cierre.confirmar}
         pending={cierre.cerrando}
+        puedeFacturar={puedeFacturar}
       />
 
       <WalkInDialog

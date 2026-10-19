@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { RadioGroup } from "@/components/ui/radio-group";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
@@ -37,12 +38,15 @@ export interface PaymentDraft {
   method: string;
   reference: string;
   notes: string;
+  /** Emite la factura del cobro en el mismo paso. */
+  facturar: boolean;
 }
 
 export const emptyPaymentDraft: PaymentDraft = {
   method: "CASH",
   reference: "",
   notes: "",
+  facturar: true,
 };
 
 interface CompleteAppointmentDialogProps {
@@ -54,6 +58,8 @@ interface CompleteAppointmentDialogProps {
   /** `true` registra ademas el pago; `false` solo cierra la cita. */
   onComplete: (registerPayment: boolean) => void;
   pending: boolean;
+  /** Muestra la opción de facturar el cobro. */
+  puedeFacturar?: boolean;
 }
 
 /** Cierre de una cita, con la opcion de cobrarla en el mismo paso. */
@@ -65,7 +71,10 @@ export function CompleteAppointmentDialog({
   onPaymentChange,
   onComplete,
   pending,
+  puedeFacturar = false,
 }: CompleteAppointmentDialogProps) {
+  const conFactura = puedeFacturar && payment.facturar;
+
   return (
     <Dialog
       open={open}
@@ -86,7 +95,11 @@ export function CompleteAppointmentDialog({
           </Button>
           <Button onClick={() => onComplete(true)} disabled={pending}>
             <CheckCircle className="mr-2 h-4 w-4" />
-            {pending ? "Procesando..." : "Completar y registrar pago"}
+            {pending
+              ? "Procesando..."
+              : conFactura
+                ? "Completar, cobrar y facturar"
+                : "Completar y registrar pago"}
           </Button>
         </>
       }
@@ -165,6 +178,21 @@ export function CompleteAppointmentDialog({
               rows={2}
             />
           </Field>
+
+          {puedeFacturar && (
+            <label className="flex items-center justify-between gap-4 rounded-lg border p-3">
+              <span className="text-sm font-medium">
+                Emitir factura del cobro
+              </span>
+              <Switch
+                checked={payment.facturar}
+                onCheckedChange={(facturar) =>
+                  onPaymentChange({ ...payment, facturar })
+                }
+                aria-label="Emitir factura del cobro"
+              />
+            </label>
+          )}
         </div>
       )}
     </Dialog>

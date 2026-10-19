@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -29,12 +30,17 @@ import { parsePaginationQuery } from "@beautyspot/shared-utils";
 export class InvoicesController {
   constructor(private readonly service: InvoicesService) {}
 
-  /** Crea una factura para un cliente. */
+  /** Crea una factura para un cliente; recepción solo la emite desde un cobro. */
   @Post()
+  @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   async create(
     @BusinessId() businessId: string,
+    @CurrentUser("role") rol: Role,
     @Body() dto: CreateInvoiceDto
   ) {
+    if (rol === Role.RECEPTIONIST && !dto.paymentId) {
+      throw new ForbiddenException("Recepción solo factura desde un cobro");
+    }
     return this.service.create(businessId, dto);
   }
 
@@ -107,6 +113,7 @@ export class InvoicesController {
   }
 
   @Get(":id/pdf")
+  @Roles(Role.OWNER, Role.ADMIN, Role.RECEPTIONIST)
   @HttpCode(HttpStatus.OK)
   async generatePdf(
     @Param("id", ParseUUIDPipe) id: string,

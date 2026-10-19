@@ -597,11 +597,11 @@ patrón **Outbox** para publicar eventos de forma fiable.
 | GET    | `/resumen-por-estado` | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Citas por estado y `VENCIDAS`            |
 | GET    | `/availability`       | Autenticado                              | Huecos disponibles                       |
 | GET    | `/:id`                | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Detalle                                  |
-| POST   | `/:id/confirm`        | OWNER, ADMIN, PROFESSIONAL               | `PENDING` → `CONFIRMED`, solo si no pasó |
+| POST   | `/:id/confirm`        | OWNER, ADMIN, PROFESSIONAL, RECEPTIONIST | `PENDING` → `CONFIRMED`, solo si no pasó |
 | POST   | `/:id/start`          | OWNER, ADMIN, PROFESSIONAL               | Marca en curso                           |
-| POST   | `/:id/complete`       | OWNER, ADMIN, PROFESSIONAL               | Completa y suma fidelidad                |
+| POST   | `/:id/complete`       | OWNER, ADMIN, PROFESSIONAL, RECEPTIONIST | Completa y suma fidelidad                |
 | POST   | `/:id/cancel`         | OWNER, ADMIN, RECEPTIONIST               | Cancela con motivo                       |
-| POST   | `/:id/no-show`        | OWNER, ADMIN, PROFESSIONAL               | Marca no presentado                      |
+| POST   | `/:id/no-show`        | OWNER, ADMIN, PROFESSIONAL, RECEPTIONIST | Marca no presentado                      |
 | PATCH  | `/:id/reschedule`     | OWNER, ADMIN, RECEPTIONIST               | Reprograma                               |
 
 `GET /availability` acepta `professionalId` —la agenda de uno— o `businessId`
@@ -804,13 +804,13 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 
 | Método | Ruta            | Roles                      | Descripción                   |
 | ------ | --------------- | -------------------------- | ----------------------------- |
-| POST   | `/`             | OWNER, ADMIN               | Crea factura                  |
+| POST   | `/`             | OWNER, ADMIN, RECEPTIONIST | Crea factura                  |
 | GET    | `/`             | OWNER, ADMIN, RECEPTIONIST | Lista facturas                |
 | GET    | `/mine`         | CLIENT                     | Sus facturas, desde el portal |
 | GET    | `/mine/:id/pdf` | CLIENT                     | Descarga el PDF de una suya   |
 | GET    | `/:id`          | OWNER, ADMIN               | Detalle                       |
 | PATCH  | `/:id/status`   | OWNER, ADMIN               | Cambia el estado              |
-| GET    | `/:id/pdf`      | OWNER, ADMIN               | Descarga el PDF               |
+| GET    | `/:id/pdf`      | OWNER, ADMIN, RECEPTIONIST | Descarga el PDF               |
 
 `POST /` emite de dos maneras. Con **`paymentId`**, la factura sale de un cobro
 completado: el cliente y las líneas se toman de él —los servicios de su cita, o
@@ -819,6 +819,12 @@ el impuesto dentro, así que la base se calcula descontándolo y la factura cuad
 al peso con lo que se pagó. Con **`clientId` + `items`** se factura a mano y el
 impuesto se suma sobre las líneas. Un cobro se factura una vez
 (`uq_invoices_cobro`, que deja fuera las anuladas): repetirlo responde 409.
+RECEPTIONIST solo emite con `paymentId`; sin él responde 403.
+
+Completar una cita con cobro emite además su factura cuando quien la cierra
+puede facturar y deja marcada «Emitir factura del cobro»: el panel encadena
+`POST /booking/appointments/:id/complete`, `POST /payment/payments` y
+`POST /` con el `paymentId` devuelto.
 
 El tipo impositivo sale de `facturacion.tasaDeImpuesto` del negocio (en
 porcentaje; sin configurar, el IVA colombiano) y **cada factura lo congela**: una

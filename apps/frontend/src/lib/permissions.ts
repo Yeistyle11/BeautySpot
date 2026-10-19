@@ -79,8 +79,8 @@ export const PAGES: PageAccess[] = [
     roles: ["OWNER", "ADMIN", "RECEPTIONIST"],
   },
   {
-    // Recepción las consulta y descarga; emitirlas y cambiarles el estado es de
-    // dueño y administrador, como en el backend.
+    // Recepción las consulta, descarga y emite desde un cobro; cambiarles el
+    // estado es de dueño y administrador, como en el backend.
     path: "/dashboard/invoices",
     label: "Facturas",
     icon: "Receipt",
@@ -173,7 +173,7 @@ export const ACTIONS = {
   // incluida la ficha de alergias.
   clients_merge: ["OWNER", "ADMIN"],
   appointments_create: ["OWNER", "ADMIN", "RECEPTIONIST"],
-  appointments_confirm: ["OWNER", "ADMIN", "PROFESSIONAL"],
+  appointments_confirm: ["OWNER", "ADMIN", "PROFESSIONAL", "RECEPTIONIST"],
   appointments_cancel: ["OWNER", "ADMIN", "RECEPTIONIST"],
   appointments_reschedule: ["OWNER", "ADMIN", "RECEPTIONIST"],
   payments_create: ["OWNER", "ADMIN", "RECEPTIONIST"],
@@ -181,7 +181,7 @@ export const ACTIONS = {
   // Devolver, no anular: un cobro completado no admite cambio de estado en el
   // servicio, así que la devolución es la única forma de deshacerlo.
   payments_refund: ["OWNER", "ADMIN"],
-  invoices_create: ["OWNER", "ADMIN"],
+  invoices_create: ["OWNER", "ADMIN", "RECEPTIONIST"],
   invoices_status: ["OWNER", "ADMIN"],
   cash_register_open: ["OWNER", "ADMIN", "RECEPTIONIST"],
   cash_register_close: ["OWNER", "ADMIN"],
