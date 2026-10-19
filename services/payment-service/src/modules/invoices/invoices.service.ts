@@ -449,9 +449,6 @@ export class InvoicesService {
       taxRate: Number(invoice.taxRate),
       tax: Number(invoice.tax),
       total: Number(invoice.total),
-      // La factura todavía no está atada a un pago concreto, y afirmar un
-      // método que nadie ha registrado sería inventarlo.
-      paymentMethod: "—",
       notes: invoice.notes,
     };
 

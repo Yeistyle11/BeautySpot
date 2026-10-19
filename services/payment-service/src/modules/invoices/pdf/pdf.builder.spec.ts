@@ -12,15 +12,34 @@ function documentoSimulado() {
       if (evento === "data") callback(Buffer.from("pdf-data"));
       if (evento === "end") callback();
     }),
+    font: jest.fn().mockReturnThis(),
     fontSize: jest.fn().mockReturnThis(),
     text: jest.fn().mockReturnThis(),
+    heightOfString: jest.fn(() => 12),
     fillColor: jest.fn().mockReturnThis(),
+    strokeColor: jest.fn().mockReturnThis(),
+    lineWidth: jest.fn().mockReturnThis(),
     moveTo: jest.fn().mockReturnThis(),
     lineTo: jest.fn().mockReturnThis(),
     stroke: jest.fn().mockReturnThis(),
+    addPage: jest.fn().mockReturnThis(),
     end: jest.fn(),
-    page: { height: 842 },
+    page: { height: 842, margins: { bottom: 50 } },
   };
+}
+
+/** Genera la factura con el pdfkit real y devuelve el PDF como texto latin1. */
+async function pdfReal(data: InvoiceData): Promise<string> {
+  const PDFDocumentReal = jest.requireActual("pdfkit");
+  require("pdfkit").default.mockImplementation(
+    (opciones: object) => new PDFDocumentReal({ ...opciones, compress: false })
+  );
+  return (await construirPdfFactura(data)).toString("latin1");
+}
+
+/** Número de páginas del PDF. */
+function paginas(pdf: string): number {
+  return pdf.match(/\/Type \/Page\b(?!s)/g)?.length ?? 0;
 }
 
 /** Factura completa de ejemplo, con los campos opcionales rellenos. */
@@ -157,6 +176,83 @@ describe("construirPdfFactura", () => {
     expect(escrito).toContain("María García");
     expect(escrito.some((t) => t.startsWith("Teléfono: +57 310"))).toBe(false);
     expect(escrito).not.toContain("Notas:");
+  });
+
+  it("omite las etiquetas sin dato en vez de dejarlas vacías", async () => {
+    await construirPdfFactura(
+      facturaDeEjemplo({
+        business: { ...facturaDeEjemplo().business, nit: "" },
+        client: { name: "Elena Pardo", document: "" },
+        paymentMethod: undefined,
+      })
+    );
+
+    const escrito = doc.text.mock.calls.map((c) => String(c[0]));
+    expect(escrito).toContain("Elena Pardo");
+    expect(escrito.some((t) => t.startsWith("Documento:"))).toBe(false);
+    expect(escrito).not.toContain("Método de Pago:");
+    expect(escrito).not.toContain("");
+  });
+
+  it("escribe el método de pago cuando la factura lo trae", async () => {
+    await construirPdfFactura(facturaDeEjemplo());
+
+    const escrito = doc.text.mock.calls.map((c) => String(c[0]));
+    expect(escrito).toContain("Método de Pago:");
+    expect(escrito).toContain("Efectivo");
+  });
+
+  it("no dibuja nada más allá del margen derecho", async () => {
+    await construirPdfFactura(facturaDeEjemplo());
+
+    for (const [, x, , opciones] of doc.text.mock.calls) {
+      expect(x + (opciones?.width ?? 0)).toBeLessThanOrEqual(545);
+    }
+    for (const [x] of doc.lineTo.mock.calls) {
+      expect(x).toBeLessThanOrEqual(545);
+    }
+  });
+
+  it("coloca los totales debajo de la última línea de la tabla", async () => {
+    await construirPdfFactura(facturaDeEjemplo());
+
+    const yDe = (texto: string) =>
+      doc.text.mock.calls.find((c) => c[0] === texto)?.[2] as number;
+    expect(yDe("Subtotal:")).toBeGreaterThan(yDe("Barba"));
+    expect(yDe("TOTAL:")).toBeGreaterThan(yDe("IVA (19%):"));
+  });
+
+  it("pasa a otra página cuando las líneas no caben", async () => {
+    const items = Array.from({ length: 60 }, (_, i) => ({
+      name: `Servicio ${i}`,
+      quantity: 1,
+      price: 1000,
+    }));
+
+    await construirPdfFactura(facturaDeEjemplo({ items }));
+
+    expect(doc.addPage).toHaveBeenCalled();
+  });
+
+  describe("con pdfkit real", () => {
+    it("cabe en una sola página", async () => {
+      const pdf = await pdfReal(facturaDeEjemplo());
+
+      expect(paginas(pdf)).toBe(1);
+    });
+
+    it("sigue en una página sin NIT, documento ni método de pago", async () => {
+      const pdf = await pdfReal(
+        facturaDeEjemplo({
+          business: { ...facturaDeEjemplo().business, nit: "" },
+          client: { name: "Elena Pardo", document: "" },
+          paymentMethod: undefined,
+          notes: undefined,
+        })
+      );
+
+      expect(paginas(pdf)).toBe(1);
+    });
   });
 
   it("propaga un fallo del renderizado", async () => {
