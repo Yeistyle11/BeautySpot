@@ -124,7 +124,7 @@ export class PublicBookingService {
       horario.startTime,
       calculateEndTime(horario.startTime, duracionDeCliente(lineas)),
       lineas,
-      await this.disponibilidad.equipoDeLaSede(branchId)
+      await this.disponibilidad.equipoDeLaSede(businessId, branchId)
     );
 
     if (!professionalId) {

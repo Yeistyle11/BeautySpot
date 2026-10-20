@@ -38,14 +38,16 @@ export class InternalBranchesController {
   /**
    * Quién atiende en una sede. Booking lo necesita para elegir profesional
    * cuando el cliente reserva «con cualquiera»: sin acotar, le asignaría a
-   * alguien del otro local y la cita nacería en la sede equivocada.
+   * alguien del otro local y la cita nacería en la sede equivocada. Una sede
+   * de otro negocio responde vacía.
    */
   @Get(":id/professionals")
   async professionals(
-    @Param("id") branchId: string
+    @Param("id") branchId: string,
+    @Query("businessId") businessId: string
   ): Promise<{ id: string }[]> {
     const equipo = await this.proRepo.find({
-      where: { branchId, active: true },
+      where: { businessId, branchId, active: true },
       select: ["id"],
     });
 

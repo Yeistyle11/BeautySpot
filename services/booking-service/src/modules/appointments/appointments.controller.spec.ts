@@ -207,7 +207,7 @@ describe("AppointmentsController", () => {
         duration: 30,
       } as never);
 
-      expect(disponibilidad.equipoDeLaSede).toHaveBeenCalledWith(SEDE);
+      expect(disponibilidad.equipoDeLaSede).toHaveBeenCalledWith(NEGOCIO, SEDE);
       expect(disponibilidad.franjasDelNegocio).toHaveBeenCalledWith(
         NEGOCIO,
         "2026-09-20",

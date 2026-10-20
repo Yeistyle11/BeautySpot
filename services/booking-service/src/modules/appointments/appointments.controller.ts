@@ -88,7 +88,10 @@ export class AppointmentsController {
         query.businessId,
         query.date,
         query.duration,
-        await this.disponibilidad.equipoDeLaSede(query.branchId)
+        await this.disponibilidad.equipoDeLaSede(
+          query.businessId,
+          query.branchId
+        )
       );
     }
 

@@ -566,7 +566,7 @@ elegido, el precio del catálogo es un «desde» y no una promesa. Un
 | GET    | `/internal/clients/names`               | Nombre de los clientes pedidos, acotado al negocio                                                                                                |
 | GET    | `/internal/profiles/resolve`            | Resuelve perfiles                                                                                                                                 |
 | GET    | `/internal/branches`                    | Sedes activas del negocio                                                                                                                         |
-| GET    | `/internal/branches/:id/professionals`  | Quién atiende en una sede; booking lo usa para no asignar a alguien del otro local                                                                |
+| GET    | `/internal/branches/:id/professionals`  | Quién atiende en una sede, acotado al negocio; booking lo usa para no asignar a alguien del otro local                                            |
 | GET    | `/internal/business-hours`              | Horario semanal de apertura                                                                                                                       |
 | GET    | `/internal/business-hours/dia`          | Apertura de una fecha, ya resuelta contra los días especiales; lo consume la agenda                                                               |
 | POST   | `/internal/services/resolve`            | Precio y duración reales de los servicios de una cita                                                                                             |

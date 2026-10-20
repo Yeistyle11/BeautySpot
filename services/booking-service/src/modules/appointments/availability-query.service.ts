@@ -105,17 +105,20 @@ export class AvailabilityQueryService {
    * Quiénes atienden en una sede. Booking no guarda a qué local pertenece cada
    * profesional —eso vive en core—, así que se pregunta. Sin sede no acota.
    */
-  async equipoDeLaSede(branchId?: string): Promise<string[] | undefined> {
+  async equipoDeLaSede(
+    businessId: string,
+    branchId?: string
+  ): Promise<string[] | undefined> {
     if (!branchId) return undefined;
 
     const equipo = await this.http.pedir<{ id: string }[]>(
       "core",
-      `/internal/branches/${branchId}/professionals`
+      `/internal/branches/${branchId}/professionals?businessId=${businessId}`
     );
 
     if (!Array.isArray(equipo) || equipo.length === 0) {
-      // No se puede distinguir aquí una sede inexistente de una vacía: quien
-      // decide si la sede es del negocio es `validarSede`, en el alta.
+      // Core responde vacío tanto a una sede inexistente o ajena como a una
+      // sin equipo, y aquí no se distinguen.
       throw new BadRequestException(
         "Esa sede no existe o todavía no tiene equipo"
       );
