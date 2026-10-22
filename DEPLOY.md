@@ -168,6 +168,12 @@ rewrite de `/api` hacia `GATEWAY_URL` y las `NEXT_PUBLIC_*`, de modo que el
 defecto `http://api-gateway:3000`; sin `NEXT_PUBLIC_SITE_URL` los enlaces y las
 etiquetas Open Graph apuntarían a `localhost`.
 
+El build pasa por Turborepo, que solo entrega a cada tarea las variables
+declaradas en `turbo.json`. Por eso la tarea `build` declara `GATEWAY_URL` y
+`NEXT_PUBLIC_*`: sin esa línea Turbo descarta `GATEWAY_URL` en silencio, la
+imagen reenvía `/api` a `localhost:3000` y toda la API responde 500 aunque el
+gateway esté sano. Una variable nueva que el build tenga que ver va también ahí.
+
 Nunca `cd services/auth-service && docker build .`: fallaría al resolver los
 paquetes compartidos.
 
