@@ -10,6 +10,23 @@ import { Role } from "@beautyspot/shared-types";
 import { ServiceUrlsConfig } from "../../config/service-urls";
 import { ACCESS_COOKIE, leerCookie } from "../session/session-cookies";
 
+/** Cuerpo que se reenvía byte a byte, sin decodificar: un PDF, una imagen. */
+export interface CuerpoBinario {
+  datos: Buffer;
+  tipo: string;
+  disposicion?: string;
+}
+
+/** Indica si el contenido es texto (JSON incluido) y puede leerse como tal. */
+function esTextual(tipo: string): boolean {
+  return (
+    tipo.startsWith("text/") ||
+    tipo.includes("json") ||
+    tipo.includes("xml") ||
+    tipo.startsWith("application/x-www-form-urlencoded")
+  );
+}
+
 /**
  * Resuelve a qué microservicio va cada petición y prepara su reenvío: la URL
  * destino, las cabeceras que se propagan y la traducción de la respuesta.
@@ -115,6 +132,24 @@ export class ProxyService {
     }
 
     return pedido;
+  }
+
+  /**
+   * Lee como binario la respuesta que no es texto, para reenviarla intacta.
+   * Devuelve null cuando la respuesta es texto o no trae tipo.
+   */
+  async leerBinario(
+    response: globalThis.Response
+  ): Promise<CuerpoBinario | null> {
+    const tipo = response.headers.get("content-type")?.toLowerCase();
+    if (response.status === 204 || !tipo || esTextual(tipo)) return null;
+
+    const disposicion = response.headers.get("content-disposition");
+    return {
+      datos: Buffer.from(await response.arrayBuffer()),
+      tipo,
+      ...(disposicion ? { disposicion } : {}),
+    };
   }
 
   /** Parsea el cuerpo de la respuesta tolerando 204, cuerpo vacío o texto no-JSON. */

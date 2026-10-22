@@ -311,6 +311,14 @@ Roles a nivel de clase: **OWNER, ADMIN, SUPER_ADMIN**.
 | PATCH  | `/:id`        | Actualiza                                                                                           |
 | DELETE | `/:id`        | Desactiva (borrado lógico)                                                                          |
 
+`POST /` **siembra el negocio según su `businessType`**: los servicios típicos
+de su sector con duración y precio orientativos, las categorías de servicio y de
+profesional, y un horario de apertura. Va en la misma transacción que el negocio
+—o nace entero o no nace— y nada queda marcado como sembrado: se edita y se borra
+como lo escrito a mano. `sembrar: false` en el cuerpo lo deja en blanco, y un
+tipo sin plantilla no siembra nada sin que el alta falle. Lo que **no** crea es
+una sucursal: un negocio nace sin ninguna.
+
 ### Sucursales — `/api/v1/core/branches`
 
 Roles a nivel de clase: **OWNER, ADMIN, SUPER_ADMIN**.
@@ -323,12 +331,11 @@ Roles a nivel de clase: **OWNER, ADMIN, SUPER_ADMIN**.
 | PATCH  | `/:id` | Actualiza        |
 | DELETE | `/:id` | Desactiva        |
 
-El alta **siembra el negocio según su `businessType`**: los servicios típicos de
-su sector con duración y precio orientativos, las categorías de servicio y de
-profesional, y un horario de apertura. Va en la misma transacción que el negocio
-—o nace entero o no nace— y nada queda marcado como sembrado: se edita y se borra
-como lo escrito a mano. `sembrar: false` en el cuerpo lo deja en blanco, y un
-tipo sin plantilla no siembra nada sin que el alta falle.
+Un negocio no nace con sucursal, así que mientras no se cree ninguna sus citas
+no tienen sede. En cuanto hay más de una pasa a importar de verdad: la reserva
+pública pregunta a cuál va el cliente, acota el equipo y las franjas a esa sede,
+y la guarda en la cita (ver `POST /booking/public/appointments`). La ficha
+pública las lista todas con su dirección.
 
 ### Horarios — `/api/v1/core/business-hours`
 
@@ -520,12 +527,21 @@ Controlador `@Public()`: sin token. Alimenta el marketplace y la reserva públic
 | GET    | `/businesses/slug/:slug`        | Negocio por slug          |
 | GET    | `/businesses/:id/services`      | Servicios del negocio     |
 | GET    | `/businesses/:id/professionals` | Profesionales del negocio |
+| GET    | `/businesses/:id/branches`      | Sedes activas del negocio |
 | GET    | `/businesses/:id/horarios`      | Jornadas activas por día  |
 
 `/businesses/:id/horarios` devuelve las jornadas activas (`dayOfWeek`,
 `openTime`, `closeTime`) sin exigir token: el asistente de reserva las usa para
 proponer el primer día abierto y para no ofrecer un domingo cerrado como si
 fuera a tener huecos.
+
+`/businesses/:id/branches` es lo que permite a quien reserva saber **a qué local
+va**: devuelve nombre, dirección, ciudad y teléfono de cada sede activa. Con una
+sola sede el asistente no pregunta; con varias, elegirla es obligatorio.
+
+`/businesses/:id/professionals` admite `?branchId=` y entonces devuelve solo a
+quien atiende en esa sede. Ofrecer al resto sería ofrecer citas a las que el
+cliente no puede llegar.
 
 `/businesses/:id/services` admite `?professionalId=`, y entonces devuelve el
 **precio y la duración de ese profesional**, que son los que la agenda aplicará
@@ -550,6 +566,7 @@ elegido, el precio del catálogo es un «desde» y no una promesa. Un
 | GET    | `/internal/clients/names`               | Nombre de los clientes pedidos, acotado al negocio                                                                                                |
 | GET    | `/internal/profiles/resolve`            | Resuelve perfiles                                                                                                                                 |
 | GET    | `/internal/branches`                    | Sedes activas del negocio                                                                                                                         |
+| GET    | `/internal/branches/:id/professionals`  | Quién atiende en una sede, acotado al negocio; booking lo usa para no asignar a alguien del otro local                                            |
 | GET    | `/internal/business-hours`              | Horario semanal de apertura                                                                                                                       |
 | GET    | `/internal/business-hours/dia`          | Apertura de una fecha, ya resuelta contra los días especiales; lo consume la agenda                                                               |
 | POST   | `/internal/services/resolve`            | Precio y duración reales de los servicios de una cita                                                                                             |
@@ -580,12 +597,17 @@ patrón **Outbox** para publicar eventos de forma fiable.
 | GET    | `/resumen-por-estado` | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Citas por estado y `VENCIDAS`            |
 | GET    | `/availability`       | Autenticado                              | Huecos disponibles                       |
 | GET    | `/:id`                | OWNER, ADMIN, RECEPTIONIST, PROFESSIONAL | Detalle                                  |
-| POST   | `/:id/confirm`        | OWNER, ADMIN, PROFESSIONAL               | `PENDING` → `CONFIRMED`, solo si no pasó |
+| POST   | `/:id/confirm`        | OWNER, ADMIN, PROFESSIONAL, RECEPTIONIST | `PENDING` → `CONFIRMED`, solo si no pasó |
 | POST   | `/:id/start`          | OWNER, ADMIN, PROFESSIONAL               | Marca en curso                           |
-| POST   | `/:id/complete`       | OWNER, ADMIN, PROFESSIONAL               | Completa y suma fidelidad                |
+| POST   | `/:id/complete`       | OWNER, ADMIN, PROFESSIONAL, RECEPTIONIST | Completa y suma fidelidad                |
 | POST   | `/:id/cancel`         | OWNER, ADMIN, RECEPTIONIST               | Cancela con motivo                       |
-| POST   | `/:id/no-show`        | OWNER, ADMIN, PROFESSIONAL               | Marca no presentado                      |
+| POST   | `/:id/no-show`        | OWNER, ADMIN, PROFESSIONAL, RECEPTIONIST | Marca no presentado                      |
 | PATCH  | `/:id/reschedule`     | OWNER, ADMIN, RECEPTIONIST               | Reprograma                               |
+
+`GET /availability` acepta `professionalId` —la agenda de uno— o `businessId`
+—la unión de todo el equipo—. Con `businessId` admite además `branchId`, que
+acota esas franjas al equipo de esa sede: sin acotar, el escaparate ofrecería un
+hueco del otro local y el cliente elegiría una hora a la que no puede llegar.
 
 Un **walk-in** es quien entró sin cita, ya se atendió y se anota después. No es
 una reserva: no lleva fecha —la pone el servicio, que solo admite el día en curso
@@ -693,6 +715,13 @@ cliente cancela— y el cliente no puede recuperar su cita porque no dejó rastr
 con el que identificarse. El teléfono se valida con el mismo formato que la
 ficha de cliente, que es de donde sale.
 
+**`branchId` dice a qué sede va el cliente**, y con más de una es obligatorio de
+hecho: sin él la cita nace sin local, quien reserva no sabe dónde presentarse y
+la recepción de la otra sede no la ve al filtrar. El alta comprueba que la sede
+sea del negocio. Cuando además se reserva «con cualquier profesional», se elige
+solo entre el equipo de esa sede. Lo mismo vale para `POST /appointments/mine`,
+la reserva con sesión iniciada.
+
 ### Internos
 
 | Método | Ruta                                                              | Descripción                            |
@@ -721,6 +750,11 @@ Pagos manuales, facturas y caja. Base de datos `beautyspot_payment`. Usa el patr
 | GET    | `/:id`           | OWNER, ADMIN, RECEPTIONIST | Detalle                           |
 | PATCH  | `/:id`           | OWNER, ADMIN               | Corrige el cobro                  |
 | POST   | `/:id/refund`    | OWNER, ADMIN               | Procesa devolución                |
+
+El listado filtra por `status`, `method` (que alcanza también las líneas de un
+cobro repartido), `from` + `to` y la sede activa. Con `sinFactura=true` deja
+fuera los cobros que ya tienen una factura no anulada: son los que el diálogo
+de emitir factura ofrece.
 
 Un cobro puede llevar `appointmentId`: entonces el importe tiene que coincidir
 con el de la cita —contando lo que rebajen los puntos y el descuento
@@ -770,13 +804,13 @@ Roles a nivel de clase: **OWNER, ADMIN**.
 
 | Método | Ruta            | Roles                      | Descripción                   |
 | ------ | --------------- | -------------------------- | ----------------------------- |
-| POST   | `/`             | OWNER, ADMIN               | Crea factura                  |
+| POST   | `/`             | OWNER, ADMIN, RECEPTIONIST | Crea factura                  |
 | GET    | `/`             | OWNER, ADMIN, RECEPTIONIST | Lista facturas                |
 | GET    | `/mine`         | CLIENT                     | Sus facturas, desde el portal |
 | GET    | `/mine/:id/pdf` | CLIENT                     | Descarga el PDF de una suya   |
 | GET    | `/:id`          | OWNER, ADMIN               | Detalle                       |
 | PATCH  | `/:id/status`   | OWNER, ADMIN               | Cambia el estado              |
-| GET    | `/:id/pdf`      | OWNER, ADMIN               | Descarga el PDF               |
+| GET    | `/:id/pdf`      | OWNER, ADMIN, RECEPTIONIST | Descarga el PDF               |
 
 `POST /` emite de dos maneras. Con **`paymentId`**, la factura sale de un cobro
 completado: el cliente y las líneas se toman de él —los servicios de su cita, o
@@ -785,6 +819,12 @@ el impuesto dentro, así que la base se calcula descontándolo y la factura cuad
 al peso con lo que se pagó. Con **`clientId` + `items`** se factura a mano y el
 impuesto se suma sobre las líneas. Un cobro se factura una vez
 (`uq_invoices_cobro`, que deja fuera las anuladas): repetirlo responde 409.
+RECEPTIONIST solo emite con `paymentId`; sin él responde 403.
+
+Completar una cita con cobro emite además su factura cuando quien la cierra
+puede facturar y deja marcada «Emitir factura del cobro»: el panel encadena
+`POST /booking/appointments/:id/complete`, `POST /payment/payments` y
+`POST /` con el `paymentId` devuelto.
 
 El tipo impositivo sale de `facturacion.tasaDeImpuesto` del negocio (en
 porcentaje; sin configurar, el IVA colombiano) y **cada factura lo congela**: una

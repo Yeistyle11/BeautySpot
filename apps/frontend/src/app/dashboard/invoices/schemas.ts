@@ -47,7 +47,8 @@ export const clientSchema = z.object({
 export type Client = z.infer<typeof clientSchema>;
 
 export const INVOICES_KEY = "/payment/invoices";
-export const CLIENTS_KEY = "/core/clients";
+/** Nombres de los clientes que hay en pantalla, por lista de ids. */
+export const CLIENT_NAMES_KEY = "/core/clients/names";
 
 /** Cómo se pinta cada estado de factura. */
 export const ESTADOS: Record<

@@ -31,183 +31,302 @@ export interface InvoiceData {
   taxRate: number;
   tax: number;
   total: number;
-  paymentMethod: string;
+  paymentMethod?: string;
   notes?: string;
 }
 
 type Documento = InstanceType<typeof PDFDocument>;
+type Opciones = PDFKit.Mixins.TextOptions;
 
-/** Formatea una fecha en español de Colombia (día, mes y año). */
+const IZQUIERDA = 50;
+const DERECHA = 545;
+const ANCHO = DERECHA - IZQUIERDA;
+const COLUMNA_DERECHA = 330;
+const ANCHO_DERECHA = DERECHA - COLUMNA_DERECHA;
+const ANCHO_IZQUIERDA = COLUMNA_DERECHA - IZQUIERDA - 20;
+const GRIS = "#666";
+const NEGRO = "#000";
+const NORMAL = "Helvetica";
+const NEGRITA = "Helvetica-Bold";
+
+/** Columnas de la tabla de líneas: descripción, cantidad, precio y total. */
+const COLUMNAS: { x: number; width: number; align: "left" | "right" }[] = [
+  { x: IZQUIERDA, width: 235, align: "left" },
+  { x: 290, width: 50, align: "right" },
+  { x: 345, width: 95, align: "right" },
+  { x: 445, width: 100, align: "right" },
+];
+
+/** Espacio que necesitan los totales y el pie bajo la última línea. */
+const RESERVA_FINAL = 220;
+
+/** Formatea un día en español de Colombia; llega como medianoche UTC. */
 function formatDate(date: Date): string {
   return new Date(date).toLocaleDateString("es-CO", {
+    timeZone: "UTC",
     year: "numeric",
     month: "long",
     day: "numeric",
   });
 }
 
-/** Dibuja el encabezado: nombre del negocio, número de factura y fechas. */
-function addInvoiceHeader(doc: Documento, data: InvoiceData): void {
-  const logoPath = data.business.logo;
-  if (logoPath) {
-    doc.fontSize(20).text(data.business.name, 50, 50, { width: 400 });
-    doc.fontSize(10).text("Factura Electrónica", 50, 75);
-  } else {
-    doc.fontSize(24).text(data.business.name, 50, 50);
-    doc.fontSize(10).text("Factura Electrónica", 50, 80);
-  }
+/** Escribe un texto en (x, y) y devuelve la `y` donde termina. */
+function escribir(
+  doc: Documento,
+  texto: string,
+  x: number,
+  y: number,
+  opciones: Opciones
+): number {
+  doc.text(texto, x, y, opciones);
+  return y + doc.heightOfString(texto, opciones);
+}
 
-  doc
-    .fontSize(16)
-    .text(`Factura #${data.invoiceNumber}`, 400, 50, { align: "right" })
-    .fontSize(10)
-    .text(`Fecha: ${formatDate(data.invoiceDate)}`, 400, 75, {
-      align: "right",
+/** Traza una línea horizontal hasta el margen derecho. */
+function linea(doc: Documento, y: number, desde = IZQUIERDA): void {
+  doc.strokeColor("#999").lineWidth(0.7);
+  doc.moveTo(desde, y).lineTo(DERECHA, y).stroke();
+}
+
+/** Deja solo las líneas que tienen dato. */
+function conDato(lineas: (string | false | undefined)[]): string[] {
+  return lineas.filter((l): l is string => Boolean(l));
+}
+
+/** Dibuja el encabezado y devuelve la `y` de la línea que lo cierra. */
+function addInvoiceHeader(doc: Documento, data: InvoiceData): number {
+  const izquierda: Opciones = { width: ANCHO_IZQUIERDA };
+  doc.font(NEGRITA).fontSize(20).fillColor(NEGRO);
+  let finIzquierda = escribir(
+    doc,
+    data.business.name,
+    IZQUIERDA,
+    50,
+    izquierda
+  );
+  doc.font(NORMAL).fontSize(10).fillColor(GRIS);
+  finIzquierda = escribir(
+    doc,
+    "Factura Electrónica",
+    IZQUIERDA,
+    finIzquierda + 4,
+    izquierda
+  );
+
+  const derecha: Opciones = { width: ANCHO_DERECHA, align: "right" };
+  doc.font(NEGRITA).fontSize(13).fillColor(NEGRO);
+  let finDerecha = escribir(
+    doc,
+    `Factura #${data.invoiceNumber}`,
+    COLUMNA_DERECHA,
+    52,
+    derecha
+  );
+  doc.font(NORMAL).fontSize(10);
+  finDerecha = escribir(
+    doc,
+    `Fecha: ${formatDate(data.invoiceDate)}`,
+    COLUMNA_DERECHA,
+    finDerecha + 6,
+    derecha
+  );
+  finDerecha = escribir(
+    doc,
+    `Vence: ${formatDate(data.dueDate)}`,
+    COLUMNA_DERECHA,
+    finDerecha + 2,
+    derecha
+  );
+
+  const fin = Math.max(finIzquierda, finDerecha) + 12;
+  linea(doc, fin);
+  return fin;
+}
+
+/** Dibuja un título gris seguido de sus líneas y devuelve dónde termina. */
+function bloque(
+  doc: Documento,
+  titulo: string,
+  lineas: string[],
+  x: number,
+  y: number,
+  width: number
+): number {
+  doc.font(NORMAL).fontSize(10).fillColor(GRIS);
+  let fin = escribir(doc, titulo, x, y, { width }) + 6;
+  doc.fillColor(NEGRO);
+  for (const texto of lineas) {
+    fin = escribir(doc, texto, x, fin, { width }) + 3;
+  }
+  return fin;
+}
+
+/** Dibuja emisor y cliente en dos columnas y devuelve dónde termina. */
+function addParties(doc: Documento, data: InvoiceData, inicio: number): number {
+  const { business, client } = data;
+  const y = inicio + 20;
+
+  const finEmpresa = bloque(
+    doc,
+    "Información de la Empresa",
+    conDato([
+      business.nit && `NIT: ${business.nit}`,
+      business.address && `Dirección: ${business.address}`,
+      business.phone && `Teléfono: ${business.phone}`,
+      business.email && `Email: ${business.email}`,
+    ]),
+    IZQUIERDA,
+    y,
+    ANCHO_IZQUIERDA
+  );
+
+  const finCliente = bloque(
+    doc,
+    "Cliente",
+    conDato([
+      client.name,
+      client.document && `Documento: ${client.document}`,
+      client.phone && `Teléfono: ${client.phone}`,
+      client.email && `Email: ${client.email}`,
+      client.address && `Dirección: ${client.address}`,
+    ]),
+    COLUMNA_DERECHA,
+    y,
+    ANCHO_DERECHA
+  );
+
+  return Math.max(finEmpresa, finCliente) + 20;
+}
+
+/** Escribe una fila de la tabla y devuelve dónde termina su celda más alta. */
+function fila(doc: Documento, celdas: string[], y: number): number {
+  return Math.max(
+    ...celdas.map((texto, i) => {
+      const { x, width, align } = COLUMNAS[i];
+      return escribir(doc, texto, x, y, { width, align });
     })
-    .text(`Vence: ${formatDate(data.dueDate)}`, 400, 90, {
-      align: "right",
-    });
-
-  doc.moveTo(50, 110).lineTo(550, 110).stroke();
+  );
 }
 
-/** Dibuja los datos fiscales y de contacto de la empresa emisora. */
-function addInvoiceInfo(doc: Documento, data: InvoiceData): void {
-  doc.fontSize(10).fillColor("#666").text("Información de la Empresa", 50, 130);
+/** Dibuja la tabla de líneas y devuelve la `y` de su línea de cierre. */
+function addItemsTable(
+  doc: Documento,
+  data: InvoiceData,
+  inicio: number
+): number {
+  linea(doc, inicio);
+  doc.font(NORMAL).fontSize(10).fillColor(GRIS);
+  let y = fila(doc, ["Descripción", "Cantidad", "Precio", "Total"], inicio + 8);
+  y += 6;
+  linea(doc, y);
+  y += 8;
 
-  // Sin datos fiscales configurados no hay NIT que imprimir; una etiqueta
-  // vacía en una factura confunde más que su ausencia.
-  doc
-    .fillColor("#000")
-    .text(data.business.nit ? `NIT: ${data.business.nit}` : "", 50, 150);
-  doc.text(`Dirección: ${data.business.address}`, 50, 165);
-  doc.text(`Teléfono: ${data.business.phone}`, 50, 180);
-  doc.text(`Email: ${data.business.email}`, 50, 195);
-}
-
-/** Dibuja los datos del cliente destinatario de la factura. */
-function addClientInfo(doc: Documento, data: InvoiceData): void {
-  doc.fontSize(10).fillColor("#666").text("Cliente", 350, 130);
-
-  doc.fillColor("#000").text(data.client.name, 350, 150);
-  doc.text(`Documento: ${data.client.document}`, 350, 165);
-
-  if (data.client.phone) {
-    doc.text(`Teléfono: ${data.client.phone}`, 350, 180);
-  }
-
-  if (data.client.email) {
-    doc.text(`Email: ${data.client.email}`, 350, 195);
-  }
-
-  if (data.client.address) {
-    doc.text(`Dirección: ${data.client.address}`, 350, 210);
-  }
-}
-
-/** Dibuja la tabla de líneas con descripción, cantidad, precio y total. */
-function addItemsTable(doc: Documento, data: InvoiceData): void {
-  const startY = 250;
-  const itemWidth = 280;
-  const quantityWidth = 60;
-  const priceWidth = 80;
-  const totalWidth = 80;
-
-  doc.moveTo(50, startY).lineTo(550, startY).stroke();
-
-  doc.fontSize(10).fillColor("#666");
-  doc.text("Descripción", 50, startY + 10, { width: itemWidth });
-  doc.text("Cantidad", 350, startY + 10, { width: quantityWidth });
-  doc.text("Precio", 410, startY + 10, { width: priceWidth });
-  doc.text("Total", 490, startY + 10, { width: totalWidth });
-
-  doc
-    .moveTo(50, startY + 25)
-    .lineTo(550, startY + 25)
-    .stroke();
-
-  let y = startY + 35;
-  doc.fillColor("#000");
-
+  doc.fillColor(NEGRO);
   for (const item of data.items) {
-    const itemTotal = item.quantity * item.price;
-
-    doc.text(item.name, 50, y, { width: itemWidth });
-    doc.text(item.quantity.toString(), 350, y, { width: quantityWidth });
-    doc.text(formatearDinero(item.price), 410, y, { width: priceWidth });
-    doc.text(formatearDinero(itemTotal), 490, y, { width: totalWidth });
-
-    y += 20;
+    if (y > doc.page.height - RESERVA_FINAL) {
+      doc.addPage();
+      y = 50;
+    }
+    y =
+      fila(
+        doc,
+        [
+          item.name,
+          item.quantity.toString(),
+          formatearDinero(item.price),
+          formatearDinero(item.quantity * item.price),
+        ],
+        y
+      ) + 8;
   }
 
-  doc.moveTo(50, y).lineTo(550, y).stroke();
+  linea(doc, y);
+  return y;
 }
 
-/** Dibuja subtotal, IVA y total, más el método de pago y las notas. */
-function addTotals(doc: Documento, data: InvoiceData): void {
-  let y = 300;
-
-  doc.fontSize(10);
-
-  doc.text("Subtotal:", 400, y, { width: 100, align: "right" });
-  doc.text(formatearDinero(data.subtotal), 505, y, {
-    width: 100,
+/** Escribe una etiqueta de total con su importe y devuelve dónde termina. */
+function importe(
+  doc: Documento,
+  etiqueta: string,
+  cantidad: number,
+  y: number
+): number {
+  doc.text(etiqueta, 300, y, { width: 130, align: "right" });
+  return escribir(doc, formatearDinero(cantidad), 435, y, {
+    width: 110,
     align: "right",
   });
-  y += 20;
+}
+
+/** Dibuja subtotal, IVA y total bajo la tabla y devuelve dónde terminan. */
+function addTotals(doc: Documento, data: InvoiceData, inicio: number): number {
+  doc.font(NORMAL).fontSize(10).fillColor(NEGRO);
+  let y = importe(doc, "Subtotal:", data.subtotal, inicio + 12) + 4;
 
   const porcentaje = (data.taxRate * 100).toFixed(0);
-  doc.text(`IVA (${porcentaje}%):`, 400, y, { width: 100, align: "right" });
-  doc.text(formatearDinero(data.tax), 505, y, {
-    width: 100,
-    align: "right",
-  });
-  y += 20;
+  y = importe(doc, `IVA (${porcentaje}%):`, data.tax, y) + 6;
 
-  doc.fontSize(12).fillColor("#000");
-  doc.text("TOTAL:", 400, y, { width: 100, align: "right" });
-  doc.text(formatearDinero(data.total), 505, y, {
-    width: 100,
-    align: "right",
-  });
+  linea(doc, y, 300);
+  doc.font(NEGRITA).fontSize(12);
+  y = importe(doc, "TOTAL:", data.total, y + 6);
+  doc.font(NORMAL);
 
-  y += 40;
+  return y + 25;
+}
 
-  doc.fontSize(10).fillColor("#666");
-  doc.text("Método de Pago:", 50, y);
-  doc.fillColor("#000").text(data.paymentMethod, 150, y);
+/** Escribe una etiqueta gris con su valor y devuelve dónde termina. */
+function detalle(
+  doc: Documento,
+  etiqueta: string,
+  valor: string,
+  y: number
+): number {
+  doc.fontSize(10).fillColor(GRIS);
+  doc.text(etiqueta, IZQUIERDA, y, { width: 95 });
+  doc.fillColor(NEGRO);
+  return escribir(doc, valor, 150, y, { width: DERECHA - 150 }) + 6;
+}
 
+/** Dibuja el método de pago y las notas que traiga la factura. */
+function addDetalles(doc: Documento, data: InvoiceData, inicio: number): void {
+  let y = inicio;
+  if (data.paymentMethod) {
+    y = detalle(doc, "Método de Pago:", data.paymentMethod, y);
+  }
   if (data.notes) {
-    y += 20;
-    doc.fillColor("#666").text("Notas:", 50, y);
-    doc.fillColor("#000").text(data.notes, 150, y);
+    detalle(doc, "Notas:", data.notes, y);
   }
 }
 
 /** Dibuja el pie con los datos legales del emisor y el mensaje de cortesía. */
 function addFooter(doc: Documento, data: InvoiceData): void {
-  const pageHeight = doc.page.height;
+  const alto = doc.page.height;
+  const { business } = data;
 
-  doc
-    .moveTo(50, pageHeight - 80)
-    .lineTo(550, pageHeight - 80)
-    .stroke();
+  // El pie ocupa el margen inferior, que se anula mientras se escribe.
+  const margen = doc.page.margins.bottom;
+  doc.page.margins.bottom = 0;
 
-  // El emisor es el negocio que factura, no la plataforma.
-  doc.fontSize(9).fillColor("#666");
-  doc.text(data.business.name, 50, pageHeight - 70);
-  if (data.business.nit) {
-    doc.text(`NIT: ${data.business.nit}`, 50, pageHeight - 60);
+  linea(doc, alto - 100);
+  doc.font(NORMAL).fontSize(9).fillColor(GRIS);
+  let y = alto - 90;
+  for (const texto of conDato([
+    business.name,
+    business.nit && `NIT: ${business.nit}`,
+    business.phone && `Teléfono: ${business.phone}`,
+    business.email && `Email: ${business.email}`,
+  ])) {
+    y = escribir(doc, texto, IZQUIERDA, y, { width: ANCHO });
   }
-  doc.text(`Teléfono: ${data.business.phone}`, 50, pageHeight - 50);
-  doc.text(`Email: ${data.business.email}`, 50, pageHeight - 40);
 
   doc.text(
     "Gracias por su preferencia. Esta factura ha sido generada electrónicamente.",
-    50,
-    pageHeight - 25,
-    { align: "center" }
+    IZQUIERDA,
+    alto - 38,
+    { width: ANCHO, align: "center" }
   );
+
+  doc.page.margins.bottom = margen;
 }
 
 /**
@@ -224,11 +343,10 @@ export function construirPdfFactura(data: InvoiceData): Promise<Buffer> {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", (error: Error) => reject(error));
 
-    addInvoiceHeader(doc, data);
-    addInvoiceInfo(doc, data);
-    addClientInfo(doc, data);
-    addItemsTable(doc, data);
-    addTotals(doc, data);
+    const finEncabezado = addInvoiceHeader(doc, data);
+    const finPartes = addParties(doc, data, finEncabezado);
+    const finTabla = addItemsTable(doc, data, finPartes);
+    addDetalles(doc, data, addTotals(doc, data, finTabla));
     addFooter(doc, data);
 
     doc.end();

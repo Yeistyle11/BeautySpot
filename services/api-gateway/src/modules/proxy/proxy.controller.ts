@@ -9,7 +9,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { Request, Response } from "express";
-import { ProxyService } from "./proxy.service";
+import { ProxyService, type CuerpoBinario } from "./proxy.service";
 import { CircuitBreakerService } from "../circuit-breaker/circuit-breaker.service";
 import { PROXY_TIMEOUT_MS } from "@beautyspot/shared-constants";
 import { UMBRAL_LENTO_MS } from "@beautyspot/nest-common";
@@ -21,6 +21,8 @@ const SERVER_ERROR_THRESHOLD = 500;
 interface RespuestaReenviada {
   estado: number;
   cuerpo: unknown;
+  /** Presente cuando el servicio respondió un archivo y no JSON. */
+  binario?: CuerpoBinario;
 }
 
 /**
@@ -102,6 +104,14 @@ export class ProxyController {
       }
     }
 
+    if (respuesta.binario) {
+      const { datos, tipo, disposicion } = respuesta.binario;
+      res.setHeader("Content-Type", tipo);
+      if (disposicion) res.setHeader("Content-Disposition", disposicion);
+      res.status(respuesta.estado).send(datos);
+      return;
+    }
+
     res.status(respuesta.estado).json(respuesta.cuerpo);
   }
 
@@ -136,7 +146,10 @@ export class ProxyController {
       clearTimeout(timeout);
       this.medirSalto(service, req, response.status, comienzo);
 
-      let data = await this.proxyService.parseResponseBody(response);
+      const binario = await this.proxyService.leerBinario(response);
+      let data = binario
+        ? null
+        : await this.proxyService.parseResponseBody(response);
 
       // Login, renovacion y cierre de sesion se convierten aqui en cookies,
       // tambien cuando la respuesta del servicio no es correcta.
@@ -147,6 +160,7 @@ export class ProxyController {
       const respuesta: RespuestaReenviada = {
         estado: response.status,
         cuerpo: data,
+        ...(binario ? { binario } : {}),
       };
 
       if (response.status >= SERVER_ERROR_THRESHOLD) {

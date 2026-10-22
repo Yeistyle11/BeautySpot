@@ -126,8 +126,13 @@ describe("ProxyController (reenvío)", () => {
   const SERVICE_URL = "http://localhost:3002";
 
   /** Respuesta mínima con la superficie que consume el controlador. */
-  const fakeResponse = (status: number, body: string) => ({
+  const fakeResponse = (
+    status: number,
+    body: string,
+    tipo = "application/json"
+  ) => ({
     status,
+    headers: new Headers({ "content-type": tipo }),
     text: async () => body,
   });
 
@@ -156,19 +161,28 @@ describe("ProxyController (reenvío)", () => {
   /** Response Express mínima que registra status, cuerpo y cuántas veces se escribió. */
   const fakeResponseOut = () => {
     const sent: { status?: number; body?: unknown } = {};
-    const contador = { escrituras: 0 };
+    const cabeceras: Record<string, string> = {};
+    const contador = { escrituras: 0, json: 0 };
+    const escribir = (body: unknown) => {
+      contador.escrituras++;
+      sent.body = body;
+    };
     const res = {
+      setHeader: (nombre: string, valor: string) => {
+        cabeceras[nombre] = valor;
+      },
       status: (code: number) => {
         sent.status = code;
         return {
           json: (body: unknown) => {
-            contador.escrituras++;
-            sent.body = body;
+            contador.json++;
+            escribir(body);
           },
+          send: escribir,
         };
       },
     };
-    return { res: res as never, sent, contador };
+    return { res: res as never, sent, contador, cabeceras };
   };
 
   beforeEach(async () => {
@@ -421,6 +435,7 @@ describe("ProxyController (reenvío)", () => {
     it("devuelve null en 204 sin leer el cuerpo", async () => {
       fetchMock.mockResolvedValue({
         status: 204,
+        headers: new Headers(),
         text: async () => {
           throw new Error("no debe leerse el cuerpo de un 204");
         },
@@ -457,6 +472,46 @@ describe("ProxyController (reenvío)", () => {
       await controller.proxyRequest("core-service", fakeRequest(), res);
 
       expect(sent.body).toEqual({ message: "texto plano" });
+    });
+
+    it("envuelve como mensaje el HTML de un proxy intermedio", async () => {
+      fetchMock.mockResolvedValue(
+        fakeResponse(200, "<html>Bad Gateway</html>", "text/html")
+      );
+      const { res, sent } = fakeResponseOut();
+
+      await controller.proxyRequest("core-service", fakeRequest(), res);
+
+      expect(sent.body).toEqual({ message: "<html>Bad Gateway</html>" });
+    });
+
+    it("reenvía un PDF byte a byte con su tipo y su nombre", async () => {
+      // Bytes que no son UTF-8 válido.
+      const pdf = Buffer.from([0x25, 0x50, 0x44, 0x46, 0xe2, 0xe3, 0xcf, 0xd3]);
+      fetchMock.mockResolvedValue({
+        status: 200,
+        headers: new Headers({
+          "content-type": "application/pdf",
+          "content-disposition": "attachment; filename=factura.pdf",
+        }),
+        arrayBuffer: async () =>
+          pdf.buffer.slice(pdf.byteOffset, pdf.byteOffset + pdf.length),
+        text: async () => {
+          throw new Error("un PDF no debe leerse como texto");
+        },
+      });
+      const { res, sent, contador, cabeceras } = fakeResponseOut();
+
+      await controller.proxyRequest("payment", fakeRequest(), res);
+
+      expect(sent.status).toBe(200);
+      expect(Buffer.isBuffer(sent.body)).toBe(true);
+      expect((sent.body as Buffer).equals(pdf)).toBe(true);
+      expect(contador).toEqual({ escrituras: 1, json: 0 });
+      expect(cabeceras).toEqual({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": "attachment; filename=factura.pdf",
+      });
     });
   });
 
@@ -553,7 +608,11 @@ describe("ProxyController (rutas de sesión)", () => {
 
   /** Reenvía esa ruta con la respuesta que devuelva el servicio de destino. */
   async function reenviar(path: string, estado: number) {
-    fetchMock.mockResolvedValue({ status: estado, text: async () => "{}" });
+    fetchMock.mockResolvedValue({
+      status: estado,
+      headers: new Headers({ "content-type": "application/json" }),
+      text: async () => "{}",
+    });
     const req = {
       path,
       originalUrl: path,

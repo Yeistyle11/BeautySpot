@@ -128,15 +128,26 @@ export type Professional = z.infer<typeof professionalSchema>;
  * Respuesta de `GET /marketplace/profiles/:slug`: el perfil y, si la sección
  * "team" del escaparate está activa, el equipo del negocio.
  */
+/** Sede del negocio, tal como la enseña la ficha pública. */
+export const sedePublicaSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  address: z.string().nullish(),
+  city: z.string().nullish(),
+  phone: z.string().nullish(),
+});
+export type SedePublica = z.infer<typeof sedePublicaSchema>;
+
 export const profileResponseSchema = z.object({
   profile: profileSchema,
   professionals: z.array(professionalSchema).optional(),
 });
 export type ProfileResponse = z.infer<typeof profileResponseSchema>;
 
+// Sin `clientId`: el listado publico sirve una proyeccion sin el cliente que
+// escribio la resena, asi que el esquema no puede exigirlo.
 export const reviewSchema = z.object({
   id: z.string(),
-  clientId: z.string(),
   rating: z.number(),
   comment: z.string().nullable(),
   response: z.string().nullable(),

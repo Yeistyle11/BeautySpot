@@ -87,7 +87,11 @@ export class AppointmentsController {
       return this.disponibilidad.franjasDelNegocio(
         query.businessId,
         query.date,
-        query.duration
+        query.duration,
+        await this.disponibilidad.equipoDeLaSede(
+          query.businessId,
+          query.branchId
+        )
       );
     }
 
@@ -216,7 +220,7 @@ export class AppointmentsController {
     return this.service.findById(id, businessId);
   }
 
-  @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL)
+  @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL, Role.RECEPTIONIST)
   @Post(":id/confirm")
   async confirm(
     @Param("id", ParseUUIDPipe) id: string,
@@ -236,7 +240,7 @@ export class AppointmentsController {
   }
 
   /** Completa la cita y otorga los puntos de fidelidad. */
-  @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL)
+  @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL, Role.RECEPTIONIST)
   @Post(":id/complete")
   async complete(
     @Param("id", ParseUUIDPipe) id: string,
@@ -261,7 +265,7 @@ export class AppointmentsController {
     });
   }
 
-  @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL)
+  @Roles(Role.OWNER, Role.ADMIN, Role.PROFESSIONAL, Role.RECEPTIONIST)
   @Post(":id/no-show")
   async noShow(
     @Param("id", ParseUUIDPipe) id: string,

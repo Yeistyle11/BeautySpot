@@ -195,6 +195,10 @@ describe("RefundDialog", () => {
 });
 
 describe("PaymentCard", () => {
+  // La tarjeta mide el plazo contra el reloj: se fija en el día del cobro.
+  beforeEach(() => jest.useFakeTimers({ now: HOY }));
+  afterEach(() => jest.useRealTimers());
+
   function pintarTarjeta(payment: Payment, canRefund = true) {
     const onRefund = jest.fn();
     // La fila es un <tr> y necesita la tabla alrededor.

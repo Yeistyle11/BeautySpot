@@ -1,5 +1,8 @@
 import { Test } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
+import { ROLES_KEY } from "@beautyspot/nest-common";
+import { Role } from "@beautyspot/shared-types";
 import {
   AppointmentsController,
   InternalAppointmentsController,
@@ -99,6 +102,7 @@ describe("AppointmentsController", () => {
   let disponibilidad: Record<string, jest.Mock>;
 
   const NEGOCIO = "biz-1";
+  const SEDE = "11111111-1111-4111-8111-111111111111";
   const CITA = "1a2b3c4d-0000-4000-8000-000000000000";
 
   beforeEach(async () => {
@@ -124,6 +128,8 @@ describe("AppointmentsController", () => {
       capacidadDelDia: jest.fn(),
       franjasDeProfesionalPublico: jest.fn().mockResolvedValue([]),
       franjasDelNegocio: jest.fn().mockResolvedValue([]),
+      // Sin sede en la consulta, no acota a nadie.
+      equipoDeLaSede: jest.fn().mockResolvedValue(undefined),
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -186,7 +192,27 @@ describe("AppointmentsController", () => {
       expect(disponibilidad.franjasDelNegocio).toHaveBeenCalledWith(
         NEGOCIO,
         "2026-09-20",
-        30
+        30,
+        undefined
+      );
+    });
+
+    it("con sede acota las franjas a su equipo", async () => {
+      disponibilidad.equipoDeLaSede.mockResolvedValue(["pro-1", "pro-2"]);
+
+      await controller.getAvailability({
+        businessId: NEGOCIO,
+        branchId: SEDE,
+        date: "2026-09-20",
+        duration: 30,
+      } as never);
+
+      expect(disponibilidad.equipoDeLaSede).toHaveBeenCalledWith(NEGOCIO, SEDE);
+      expect(disponibilidad.franjasDelNegocio).toHaveBeenCalledWith(
+        NEGOCIO,
+        "2026-09-20",
+        30,
+        ["pro-1", "pro-2"]
       );
     });
 
@@ -229,6 +255,18 @@ describe("AppointmentsController", () => {
       expect(service.startService).toHaveBeenCalledWith(CITA, NEGOCIO);
       expect(service.complete).toHaveBeenCalledWith(CITA, NEGOCIO);
       expect(service.markNoShow).toHaveBeenCalledWith(CITA, NEGOCIO);
+    });
+
+    it("recepción confirma, completa y marca el plantón", () => {
+      const rolesDe = (metodo: keyof AppointmentsController) =>
+        new Reflector().getAllAndOverride<Role[]>(ROLES_KEY, [
+          AppointmentsController.prototype[metodo],
+          AppointmentsController,
+        ]);
+
+      expect(rolesDe("confirm")).toContain(Role.RECEPTIONIST);
+      expect(rolesDe("complete")).toContain(Role.RECEPTIONIST);
+      expect(rolesDe("noShow")).toContain(Role.RECEPTIONIST);
     });
 
     it("la cancelación lleva el motivo, la nota y quién la firma", async () => {

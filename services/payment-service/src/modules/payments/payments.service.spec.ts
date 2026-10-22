@@ -14,6 +14,7 @@ import {
   PaymentMethod,
   PaymentStatus,
   CashMovementType,
+  InvoiceStatus,
   Role,
 } from "@beautyspot/shared-types";
 import {
@@ -837,6 +838,30 @@ describe("PaymentsService", () => {
       );
 
       expect(condiciones(qb)).toContain("p.created_at BETWEEN :from AND :to");
+    });
+
+    it("sin factura descarta los cobros con una factura no anulada", async () => {
+      const qb = mockListado([mockPayment]);
+
+      await service.findByBusiness(
+        "business-123",
+        { sinFactura: true },
+        pagination
+      );
+
+      expect(condiciones(qb)).toContain("NOT EXISTS");
+      expect(condiciones(qb)).toContain("FROM invoices i");
+      expect(qb.andWhere).toHaveBeenCalledWith(expect.any(String), {
+        anulada: InvoiceStatus.CANCELLED,
+      });
+    });
+
+    it("sin pedirlo no mira las facturas", async () => {
+      const qb = mockListado([mockPayment]);
+
+      await service.findByBusiness("business-123", {}, pagination);
+
+      expect(condiciones(qb)).not.toContain("invoices");
     });
   });
 

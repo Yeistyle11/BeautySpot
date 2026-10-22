@@ -29,6 +29,7 @@ import {
   PaymentStatus,
   CashMovementType,
   IPaginatedResponse,
+  InvoiceStatus,
   Role,
 } from "@beautyspot/shared-types";
 import { esViolacionDeUnicidad, OutboxService } from "@beautyspot/nest-common";
@@ -547,6 +548,7 @@ export class PaymentsService {
       from?: string;
       to?: string;
       branchId?: string;
+      sinFactura?: boolean;
     },
     pagination: PaginateParams
   ): Promise<IPaginatedResponse<PaymentEntity>> {
@@ -575,6 +577,15 @@ export class PaymentsService {
             SELECT 1 FROM payment_splits s
             WHERE s.payment_id = p.id AND s.method = :method))`,
         { method: filters.method }
+      );
+    }
+    // Una factura anulada deja el cobro libre para facturarlo otra vez.
+    if (filters.sinFactura) {
+      qb.andWhere(
+        `NOT EXISTS (
+            SELECT 1 FROM invoices i
+            WHERE i.payment_id = p.id AND i.status <> :anulada)`,
+        { anulada: InvoiceStatus.CANCELLED }
       );
     }
 

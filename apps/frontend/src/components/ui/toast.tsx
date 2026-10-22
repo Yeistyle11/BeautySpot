@@ -13,21 +13,31 @@ import { AlertCircle, CheckCircle2, X } from "lucide-react";
 
 type Tono = "error" | "exito";
 
+/** Botón que acompaña a un aviso, como «Descargar». */
+export interface AccionDeAviso {
+  etiqueta: string;
+  alPulsar: () => void;
+}
+
 interface Aviso {
   id: number;
   tono: Tono;
   mensaje: string;
+  accion?: AccionDeAviso;
 }
 
 interface ContextoAvisos {
   error: (mensaje: string) => void;
-  exito: (mensaje: string) => void;
+  exito: (mensaje: string, accion?: AccionDeAviso) => void;
 }
 
 const Contexto = createContext<ContextoAvisos | null>(null);
 
 /** Cuánto permanece un aviso antes de retirarse solo. */
 const DURACION_MS = 6000;
+
+/** Cuánto permanece un aviso con acción, para dar tiempo a pulsarla. */
+const DURACION_CON_ACCION_MS = 15000;
 
 /** Avisos efímeros de la interfaz, compartidos por todo el panel. */
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -44,13 +54,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const añadir = useCallback(
-    (tono: Tono, mensaje: string) => {
+    (tono: Tono, mensaje: string, accion?: AccionDeAviso) => {
       const id = siguienteId();
-      setAvisos((actuales) => [...actuales, { id, tono, mensaje }]);
-      const temporizador = setTimeout(() => {
-        temporizadores.current.delete(temporizador);
-        retirar(id);
-      }, DURACION_MS);
+      setAvisos((actuales) => [...actuales, { id, tono, mensaje, accion }]);
+      const temporizador = setTimeout(
+        () => {
+          temporizadores.current.delete(temporizador);
+          retirar(id);
+        },
+        accion ? DURACION_CON_ACCION_MS : DURACION_MS
+      );
       temporizadores.current.add(temporizador);
     },
     [retirar]
@@ -59,7 +72,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const valor = useMemo<ContextoAvisos>(
     () => ({
       error: (mensaje) => añadir("error", mensaje),
-      exito: (mensaje) => añadir("exito", mensaje),
+      exito: (mensaje, accion) => añadir("exito", mensaje, accion),
     }),
     [añadir]
   );
@@ -126,6 +139,18 @@ function ToastItem({
     >
       <Icono className="mt-0.5 h-5 w-5 shrink-0" />
       <p className="flex-1 text-sm font-medium">{aviso.mensaje}</p>
+      {aviso.accion && (
+        <button
+          type="button"
+          onClick={() => {
+            aviso.accion?.alPulsar();
+            onCerrar(aviso.id);
+          }}
+          className="shrink-0 text-sm font-semibold underline underline-offset-2 hover:no-underline"
+        >
+          {aviso.accion.etiqueta}
+        </button>
+      )}
       <button
         type="button"
         onClick={() => onCerrar(aviso.id)}

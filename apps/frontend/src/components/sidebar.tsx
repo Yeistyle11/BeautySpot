@@ -10,6 +10,7 @@ import { useEsEscritorio } from "@/lib/use-punto-de-ruptura";
 import { getPagesForRole } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { LogoBeautySpot } from "@/components/ui/logo-beautyspot";
 import { BusinessSwitcher } from "@/components/business-switcher";
 import { BranchSwitcher } from "@/components/branch-switcher";
 import {
@@ -143,10 +144,7 @@ export function Sidebar() {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div className="bg-primary text-primary-foreground flex h-8 w-8 items-center justify-center rounded-lg">
-          <Scissors className="h-4 w-4" />
-        </div>
-        <p className="text-sm font-bold">BeautySpot</p>
+        <LogoBeautySpot tamano="sm" tono="bitono" />
       </div>
 
       {open && (
@@ -174,13 +172,12 @@ export function Sidebar() {
         )}
       >
         <div className="flex h-16 items-center gap-3 border-b px-6">
-          <div className="bg-primary text-primary-foreground flex h-9 w-9 items-center justify-center rounded-lg">
-            <Scissors className="h-4 w-4" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-bold">BeautySpot</p>
-            <p className="text-muted-foreground text-xs">Panel de gestión</p>
-          </div>
+          <LogoBeautySpot
+            tamano="md"
+            tono="bitono"
+            bajada="Panel de gestión"
+            className="flex-1"
+          />
           <button
             ref={botonDeCerrar}
             onClick={() => setOpen(false)}

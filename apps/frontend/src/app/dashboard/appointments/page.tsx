@@ -50,6 +50,7 @@ import { CompleteAppointmentDialog } from "./complete-appointment-dialog";
 import { useAccionesDeCita } from "./use-acciones-de-cita";
 import { useBloqueoRapido } from "./use-bloqueo-rapido";
 import { useCierreDeCita } from "./use-cierre-de-cita";
+import { clientSchema as clienteConPuntosSchema } from "../payments/schemas";
 import { useWalkIn } from "./use-walk-in";
 import {
   appointmentSchema,
@@ -289,7 +290,14 @@ export default function AppointmentsPage() {
   }, [professionals]);
 
   const acciones = useAccionesDeCita();
-  const cierre = useCierreDeCita();
+  const puedeFacturar = canDo(role, "invoices_create");
+  const cierre = useCierreDeCita(puedeFacturar);
+  // El saldo de puntos solo hace falta con el cierre abierto.
+  const { data: clienteACobrar } = useApi(
+    cierre.cita ? `/core/clients/${cierre.cita.clientId}` : null,
+    undefined,
+    clienteConPuntosSchema
+  );
   const bloqueo = useBloqueoRapido(dia, recargarBloqueos);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -554,6 +562,9 @@ export default function AppointmentsPage() {
         onPaymentChange={cierre.setCobro}
         onComplete={cierre.confirmar}
         pending={cierre.cerrando}
+        puedeFacturar={puedeFacturar}
+        puedeDescontar={role === "OWNER" || role === "ADMIN"}
+        puntosDisponibles={clienteACobrar?.loyaltyPoints ?? 0}
       />
 
       <WalkInDialog

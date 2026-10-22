@@ -232,7 +232,9 @@ describe("AppointmentsService", () => {
               mockBlockRepo,
               mockApptServiceRepo,
               mockZonas,
-              mockHorarioDelNegocio
+              mockHorarioDelNegocio,
+              // Sin sede que resolver en estas pruebas.
+              { pedir: jest.fn() } as unknown as InternalHttpClient
             ),
         },
         { provide: ZonaDelNegocioService, useValue: mockZonas },

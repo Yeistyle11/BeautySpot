@@ -25,6 +25,12 @@
     --ring: 262 83% 58%;
     --radius: 0.75rem;
 
+    /* El violeta del isotipo. En claro coincide con --primary, pero es su
+       propio token porque en oscuro no puede seguirlo: ahi --primary se
+       oscurece hasta quedar en 2.8:1 contra el fondo, por debajo del minimo
+       de un elemento grafico. */
+    --marca: 262 83% 58%;
+
     /* Colores con significado (exito, aviso, informacion). Cada uno tiene una
        version plana y otra "soft" para fondos suaves, y ambas cambian con el
        tema: son la alternativa a fijar bg-green-50 o text-amber-600 en la
@@ -96,6 +102,9 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 263 70% 50%;
+
+    /* Aclarado para que el disco siga destacando sobre el fondo oscuro. */
+    --marca: 263 86% 72%;
 
     /* En oscuro las versiones "soft" invierten la relacion: fondo oscuro y
        tenue, texto claro, para mantener el contraste sin deslumbrar. */

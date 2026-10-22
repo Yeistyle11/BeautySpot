@@ -46,6 +46,8 @@ export class PublicBookingDto {
   @IsUUID() businessId!: string;
   /** Omitirlo pide "cualquiera disponible". */
   @IsOptional() @IsUUID() professionalId?: string;
+  /** Sede a la que va el cliente; obligatoria de facto con más de una. */
+  @IsOptional() @IsUUID() branchId?: string;
   /** Solo los ids: el precio y la duración los resuelve el backend contra el catálogo. */
   @IsArray()
   @ArrayNotEmpty()

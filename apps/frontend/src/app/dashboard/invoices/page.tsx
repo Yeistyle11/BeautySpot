@@ -3,6 +3,7 @@
 // Pagina de facturas del negocio: listado con filtros, detalle, PDF, cambio de
 // estado y emision desde un cobro.
 import { useCallback, useMemo, useState } from "react";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
@@ -28,7 +29,7 @@ import {
   clientSchema,
   cobroFacturableSchema,
   invoiceSchema,
-  CLIENTS_KEY,
+  CLIENT_NAMES_KEY,
   FILTROS_DE_ESTADO,
   INVOICES_KEY,
   type Client,
@@ -37,7 +38,8 @@ import {
 } from "./schemas";
 
 /** Cobros completados entre los que se elige al emitir. */
-const COBROS_KEY = "/payment/payments?status=COMPLETED&limit=50";
+const COBROS_KEY =
+  "/payment/payments?status=COMPLETED&sinFactura=true&limit=50";
 
 /** Facturas emitidas por el negocio, con su emision y su detalle. */
 export default function InvoicesPage() {
@@ -65,22 +67,6 @@ export default function InvoicesPage() {
     params: estado === "all" ? undefined : { status: estado },
   });
 
-  // Los nombres de los clientes se piden aparte: la factura solo trae su id. Las
-  // dos rutas son paginadas, así que llegan envueltas en { data, meta } y hay que
-  // validarlas como tales.
-  const { data: clientesPage } = useApi(
-    CLIENTS_KEY,
-    undefined,
-    paginatedSchema(clientSchema)
-  );
-  const clientes = useMemo(() => {
-    const mapa: Record<string, string> = {};
-    (clientesPage?.data ?? []).forEach((c: Client) => {
-      mapa[c.id] = c.name;
-    });
-    return mapa;
-  }, [clientesPage]);
-
   // Los cobros solo hacen falta con el diálogo abierto.
   const {
     data: cobrosPage,
@@ -91,6 +77,35 @@ export default function InvoicesPage() {
     undefined,
     paginatedSchema(cobroFacturableSchema)
   );
+
+  // Los nombres se piden por los ids que hay en pantalla: la factura solo trae
+  // el id, y el listado de clientes es paginado, así que la cartera entera no
+  // cabe en una respuesta.
+  const idsDeClientes = useMemo(
+    () => [
+      ...new Set(
+        [
+          ...invoices.map((f) => f.clientId),
+          ...(cobrosPage?.data ?? []).map((c) => c.clientId),
+        ].filter((id): id is string => !!id)
+      ),
+    ],
+    [invoices, cobrosPage]
+  );
+  const { data: nombresDeClientes } = useApi(
+    idsDeClientes.length
+      ? `${CLIENT_NAMES_KEY}?ids=${idsDeClientes.join(",")}`
+      : null,
+    undefined,
+    z.array(clientSchema)
+  );
+  const clientes = useMemo(() => {
+    const mapa: Record<string, string> = {};
+    (nombresDeClientes ?? []).forEach((c: Client) => {
+      mapa[c.id] = c.name;
+    });
+    return mapa;
+  }, [nombresDeClientes]);
 
   const descargar = useCallback(
     async (invoice: Invoice) => {

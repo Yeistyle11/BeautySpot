@@ -104,8 +104,19 @@ describe("PaymentsController", () => {
         from: "2026-08-01",
         to: "2026-08-31",
         branchId: SEDE,
+        sinFactura: false,
       }),
       expect.objectContaining({ limit: 50 })
+    );
+  });
+
+  it("pide solo los cobros sin factura cuando la query lo indica", async () => {
+    await controller.findAll(NEGOCIO, SEDE, { sinFactura: "true" });
+
+    expect(service.findByBusiness).toHaveBeenCalledWith(
+      NEGOCIO,
+      expect.objectContaining({ sinFactura: true }),
+      expect.anything()
     );
   });
 

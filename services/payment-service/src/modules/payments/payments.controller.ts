@@ -220,6 +220,7 @@ export class PaymentsController {
         from: query.from as string,
         to: query.to as string,
         branchId,
+        sinFactura: query.sinFactura === "true",
       },
       pagination
     );

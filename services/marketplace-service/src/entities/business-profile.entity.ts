@@ -60,10 +60,24 @@ export class BusinessProfileEntity extends TenantEntity {
 
   @Column({ nullable: true }) country!: string;
 
-  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true })
+  // Un decimal sale de la base como cadena y el perfil publico se valida
+  // contra `z.number()`: sin el transformador la coordenada no pasa el esquema.
+  @Column({
+    type: "decimal",
+    precision: 10,
+    scale: 7,
+    nullable: true,
+    transformer: numericTransformer,
+  })
   lat!: number;
 
-  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true })
+  @Column({
+    type: "decimal",
+    precision: 10,
+    scale: 7,
+    nullable: true,
+    transformer: numericTransformer,
+  })
   lng!: number;
 
   @Column({

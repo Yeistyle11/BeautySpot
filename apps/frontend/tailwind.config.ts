@@ -5,6 +5,12 @@ const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        // La tipografia del logotipo, solo para la marca. La interfaz sigue en
+        // Inter: el logo se dibuja en Archivo y mezclarlas fuera de el seria
+        // ruido.
+        logotipo: ["var(--fuente-logotipo)", "system-ui", "sans-serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

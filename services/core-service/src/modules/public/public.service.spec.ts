@@ -4,6 +4,7 @@ import { PublicService } from "./public.service";
 import { Business } from "../../entities/business.entity";
 import { Service } from "../../entities/service.entity";
 import { Professional } from "../../entities/professional.entity";
+import { Branch } from "../../entities/branch.entity";
 import { BusinessHours } from "../../entities/business-hours.entity";
 import { PreciosService } from "../precios/precios.service";
 
@@ -13,6 +14,7 @@ describe("PublicService", () => {
   let mockServiceRepo: jest.Mocked<any>;
   let mockProRepo: jest.Mocked<any>;
   let mockHorasRepo: jest.Mocked<any>;
+  let mockSedeRepo: jest.Mocked<any>;
   let mockPrecios: jest.Mocked<any>;
 
   beforeEach(async () => {
@@ -53,6 +55,7 @@ describe("PublicService", () => {
     } as any;
 
     mockHorasRepo = { find: jest.fn().mockResolvedValue([]) } as any;
+    mockSedeRepo = { find: jest.fn().mockResolvedValue([]) } as any;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -67,6 +70,7 @@ describe("PublicService", () => {
           provide: getRepositoryToken(BusinessHours),
           useValue: mockHorasRepo,
         },
+        { provide: getRepositoryToken(Branch), useValue: mockSedeRepo },
         { provide: PreciosService, useValue: mockPrecios },
       ],
     }).compile();
@@ -235,8 +239,33 @@ describe("PublicService", () => {
           "yearsExp",
           "rating",
           "totalReviews",
+          "branchId",
         ],
       });
+    });
+
+    it("con sede solo devuelve a quien atiende alli", async () => {
+      mockProRepo.find.mockResolvedValue([]);
+
+      await service.getBusinessProfessionals("biz-1", "sede-1");
+
+      expect(mockProRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { businessId: "biz-1", active: true, branchId: "sede-1" },
+        })
+      );
+    });
+
+    it("sin sede no acota el equipo", async () => {
+      mockProRepo.find.mockResolvedValue([]);
+
+      await service.getBusinessProfessionals("biz-1");
+
+      expect(mockProRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { businessId: "biz-1", active: true },
+        })
+      );
     });
 
     it("incluye el nombre y la foto, que son lo que pinta la reserva", async () => {

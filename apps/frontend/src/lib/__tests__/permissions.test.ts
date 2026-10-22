@@ -76,6 +76,16 @@ describe("canDo", () => {
     expect(canDo("OWNER", "professionals_delete")).toBe(true);
     expect(canDo("PROFESSIONAL", "professionals_delete")).toBe(false);
   });
+
+  it("recepción confirma y cierra citas", () => {
+    expect(canDo("RECEPTIONIST", "appointments_confirm")).toBe(true);
+  });
+
+  it("recepción emite facturas pero no les cambia el estado", () => {
+    expect(canDo("RECEPTIONIST", "invoices_create")).toBe(true);
+    expect(canDo("RECEPTIONIST", "invoices_status")).toBe(false);
+    expect(canDo("PROFESSIONAL", "invoices_create")).toBe(false);
+  });
 });
 
 describe("getPagesForRole", () => {

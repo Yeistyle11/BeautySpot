@@ -126,7 +126,9 @@ describe("Integración: no se puede reservar dos veces el mismo hueco", () => {
       dataSource.getRepository(BlockedSlot),
       dataSource.getRepository(AppointmentServiceEntity),
       zonas,
-      horarioDelNegocio
+      horarioDelNegocio,
+      // Sin sede que resolver en estas pruebas.
+      { pedir: jest.fn() } as unknown as InternalHttpClient
     );
 
     citas = new AppointmentsService(
