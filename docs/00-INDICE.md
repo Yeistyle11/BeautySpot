@@ -62,7 +62,7 @@ gateway reescribe la ruta; está explicado en
 **¿Puedo desplegar a producción ya?**
 El código está listo: hay migraciones para las siete bases, `docker-compose.prod.yml`
 y `/health` en los ocho servicios. Queda la parte de operación —secretos, DNS y
-reverse proxy con certificado wildcard—, en el checklist de
+reverse proxy con HTTPS—, en el checklist de
 [../DEPLOY.md](../DEPLOY.md).
 
 **¿Cómo ejecuto los tests? ¿Y los de integración?**

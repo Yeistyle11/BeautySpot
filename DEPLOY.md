@@ -86,8 +86,11 @@ frontend renueva sola la sesión al primer 401 y reintenta; varias peticiones qu
 caduquen a la vez comparten una única renovación, porque el refresh token rota y
 si no las demás llegarían con uno ya consumido.
 
-**Variables**: `COOKIE_DOMAIN` debe ser el dominio padre (`.beautyspot.co`)
-porque el tenant va por subdominio y la sesión tiene que valer en todos.
+**Variables**: `COOKIE_DOMAIN` va **vacío**, y el navegador ata las cookies al
+host exacto que las emitió (`appbeautyspot.com`), que es lo más estricto. El
+negocio se resuelve desde el token, no por subdominio, así que no hay otros
+hosts en los que la sesión tenga que valer; el dominio padre
+(`.appbeautyspot.com`) solo haría falta si los hubiera.
 `JWT_EXPIRES_IN` y `JWT_REFRESH_EXPIRES_IN` deben coincidir con los de
 `auth-service`: el gateway calcula con ellos la vida de cada cookie. `secure` se
 activa solo con `NODE_ENV=production`, porque en `http://localhost` el navegador
@@ -154,8 +157,16 @@ monorepo**, porque necesitan acceso a los workspaces `@beautyspot/*`:
 docker build -f services/auth-service/Dockerfile -t beautyspot-auth:1.0.0 .
 
 # El frontend
-docker build -f apps/frontend/Dockerfile -t beautyspot-frontend:1.0.0 .
+docker build -f apps/frontend/Dockerfile \
+  --build-arg NEXT_PUBLIC_SITE_URL=https://appbeautyspot.com \
+  -t beautyspot-frontend:1.0.0 .
 ```
+
+El frontend es el único que necesita `--build-arg`: Next escribe en el build el
+rewrite de `/api` hacia `GATEWAY_URL` y las `NEXT_PUBLIC_*`, de modo que el
+`env_file` del contenedor llega tarde para ellas. `GATEWAY_URL` ya trae por
+defecto `http://api-gateway:3000`; sin `NEXT_PUBLIC_SITE_URL` los enlaces y las
+etiquetas Open Graph apuntarían a `localhost`.
 
 Nunca `cd services/auth-service && docker build .`: fallaría al resolver los
 paquetes compartidos.
@@ -170,8 +181,18 @@ for s in api-gateway auth-service core-service booking-service payment-service \
          notification-service marketplace-service analytics-service; do
   docker build -f "services/$s/Dockerfile" -t "beautyspot-$s:$VERSION" .
 done
-docker build -f apps/frontend/Dockerfile -t "beautyspot-frontend:$VERSION" .
+docker build -f apps/frontend/Dockerfile \
+  --build-arg NEXT_PUBLIC_SITE_URL=https://appbeautyspot.com \
+  -t "beautyspot-frontend:$VERSION" .
 ```
+
+Las nueve hacen cada una su `npm install` completo, así que en un servidor de
+2 vCPU tardan del orden de una hora; construirlas de una en una, como el bucle,
+evita que el build del frontend se quede sin memoria.
+
+`.dockerignore` deja fuera `env/*.env`: el `COPY . .` del builder no arrastra a
+las capas de la imagen los secretos de producción que viven en el mismo
+directorio.
 
 El CI ya valida que las nueve imágenes construyen en cada cambio relevante; ver
 [docs/CI-CD.md](docs/CI-CD.md).
@@ -195,15 +216,25 @@ Orden de arranque: **primero la infraestructura, después las migraciones y sól
 entonces los servicios.** Las migraciones no se aplican solas:
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d postgres redis rabbitmq
+docker compose -f docker-compose.prod.yml up -d --wait postgres redis rabbitmq
 for s in auth core booking payment notification marketplace analytics; do
-  npm run migration:run --workspace "@beautyspot/$s-service"
+  docker compose -f docker-compose.prod.yml run --rm --no-deps \
+    "$s-service" npm run migration:run
 done
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml up -d --wait
 ```
+
+Cada migración corre dentro de la imagen de su servicio, con su `env_file` y en
+la red de Docker, así que el servidor no necesita Node instalado ni Postgres
+publicado. La imagen trae `src/`, `ts-node` y el `tsconfig.base.json` de la raíz
+precisamente para esto.
 
 Puntos importantes:
 
+- **Postgres no habla TLS dentro de la red de Docker**, y con
+  `NODE_ENV=production` el ORM lo exige. Por eso el `DATABASE_URL` de las
+  plantillas termina en `?sslmode=disable`, que `pg` antepone a la opción `ssl`
+  del ORM. Con un Postgres gestionado fuera del host, quitarlo.
 - La migración `BusquedaDeClientes` de core ejecuta
   `CREATE EXTENSION IF NOT EXISTS "pg_trgm"`, que exige permiso de superusuario
   en la base. En un Postgres gestionado con un usuario por base hay que
@@ -376,46 +407,33 @@ docker compose -f docker-compose.prod.yml up -d --wait
 
 ## 6. Reverse proxy y TLS
 
-Sólo se exponen dos cosas a internet: el frontend y el gateway. Ejemplo con Nginx:
+Todo el tráfico entra por el **frontend** (`127.0.0.1:8080`), que reenvía `/api/*`
+al gateway por la red de Docker. El gateway publica su puerto en el loopback
+solo para diagnosticar desde el propio servidor; el proxy no lo usa.
 
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name beautyspot.co *.beautyspot.co;
+Con [Caddy](https://caddyserver.com), instalado en el host, el certificado de
+Let's Encrypt se obtiene y se renueva solo. `/etc/caddy/Caddyfile`:
 
-    ssl_certificate     /etc/letsencrypt/live/beautyspot.co/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/beautyspot.co/privkey.pem;
-
-    # API
-    location /api/ {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Frontend
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
+```caddy
+appbeautyspot.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8080
 }
 
-server {
-    listen 80;
-    server_name beautyspot.co *.beautyspot.co;
-    return 301 https://$host$request_uri;
+www.appbeautyspot.com {
+	redir https://appbeautyspot.com{uri} permanent
 }
 ```
 
-**El certificado debe ser wildcard** (`*.beautyspot.co`): la resolución de tenant es
-por subdominio, así que cada negocio tiene el suyo (`{slug}.beautyspot.co`).
+`reverse_proxy` ya envía `X-Forwarded-For`, `X-Forwarded-Proto` y `Host`, y
+redirige HTTP a HTTPS sin configurar nada. El certificado es uno por host, sin
+wildcard: el negocio se resuelve desde el token, no por subdominio.
 
-El rate limiting del gateway se apoya en la IP del cliente, así que el proxy tiene
-que enviar `X-Forwarded-For` correctamente o todas las peticiones parecerán venir
-de la misma dirección.
+El rate limiting del gateway se apoya en la IP del cliente, que le llega tras
+**dos** saltos —Caddy y el rewrite de Next—, de ahí `TRUST_PROXY=2`. Si el proxy
+mandara `/api` directo al gateway, sería un salto y habría que bajarlo a 1; con
+uno de más, cualquiera podría elegir su IP en `X-Forwarded-For` y saltarse el
+límite.
 
 ---
 
@@ -423,13 +441,13 @@ de la misma dirección.
 
 ```bash
 # Gateway y los 7 servicios
-curl -s https://beautyspot.co/api/v1/../health | jq
+curl -s http://127.0.0.1:3000/health | jq   # desde el servidor
 
 # El gateway responde y enruta
-curl -s https://beautyspot.co/api/v1/core/public/businesses | jq
+curl -s https://appbeautyspot.com/api/v1/core/public/businesses | jq
 
 # Login
-curl -s -X POST https://beautyspot.co/api/v1/auth/login \
+curl -s -X POST https://appbeautyspot.com/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"...","password":"..."}' | jq
 ```
@@ -455,7 +473,8 @@ Hay 7 bases de datos: hay que respaldar **todas**.
 
 ```bash
 for db in auth core booking payment notification marketplace analytics; do
-  docker exec beautyspot-postgres pg_dump -U "$PGUSER" "beautyspot_$db" \
+  docker compose -f docker-compose.prod.yml exec -T postgres \
+    pg_dump -U postgres "beautyspot_$db" \
     | gzip > "backup_${db}_$(date +%Y%m%d).sql.gz"
 done
 ```
@@ -464,8 +483,12 @@ Restauración de una:
 
 ```bash
 gunzip -c backup_core_20260725.sql.gz \
-  | docker exec -i beautyspot-postgres psql -U "$PGUSER" beautyspot_core
+  | docker compose -f docker-compose.prod.yml exec -T postgres \
+    psql -U postgres beautyspot_core
 ```
+
+Un respaldo que se queda en el mismo VPS no sobrevive a perder el VPS: hay que
+copiarlo fuera.
 
 Consideraciones: los volúmenes de Redis y RabbitMQ no necesitan respaldo (Redis es
 caché y sesiones, RabbitMQ es tránsito), pero **sí hay que vigilar que RabbitMQ no
@@ -521,15 +544,16 @@ Con `NODE_ENV=production`, `packages/database` cambia automáticamente:
 | Ajuste              | Desarrollo         | Producción                                 |
 | ------------------- | ------------------ | ------------------------------------------ |
 | `synchronize`       | activado           | **desactivado**                            |
-| SSL a Postgres      | desactivado        | activado (`rejectUnauthorized: false`)     |
+| SSL a Postgres      | desactivado        | activado, verificando el certificado       |
 | Pool de conexiones  | 10                 | 30 escritura / 50 lectura / 40 por defecto |
 | `statement_timeout` | sin límite         | 30 s                                       |
 | `query_timeout`     | sin límite         | 60 s                                       |
 | Logging             | `query,error,warn` | `error,warn`                               |
 
-> `rejectUnauthorized: false` acepta certificados de Postgres no verificados. Es
-> lo habitual con bases gestionadas que usan CA propia, pero conviene revisarlo si
-> el proveedor permite verificación completa.
+> El certificado se verifica salvo `DATABASE_SSL_REJECT_UNAUTHORIZED=false`, y
+> contra la CA de `DATABASE_CA_CERT` si se indica, que es lo que necesita una base
+> gestionada con CA propia. El Postgres del compose no habla TLS y se conecta con
+> `?sslmode=disable` en la URL (sección 3).
 
 ---
 
@@ -559,8 +583,12 @@ Revisar la tabla `outbox_messages` del emisor: si hay filas en `PENDING` con
 Si están en `DEAD`, agotaron los reintentos.
 
 **El correo no sale**
-`notification-service` necesita las `SMTP_*`. Con Gmail hace falta una contraseña
-de aplicación, no la del usuario.
+`notification-service` necesita las `SMTP_*`. Con el buzón de Hostinger es
+`smtp.hostinger.com`, puerto 465 y `SMTP_SECURE=true`; con Gmail hace falta una
+contraseña de aplicación, no la del usuario.
+
+**Los servicios no conectan a Postgres: `The server does not support SSL connections`**
+Falta `?sslmode=disable` al final del `DATABASE_URL` (sección 3).
 
 ---
 
@@ -605,6 +633,6 @@ Despliegue:
 
 - [ ] Las 9 imágenes construidas desde la raíz del monorepo
 - [ ] Migraciones aplicadas antes de arrancar
-- [ ] Reverse proxy con certificado **wildcard** y `X-Forwarded-For`
+- [ ] Reverse proxy con HTTPS hacia el frontend y `TRUST_PROXY=2` en el gateway
 - [ ] Verificaciones de la sección 7 completadas
 - [ ] Copias de seguridad de las 7 bases programadas

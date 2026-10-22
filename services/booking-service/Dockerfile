@@ -14,6 +14,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages ./packages
+# migration:run compila src/ con ts-node, y su tsconfig extiende el de la raíz.
+COPY --from=builder /app/tsconfig.base.json ./tsconfig.base.json
 COPY --from=builder /app/services/booking-service ./services/booking-service
 WORKDIR /app/services/booking-service
 EXPOSE 3003
