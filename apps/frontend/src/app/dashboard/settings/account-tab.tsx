@@ -1,12 +1,12 @@
 "use client";
 
-// Pestana de cuenta: edicion de los datos personales del usuario.
+// Pestana de cuenta: datos personales y contrasena del usuario.
 import { Loader2, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
-import { canDo } from "@/lib/permissions";
+import { canAccess } from "@/lib/permissions";
 import { useAuthStore } from "@/lib/store";
 import type { Feedback } from "./schemas";
 
@@ -27,7 +27,11 @@ interface AccountTabProps {
   passwordFeedback: Feedback | null;
 }
 
-/** Datos personales y cambio de contrasena del usuario que ha iniciado sesion. */
+/**
+ * Datos personales y cambio de contrasena del usuario que ha iniciado sesion.
+ * Quien tiene pagina de perfil propia (el cliente) edita alli sus datos, y aqui
+ * solo ve la contrasena.
+ */
 export function AccountTab({
   email,
   account,
@@ -41,39 +45,39 @@ export function AccountTab({
   passwordFeedback,
 }: AccountTabProps) {
   const role = useAuthStore((s) => s.role);
-  const canSave = canDo(role, "settings_edit");
+  const datosEnSuPerfil = canAccess(role, "/dashboard/client/profile");
 
   return (
     <>
-      <Card className="shadow-flat border-0">
-        <CardHeader>
-          <CardTitle className="text-lg">Mi cuenta</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Nombre">
-              <Input
-                value={account.name}
-                onChange={(e) =>
-                  onAccountChange({ ...account, name: e.target.value })
-                }
-              />
-            </Field>
-            {/* El email identifica la cuenta; cambiarlo exige reverificacion,
+      {!datosEnSuPerfil && (
+        <Card className="shadow-flat mb-6 border-0">
+          <CardHeader>
+            <CardTitle className="text-lg">Mi cuenta</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Nombre">
+                <Input
+                  value={account.name}
+                  onChange={(e) =>
+                    onAccountChange({ ...account, name: e.target.value })
+                  }
+                />
+              </Field>
+              {/* El email identifica la cuenta; cambiarlo exige reverificacion,
                 que todavia no existe. */}
-            <Field label="Email">
-              <Input defaultValue={email} disabled />
-            </Field>
-            <Field label="Teléfono">
-              <Input
-                value={account.phone}
-                onChange={(e) =>
-                  onAccountChange({ ...account, phone: e.target.value })
-                }
-              />
-            </Field>
-          </div>
-          {canSave && (
+              <Field label="Email">
+                <Input defaultValue={email} disabled />
+              </Field>
+              <Field label="Teléfono">
+                <Input
+                  value={account.phone}
+                  onChange={(e) =>
+                    onAccountChange({ ...account, phone: e.target.value })
+                  }
+                />
+              </Field>
+            </div>
             <Button onClick={onSaveAccount} disabled={savingAccount}>
               {savingAccount ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -82,11 +86,11 @@ export function AccountTab({
               )}
               Guardar cambios
             </Button>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
-      <Card className="shadow-flat mt-6 border-0">
+      <Card className="shadow-flat border-0">
         <CardHeader>
           <CardTitle className="text-lg">Cambiar contraseña</CardTitle>
         </CardHeader>

@@ -97,7 +97,7 @@ export function BusinessTab({
           {LOCATION_FIELDS.map((f) => field(f.key, f.label))}
           {IMAGE_FIELDS.map((f) => field(f.key, f.label, "https://..."))}
         </div>
-        {canDo(role, "settings_edit") && (
+        {canDo(role, "business_edit") && (
           <Button onClick={onSave} disabled={saving}>
             {saving ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

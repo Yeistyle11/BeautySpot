@@ -194,7 +194,6 @@ export const ACTIONS = {
   business_hours_edit: ["OWNER", "ADMIN"],
   business_edit: ["OWNER", "ADMIN"],
   billing_edit: ["OWNER"],
-  settings_edit: ["OWNER"],
 } as const;
 
 /** Indica si el rol puede acceder a una ruta (gana el prefijo más específico de PAGES). */

@@ -83,7 +83,7 @@ export function HoursTab({ hours, onUpdate, onSave, saving }: HoursTabProps) {
             );
           })}
         </div>
-        {canDo(role, "settings_edit") && (
+        {canDo(role, "business_hours_edit") && (
           <Button onClick={onSave} disabled={saving}>
             {saving ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
