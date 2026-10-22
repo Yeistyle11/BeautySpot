@@ -6,9 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
-import { canAccess } from "@/lib/permissions";
-import { useAuthStore } from "@/lib/store";
-import type { Feedback } from "./schemas";
+import { CambiarContrasena } from "@/components/cambiar-contrasena";
 
 interface AccountTabProps {
   email: string;
@@ -16,148 +14,58 @@ interface AccountTabProps {
   onAccountChange: (account: { name: string; phone: string }) => void;
   onSaveAccount: () => void;
   savingAccount: boolean;
-  password: {
-    currentPassword: string;
-    newPassword: string;
-    confirmPassword: string;
-  };
-  onPasswordChange: (password: AccountTabProps["password"]) => void;
-  onChangePassword: () => void;
-  savingPassword: boolean;
-  passwordFeedback: Feedback | null;
 }
 
-/**
- * Datos personales y cambio de contrasena del usuario que ha iniciado sesion.
- * Quien tiene pagina de perfil propia (el cliente) edita alli sus datos, y aqui
- * solo ve la contrasena.
- */
+/** Datos personales y cambio de contrasena del usuario que ha iniciado sesion. */
 export function AccountTab({
   email,
   account,
   onAccountChange,
   onSaveAccount,
   savingAccount,
-  password,
-  onPasswordChange,
-  onChangePassword,
-  savingPassword,
-  passwordFeedback,
 }: AccountTabProps) {
-  const role = useAuthStore((s) => s.role);
-  const datosEnSuPerfil = canAccess(role, "/dashboard/client/profile");
-
   return (
     <>
-      {!datosEnSuPerfil && (
-        <Card className="shadow-flat mb-6 border-0">
-          <CardHeader>
-            <CardTitle className="text-lg">Mi cuenta</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Nombre">
-                <Input
-                  value={account.name}
-                  onChange={(e) =>
-                    onAccountChange({ ...account, name: e.target.value })
-                  }
-                />
-              </Field>
-              {/* El email identifica la cuenta; cambiarlo exige reverificacion,
-                que todavia no existe. */}
-              <Field label="Email">
-                <Input defaultValue={email} disabled />
-              </Field>
-              <Field label="Teléfono">
-                <Input
-                  value={account.phone}
-                  onChange={(e) =>
-                    onAccountChange({ ...account, phone: e.target.value })
-                  }
-                />
-              </Field>
-            </div>
-            <Button onClick={onSaveAccount} disabled={savingAccount}>
-              {savingAccount ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              Guardar cambios
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
       <Card className="shadow-flat border-0">
         <CardHeader>
-          <CardTitle className="text-lg">Cambiar contraseña</CardTitle>
+          <CardTitle className="text-lg">Mi cuenta</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Contraseña actual">
+            <Field label="Nombre">
               <Input
-                type="password"
-                value={password.currentPassword}
+                value={account.name}
                 onChange={(e) =>
-                  onPasswordChange({
-                    ...password,
-                    currentPassword: e.target.value,
-                  })
+                  onAccountChange({ ...account, name: e.target.value })
                 }
               />
             </Field>
-            <Field label="Nueva contraseña">
-              <Input
-                type="password"
-                value={password.newPassword}
-                onChange={(e) =>
-                  onPasswordChange({ ...password, newPassword: e.target.value })
-                }
-                minLength={8}
-              />
+            {/* El email identifica la cuenta; cambiarlo exige reverificacion,
+                que todavia no existe. */}
+            <Field label="Email">
+              <Input defaultValue={email} disabled />
             </Field>
-            <Field label="Confirmar contraseña">
+            <Field label="Teléfono">
               <Input
-                type="password"
-                value={password.confirmPassword}
+                value={account.phone}
                 onChange={(e) =>
-                  onPasswordChange({
-                    ...password,
-                    confirmPassword: e.target.value,
-                  })
+                  onAccountChange({ ...account, phone: e.target.value })
                 }
-                minLength={8}
               />
             </Field>
           </div>
-          {passwordFeedback && (
-            <p
-              role="status"
-              className={
-                passwordFeedback.type === "error"
-                  ? "text-destructive bg-destructive/10 rounded-lg p-3 text-sm"
-                  : "bg-success-soft text-success-soft-foreground rounded-lg p-3 text-sm"
-              }
-            >
-              {passwordFeedback.message}
-            </p>
-          )}
-          <Button
-            variant="outline"
-            onClick={onChangePassword}
-            disabled={savingPassword}
-          >
-            {savingPassword ? (
+          <Button onClick={onSaveAccount} disabled={savingAccount}>
+            {savingAccount ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            Cambiar contraseña
+            Guardar cambios
           </Button>
         </CardContent>
       </Card>
+
+      <CambiarContrasena className="mt-6" />
     </>
   );
 }

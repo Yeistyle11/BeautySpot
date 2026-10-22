@@ -17,6 +17,14 @@ describe("canAccess", () => {
     expect(canAccess("OWNER", "/dashboard/ruta-inexistente")).toBe(false);
   });
 
+  it("el cliente no tiene Configuración: su contraseña está en su perfil", () => {
+    expect(canAccess("CLIENT", "/dashboard/settings")).toBe(false);
+    expect(canAccess("CLIENT", "/dashboard/client/profile")).toBe(true);
+    expect(getPagesForRole("CLIENT").map((p) => p.path)).not.toContain(
+      "/dashboard/settings"
+    );
+  });
+
   it("permite el acceso cuando el rol esta en la lista de la pagina", () => {
     expect(canAccess("OWNER", "/dashboard/services")).toBe(true);
   });

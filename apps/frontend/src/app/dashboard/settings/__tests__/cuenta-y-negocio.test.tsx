@@ -11,17 +11,12 @@ const pintarCuenta = () =>
       onAccountChange={jest.fn()}
       onSaveAccount={jest.fn()}
       savingAccount={false}
-      password={{ currentPassword: "", newPassword: "", confirmPassword: "" }}
-      onPasswordChange={jest.fn()}
-      onChangePassword={jest.fn()}
-      savingPassword={false}
-      passwordFeedback={null}
     />
   );
 
 describe("AccountTab", () => {
   it.each<Role>(["OWNER", "ADMIN", "PROFESSIONAL", "SUPER_ADMIN"])(
-    "%s puede guardar sus propios datos",
+    "%s puede guardar sus propios datos y cambiar su contraseña",
     (role) => {
       useAuthStore.setState({ role });
       pintarCuenta();
@@ -30,21 +25,11 @@ describe("AccountTab", () => {
       expect(
         screen.getByRole("button", { name: /Guardar cambios/ })
       ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Cambiar contraseña/ })
+      ).toBeInTheDocument();
     }
   );
-
-  it("al cliente, que tiene su perfil aparte, solo le deja la contraseña", () => {
-    useAuthStore.setState({ role: "CLIENT" });
-    pintarCuenta();
-
-    expect(screen.queryByDisplayValue("Ana")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /Guardar cambios/ })
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Cambiar contraseña/ })
-    ).toBeInTheDocument();
-  });
 });
 
 describe("BusinessTab", () => {

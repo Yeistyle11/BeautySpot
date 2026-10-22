@@ -146,7 +146,7 @@ export const PAGES: PageAccess[] = [
     path: "/dashboard/settings",
     label: "Configuración",
     icon: "Settings",
-    roles: ["SUPER_ADMIN", "OWNER", "ADMIN", "PROFESSIONAL", "CLIENT"],
+    roles: ["SUPER_ADMIN", "OWNER", "ADMIN", "PROFESSIONAL"],
   },
 ];
 
