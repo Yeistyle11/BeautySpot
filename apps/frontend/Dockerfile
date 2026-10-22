@@ -1,7 +1,15 @@
-# @beautyspot/frontend (Next.js 14) — build multi-stage desde la RAÍZ del monorepo.
-# Construir con:  docker build -f apps/frontend/Dockerfile -t frontend .
+# @beautyspot/frontend (Next.js 16) — build multi-stage desde la RAÍZ del monorepo.
+# Construir con:
+#   docker build -f apps/frontend/Dockerfile #     --build-arg NEXT_PUBLIC_SITE_URL=https://appbeautyspot.com -t frontend .
 
 FROM node:20-alpine AS builder
+# Next las escribe en el build: el rewrite de /api hacia GATEWAY_URL queda en el
+# manifiesto de rutas y las NEXT_PUBLIC_* en el JavaScript del navegador, así
+# que el env_file del contenedor llega tarde para ellas.
+ARG GATEWAY_URL=http://api-gateway:3000
+ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_IMAGE_HOSTS=
+ENV GATEWAY_URL=$GATEWAY_URL     NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL     NEXT_PUBLIC_IMAGE_HOSTS=$NEXT_PUBLIC_IMAGE_HOSTS
 WORKDIR /app
 COPY . .
 RUN npm install --legacy-peer-deps
