@@ -1,6 +1,6 @@
 "use client";
 
-// Perfil del cliente: edicion de sus datos personales.
+// Perfil del cliente: fidelidad, datos personales y contrasena.
 import { useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { z } from "zod";
@@ -20,6 +20,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { CLASE_DE_COLOR, nivelSchema } from "@/lib/niveles";
 import { PROPORCION_PUNTOS_FIDELIDAD } from "@beautyspot/shared-constants";
 import { formatCurrency } from "@/lib/utils";
+import { CambiarContrasena } from "@/components/cambiar-contrasena";
 
 const clientProfileSchema = z.object({
   id: z.string(),
@@ -37,7 +38,7 @@ type ClientProfile = z.infer<typeof clientProfileSchema>;
 /** Lo que hay que gastar para ganar un punto, en la moneda del negocio. */
 const GASTO_POR_PUNTO = Math.round(1 / PROPORCION_PUNTOS_FIDELIDAD);
 
-/** Datos personales del cliente y su progreso de fidelizacion. */
+/** Datos personales, contrasena y progreso de fidelizacion del cliente. */
 export default function ClientProfilePage() {
   const user = useAuthStore((s) => s.user);
   const toast = useToast();
@@ -253,6 +254,8 @@ export default function ClientProfilePage() {
             </div>
           </CardContent>
         </Card>
+
+        <CambiarContrasena className="lg:col-span-2 lg:col-start-2" />
       </div>
     </div>
   );

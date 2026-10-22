@@ -54,7 +54,11 @@ export class BusinessesService {
   async create(
     data: Partial<Business>,
     creadoPor = "",
-    opciones: { sembrar?: boolean } = {}
+    opciones: {
+      sembrar?: boolean;
+      /** Corre dentro de la transacción del alta; si falla, no se crea nada. */
+      antesDeConfirmar?: (creado: Business) => Promise<void>;
+    } = {}
   ): Promise<Business> {
     const slug = generateSlug(data.name!);
     const existing = await this.repo.findOne({ where: { slug } });
@@ -84,6 +88,8 @@ export class BusinessesService {
           ownerId: creadoPor,
         },
       });
+
+      if (opciones.antesDeConfirmar) await opciones.antesDeConfirmar(creado);
 
       return creado;
     });
@@ -154,25 +160,26 @@ export class BusinessesService {
     ownerId: string,
     opciones: { sembrar?: boolean } = {}
   ): Promise<Business> {
-    const creado = await this.create(data, ownerId, opciones);
-
-    try {
-      await this.http.enviar("auth", "/internal/memberships", {
-        userId: ownerId,
-        businessId: creado.id,
-        role: Role.OWNER,
-      });
-    } catch (error) {
-      // Sin membresia el alta queda a medias, asi que se deshace.
-      await this.repo.delete({ id: creado.id });
-      this.logger.error(
-        `No se pudo crear la membresía OWNER del negocio ${creado.id}`,
-        error instanceof Error ? error.stack : undefined
-      );
-      throw error;
-    }
-
-    return creado;
+    // La membresía se pide antes de confirmar el alta: si auth no la crea, el
+    // negocio, lo sembrado y su evento se deshacen juntos con la transacción.
+    return this.create(data, ownerId, {
+      ...opciones,
+      antesDeConfirmar: async (creado) => {
+        try {
+          await this.http.enviar("auth", "/internal/memberships", {
+            userId: ownerId,
+            businessId: creado.id,
+            role: Role.OWNER,
+          });
+        } catch (error) {
+          this.logger.error(
+            `No se pudo crear la membresía OWNER del negocio ${creado.id}`,
+            error instanceof Error ? error.stack : undefined
+          );
+          throw error;
+        }
+      },
+    });
   }
 
   /**

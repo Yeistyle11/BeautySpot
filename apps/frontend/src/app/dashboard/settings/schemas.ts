@@ -106,11 +106,6 @@ export const servicioBreveSchema = z.object({
 });
 export type ServicioBreve = z.infer<typeof servicioBreveSchema>;
 
-export interface Feedback {
-  type: "error" | "success";
-  message: string;
-}
-
 /** Datos fiscales con los que el negocio emite sus facturas. */
 export const facturacionSchema = z.object({
   razonSocial: z.string().nullish(),

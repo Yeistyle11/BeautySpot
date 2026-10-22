@@ -3,6 +3,7 @@ import {
   canDo,
   getPagesForRole,
   getDefaultPath,
+  paginaActiva,
   PAGES,
   ACTIONS,
 } from "../permissions";
@@ -14,6 +15,14 @@ describe("canAccess", () => {
 
   it("niega el acceso a una ruta que no existe en PAGES", () => {
     expect(canAccess("OWNER", "/dashboard/ruta-inexistente")).toBe(false);
+  });
+
+  it("el cliente no tiene Configuración: su contraseña está en su perfil", () => {
+    expect(canAccess("CLIENT", "/dashboard/settings")).toBe(false);
+    expect(canAccess("CLIENT", "/dashboard/client/profile")).toBe(true);
+    expect(getPagesForRole("CLIENT").map((p) => p.path)).not.toContain(
+      "/dashboard/settings"
+    );
   });
 
   it("permite el acceso cuando el rol esta en la lista de la pagina", () => {
@@ -39,6 +48,32 @@ describe("canAccess", () => {
     // orden en que esten declaradas.
     expect(canAccess("RECEPTIONIST", "/dashboard/clients")).toBe(true);
     expect(canAccess("CLIENT", "/dashboard/clients")).toBe(false);
+  });
+});
+
+describe("paginaActiva", () => {
+  const delCliente = getPagesForRole("CLIENT").map((p) => p.path);
+
+  it.each([
+    ["/dashboard/client", "/dashboard/client"],
+    ["/dashboard/client/appointments", "/dashboard/client/appointments"],
+    ["/dashboard/client/profile", "/dashboard/client/profile"],
+    ["/dashboard/client/invoices/abc", "/dashboard/client/invoices"],
+  ])("en %s marca solo %s", (ruta, esperada) => {
+    expect(paginaActiva(delCliente, ruta)).toBe(esperada);
+  });
+
+  it("no confunde una ruta con otra que empieza igual", () => {
+    expect(
+      paginaActiva(["/dashboard/client"], "/dashboard/clients")
+    ).toBeNull();
+  });
+
+  it("el inicio del panel no se marca en sus subrutas", () => {
+    expect(
+      paginaActiva(["/dashboard", "/dashboard/services"], "/dashboard/services")
+    ).toBe("/dashboard/services");
+    expect(paginaActiva(["/dashboard"], "/dashboard/settings")).toBeNull();
   });
 });
 

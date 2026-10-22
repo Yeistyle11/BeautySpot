@@ -146,7 +146,7 @@ export const PAGES: PageAccess[] = [
     path: "/dashboard/settings",
     label: "Configuración",
     icon: "Settings",
-    roles: ["SUPER_ADMIN", "OWNER", "ADMIN", "PROFESSIONAL", "CLIENT"],
+    roles: ["SUPER_ADMIN", "OWNER", "ADMIN", "PROFESSIONAL"],
   },
 ];
 
@@ -194,19 +194,42 @@ export const ACTIONS = {
   business_hours_edit: ["OWNER", "ADMIN"],
   business_edit: ["OWNER", "ADMIN"],
   billing_edit: ["OWNER"],
-  settings_edit: ["OWNER"],
 } as const;
+
+/**
+ * Indica si `ruta` cae dentro de la página `path`: ella misma o algo debajo, por
+ * segmentos completos (/dashboard/client no contiene /dashboard/clients).
+ * `/dashboard` solo se contiene a sí misma, porque todo cuelga de ella.
+ */
+function contiene(path: string, ruta: string): boolean {
+  if (path === "/dashboard") return ruta === "/dashboard";
+  return ruta === path || ruta.startsWith(`${path}/`);
+}
+
+/**
+ * De las páginas dadas, la que corresponde a `ruta`: la más específica que la
+ * contenga, de modo que en /dashboard/client/appointments se marca «Mis Citas»
+ * y no también «Mi Panel». `null` si ninguna la contiene.
+ */
+export function paginaActiva(
+  paths: readonly string[],
+  ruta: string
+): string | null {
+  return (
+    [...paths]
+      .sort((a, b) => b.length - a.length)
+      .find((path) => contiene(path, ruta)) ?? null
+  );
+}
 
 /** Indica si el rol puede acceder a una ruta (gana el prefijo más específico de PAGES). */
 export function canAccess(role: Role | null, path: string): boolean {
   if (!role) return false;
-  // Ordena por longitud de path descendente para que gane el prefijo mas
-  // especifico (/dashboard/clients frente a /dashboard/client).
-  const page = [...PAGES]
-    .sort((a, b) => b.path.length - a.path.length)
-    .find((p) =>
-      p.path === "/dashboard" ? path === "/dashboard" : path.startsWith(p.path)
-    );
+  const activa = paginaActiva(
+    PAGES.map((p) => p.path),
+    path
+  );
+  const page = PAGES.find((p) => p.path === activa);
   if (!page) return false;
   return page.roles.includes(role);
 }

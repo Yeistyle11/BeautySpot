@@ -1,3 +1,4 @@
+import { SKIP_BUSINESS_SCOPE_KEY } from "@beautyspot/nest-common";
 import { UsersController, InternalUsersController } from "./users.controller";
 import { UsersService } from "./users.service";
 import { User } from "../../entities/user.entity";
@@ -131,5 +132,26 @@ describe("InternalUsersController", () => {
 
     expect(respuesta).toEqual({ version: 4 });
     expect(service.versionDeToken).toHaveBeenCalledWith(USUARIO);
+  });
+});
+
+describe("UsersController: rutas del perfil propio", () => {
+  it.each(["getMe", "updateProfile", "getMemberships"] as const)(
+    "%s no exige negocio, porque quien es CLIENT no tiene ninguno",
+    (metodo) => {
+      const salta = Reflect.getMetadata(
+        SKIP_BUSINESS_SCOPE_KEY,
+        UsersController.prototype[metodo]
+      );
+      expect(salta).toBe(true);
+    }
+  );
+
+  it("las rutas del staff siguen exigiendo el negocio", () => {
+    const salta = Reflect.getMetadata(
+      SKIP_BUSINESS_SCOPE_KEY,
+      UsersController.prototype.listStaff
+    );
+    expect(salta).toBeUndefined();
   });
 });

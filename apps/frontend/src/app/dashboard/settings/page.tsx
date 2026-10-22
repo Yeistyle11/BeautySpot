@@ -39,7 +39,6 @@ import {
   sembrarHorarios,
   type CampoDeFicha,
   type ServicioBreve,
-  type Feedback,
   facturacionParaGuardar,
   facturacionSchema,
   reservasSchema,
@@ -96,14 +95,6 @@ export default function SettingsPage() {
   // El usuario llega de `/auth/me`, no del primer render.
   useSeededForm(user, (datos) =>
     setAccountForm({ name: datos.name || "", phone: datos.phone || "" })
-  );
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
-  const [passwordFeedback, setPasswordFeedback] = useState<Feedback | null>(
-    null
   );
 
   const canSeeBusiness =
@@ -212,42 +203,6 @@ export default function SettingsPage() {
     } catch (err) {
       logger.error(err);
       toast.error(mensajeDeError(err));
-    } finally {
-      setSaving(null);
-    }
-  };
-
-  const changePassword = async () => {
-    setPasswordFeedback(null);
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordFeedback({
-        type: "error",
-        message: "Las contraseñas no coinciden",
-      });
-      return;
-    }
-    setSaving("password");
-    try {
-      await api.post("/auth/change-password", {
-        currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword,
-      });
-      setPasswordForm({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      });
-      setPasswordFeedback({
-        type: "success",
-        message: "Contraseña actualizada",
-      });
-    } catch (err) {
-      logger.error(err);
-      toast.error(mensajeDeError(err));
-      setPasswordFeedback({
-        type: "error",
-        message: mensajeDeError(err, "No se pudo actualizar la contraseña"),
-      });
     } finally {
       setSaving(null);
     }
@@ -457,11 +412,6 @@ export default function SettingsPage() {
             onAccountChange={setAccountForm}
             onSaveAccount={saveAccount}
             savingAccount={saving === "account"}
-            password={passwordForm}
-            onPasswordChange={setPasswordForm}
-            onChangePassword={changePassword}
-            savingPassword={saving === "password"}
-            passwordFeedback={passwordFeedback}
           />
         </TabsContent>
 

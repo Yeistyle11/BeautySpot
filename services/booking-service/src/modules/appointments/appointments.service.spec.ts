@@ -2078,9 +2078,16 @@ describe("AppointmentsService", () => {
       professionalId: "prof-123",
       clientId: "client-123",
       serviceIds: [SERVICIO_CORTE],
-      startTime: dentroDeMinutos(-45).startTime,
+      startTime: "11:15",
       createdBy: "user-1",
     };
+
+    // Mediodía en Bogotá: el walk-in de las 11:15 ya ocurrió, a cualquier hora
+    // del día en que corra la suite.
+    beforeEach(() =>
+      jest.useFakeTimers({ now: new Date("2026-10-21T17:00:00Z") })
+    );
+    afterEach(() => jest.useRealTimers());
 
     beforeEach(() => {
       mockHttp.enviar.mockResolvedValue([CORTE]);

@@ -1,14 +1,12 @@
 "use client";
 
-// Pestana de cuenta: edicion de los datos personales del usuario.
+// Pestana de cuenta: datos personales y contrasena del usuario.
 import { Loader2, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
-import { canDo } from "@/lib/permissions";
-import { useAuthStore } from "@/lib/store";
-import type { Feedback } from "./schemas";
+import { CambiarContrasena } from "@/components/cambiar-contrasena";
 
 interface AccountTabProps {
   email: string;
@@ -16,15 +14,6 @@ interface AccountTabProps {
   onAccountChange: (account: { name: string; phone: string }) => void;
   onSaveAccount: () => void;
   savingAccount: boolean;
-  password: {
-    currentPassword: string;
-    newPassword: string;
-    confirmPassword: string;
-  };
-  onPasswordChange: (password: AccountTabProps["password"]) => void;
-  onChangePassword: () => void;
-  savingPassword: boolean;
-  passwordFeedback: Feedback | null;
 }
 
 /** Datos personales y cambio de contrasena del usuario que ha iniciado sesion. */
@@ -34,15 +23,7 @@ export function AccountTab({
   onAccountChange,
   onSaveAccount,
   savingAccount,
-  password,
-  onPasswordChange,
-  onChangePassword,
-  savingPassword,
-  passwordFeedback,
 }: AccountTabProps) {
-  const role = useAuthStore((s) => s.role);
-  const canSave = canDo(role, "settings_edit");
-
   return (
     <>
       <Card className="shadow-flat border-0">
@@ -73,87 +54,18 @@ export function AccountTab({
               />
             </Field>
           </div>
-          {canSave && (
-            <Button onClick={onSaveAccount} disabled={savingAccount}>
-              {savingAccount ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              Guardar cambios
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="shadow-flat mt-6 border-0">
-        <CardHeader>
-          <CardTitle className="text-lg">Cambiar contraseña</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Contraseña actual">
-              <Input
-                type="password"
-                value={password.currentPassword}
-                onChange={(e) =>
-                  onPasswordChange({
-                    ...password,
-                    currentPassword: e.target.value,
-                  })
-                }
-              />
-            </Field>
-            <Field label="Nueva contraseña">
-              <Input
-                type="password"
-                value={password.newPassword}
-                onChange={(e) =>
-                  onPasswordChange({ ...password, newPassword: e.target.value })
-                }
-                minLength={8}
-              />
-            </Field>
-            <Field label="Confirmar contraseña">
-              <Input
-                type="password"
-                value={password.confirmPassword}
-                onChange={(e) =>
-                  onPasswordChange({
-                    ...password,
-                    confirmPassword: e.target.value,
-                  })
-                }
-                minLength={8}
-              />
-            </Field>
-          </div>
-          {passwordFeedback && (
-            <p
-              role="status"
-              className={
-                passwordFeedback.type === "error"
-                  ? "text-destructive bg-destructive/10 rounded-lg p-3 text-sm"
-                  : "bg-success-soft text-success-soft-foreground rounded-lg p-3 text-sm"
-              }
-            >
-              {passwordFeedback.message}
-            </p>
-          )}
-          <Button
-            variant="outline"
-            onClick={onChangePassword}
-            disabled={savingPassword}
-          >
-            {savingPassword ? (
+          <Button onClick={onSaveAccount} disabled={savingAccount}>
+            {savingAccount ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            Cambiar contraseña
+            Guardar cambios
           </Button>
         </CardContent>
       </Card>
+
+      <CambiarContrasena className="mt-6" />
     </>
   );
 }

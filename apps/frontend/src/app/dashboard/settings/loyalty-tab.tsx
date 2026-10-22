@@ -37,7 +37,7 @@ export function LoyaltyTab({
   saving,
 }: LoyaltyTabProps) {
   const role = useAuthStore((s) => s.role);
-  const puedeEditar = canDo(role, "settings_edit");
+  const puedeEditar = canDo(role, "business_edit");
   const [aQuitar, setAQuitar] = useState<number | null>(null);
 
   const actualizar = (indice: number, cambios: Partial<Nivel>) =>

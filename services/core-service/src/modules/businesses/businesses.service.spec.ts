@@ -18,6 +18,7 @@ describe("BusinessesService", () => {
   let mockProfessionalRepo: jest.Mocked<Repository<Professional>>;
   let mockOutbox: { enqueue: jest.Mock };
   let mockHttp: { enviar: jest.Mock };
+  let mockDataSourceTransaction: jest.Mock;
 
   const mockBusiness: Business = {
     id: "business-123",
@@ -96,20 +97,19 @@ describe("BusinessesService", () => {
     mockOutbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
     const mockOutboxSpec = mockOutbox;
     mockHttp = { enviar: jest.fn().mockResolvedValue({}) };
-    const mockDataSourceSpec = {
-      // La transacción entrega el mismo repositorio simulado del test.
-      transaction: jest.fn((cb) =>
-        cb({
-          // El negocio usa su repositorio simulado; lo que se siembra con él
-          // —catálogo, categorías y horario— se recoge por entidad para poder
-          // comprobar qué se escribió.
-          getRepository: jest.fn((entidad: { name: string }) => {
-            if (entidad === Business) return mockRepository;
-            return repositorioDeSiembra(entidad.name);
-          }),
-        })
-      ),
-    };
+    // La transacción entrega el mismo repositorio simulado del test.
+    mockDataSourceTransaction = jest.fn((cb) =>
+      cb({
+        // El negocio usa su repositorio simulado; lo que se siembra con él
+        // —catálogo, categorías y horario— se recoge por entidad para poder
+        // comprobar qué se escribió.
+        getRepository: jest.fn((entidad: { name: string }) => {
+          if (entidad === Business) return mockRepository;
+          return repositorioDeSiembra(entidad.name);
+        }),
+      })
+    );
+    const mockDataSourceSpec = { transaction: mockDataSourceTransaction };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -187,10 +187,29 @@ describe("BusinessesService", () => {
         service.createWithOwner({ name: "Mi Barberia" }, "user-1")
       ).rejects.toThrow("auth caido");
 
-      // Un negocio sin dueño dejaría al usuario sin acceso a lo que creó.
-      expect(mockRepository.delete).toHaveBeenCalledWith({
-        id: mockBusiness.id,
-      });
+      expect(mockDataSourceTransaction).toHaveBeenCalledTimes(1);
+      expect(mockHttp.enviar.mock.invocationCallOrder[0]).toBeGreaterThan(
+        mockOutbox.enqueue.mock.invocationCallOrder[0]
+      );
+      expect(mockRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it("createWithOwner deshace también el negocio sembrado", async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+      mockRepository.create.mockReturnValue(mockBusiness);
+      mockRepository.save.mockResolvedValue(mockBusiness);
+      mockHttp.enviar.mockRejectedValue(new Error("auth caido"));
+
+      await expect(
+        service.createWithOwner(
+          { name: "Mi Barberia", businessType: "BARBERIA" },
+          "user-1",
+          { sembrar: true }
+        )
+      ).rejects.toThrow("auth caido");
+
+      expect(sembrado.BusinessHours?.length ?? 0).toBeGreaterThan(0);
+      expect(mockRepository.delete).not.toHaveBeenCalled();
     });
 
     it("debería lanzar ConflictException si el slug ya existe", async () => {
