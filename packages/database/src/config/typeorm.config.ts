@@ -15,36 +15,42 @@ export interface PoolConfig {
   connectionTimeoutMillis: number;
 }
 
+/**
+ * Conexiones que abre cada servicio en producción. Los siete comparten un mismo
+ * Postgres con `max_connections` de 100: analytics (read) más los seis de
+ * escritura suman 75 y dejan sitio a las migraciones y a una consola. Pasarse
+ * no da más capacidad, hace que Postgres rechace conexiones bajo carga y que
+ * caigan todos los servicios a la vez.
+ */
+const POOLS_DE_PRODUCCION: Record<ServiceType, PoolConfig> = {
+  read: { max: 15, idleTimeoutMillis: 10000, connectionTimeoutMillis: 2000 },
+  write: { max: 10, idleTimeoutMillis: 30000, connectionTimeoutMillis: 5000 },
+  default: {
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 3000,
+  },
+};
+
+/** `DB_POOL_MAX` del servicio, si es un entero positivo. */
+function maximoDelEntorno(): number | undefined {
+  const valor = Number(process.env.DB_POOL_MAX);
+  return Number.isInteger(valor) && valor > 0 ? valor : undefined;
+}
+
+/**
+ * Pool del servicio según su tipo y el entorno. `DB_POOL_MAX` sustituye el
+ * máximo, para cuando Postgres admite más conexiones o hay un PgBouncer delante.
+ */
 export function getPoolConfig(
   serviceType: ServiceType,
   isProduction: boolean
 ): PoolConfig {
-  if (isProduction) {
-    const productionConfigs = {
-      read: {
-        max: 50,
-        idleTimeoutMillis: 10000,
-        connectionTimeoutMillis: 2000,
-      },
-      write: {
-        max: 30,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 5000,
-      },
-      default: {
-        max: 40,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 3000,
-      },
-    };
-    return productionConfigs[serviceType];
-  }
+  const base = isProduction
+    ? POOLS_DE_PRODUCCION[serviceType]
+    : { max: 10, idleTimeoutMillis: 30000, connectionTimeoutMillis: 5000 };
 
-  return {
-    max: 10,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
-  };
+  return { ...base, max: maximoDelEntorno() ?? base.max };
 }
 
 /** Niveles de registro de TypeORM según DB_LOGGING y el entorno. */

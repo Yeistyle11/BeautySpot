@@ -13,7 +13,7 @@ describe("TypeOrm Config", () => {
       const config = getPoolConfig("read", true);
 
       expect(config).toEqual({
-        max: 50,
+        max: 15,
         idleTimeoutMillis: 10000,
         connectionTimeoutMillis: 2000,
       });
@@ -23,7 +23,7 @@ describe("TypeOrm Config", () => {
       const config = getPoolConfig("write", true);
 
       expect(config).toEqual({
-        max: 30,
+        max: 10,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 5000,
       });
@@ -33,10 +33,46 @@ describe("TypeOrm Config", () => {
       const config = getPoolConfig("default", true);
 
       expect(config).toEqual({
-        max: 40,
+        max: 10,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 3000,
       });
+    });
+
+    it("los siete servicios caben juntos en un Postgres de 100 conexiones", () => {
+      // analytics es el único de lectura; los otros seis, de escritura.
+      const total =
+        getPoolConfig("read", true).max + 6 * getPoolConfig("write", true).max;
+
+      // Se deja margen para las migraciones y una consola de psql.
+      expect(total).toBeLessThanOrEqual(80);
+    });
+
+    describe("DB_POOL_MAX", () => {
+      const original = process.env.DB_POOL_MAX;
+      afterEach(() => {
+        if (original === undefined) delete process.env.DB_POOL_MAX;
+        else process.env.DB_POOL_MAX = original;
+      });
+
+      it("sustituye el máximo y conserva el resto", () => {
+        process.env.DB_POOL_MAX = "25";
+
+        expect(getPoolConfig("write", true)).toEqual({
+          max: 25,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 5000,
+        });
+      });
+
+      it.each(["", "0", "-3", "diez", "2.5"])(
+        "un valor que no es un entero positivo (%p) no cambia nada",
+        (valor) => {
+          process.env.DB_POOL_MAX = valor;
+
+          expect(getPoolConfig("write", true).max).toBe(10);
+        }
+      );
     });
 
     it("debería retornar config de desarrollo para cualquier servicio", () => {

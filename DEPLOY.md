@@ -289,14 +289,15 @@ valores de desarrollo y sirven de plantilla.
 
 ### Comunes a todos los servicios
 
-| Variable              | Descripción                                                                                                 |
-| --------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`            | **`production`** — activa SSL, desactiva `synchronize`, sube los pools y limita el logging a `error`/`warn` |
-| `PORT`                | Puerto de escucha (ver tabla de servicios)                                                                  |
-| `DATABASE_URL`        | `postgresql://usuario:clave@postgres:5432/beautyspot_<servicio>`                                            |
-| `RABBITMQ_URL`        | `amqp://usuario:clave@rabbitmq:5672`                                                                        |
-| `INTERNAL_API_SECRET` | Secreto compartido de las rutas `internal/*`. **El mismo en todos los servicios**                           |
-| `CORS_ORIGINS`        | Orígenes permitidos, separados por coma. En producción, el dominio real                                     |
+| Variable              | Descripción                                                                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`            | **`production`** — activa SSL, desactiva `synchronize`, fija los pools de producción y limita el logging a `error`/`warn`                         |
+| `DB_POOL_MAX`         | Opcional. Máximo de conexiones a Postgres del servicio. Por defecto 15 en analytics y 10 en el resto, que suman 75 de las 100 que admite Postgres |
+| `PORT`                | Puerto de escucha (ver tabla de servicios)                                                                                                        |
+| `DATABASE_URL`        | `postgresql://usuario:clave@postgres:5432/beautyspot_<servicio>`                                                                                  |
+| `RABBITMQ_URL`        | `amqp://usuario:clave@rabbitmq:5672`                                                                                                              |
+| `INTERNAL_API_SECRET` | Secreto compartido de las rutas `internal/*`. **El mismo en todos los servicios**                                                                 |
+| `CORS_ORIGINS`        | Orígenes permitidos, separados por coma. En producción, el dominio real                                                                           |
 
 Redis se configura **siempre** con `REDIS_HOST`, `REDIS_PORT` y
 `REDIS_PASSWORD`. Es la única forma que lee el código (`RedisCacheService`, el
