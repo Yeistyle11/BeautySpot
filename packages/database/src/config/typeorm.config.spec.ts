@@ -44,7 +44,6 @@ describe("TypeOrm Config", () => {
       const total =
         getPoolConfig("read", true).max + 6 * getPoolConfig("write", true).max;
 
-      // Se deja margen para las migraciones y una consola de psql.
       expect(total).toBeLessThanOrEqual(80);
     });
 

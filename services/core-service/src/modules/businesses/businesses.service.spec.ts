@@ -187,9 +187,6 @@ describe("BusinessesService", () => {
         service.createWithOwner({ name: "Mi Barberia" }, "user-1")
       ).rejects.toThrow("auth caido");
 
-      // La membresía se pide dentro de la transacción, después de sembrar y de
-      // encolar el evento: al fallar, el rollback se lleva todo eso junto y no
-      // hace falta borrar el negocio a mano.
       expect(mockDataSourceTransaction).toHaveBeenCalledTimes(1);
       expect(mockHttp.enviar.mock.invocationCallOrder[0]).toBeGreaterThan(
         mockOutbox.enqueue.mock.invocationCallOrder[0]
@@ -211,8 +208,6 @@ describe("BusinessesService", () => {
         )
       ).rejects.toThrow("auth caido");
 
-      // Con horario sembrado, borrar el negocio chocaba con su clave foránea y
-      // el error de la base tapaba el de auth.
       expect(sembrado.BusinessHours?.length ?? 0).toBeGreaterThan(0);
       expect(mockRepository.delete).not.toHaveBeenCalled();
     });
