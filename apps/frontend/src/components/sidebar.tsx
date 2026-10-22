@@ -7,7 +7,7 @@ import { useAuthStore } from "@/lib/store";
 import { nombreDelRol } from "@/lib/auth";
 import { useLogout } from "@/lib/use-logout";
 import { useEsEscritorio } from "@/lib/use-punto-de-ruptura";
-import { getPagesForRole } from "@/lib/permissions";
+import { getPagesForRole, paginaActiva } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { LogoBeautySpot } from "@/components/ui/logo-beautyspot";
@@ -124,6 +124,10 @@ export function Sidebar() {
   }, [open, pathname]);
 
   const pages = getPagesForRole(role);
+  const activa = paginaActiva(
+    pages.map((p) => p.path),
+    pathname
+  );
 
   const handleLogout = async () => {
     await cerrarSesion();
@@ -195,10 +199,7 @@ export function Sidebar() {
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {pages.map((page) => {
-            const isActive =
-              page.path === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(page.path);
+            const isActive = page.path === activa;
             const Icon = ICON_MAP[page.icon] || LayoutDashboard;
             return (
               <Link
