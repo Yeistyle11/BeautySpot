@@ -7,6 +7,7 @@ import {
   BusinessId,
   SesionVerificable,
   Internal,
+  SkipBusinessScope,
 } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
@@ -26,12 +27,16 @@ class CambiarEstadoDto {
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  /** Perfil propio; no depende de un negocio, también lo usa quien es CLIENT. */
+  @SkipBusinessScope()
   @Get("me")
   async getMe(@CurrentUser("userId") userId: string) {
     const user = await this.usersService.findById(userId);
     return toSafeUser(user);
   }
 
+  /** Edita los datos personales propios, con o sin negocio. */
+  @SkipBusinessScope()
   @Patch("me")
   async updateProfile(
     @CurrentUser("userId") userId: string,
@@ -41,6 +46,7 @@ export class UsersController {
   }
 
   /** Lista las membresías (negocios y roles) del usuario autenticado. */
+  @SkipBusinessScope()
   @Get("memberships")
   async getMemberships(@CurrentUser("userId") userId: string) {
     return this.usersService.getUserMemberships(userId);
