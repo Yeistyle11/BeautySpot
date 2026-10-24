@@ -1,7 +1,7 @@
 # Plan de remediación — BeautySpot
 
 Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
-`fix/responsive-movil` para la cuarta. Cuatro campañas, en orden:
+`fix/responsive-movil` para las dos últimas. Cinco campañas, en orden:
 
 1. **`QA-REPORT-BeautySpot-2026-08-22`** — 28 hallazgos `BS-001`…`BS-028`
    (1 bloqueante, 5 altos, 15 medios, 7 bajos). Cerrada.
@@ -11,7 +11,9 @@ Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
    (4 altos, 11 medios, 1 bajo). Al final del documento. Sin informe previo:
    los hallazgos salen de leer el repositorio, no de recorrer la interfaz.
 4. **Uso desde el celular 2026-10-24** — 17 hallazgos `BS-060`…`BS-076`
-   (8 altos, 8 medios, 1 bajo). Al final del documento.
+   (8 altos, 8 medios, 1 bajo).
+5. **Pendientes del informe UX/UI 2026-09-10 y de las propuestas** — 12
+   hallazgos `BS-077`…`BS-088` (6 medios, 6 bajos). Al final del documento.
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 propuesta `[PM]` (no se implementa) · ❓ necesita aclaración
 
@@ -1323,3 +1325,121 @@ cambian respecto a `main`, y la suite completa con el umbral de cobertura:
 **223 suites, 3048 pruebas**. El modo de escritorio del navegador no emula el
 puntero táctil (`pointer: coarse`): los tamaños de 44 px se ven en un celular
 de verdad.
+
+---
+
+# Campaña 2026-10-24 (2) — `BS-077`…`BS-088`
+
+Origen: el informe `UX-UI-REPORT-BeautySpot-2026-09-10`, que nunca se pasó a
+este tablero, y las tres propuestas `[PM]` de la campaña del 2026-09-04. Se
+cotejó cada hallazgo con el código: de los 64, **54 ya estaban corregidos** de
+paso por otras tandas (sobre todo `719b753`) y quedaban 10 a medias. Aquí van
+esos diez, agrupados, más las dos propuestas sin terminar y un fallo que
+apareció al revisar la agenda.
+
+Correspondencia con el informe: BS-077 ← BS-UI-024 · BS-078 ← BS-UI-015 ·
+BS-079 ← BS-UI-043 · BS-080 ← BS-UI-022 · BS-081 ← BS-UI-026 · BS-082 ←
+BS-UI-027 · BS-083 ← BS-UI-025 · BS-084 ← BS-UI-040 · BS-085 ← BS-UI-036 y
+BS-UI-044 · BS-086 ← P-2 · BS-087 ← P-3.
+
+12 hallazgos: **6 Media, 6 Baja**.
+
+## Decisiones tomadas
+
+| Tema      | Decisión                                                                                             |
+| --------- | ---------------------------------------------------------------------------------------------------- |
+| BS-UI-049 | Notificaciones se queda como lista de tarjetas: es un feed que se lee, no un listado que se gestiona |
+| BS-087    | El descuento mayor que el cobro sigue **bloqueado** (BS-QA-015); lo que falta es decirlo en pantalla |
+| BS-082    | Los diálogos animan también la salida; con `prefers-reduced-motion` no anima nada                    |
+| P-1       | Ya hecho: Agenda, Pagos y Walk-in eligen al cliente con `SelectorDeEntidad`, que busca               |
+
+## Agrupación por causa raíz
+
+| Causa                                                                 | Hallazgos              |
+| --------------------------------------------------------------------- | ---------------------- |
+| N1 · Guardar no confirma nada en la mitad de los módulos              | BS-077                 |
+| N2 · El error de un formulario no se ata al campo que lo provoca      | BS-078, BS-087         |
+| N3 · Cada pantalla escribe la duración a su manera                    | BS-079                 |
+| N4 · Controles que no heredan el área táctil de `Button`              | BS-080                 |
+| N5 · Confirmaciones y acciones que no dicen sobre qué ni cuánto pesan | BS-081, BS-083, BS-084 |
+| N6 · Diálogos que desaparecen sin transición                          | BS-082                 |
+| N7 · Vocabulario que no es el del menú                                | BS-085                 |
+| N8 · Un dato del informe que no se puede leer sin la pieza que falta  | BS-086                 |
+| N9 · Una rejilla que no mira el horario del negocio                   | BS-088                 |
+
+## Tablero
+
+| ID     | Sev   | Módulo   | Causa | Esfuerzo | Estado |
+| ------ | ----- | -------- | ----- | -------- | ------ |
+| BS-077 | Media | Varios   | N1    | S        | ⬜     |
+| BS-078 | Media | Acceso   | N2    | S        | ⬜     |
+| BS-079 | Media | Varios   | N3    | S        | ⬜     |
+| BS-080 | Media | Varios   | N4    | XS       | ⬜     |
+| BS-081 | Baja  | Bloqueos | N5    | XS       | ⬜     |
+| BS-082 | Baja  | Interfaz | N6    | S        | ⬜     |
+| BS-083 | Baja  | Listados | N5    | XS       | ⬜     |
+| BS-084 | Baja  | Caja     | N5    | XS       | ⬜     |
+| BS-085 | Baja  | Varios   | N7    | XS       | ⬜     |
+| BS-086 | Media | Reportes | N8    | S        | ⬜     |
+| BS-087 | Baja  | Pagos    | N2    | XS       | ⬜     |
+| BS-088 | Media | Agenda   | N9    | XS       | ⬜     |
+
+## Detalle
+
+### BS-077 · Guardar no avisaba de que se había guardado ⬜
+
+Caja, Pagos, Profesionales, Cuentas, el alta del negocio, el perfil del cliente
+y el alta y la edición de servicios cerraban el diálogo sin decir nada: quien
+guarda no sabe si se guardó o si se le cerró la ventana.
+
+### BS-078 · El error del acceso no decía qué campo fallaba ⬜
+
+Un solo mensaje encima del botón, y todos los campos en rojo a la vez aunque
+solo uno estuviera mal.
+
+### BS-079 · Las duraciones se leían en minutos sueltos ⬜
+
+«90 min», «150 min»: cada pantalla escribía la duración por su cuenta y ninguna
+la pasaba a horas.
+
+### BS-080 · Campos y enlaces del acceso por debajo de 44 px ⬜
+
+Los campos de texto, los enlaces «Regístrate» y «¿Olvidaste tu contraseña?» y
+los chips de filtro no llegaban al mínimo táctil.
+
+### BS-081 · Borrar un bloqueo no decía cuál ⬜
+
+El único diálogo destructivo que no nombraba el registro ni seguía el patrón de
+`ConfirmDialog`.
+
+### BS-082 · Los diálogos se cerraban de golpe ⬜
+
+Entraban animados y salían sin transición; los avisos no animaban.
+
+### BS-083 · Las acciones de cada fila iban a 4 px ⬜
+
+Editar y desactivar quedaban pegados en escritorio.
+
+### BS-084 · «Cerrar caja» se pintaba como borrar ⬜
+
+Es el cierre normal del día, no una acción destructiva.
+
+### BS-085 · Textos que no decían lo mismo que el menú ⬜
+
+«Dashboard» donde el menú dice «Resumen», «Agregar» sin decir qué, «No hay datos
+disponibles», «Nuestro Equipo» y «Gestiona tus profesionales».
+
+### BS-086 · Reportes no explicaba los ingresos sin profesional ⬜
+
+El total del periodo no cuadraba con la suma del ranking y nada decía que la
+diferencia son cobros sin cita.
+
+### BS-087 · El tope del descuento no se explicaba ⬜
+
+El formulario frenaba un descuento mayor que el importe con el `max` del campo,
+sin decir por qué no se podía cobrar.
+
+### BS-088 · La vista Día no seguía el horario del negocio ⬜
+
+Pintaba siempre de 7:00 a 21:00; un negocio que abre de 20:00 a 02:00 veía una
+rejilla que no era su jornada. La semana sí lo tenía en cuenta.
