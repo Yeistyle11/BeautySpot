@@ -7,12 +7,14 @@ import {
   ClientMergedEvent,
   EventNames,
   EVENTS_EXCHANGE,
+  ProfessionalUpdatedEvent,
   DEAD_LETTER_EXCHANGE,
   nombreDeCola,
 } from "@beautyspot/event-types";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { ReviewEntity } from "../../entities/review.entity";
+import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
 
 /**
  * Campos del negocio que el perfil público duplica, y con qué nombre los guarda.
@@ -43,7 +45,9 @@ export class MarketplaceEventListeners {
     private readonly repo: Repository<BusinessProfileEntity>,
     private readonly profiles: BusinessProfilesService,
     @InjectRepository(ReviewEntity)
-    private readonly reviewRepo: Repository<ReviewEntity>
+    private readonly reviewRepo: Repository<ReviewEntity>,
+    @InjectRepository(ProfessionalProfileEntity)
+    private readonly professionalRepo: Repository<ProfessionalProfileEntity>
   ) {}
 
   /**
@@ -85,6 +89,30 @@ export class MarketplaceEventListeners {
     this.logger.log(
       `Perfil de ${businessId} sincronizado: ${Object.keys(parche).join(", ")}`
     );
+  }
+
+  /**
+   * Copia nombre y foto del profesional a su perfil del escaparate, si lo
+   * tiene. El evento trae el valor actual, así que repetirlo no cambia nada.
+   */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.CORE_PROFESSIONAL_UPDATED,
+    queue: nombreDeCola("marketplace", EventNames.CORE_PROFESSIONAL_UPDATED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleProfessionalUpdated(
+    event: ProfessionalUpdatedEvent
+  ): Promise<void> {
+    const { professionalId, businessId, name, photo } = event.payload;
+
+    const { affected } = await this.professionalRepo.update(
+      { professionalId, businessId },
+      { name, photo }
+    );
+    if (!affected) return;
+
+    await this.profiles.invalidarCache(businessId);
   }
 
   /**

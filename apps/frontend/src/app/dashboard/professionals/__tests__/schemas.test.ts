@@ -88,7 +88,16 @@ describe("toProfessionalPayload", () => {
     const payload = toProfessionalPayload(formulario, categorias);
 
     expect(payload.bio).toBeUndefined();
-    expect(payload.photo).toBeUndefined();
+  });
+
+  it("manda la foto vacía como null, que es como se quita", () => {
+    expect(toProfessionalPayload(formulario, categorias).photo).toBeNull();
+    expect(
+      toProfessionalPayload(
+        { ...formulario, photo: "/media/negocios/n/profesional/a.webp" },
+        categorias
+      ).photo
+    ).toBe("/media/negocios/n/profesional/a.webp");
   });
 
   it("incluye active sólo al editar", () => {

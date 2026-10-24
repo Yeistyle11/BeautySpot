@@ -7,11 +7,17 @@ import { Business } from "../../entities/business.entity";
 import { Branch } from "../../entities/branch.entity";
 import { Service } from "../../entities/service.entity";
 import { Professional } from "../../entities/professional.entity";
-import { NotFoundException, ConflictException } from "@nestjs/common";
+import {
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from "@nestjs/common";
 import { Role } from "@beautyspot/shared-types";
+import { ImagesService } from "../images/images.service";
 
 describe("BusinessesService", () => {
   let service: BusinessesService;
+  const mockImages = { descartar: jest.fn().mockResolvedValue(undefined) };
   let mockRepository: jest.Mocked<Repository<Business>>;
   let mockBranchRepo: jest.Mocked<Repository<Branch>>;
   let mockServiceRepo: jest.Mocked<Repository<Service>>;
@@ -115,6 +121,7 @@ describe("BusinessesService", () => {
       providers: [
         { provide: DataSource, useValue: mockDataSourceSpec },
         { provide: OutboxService, useValue: mockOutboxSpec },
+        { provide: ImagesService, useValue: mockImages },
         { provide: InternalHttpClient, useValue: mockHttp },
         BusinessesService,
         {
@@ -600,6 +607,63 @@ describe("BusinessesService", () => {
       const escrito = await crear(undefined);
 
       expect(escrito).toEqual({});
+    });
+  });
+
+  describe("imágenes del negocio", () => {
+    const NEGOCIO = "632f8391-d9ba-4d76-bc2c-1d20dae78ff6";
+    const LOGO = `/media/negocios/${NEGOCIO}/logo/3f1c2b9a-7d4e-4a1b-9c3d-2e5f6a7b8c9d.webp`;
+    const OTRO_LOGO = LOGO.replace("3f1c", "4f1c");
+
+    it("rechaza un logo que no se subió desde el panel", async () => {
+      mockRepository.findOne.mockResolvedValue({
+        ...mockBusiness,
+        id: NEGOCIO,
+      } as any);
+
+      await expect(
+        service.update(NEGOCIO, { logo: "https://evil.example/x.png" })
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepository.update).not.toHaveBeenCalled();
+    });
+
+    it("borra del almacén el logo que se reemplaza", async () => {
+      mockRepository.findOne
+        .mockResolvedValueOnce({
+          ...mockBusiness,
+          id: NEGOCIO,
+          logo: LOGO,
+        } as any)
+        .mockResolvedValueOnce({
+          ...mockBusiness,
+          id: NEGOCIO,
+          logo: OTRO_LOGO,
+        } as any);
+
+      await service.update(NEGOCIO, { logo: OTRO_LOGO });
+
+      expect(mockImages.descartar).toHaveBeenCalledWith([LOGO], NEGOCIO);
+    });
+
+    it("da logo y portada para el escaparate", async () => {
+      mockRepository.findOne.mockResolvedValue({
+        id: NEGOCIO,
+        logo: LOGO,
+        coverImage: null,
+      } as any);
+
+      await expect(service.imagenes(NEGOCIO)).resolves.toEqual({
+        logo: LOGO,
+        coverImage: null,
+      });
+    });
+
+    it("no inventa imágenes de un negocio que no existe", async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.imagenes(NEGOCIO)).rejects.toThrow(
+        NotFoundException
+      );
     });
   });
 });

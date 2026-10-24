@@ -5,10 +5,8 @@ import {
   Min,
   Max,
   IsArray,
-  IsUrl,
   IsUUID,
   MaxLength,
-  ArrayMaxSize,
   IsEnum,
 } from "class-validator";
 import { Type, Transform } from "class-transformer";
@@ -16,12 +14,9 @@ import { MAX_PAGE } from "@beautyspot/shared-utils";
 import { ReviewEntity, ReviewStatus } from "../../../entities/review.entity";
 import { ReviewReportReason } from "../../../entities/review-report.entity";
 
-/** Fotos que admite una reseña. */
-export const MAXIMO_FOTOS = 3;
-
 /**
- * Datos para crear una resena: la cita resenada, la calificacion, el
- * comentario y las fotos. El autor sale del token y el profesional, de la cita.
+ * Datos para crear una resena: la cita resenada, la calificacion y el
+ * comentario, sin fotos. El autor sale del token y el profesional, de la cita.
  */
 export class CreateReviewDto {
   @IsString() businessId!: string;
@@ -34,14 +29,6 @@ export class CreateReviewDto {
   @IsOptional() @IsString() @MaxLength(1000) comment?: string;
 
   @IsOptional() @IsString() serviceName?: string;
-
-  @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(MAXIMO_FOTOS, {
-    message: `No se pueden adjuntar más de ${MAXIMO_FOTOS} fotos`,
-  })
-  @IsUrl({}, { each: true })
-  photos?: string[];
 }
 
 /**
@@ -52,14 +39,6 @@ export class UpdateReviewDto {
   @IsOptional() @IsNumber() @Min(1) @Max(5) rating?: number;
 
   @IsOptional() @IsString() @MaxLength(1000) comment?: string;
-
-  @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(MAXIMO_FOTOS, {
-    message: `No se pueden adjuntar más de ${MAXIMO_FOTOS} fotos`,
-  })
-  @IsUrl({}, { each: true })
-  photos?: string[];
 }
 
 /** Texto de la respuesta del negocio a una reseña. */
@@ -67,7 +46,7 @@ export class RespondReviewDto {
   @IsString() @MaxLength(500) response!: string;
 }
 
-/** Filtros de listado de reseñas: página, estrellas, profesional y si tienen fotos. */
+/** Filtros de listado de reseñas: página, estrellas y profesional. */
 export class ReviewQueryDto {
   @IsOptional()
   @Type(() => Number)
@@ -79,8 +58,6 @@ export class ReviewQueryDto {
   @IsOptional() @Type(() => Number) @IsNumber() @Min(1) @Max(50) limit?: number;
 
   @IsOptional() @Type(() => Number) @IsNumber() @Min(1) @Max(5) rating?: number;
-
-  @IsOptional() withPhotos?: string;
 
   @IsOptional() @IsString() professionalId?: string;
 }
@@ -150,7 +127,6 @@ export interface ResenaPublica {
   editedAt: Date | null;
   serviceName: string | null;
   professionalName: string | null;
-  photos: string[] | null;
   isVerified: boolean;
   helpfulCount: number;
   createdAt: Date;
@@ -178,7 +154,6 @@ export function aResenaPublica(review: ReviewEntity): ResenaPublica {
     editedAt: review.editedAt,
     serviceName: review.serviceName ?? null,
     professionalName: review.professionalName ?? null,
-    photos: review.photos,
     isVerified: review.isVerified,
     helpfulCount: review.helpfulCount,
     createdAt: review.createdAt,

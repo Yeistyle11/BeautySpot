@@ -4,6 +4,7 @@ import {
   RATE_LIMIT_AUTH_REQUESTS,
   RATE_LIMIT_GENERAL_REQUESTS,
   RATE_LIMIT_RESERVA_PUBLICA_REQUESTS,
+  RATE_LIMIT_SUBIDAS_REQUESTS,
 } from "@beautyspot/shared-constants";
 
 describe("RateLimitGuard", () => {
@@ -375,6 +376,48 @@ describe("RateLimitGuard", () => {
         RATE_LIMIT_AUTH_REQUESTS - 4
       );
       expect(cabeceras["RateLimit-Reset"]).toBe(12);
+    });
+  });
+
+  describe("subidas de imágenes", () => {
+    const subida = {
+      method: "POST",
+      path: "/api/v1/core/images",
+      ip: "1.1.1.1",
+      body: {},
+    };
+
+    it("se cuentan aparte, con su propio presupuesto", async () => {
+      redis.eval.mockResolvedValue(cuenta(1));
+
+      await guard.canActivate(contextFor(subida));
+
+      expect(redis.eval.mock.calls[0][2]).toBe("rate-limit:ip:1.1.1.1:subidas");
+      expect(cabeceras["RateLimit-Limit"]).toBe(RATE_LIMIT_SUBIDAS_REQUESTS);
+    });
+
+    it("bloquea al pasar del límite de subidas", async () => {
+      redis.eval.mockResolvedValue(cuenta(RATE_LIMIT_SUBIDAS_REQUESTS + 1));
+
+      await expect(guard.canActivate(contextFor(subida))).rejects.toThrow(
+        HttpException
+      );
+    });
+
+    it("leer una imagen no gasta del presupuesto de subidas", async () => {
+      redis.eval.mockResolvedValue(cuenta(1));
+
+      await guard.canActivate(
+        contextFor({ ...subida, method: "GET", path: "/api/v1/core/images" })
+      );
+
+      expect(redis.eval.mock.calls[0][2]).toBe("rate-limit:ip:1.1.1.1:general");
+    });
+
+    it("sin Redis deja subir, porque exige sesión", async () => {
+      redis.eval.mockRejectedValue(new Error("caído"));
+
+      await expect(guard.canActivate(contextFor(subida))).resolves.toBe(true);
     });
   });
 });

@@ -195,6 +195,35 @@ describe("api.request", () => {
   });
 });
 
+describe("api.upload", () => {
+  const originalFetch = global.fetch;
+
+  afterAll(() => {
+    global.fetch = originalFetch;
+  });
+
+  it("manda el formulario tal cual y deja que el navegador ponga el tipo", async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue(
+        jsonResponse(201, { success: true, data: { url: "/media/x.webp" } })
+      );
+    global.fetch = fetchMock;
+    const formulario = new FormData();
+    formulario.append("proposito", "logo");
+
+    await expect(api.upload("/core/images", formulario)).resolves.toEqual({
+      url: "/media/x.webp",
+    });
+
+    const [url, opciones] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/v1/core/images");
+    expect(opciones.method).toBe("POST");
+    expect(opciones.body).toBe(formulario);
+    expect(opciones.headers["Content-Type"]).toBeUndefined();
+  });
+});
+
 describe("isAuthError", () => {
   it("reconoce 401 y 403 como errores de sesion o permisos", () => {
     expect(isAuthError(new ApiError(401, "x"))).toBe(true);

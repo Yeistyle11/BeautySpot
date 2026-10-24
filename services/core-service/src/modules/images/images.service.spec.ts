@@ -1,472 +1,91 @@
-import { Test, TestingModule } from "@nestjs/testing";
-import { ConfigService } from "@nestjs/config";
-import {
-  S3Client,
-  PutObjectCommand,
-  DeleteObjectCommand,
-} from "@aws-sdk/client-s3";
-import { BadRequestException } from "@nestjs/common";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
+import sharp from "sharp";
+import { AlmacenDeImagenes } from "./almacen-de-imagenes";
 import { ImagesService } from "./images.service";
 
-jest.mock("@aws-sdk/s3-request-presigner");
+const NEGOCIO = "632f8391-d9ba-4d76-bc2c-1d20dae78ff6";
+const OTRO = "0878891c-9bf9-4d28-8d28-ba5cdb3b6f69";
+const ARCHIVO = "3f1c2b9a-7d4e-4a1b-9c3d-2e5f6a7b8c9d.webp";
+const LOGO = `/media/negocios/${NEGOCIO}/logo/${ARCHIVO}`;
 
 describe("ImagesService", () => {
-  let service: ImagesService;
-  let mockConfigService: jest.Mocked<ConfigService>;
-  let mockS3Client: jest.Mocked<S3Client>;
-  let mockGetSignedUrl: jest.Mock;
-  let mockS3Send: jest.Mock;
+  const almacen = {
+    guardar: jest.fn().mockResolvedValue(undefined),
+    leer: jest.fn(),
+    borrar: jest.fn().mockResolvedValue(undefined),
+  };
+  const service = new ImagesService(almacen as unknown as AlmacenDeImagenes);
+  jest.spyOn(service["logger"], "warn").mockImplementation(() => undefined);
 
-  beforeEach(async () => {
-    mockS3Send = jest.fn().mockResolvedValue({ ETag: '"test-etag"' });
+  describe("subir", () => {
+    it("guarda la imagen procesada bajo el negocio y devuelve su URL", async () => {
+      const png = await sharp({
+        create: { width: 64, height: 32, channels: 4, background: "#7C3AED" },
+      })
+        .png()
+        .toBuffer();
 
-    mockGetSignedUrl = getSignedUrl as jest.Mock;
-    mockGetSignedUrl.mockReset();
-    mockGetSignedUrl.mockImplementation(async (_client, _command, options) => {
-      if (options?.expiresIn) {
-        return `https://presigned-url.com?expires=${options.expiresIn}`;
-      }
-      return "https://presigned-url.com";
+      const subida = await service.subir(png, "logo", NEGOCIO);
+
+      expect(subida.url).toMatch(
+        new RegExp(`^/media/negocios/${NEGOCIO}/logo/[0-9a-f-]{36}\\.webp$`)
+      );
+      expect([subida.ancho, subida.alto]).toEqual([64, 32]);
+      expect(almacen.guardar).toHaveBeenCalledWith(
+        subida.url.replace("/media/", ""),
+        expect.any(Buffer)
+      );
     });
 
-    mockS3Client = {
-      send: mockS3Send,
-    } as any;
-
-    mockConfigService = {
-      get: jest.fn((key: string) => {
-        const config: any = {
-          AWS_REGION: "us-east-1",
-          AWS_S3_BUCKET: "beautyspot-images",
-          AWS_ACCESS_KEY_ID: "test-access-key",
-          AWS_SECRET_ACCESS_KEY: "test-secret-key",
-          AWS_CDN_URL: "https://cdn.beautyspot.com",
-        };
-        return config[key] || key;
-      }),
-    } as any;
-
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ImagesService,
-        {
-          provide: ConfigService,
-          useValue: mockConfigService,
-        },
-      ],
-    }).compile();
-
-    service = module.get<ImagesService>(ImagesService);
-
-    (service as any).s3Client = mockS3Client;
+    it("pide el archivo y el negocio", async () => {
+      await expect(service.subir(undefined, "logo", NEGOCIO)).rejects.toThrow(
+        BadRequestException
+      );
+      await expect(
+        service.subir(Buffer.from("x"), "logo", undefined)
+      ).rejects.toThrow("negocio");
+      expect(almacen.guardar).not.toHaveBeenCalled();
+    });
   });
 
-  describe("constructor", () => {
-    it("debería inicializar el servicio con configuración correcta", () => {
-      expect((service as any).region).toBe("us-east-1");
-      expect((service as any).bucket).toBe("beautyspot-images");
-      expect((service as any).cdnUrl).toBe("https://cdn.beautyspot.com");
+  describe("leer", () => {
+    it("da el archivo de una imagen propia", async () => {
+      almacen.leer.mockResolvedValue(Buffer.from("webp"));
+
+      await expect(service.leer(LOGO)).resolves.toEqual(Buffer.from("webp"));
+      expect(almacen.leer).toHaveBeenCalledWith(LOGO.replace("/media/", ""));
     });
 
-    it("debería usar valores por defecto cuando la configuración no está disponible", async () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === "AWS_CDN_URL") return undefined;
-        return key === "AWS_REGION" ? "us-east-1" : key;
-      });
+    it("responde 404 si no existe o la ruta no es de las nuestras", async () => {
+      almacen.leer.mockResolvedValue(null);
+      await expect(service.leer(LOGO)).rejects.toThrow(NotFoundException);
 
-      const module: TestingModule = await Test.createTestingModule({
-        providers: [
-          ImagesService,
-          {
-            provide: ConfigService,
-            useValue: mockConfigService,
-          },
+      await expect(service.leer("/media/../../etc/passwd")).rejects.toThrow(
+        NotFoundException
+      );
+      expect(almacen.leer).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("descartar", () => {
+    it("borra solo las imágenes del negocio", async () => {
+      await service.descartar(
+        [
+          LOGO,
+          `/media/negocios/${OTRO}/logo/${ARCHIVO}`,
+          "https://cdn.example/x.jpg",
         ],
-      }).compile();
-
-      const defaultService = module.get<ImagesService>(ImagesService);
-      expect((defaultService as any).cdnUrl).toBeUndefined();
-    });
-  });
-
-  describe("uploadFile", () => {
-    const mockFile = Buffer.from("test-file-content");
-    const mockKey = "test-key";
-    const mockContentType = "image/jpeg";
-
-    it("debería subir archivo exitosamente", async () => {
-      const result = await service.uploadFile(
-        mockFile,
-        mockKey,
-        mockContentType
+        NEGOCIO
       );
 
-      expect(mockS3Send).toHaveBeenCalledTimes(1);
-      const command = mockS3Send.mock.calls[0][0];
-      expect(command).toBeInstanceOf(PutObjectCommand);
-      expect(result).toHaveProperty("url");
-      expect(result).toHaveProperty("key");
-      expect(result).toHaveProperty("publicId");
-      expect(result).toHaveProperty("bucket");
-      expect(result.url).toContain("https://cdn.beautyspot.com");
+      expect(almacen.borrar).toHaveBeenCalledTimes(1);
+      expect(almacen.borrar).toHaveBeenCalledWith(LOGO.replace("/media/", ""));
     });
 
-    it("debería incluir metadata en el upload", async () => {
-      const metadata = { businessId: "business-123", type: "logo" };
-      const mockFile = Buffer.from("file-content");
+    it("un fallo al borrar no se propaga", async () => {
+      almacen.borrar.mockRejectedValueOnce(new Error("disco lleno"));
 
-      await service.uploadFile(mockFile, "test-key", "image/jpeg", metadata);
-
-      expect(mockS3Send).toHaveBeenCalled();
-      expect(mockS3Send).toHaveBeenCalledTimes(1);
-    });
-
-    it("debería lanzar BadRequestException cuando falla el upload", async () => {
-      mockS3Send.mockRejectedValue(new Error("S3 upload failed"));
-
-      await expect(
-        service.uploadFile(mockFile, mockKey, mockContentType)
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.uploadFile(mockFile, mockKey, mockContentType)
-      ).rejects.toThrow("Error subiendo archivo a S3: S3 upload failed");
-    });
-
-    it("debería usar URL de S3 cuando no hay CDN configurada", async () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        const config: any = {
-          AWS_REGION: "us-east-1",
-          AWS_S3_BUCKET: "beautyspot-images",
-          AWS_ACCESS_KEY_ID: "test-access-key",
-          AWS_SECRET_ACCESS_KEY: "test-secret-key",
-          AWS_CDN_URL: undefined,
-        };
-        return config[key] || undefined;
-      });
-
-      const serviceNoCdn = new ImagesService(mockConfigService);
-      (serviceNoCdn as any).s3Client = mockS3Client;
-
-      const mockFile = Buffer.from("file-content");
-      const result = await serviceNoCdn.uploadFile(
-        mockFile,
-        "test-key",
-        "image/jpeg"
-      );
-
-      expect(result.url).toContain(
-        "beautyspot-images.s3.us-east-1.amazonaws.com"
-      );
-    });
-  });
-
-  describe("uploadBusinessLogo", () => {
-    it("debería subir logo de negocio con key correcto", async () => {
-      const businessId = "business-123";
-      const mockFile = Buffer.from("logo-content");
-
-      const result = await service.uploadBusinessLogo(
-        businessId,
-        mockFile,
-        "image/png"
-      );
-
-      expect(result).toBeDefined();
-      expect(result.url).toBeDefined();
-      expect(result.key).toContain(`businesses/${businessId}/logo`);
-    });
-  });
-
-  describe("uploadProfessionalPhoto", () => {
-    it("debería subir foto de profesional con key correcto", async () => {
-      const professionalId = "professional-123";
-      const mockFile = Buffer.from("photo-content");
-
-      const result = await service.uploadProfessionalPhoto(
-        professionalId,
-        mockFile,
-        "image/jpeg"
-      );
-
-      expect(result).toBeDefined();
-      expect(result.url).toBeDefined();
-      expect(result.key).toContain(`professionals/${professionalId}/photo`);
-    });
-  });
-
-  describe("uploadServiceImage", () => {
-    it("debería subir imagen de servicio con key correcto", async () => {
-      const serviceId = "service-123";
-      const mockFile = Buffer.from("image-content");
-
-      const result = await service.uploadServiceImage(
-        serviceId,
-        mockFile,
-        "image/webp"
-      );
-
-      expect(result).toBeDefined();
-      expect(result.url).toBeDefined();
-      expect(result.key).toContain(`services/${serviceId}/image`);
-    });
-  });
-
-  describe("generatePresignedUploadUrl", () => {
-    it("debería generar URL presignada exitosamente", async () => {
-      const result = await service.generatePresignedUploadUrl(
-        "test-key",
-        "image/jpeg"
-      );
-
-      expect(result).toBeDefined();
-    });
-
-    it("debería usar expiresIn personalizado", async () => {
-      const result = await service.generatePresignedUploadUrl(
-        "test-key",
-        "image/jpeg",
-        7200
-      );
-
-      expect(mockGetSignedUrl).toHaveBeenCalledWith(
-        mockS3Client,
-        expect.any(Object),
-        expect.objectContaining({ expiresIn: 7200 })
-      );
-      expect(result.expiresAt).toBeInstanceOf(Date);
-    });
-
-    it("debería lanzar BadRequestException cuando falla la generación", async () => {
-      const mockKey = "test-key";
-      const mockContentType = "image/jpeg";
-      mockGetSignedUrl.mockRejectedValue(new Error("Generation failed"));
-
-      await expect(
-        service.generatePresignedUploadUrl(mockKey, mockContentType)
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.generatePresignedUploadUrl(mockKey, mockContentType)
-      ).rejects.toThrow("Error generando URL presignada: Generation failed");
-    });
-  });
-
-  describe("generatePresignedUploadUrlForBusinessLogo", () => {
-    it("debería generar URL presignada para logo de negocio", async () => {
-      const businessId = "business-123";
-
-      const result = await service.generatePresignedUploadUrlForBusinessLogo(
-        businessId,
-        "image/png"
-      );
-
-      expect(result).toBeDefined();
-      expect(result.key).toContain(`businesses/${businessId}/logo`);
-      expect(result.uploadUrl).toBeDefined();
-    });
-  });
-
-  describe("generatePresignedUploadUrlForProfessionalPhoto", () => {
-    it("debería generar URL presignada para foto de profesional", async () => {
-      const professionalId = "professional-123";
-
-      const result =
-        await service.generatePresignedUploadUrlForProfessionalPhoto(
-          professionalId,
-          "image/jpeg"
-        );
-
-      expect(result).toBeDefined();
-      expect(result.key).toContain(`professionals/${professionalId}/photo`);
-      expect(result.uploadUrl).toBeDefined();
-    });
-  });
-
-  describe("generatePresignedUploadUrlForServiceImage", () => {
-    it("debería generar URL presignada para imagen de servicio", async () => {
-      const serviceId = "service-123";
-
-      const result = await service.generatePresignedUploadUrlForServiceImage(
-        serviceId,
-        "image/webp"
-      );
-
-      expect(result).toBeDefined();
-      expect(result.key).toContain(`services/${serviceId}/image`);
-      expect(result.uploadUrl).toBeDefined();
-    });
-  });
-
-  describe("deleteImage", () => {
-    it("debería eliminar imagen exitosamente", async () => {
-      await service.deleteImage("test-key/test-public-id");
-
-      expect(mockS3Send).toHaveBeenCalledTimes(1);
-      const command = mockS3Send.mock.calls[0][0];
-      expect(command).toBeInstanceOf(DeleteObjectCommand);
-    });
-
-    it("debería lanzar BadRequestException cuando falla la eliminación", async () => {
-      mockS3Send.mockRejectedValue(new Error("Delete failed"));
-
-      await expect(service.deleteImage("test-key")).rejects.toThrow(
-        BadRequestException
-      );
-      await expect(service.deleteImage("test-key")).rejects.toThrow(
-        "Error eliminando imagen de S3: Delete failed"
-      );
-    });
-  });
-
-  describe("getImageUrl", () => {
-    it("debería generar URL presignada para obtener imagen", async () => {
-      await service.getImageUrl("test-key/test-public-id");
-
-      expect(mockGetSignedUrl).toHaveBeenCalledWith(
-        mockS3Client,
-        expect.any(Object),
-        expect.objectContaining({ expiresIn: 3600 })
-      );
-    });
-
-    it("debería usar expiresIn personalizado", async () => {
-      await service.getImageUrl("test-key", 7200);
-
-      expect(mockGetSignedUrl).toHaveBeenCalledWith(
-        mockS3Client,
-        expect.any(Object),
-        expect.objectContaining({ expiresIn: 7200 })
-      );
-    });
-
-    it("debería usar expiresIn personalizado", async () => {
-      await service.getImageUrl("test-key", 7200);
-
-      expect(mockGetSignedUrl).toHaveBeenCalledWith(
-        mockS3Client,
-        expect.any(Object),
-        expect.objectContaining({ expiresIn: 7200 })
-      );
-    });
-
-    it("debería lanzar BadRequestException cuando falla la generación", async () => {
-      mockGetSignedUrl.mockRejectedValue(new Error("Get URL failed"));
-
-      await expect(service.getImageUrl("test-key")).rejects.toThrow(
-        BadRequestException
-      );
-      await expect(service.getImageUrl("test-key")).rejects.toThrow(
-        "Error obteniendo URL de imagen: Get URL failed"
-      );
-    });
-  });
-
-  describe("validateImageFile", () => {
-    /** Archivo con la cabecera real del formato y relleno hasta 16 bytes. */
-    const archivo = (cabecera: Buffer | number[]) =>
-      Buffer.concat([Buffer.from(cabecera as never), Buffer.alloc(16)]);
-
-    const jpeg = archivo([0xff, 0xd8, 0xff, 0xe0]);
-    const png = archivo(Buffer.from("89504e470d0a1a0a", "hex"));
-    const webp = archivo(
-      Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(4), Buffer.from("WEBP")])
-    );
-    const gif = archivo(Buffer.from("GIF89a"));
-
-    it.each([
-      ["image/jpeg", jpeg],
-      ["image/jpg", jpeg],
-      ["image/png", png],
-      ["image/webp", webp],
-      ["image/gif", gif],
-    ])("acepta un %s con su cabecera correcta", (tipo, contenido) => {
-      expect(() => service.validateImageFile(contenido, tipo)).not.toThrow();
-    });
-
-    it("debería lanzar BadRequestException para tipo de archivo no permitido", () => {
-      expect(() => service.validateImageFile(jpeg, "application/pdf")).toThrow(
-        "Tipo de archivo no permitido"
-      );
-    });
-
-    it("debería lanzar BadRequestException para archivo que excede tamaño máximo", () => {
-      const grande = Buffer.concat([jpeg, Buffer.alloc(6 * 1024 * 1024)]);
-
-      expect(() => service.validateImageFile(grande, "image/jpeg")).toThrow(
-        BadRequestException
-      );
-      expect(() => service.validateImageFile(grande, "image/jpeg")).toThrow(
-        "El archivo excede el tamaño máximo de 5MB"
-      );
-    });
-
-    it("rechaza un archivo que no es una imagen aunque se declare como tal", () => {
-      // El content-type lo pone quien sube el archivo, así que manda el
-      // contenido.
-      const ejecutable = archivo(Buffer.from("MZ\x90\x00"));
-
-      expect(() => service.validateImageFile(ejecutable, "image/png")).toThrow(
-        "El archivo no es una imagen JPEG, PNG, WebP o GIF"
-      );
-    });
-
-    it("rechaza una imagen cuyo contenido no coincide con el tipo declarado", () => {
-      expect(() => service.validateImageFile(png, "image/jpeg")).toThrow(
-        "no corresponde con el tipo declarado"
-      );
-    });
-
-    it("rechaza un archivo demasiado corto para tener cabecera", () => {
-      expect(() =>
-        service.validateImageFile(Buffer.from([0xff, 0xd8]), "image/jpeg")
-      ).toThrow(BadRequestException);
-    });
-  });
-
-  describe("extractKeyFromUrl", () => {
-    it("debería extraer key de URL con CDN", () => {
-      const url = "https://cdn.beautyspot.com/businesses/123/logo/uuid";
-      const key = service.extractKeyFromUrl(url);
-
-      expect(key).toBe("businesses/123/logo/uuid");
-    });
-
-    it("debería extraer key de URL de S3 directa", () => {
-      const url =
-        "https://beautyspot-images.s3.us-east-1.amazonaws.com/businesses/123/logo/uuid";
-      const key = service.extractKeyFromUrl(url);
-
-      expect(key).toBe("businesses/123/logo/uuid");
-    });
-
-    it("debería manejar URLs con diferentes formatos", () => {
-      const url1 = "https://cdn.beautyspot.com/test/path/file.jpg";
-      expect(service.extractKeyFromUrl(url1)).toBe("test/path/file.jpg");
-
-      const url2 =
-        "https://beautyspot-images.s3.us-east-1.amazonaws.com/test/path/file.jpg";
-      expect(service.extractKeyFromUrl(url2)).toBe("test/path/file.jpg");
-    });
-  });
-
-  describe("formatFileSize (privado)", () => {
-    it("debería formatear Bytes correctamente", () => {
-      expect((service as any).formatFileSize(0)).toBe("0 Bytes");
-    });
-
-    it("debería formatear KB correctamente", () => {
-      const result = (service as any).formatFileSize(1024);
-      expect(result).toContain("KB");
-    });
-
-    it("debería formatear MB correctamente", () => {
-      const result = (service as any).formatFileSize(1024 * 1024);
-      expect(result).toContain("MB");
-    });
-
-    it("debería formatear GB correctamente", () => {
-      const result = (service as any).formatFileSize(1024 * 1024 * 1024);
-      expect(result).toContain("GB");
+      await expect(service.descartar([LOGO], NEGOCIO)).resolves.toBeUndefined();
     });
   });
 });

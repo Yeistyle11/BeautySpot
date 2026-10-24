@@ -80,8 +80,11 @@ async function request<T>(
   publicMode = false,
   yaReintentado = false
 ): Promise<T> {
+  // Un formulario con archivo lo serializa el navegador, que es quien pone el
+  // tipo con el separador de sus partes.
+  const esFormulario = options?.body instanceof FormData;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(esFormulario ? {} : { "Content-Type": "application/json" }),
     ...cabeceraDeNegocio(publicMode),
     ...(options?.headers as Record<string, string>),
   };
@@ -127,6 +130,9 @@ export const api = {
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  /** Envía un formulario con archivos (multipart) tal cual. */
+  upload: <T>(path: string, formulario: FormData) =>
+    request<T>(path, { method: "POST", body: formulario }),
 };
 
 /** API pública: sin token, para endpoints como el marketplace o el login. */

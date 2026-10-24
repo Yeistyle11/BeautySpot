@@ -854,3 +854,22 @@ propiedad del local. El coste es que la aritmetica de horas es propia
 por encima de `24:00`; el calculo interno usa una escala que si la pasa, y la
 conversion ocurre en la frontera con `finExtendido` y `horaDeReloj`. Que un tramo
 cruce la medianoche se deduce de que su fin venga antes que su inicio.
+
+### ADR-009: Las imagenes se suben a la app, detras de un almacen intercambiable
+
+**Contexto**: Logo, portada, galeria, historia y foto de cada profesional se
+guardaban como una URL que tecleaba el negocio: no tenia donde alojar sus fotos,
+y cualquier dominio llegaba al optimizador de `next/image`.
+**Decision**: Las imagenes se suben a core-service (`POST /images`), que las
+valida por su contenido, las reencoda a WebP sin metadatos y las guarda en un
+`AlmacenDeImagenes`: disco (un volumen del VPS) por defecto, o un bucket
+compatible con S3 con `MEDIA_DRIVER=s3`. Se sirven en el mismo origen
+(`/media/...` reescrito al gateway) con cache inmutable, y los servicios solo
+aceptan al guardar URLs subidas por el propio negocio (`asegurarImagenPropia`).
+**Rationale**: Reencodar garantiza que lo guardado es solo una imagen y del
+tamano de su uso. Servirlas desde el propio origen deja fuera del optimizador
+cualquier host ajeno sin declarar ninguno. El almacen en disco no necesita
+cuentas externas; el coste es respaldar el volumen junto a la base (DEPLOY.md), y
+pasar a un bucket es cuestion de configuracion porque el resto del sistema solo
+conoce claves. Las subidas abandonadas sin guardar quedan como archivos sueltos,
+acotados por el tamano maximo y el limite de subidas del gateway.

@@ -13,8 +13,9 @@ export class Business extends BaseEntity {
   @Column({ unique: true }) slug!: string;
   @Column() name!: string;
   @Column({ type: "text", nullable: true }) description!: string;
-  @Column({ nullable: true }) logo!: string;
-  @Column({ name: "cover_image", nullable: true }) coverImage!: string;
+  @Column({ type: "varchar", nullable: true }) logo!: string | null;
+  @Column({ type: "varchar", name: "cover_image", nullable: true })
+  coverImage!: string | null;
   @Column({ nullable: true }) phone!: string;
   @Column({ nullable: true }) email!: string;
   @Column({ nullable: true }) website!: string;

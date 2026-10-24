@@ -3,6 +3,7 @@ import { getRepositoryToken } from "@nestjs/typeorm";
 import { BusinessUpdatedEvent } from "@beautyspot/event-types";
 import { BusinessProfileEntity } from "../../entities/business-profile.entity";
 import { ReviewEntity } from "../../entities/review.entity";
+import { ProfessionalProfileEntity } from "../../entities/professional-profile.entity";
 import { BusinessProfilesService } from "../business-profiles/business-profiles.service";
 import { MarketplaceEventListeners } from "./marketplace-event-listeners.service";
 
@@ -21,6 +22,9 @@ describe("MarketplaceEventListeners", () => {
   let update: jest.Mock;
   /** Reasignación de reseñas al fusionar dos fichas. */
   const actualizarResenas = jest.fn().mockResolvedValue({ affected: 2 });
+  /** Copia de nombre y foto en el perfil del profesional. */
+  const actualizarProfesional = jest.fn();
+  const invalidarCache = jest.fn().mockResolvedValue(undefined);
 
   beforeEach(async () => {
     update = jest.fn().mockResolvedValue({ affected: 1 });
@@ -34,11 +38,15 @@ describe("MarketplaceEventListeners", () => {
         },
         {
           provide: BusinessProfilesService,
-          useValue: { invalidarCache: jest.fn().mockResolvedValue(undefined) },
+          useValue: { invalidarCache },
         },
         {
           provide: getRepositoryToken(ReviewEntity),
           useValue: { update: actualizarResenas },
+        },
+        {
+          provide: getRepositoryToken(ProfessionalProfileEntity),
+          useValue: { update: actualizarProfesional },
         },
       ],
     }).compile();
@@ -110,6 +118,43 @@ describe("MarketplaceEventListeners", () => {
         { businessId: "biz-1", clientId: "c-duplicada" },
         { clientId: "c-buena" }
       );
+    });
+  });
+
+  describe("profesional actualizado en core", () => {
+    const actualizado = {
+      eventId: "evt-2",
+      eventType: "core.professional.updated",
+      timestamp: new Date(),
+      correlationId: "corr-2",
+      payload: {
+        professionalId: "pro-1",
+        businessId: BUSINESS_ID,
+        name: "Ana",
+        photo: "/media/negocios/n/profesional/a.webp",
+      },
+    };
+
+    beforeEach(() => invalidarCache.mockClear());
+
+    it("copia nombre y foto al perfil del escaparate", async () => {
+      actualizarProfesional.mockResolvedValue({ affected: 1 });
+
+      await listeners.handleProfessionalUpdated(actualizado);
+
+      expect(actualizarProfesional).toHaveBeenCalledWith(
+        { professionalId: "pro-1", businessId: BUSINESS_ID },
+        { name: "Ana", photo: "/media/negocios/n/profesional/a.webp" }
+      );
+      expect(invalidarCache).toHaveBeenCalledWith(BUSINESS_ID);
+    });
+
+    it("no hace nada si el profesional no tiene perfil", async () => {
+      actualizarProfesional.mockResolvedValue({ affected: 0 });
+
+      await listeners.handleProfessionalUpdated(actualizado);
+
+      expect(invalidarCache).not.toHaveBeenCalled();
     });
   });
 });

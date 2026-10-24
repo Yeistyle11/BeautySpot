@@ -8,10 +8,14 @@ import {
   HttpStatus,
   Logger,
 } from "@nestjs/common";
+import { Readable } from "node:stream";
 import { Request, Response } from "express";
 import { ProxyService, type CuerpoBinario } from "./proxy.service";
 import { CircuitBreakerService } from "../circuit-breaker/circuit-breaker.service";
-import { PROXY_TIMEOUT_MS } from "@beautyspot/shared-constants";
+import {
+  PROXY_TIMEOUT_MS,
+  PROXY_TIMEOUT_SUBIDA_MS,
+} from "@beautyspot/shared-constants";
 import { UMBRAL_LENTO_MS } from "@beautyspot/nest-common";
 import { SessionService } from "../session/session.service";
 
@@ -23,6 +27,8 @@ interface RespuestaReenviada {
   cuerpo: unknown;
   /** Presente cuando el servicio respondió un archivo y no JSON. */
   binario?: CuerpoBinario;
+  /** Cabeceras de caché del servicio, que se devuelven tal cual. */
+  cabeceras?: Record<string, string>;
 }
 
 /**
@@ -104,6 +110,10 @@ export class ProxyController {
       }
     }
 
+    for (const [nombre, valor] of Object.entries(respuesta.cabeceras ?? {})) {
+      res.setHeader(nombre, valor);
+    }
+
     if (respuesta.binario) {
       const { datos, tipo, disposicion } = respuesta.binario;
       res.setHeader("Content-Type", tipo);
@@ -123,9 +133,14 @@ export class ProxyController {
   ): Promise<RespuestaReenviada> {
     const targetUrl = this.proxyService.buildTargetUrl(service, req);
     const headers = this.proxyService.buildForwardedHeaders(req);
+    const subida = this.proxyService.esSubida(req);
+    if (subida) this.proxyService.validarSubida(req);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
+    const timeout = setTimeout(
+      () => controller.abort(),
+      subida ? PROXY_TIMEOUT_SUBIDA_MS : PROXY_TIMEOUT_MS
+    );
     // Se mide solo el salto al backend, no lo que el gateway tarda en resolver
     // ruta y cabeceras.
     const comienzo = Date.now();
@@ -140,9 +155,13 @@ export class ProxyController {
         headers,
         body: ["GET", "HEAD"].includes(req.method)
           ? undefined
-          : JSON.stringify(cuerpo),
+          : subida
+            ? // El archivo pasa en streaming: el gateway no lo carga entero.
+              (Readable.toWeb(req) as unknown as BodyInit)
+            : JSON.stringify(cuerpo),
         signal: controller.signal,
-      });
+        ...(subida ? { duplex: "half" } : {}),
+      } as RequestInit);
       clearTimeout(timeout);
       this.medirSalto(service, req, response.status, comienzo);
 
@@ -161,6 +180,7 @@ export class ProxyController {
         estado: response.status,
         cuerpo: data,
         ...(binario ? { binario } : {}),
+        cabeceras: this.proxyService.cabecerasDeCache(response),
       };
 
       if (response.status >= SERVER_ERROR_THRESHOLD) {

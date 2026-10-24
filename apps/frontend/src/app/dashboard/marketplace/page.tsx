@@ -1,6 +1,7 @@
 "use client";
 
 // Pagina de gestion del perfil publico: pestanas para editar la ficha del negocio en el marketplace.
+import { MAXIMO_IMAGENES_GALERIA } from "@beautyspot/shared-constants";
 import { useState } from "react";
 import { LoadingState } from "@/components/ui/loading-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -21,7 +22,11 @@ import { isNotFoundError } from "@/lib/api-error";
 import { AvisoDeConflicto } from "@/components/ui/aviso-de-conflicto";
 import { canDo } from "@/lib/permissions";
 import { OverviewTab } from "./overview-tab";
-import { emptyGalleryForm, type GalleryForm } from "./add-image-dialog";
+import {
+  emptyGalleryForm,
+  imagenesDeGaleria,
+  type GalleryForm,
+} from "./add-image-dialog";
 import {
   datosDelNegocioSchema,
   defaultSections,
@@ -174,7 +179,8 @@ export default function MarketplacePage() {
         tagline: configForm.tagline || undefined,
         storyTitle: configForm.storyTitle || undefined,
         storyText: configForm.storyText || undefined,
-        storyImage: configForm.storyImage || undefined,
+        // Vacía se envía tal cual: es como se quita la imagen.
+        storyImage: configForm.storyImage,
         foundedYear: configForm.foundedYear
           ? parseInt(configForm.foundedYear)
           : undefined,
@@ -211,7 +217,7 @@ export default function MarketplacePage() {
   const addGalleryImage = async () => {
     try {
       await api.post("/marketplace/business-profiles/gallery", {
-        images: [galleryForm],
+        images: imagenesDeGaleria(galleryForm),
       });
       await mutateProfile();
       setGalleryForm(emptyGalleryForm);
@@ -450,6 +456,7 @@ export default function MarketplacePage() {
         form={galleryForm}
         onChange={setGalleryForm}
         onSubmit={addGalleryImage}
+        disponibles={MAXIMO_IMAGENES_GALERIA - gallery.length}
       />
     </div>
   );

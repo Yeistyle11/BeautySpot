@@ -154,7 +154,6 @@ export const reviewSchema = z.object({
   respondedAt: z.string().nullable(),
   serviceName: z.string().nullable(),
   professionalName: z.string().nullable(),
-  photos: z.array(z.string()).nullable(),
   isVerified: z.boolean(),
   helpfulCount: z.number(),
   createdAt: z.string(),

@@ -1,12 +1,10 @@
 "use client";
 
 // Seccion de resenas del perfil publico, con la distribucion de calificaciones.
-import Image from "next/image";
 import { useState } from "react";
 import { Flag, Heart, MessageSquare, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { imageUnoptimized } from "@/lib/image";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { logger } from "@/lib/logger";
@@ -168,22 +166,6 @@ export function ReviewsSection({
                   <p className="mt-3 break-words text-sm leading-relaxed">
                     {r.comment}
                   </p>
-                )}
-
-                {r.photos && r.photos.length > 0 && (
-                  <div className="mt-3 flex gap-2">
-                    {r.photos.map((photo, i) => (
-                      <Image
-                        key={i}
-                        src={photo}
-                        alt=""
-                        width={64}
-                        height={64}
-                        unoptimized={imageUnoptimized(photo)}
-                        className="h-16 w-16 rounded-lg object-cover"
-                      />
-                    ))}
-                  </div>
                 )}
 
                 {r.response && (

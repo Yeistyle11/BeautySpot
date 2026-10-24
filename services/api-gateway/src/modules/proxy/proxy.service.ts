@@ -7,6 +7,7 @@ import {
 import { Request } from "express";
 import { BRANCH_ID_HEADER, REQUEST_ID_HEADER } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
+import { MAXIMO_BYTES_SUBIDA } from "@beautyspot/shared-constants";
 import { ServiceUrlsConfig } from "../../config/service-urls";
 import { ACCESS_COOKIE, leerCookie } from "../session/session-cookies";
 
@@ -16,6 +17,12 @@ export interface CuerpoBinario {
   tipo: string;
   disposicion?: string;
 }
+
+/**
+ * Cabeceras de la respuesta que se devuelven tal cual: sin ellas el navegador
+ * no cachearía las imágenes ni sabría si la suya sigue valiendo.
+ */
+const CABECERAS_DE_CACHE = ["cache-control", "etag", "x-content-type-options"];
 
 /** Indica si el contenido es texto (JSON incluido) y puede leerse como tal. */
 function esTextual(tipo: string): boolean {
@@ -99,7 +106,11 @@ export class ProxyService {
       headers[BRANCH_ID_HEADER] = sede;
     }
 
-    if (!["GET", "HEAD"].includes(req.method)) {
+    if (this.esSubida(req)) {
+      // El cuerpo viaja tal cual: el tipo lleva el separador de las partes.
+      headers["content-type"] = req.headers["content-type"] as string;
+      headers["content-length"] = req.headers["content-length"] as string;
+    } else if (!["GET", "HEAD"].includes(req.method)) {
       headers["content-type"] = "application/json";
     }
 
@@ -132,6 +143,45 @@ export class ProxyService {
     }
 
     return pedido;
+  }
+
+  /** Si la petición sube un archivo (multipart), que se reenvía sin parsear. */
+  esSubida(req: Request): boolean {
+    return (
+      req.headers["content-type"]
+        ?.toLowerCase()
+        .startsWith("multipart/form-data") ?? false
+    );
+  }
+
+  /**
+   * Corta una subida antes de leerla si declara más de lo permitido, o si no
+   * declara cuánto trae: sin longitud no hay forma de acotarla.
+   */
+  validarSubida(req: Request): void {
+    const longitud = Number(req.headers["content-length"]);
+    if (!Number.isFinite(longitud) || longitud <= 0) {
+      throw new HttpException(
+        "La subida debe indicar su tamaño",
+        HttpStatus.LENGTH_REQUIRED
+      );
+    }
+    if (longitud > MAXIMO_BYTES_SUBIDA) {
+      throw new HttpException(
+        "El archivo es demasiado grande",
+        HttpStatus.PAYLOAD_TOO_LARGE
+      );
+    }
+  }
+
+  /** Las cabeceras de caché que trae la respuesta del servicio. */
+  cabecerasDeCache(response: globalThis.Response): Record<string, string> {
+    const cabeceras: Record<string, string> = {};
+    for (const nombre of CABECERAS_DE_CACHE) {
+      const valor = response.headers.get(nombre);
+      if (valor) cabeceras[nombre] = valor;
+    }
+    return cabeceras;
   }
 
   /**

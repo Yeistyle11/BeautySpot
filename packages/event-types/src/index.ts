@@ -138,6 +138,19 @@ export interface ProfessionalCreatedPayload {
 
 export type ProfessionalCreatedEvent = IBaseEvent<ProfessionalCreatedPayload>;
 
+/**
+ * La ficha de un profesional cambió en core. Lleva lo que el escaparate copia
+ * de ella, con su valor actual y no solo lo que cambió.
+ */
+export interface ProfessionalUpdatedPayload {
+  professionalId: string;
+  businessId: string;
+  name: string;
+  photo: string | null;
+}
+
+export type ProfessionalUpdatedEvent = IBaseEvent<ProfessionalUpdatedPayload>;
+
 export interface ServiceCreatedPayload {
   serviceId: string;
   businessId: string;
@@ -446,6 +459,7 @@ export const EventNames = {
   CORE_BUSINESS_HOURS_UPDATED: "core.business-hours.updated",
   CORE_BUSINESS_CONFIG_UPDATED: "core.business-config.updated",
   CORE_PROFESSIONAL_CREATED: "core.professional.created",
+  CORE_PROFESSIONAL_UPDATED: "core.professional.updated",
   CORE_SERVICE_CREATED: "core.service.created",
   CORE_SERVICE_UPDATED: "core.service.updated",
   CORE_CLIENT_CREATED: "core.client.created",

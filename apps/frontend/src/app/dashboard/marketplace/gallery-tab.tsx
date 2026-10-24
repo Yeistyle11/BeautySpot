@@ -7,6 +7,7 @@ import { Camera, Plus, Trash2, Image as ImageIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { MAXIMO_IMAGENES_GALERIA } from "@beautyspot/shared-constants";
 import { canDo } from "@/lib/permissions";
 import { imageUnoptimized } from "@/lib/image";
 import type { Role } from "@/lib/store";
@@ -34,11 +35,15 @@ export function GalleryTab({
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-lg">
-            Galería ({gallery.length} imagenes)
+            Galería ({gallery.length} de {MAXIMO_IMAGENES_GALERIA} fotos)
           </CardTitle>
           {canEdit && (
-            <Button size="sm" onClick={onAdd}>
-              <Plus className="mr-2 h-4 w-4" /> Agregar imagen
+            <Button
+              size="sm"
+              onClick={onAdd}
+              disabled={gallery.length >= MAXIMO_IMAGENES_GALERIA}
+            >
+              <Plus className="mr-2 h-4 w-4" /> Agregar fotos
             </Button>
           )}
         </div>
@@ -48,7 +53,7 @@ export function GalleryTab({
           <div className="text-muted-foreground py-8 text-center">
             <Camera className="mx-auto h-12 w-12 opacity-20" />
             <p className="mt-2">
-              Agrega imagenes para hacer tu perfil mas atractivo
+              Agrega fotos para hacer tu perfil más atractivo
             </p>
           </div>
         ) : (

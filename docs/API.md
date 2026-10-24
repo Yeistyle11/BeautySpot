@@ -506,30 +506,43 @@ manda; leerlos, de todo el que atiende, que es quien los rellena.
 
 ### Imágenes — `/api/v1/core/images`
 
-Subida directa (multipart) o mediante URL firmada contra S3/CDN. Configuración en
-`AWS_*` del `.env` de core-service.
+Las imágenes del negocio (logo, portada, galería, historia y foto de cada
+profesional) se suben como archivo; ningún formulario acepta una URL externa.
 
-| Método | Ruta                                          | Roles                                                 |
-| ------ | --------------------------------------------- | ----------------------------------------------------- |
-| POST   | `/businesses/:businessId/logo-upload`         | OWNER, ADMIN, SUPER_ADMIN — multipart                 |
-| POST   | `/professionals/:professionalId/photo-upload` | OWNER, ADMIN, SUPER_ADMIN — multipart                 |
-| POST   | `/services/:serviceId/image-upload`           | OWNER, ADMIN, SUPER_ADMIN — multipart                 |
-| GET    | `/upload-signature`                           | OWNER, ADMIN, SUPER_ADMIN                             |
-| GET    | `/presigned-url`                              | OWNER, ADMIN, SUPER_ADMIN, PROFESSIONAL, RECEPTIONIST |
-| DELETE | `/:publicId`                                  | OWNER, ADMIN, SUPER_ADMIN                             |
+| Método | Ruta | Roles                     | Descripción                                         |
+| ------ | ---- | ------------------------- | --------------------------------------------------- |
+| POST   | `/`  | OWNER, ADMIN, SUPER_ADMIN | Sube una imagen (multipart: `archivo`, `proposito`) |
+
+`proposito` es `logo`, `portada`, `galeria`, `historia` o `profesional`. El
+archivo, de hasta 5 MB, tiene que ser JPEG, PNG o WebP **por su contenido**, no
+por el tipo que declara. Se gira según la cámara, se reduce al tamaño de su uso
+(512 px el logo y la foto, 1200 la historia, 1600 la galería, 1920 la portada),
+se le quitan los metadatos —GPS incluido— y se guarda como WebP con un nombre
+nuevo. La respuesta es `{ url, ancho, alto }` con la URL `/media/negocios/…`
+que el formulario guarda después con su PATCH: subir no cambia ningún dato. Se
+leen sin sesión por `/api/v1/core/public/images/…`.
+
+Al guardar, el servicio acepta solo imágenes subidas por ese mismo negocio (400
+si es una URL externa, 403 si es de otro negocio), salvo que sea la que ya
+estaba guardada. La imagen que se reemplaza o se quita se borra del almacén.
+
+El gateway reenvía la subida en streaming, corta con 413 lo que declare más de
+6 MB y la cuenta en un presupuesto de subidas propio. La lectura responde con
+caché inmutable de un año: cada archivo tiene nombre propio y no cambia.
 
 ### Públicas — `/api/v1/core/public`
 
 Controlador `@Public()`: sin token. Alimenta el marketplace y la reserva pública.
 
-| Método | Ruta                            | Descripción               |
-| ------ | ------------------------------- | ------------------------- |
-| GET    | `/businesses`                   | Negocios publicados       |
-| GET    | `/businesses/slug/:slug`        | Negocio por slug          |
-| GET    | `/businesses/:id/services`      | Servicios del negocio     |
-| GET    | `/businesses/:id/professionals` | Profesionales del negocio |
-| GET    | `/businesses/:id/branches`      | Sedes activas del negocio |
-| GET    | `/businesses/:id/horarios`      | Jornadas activas por día  |
+| Método | Ruta                                            | Descripción                                                          |
+| ------ | ----------------------------------------------- | -------------------------------------------------------------------- |
+| GET    | `/businesses`                                   | Negocios publicados                                                  |
+| GET    | `/images/negocios/:negocio/:proposito/:archivo` | Imagen subida por un negocio, servida en el frontend como `/media/…` |
+| GET    | `/businesses/slug/:slug`                        | Negocio por slug                                                     |
+| GET    | `/businesses/:id/services`                      | Servicios del negocio                                                |
+| GET    | `/businesses/:id/professionals`                 | Profesionales del negocio                                            |
+| GET    | `/businesses/:id/branches`                      | Sedes activas del negocio                                            |
+| GET    | `/businesses/:id/horarios`                      | Jornadas activas por día                                             |
 
 `/businesses/:id/horarios` devuelve las jornadas activas (`dayOfWeek`,
 `openTime`, `closeTime`) sin exigir token: el asistente de reserva las usa para
@@ -555,6 +568,8 @@ elegido, el precio del catálogo es un «desde» y no una promesa. Un
 
 | Método | Ruta                                    | Descripción                                                                                                                                       |
 | ------ | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/internal/businesses/:id/imagenes`     | Logo y portada del negocio, que el escaparate copia al darse de alta                                                                              |
+| POST   | `/internal/images/descartar`            | Borra del almacén imágenes que otro servicio dejó sin uso; solo las de ese negocio                                                                |
 | GET    | `/internal/businesses/resolve`          | Resuelve negocio por slug (lo usa el gateway)                                                                                                     |
 | POST   | `/internal/businesses`                  | Crea negocio a petición de otro servicio                                                                                                          |
 | POST   | `/internal/businesses/names`            | Nombres de varios negocios, para etiquetar listas                                                                                                 |
@@ -925,7 +940,7 @@ Perfiles públicos, búsqueda, feed y reseñas. Base de datos `beautyspot_market
 | POST   | `/`               | OWNER, ADMIN | Da de alta el perfil                                                          |
 | GET    | `/`               | OWNER, ADMIN | Perfil del negocio propio                                                     |
 | PUT    | `/config`         | OWNER, ADMIN | Actualiza la configuración; con `updatedAt`, 409 si otra persona guardó antes |
-| POST   | `/gallery`        | OWNER, ADMIN | Añade imágenes a la galería                                                   |
+| POST   | `/gallery`        | OWNER, ADMIN | Añade imágenes subidas a la galería, hasta 24                                 |
 | PUT    | `/gallery`        | OWNER, ADMIN | Actualiza una imagen                                                          |
 | DELETE | `/gallery/:index` | OWNER, ADMIN | Quita una imagen                                                              |
 | POST   | `/publish`        | OWNER, ADMIN | Publica el perfil                                                             |
@@ -937,7 +952,11 @@ servicios, que por eso recibe el negocio en el cuerpo y no del token. El alta no
 publica: el perfil nace en borrador y sale a la portada cuando el dueño pulsa
 `POST /publish`. El enlace público se deriva del nombre si no se manda, numerando
 al chocar; el que llega escrito se respeta o se rechaza con 409, porque puede
-estar ya repartido. También responde 409 si el negocio ya tiene perfil.
+estar ya repartido. También responde 409 si el negocio ya tiene perfil. Al
+darse de alta copia el logo y la portada que el negocio ya tuviera en core.
+
+La galería y la imagen de la historia solo aceptan imágenes subidas por el
+negocio (ver `/api/v1/core/images`); la que se quita se borra del almacén.
 
 **Guardar sobre un perfil que cambió avisa.** El `PUT /config` admite
 `updatedAt`, que no es un campo del perfil sino la versión con la que se cargó el
@@ -997,6 +1016,8 @@ un perfil recién publicado puede tardar ese minuto en aparecer.
 
 Los dos listados públicos de reseñas devuelven `{ data, meta }` y sirven una
 proyección sin el cliente que la escribió, la cita ni el recuento de denuncias.
+
+Una reseña son estrellas y comentario: no admite fotos.
 
 Ocultar una reseña la retira del listado público, pero **sigue contando en la
 media y en el total** del negocio y del profesional. La moderación existe para

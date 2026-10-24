@@ -426,30 +426,6 @@ describe("ReviewsService", () => {
       expect(mockOutbox.enqueue).toHaveBeenCalled();
     });
 
-    it("debería limitar a 3 fotos", async () => {
-      const dto = {
-        businessId: "business-123",
-        appointmentId: "appointment-123",
-        rating: 5,
-        comment: "Excelente servicio",
-        photos: ["photo1.jpg", "photo2.jpg", "photo3.jpg", "photo4.jpg"],
-      };
-
-      mockRepo.findOne.mockResolvedValue(null);
-      mockRepo.create.mockImplementation((data) => {
-        return { ...data, photos: data.photos?.slice(0, 3) } as any;
-      });
-      const limitedPhotos = ["photo1.jpg", "photo2.jpg", "photo3.jpg"];
-      mockManagerRepo.save.mockResolvedValue({
-        ...mockReview,
-        photos: limitedPhotos,
-      } as any);
-
-      const result = await service.create(dto, "client-123");
-
-      expect(result.photos).toHaveLength(3);
-    });
-
     it("no actualiza el rating del profesional si la cita no traía ninguno", async () => {
       const dto = {
         businessId: "business-123",

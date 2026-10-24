@@ -1,296 +1,95 @@
 import {
-  BadRequestException,
+  Body,
   Controller,
-  Delete,
-  ForbiddenException,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
-  ParseUUIDPipe,
   Post,
-  Query,
+  Res,
   UploadedFile,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { Roles, BusinessId, CurrentUser } from "@beautyspot/nest-common";
+import type { Response } from "express";
+import { BusinessId, Internal, Public, Roles } from "@beautyspot/nest-common";
 import { Role } from "@beautyspot/shared-types";
-import { URL_PREFIRMADA_SEGUNDOS } from "@beautyspot/shared-constants";
 import {
-  ImagesService,
-  UploadResult,
   MAXIMO_BYTES_IMAGEN,
-} from "./images.service";
-import { ProfessionalsService } from "../professionals/professionals.service";
-import { ServicesService } from "../services/services.service";
-import { GenerateUploadSignatureDto, PresignedUrlQueryDto } from "./dto";
+  PREFIJO_DE_IMAGENES,
+} from "@beautyspot/shared-constants";
+import { ImagesService, ImagenSubida } from "./images.service";
+import { DescartarImagenesDto, SubirImagenDto } from "./images.dto";
 
 /**
- * Recepción del archivo, que multer corta en cuanto supera el tamaño máximo en
- * vez de cargarlo entero en memoria.
+ * Recepción del archivo en memoria, cortada por multer en cuanto supera el
+ * tamaño máximo en vez de leerlo entero.
  */
-const SUBIDA_DE_IMAGEN = FileInterceptor("file", {
-  limits: { fileSize: MAXIMO_BYTES_IMAGEN, files: 1 },
+const SUBIDA_DE_IMAGEN = FileInterceptor("archivo", {
+  limits: { fileSize: MAXIMO_BYTES_IMAGEN, files: 1, fields: 5 },
 });
 
-/** Contexto de autorización derivado del usuario autenticado y su tenant. */
-interface OwnershipContext {
-  role: string;
-  businessId?: string;
-}
+/** Un año: cada archivo tiene nombre propio y no cambia nunca. */
+const CACHE_INMUTABLE = "public, max-age=31536000, immutable";
 
-/**
- * Endpoints de subida y borrado de imágenes (logo, foto de profesional, imagen
- * de servicio), verificando que el recurso pertenezca al negocio del usuario.
- */
+/** Subida de imágenes del negocio desde el panel. */
 @Controller("images")
 export class ImagesController {
-  constructor(
-    private readonly imagesService: ImagesService,
-    private readonly professionalsService: ProfessionalsService,
-    private readonly servicesService: ServicesService
-  ) {}
+  constructor(private readonly images: ImagesService) {}
 
-  /** Verifica ownership del recurso. SUPER_ADMIN bypass. */
-  private async verifyResourceOwnership(
-    resourceType: string,
-    resourceId: string,
-    ctx: OwnershipContext
+  @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
+  @Post()
+  @UseInterceptors(SUBIDA_DE_IMAGEN)
+  async subir(
+    @BusinessId() businessId: string,
+    @Body() dto: SubirImagenDto,
+    @UploadedFile() archivo?: Express.Multer.File
+  ): Promise<ImagenSubida> {
+    return this.images.subir(archivo?.buffer, dto.proposito, businessId);
+  }
+}
+
+/** Las imágenes que se muestran en el panel y en el escaparate, sin sesión. */
+@Public()
+@Controller("public/images")
+export class PublicImagesController {
+  constructor(private readonly images: ImagesService) {}
+
+  @Get("negocios/:negocio/:proposito/:archivo")
+  async leer(
+    @Param("negocio") negocio: string,
+    @Param("proposito") proposito: string,
+    @Param("archivo") archivo: string,
+    @Headers("if-none-match") etagDelNavegador: string | undefined,
+    @Res() res: Response
   ): Promise<void> {
-    if (ctx.role === Role.SUPER_ADMIN) return;
-    if (!ctx.businessId) {
-      throw new ForbiddenException(
-        "No se pudo determinar el negocio del usuario"
-      );
+    const etag = `"${archivo}"`;
+    res.setHeader("Cache-Control", CACHE_INMUTABLE);
+    res.setHeader("ETag", etag);
+    if (etagDelNavegador === etag) {
+      res.status(HttpStatus.NOT_MODIFIED).end();
+      return;
     }
 
-    switch (resourceType) {
-      case "businesses":
-        if (resourceId !== ctx.businessId) {
-          throw new ForbiddenException("No tienes acceso a este negocio");
-        }
-        break;
-      case "professionals":
-        await this.professionalsService.findById(resourceId, ctx.businessId);
-        break;
-      case "services":
-        await this.servicesService.findById(resourceId, ctx.businessId);
-        break;
-      default:
-        throw new BadRequestException("Tipo de recurso no válido");
-    }
-  }
-
-  /**
-   * Verifica que una clave de S3 sea del negocio del usuario, rechazando las
-   * que traen `..` en algún segmento.
-   */
-  private async verifyKeyOwnership(
-    key: string,
-    ctx: OwnershipContext
-  ): Promise<void> {
-    // Formato del key: {tipo}/{id}/... — p. ej. businesses/{id}/logo/{uuid}.
-    const parts = key.split("/");
-    if (parts.length < 2 || parts.some((parte) => parte === "..")) {
-      throw new ForbiddenException("Key de imagen no válido");
-    }
-
-    if (ctx.role === Role.SUPER_ADMIN) return;
-
-    await this.verifyResourceOwnership(parts[0], parts[1], ctx);
-  }
-
-  /** Sube el logo de un negocio (multipart) tras validar acceso y tipo/tamaño. */
-  @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
-  @Post("businesses/:businessId/logo-upload")
-  @UseInterceptors(SUBIDA_DE_IMAGEN)
-  async uploadBusinessLogo(
-    @Param("businessId", ParseUUIDPipe) businessId: string,
-    @CurrentUser("role") role: string,
-    @BusinessId() tenantBusinessId: string,
-    @UploadedFile() file: Express.Multer.File
-  ): Promise<UploadResult> {
-    if (!file) {
-      throw new BadRequestException("Archivo no proporcionado");
-    }
-
-    await this.verifyResourceOwnership("businesses", businessId, {
-      role,
-      businessId: tenantBusinessId,
-    });
-
-    this.imagesService.validateImageFile(file.buffer, file.mimetype);
-
-    const result = await this.imagesService.uploadBusinessLogo(
-      businessId,
-      file.buffer,
-      file.mimetype
+    const datos = await this.images.leer(
+      `${PREFIJO_DE_IMAGENES}negocios/${negocio}/${proposito}/${archivo}`
     );
-
-    return result;
+    res.setHeader("Content-Type", "image/webp");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.send(datos);
   }
+}
 
-  /** Sube la foto de un profesional (multipart) tras validar acceso y tipo/tamaño. */
-  @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
-  @Post("professionals/:professionalId/photo-upload")
-  @UseInterceptors(SUBIDA_DE_IMAGEN)
-  async uploadProfessionalPhoto(
-    @Param("professionalId", ParseUUIDPipe) professionalId: string,
-    @CurrentUser("role") role: string,
-    @BusinessId() tenantBusinessId: string,
-    @UploadedFile() file: Express.Multer.File
-  ): Promise<UploadResult> {
-    if (!file) {
-      throw new BadRequestException("Archivo no proporcionado");
-    }
+/** Limpieza que piden otros servicios al dejar imágenes sin uso. */
+@Internal()
+@Controller("internal/images")
+export class InternalImagesController {
+  constructor(private readonly images: ImagesService) {}
 
-    await this.verifyResourceOwnership("professionals", professionalId, {
-      role,
-      businessId: tenantBusinessId,
-    });
-
-    this.imagesService.validateImageFile(file.buffer, file.mimetype);
-
-    const result = await this.imagesService.uploadProfessionalPhoto(
-      professionalId,
-      file.buffer,
-      file.mimetype
-    );
-
-    return result;
-  }
-
-  /** Sube la imagen de un servicio (multipart) tras validar acceso y tipo/tamaño. */
-  @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
-  @Post("services/:serviceId/image-upload")
-  @UseInterceptors(SUBIDA_DE_IMAGEN)
-  async uploadServiceImage(
-    @Param("serviceId", ParseUUIDPipe) serviceId: string,
-    @CurrentUser("role") role: string,
-    @BusinessId() tenantBusinessId: string,
-    @UploadedFile() file: Express.Multer.File
-  ): Promise<UploadResult> {
-    if (!file) {
-      throw new BadRequestException("Archivo no proporcionado");
-    }
-
-    await this.verifyResourceOwnership("services", serviceId, {
-      role,
-      businessId: tenantBusinessId,
-    });
-
-    this.imagesService.validateImageFile(file.buffer, file.mimetype);
-
-    const result = await this.imagesService.uploadServiceImage(
-      serviceId,
-      file.buffer,
-      file.mimetype
-    );
-
-    return result;
-  }
-
-  /** Genera una URL presignada para que el cliente suba la imagen directo a S3. */
-  @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
-  @Get("upload-signature")
-  async generateUploadSignature(
-    @CurrentUser("role") role: string,
-    @BusinessId() tenantBusinessId: string,
-    @Query() dto: GenerateUploadSignatureDto
-  ) {
-    const expiresIn = dto.expiresIn ?? URL_PREFIRMADA_SEGUNDOS;
-
-    // Mapea el tipo de recurso a su prefijo en S3 y verifica el acceso al recurso.
-    const resourceMap: Record<string, { prefix: string; verifyAs: string }> = {
-      "business-logo": { prefix: "businesses", verifyAs: "businesses" },
-      "professional-photo": {
-        prefix: "professionals",
-        verifyAs: "professionals",
-      },
-      "service-image": { prefix: "services", verifyAs: "services" },
-    };
-
-    const mapping = resourceMap[dto.resourceType];
-    if (!mapping) {
-      throw new BadRequestException("Tipo de recurso no válido");
-    }
-
-    await this.verifyResourceOwnership(mapping.verifyAs, dto.resourceId, {
-      role,
-      businessId: tenantBusinessId,
-    });
-
-    let result;
-    switch (dto.resourceType) {
-      case "business-logo":
-        result =
-          await this.imagesService.generatePresignedUploadUrlForBusinessLogo(
-            dto.resourceId,
-            dto.contentType,
-            expiresIn
-          );
-        break;
-      case "professional-photo":
-        result =
-          await this.imagesService.generatePresignedUploadUrlForProfessionalPhoto(
-            dto.resourceId,
-            dto.contentType,
-            expiresIn
-          );
-        break;
-      case "service-image":
-        result =
-          await this.imagesService.generatePresignedUploadUrlForServiceImage(
-            dto.resourceId,
-            dto.contentType,
-            expiresIn
-          );
-        break;
-      default:
-        throw new BadRequestException("Tipo de recurso no válido");
-    }
-
-    return result;
-  }
-
-  /** Borra una imagen de S3 tras verificar que su key pertenezca al negocio. */
-  @Roles(Role.OWNER, Role.ADMIN, Role.SUPER_ADMIN)
-  @Delete(":publicId")
+  @Post("descartar")
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteImage(
-    @CurrentUser("role") role: string,
-    @BusinessId() tenantBusinessId: string,
-    @Param("publicId") publicId: string
-  ): Promise<void> {
-    const key = decodeURIComponent(publicId);
-    await this.verifyKeyOwnership(key, {
-      role,
-      businessId: tenantBusinessId,
-    });
-    await this.imagesService.deleteImage(key);
-  }
-
-  /** Devuelve una URL presignada de lectura para una imagen del negocio. */
-  @Roles(
-    Role.OWNER,
-    Role.ADMIN,
-    Role.SUPER_ADMIN,
-    Role.PROFESSIONAL,
-    Role.RECEPTIONIST
-  )
-  @Get("presigned-url")
-  async getPresignedUrl(
-    @CurrentUser("role") role: string,
-    @BusinessId() tenantBusinessId: string,
-    @Query() query: PresignedUrlQueryDto
-  ): Promise<{ url: string }> {
-    await this.verifyKeyOwnership(query.key, {
-      role,
-      businessId: tenantBusinessId,
-    });
-    const expiresIn = query.expiresIn ?? URL_PREFIRMADA_SEGUNDOS;
-    const url = await this.imagesService.getImageUrl(query.key, expiresIn);
-    return { url };
+  async descartar(@Body() dto: DescartarImagenesDto): Promise<void> {
+    await this.images.descartar(dto.urls, dto.businessId);
   }
 }
