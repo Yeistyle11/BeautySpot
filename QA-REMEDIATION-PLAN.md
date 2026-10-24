@@ -12,8 +12,8 @@ Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
    los hallazgos salen de leer el repositorio, no de recorrer la interfaz.
 4. **Uso desde el celular 2026-10-24** — 17 hallazgos `BS-060`…`BS-076`
    (8 altos, 8 medios, 1 bajo).
-5. **Pendientes del informe UX/UI 2026-09-10 y de las propuestas** — 12
-   hallazgos `BS-077`…`BS-088` (6 medios, 6 bajos). Al final del documento.
+5. **Pendientes del informe UX/UI 2026-09-10 y de las propuestas** — 13
+   hallazgos `BS-077`…`BS-089` (6 medios, 7 bajos). Al final del documento.
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 propuesta `[PM]` (no se implementa) · ❓ necesita aclaración
 
@@ -1328,7 +1328,7 @@ de verdad.
 
 ---
 
-# Campaña 2026-10-24 (2) — `BS-077`…`BS-088`
+# Campaña 2026-10-24 (2) — `BS-077`…`BS-089`
 
 Origen: el informe `UX-UI-REPORT-BeautySpot-2026-09-10`, que nunca se pasó a
 este tablero, y las tres propuestas `[PM]` de la campaña del 2026-09-04. Se
@@ -1340,15 +1340,15 @@ apareció al revisar la agenda.
 Correspondencia con el informe: BS-077 ← BS-UI-024 · BS-078 ← BS-UI-015 ·
 BS-079 ← BS-UI-043 · BS-080 ← BS-UI-022 · BS-081 ← BS-UI-026 · BS-082 ←
 BS-UI-027 · BS-083 ← BS-UI-025 · BS-084 ← BS-UI-040 · BS-085 ← BS-UI-036 y
-BS-UI-044 · BS-086 ← P-2 · BS-087 ← P-3.
+BS-UI-044 · BS-086 ← P-2 · BS-087 ← P-3 · BS-089 ← BS-UI-049.
 
-12 hallazgos: **6 Media, 6 Baja**.
+13 hallazgos: **6 Media, 7 Baja**.
 
 ## Decisiones tomadas
 
 | Tema      | Decisión                                                                                                                                |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| BS-UI-049 | Notificaciones se queda como lista de tarjetas: es un feed que se lee, no un listado que se gestiona                                    |
+| BS-UI-049 | Notificaciones también va en `TablaDeRegistros`, aunque no se gestione: la interfaz lista igual en todas partes (BS-089)                |
 | BS-087    | El descuento mayor que el cobro sigue **bloqueado** (BS-QA-015); lo que falta es decirlo en pantalla                                    |
 | BS-082    | Los diálogos animan también la salida; con `prefers-reduced-motion` no anima nada                                                       |
 | P-1       | Ya hecho: Agenda, Pagos y Walk-in eligen al cliente con `SelectorDeEntidad`, que busca                                                  |
@@ -1367,23 +1367,25 @@ BS-UI-044 · BS-086 ← P-2 · BS-087 ← P-3.
 | N7 · Vocabulario que no es el del menú                                | BS-085                 |
 | N8 · Un dato del informe que no se puede leer sin la pieza que falta  | BS-086                 |
 | N9 · Una rejilla que no mira el horario del negocio                   | BS-088                 |
+| N10 · Un listado que no usa la tabla común                            | BS-089                 |
 
 ## Tablero
 
-| ID     | Sev   | Módulo   | Causa | Esfuerzo | Estado |
-| ------ | ----- | -------- | ----- | -------- | ------ |
-| BS-077 | Media | Varios   | N1    | S        | ✅     |
-| BS-078 | Media | Acceso   | N2    | S        | ✅     |
-| BS-079 | Media | Varios   | N3    | S        | ✅     |
-| BS-080 | Media | Varios   | N4    | XS       | ✅     |
-| BS-081 | Baja  | Bloqueos | N5    | XS       | ✅     |
-| BS-082 | Baja  | Interfaz | N6    | S        | ✅     |
-| BS-083 | Baja  | Listados | N5    | XS       | ✅     |
-| BS-084 | Baja  | Caja     | N5    | XS       | ✅     |
-| BS-085 | Baja  | Varios   | N7    | XS       | ✅     |
-| BS-086 | Media | Reportes | N8    | S        | ✅     |
-| BS-087 | Baja  | Pagos    | N2    | XS       | ✅     |
-| BS-088 | Media | Agenda   | N9    | XS       | ✅     |
+| ID     | Sev   | Módulo         | Causa | Esfuerzo | Estado |
+| ------ | ----- | -------------- | ----- | -------- | ------ |
+| BS-077 | Media | Varios         | N1    | S        | ✅     |
+| BS-078 | Media | Acceso         | N2    | S        | ✅     |
+| BS-079 | Media | Varios         | N3    | S        | ✅     |
+| BS-080 | Media | Varios         | N4    | XS       | ✅     |
+| BS-081 | Baja  | Bloqueos       | N5    | XS       | ✅     |
+| BS-082 | Baja  | Interfaz       | N6    | S        | ✅     |
+| BS-083 | Baja  | Listados       | N5    | XS       | ✅     |
+| BS-084 | Baja  | Caja           | N5    | XS       | ✅     |
+| BS-085 | Baja  | Varios         | N7    | XS       | ✅     |
+| BS-086 | Media | Reportes       | N8    | S        | ✅     |
+| BS-087 | Baja  | Pagos          | N2    | XS       | ✅     |
+| BS-088 | Media | Agenda         | N9    | XS       | ✅     |
+| BS-089 | Baja  | Notificaciones | N10   | S        | ✅     |
 
 ## Detalle
 
@@ -1445,13 +1447,20 @@ sin decir por qué no se podía cobrar.
 Pintaba siempre de 7:00 a 21:00; un negocio que abre de 20:00 a 02:00 veía una
 rejilla que no era su jornada. La semana sí lo tenía en cuenta.
 
+### BS-089 · Las notificaciones no se listaban como el resto ✅
+
+Era la única pantalla que seguía con tarjetas sueltas. Pasa a la tabla común
+con aviso, fecha, estado y la acción de marcar como leído; el mensaje se lee
+entero y en el celular la fecha y el estado van bajo el aviso.
+
 ## Verificación
 
 En el navegador, contra la base local: el acceso vacío marca solo el email
 con su mensaje 8 px por debajo; un diálogo cerrado sigue en pantalla unos
 150 ms con la animación de salida y se vuelve a abrir limpio; la vista Día de
 un sábado de 09:00 a 20:00 pinta de 08:00 a 21:00; Reportes explica una
-diferencia de $91.000 entre lo atendido y lo cobrado.
+diferencia de $91.000 entre lo atendido y lo cobrado; las notificaciones caben
+en la tabla a 422 px sin desplazarse de lado.
 
 `type-check` y `lint` del frontend, Prettier sobre lo que cambia respecto a
 `main`, y la suite con el umbral de cobertura: **223 suites, 3057 pruebas**.
