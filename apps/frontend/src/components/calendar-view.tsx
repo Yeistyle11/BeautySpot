@@ -1,7 +1,8 @@
 "use client";
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { DetalleDeCita } from "@/components/detalle-de-cita";
+import { SemanaEnLista } from "@/components/semana-en-lista";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { timeToMinutes } from "@beautyspot/shared-utils";
 import {
@@ -13,12 +14,11 @@ import {
   desplazarDia,
   esDiaCerrado,
   fechasDeLaSemana,
-  formatCurrency,
   formatTime,
-  haComenzado,
   toLocalDateKey,
 } from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
+import { useEsEscritorio } from "@/lib/use-punto-de-ruptura";
 import type { Appointment } from "@/app/dashboard/appointments/schemas";
 import type { BloqueoDeAgenda } from "@/components/day-view";
 
@@ -48,14 +48,12 @@ interface CalendarViewProps {
   horarios?: HorarioDelNegocio[];
 }
 
-/** Estados desde los que la cita todavia puede anularse. */
-const ANULABLES = ["PENDING", "CONFIRMED"];
-
 const DAYS_ES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
 
 /**
  * Vista semanal de la agenda: reparte las citas por dia y franja horaria, y
- * abre el detalle de la elegida con sus acciones.
+ * abre el detalle de la elegida con sus acciones. En movil la rejilla se
+ * cambia por la lista de los siete dias.
  */
 export function CalendarView({
   appointments,
@@ -77,6 +75,8 @@ export function CalendarView({
   // acaba de revalidar SWR, no la copia que habia al hacer clic.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedAppt = appointments.find((a) => a.id === selectedId) ?? null;
+  const esEscritorio = useEsEscritorio();
+  const elegir = (id: string) => setSelectedId(selectedId === id ? null : id);
 
   // La semana sale del dia que la pagina tiene abierto y no de un contador
   // propio: con el suyo, cambiar de vista perdia el dia que se estaba mirando.
@@ -164,10 +164,26 @@ export function CalendarView({
     new Date(`${fecha}T12:00:00`).toLocaleDateString("es-CO", opciones);
   const weekLabel = `${comoDia(weekDates[0], { day: "numeric", month: "short" })} - ${comoDia(weekDates[6], { day: "numeric", month: "short", year: "numeric" })}`;
 
+  const detalle = selectedAppt && (
+    <DetalleDeCita
+      cita={selectedAppt}
+      cliente={clientNames[selectedAppt.clientId] || "Cliente"}
+      servicios={selectedAppt.appointmentServices
+        .map((s) => s.serviceName)
+        .join(", ")}
+      canConfirm={canConfirm}
+      canCancel={canCancel}
+      onComplete={onComplete}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+      onNoShow={onNoShow}
+    />
+  );
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <Button
             variant="outline"
             size="icon"
@@ -189,189 +205,141 @@ export function CalendarView({
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <span className="ml-2 text-sm font-medium">{weekLabel}</span>
+          <span className="ml-2 min-w-0 truncate text-sm font-medium">
+            {weekLabel}
+          </span>
         </div>
       </div>
 
-      {/* La rejilla se desplaza sola, con su propio scroll. */}
-      <div className="max-h-[70vh] overflow-auto">
-        <div className="min-w-[700px]">
-          {/* Cabecera fija con los siete dias. */}
-          <div className="bg-background sticky top-0 z-10 grid grid-cols-[60px_repeat(7,1fr)] border-b">
-            <div className="text-muted-foreground p-2 text-center text-xs">
-              Hora
-            </div>
-            {weekDates.map((d, i) => {
-              const isToday = d === todayKey;
-              return (
-                <div
-                  key={d}
-                  className={`p-2 text-center ${isToday ? "bg-primary/5" : ""}`}
-                >
-                  <p className="text-muted-foreground text-xs">{DAYS_ES[i]}</p>
-                  <p
-                    className={`text-sm font-semibold ${isToday ? "text-primary" : ""}`}
-                  >
-                    {Number(d.slice(8))}
-                  </p>
-                  {esDiaCerrado(d, diasAbiertos) && (
-                    <p className="text-muted-foreground text-[10px] uppercase">
-                      Cerrado
-                    </p>
-                  )}
+      {!esEscritorio ? (
+        <SemanaEnLista
+          dias={weekDates}
+          hoy={todayKey}
+          appointments={appointments}
+          bloqueos={bloqueos}
+          clientNames={clientNames}
+          nombresDeProfesional={nombresDeProfesional}
+          diasAbiertos={diasAbiertos}
+          seleccionadaId={selectedId}
+          onSeleccionar={elegir}
+          detalle={detalle}
+        />
+      ) : (
+        <>
+          {/* La rejilla se desplaza sola, con su propio scroll. */}
+          <div className="max-h-[70dvh] overflow-auto">
+            <div className="min-w-[700px]">
+              {/* Cabecera fija con los siete dias. */}
+              <div className="bg-background sticky top-0 z-20 grid grid-cols-[60px_repeat(7,1fr)] border-b">
+                <div className="text-muted-foreground bg-background sticky left-0 p-2 text-center text-xs">
+                  Hora
                 </div>
-              );
-            })}
-          </div>
-
-          {horas.map((hour) => (
-            <div
-              key={hour}
-              className="border-border/50 grid grid-cols-[60px_repeat(7,1fr)] border-b"
-            >
-              <div className="text-muted-foreground p-1 text-center text-xs">
-                {formatTime(`${String(hour).padStart(2, "0")}:00`)}
+                {weekDates.map((d, i) => {
+                  const isToday = d === todayKey;
+                  return (
+                    <div
+                      key={d}
+                      className={`p-2 text-center ${isToday ? "bg-primary/5" : ""}`}
+                    >
+                      <p className="text-muted-foreground text-xs">
+                        {DAYS_ES[i]}
+                      </p>
+                      <p
+                        className={`text-sm font-semibold ${isToday ? "text-primary" : ""}`}
+                      >
+                        {Number(d.slice(8))}
+                      </p>
+                      {esDiaCerrado(d, diasAbiertos) && (
+                        <p className="text-muted-foreground text-[10px] uppercase">
+                          Cerrado
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-              {weekDates.map((d) => {
-                const hourAppts = appointmentsByHour[`${d}-${hour}`] || [];
-                const hourBloqueos = bloqueosPorHora[`${d}-${hour}`] ?? [];
 
-                return (
-                  <div
-                    key={d}
-                    className={`relative min-h-[48px] p-0.5 ${
-                      esDiaCerrado(d, diasAbiertos) ? "bg-muted/40" : ""
-                    }`}
-                  >
-                    {/* Los bloqueos van antes que las citas: la tarde de quien
+              {horas.map((hour) => (
+                <div
+                  key={hour}
+                  className="border-border/50 grid grid-cols-[60px_repeat(7,1fr)] border-b"
+                >
+                  {/* Las horas se quedan a la vista al desplazar los dias. */}
+                  <div className="text-muted-foreground bg-background sticky left-0 z-10 p-1 text-center text-xs">
+                    {formatTime(`${String(hour).padStart(2, "0")}:00`)}
+                  </div>
+                  {weekDates.map((d) => {
+                    const hourAppts = appointmentsByHour[`${d}-${hour}`] || [];
+                    const hourBloqueos = bloqueosPorHora[`${d}-${hour}`] ?? [];
+
+                    return (
+                      <div
+                        key={d}
+                        className={`relative min-h-[48px] p-0.5 ${
+                          esDiaCerrado(d, diasAbiertos) ? "bg-muted/40" : ""
+                        }`}
+                      >
+                        {/* Los bloqueos van antes que las citas: la tarde de quien
                         esta de vacaciones se veia libre justo en la pantalla
                         con la que se responde al telefono. */}
-                    {hourBloqueos.map((bloqueo) => (
-                      <p
-                        key={bloqueo.id}
-                        className="text-muted-foreground bg-muted-foreground/20 border-muted-foreground/40 mb-0.5 truncate rounded-sm border border-dashed px-1.5 py-0.5 text-xs"
-                        title={`${bloqueo.reason || "Agenda bloqueada"} · ${
-                          nombresDeProfesional[bloqueo.professionalId] ??
-                          "profesional"
-                        } · ${formatTime(bloqueo.startTime)} - ${formatTime(
-                          bloqueo.endTime
-                        )}`}
-                      >
-                        {bloqueo.reason || "Bloqueado"}
-                      </p>
-                    ))}
-                    {hourAppts.map((appt) => {
-                      const colorClass = getAppointmentStatus(
-                        appt.status
-                      ).calendarColor;
-                      return (
-                        <button
-                          key={appt.id}
-                          onClick={() =>
-                            setSelectedId(
-                              selectedId === appt.id ? null : appt.id
-                            )
-                          }
-                          aria-pressed={selectedId === appt.id}
-                          className={`w-full cursor-pointer rounded-sm border px-1.5 py-0.5 text-left text-xs ${colorClass} ${selectedId === appt.id ? "ring-primary ring-2" : ""}`}
-                        >
-                          <p className="truncate font-medium">
-                            {clientNames[appt.clientId] || "Cliente"}
+                        {hourBloqueos.map((bloqueo) => (
+                          <p
+                            key={bloqueo.id}
+                            className="text-muted-foreground bg-muted-foreground/20 border-muted-foreground/40 mb-0.5 truncate rounded-sm border border-dashed px-1.5 py-0.5 text-xs"
+                            title={`${bloqueo.reason || "Agenda bloqueada"} · ${
+                              nombresDeProfesional[bloqueo.professionalId] ??
+                              "profesional"
+                            } · ${formatTime(bloqueo.startTime)} - ${formatTime(
+                              bloqueo.endTime
+                            )}`}
+                          >
+                            {bloqueo.reason || "Bloqueado"}
                           </p>
-                          <p className="truncate opacity-70">
-                            {formatTime(appt.startTime)} ·{" "}
-                            {appt.appointmentServices[0]?.serviceName ||
-                              "Servicio"}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {plegadas > 0 && (
-        <button
-          type="button"
-          onClick={() => setVerTodo((v) => !v)}
-          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring mt-2 rounded-lg px-2 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2"
-        >
-          {verTodo
-            ? "Ocultar las horas sin actividad"
-            : `Mostrar ${plegadas} ${plegadas === 1 ? "hora" : "horas"} fuera del horario`}
-        </button>
-      )}
-
-      {selectedAppt && (
-        <div className="bg-muted/30 mt-4 rounded-lg border p-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <h4 className="font-semibold">
-                {clientNames[selectedAppt.clientId] || "Cliente"}
-              </h4>
-              <p className="text-muted-foreground text-sm">
-                {selectedAppt.appointmentServices
-                  .map((s) => s.serviceName)
-                  .join(", ")}
-              </p>
-              <div className="text-muted-foreground mt-1 flex items-center gap-3 text-sm">
-                <span>
-                  {formatTime(selectedAppt.startTime)} -{" "}
-                  {formatTime(selectedAppt.endTime)}
-                </span>
-                <span className="font-medium">
-                  {formatCurrency(selectedAppt.totalAmount)}
-                </span>
-              </div>
-              <Badge
-                className="mt-2"
-                variant={getAppointmentStatus(selectedAppt.status).variant}
-              >
-                {getAppointmentStatus(selectedAppt.status).label}
-              </Badge>
-            </div>
-            <div className="flex gap-2">
-              {selectedAppt.status === "PENDING" && canConfirm && (
-                <Button size="sm" onClick={() => onConfirm(selectedAppt.id)}>
-                  Confirmar
-                </Button>
-              )}
-              {selectedAppt.status === "CONFIRMED" &&
-                canConfirm &&
-                haComenzado(selectedAppt.date, selectedAppt.startTime) && (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onComplete(selectedAppt)}
-                    >
-                      Completar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onNoShow(selectedAppt.id)}
-                    >
-                      No asistió
-                    </Button>
-                  </>
-                )}
-              {ANULABLES.includes(selectedAppt.status) && canCancel && (
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => onCancel(selectedAppt.id)}
-                >
-                  Cancelar
-                </Button>
-              )}
+                        ))}
+                        {hourAppts.map((appt) => {
+                          const colorClass = getAppointmentStatus(
+                            appt.status
+                          ).calendarColor;
+                          return (
+                            <button
+                              key={appt.id}
+                              onClick={() => elegir(appt.id)}
+                              aria-pressed={selectedId === appt.id}
+                              className={`w-full cursor-pointer rounded-sm border px-1.5 py-0.5 text-left text-xs ${colorClass} ${selectedId === appt.id ? "ring-primary ring-2" : ""}`}
+                            >
+                              <p className="truncate font-medium">
+                                {clientNames[appt.clientId] || "Cliente"}
+                              </p>
+                              <p className="truncate opacity-70">
+                                {formatTime(appt.startTime)} ·{" "}
+                                {appt.appointmentServices[0]?.serviceName ||
+                                  "Servicio"}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+
+          {plegadas > 0 && (
+            <button
+              type="button"
+              onClick={() => setVerTodo((v) => !v)}
+              className="text-muted-foreground hover:text-foreground focus-visible:ring-ring mt-2 rounded-lg px-2 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2"
+            >
+              {verTodo
+                ? "Ocultar las horas sin actividad"
+                : `Mostrar ${plegadas} ${plegadas === 1 ? "hora" : "horas"} fuera del horario`}
+            </button>
+          )}
+
+          {detalle}
+        </>
       )}
     </div>
   );

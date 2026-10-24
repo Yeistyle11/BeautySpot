@@ -200,6 +200,49 @@ describe("DayView", () => {
   });
 });
 
+describe("DayView en el celular", () => {
+  const original = window.matchMedia;
+  beforeEach(() => {
+    // Ninguna consulta casa: pantalla estrecha y sin raton.
+    window.matchMedia = ((consulta: string) => ({
+      matches: false,
+      media: consulta,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia;
+  });
+  afterEach(() => {
+    window.matchMedia = original;
+  });
+
+  it("enseña un profesional a la vez y se cambia con su chip", () => {
+    pintar();
+
+    expect(screen.getByText("María")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ana (1)" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Luis (0)" }));
+
+    expect(screen.queryByText("María")).not.toBeInTheDocument();
+  });
+
+  it("ofrece bloquear con un botón, porque el hueco no se ve pulsable", () => {
+    const onBloquearHueco = jest.fn();
+    pintar({ onBloquearHueco });
+
+    fireEvent.click(screen.getByRole("button", { name: "Luis (0)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bloquear" }));
+
+    expect(onBloquearHueco).toHaveBeenCalledWith(
+      "prof-2",
+      expect.stringMatching(/^\d{2}:00$/)
+    );
+  });
+});
+
 describe("repartirSolapes", () => {
   /** Bloque mínimo con las horas que decide el reparto. */
   const bloque = (id: string, inicio: string, fin: string) =>
