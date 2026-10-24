@@ -451,6 +451,11 @@ export default function AppointmentsPage() {
                 clientNames={clientMap}
                 bloqueos={bloqueos ?? []}
                 diasAbiertos={diasAbiertos}
+                horarioDelDia={horarios?.find(
+                  (h) =>
+                    h.active &&
+                    h.dayOfWeek === new Date(`${dia}T12:00:00`).getDay()
+                )}
                 onBloquearHueco={puedeBloquear ? bloqueo.abrir : undefined}
               />
             )}

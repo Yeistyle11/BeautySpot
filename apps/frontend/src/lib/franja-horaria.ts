@@ -77,6 +77,27 @@ export function franjaDeJornada(horarios: HorarioDelNegocio[] = []): number[] {
 }
 
 /**
+ * Horas de un día concreto: su jornada, con una hora de margen, y lo que haya
+ * fuera de ella. Sin horario ese día (cerrado o sin cargar) vale la rejilla
+ * de siempre.
+ */
+export function franjaDelDia(
+  tramos: Tramo[],
+  horario?: HorarioDelNegocio
+): number[] {
+  if (!horario?.active) return franjaDeHoras(tramos);
+
+  const jornada = franjaDeJornada([horario]);
+  let desde = jornada[0];
+  let hasta = jornada[jornada.length - 1] + 1;
+  for (const tramo of tramos) {
+    desde = Math.min(desde, Math.floor(timeToMinutes(tramo.inicio) / 60));
+    hasta = Math.max(hasta, Math.ceil(timeToMinutes(tramo.fin) / 60));
+  }
+  return Array.from({ length: hasta - desde }, (_, i) => i + desde);
+}
+
+/**
  * Los huecos del día ordenados por jornada y no por reloj: la jornada empieza
  * después del hueco más largo, que es el tiempo en que el negocio cierra.
  */

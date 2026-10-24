@@ -18,7 +18,7 @@ import {
 } from "@/lib/utils";
 import { useEsEscritorio } from "@/lib/use-punto-de-ruptura";
 import { getAppointmentStatus } from "@/lib/status";
-import { franjaDeHoras } from "@/lib/franja-horaria";
+import { franjaDelDia, type HorarioDelNegocio } from "@/lib/franja-horaria";
 import type {
   Appointment,
   Professional,
@@ -41,6 +41,8 @@ interface DayViewProps {
   bloqueos?: BloqueoDeAgenda[];
   /** Dias de la semana (0 domingo … 6 sabado) en los que el negocio abre. */
   diasAbiertos?: number[];
+  /** Horario del negocio ese dia, para que la rejilla sea su jornada. */
+  horarioDelDia?: HorarioDelNegocio;
   /** Bloquear desde un hueco; sin este prop la rejilla no es pulsable. */
   onBloquearHueco?: (professionalId: string, hora: string) => void;
 }
@@ -195,6 +197,7 @@ export function DayView({
   clientNames,
   bloqueos = [],
   diasAbiertos,
+  horarioDelDia,
   onBloquearHueco,
 }: DayViewProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -241,13 +244,16 @@ export function DayView({
 
   const horas = useMemo(
     () =>
-      franjaDeHoras([
-        ...Array.from(bloquesPorProfesional.values())
-          .flat()
-          .map((b) => ({ inicio: b.inicio, fin: b.fin })),
-        ...bloqueos.map((b) => ({ inicio: b.startTime, fin: b.endTime })),
-      ]),
-    [bloquesPorProfesional, bloqueos]
+      franjaDelDia(
+        [
+          ...Array.from(bloquesPorProfesional.values())
+            .flat()
+            .map((b) => ({ inicio: b.inicio, fin: b.fin })),
+          ...bloqueos.map((b) => ({ inicio: b.startTime, fin: b.endTime })),
+        ],
+        horarioDelDia
+      ),
+    [bloquesPorProfesional, bloqueos, horarioDelDia]
   );
   const horaInicio = horas[0];
 

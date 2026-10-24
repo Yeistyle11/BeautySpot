@@ -1,6 +1,7 @@
 import {
   franjaDeHoras,
   franjaDeJornada,
+  franjaDelDia,
   ordenarPorJornada,
 } from "../franja-horaria";
 
@@ -135,5 +136,27 @@ describe("ordenarPorJornada", () => {
       enJornada: ["08:00"],
       deMadrugada: [],
     });
+  });
+});
+
+describe("franjaDelDia", () => {
+  const nocturno = { openTime: "20:00", closeTime: "02:00", active: true };
+
+  it("pinta la jornada de ese dia y no la franja de 7 a 21", () => {
+    const horas = franjaDelDia([], nocturno);
+    expect(horas[0]).toBe(19);
+    expect(horas[horas.length - 1]).toBe(26);
+  });
+
+  it("estira la jornada para lo que caiga fuera de ella", () => {
+    const horas = franjaDelDia([{ inicio: "15:00", fin: "16:00" }], nocturno);
+    expect(horas[0]).toBe(15);
+  });
+
+  it("sin horario ese dia vuelve a la rejilla de siempre", () => {
+    expect(franjaDelDia([])).toEqual(franjaDeHoras([]));
+    expect(franjaDelDia([], { ...nocturno, active: false })).toEqual(
+      franjaDeHoras([])
+    );
   });
 });
