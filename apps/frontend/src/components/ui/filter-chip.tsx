@@ -26,7 +26,7 @@ export function FilterChip({
       className={cn(
         "focus-visible:ring-ring text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2",
         variante === "pill"
-          ? "rounded-full px-3 py-1 text-xs [@media(pointer:coarse)]:min-h-9"
+          ? "rounded-full px-3 py-1 text-xs [@media(pointer:coarse)]:min-h-11"
           : "flex-1 rounded-md px-3 py-2",
         variante === "pill"
           ? activo

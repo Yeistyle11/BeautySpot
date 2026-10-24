@@ -347,7 +347,7 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                     <div className="text-right">
                       <Link
                         href="/forgot-password"
-                        className="text-primary text-sm hover:underline"
+                        className="text-primary inline-flex items-center text-sm hover:underline [@media(pointer:coarse)]:min-h-11"
                       >
                         ¿Olvidaste tu contraseña?
                       </Link>
@@ -396,7 +396,7 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                         ? `/registro${destinoAlterno}`
                         : `/login${destinoAlterno}`
                     }
-                    className="text-primary font-medium hover:underline"
+                    className="text-primary inline-flex items-center font-medium hover:underline [@media(pointer:coarse)]:min-h-11"
                   >
                     {esLogin ? "Regístrate" : "Inicia sesión"}
                   </Link>
