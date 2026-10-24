@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDuracion } from "@/lib/utils";
 import { useApi } from "@/lib/swr";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
@@ -312,7 +312,10 @@ export default function AnalyticsPage() {
             </CardContent>
           </Card>
 
-          <ProfessionalsTable filas={filasDeEquipo} />
+          <ProfessionalsTable
+            filas={filasDeEquipo}
+            ingresosDelPeriodo={data.periodo.totalRevenue}
+          />
           {filasDeEquipo.length > 0 && (
             <div className="-mt-4 lg:col-span-2">
               <Button
@@ -357,7 +360,7 @@ export default function AnalyticsPage() {
                         <p className="text-sm font-medium">{s.serviceName}</p>
                         <p className="text-muted-foreground text-xs">
                           {s.veces} {s.veces === 1 ? "vez" : "veces"} ·{" "}
-                          {s.minutos} min
+                          {formatDuracion(s.minutos)}
                         </p>
                       </div>
                       <div className="text-right">
@@ -393,7 +396,7 @@ export default function AnalyticsPage() {
       ) : (
         <EmptyState
           icon={TrendingUp}
-          titulo="No hay datos disponibles"
+          titulo="Aún no hay datos en este periodo"
           descripcion="Los reportes se llenan a medida que se registran citas y pagos."
         />
       )}

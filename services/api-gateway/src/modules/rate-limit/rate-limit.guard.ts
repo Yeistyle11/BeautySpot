@@ -12,6 +12,7 @@ import {
   RATE_LIMIT_AUTH_REQUESTS,
   RATE_LIMIT_GENERAL_REQUESTS,
   RATE_LIMIT_RESERVA_PUBLICA_REQUESTS,
+  RATE_LIMIT_SUBIDAS_REQUESTS,
   RATE_LIMIT_WINDOW_SECONDS,
 } from "@beautyspot/shared-constants";
 import { ConfigService } from "@nestjs/config";
@@ -40,7 +41,7 @@ interface Marca {
  * Qué clase de tráfico es la petición, que decide con qué presupuesto se cuenta
  * y qué pasa si Redis no responde.
  */
-type Trafico = "credenciales" | "reservaPublica" | "general";
+type Trafico = "credenciales" | "reservaPublica" | "subidas" | "general";
 
 /** Rutas que exponen credenciales y quedan bajo el límite estricto. */
 const RUTAS_DE_CREDENCIALES = [
@@ -59,12 +60,19 @@ const RUTAS_DE_CREDENCIALES = [
  */
 const RUTAS_DE_RESERVA_PUBLICA = ["/booking/public/appointments"];
 
+/**
+ * Subida de imágenes: cada una se decodifica y reencoda, así que se cuenta
+ * aparte del tráfico general y con un presupuesto menor.
+ */
+const RUTA_DE_SUBIDAS = "/core/images";
+
 @Injectable()
 export class RateLimitGuard implements CanActivate {
   private readonly logger = new Logger(RateLimitGuard.name);
 
   private readonly limiteCredenciales: number;
   private readonly limiteReservaPublica: number;
+  private readonly limiteSubidas: number;
   private readonly limiteGeneral: number;
   private readonly ventanaSegundos: number;
 
@@ -82,6 +90,11 @@ export class RateLimitGuard implements CanActivate {
       configService,
       "RATE_LIMIT_PUBLIC_BOOKING_MAX",
       RATE_LIMIT_RESERVA_PUBLICA_REQUESTS
+    );
+    this.limiteSubidas = this.numero(
+      configService,
+      "RATE_LIMIT_UPLOADS_MAX",
+      RATE_LIMIT_SUBIDAS_REQUESTS
     );
     this.limiteGeneral = this.numero(
       configService,
@@ -112,7 +125,7 @@ export class RateLimitGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const response = context.switchToHttp().getResponse<Response>();
-    const trafico = this.traficoDe(request.path);
+    const trafico = this.traficoDe(request.method, request.path);
 
     // En credenciales se cuenta tambien por cuenta objetivo, y en la reserva
     // publica por el contacto del invitado: contar solo por IP no sirve contra
@@ -138,10 +151,13 @@ export class RateLimitGuard implements CanActivate {
       }
     }
 
-    // Sin Redis no hay forma de contar. El trafico corriente pasa, porque cerrar
-    // tumbaria el producto por una caida de la cache; lo que se escribe sin token
-    // se cierra, que es donde no contar equivale a no tener limite.
-    if (sinContador && trafico !== "general") {
+    // Sin Redis no hay forma de contar. El trafico con sesion pasa, porque
+    // cerrar tumbaria el producto por una caida de la cache; lo que se escribe
+    // sin token se cierra, que es donde no contar equivale a no tener limite.
+    if (
+      sinContador &&
+      (trafico === "credenciales" || trafico === "reservaPublica")
+    ) {
       throw new HttpException(
         {
           success: false,
@@ -179,6 +195,7 @@ export class RateLimitGuard implements CanActivate {
   private limiteDe(trafico: Trafico): number {
     if (trafico === "credenciales") return this.limiteCredenciales;
     if (trafico === "reservaPublica") return this.limiteReservaPublica;
+    if (trafico === "subidas") return this.limiteSubidas;
     return this.limiteGeneral;
   }
 
@@ -216,7 +233,7 @@ export class RateLimitGuard implements CanActivate {
    * Clasifica la ruta para saber con que presupuesto se cuenta. `/auth/refresh`
    * queda fuera de credenciales: la renueva quien ya tiene sesion.
    */
-  private traficoDe(path: string): Trafico {
+  private traficoDe(method: string, path: string): Trafico {
     const normalizado = path.replace(/^(\/api\/v\d+\/[a-z]+)-service\//, "$1/");
 
     if (RUTAS_DE_CREDENCIALES.some((ruta) => normalizado.includes(ruta))) {
@@ -224,6 +241,9 @@ export class RateLimitGuard implements CanActivate {
     }
     if (RUTAS_DE_RESERVA_PUBLICA.some((ruta) => normalizado.includes(ruta))) {
       return "reservaPublica";
+    }
+    if (method === "POST" && normalizado.endsWith(RUTA_DE_SUBIDAS)) {
+      return "subidas";
     }
     return "general";
   }
@@ -234,6 +254,7 @@ export class RateLimitGuard implements CanActivate {
     const ambito = {
       credenciales: "auth",
       reservaPublica: "reserva",
+      subidas: "subidas",
       general: "general",
     }[trafico];
     const buckets = [`rate-limit:ip:${ip}:${ambito}`];

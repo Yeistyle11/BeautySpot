@@ -38,6 +38,7 @@ export function useAperturaDeCaja(recargar: RecargarCaja) {
       setAbierto(false);
       setImporte("");
       setNotas("");
+      toast.exito("Caja abierta");
       await recargar();
     } catch (err) {
       logger.error(err);
@@ -94,6 +95,7 @@ export function useMovimientoDeCaja(
       setAbierto(false);
       setImporte("");
       setConcepto("");
+      toast.exito(tipo === "IN" ? "Entrada registrada" : "Salida registrada");
       await mutate(resumenKey);
     } catch (err) {
       logger.error(err);
@@ -154,6 +156,7 @@ export function useCierreDeCaja(
       setAbierto(false);
       setImporte("");
       setNotas("");
+      toast.exito("Caja cerrada");
       await recargar();
     } catch (err) {
       logger.error(err);

@@ -1,342 +1,84 @@
-import { Injectable, BadRequestException } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-  DeleteObjectCommand,
-} from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { v4 as uuidv4 } from "uuid";
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from "@nestjs/common";
+import { randomUUID } from "node:crypto";
+import { claveDeImagenPropia } from "@beautyspot/nest-common";
+import {
+  PREFIJO_DE_IMAGENES,
+  type PropositoDeImagen,
+} from "@beautyspot/shared-constants";
+import { AlmacenDeImagenes } from "./almacen-de-imagenes";
+import { procesarImagen } from "./procesado-de-imagen";
 
-/** Tamaño máximo aceptado para una imagen. */
-export const MAXIMO_BYTES_IMAGEN = 5 * 1024 * 1024;
-
-/** Tipos de imagen que se aceptan al subir. */
-export const TIPOS_DE_IMAGEN_PERMITIDOS = [
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-];
-
-/** Trata image/jpg como image/jpeg, que es el tipo real de esos bytes. */
-function normalizarTipo(contentType: string): string {
-  return contentType === "image/jpg" ? "image/jpeg" : contentType;
-}
-
-/**
- * Deduce el tipo de imagen a partir de sus primeros bytes, o null si no es
- * ninguno de los permitidos. Es la única comprobación que el cliente no controla.
- */
-function tipoSegunContenido(file: Buffer): string | null {
-  if (file.length < 12) return null;
-
-  if (file[0] === 0xff && file[1] === 0xd8 && file[2] === 0xff) {
-    return "image/jpeg";
-  }
-  if (file.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex"))) {
-    return "image/png";
-  }
-  if (
-    file.subarray(0, 4).toString("ascii") === "RIFF" &&
-    file.subarray(8, 12).toString("ascii") === "WEBP"
-  ) {
-    return "image/webp";
-  }
-  const gif = file.subarray(0, 6).toString("ascii");
-  if (gif === "GIF87a" || gif === "GIF89a") return "image/gif";
-
-  return null;
-}
-
-/** Resultado de una subida a S3: URL pública, clave interna e identificadores. */
-export interface UploadResult {
+/** Lo que responde una subida: la URL que el formulario guarda después. */
+export interface ImagenSubida {
   url: string;
-  key: string;
-  publicId: string;
-  bucket: string;
-}
-
-/** URL presignada para que el cliente suba el archivo directo a S3, con su vencimiento. */
-export interface PresignedUploadUrlResult {
-  uploadUrl: string;
-  publicId: string;
-  key: string;
-  expiresAt: Date;
+  ancho: number;
+  alto: number;
 }
 
 /**
- * Encapsula el almacenamiento de imágenes en S3: subida directa desde el
- * backend, generación de URLs presignadas para el cliente, borrado y validación.
+ * Subida, lectura y descarte de las imágenes de los negocios. Subir no cambia
+ * ninguna entidad: devuelve la URL y quien la quiera la guarda con su PATCH.
  */
 @Injectable()
 export class ImagesService {
-  private readonly s3Client: S3Client;
-  private readonly bucket: string;
-  private readonly region: string;
-  private readonly cdnUrl?: string;
+  private readonly logger = new Logger(ImagesService.name);
 
-  constructor(private readonly configService: ConfigService) {
-    this.region = this.configService.get<string>("AWS_REGION", "us-east-1");
-    this.bucket = this.configService.get<string>(
-      "AWS_S3_BUCKET",
-      "beautyspot-images"
-    );
-    this.cdnUrl = this.configService.get<string>("AWS_CDN_URL");
+  constructor(private readonly almacen: AlmacenDeImagenes) {}
 
-    this.s3Client = new S3Client({
-      region: this.region,
-      credentials: {
-        accessKeyId: this.configService.get<string>("AWS_ACCESS_KEY_ID", ""),
-        secretAccessKey: this.configService.get<string>(
-          "AWS_SECRET_ACCESS_KEY",
-          ""
-        ),
-      },
-    });
-  }
-
-  /** Sube un archivo a S3 bajo `key/{uuid}` y devuelve su URL (CDN si está configurada). */
-  async uploadFile(
-    file: Buffer,
-    key: string,
-    contentType: string,
-    metadata?: Record<string, string>
-  ): Promise<UploadResult> {
-    const publicId = uuidv4();
-    const fullKey = `${key}/${publicId}`;
-
-    try {
-      const command = new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: fullKey,
-        Body: file,
-        ContentType: contentType,
-        Metadata: metadata,
-      });
-
-      await this.s3Client.send(command);
-
-      const url = this.cdnUrl
-        ? `${this.cdnUrl}/${fullKey}`
-        : `https://${this.bucket}.s3.${this.region}.amazonaws.com/${fullKey}`;
-
-      return {
-        url,
-        key: fullKey,
-        publicId,
-        bucket: this.bucket,
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Error desconocido";
-      throw new BadRequestException(
-        `Error subiendo archivo a S3: ${errorMessage}`
-      );
+  async subir(
+    archivo: Buffer | undefined,
+    proposito: PropositoDeImagen,
+    businessId: string | undefined
+  ): Promise<ImagenSubida> {
+    if (!archivo?.length) {
+      throw new BadRequestException("Falta la imagen");
     }
-  }
-
-  async uploadBusinessLogo(
-    businessId: string,
-    file: Buffer,
-    contentType: string
-  ): Promise<UploadResult> {
-    return this.uploadFile(file, `businesses/${businessId}/logo`, contentType, {
-      businessId,
-      type: "logo",
-    });
-  }
-
-  async uploadProfessionalPhoto(
-    professionalId: string,
-    file: Buffer,
-    contentType: string
-  ): Promise<UploadResult> {
-    return this.uploadFile(
-      file,
-      `professionals/${professionalId}/photo`,
-      contentType,
-      {
-        professionalId,
-        type: "photo",
-      }
-    );
-  }
-
-  async uploadServiceImage(
-    serviceId: string,
-    file: Buffer,
-    contentType: string
-  ): Promise<UploadResult> {
-    return this.uploadFile(file, `services/${serviceId}/image`, contentType, {
-      serviceId,
-      type: "image",
-    });
-  }
-
-  /** Genera una URL presignada para que el cliente suba el archivo directo a S3. */
-  async generatePresignedUploadUrl(
-    key: string,
-    contentType: string,
-    expiresIn: number = 3600
-  ): Promise<PresignedUploadUrlResult> {
-    const publicId = uuidv4();
-    const fullKey = `${key}/${publicId}`;
-    const expiresAt = new Date(Date.now() + expiresIn * 1000);
-
-    try {
-      const command = new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: fullKey,
-        ContentType: contentType,
-      });
-
-      const uploadUrl = await getSignedUrl(this.s3Client, command, {
-        expiresIn,
-      });
-
-      return {
-        uploadUrl,
-        publicId,
-        key: fullKey,
-        expiresAt,
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Error desconocido";
-      throw new BadRequestException(
-        `Error generando URL presignada: ${errorMessage}`
-      );
+    if (!businessId) {
+      throw new BadRequestException("No se pudo determinar el negocio");
     }
+
+    const imagen = await procesarImagen(archivo, proposito);
+    // Un nombre nuevo en cada subida: el archivo nunca cambia, así que se puede
+    // cachear para siempre, y no dice nada de quien lo subió.
+    const clave = `negocios/${businessId}/${proposito}/${randomUUID()}.webp`;
+    await this.almacen.guardar(clave, imagen.datos);
+
+    return {
+      url: `${PREFIJO_DE_IMAGENES}${clave}`,
+      ancho: imagen.ancho,
+      alto: imagen.alto,
+    };
   }
 
-  async generatePresignedUploadUrlForBusinessLogo(
-    businessId: string,
-    contentType: string,
-    expiresIn: number = 3600
-  ): Promise<PresignedUploadUrlResult> {
-    return this.generatePresignedUploadUrl(
-      `businesses/${businessId}/logo`,
-      contentType,
-      expiresIn
-    );
-  }
-
-  async generatePresignedUploadUrlForProfessionalPhoto(
-    professionalId: string,
-    contentType: string,
-    expiresIn: number = 3600
-  ): Promise<PresignedUploadUrlResult> {
-    return this.generatePresignedUploadUrl(
-      `professionals/${professionalId}/photo`,
-      contentType,
-      expiresIn
-    );
-  }
-
-  async generatePresignedUploadUrlForServiceImage(
-    serviceId: string,
-    contentType: string,
-    expiresIn: number = 3600
-  ): Promise<PresignedUploadUrlResult> {
-    return this.generatePresignedUploadUrl(
-      `services/${serviceId}/image`,
-      contentType,
-      expiresIn
-    );
-  }
-
-  async deleteImage(key: string): Promise<void> {
-    try {
-      const command = new DeleteObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-      });
-
-      await this.s3Client.send(command);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Error desconocido";
-      throw new BadRequestException(
-        `Error eliminando imagen de S3: ${errorMessage}`
-      );
-    }
-  }
-
-  /** Devuelve una URL presignada de lectura para un objeto privado de S3. */
-  async getImageUrl(key: string, expiresIn: number = 3600): Promise<string> {
-    try {
-      const command = new GetObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-      });
-
-      const url = await getSignedUrl(this.s3Client, command, { expiresIn });
-
-      return url;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Error desconocido";
-      throw new BadRequestException(
-        `Error obteniendo URL de imagen: ${errorMessage}`
-      );
-    }
+  /** El archivo de una imagen propia; 404 si la URL no es de las nuestras. */
+  async leer(url: string): Promise<Buffer> {
+    const propia = claveDeImagenPropia(url);
+    const datos = propia ? await this.almacen.leer(propia.clave) : null;
+    if (!datos) throw new NotFoundException("Imagen no encontrada");
+    return datos;
   }
 
   /**
-   * Valida que el archivo sea realmente una imagen permitida y no exceda 5MB.
-   * El content-type lo declara quien sube, así que se comprueban también los
-   * primeros bytes, que sí describen el contenido real.
+   * Borra las imágenes que ya no usa el negocio. Solo toca las suyas, y un
+   * fallo se registra sin propagarse: el cambio que las dejó sin uso ya está
+   * guardado, y un archivo de más no rompe nada.
    */
-  validateImageFile(file: Buffer, contentType: string): void {
-    if (!TIPOS_DE_IMAGEN_PERMITIDOS.includes(contentType)) {
-      throw new BadRequestException(
-        `Tipo de archivo no permitido. Tipos permitidos: ${TIPOS_DE_IMAGEN_PERMITIDOS.join(", ")}`
-      );
+  async descartar(urls: string[], businessId: string): Promise<void> {
+    for (const url of urls) {
+      const propia = claveDeImagenPropia(url);
+      if (propia?.businessId !== businessId) continue;
+      try {
+        await this.almacen.borrar(propia.clave);
+      } catch (error) {
+        this.logger.warn(
+          `No se pudo borrar ${propia.clave}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
     }
-
-    if (file.length > MAXIMO_BYTES_IMAGEN) {
-      throw new BadRequestException(
-        `El archivo excede el tamaño máximo de 5MB. Tamaño actual: ${this.formatFileSize(file.length)}`
-      );
-    }
-
-    const real = tipoSegunContenido(file);
-    if (!real) {
-      throw new BadRequestException(
-        "El archivo no es una imagen JPEG, PNG, WebP o GIF"
-      );
-    }
-    if (real !== normalizarTipo(contentType)) {
-      throw new BadRequestException(
-        `El contenido del archivo no corresponde con el tipo declarado (${contentType})`
-      );
-    }
-  }
-
-  /** Formatea un tamaño en bytes a una cadena legible (KB, MB, GB). */
-  private formatFileSize(bytes: number): string {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-  }
-
-  /** Extrae la clave de S3 a partir de una URL pública o de CDN. */
-  extractKeyFromUrl(url: string): string {
-    const urlWithoutDomain = url.replace(/^https?:\/\/[^\/]+/, "");
-    const urlWithoutBucket = urlWithoutDomain.replace(
-      /^\/beautyspot-images\//,
-      ""
-    );
-
-    if (this.cdnUrl) {
-      return urlWithoutBucket.replace(/^\//, "");
-    }
-
-    return urlWithoutBucket;
   }
 }

@@ -1,5 +1,14 @@
 import { IsBoolean } from "class-validator";
-import { Controller, Get, Post, Patch, Body, Param } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  ParseUUIDPipe,
+  NotFoundException,
+} from "@nestjs/common";
 import { UsersService } from "./users.service";
 import {
   CurrentUser,
@@ -152,5 +161,16 @@ export class InternalUsersController {
   @Get(":id/token-version")
   async tokenVersion(@Param("id") userId: string) {
     return { version: await this.usersService.versionDeToken(userId) };
+  }
+
+  /**
+   * Correo y nombre de la cuenta, para quien tiene que escribirle a partir de
+   * un evento que solo trae su id (la bienvenida del dueño de un negocio).
+   */
+  @Get(":id/contacto")
+  async contacto(@Param("id", ParseUUIDPipe) userId: string) {
+    const contacto = await this.usersService.contacto(userId);
+    if (!contacto) throw new NotFoundException("Usuario no encontrado");
+    return contacto;
   }
 }

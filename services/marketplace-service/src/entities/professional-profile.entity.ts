@@ -18,7 +18,7 @@ export class ProfessionalProfileEntity extends TenantEntity {
   // Datos basicos sincronizados desde core-service
   @Column() name!: string;
 
-  @Column({ nullable: true }) photo!: string;
+  @Column({ type: "varchar", nullable: true }) photo!: string | null;
 
   @Column({ type: "text", nullable: true }) bio!: string;
 

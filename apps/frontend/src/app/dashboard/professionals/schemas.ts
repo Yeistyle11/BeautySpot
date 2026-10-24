@@ -195,7 +195,8 @@ export function toProfessionalPayload(
     yearsExp: Number(form.yearsExp),
     category: categoryName || undefined,
     categoryId: form.categoryId || undefined,
-    photo: form.photo || undefined,
+    // Sin foto se manda null: así también se quita la que tenía.
+    photo: form.photo || null,
     ...(includeActive ? { active: form.active === "true" } : {}),
   };
 }

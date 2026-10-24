@@ -63,6 +63,15 @@ export class UsersService {
     return row?.tokenVersion ?? 0;
   }
 
+  /** Correo y nombre de una cuenta, para escribirle; null si no existe. */
+  async contacto(id: string): Promise<{ email: string; name: string } | null> {
+    const row = await this.userRepository.findOne({
+      where: { id },
+      select: { id: true, email: true, name: true },
+    });
+    return row ? { email: row.email, name: row.name } : null;
+  }
+
   /** Busca un usuario por id; lanza 404 si no existe. */
   async findById(id: string): Promise<User> {
     const user = await this.userRepository.findOne({ where: { id } });
@@ -235,6 +244,7 @@ export class UsersService {
           userId: user.id,
           email: user.email,
           name: user.name,
+          businessId,
         },
       });
 

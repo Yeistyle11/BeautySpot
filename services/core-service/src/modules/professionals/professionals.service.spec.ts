@@ -14,13 +14,16 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { InternalHttpClient } from "@beautyspot/nest-common";
+import { ImagesService } from "../images/images.service";
 
 describe("ProfessionalsService", () => {
   let service: ProfessionalsService;
+  const mockImages = { descartar: jest.fn().mockResolvedValue(undefined) };
   let mockRepo: jest.Mocked<Repository<Professional>>;
   let mockPsRepo: jest.Mocked<Repository<ProfessionalService>>;
   let mockServiceRepo: jest.Mocked<Repository<Service>>;
   let mockHttp: { pedir: jest.Mock };
+  let mockOutboxSpec: { enqueue: jest.Mock };
 
   const mockProfessional: Professional = {
     id: "prof-123",
@@ -90,7 +93,7 @@ describe("ProfessionalsService", () => {
     // contrario lo dicen.
     mockServiceRepo = { exists: jest.fn().mockResolvedValue(true) } as any;
 
-    const mockOutboxSpec = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    mockOutboxSpec = { enqueue: jest.fn().mockResolvedValue(undefined) };
     const mockDataSourceSpec = {
       // La transacción entrega el mismo repositorio simulado del test.
       transaction: jest.fn((cb) =>
@@ -102,6 +105,7 @@ describe("ProfessionalsService", () => {
       providers: [
         { provide: DataSource, useValue: mockDataSourceSpec },
         { provide: OutboxService, useValue: mockOutboxSpec },
+        { provide: ImagesService, useValue: mockImages },
         ProfessionalsService,
         {
           provide: getRepositoryToken(Professional),
@@ -569,6 +573,47 @@ describe("ProfessionalsService", () => {
       await expect(
         service.findByUserId("user-1", "business-123")
       ).resolves.toBeNull();
+    });
+  });
+
+  describe("foto del profesional", () => {
+    const NEGOCIO = "632f8391-d9ba-4d76-bc2c-1d20dae78ff6";
+    const FOTO = `/media/negocios/${NEGOCIO}/profesional/3f1c2b9a-7d4e-4a1b-9c3d-2e5f6a7b8c9d.webp`;
+    const OTRA_FOTO = FOTO.replace("3f1c", "4f1c");
+
+    it("no deja dar de alta con una foto que no se subió desde el panel", async () => {
+      await expect(
+        service.create(NEGOCIO, {
+          name: "Ana",
+          photo: "https://evil.example/ana.png",
+        })
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("avisa al escaparate con nombre y foto y borra la foto anterior", async () => {
+      mockRepo.findOne
+        .mockResolvedValueOnce({ ...mockProfessional, photo: FOTO } as any)
+        .mockResolvedValueOnce({
+          ...mockProfessional,
+          photo: OTRA_FOTO,
+        } as any);
+
+      await service.update("prof-123", NEGOCIO, { photo: OTRA_FOTO });
+
+      expect(mockOutboxSpec.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: "core.professional.updated",
+          payload: {
+            professionalId: "prof-123",
+            businessId: NEGOCIO,
+            name: mockProfessional.name,
+            photo: OTRA_FOTO,
+          },
+        })
+      );
+      expect(mockImages.descartar).toHaveBeenCalledWith([FOTO], NEGOCIO);
     });
   });
 });

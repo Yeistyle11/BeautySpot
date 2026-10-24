@@ -24,6 +24,8 @@ COPY --from=builder /app/node_modules /app/node_modules
 COPY --from=builder /app/apps/frontend/.next ./.next
 COPY --from=builder /app/apps/frontend/package.json ./package.json
 COPY --from=builder /app/apps/frontend/next.config.js ./next.config.js
+# Lo estático que no pasa por el build: iconos, imágenes de los correos.
+COPY --from=builder /app/apps/frontend/public ./public
 EXPOSE 8080
 
 # El frontend no expone /health: basta con que Next sirva la portada.

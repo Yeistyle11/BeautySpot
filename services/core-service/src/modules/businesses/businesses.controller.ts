@@ -127,6 +127,12 @@ export class InternalBusinessesController {
     return this.service.namesByIds(dto.ids);
   }
 
+  /** Logo y portada del negocio, que el escaparate copia al darse de alta. */
+  @Get(":id/imagenes")
+  async imagenes(@Param("id", ParseUUIDPipe) id: string) {
+    return this.service.imagenes(id);
+  }
+
   /** Crea un negocio a petición de otro microservicio (p. ej. al registrarse). */
   @Post()
   async create(@Body() dto: CreateBusinessDto) {

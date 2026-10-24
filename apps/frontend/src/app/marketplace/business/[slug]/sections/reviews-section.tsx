@@ -1,12 +1,10 @@
 "use client";
 
 // Seccion de resenas del perfil publico, con la distribucion de calificaciones.
-import Image from "next/image";
 import { useState } from "react";
 import { Flag, Heart, MessageSquare, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { imageUnoptimized } from "@/lib/image";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { logger } from "@/lib/logger";
@@ -103,8 +101,8 @@ export function ReviewsSection({
           reviews.map((r) => (
             <Card key={r.id} className="shadow-flat border-0">
               <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <div className="flex gap-0.5">
                         {[1, 2, 3, 4, 5].map((s) => (
@@ -153,7 +151,7 @@ export function ReviewsSection({
                         type="button"
                         onClick={() => denunciar(r.id)}
                         disabled={denunciadas.includes(r.id)}
-                        className="text-muted-foreground hover:text-destructive flex items-center gap-1 text-xs disabled:opacity-50"
+                        className="text-muted-foreground hover:text-destructive -mx-2 flex min-h-11 items-center gap-1 px-2 text-xs disabled:opacity-50"
                       >
                         <Flag className="h-3 w-3" />
                         {denunciadas.includes(r.id)
@@ -165,23 +163,9 @@ export function ReviewsSection({
                 </div>
 
                 {r.comment && (
-                  <p className="mt-3 text-sm leading-relaxed">{r.comment}</p>
-                )}
-
-                {r.photos && r.photos.length > 0 && (
-                  <div className="mt-3 flex gap-2">
-                    {r.photos.map((photo, i) => (
-                      <Image
-                        key={i}
-                        src={photo}
-                        alt=""
-                        width={64}
-                        height={64}
-                        unoptimized={imageUnoptimized(photo)}
-                        className="h-16 w-16 rounded-lg object-cover"
-                      />
-                    ))}
-                  </div>
+                  <p className="mt-3 break-words text-sm leading-relaxed">
+                    {r.comment}
+                  </p>
                 )}
 
                 {r.response && (
@@ -189,7 +173,7 @@ export function ReviewsSection({
                     <p className="text-muted-foreground mb-1 text-xs font-medium">
                       Respuesta del negocio
                     </p>
-                    <p className="text-sm">{r.response}</p>
+                    <p className="break-words text-sm">{r.response}</p>
                   </div>
                 )}
               </CardContent>

@@ -3,7 +3,6 @@ import {
   IsOptional,
   IsNumber,
   IsArray,
-  IsUrl,
   IsBoolean,
   MaxLength,
   IsUUID,
@@ -19,7 +18,8 @@ export class CreateProfessionalDto {
   @IsOptional() @IsUUID() categoryId?: string;
   @IsArray() specialties!: string[];
   @IsOptional() @IsNumber() yearsExp?: number;
-  @IsOptional() @IsUrl() photo?: string;
+  /** Foto subida desde el panel; `null` la quita. */
+  @IsOptional() @IsString() @MaxLength(255) photo?: string | null;
 }
 
 /** Campos editables de un profesional (todos opcionales). */
@@ -31,7 +31,8 @@ export class UpdateProfessionalDto {
   @IsOptional() @IsUUID() categoryId?: string;
   @IsOptional() @IsArray() specialties?: string[];
   @IsOptional() @IsNumber() yearsExp?: number;
-  @IsOptional() @IsUrl() photo?: string;
+  /** Foto subida desde el panel; `null` la quita. */
+  @IsOptional() @IsString() @MaxLength(255) photo?: string | null;
   @IsOptional() @IsBoolean() active?: boolean;
 }
 

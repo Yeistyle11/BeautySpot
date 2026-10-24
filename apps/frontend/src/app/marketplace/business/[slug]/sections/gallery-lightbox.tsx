@@ -71,7 +71,7 @@ export function GalleryLightbox({
               type="button"
               onClick={anterior}
               aria-label="Foto anterior"
-              className="focus-visible:ring-ring absolute left-4 rounded-full p-2 text-white/70 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2"
+              className="focus-visible:ring-ring absolute left-2 z-10 rounded-full bg-black/40 p-2 text-white/80 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 sm:left-4"
             >
               <ChevronLeft className="h-8 w-8" />
             </button>
@@ -83,7 +83,7 @@ export function GalleryLightbox({
             width={1200}
             height={900}
             unoptimized={imageUnoptimized(actual.url)}
-            className="max-h-[85vh] max-w-full rounded-lg object-contain"
+            className="max-h-[85dvh] max-w-full rounded-lg object-contain"
           />
 
           {total > 1 && (
@@ -91,7 +91,7 @@ export function GalleryLightbox({
               type="button"
               onClick={siguiente}
               aria-label="Foto siguiente"
-              className="focus-visible:ring-ring absolute right-4 rounded-full p-2 text-white/70 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2"
+              className="focus-visible:ring-ring absolute right-2 z-10 rounded-full bg-black/40 p-2 text-white/80 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 sm:right-4"
             >
               <ChevronRight className="h-8 w-8" />
             </button>

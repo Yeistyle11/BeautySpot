@@ -4,6 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import { ProcessedEventsStore } from "@beautyspot/nest-common";
 import { ocultarCorreo } from "@beautyspot/shared-utils";
 import {
+  BusinessCreatedEvent,
   UserRegisteredEvent,
   PasswordResetRequestedEvent,
   EmailVerificationRequestedEvent,
@@ -14,11 +15,13 @@ import {
   nombreDeCola,
 } from "@beautyspot/event-types";
 import { EmailService } from "../emails/email.service";
+import { DataEnricherService } from "../data-enricher/data-enricher.service";
 import { AvisosService } from "./avisos.service";
 
 /**
- * Correos de la cuenta: bienvenida, restablecer contrasena, confirmar el correo
- * y avisar de un alta repetida. Los cuatro son solo correo.
+ * Correos de la cuenta: las tres bienvenidas (cliente, equipo y negocio),
+ * restablecer contrasena, confirmar el correo y avisar de un alta repetida.
+ * Todos son solo correo.
  */
 @Injectable()
 export class CuentaListeners {
@@ -28,10 +31,14 @@ export class CuentaListeners {
     private readonly emailService: EmailService,
     private readonly configService: ConfigService,
     private readonly processedEvents: ProcessedEventsStore,
-    private readonly avisos: AvisosService
+    private readonly avisos: AvisosService,
+    private readonly dataEnricher: DataEnricherService
   ) {}
 
-  /** Al registrarse un usuario, encola el correo de bienvenida. */
+  /**
+   * Al crearse una cuenta, encola su bienvenida: la de quien viene a reservar,
+   * o la de equipo si la dio de alta un negocio.
+   */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
     routingKey: EventNames.AUTH_USER_REGISTERED,
@@ -47,21 +54,80 @@ export class CuentaListeners {
         event,
         "notification:bienvenida",
         async () => {
-          const { jobId } = await this.emailService.queueWelcomeEmail(
-            event.payload.email,
-            { clientName: event.payload.name }
-          );
+          const { email, name, businessId } = event.payload;
 
+          if (businessId) {
+            const negocio =
+              await this.dataEnricher.enrichBusinessData(businessId);
+            const { jobId, subject } =
+              await this.emailService.queueBienvenidaEquipo(email, {
+                clientName: name,
+                businessName: negocio.businessName,
+              });
+            await this.avisos.emitEmailQueuedEvent(
+              jobId,
+              email,
+              "bienvenida-equipo",
+              subject
+            );
+            return;
+          }
+
+          const { jobId, subject } = await this.emailService.queueWelcomeEmail(
+            email,
+            { clientName: name }
+          );
           await this.avisos.emitEmailQueuedEvent(
             jobId,
-            event.payload.email,
+            email,
             "welcome-email",
-            "Bienvenido a BeautySpot"
+            subject
           );
         }
       );
     } catch (error) {
       this.avisos.logError("bienvenida", error);
+    }
+  }
+
+  /**
+   * Al dar de alta un negocio, da la bienvenida a su dueño con los pasos para
+   * dejarlo listo. El evento solo trae su id: el correo se pide a auth.
+   */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.CORE_BUSINESS_CREATED,
+    queue: nombreDeCola("notification", EventNames.CORE_BUSINESS_CREATED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleBusinessCreated(event: BusinessCreatedEvent) {
+    const { businessId, name, ownerId } = event.payload;
+    this.logger.log(`Negocio dado de alta: ${businessId}`);
+
+    try {
+      await this.processedEvents.once(
+        event,
+        "notification:bienvenida del negocio",
+        async () => {
+          const dueno = await this.dataEnricher.enrichUserContact(ownerId);
+          // Sin a quién escribir no hay correo; el negocio ya está creado.
+          if (!dueno?.email) return;
+
+          const { jobId, subject } =
+            await this.emailService.queueBienvenidaNegocio(dueno.email, {
+              clientName: dueno.name,
+              businessName: name,
+            });
+          await this.avisos.emitEmailQueuedEvent(
+            jobId,
+            dueno.email,
+            "bienvenida-negocio",
+            subject
+          );
+        }
+      );
+    } catch (error) {
+      this.avisos.logError("bienvenida del negocio", error);
     }
   }
 
@@ -88,19 +154,17 @@ export class CuentaListeners {
         event,
         "notification:alta repetida",
         async () => {
-          const { jobId } = await this.emailService.queueRegistroDuplicado(
-            email,
-            {
+          const { jobId, subject } =
+            await this.emailService.queueRegistroDuplicado(email, {
               clientName: name,
               recoveryLink: `${this.appUrl()}/forgot-password`,
-            }
-          );
+            });
 
           await this.avisos.emitEmailQueuedEvent(
             jobId,
             email,
             "registro-duplicado",
-            "Ya tienes una cuenta en BeautySpot"
+            subject
           );
         }
       );
@@ -133,17 +197,20 @@ export class CuentaListeners {
         async () => {
           const resetLink = `${this.appUrl()}/reset-password?token=${resetToken}`;
 
-          const { jobId } = await this.emailService.queuePasswordReset(email, {
-            clientName: name,
-            resetLink,
-            expiryHours: this.horasHasta(expiresAt),
-          });
+          const { jobId, subject } = await this.emailService.queuePasswordReset(
+            email,
+            {
+              clientName: name,
+              resetLink,
+              expiryHours: this.horasHasta(expiresAt),
+            }
+          );
 
           await this.avisos.emitEmailQueuedEvent(
             jobId,
             email,
             "password-reset",
-            "Restablecer contraseña - BeautySpot"
+            subject
           );
         }
       );
@@ -178,20 +245,18 @@ export class CuentaListeners {
         async () => {
           const verificationLink = `${this.appUrl()}/verify-email?token=${verificationToken}`;
 
-          const { jobId } = await this.emailService.queueEmailVerification(
-            email,
-            {
+          const { jobId, subject } =
+            await this.emailService.queueEmailVerification(email, {
               clientName: name,
               verificationLink,
               expiryHours: this.horasHasta(expiresAt),
-            }
-          );
+            });
 
           await this.avisos.emitEmailQueuedEvent(
             jobId,
             email,
             "email-verification",
-            "Confirma tu cuenta - BeautySpot"
+            subject
           );
         }
       );

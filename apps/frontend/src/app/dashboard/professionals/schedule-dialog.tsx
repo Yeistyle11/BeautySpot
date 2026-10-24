@@ -1,13 +1,12 @@
 "use client";
 
 // Dialogo para configurar el horario semanal de un profesional.
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { HoraDeCierre } from "@/components/ui/hora-de-cierre";
+import { RangoDeHoras } from "@/components/ui/rango-de-horas";
 import {
   DAYS_MAP,
   TRAMO_POR_DEFECTO,
@@ -101,51 +100,31 @@ export function ScheduleDialog({
                   aria-labelledby={`day-${day.value}`}
                 />
                 {trabaja ? (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex w-full flex-col gap-2 sm:w-auto">
                     {tramos.map((tramo, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <Input
-                          type="time"
-                          value={tramo.startTime}
-                          onChange={(e) =>
-                            editarTramo(
-                              day.value,
-                              i,
-                              "startTime",
-                              e.target.value
-                            )
-                          }
-                          className="h-8 w-28 text-sm"
-                          aria-label={`Hora de inicio del tramo ${i + 1}, ${day.label}`}
-                        />
-                        <span className="text-muted-foreground text-sm">a</span>
-                        <HoraDeCierre
-                          value={tramo.endTime}
-                          apertura={tramo.startTime}
-                          onValueChange={(hora) =>
-                            editarTramo(day.value, i, "endTime", hora)
-                          }
-                          className="h-8 w-40 text-sm"
-                          aria-label={`Hora de fin del tramo ${i + 1}, ${day.label}`}
-                        />
-                        {tramos.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2"
-                            onClick={() =>
-                              setTramos(
-                                day.value,
-                                tramos.filter((_, j) => j !== i)
-                              )
-                            }
-                            aria-label={`Quitar el tramo ${i + 1} del ${day.label}`}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
+                      <RangoDeHoras
+                        key={i}
+                        desde={tramo.startTime}
+                        hasta={tramo.endTime}
+                        onDesde={(hora) =>
+                          editarTramo(day.value, i, "startTime", hora)
+                        }
+                        onHasta={(hora) =>
+                          editarTramo(day.value, i, "endTime", hora)
+                        }
+                        etiquetaDesde={`Hora de inicio del tramo ${i + 1}, ${day.label}`}
+                        etiquetaHasta={`Hora de fin del tramo ${i + 1}, ${day.label}`}
+                        alQuitar={
+                          tramos.length > 1
+                            ? () =>
+                                setTramos(
+                                  day.value,
+                                  tramos.filter((_, j) => j !== i)
+                                )
+                            : undefined
+                        }
+                        etiquetaQuitar={`Quitar el tramo ${i + 1} del ${day.label}`}
+                      />
                     ))}
                     <Button
                       type="button"

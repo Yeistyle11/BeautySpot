@@ -336,15 +336,19 @@ minutos, pero eso acota la ventana, no la cierra.
 | `JWT_REFRESH_EXPIRES_IN` | `7d` por defecto                                   |
 | `BCRYPT_SALT_ROUNDS`     | `12`                                               |
 
-**core-service (3002)** — almacenamiento de imágenes
+**core-service (3002)** — imágenes que suben los negocios
 
-| Variable                | Descripción             |
-| ----------------------- | ----------------------- |
-| `AWS_ACCESS_KEY_ID`     | Credenciales de S3      |
-| `AWS_SECRET_ACCESS_KEY` | Credenciales de S3      |
-| `AWS_REGION`            | `us-east-1` por defecto |
-| `AWS_S3_BUCKET`         | Bucket de imágenes      |
-| `AWS_CDN_URL`           | URL pública del CDN     |
+| Variable       | Descripción                                                                 |
+| -------------- | --------------------------------------------------------------------------- |
+| `MEDIA_DRIVER` | `disco` (por defecto) o `s3`                                                |
+| `MEDIA_DIR`    | Carpeta de las imágenes con `disco`: `/data/media`, el volumen `media_data` |
+
+Con `MEDIA_DRIVER=s3` las imágenes van a un bucket compatible con S3 (AWS,
+Cloudflare R2, MinIO) en lugar del disco, sin tocar código: `AWS_S3_BUCKET`,
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` (`auto` en R2) y, para
+R2 o MinIO, `AWS_ENDPOINT`. El bucket no necesita ser público: las imágenes las
+sirve la app en `/media/…`. Pasar de uno a otro exige copiar antes los archivos,
+con la misma estructura de carpetas, al nuevo almacén.
 
 **notification-service (3005)** — correo saliente
 
@@ -494,6 +498,19 @@ gunzip -c backup_core_20260725.sql.gz \
     psql -U postgres beautyspot_core
 ```
 
+Las **imágenes** que suben los negocios no están en la base: viven en el volumen
+`media_data` de core-service y se respaldan aparte.
+
+```bash
+docker compose -f docker-compose.prod.yml exec -T core-service   tar czf - -C /data/media . > "backup_media_$(date +%Y%m%d).tar.gz"
+```
+
+Restauración:
+
+```bash
+docker compose -f docker-compose.prod.yml exec -T core-service   tar xzf - -C /data/media < backup_media_20260725.tar.gz
+```
+
 Un respaldo que se queda en el mismo VPS no sobrevive a perder el VPS: hay que
 copiarlo fuera.
 
@@ -608,6 +625,7 @@ Infraestructura:
 - [ ] Redis 7 con contraseña
 - [ ] RabbitMQ 3 con usuario propio y panel no expuesto
 - [ ] Nada de infraestructura accesible desde internet
+- [ ] Copia de seguridad de las bases **y** del volumen de imágenes `media_data`
 
 Configuración:
 

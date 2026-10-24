@@ -1,0 +1,21 @@
+{{! Píldora de estado centrada. Parámetros: tono (exito|aviso|info|neutro|marca), texto. }}
+<table
+  role="presentation"
+  cellpadding="0"
+  cellspacing="0"
+  border="0"
+  align="center"
+  style="margin: 0 auto 16px;"
+>
+  <tr>
+    <td
+      style="background-color: {{color tono 'fondo'}}; color: {{color
+        tono
+        'texto'
+      }}; border-radius: 999px; padding: 6px 14px; font-size: 13px; line-height: 18px; font-weight: 600;"
+    >
+      <span style="color: {{color tono 'punto'}};">&#9679;</span>&nbsp;
+      {{texto}}
+    </td>
+  </tr>
+</table>

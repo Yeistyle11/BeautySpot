@@ -19,7 +19,8 @@ import type { CashMovement, CashSession } from "./schemas";
 
 export const COLUMNAS_DE_MOVIMIENTOS: ColumnaDeTabla[] = [
   { label: "Concepto" },
-  { label: "Cliente" },
+  // En movil el cliente va bajo el concepto.
+  { label: "Cliente", ocultaEnMovil: true },
   { label: "Hora", ocultaEnMovil: true },
   { label: "Importe", alineacion: "right" },
 ];
@@ -52,9 +53,16 @@ export const MovementRow = memo(function MovementRow({
         icono={entra ? ArrowUpCircle : ArrowDownCircle}
         colorDelIcono={entra ? "#157E3C" : "#C81E1E"}
         titulo={movimiento.concept}
+        subtitulo={
+          movimiento.clientName ? (
+            <span className="md:hidden">{movimiento.clientName}</span>
+          ) : undefined
+        }
       />
       {/* Quien registro cada entrada. */}
-      <CeldaDeTabla apagada>{movimiento.clientName || "—"}</CeldaDeTabla>
+      <CeldaDeTabla apagada ocultaEnMovil>
+        {movimiento.clientName || "—"}
+      </CeldaDeTabla>
       <CeldaDeTabla apagada ocultaEnMovil>
         <span className="whitespace-nowrap">
           {formatTimeStamp(movimiento.createdAt)}
@@ -102,7 +110,7 @@ export const SessionRow = memo(function SessionRow({
       <CeldaDeTabla alineacion="right">
         {sesion.difference ? (
           <span
-            className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-base font-semibold ${clasesDeDescuadre(sesion.difference)}`}
+            className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-sm font-semibold md:text-base ${clasesDeDescuadre(sesion.difference)}`}
           >
             {/* El icono lleva el signo: si falta o si sobra. */}
             {sesion.difference < 0 ? (
@@ -110,7 +118,10 @@ export const SessionRow = memo(function SessionRow({
             ) : (
               <ArrowUp className="h-4 w-4" aria-hidden />
             )}
-            {sesion.difference < 0 ? "Faltaron " : "Sobraron "}
+            {/* En movil la flecha y el color ya lo dicen. */}
+            <span className="sr-only md:not-sr-only">
+              {sesion.difference < 0 ? "Faltaron " : "Sobraron "}
+            </span>
             {formatCurrency(Math.abs(sesion.difference))}
           </span>
         ) : (

@@ -184,6 +184,31 @@ describe("UsersService", () => {
     });
   });
 
+  describe("contacto", () => {
+    it("da solo el correo y el nombre, nada de la contraseña", async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        id: "user-123",
+        email: "dueno@example.com",
+        name: "Yeison",
+      });
+
+      await expect(service.contacto("user-123")).resolves.toEqual({
+        email: "dueno@example.com",
+        name: "Yeison",
+      });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
+        where: { id: "user-123" },
+        select: { id: true, email: true, name: true },
+      });
+    });
+
+    it("da null para una cuenta que no existe", async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.contacto("borrado")).resolves.toBeNull();
+    });
+  });
+
   describe("findByEmail", () => {
     it("debería retornar el usuario cuando existe", async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser);

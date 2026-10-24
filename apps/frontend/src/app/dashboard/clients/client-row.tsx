@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 import { Award, Edit, Eye, Mail, Merge, Phone, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AccionesDeFila } from "@/components/ui/acciones-de-fila";
 import {
   CeldaDeTabla,
   CeldaPrincipal,
@@ -18,7 +18,8 @@ export type CampoDeOrden = "name" | "createdAt";
 export const COLUMNAS_DE_CLIENTES: ColumnaDeTabla<CampoDeOrden>[] = [
   { label: "Cliente", campo: "name" },
   { label: "Email", ocultaEnMovil: true },
-  { label: "Teléfono" },
+  // En movil el telefono va bajo el nombre.
+  { label: "Teléfono", ocultaEnMovil: true },
   { label: "Alta", campo: "createdAt", ocultaEnMovil: true },
   { label: "Puntos", alineacion: "right", ocultaEnMovil: true },
 ];
@@ -49,54 +50,37 @@ export const ClientRow = memo(function ClientRow({
   return (
     <FilaDeTabla
       acciones={
-        <>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onVerFicha(client)}
-            aria-label={`Ver la ficha de ${client.name}`}
-            title="Ver ficha"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          {editable && (
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => onEditar(client)}
-                aria-label={`Editar a ${client.name}`}
-                title="Editar"
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-              {puedeFusionar && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => onFusionar(client)}
-                  aria-label={`Fusionar la ficha de ${client.name} con otra`}
-                  title="Fusionar"
-                >
-                  <Merge className="h-4 w-4" />
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                onClick={() => onSuprimir(client)}
-                aria-label={`Suprimir los datos de ${client.name}`}
-                title="Suprimir datos"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
-          )}
-        </>
+        <AccionesDeFila
+          sobre={client.name}
+          acciones={[
+            {
+              etiqueta: "Ver ficha",
+              descripcion: `Ver la ficha de ${client.name}`,
+              icono: Eye,
+              alElegir: () => onVerFicha(client),
+            },
+            editable && {
+              etiqueta: "Editar",
+              descripcion: `Editar a ${client.name}`,
+              icono: Edit,
+              alElegir: () => onEditar(client),
+            },
+            editable &&
+              puedeFusionar && {
+                etiqueta: "Fusionar",
+                descripcion: `Fusionar la ficha de ${client.name} con otra`,
+                icono: Merge,
+                alElegir: () => onFusionar(client),
+              },
+            editable && {
+              etiqueta: "Suprimir datos",
+              descripcion: `Suprimir los datos de ${client.name}`,
+              icono: Trash2,
+              tono: "destructivo",
+              alElegir: () => onSuprimir(client),
+            },
+          ]}
+        />
       }
     >
       <CeldaPrincipal
@@ -112,6 +96,11 @@ export const ClientRow = memo(function ClientRow({
             {client.name}
           </button>
         }
+        subtitulo={
+          client.phone ? (
+            <span className="md:hidden">{client.phone}</span>
+          ) : undefined
+        }
       />
       <CeldaDeTabla apagada ocultaEnMovil>
         {client.email ? (
@@ -123,7 +112,7 @@ export const ClientRow = memo(function ClientRow({
           "—"
         )}
       </CeldaDeTabla>
-      <CeldaDeTabla apagada>
+      <CeldaDeTabla apagada ocultaEnMovil>
         {client.phone ? (
           <span className="flex items-center gap-1.5">
             <Phone className="h-3.5 w-3.5 shrink-0" />

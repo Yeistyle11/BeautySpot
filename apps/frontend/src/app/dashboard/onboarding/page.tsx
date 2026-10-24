@@ -67,6 +67,7 @@ export default function OnboardingPage() {
       setBusinessId(negocio.id);
       setRole("OWNER");
 
+      toast.exito(`${form.name} ya está dado de alta`);
       router.push("/dashboard");
     } catch (err: unknown) {
       logger.error(err);

@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { FilterChip } from "@/components/ui/filter-chip";
+import { DetalleDeCita } from "@/components/detalle-de-cita";
+import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import {
   finExtendido,
   repartoPorProfesional,
@@ -12,13 +13,12 @@ import {
 import {
   desplazarDia,
   esDiaCerrado,
-  formatCurrency,
   formatTime,
-  haComenzado,
   toLocalDateKey,
 } from "@/lib/utils";
+import { useEsEscritorio } from "@/lib/use-punto-de-ruptura";
 import { getAppointmentStatus } from "@/lib/status";
-import { franjaDeHoras } from "@/lib/franja-horaria";
+import { franjaDelDia, type HorarioDelNegocio } from "@/lib/franja-horaria";
 import type {
   Appointment,
   Professional,
@@ -41,6 +41,8 @@ interface DayViewProps {
   bloqueos?: BloqueoDeAgenda[];
   /** Dias de la semana (0 domingo … 6 sabado) en los que el negocio abre. */
   diasAbiertos?: number[];
+  /** Horario del negocio ese dia, para que la rejilla sea su jornada. */
+  horarioDelDia?: HorarioDelNegocio;
   /** Bloquear desde un hueco; sin este prop la rejilla no es pulsable. */
   onBloquearHueco?: (professionalId: string, hora: string) => void;
 }
@@ -54,13 +56,13 @@ export interface BloqueoDeAgenda {
   reason: string | null;
 }
 
-/** Estados desde los que la cita todavia puede anularse. */
-const ANULABLES = ["PENDING", "CONFIRMED"];
-
 /** Minutos en que se parte cada hora al pulsar un hueco. */
 const MEDIAS_HORAS = ["00", "30"];
 
 const ALTO_HORA = 64;
+
+/** Alto minimo de una cita; en movil, lo que hace falta para acertarle. */
+const ALTO_MINIMO_DE_CITA = { escritorio: 18, movil: 28 } as const;
 
 /** Pixeles desde el borde superior de la rejilla que corresponden a una hora. */
 function aPixeles(hora: string, horaInicio: number): number {
@@ -177,7 +179,9 @@ function bloquesDe(appt: Appointment): BloqueDeCita[] {
 
 /**
  * Vista de un dia con una columna por profesional. Cada cita se posiciona por
- * minutos y se pinta partida en los tramos que ocupan al profesional.
+ * minutos y se pinta partida en los tramos que ocupan al profesional. En movil
+ * se ve un profesional a la vez, elegido con chips: dos columnas de 140 px ya
+ * no caben.
  */
 export function DayView({
   appointments,
@@ -193,10 +197,13 @@ export function DayView({
   clientNames,
   bloqueos = [],
   diasAbiertos,
+  horarioDelDia,
   onBloquearHueco,
 }: DayViewProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedAppt = appointments.find((a) => a.id === selectedId) ?? null;
+  const esEscritorio = useEsEscritorio();
+  const [elegidoId, setElegidoId] = useState<string | null>(null);
 
   const delDia = useMemo(
     () => appointments.filter((a) => a.date === date),
@@ -237,13 +244,16 @@ export function DayView({
 
   const horas = useMemo(
     () =>
-      franjaDeHoras([
-        ...Array.from(bloquesPorProfesional.values())
-          .flat()
-          .map((b) => ({ inicio: b.inicio, fin: b.fin })),
-        ...bloqueos.map((b) => ({ inicio: b.startTime, fin: b.endTime })),
-      ]),
-    [bloquesPorProfesional, bloqueos]
+      franjaDelDia(
+        [
+          ...Array.from(bloquesPorProfesional.values())
+            .flat()
+            .map((b) => ({ inicio: b.inicio, fin: b.fin })),
+          ...bloqueos.map((b) => ({ inicio: b.startTime, fin: b.endTime })),
+        ],
+        horarioDelDia
+      ),
+    [bloquesPorProfesional, bloqueos, horarioDelDia]
   );
   const horaInicio = horas[0];
 
@@ -259,6 +269,12 @@ export function DayView({
     ];
   }, [bloquesPorProfesional, professionals]);
 
+  // Sin eleccion, o si el elegido ya no tiene columna, se ve el primero.
+  const elegido = columnas.find((p) => p.id === elegidoId) ?? columnas[0];
+  const visibles = esEscritorio || !elegido ? columnas : [elegido];
+  const citasDe = (id: string) =>
+    new Set((bloquesPorProfesional.get(id) ?? []).map((b) => b.appt.id)).size;
+
   const esHoy = date === toLocalDateKey(new Date());
   const cerrado = esDiaCerrado(date, diasAbiertos);
   const etiqueta = new Date(date + "T12:00:00").toLocaleDateString("es-CO", {
@@ -269,7 +285,7 @@ export function DayView({
 
   return (
     <div>
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <Button
           variant="outline"
           size="icon"
@@ -295,7 +311,7 @@ export function DayView({
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
-        <span className="ml-2 text-sm font-medium first-letter:uppercase">
+        <span className="ml-2 min-w-0 truncate text-sm font-medium first-letter:uppercase">
           {etiqueta}
         </span>
         {/* El negocio cerrado se dibujaba con la rejilla de cualquier otro dia,
@@ -305,7 +321,42 @@ export function DayView({
             Cerrado
           </span>
         )}
+        {/* En tactil el hueco de la rejilla no avisa de que se puede pulsar. */}
+        {!esEscritorio && onBloquearHueco && elegido && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            onClick={() =>
+              onBloquearHueco(
+                elegido.id,
+                `${String(horaInicio).padStart(2, "0")}:00`
+              )
+            }
+          >
+            <Lock className="mr-1.5 h-4 w-4" /> Bloquear
+          </Button>
+        )}
       </div>
+
+      {!esEscritorio && columnas.length > 1 && (
+        <div
+          role="group"
+          aria-label="Profesional que se muestra"
+          className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1"
+        >
+          {columnas.map((p) => (
+            <FilterChip
+              key={p.id}
+              activo={p.id === elegido?.id}
+              onClick={() => setElegidoId(p.id)}
+              className="shrink-0 whitespace-nowrap"
+            >
+              {p.name ?? "Profesional"} ({citasDe(p.id)})
+            </FilterChip>
+          ))}
+        </div>
+      )}
 
       {columnas.length === 0 ? (
         <p className="text-muted-foreground py-8 text-center">
@@ -314,22 +365,30 @@ export function DayView({
       ) : (
         <div className="overflow-x-auto">
           <div
-            className="grid min-w-[640px]"
+            className={esEscritorio ? "grid min-w-[640px]" : "grid"}
             style={{
-              gridTemplateColumns: `64px repeat(${columnas.length}, minmax(140px, 1fr))`,
+              gridTemplateColumns: esEscritorio
+                ? `64px repeat(${visibles.length}, minmax(140px, 1fr))`
+                : "48px 1fr",
             }}
           >
-            <div className="border-b" />
-            {columnas.map((p) => (
-              <div
-                key={p.id}
-                className="truncate border-b p-2 text-center text-sm font-semibold"
-              >
-                {p.name ?? "Profesional"}
-              </div>
-            ))}
+            {/* En movil el nombre ya lo dice el chip elegido. */}
+            {esEscritorio && (
+              <>
+                <div className="bg-card sticky left-0 z-10 border-b" />
+                {visibles.map((p) => (
+                  <div
+                    key={p.id}
+                    className="truncate border-b p-2 text-center text-sm font-semibold"
+                  >
+                    {p.name ?? "Profesional"}
+                  </div>
+                ))}
+              </>
+            )}
 
-            <div>
+            {/* Las horas se quedan a la vista al desplazar los profesionales. */}
+            <div className="bg-card sticky left-0 z-10">
               {horas.map((hora) => (
                 <div
                   key={hora}
@@ -341,7 +400,7 @@ export function DayView({
               ))}
             </div>
 
-            {columnas.map((p) => (
+            {visibles.map((p) => (
               <div
                 key={p.id}
                 className="relative border-l"
@@ -386,6 +445,11 @@ export function DayView({
                     columna={reparto.columna}
                     columnas={reparto.columnas}
                     horaInicio={horaInicio}
+                    altoMinimo={
+                      esEscritorio
+                        ? ALTO_MINIMO_DE_CITA.escritorio
+                        : ALTO_MINIMO_DE_CITA.movil
+                    }
                     seleccionada={selectedId === reparto.bloque.appt.id}
                     cliente={
                       clientNames[reparto.bloque.appt.clientId] || "Cliente"
@@ -421,76 +485,24 @@ export function DayView({
       </p>
 
       {selectedAppt && (
-        <div className="bg-muted/30 mt-4 rounded-lg border p-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <h4 className="font-semibold">
-                {clientNames[selectedAppt.clientId] || "Cliente"}
-              </h4>
-              <p className="text-muted-foreground text-sm">
-                {selectedAppt.appointmentServices
-                  .map((s) =>
-                    s.professionalId &&
-                    s.professionalId !== selectedAppt.professionalId
-                      ? `${s.serviceName} (${nombreDeProfesional(professionals, s.professionalId)})`
-                      : s.serviceName
-                  )
-                  .join(", ")}
-              </p>
-              <div className="text-muted-foreground mt-1 flex items-center gap-3 text-sm">
-                <span>
-                  {formatTime(selectedAppt.startTime)} -{" "}
-                  {formatTime(selectedAppt.endTime)}
-                </span>
-                <span className="font-medium">
-                  {formatCurrency(selectedAppt.totalAmount)}
-                </span>
-              </div>
-              <Badge
-                className="mt-2"
-                variant={getAppointmentStatus(selectedAppt.status).variant}
-              >
-                {getAppointmentStatus(selectedAppt.status).label}
-              </Badge>
-            </div>
-            <div className="flex gap-2">
-              {selectedAppt.status === "PENDING" && canConfirm && (
-                <Button size="sm" onClick={() => onConfirm(selectedAppt.id)}>
-                  Confirmar
-                </Button>
-              )}
-              {selectedAppt.status === "CONFIRMED" &&
-                canConfirm &&
-                haComenzado(selectedAppt.date, selectedAppt.startTime) && (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onComplete(selectedAppt)}
-                    >
-                      Completar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onNoShow(selectedAppt.id)}
-                    >
-                      No asistió
-                    </Button>
-                  </>
-                )}
-              {ANULABLES.includes(selectedAppt.status) && canCancel && (
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => onCancel(selectedAppt.id)}
-                >
-                  Cancelar
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
+        <DetalleDeCita
+          cita={selectedAppt}
+          cliente={clientNames[selectedAppt.clientId] || "Cliente"}
+          servicios={selectedAppt.appointmentServices
+            .map((s) =>
+              s.professionalId &&
+              s.professionalId !== selectedAppt.professionalId
+                ? `${s.serviceName} (${nombreDeProfesional(professionals, s.professionalId)})`
+                : s.serviceName
+            )
+            .join(", ")}
+          canConfirm={canConfirm}
+          canCancel={canCancel}
+          onComplete={onComplete}
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+          onNoShow={onNoShow}
+        />
       )}
     </div>
   );
@@ -526,6 +538,7 @@ function BloqueCita({
   columna,
   columnas,
   horaInicio,
+  altoMinimo,
   seleccionada,
   cliente,
   onSelect,
@@ -534,6 +547,7 @@ function BloqueCita({
   columna: number;
   columnas: number;
   horaInicio: number;
+  altoMinimo: number;
   seleccionada: boolean;
   cliente: string;
   onSelect: () => void;
@@ -543,7 +557,7 @@ function BloqueCita({
   const hayHueco = bloque.ocupados.length > 1;
 
   const arriba = aPixeles(bloque.inicio, horaInicio);
-  const alto = Math.max(aPixeles(bloque.fin, horaInicio) - arriba, 18);
+  const alto = Math.max(aPixeles(bloque.fin, horaInicio) - arriba, altoMinimo);
   const finDeCliente = aPixeles(bloque.finDeCliente, horaInicio) - arriba;
   const ocupados = bloque.ocupados.map((tramo) => ({
     arriba: aPixeles(tramo.inicio, horaInicio) - arriba,

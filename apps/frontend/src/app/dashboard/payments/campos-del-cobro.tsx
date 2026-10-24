@@ -2,7 +2,7 @@
 
 // Campos de un cobro: importe, descuento, propina, medios, puntos y notas.
 import { useId } from "react";
-import { Banknote, CreditCard, Smartphone } from "lucide-react";
+import { Banknote, CreditCard, Smartphone, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -13,6 +13,7 @@ import { VALOR_DEL_PUNTO } from "@beautyspot/shared-constants";
 import { formatCurrency } from "@/lib/utils";
 import { nombreDelMetodo } from "@/lib/metodos-de-pago";
 import {
+  descuentoExcesivo,
   faltaPorRepartir,
   importeACobrar,
   totalDelCobro,
@@ -119,6 +120,11 @@ export function CamposDelCobro({
         <Field
           label="Descuento (COP)"
           hint="Lo que rebaja el negocio de su margen. Queda escrito con su motivo."
+          error={
+            descuentoExcesivo(form)
+              ? `No puede pasar del importe cobrado (${formatCurrency(Number(form.amount))})`
+              : undefined
+          }
         >
           {/* El descuento no pasa del importe. */}
           <Input
@@ -188,7 +194,10 @@ export function CamposDelCobro({
             Reparto del cobro
           </p>
           {form.metodos.map((linea, indice) => (
-            <div key={indice} className="flex gap-2">
+            <div
+              key={indice}
+              className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2"
+            >
               <Select
                 value={linea.method}
                 onChange={(e) =>
@@ -215,15 +224,16 @@ export function CamposDelCobro({
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
+                size="icon"
                 onClick={() => quitarLinea(indice)}
                 aria-label="Quitar esta parte"
+                title="Quitar"
               >
-                Quitar
+                <X className="h-4 w-4" />
               </Button>
             </div>
           ))}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {form.metodos.length < PAYMENT_METHOD_OPTIONS.length && (
               <Button
                 type="button"

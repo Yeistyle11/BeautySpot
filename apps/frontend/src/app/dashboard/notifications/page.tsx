@@ -1,11 +1,19 @@
 "use client";
 
-// Pagina de notificaciones: bandeja del usuario con marcado de leidas y paginacion.
+// Pagina de notificaciones: bandeja del usuario, en la misma tabla que el resto
+// de listados, con marcado de leidas y paginacion.
 import { useCallback } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { mutate } from "swr";
-import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { LoadingState } from "@/components/ui/loading-state";
+import { AccionesDeFila } from "@/components/ui/acciones-de-fila";
+import {
+  CeldaDeTabla,
+  FilaDeTabla,
+  TablaDeRegistros,
+  type ColumnaDeTabla,
+} from "@/components/ui/tabla-de-registros";
 import { Bell, CheckCheck } from "lucide-react";
 import { z } from "zod";
 import { api } from "@/lib/api";
@@ -15,7 +23,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
 import type { IPaginatedResponse } from "@beautyspot/shared-types";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 const notificationSchema = z.object({
   id: z.string(),
@@ -29,6 +37,13 @@ const notificationSchema = z.object({
 type Notification = z.infer<typeof notificationSchema>;
 
 const NOTIFICATIONS_KEY = "/notification/notifications";
+
+/** En movil la fecha va bajo el aviso y el estado se lee en el fondo de la fila. */
+const COLUMNAS_DE_AVISOS: ColumnaDeTabla[] = [
+  { label: "Aviso" },
+  { label: "Fecha", ocultaEnMovil: true },
+  { label: "Estado", ocultaEnMovil: true },
+];
 
 /** Centro de avisos del usuario, con marcado de leidos. */
 export default function NotificationsPage() {
@@ -80,53 +95,81 @@ export default function NotificationsPage() {
         titulo="Notificaciones"
         descripcion="Centro de notificaciones"
       />
-      <div className="space-y-3">
-        {loading ? (
-          <LoadingState recurso="los avisos" />
-        ) : loadError ? (
-          <ErrorDeCarga
-            error={loadError}
-            recurso="las notificaciones"
-            onReintentar={() => void recargar()}
-          />
-        ) : list.length === 0 ? (
-          <EmptyState
-            icon={Bell}
-            titulo="Aún no hay notificaciones"
-            descripcion="Aquí aparecerán los avisos de tus citas y pagos."
-          />
-        ) : (
-          list.map((n) => (
-            <Card
+      {loading ? (
+        <LoadingState recurso="los avisos" />
+      ) : loadError ? (
+        <ErrorDeCarga
+          error={loadError}
+          recurso="las notificaciones"
+          onReintentar={() => void recargar()}
+        />
+      ) : list.length === 0 ? (
+        <EmptyState
+          icon={Bell}
+          titulo="Aún no hay notificaciones"
+          descripcion="Aquí aparecerán los avisos de tus citas y pagos."
+        />
+      ) : (
+        <TablaDeRegistros titulo="Notificaciones" columnas={COLUMNAS_DE_AVISOS}>
+          {list.map((n) => (
+            <FilaDeTabla
               key={n.id}
-              className={`shadow-flat border-0 ${!n.read ? "bg-primary/5" : ""}`}
+              className={n.read ? undefined : "bg-primary/5"}
+              acciones={
+                <AccionesDeFila
+                  sobre={`el aviso «${n.title}»`}
+                  acciones={[
+                    {
+                      etiqueta: "Marcar como leído",
+                      descripcion: "Marcar el aviso como leido",
+                      icono: CheckCheck,
+                      alElegir: () => markRead(n.id),
+                      visible: !n.read,
+                    },
+                  ]}
+                />
+              }
             >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-medium">{n.title}</p>
-                    <p className="text-muted-foreground mt-1 text-sm">
+              {/* El mensaje se lee entero: no se corta como el nombre de un
+                  registro. */}
+              <CeldaDeTabla className="w-full md:w-auto">
+                <div className="flex items-start gap-3">
+                  <div className="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
+                    <Bell className="text-primary h-4 w-4" aria-hidden />
+                  </div>
+                  <div className="min-w-0">
+                    <p
+                      className={cn(
+                        "break-words",
+                        n.read ? "font-medium" : "font-semibold"
+                      )}
+                    >
+                      {n.title}
+                    </p>
+                    <p className="text-muted-foreground mt-0.5 break-words text-sm">
                       {n.message}
                     </p>
-                    <p className="text-muted-foreground mt-2 text-xs">
+                    <p className="text-muted-foreground mt-1 text-xs md:hidden">
                       {formatDate(n.createdAt)}
+                      {!n.read && " · Nuevo"}
                     </p>
                   </div>
-                  {!n.read && (
-                    <button
-                      onClick={() => markRead(n.id)}
-                      aria-label="Marcar el aviso como leido"
-                      className="text-primary hover:text-primary/80 focus-visible:ring-ring rounded-sm focus-visible:outline-none focus-visible:ring-2"
-                    >
-                      <CheckCheck className="h-5 w-5" />
-                    </button>
-                  )}
                 </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+              </CeldaDeTabla>
+              <CeldaDeTabla apagada ocultaEnMovil>
+                <span className="whitespace-nowrap">
+                  {formatDate(n.createdAt)}
+                </span>
+              </CeldaDeTabla>
+              <CeldaDeTabla ocultaEnMovil>
+                <Badge variant={n.read ? "muted" : "accent"}>
+                  {n.read ? "Leído" : "Nuevo"}
+                </Badge>
+              </CeldaDeTabla>
+            </FilaDeTabla>
+          ))}
+        </TablaDeRegistros>
+      )}
 
       <Pagination
         meta={meta}

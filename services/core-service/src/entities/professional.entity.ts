@@ -13,7 +13,7 @@ export class Professional extends TenantEntity {
   @Column({ type: "uuid", name: "user_id", nullable: true })
   userId!: string | null;
   @Column() name!: string;
-  @Column({ nullable: true }) photo!: string;
+  @Column({ type: "varchar", nullable: true }) photo!: string | null;
   @Column({ type: "text", nullable: true }) bio!: string;
   @Column({ nullable: true }) category!: string;
   @Column({ type: "uuid", name: "category_id", nullable: true })

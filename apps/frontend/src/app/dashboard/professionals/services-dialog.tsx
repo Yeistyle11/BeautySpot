@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDuracion } from "@/lib/utils";
 import type {
   FilaDeTarifa,
   Professional,
@@ -122,7 +122,7 @@ export function ServicesDialog({
                     <p className="text-sm font-medium">{servicio.name}</p>
                     <p className="text-muted-foreground text-xs">
                       Catálogo: {formatCurrency(servicio.price)} ·{" "}
-                      {servicio.duration} min
+                      {formatDuracion(servicio.duration)}
                     </p>
                   </div>
 

@@ -347,11 +347,6 @@ export class ReviewsService {
       });
     }
 
-    if (query.withPhotos === "true") {
-      qb.andWhere("r.photos IS NOT NULL");
-      qb.andWhere("jsonb_array_length(r.photos) > 0");
-    }
-
     qb.orderBy("r.created_at", "DESC");
 
     // El listado es público, así que se sirve la proyección y no la fila: el

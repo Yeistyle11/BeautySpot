@@ -56,6 +56,8 @@ describe("DataEnricherService", () => {
         businessName: "Professional",
         businessAddress: "Calle 1",
         businessPhone: "123",
+        // Sin huso resuelto, el de por defecto.
+        businessTimezone: "America/Bogota",
       });
       expect(mockHttp.pedirONulo).toHaveBeenCalledWith(
         "core",

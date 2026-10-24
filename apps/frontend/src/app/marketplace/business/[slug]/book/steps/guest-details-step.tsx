@@ -6,7 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
-import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatDate,
+  formatTime,
+  formatDuracion,
+} from "@/lib/utils";
 import { datosDeReservaCompletos, type Service } from "../schemas";
 
 export interface GuestDetails {
@@ -68,7 +73,8 @@ export function GuestDetailsStep({
             {formatTime(startTime)}
           </p>
           <p>
-            <span className="font-medium">Duración:</span> {totalDuration} min
+            <span className="font-medium">Duración:</span>{" "}
+            {formatDuracion(totalDuration)}
           </p>
           <p>
             <span className="font-medium">Total:</span>{" "}
@@ -90,9 +96,13 @@ export function GuestDetailsStep({
             <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
               <User className="h-5 w-5" />
             </div>
-            <div>
-              <p className="font-medium">Reservando como {user.name}</p>
-              <p className="text-muted-foreground text-sm">{user.email}</p>
+            <div className="min-w-0">
+              <p className="break-words font-medium">
+                Reservando como {user.name}
+              </p>
+              <p className="text-muted-foreground break-all text-sm">
+                {user.email}
+              </p>
             </div>
           </div>
         ) : (

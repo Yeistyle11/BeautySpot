@@ -59,7 +59,7 @@ export function ProfessionalDetailDialog({
     >
       {professional && (
         <div>
-          <div className="mb-5 flex items-start gap-5">
+          <div className="mb-5 flex items-start gap-3 sm:gap-5">
             {professional.photo ? (
               <Image
                 src={professional.photo}
@@ -67,21 +67,21 @@ export function ProfessionalDetailDialog({
                 width={96}
                 height={96}
                 unoptimized={imageUnoptimized(professional.photo)}
-                className="h-24 w-24 shrink-0 rounded-2xl object-cover"
+                className="h-16 w-16 shrink-0 rounded-2xl object-cover sm:h-24 sm:w-24"
               />
             ) : (
-              <div className="bg-primary/10 text-primary flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl text-3xl font-bold">
+              <div className="bg-primary/10 text-primary flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-2xl font-bold sm:h-24 sm:w-24 sm:text-3xl">
                 {(professional.name || "?").charAt(0)}
               </div>
             )}
-            <div>
-              <h3 className="text-xl font-bold">
+            <div className="min-w-0">
+              <h3 className="break-words text-xl font-bold">
                 {professional.name || "Sin nombre"}
               </h3>
               {professional.category && (
                 <Badge className="mt-1">{professional.category}</Badge>
               )}
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 {/* Sin resenas no se pone nota: un «0.0» se leeria como la peor. */}
                 {Number(professional.rating) > 0 ? (
                   <>

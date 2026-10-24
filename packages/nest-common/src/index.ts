@@ -108,3 +108,9 @@ export { FichasDelUsuarioService } from "./fichas/fichas-del-usuario.service";
 export { FichasDelUsuarioModule } from "./fichas/fichas-del-usuario.module";
 export { ZonaDelNegocioService } from "./zona/zona-del-negocio.service";
 export { ZonaDelNegocioModule } from "./zona/zona-del-negocio.module";
+export {
+  asegurarImagenPropia,
+  claveDeImagenPropia,
+  esImagenPropia,
+  imagenesQueSobran,
+} from "./imagenes/imagen-propia";

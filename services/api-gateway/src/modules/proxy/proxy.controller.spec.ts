@@ -1,4 +1,6 @@
+import { Readable } from "node:stream";
 import { HttpStatus, INestApplication } from "@nestjs/common";
+import { MAXIMO_BYTES_SUBIDA } from "@beautyspot/shared-constants";
 import { Test } from "@nestjs/testing";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const request = require("supertest");
@@ -512,6 +514,88 @@ describe("ProxyController (reenvío)", () => {
         "Content-Type": "application/pdf",
         "Content-Disposition": "attachment; filename=factura.pdf",
       });
+    });
+  });
+
+  describe("imágenes", () => {
+    it("devuelve las cabeceras de caché del servicio", async () => {
+      const webp = Buffer.from("RIFF....WEBP");
+      fetchMock.mockResolvedValue({
+        status: 200,
+        headers: new Headers({
+          "content-type": "image/webp",
+          "cache-control": "public, max-age=31536000, immutable",
+          etag: '"a.webp"',
+          "x-content-type-options": "nosniff",
+        }),
+        arrayBuffer: async () =>
+          webp.buffer.slice(webp.byteOffset, webp.byteOffset + webp.length),
+      });
+      const { res, sent, cabeceras } = fakeResponseOut();
+
+      await controller.proxyRequest("core", fakeRequest(), res);
+
+      expect((sent.body as Buffer).equals(webp)).toBe(true);
+      expect(cabeceras).toMatchObject({
+        "cache-control": "public, max-age=31536000, immutable",
+        etag: '"a.webp"',
+        "x-content-type-options": "nosniff",
+        "Content-Type": "image/webp",
+      });
+    });
+
+    /** Una subida multipart: el cuerpo es el propio stream de la petición. */
+    const subida = (cabeceras: Record<string, string>) =>
+      Object.assign(Readable.from([Buffer.from("--x partes --x--")]), {
+        path: "/api/v1/core/images",
+        originalUrl: "/api/v1/core/images",
+        method: "POST",
+        headers: {
+          "content-type": "multipart/form-data; boundary=x",
+          ...cabeceras,
+        },
+        body: {},
+      }) as never;
+
+    it("reenvía el archivo en streaming con su tipo y su longitud", async () => {
+      fetchMock.mockResolvedValue(fakeResponse(201, '{"url":"/media/x"}'));
+      const { res, sent } = fakeResponseOut();
+
+      await controller.proxyRequest(
+        "core",
+        subida({ "content-length": "20" }),
+        res
+      );
+
+      const opciones = fetchMock.mock.calls[0][1];
+      expect(opciones.headers).toMatchObject({
+        "content-type": "multipart/form-data; boundary=x",
+        "content-length": "20",
+      });
+      expect(opciones.body).toBeInstanceOf(ReadableStream);
+      expect(opciones.duplex).toBe("half");
+      expect(sent).toEqual({ status: 201, body: { url: "/media/x" } });
+    });
+
+    it("rechaza una subida que pasa del máximo sin llamar al servicio", async () => {
+      const { res } = fakeResponseOut();
+
+      await expect(
+        controller.proxyRequest(
+          "core",
+          subida({ "content-length": String(MAXIMO_BYTES_SUBIDA + 1) }),
+          res
+        )
+      ).rejects.toMatchObject({ status: HttpStatus.PAYLOAD_TOO_LARGE });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("rechaza una subida que no dice cuánto pesa", async () => {
+      const { res } = fakeResponseOut();
+
+      await expect(
+        controller.proxyRequest("core", subida({}), res)
+      ).rejects.toMatchObject({ status: HttpStatus.LENGTH_REQUIRED });
     });
   });
 

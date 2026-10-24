@@ -79,6 +79,10 @@ export class SendAppointmentReminder1hDto {
   @IsString()
   serviceName: string;
 
+  /** El correo dice «Hoy, domingo 25 de octubre» junto a la hora. */
+  @IsString()
+  appointmentDate: string;
+
   @IsString()
   appointmentTime: string;
 

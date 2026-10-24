@@ -122,12 +122,32 @@ const config: Config = {
           from: { opacity: "0", transform: "translateY(-4px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        "aparecer-aviso": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        // La salida es la entrada al reves, mas corta: lo que se va no
+        // tiene que hacerse esperar.
+        "desaparecer-fondo": {
+          from: { opacity: "1" },
+          to: { opacity: "0" },
+        },
+        "desaparecer-dialogo": {
+          from: { opacity: "1", transform: "translate(-50%, -50%) scale(1)" },
+          to: {
+            opacity: "0",
+            transform: "translate(-50%, -48%) scale(0.98)",
+          },
+        },
       },
       animation: {
         "aparecer-fondo": "aparecer-fondo 150ms ease-out",
         "aparecer-dialogo":
           "aparecer-dialogo 180ms cubic-bezier(0.16, 1, 0.3, 1)",
         "aparecer-lista": "aparecer-lista 120ms ease-out",
+        "aparecer-aviso": "aparecer-aviso 180ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "desaparecer-fondo": "desaparecer-fondo 120ms ease-in forwards",
+        "desaparecer-dialogo": "desaparecer-dialogo 120ms ease-in forwards",
       },
     },
   },

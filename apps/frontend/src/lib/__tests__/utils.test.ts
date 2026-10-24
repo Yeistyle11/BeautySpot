@@ -3,6 +3,7 @@ import {
   diaDeLaSemana,
   esDiaCerrado,
   formatAniosExperiencia,
+  formatDuracion,
   formatCurrency,
   formatDate,
   formatPorcentaje,
@@ -223,5 +224,19 @@ describe("esDiaCerrado", () => {
 
   it("un horario vacio si dice que no abre ningun dia", () => {
     expect(esDiaCerrado("2026-03-16", [])).toBe(true);
+  });
+});
+
+describe("formatDuracion", () => {
+  it("deja en minutos lo que no llega a la hora", () => {
+    expect(formatDuracion(45)).toBe("45 min");
+  });
+
+  it("escribe las horas justas sin minutos", () => {
+    expect(formatDuracion(120)).toBe("2 h");
+  });
+
+  it("parte en horas y minutos lo demas", () => {
+    expect(formatDuracion(90)).toBe("1 h 30 min");
   });
 });

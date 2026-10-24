@@ -7,6 +7,7 @@ import {
   NotificationType,
 } from "@beautyspot/shared-types";
 import {
+  AppointmentCreatedPayload,
   AppointmentCreatedEvent,
   AppointmentConfirmedEvent,
   AppointmentCompletedEvent,
@@ -19,8 +20,11 @@ import {
   DEAD_LETTER_EXCHANGE,
   nombreDeCola,
 } from "@beautyspot/event-types";
-import { EmailService } from "../emails/email.service";
-import { DataEnricherService } from "../data-enricher/data-enricher.service";
+import { DatosDeCita, EmailService } from "../emails/email.service";
+import {
+  DataEnricherService,
+  EnrichedProfileData,
+} from "../data-enricher/data-enricher.service";
 import { AvisosService } from "./avisos.service";
 import {
   fechaEnCastellano,
@@ -36,6 +40,37 @@ function nombreDelServicio(servicios?: ServicioDeLaCita[]): string {
   const nombres = servicios.map((s) => s.name);
   if (nombres.length === 1) return nombres[0];
   return `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
+}
+
+/** Minutos que suma lo reservado; sin servicios, no se sabe. */
+function duracionDe(servicios?: ServicioDeLaCita[]): number | undefined {
+  const total = (servicios ?? []).reduce(
+    (suma, s) => suma + (s.duration ?? 0),
+    0
+  );
+  return total > 0 ? total : undefined;
+}
+
+/** Lo que llevan los correos de una cita: el evento y los datos resueltos. */
+function datosDeCita(
+  cita: AppointmentCreatedPayload,
+  data: EnrichedProfileData
+): DatosDeCita {
+  return {
+    appointmentId: cita.appointmentId,
+    conCuenta: !!data.clientUserId,
+    clientName: data.clientName,
+    professionalName: data.professionalName,
+    serviceName: nombreDelServicio(cita.services),
+    duration: duracionDe(cita.services),
+    appointmentDate: cita.date,
+    appointmentTime: cita.startTime,
+    endTime: cita.endTime,
+    businessName: data.businessName,
+    businessAddress: data.businessAddress,
+    businessPhone: data.businessPhone,
+    timezone: data.businessTimezone,
+  };
 }
 
 /**
@@ -109,24 +144,17 @@ export class AgendaListeners {
           await this.avisos.intentarCorreo(
             "cita nueva",
             async () => {
-              const { jobId } = await this.emailService.queueAppointmentCreated(
-                data.clientEmail,
-                {
-                  clientName: data.clientName,
-                  professionalName: data.professionalName,
-                  appointmentDate: date,
-                  appointmentTime: startTime,
-                  businessName: data.businessName,
-                  businessAddress: data.businessAddress,
-                  businessPhone: data.businessPhone,
-                }
-              );
+              const { jobId, subject } =
+                await this.emailService.queueAppointmentCreated(
+                  data.clientEmail,
+                  datosDeCita(event.payload, data)
+                );
 
               await this.avisos.emitEmailQueuedEvent(
                 jobId,
                 data.clientEmail,
                 "appointment-created",
-                `Recibimos tu solicitud de cita en ${data.businessName}`
+                subject
               );
             },
             {
@@ -236,6 +264,10 @@ export class AgendaListeners {
             { appointmentId }
           );
 
+          // La reseña se escribe desde la cuenta: a quien reservó como
+          // invitado el enlace lo dejaría en la pantalla de acceso.
+          if (!data.clientUserId) return;
+
           await this.avisos.intentarCorreo(
             "solicitud de reseña",
             async () => {
@@ -243,21 +275,21 @@ export class AgendaListeners {
                 "APP_URL",
                 "http://localhost:8080"
               );
-              const { jobId } = await this.emailService.queueReviewRequest(
-                data.clientEmail,
-                {
+              const { jobId, subject } =
+                await this.emailService.queueReviewRequest(data.clientEmail, {
                   clientName: data.clientName,
                   businessName: data.businessName,
+                  businessAddress: data.businessAddress,
+                  businessPhone: data.businessPhone,
                   professionalName: data.professionalName,
                   reviewLink: `${appUrl}/dashboard/client/appointments/${appointmentId}/review`,
-                }
-              );
+                });
 
               await this.avisos.emitEmailQueuedEvent(
                 jobId,
                 data.clientEmail,
                 "review-request",
-                `¿Qué tal tu visita a ${data.businessName}?`
+                subject
               );
             },
             {
@@ -291,7 +323,6 @@ export class AgendaListeners {
       businessId,
       date,
       startTime,
-      services,
     } = event.payload;
 
     this.logger.log(`Cita confirmada: ${appointmentId}`);
@@ -321,26 +352,17 @@ export class AgendaListeners {
           await this.avisos.intentarCorreo(
             "confirmación",
             async () => {
-              const { jobId } =
+              const { jobId, subject } =
                 await this.emailService.queueAppointmentConfirmation(
                   data.clientEmail,
-                  {
-                    clientName: data.clientName,
-                    professionalName: data.professionalName,
-                    serviceName: nombreDelServicio(services),
-                    appointmentDate: date,
-                    appointmentTime: startTime,
-                    businessName: data.businessName,
-                    businessAddress: data.businessAddress,
-                    businessPhone: data.businessPhone,
-                  }
+                  datosDeCita(event.payload, data)
                 );
 
               await this.avisos.emitEmailQueuedEvent(
                 jobId,
                 data.clientEmail,
                 "appointment-confirmed",
-                `Confirmación de cita en ${data.businessName}`
+                subject
               );
             },
             {
@@ -371,13 +393,11 @@ export class AgendaListeners {
       appointmentId,
       cancelReason,
       cancelReasonType,
-      cancelledAt,
       date,
       startTime,
       clientId,
       professionalId,
       businessId,
-      services,
     } = event.payload;
 
     // Lo que se le cuenta al cliente es el motivo tipificado. `cancelReason` es
@@ -421,26 +441,17 @@ export class AgendaListeners {
           await this.avisos.intentarCorreo(
             "cancelación",
             async () => {
-              const { jobId } =
+              const { jobId, subject } =
                 await this.emailService.queueAppointmentCancelled(
                   data.clientEmail,
-                  {
-                    clientName: data.clientName,
-                    professionalName: data.professionalName,
-                    serviceName: nombreDelServicio(services),
-                    appointmentDate: date,
-                    appointmentTime: startTime,
-                    cancelledDate: cancelledAt ?? new Date().toISOString(),
-                    reason: motivo,
-                    businessName: data.businessName,
-                  }
+                  { ...datosDeCita(event.payload, data), reason: motivo }
                 );
 
               await this.avisos.emitEmailQueuedEvent(
                 jobId,
                 data.clientEmail,
                 "appointment-cancelled",
-                `Cita cancelada - ${data.businessName}`
+                subject
               );
             },
             {
@@ -469,13 +480,11 @@ export class AgendaListeners {
   async handleAppointmentReminder(event: AppointmentReminderDueEvent) {
     const {
       appointmentId,
-      date,
       startTime,
       clientId,
       professionalId,
       businessId,
       reminderType,
-      services,
     } = event.payload;
 
     this.logger.log(`Recordatorio de cita pendiente: ${appointmentId}`);
@@ -491,45 +500,32 @@ export class AgendaListeners {
             businessId
           );
 
+          const cita = datosDeCita(event.payload, data);
           if (reminderType === "24h") {
-            const { jobId } =
+            const { jobId, subject } =
               await this.emailService.queueAppointmentReminder24h(
                 data.clientEmail,
-                {
-                  clientName: data.clientName,
-                  professionalName: data.professionalName,
-                  serviceName: nombreDelServicio(services),
-                  appointmentDate: date,
-                  appointmentTime: startTime,
-                  businessName: data.businessName,
-                  businessAddress: data.businessAddress,
-                }
+                cita
               );
 
             await this.avisos.emitEmailQueuedEvent(
               jobId,
               data.clientEmail,
               "appointment-reminder-24h",
-              `Recordatorio - Cita mañana en ${data.businessName}`
+              subject
             );
           } else {
-            const { jobId } =
+            const { jobId, subject } =
               await this.emailService.queueAppointmentReminder1h(
                 data.clientEmail,
-                {
-                  clientName: data.clientName,
-                  professionalName: data.professionalName,
-                  serviceName: nombreDelServicio(services),
-                  appointmentTime: startTime,
-                  businessName: data.businessName,
-                }
+                cita
               );
 
             await this.avisos.emitEmailQueuedEvent(
               jobId,
               data.clientEmail,
               "appointment-reminder-1h",
-              `Recordatorio - Cita en 1 hora en ${data.businessName}`
+              subject
             );
           }
 

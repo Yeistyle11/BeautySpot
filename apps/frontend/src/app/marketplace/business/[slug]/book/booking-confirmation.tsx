@@ -51,7 +51,9 @@ export function BookingConfirmation({
         <CheckCircle className="h-10 w-10" />
       </div>
       <h1 className="mt-6 text-2xl font-bold">Tu cita ha sido reservada</h1>
-      <p className="text-muted-foreground mt-2">{avisoDeContacto(contacto)}</p>
+      <p className="text-muted-foreground mt-2 break-words">
+        {avisoDeContacto(contacto)}
+      </p>
       <Card className="shadow-flat mt-6 border-0 text-left">
         <CardContent className="space-y-2 p-6">
           <p className="text-sm">

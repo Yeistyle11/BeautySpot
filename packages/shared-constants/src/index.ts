@@ -3,6 +3,18 @@
 /** Tiempo máximo (ms) que el gateway espera la respuesta de un servicio antes de abortar. */
 export const PROXY_TIMEOUT_MS = 10_000;
 
+/**
+ * Espera para una subida de archivo, que además de viajar se procesa al otro
+ * lado (decodificar, girar, reducir y reencodar).
+ */
+export const PROXY_TIMEOUT_SUBIDA_MS = 30_000;
+
+/**
+ * Lo más que el gateway deja pasar en una petición multipart: la imagen más el
+ * margen del propio formato. Lo que pase de ahí no llega a ningún servicio.
+ */
+export const MAXIMO_BYTES_SUBIDA = 6 * 1024 * 1024;
+
 // ─── Límite de peticiones ─────────────────────────────────────────────────
 
 /** Máximo de peticiones a rutas de autenticación por ventana (más estricto por seguridad). */
@@ -15,8 +27,37 @@ export const RATE_LIMIT_GENERAL_REQUESTS = 100;
  * que además dispara un correo por cada una.
  */
 export const RATE_LIMIT_RESERVA_PUBLICA_REQUESTS = 5;
+/**
+ * Máximo de imágenes que una cuenta sube por ventana. Cada una se decodifica y
+ * reencoda, que es lo más caro que hace el sistema por petición.
+ */
+export const RATE_LIMIT_SUBIDAS_REQUESTS = 30;
 /** Duración (segundos) de la ventana deslizante del rate limiting. */
 export const RATE_LIMIT_WINDOW_SECONDS = 60;
+
+// ─── Imágenes ──────────────────────────────────────────────────────
+
+/** Para qué se sube una imagen; decide quién puede subirla y a qué tamaño queda. */
+export const PROPOSITOS_DE_IMAGEN = [
+  "logo",
+  "portada",
+  "galeria",
+  "historia",
+  "profesional",
+] as const;
+export type PropositoDeImagen = (typeof PROPOSITOS_DE_IMAGEN)[number];
+
+/** Peso máximo del archivo que se sube. */
+export const MAXIMO_BYTES_IMAGEN = 5 * 1024 * 1024;
+
+/** Tipos de archivo que se aceptan al subir una imagen. */
+export const TIPOS_DE_IMAGEN = ["image/jpeg", "image/png", "image/webp"];
+
+/** Fotos que caben en la galería de un escaparate. */
+export const MAXIMO_IMAGENES_GALERIA = 24;
+
+/** Prefijo con el que la app sirve las imágenes que se suben a ella. */
+export const PREFIJO_DE_IMAGENES = "/media/";
 
 // ─── Reglas de negocio ─────────────────────────────────────────────
 
@@ -93,19 +134,6 @@ export function siguienteNivel(
 
 /** IVA colombiano que se aplica al facturar. */
 export const IVA = 0.19;
-
-/** Validez (segundos) de las URLs prefirmadas de subida y descarga de imágenes. */
-export const URL_PREFIRMADA_SEGUNDOS = 3600;
-
-/**
- * Lo más que puede pedirse que dure una URL prefirmada: un día. Quien tiene el
- * enlace tiene la imagen mientras el enlace viva, así que la validez la acota
- * el servidor y no quien la pide.
- */
-export const URL_PREFIRMADA_MAXIMO_SEGUNDOS = 24 * 3600;
-
-/** Lo mínimo que tiene sentido pedir: por debajo, la subida no da tiempo. */
-export const URL_PREFIRMADA_MINIMO_SEGUNDOS = 60;
 
 /**
  * Longitud máxima del texto de una búsqueda. Nadie escribe un nombre de salón

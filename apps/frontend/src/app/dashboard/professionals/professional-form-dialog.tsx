@@ -6,6 +6,7 @@ import { UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
+import { CampoDeImagen } from "@/components/ui/campo-de-imagen";
 import { SelectorDeEntidad } from "@/components/ui/selector-de-entidad";
 import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
 import type { Category, ProfessionalForm } from "./schemas";
@@ -96,13 +97,16 @@ export function ProfessionalFormDialog({
               onChange={(e) => set({ yearsExp: e.target.value })}
             />
           </Field>
-          <Field label="URL foto de perfil" className="sm:col-span-2">
-            <Input
-              placeholder="https://..."
-              value={form.photo}
-              onChange={(e) => set({ photo: e.target.value })}
+          <div className="sm:col-span-2">
+            <CampoDeImagen
+              etiqueta="Foto de perfil"
+              proposito="profesional"
+              forma="cuadrada"
+              valor={form.photo}
+              alCambiar={(photo) => set({ photo: photo ?? "" })}
+              ayuda="Cuadrada, con la cara centrada."
             />
-          </Field>
+          </div>
           <Field label="Biografia" className="sm:col-span-2">
             <Input
               placeholder="Breve descripción profesional..."

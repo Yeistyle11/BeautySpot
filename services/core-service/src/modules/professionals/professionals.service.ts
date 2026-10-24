@@ -9,14 +9,20 @@ import {
   InternalHttpClient,
   OutboxService,
   TenantCrudService,
+  asegurarImagenPropia,
   esViolacionDeUnicidad,
+  imagenesQueSobran,
 } from "@beautyspot/nest-common";
-import { EventNames } from "@beautyspot/event-types";
+import {
+  EventNames,
+  type ProfessionalUpdatedPayload,
+} from "@beautyspot/event-types";
 import { Repository, DataSource } from "typeorm";
 import { Professional } from "../../entities/professional.entity";
 import { CategoriesService } from "../categories/categories.service";
 import { ProfessionalService } from "../../entities/professional-service.entity";
 import { Service } from "../../entities/service.entity";
+import { ImagesService } from "../images/images.service";
 
 /**
  * Gestiona el equipo de profesionales de un negocio: su ficha, los servicios
@@ -34,7 +40,8 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     private readonly http: InternalHttpClient,
     private readonly categories: CategoriesService,
     private readonly dataSource: DataSource,
-    private readonly outbox: OutboxService
+    private readonly outbox: OutboxService,
+    private readonly images: ImagesService
   ) {
     super(repo, "Profesional no encontrado");
   }
@@ -53,6 +60,7 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     data: Partial<Professional>
   ): Promise<Professional> {
     await this.validarCategoria(data.categoryId, businessId);
+    asegurarImagenPropia(data.photo, null, businessId);
     const professional = this.repo.create({ ...data, businessId });
 
     return this.dataSource.transaction(async (manager) => {
@@ -88,14 +96,47 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
     return this.repo.find({ where, order: { createdAt: "ASC" as const } });
   }
 
-  /** Actualiza la ficha de un profesional, validando antes su categoría. */
+  /**
+   * Actualiza la ficha de un profesional, validando antes su categoría y su
+   * foto. El cambio sale por el outbox para que el escaparate copie nombre y
+   * foto, y la foto que deja de usarse se borra del almacén.
+   */
   async update(
     id: string,
     businessId: string,
     data: Partial<Professional>
   ): Promise<Professional> {
+    const previo = await this.findById(id, businessId);
     await this.validarCategoria(data.categoryId, businessId);
-    return super.update(id, businessId, data);
+    asegurarImagenPropia(data.photo, previo.photo, businessId);
+
+    const actualizado = await this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(Professional);
+      await repo.update({ id, businessId }, data as never);
+      const guardado = await repo.findOne({ where: { id, businessId } });
+      if (!guardado) throw new NotFoundException("Profesional no encontrado");
+
+      const payload: ProfessionalUpdatedPayload = {
+        professionalId: id,
+        businessId,
+        name: guardado.name,
+        photo: guardado.photo ?? null,
+      };
+      await this.outbox.enqueue(manager, {
+        eventType: EventNames.CORE_PROFESSIONAL_UPDATED,
+        aggregateType: "professional",
+        aggregateId: id,
+        payload: { ...payload },
+      });
+
+      return guardado;
+    });
+
+    await this.images.descartar(
+      imagenesQueSobran([previo.photo], [actualizado.photo]),
+      businessId
+    );
+    return actualizado;
   }
 
   /** Asigna un servicio a un profesional, con precio/duración propios opcionales. */

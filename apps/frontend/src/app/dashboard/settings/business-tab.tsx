@@ -8,16 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import { CampoDeImagen } from "@/components/ui/campo-de-imagen";
 import { canDo } from "@/lib/permissions";
 import { useAuthStore } from "@/lib/store";
 import type { BusinessData } from "./schemas";
 
 /** Campos de texto simples del negocio, en el orden en que se muestran. */
-const TEXT_FIELDS: {
-  key: keyof BusinessData;
-  label: string;
-  placeholder?: string;
-}[] = [
+const TEXT_FIELDS: { key: keyof BusinessData; label: string }[] = [
   { key: "name", label: "Nombre" },
   { key: "phone", label: "Teléfono" },
   { key: "email", label: "Email" },
@@ -29,11 +26,6 @@ const LOCATION_FIELDS: { key: keyof BusinessData; label: string }[] = [
   { key: "city", label: "Ciudad" },
   { key: "state", label: "Departamento" },
   { key: "country", label: "País" },
-];
-
-const IMAGE_FIELDS: { key: keyof BusinessData; label: string }[] = [
-  { key: "logo", label: "Logo (URL)" },
-  { key: "coverImage", label: "Imagen portada (URL)" },
 ];
 
 interface BusinessTabProps {
@@ -53,6 +45,7 @@ export function BusinessTab({
   loading,
 }: BusinessTabProps) {
   const role = useAuthStore((s) => s.role);
+  const puedeEditar = canDo(role, "business_edit");
   if (loading) {
     return (
       <Card className="shadow-flat border-0">
@@ -63,15 +56,10 @@ export function BusinessTab({
     );
   }
 
-  const field = (
-    key: keyof BusinessData,
-    label: string,
-    placeholder?: string
-  ) => (
+  const field = (key: keyof BusinessData, label: string) => (
     <Field key={key} label={label}>
       <Input
         value={(form[key] as string) || ""}
-        placeholder={placeholder}
         onChange={(e) => onChange({ ...form, [key]: e.target.value })}
       />
     </Field>
@@ -95,9 +83,26 @@ export function BusinessTab({
             />
           </Field>
           {LOCATION_FIELDS.map((f) => field(f.key, f.label))}
-          {IMAGE_FIELDS.map((f) => field(f.key, f.label, "https://..."))}
+          <CampoDeImagen
+            etiqueta="Logo"
+            proposito="logo"
+            forma="cuadrada"
+            valor={form.logo}
+            alCambiar={(logo) => onChange({ ...form, logo })}
+            ayuda="Cuadrado, de al menos 512 px. Se aplica al guardar los cambios."
+            deshabilitado={!puedeEditar}
+          />
+          <CampoDeImagen
+            etiqueta="Portada"
+            proposito="portada"
+            forma="panoramica"
+            valor={form.coverImage}
+            alCambiar={(coverImage) => onChange({ ...form, coverImage })}
+            ayuda="Horizontal, de al menos 1600 px de ancho. Se aplica al guardar los cambios."
+            deshabilitado={!puedeEditar}
+          />
         </div>
-        {canDo(role, "business_edit") && (
+        {puedeEditar && (
           <Button onClick={onSave} disabled={saving}>
             {saving ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

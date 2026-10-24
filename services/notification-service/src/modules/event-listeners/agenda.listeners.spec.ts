@@ -159,6 +159,7 @@ describe("AgendaListeners", () => {
         businessName: "EliteBarbers",
         businessAddress: "Calle 1",
         businessPhone: "+57",
+        businessTimezone: "America/Bogota",
       });
 
       await listeners.handleAppointmentConfirmed(mockAppointmentConfirmedEvent);
@@ -465,8 +466,8 @@ describe("AgendaListeners", () => {
     });
 
     // La cita era del 25 de diciembre y se canceló el 5 de septiembre: el correo
-    // rotulaba la fecha de la cita como «Fecha cancelación».
-    it("distingue la fecha de la cita de la de la cancelación", async () => {
+    // dice qué cita se cae, no cuándo se canceló.
+    it("cuenta la fecha de la cita, no la de la cancelación", async () => {
       await listeners.handleAppointmentCancelled(mockAppointmentCancelledEvent);
 
       expect(mockEmailService.queueAppointmentCancelled).toHaveBeenCalledWith(
@@ -474,7 +475,6 @@ describe("AgendaListeners", () => {
         expect.objectContaining({
           appointmentDate: "2024-12-25",
           appointmentTime: "10:00",
-          cancelledDate: "2026-09-05T15:00:00.000Z",
         })
       );
     });
@@ -594,6 +594,8 @@ describe("AgendaListeners", () => {
       await listeners.handleAppointmentCompleted(mockAppointmentCompletedEvent);
 
       expect(mockNotifications.create).not.toHaveBeenCalled();
+      // La reseña se escribe desde la cuenta: al invitado no se le pide.
+      expect(mockEmailService.queueReviewRequest).not.toHaveBeenCalled();
     });
   });
 });

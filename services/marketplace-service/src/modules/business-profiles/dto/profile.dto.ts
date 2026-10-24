@@ -4,8 +4,9 @@ import {
   IsDateString,
   IsNumber,
   IsEmail,
-  IsUrl,
   IsArray,
+  ArrayMaxSize,
+  MaxLength,
   ValidateNested,
   IsBoolean,
   IsIn,
@@ -13,7 +14,10 @@ import {
   Matches,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { VALORES_TIPO_DE_NEGOCIO } from "@beautyspot/shared-constants";
+import {
+  MAXIMO_IMAGENES_GALERIA,
+  VALORES_TIPO_DE_NEGOCIO,
+} from "@beautyspot/shared-constants";
 import { SocialLinks } from "../../../entities/business-profile.entity";
 
 /** Datos que el core envía para crear o actualizar el perfil de un negocio. */
@@ -82,7 +86,8 @@ export class UpdateProfileConfigDto {
 
   @IsOptional() @IsString() storyTitle?: string;
   @IsOptional() @IsString() storyText?: string;
-  @IsOptional() @IsString() storyImage?: string;
+  /** Imagen subida desde el panel; vacía, la quita. */
+  @IsOptional() @IsString() @MaxLength(255) storyImage?: string;
   @IsOptional() @IsNumber() foundedYear?: number;
   @IsOptional() @IsString() founders?: string;
 
@@ -103,9 +108,12 @@ export class UpdateProfileConfigDto {
   updatedAt?: string;
 }
 
-/** Una imagen de la galería: URL, título, categoría y marca de destacada. */
+/**
+ * Una imagen de la galería: la URL de una imagen subida desde el panel, título,
+ * categoría y marca de destacada.
+ */
 export class GalleryImageDto {
-  @IsUrl() url!: string;
+  @IsString() @MaxLength(255) url!: string;
   @IsOptional() @IsString() title?: string;
   @IsOptional() @IsString() category?: string;
   @IsOptional() @IsBoolean() featured?: boolean;
@@ -114,6 +122,9 @@ export class GalleryImageDto {
 /** Conjunto de imágenes a añadir a la galería del perfil. */
 export class AddGalleryImagesDto {
   @IsArray()
+  @ArrayMaxSize(MAXIMO_IMAGENES_GALERIA, {
+    message: `La galería admite hasta ${MAXIMO_IMAGENES_GALERIA} imágenes`,
+  })
   @ValidateNested({ each: true })
   @Type(() => GalleryImageDto)
   images!: GalleryImageDto[];

@@ -7,6 +7,7 @@ import { Camera, Plus, Trash2, Image as ImageIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { MAXIMO_IMAGENES_GALERIA } from "@beautyspot/shared-constants";
 import { canDo } from "@/lib/permissions";
 import { imageUnoptimized } from "@/lib/image";
 import type { Role } from "@/lib/store";
@@ -32,13 +33,17 @@ export function GalleryTab({
   return (
     <Card className="shadow-flat border-0">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-lg">
-            Galería ({gallery.length} imagenes)
+            Galería ({gallery.length} de {MAXIMO_IMAGENES_GALERIA} fotos)
           </CardTitle>
           {canEdit && (
-            <Button size="sm" onClick={onAdd}>
-              <Plus className="mr-2 h-4 w-4" /> Agregar imagen
+            <Button
+              size="sm"
+              onClick={onAdd}
+              disabled={gallery.length >= MAXIMO_IMAGENES_GALERIA}
+            >
+              <Plus className="mr-2 h-4 w-4" /> Agregar fotos
             </Button>
           )}
         </div>
@@ -48,7 +53,7 @@ export function GalleryTab({
           <div className="text-muted-foreground py-8 text-center">
             <Camera className="mx-auto h-12 w-12 opacity-20" />
             <p className="mt-2">
-              Agrega imagenes para hacer tu perfil mas atractivo
+              Agrega fotos para hacer tu perfil más atractivo
             </p>
           </div>
         ) : (
@@ -73,9 +78,10 @@ export function GalleryTab({
                   </div>
                 )}
                 {canEdit && (
-                  // La capa de acciones aparece al pasar el raton, pero el
-                  // boton sigue siendo alcanzable con teclado (focus-within).
-                  <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                  // La capa de acciones aparece al pasar el raton y sigue
+                  // siendo alcanzable con teclado (focus-within). En tactil no
+                  // hay raton: el boton se queda siempre en la esquina.
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(pointer:coarse)]:items-start [@media(pointer:coarse)]:justify-end [@media(pointer:coarse)]:bg-transparent [@media(pointer:coarse)]:p-1 [@media(pointer:coarse)]:opacity-100">
                     <Button
                       size="sm"
                       variant="destructive"

@@ -1,0 +1,12 @@
+{{!-- Bienvenida de quien un negocio da de alta en su equipo. --}}
+{{#> layout
+  titulo="Ya tienes acceso al panel"
+  preheader=(concat businessName " te dio acceso a su panel en BeautySpot.")
+  icono="equipo"
+  motivo=(concat "Recibes este correo porque " businessName " te dio de alta en su equipo.")
+}}
+  {{> titulo texto=(concat "Te sumaste al equipo de " businessName)}}
+  {{#> parrafo}}Hola {{primerNombre clientName}}, {{businessName}} te dio acceso a su panel en BeautySpot. Desde ahí verás la agenda y lo que te toque gestionar.{{/parrafo}}
+  {{> boton texto="Entrar al panel" url=enlacePanel}}
+  {{#> nota}}Entra con este correo y la contraseña que te dieron. Puedes cambiarla desde tu perfil.{{/nota}}
+{{/layout}}

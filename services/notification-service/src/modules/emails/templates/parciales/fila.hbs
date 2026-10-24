@@ -1,0 +1,9 @@
+{{!--
+  Fila de la tarjeta de detalle. Parámetros: icono, etiqueta, valor, primera
+  (sin línea encima), tachado (la fecha de una cita que ya no es).
+--}}
+<tr>
+  <td width="40" style="width: 40px; padding: 14px 0 14px 18px; vertical-align: top;{{#unless primera}} border-top: 1px solid #F1EEF8;{{/unless}}"><img src="{{@root.recursos}}/icono-{{icono}}.png" width="20" height="20" alt="" style="display: block; border: 0;"></td>
+  <td style="padding: 14px 8px; font-size: 14px; line-height: 20px; color: #64748B; vertical-align: top;{{#unless primera}} border-top: 1px solid #F1EEF8;{{/unless}}">{{etiqueta}}</td>
+  <td style="padding: 14px 18px 14px 8px; font-size: 15px; line-height: 20px; font-weight: 600; color: #0F172A; text-align: right; vertical-align: top;{{#if tachado}} text-decoration: line-through;{{/if}}{{#unless primera}} border-top: 1px solid #F1EEF8;{{/unless}}">{{valor}}</td>
+</tr>

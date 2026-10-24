@@ -159,3 +159,36 @@ describe("CalendarView", () => {
     });
   });
 });
+
+describe("CalendarView en el celular", () => {
+  const original = window.matchMedia;
+  beforeEach(() => {
+    window.matchMedia = ((consulta: string) => ({
+      matches: false,
+      media: consulta,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia;
+  });
+  afterEach(() => {
+    window.matchMedia = original;
+  });
+
+  it("cambia la rejilla por la lista de los siete días", () => {
+    pintar({ bloqueos: [bloqueo] });
+
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(7);
+    expect(screen.getAllByText("Sin citas")).toHaveLength(6);
+    expect(screen.getByText(/QA-bloqueo de prueba/)).toBeInTheDocument();
+  });
+
+  it("abre el detalle de la cita justo debajo de ella", () => {
+    const onCancel = jest.fn();
+    pintar({ onCancel });
+
+    fireEvent.click(screen.getByRole("button", { name: /María/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(onCancel).toHaveBeenCalledWith("appt-1");
+  });
+});

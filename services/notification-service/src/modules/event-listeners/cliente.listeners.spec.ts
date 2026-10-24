@@ -97,7 +97,6 @@ describe("ClienteListeners", () => {
         expect.objectContaining({
           clientName: "Ana Gómez",
           businessName: "EliteBarbers",
-          year: 2026,
         })
       );
       expect(mockNotifications.create).toHaveBeenCalledWith(

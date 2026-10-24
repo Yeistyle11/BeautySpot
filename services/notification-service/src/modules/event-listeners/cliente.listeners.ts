@@ -91,20 +91,19 @@ export class ClienteListeners {
           ]);
 
           if (email) {
-            const { jobId } = await this.emailService.queueBirthdayGreeting(
-              email,
-              {
+            const { jobId, subject } =
+              await this.emailService.queueBirthdayGreeting(email, {
                 clientName: name,
                 businessName: businessData.businessName,
-                year,
-              }
-            );
+                businessAddress: businessData.businessAddress,
+                businessPhone: businessData.businessPhone,
+              });
 
             await this.avisos.emitEmailQueuedEvent(
               jobId,
               email,
               "birthday-greeting",
-              `¡Feliz cumpleaños de parte de ${businessData.businessName}!`
+              subject
             );
           }
 

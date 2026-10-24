@@ -116,7 +116,7 @@ export function FieldsTab({
                 className="flex items-start justify-between gap-3 rounded-lg border p-3"
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-medium">
+                  <p className="break-words text-sm font-medium">
                     {campo.etiqueta}
                     {campo.obligatorio && (
                       <span className="text-destructive ml-1">*</span>
@@ -216,7 +216,7 @@ export function FieldsTab({
                         size="sm"
                         variant={marcado ? "default" : "outline"}
                         onClick={() => alternarServicio(servicio.id)}
-                        className="gap-1"
+                        className="h-auto min-h-9 gap-1 whitespace-normal text-left"
                       >
                         {servicio.name}
                         {marcado && <X className="h-3 w-3" />}

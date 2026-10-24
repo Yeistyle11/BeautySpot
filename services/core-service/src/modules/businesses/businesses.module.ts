@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { OutboxModule } from "@beautyspot/nest-common";
+import { ImagesModule } from "../images/images.module";
 import { BusinessesService } from "./businesses.service";
 import {
   BusinessesController,
@@ -28,6 +29,7 @@ import { BusinessHours } from "../../entities/business-hours.entity";
       BusinessHours,
     ]),
     OutboxModule,
+    ImagesModule,
   ],
   controllers: [BusinessesController, InternalBusinessesController],
   providers: [BusinessesService],

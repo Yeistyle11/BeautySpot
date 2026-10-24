@@ -61,8 +61,16 @@ export class CobrosListeners {
     queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
   })
   async handleInvoiceGenerated(event: InvoiceGeneratedEvent) {
-    const { invoiceId, number, total, clientId, businessId, dueDate, items } =
-      event.payload;
+    const {
+      invoiceId,
+      number,
+      subtotal,
+      tax,
+      total,
+      clientId,
+      businessId,
+      items,
+    } = event.payload;
 
     this.logger.log(`Factura generada: ${invoiceId}`);
 
@@ -71,31 +79,46 @@ export class CobrosListeners {
         event,
         "notification:factura",
         async () => {
-          const [clientEmail, clientName, businessData] = await Promise.all([
-            this.dataEnricher.enrichClientEmail(clientId),
-            this.dataEnricher.enrichClientName(clientId),
-            this.dataEnricher.enrichBusinessData(businessId),
-          ]);
+          const [clientEmail, clientName, businessData, clientUserId] =
+            await Promise.all([
+              this.dataEnricher.enrichClientEmail(clientId),
+              this.dataEnricher.enrichClientName(clientId),
+              this.dataEnricher.enrichBusinessData(businessId),
+              this.dataEnricher.enrichClientUserId(clientId),
+            ]);
 
-          const { jobId } = await this.emailService.queueInvoice(clientEmail, {
-            clientName,
-            invoiceNumber: number.toString(),
-            amount: total,
-            // El vencimiento lo fija payment al emitir; si el evento no lo
-            // trae, es más honesto no adelantar una fecha inventada.
-            dueDate: dueDate ?? "",
-            businessName: businessData.businessName,
-            services: (items ?? []).map((i) => ({
-              name: i.description,
-              price: i.total,
-            })),
-          });
+          const { jobId, subject } = await this.emailService.queueInvoice(
+            clientEmail,
+            {
+              clientName,
+              invoiceNumber: number.toString(),
+              // El evento no trae la fecha de emisión: es la del envío.
+              invoiceDate: new Date().toISOString().split("T")[0],
+              amount: total,
+              subtotal,
+              tax,
+              businessName: businessData.businessName,
+              businessAddress: businessData.businessAddress,
+              businessPhone: businessData.businessPhone,
+              services: (items ?? []).map((i) => ({
+                name:
+                  i.quantity > 1
+                    ? `${i.description} × ${i.quantity}`
+                    : i.description,
+                price: i.total,
+              })),
+              conCuenta: !!clientUserId,
+              // Con ellos el correo pide a payment el PDF y lo adjunta.
+              invoiceId,
+              businessId,
+            }
+          );
 
           await this.avisos.emitEmailQueuedEvent(
             jobId,
             clientEmail,
             "invoice-generated",
-            `Factura #${number} - ${businessData.businessName}`
+            subject
           );
         }
       );
@@ -140,16 +163,20 @@ export class CobrosListeners {
           await this.avisos.intentarCorreo(
             "recibo",
             async () => {
-              const { jobId } = await this.emailService.queueInvoice(
+              const { jobId, subject } = await this.emailService.queueInvoice(
                 clientEmail,
                 {
                   clientName,
-                  invoiceNumber: `REC-${paymentId}`,
+                  esRecibo: true,
+                  invoiceNumber: `REC-${paymentId.slice(0, 8).toUpperCase()}`,
                   amount,
                   // El dia del cobro que trae el evento, ya en el huso del
                   // negocio; el del servidor solo si el evento no lo dice.
-                  dueDate: date ?? new Date().toISOString().split("T")[0],
+                  invoiceDate: date ?? new Date().toISOString().split("T")[0],
                   businessName: businessData.businessName,
+                  businessAddress: businessData.businessAddress,
+                  businessPhone: businessData.businessPhone,
+                  conCuenta: !!clientUserId,
                   // Un cobro suelto no tiene cita detrás, y entonces lo
                   // único cierto que se puede imprimir es el importe.
                   services: services?.length
@@ -162,7 +189,7 @@ export class CobrosListeners {
                 jobId,
                 clientEmail,
                 "invoice-generated",
-                `Recibo de pago - ${businessData.businessName}`
+                subject
               );
             },
             {

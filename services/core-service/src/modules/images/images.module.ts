@@ -1,23 +1,28 @@
 import { Module } from "@nestjs/common";
-import { MulterModule } from "@nestjs/platform-express";
-import { ImagesController } from "./images.controller";
+import { ConfigService } from "@nestjs/config";
+import {
+  ImagesController,
+  InternalImagesController,
+  PublicImagesController,
+} from "./images.controller";
 import { ImagesService } from "./images.service";
-import { ProfessionalsModule } from "../professionals/professionals.module";
-import { ServicesModule } from "../services/services.module";
+import { AlmacenDeImagenes, crearAlmacen } from "./almacen-de-imagenes";
 
 @Module({
-  imports: [
-    MulterModule.register({
-      limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB
-      },
-    }),
-    ProfessionalsModule,
-    ServicesModule,
+  controllers: [
+    ImagesController,
+    PublicImagesController,
+    InternalImagesController,
   ],
-  controllers: [ImagesController],
-  providers: [ImagesService],
+  providers: [
+    ImagesService,
+    {
+      provide: AlmacenDeImagenes,
+      inject: [ConfigService],
+      useFactory: crearAlmacen,
+    },
+  ],
   exports: [ImagesService],
 })
-/** Cablea la subida y gestión de imágenes en S3. */
+/** Cablea la subida, lectura y descarte de imágenes de los negocios. */
 export class ImagesModule {}

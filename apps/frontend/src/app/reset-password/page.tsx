@@ -135,6 +135,7 @@ function ResetPasswordInner() {
                       id="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="********"
+                      className="pr-12"
                       minLength={MINIMO}
                       value={form.password}
                       onChange={(e) =>
@@ -153,7 +154,7 @@ function ResetPasswordInner() {
                           : "Mostrar contraseña"
                       }
                       aria-pressed={showPassword}
-                      className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute right-3 top-1/2 -translate-y-1/2 rounded-sm focus-visible:outline-none focus-visible:ring-2"
+                      className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
                     >
                       {showPassword ? (
                         <EyeOff className="h-4 w-4" />

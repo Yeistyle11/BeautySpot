@@ -314,12 +314,13 @@ export default function CashRegisterPage() {
             </Card>
           )}
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3 [&>button]:flex-1 sm:[&>button]:flex-none">
             <Button onClick={movimiento.abrir}>
               <Plus className="mr-2 h-4 w-4" /> Registrar movimiento
             </Button>
+            {/* Cerrar es el final normal del turno, no algo que se pierde. */}
             {canDo(role, "cash_register_close") && (
-              <Button variant="destructive" onClick={cierre.abrir}>
+              <Button variant="outline" onClick={cierre.abrir}>
                 <X className="mr-2 h-4 w-4" /> Cerrar caja
               </Button>
             )}
@@ -515,7 +516,6 @@ export default function CashRegisterPage() {
               Cancelar
             </Button>
             <Button
-              variant="destructive"
               onClick={cierre.confirmar}
               disabled={
                 cierre.guardando ||

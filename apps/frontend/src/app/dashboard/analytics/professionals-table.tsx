@@ -28,8 +28,8 @@ const COLUMNAS_DE_RENDIMIENTO = [
   { label: "Profesional" },
   { label: "Citas", alineacion: "right" as const },
   { label: "Ingresos", alineacion: "right" as const },
-  { label: "Valoración", alineacion: "right" as const },
-  { label: "Días activos", alineacion: "right" as const },
+  { label: "Valoración", alineacion: "right" as const, ocultaEnMovil: true },
+  { label: "Días activos", alineacion: "right" as const, ocultaEnMovil: true },
 ];
 
 /** Cruza el reporte con el equipo para dar a cada fila el nombre del profesional. */
@@ -47,8 +47,23 @@ export function filasDeProfesionales(
     .sort((a, b) => b.revenue - a.revenue);
 }
 
-/** Tabla de citas, ingresos y valoración de cada profesional en el periodo. */
-export function ProfessionalsTable({ filas }: { filas: FilaDeProfesional[] }) {
+/**
+ * Tabla de citas, ingresos y valoración de cada profesional en el periodo. El
+ * ingreso de cada uno es el precio de lo que atendió, no lo cobrado, así que
+ * la suma no tiene por qué dar el total del periodo; debajo se dice cuánto y
+ * por qué.
+ */
+export function ProfessionalsTable({
+  filas,
+  ingresosDelPeriodo,
+}: {
+  filas: FilaDeProfesional[];
+  /** Lo cobrado en el periodo, el mismo total que encabeza la página. */
+  ingresosDelPeriodo?: number;
+}) {
+  const atendido = filas.reduce((suma, p) => suma + p.revenue, 0);
+  const diferencia =
+    ingresosDelPeriodo === undefined ? 0 : ingresosDelPeriodo - atendido;
   return (
     <Card className="shadow-flat border-0 lg:col-span-2">
       <CardHeader>
@@ -77,13 +92,23 @@ export function ProfessionalsTable({ filas }: { filas: FilaDeProfesional[] }) {
                 </CeldaDeTabla>
                 {/* Sin valoraciones no hay nota, que no es lo mismo que un
                     cero. */}
-                <CeldaDeTabla alineacion="right">
+                <CeldaDeTabla alineacion="right" ocultaEnMovil>
                   {p.avgRating > 0 ? p.avgRating.toFixed(2) : "—"}
                 </CeldaDeTabla>
-                <CeldaDeTabla alineacion="right">{p.days}</CeldaDeTabla>
+                <CeldaDeTabla alineacion="right" ocultaEnMovil>
+                  {p.days}
+                </CeldaDeTabla>
               </FilaDeTabla>
             ))}
           </TablaDeRegistros>
+        )}
+        {filas.length > 0 && Math.abs(diferencia) >= 1 && (
+          <p className="text-muted-foreground mt-3 text-sm">
+            El equipo suma {formatCurrency(atendido)} en citas atendidas y en el
+            periodo se cobraron {formatCurrency(ingresosDelPeriodo ?? 0)}. La
+            diferencia ({formatCurrency(Math.abs(diferencia))}) sale de cobros
+            sin cita, descuentos, devoluciones y citas atendidas aún sin cobrar.
+          </p>
         )}
       </CardContent>
     </Card>

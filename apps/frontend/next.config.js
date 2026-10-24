@@ -1,13 +1,14 @@
 /** @type {import('next').NextConfig} */
 
-// Hosts desde los que se permite optimizar imagenes.
+// Hosts externos desde los que se permite optimizar imagenes.
 //
-// Las fotos (logo, portada, galeria, foto de profesional) se guardan como URL
-// que teclea el propio negocio, asi que la lista es entrada de usuario llegando
-// al optimizador. Next solo optimiza hosts declarados y falla en el resto, asi
-// que esta lista es la unica fuente de verdad: se usa para `remotePatterns` y se
-// expone al cliente para decidir, imagen a imagen, si se puede optimizar o hay
-// que servirla tal cual (ver lib/image.ts).
+// Las fotos del negocio se suben a la propia app y se sirven en /media, que es
+// del mismo origen y no necesita estar aqui. Esta lista cubre las URLs externas
+// que algunos negocios guardaron antes y las que declare cada despliegue. Next
+// solo optimiza hosts declarados y falla en el resto, asi que es la unica
+// fuente de verdad: se usa para `remotePatterns` y se expone al cliente para
+// decidir, imagen a imagen, si se puede optimizar o hay que servirla tal cual
+// (ver lib/image.ts).
 //
 // Va sin comodines a proposito. Un `*.amazonaws.com` deja que cualquiera sirva
 // cualquier cosa desde su propio bucket, y el optimizador la descarga, la
@@ -115,6 +116,12 @@ const nextConfig = {
     return [
       // El gateway sirve bajo /api/v1, asi que el prefijo se conserva.
       { source: "/api/:path*", destination: `${GATEWAY_ORIGIN}/api/:path*` },
+      // Las imagenes subidas: rutas del mismo origen, que next/image optimiza
+      // sin declarar ningun host.
+      {
+        source: "/media/:path*",
+        destination: `${GATEWAY_ORIGIN}/api/v1/core/public/images/:path*`,
+      },
     ];
   },
   async headers() {

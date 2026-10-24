@@ -2,14 +2,13 @@
 
 // Resena de una cita completada: calificacion y comentario del cliente.
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { LoadingState } from "@/components/ui/loading-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/ui/field";
 import {
@@ -20,8 +19,6 @@ import {
   CheckCircle,
   Loader2,
   X,
-  Plus,
-  Image as ImageIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { revalidatePrefix, useApi } from "@/lib/swr";
@@ -40,7 +37,6 @@ const resenaSchema = z.object({
   id: z.string(),
   rating: z.number(),
   comment: z.string().nullable().optional(),
-  photos: z.array(z.string()).nullable().optional(),
   editedAt: z.string().nullable().optional(),
 });
 
@@ -92,6 +88,12 @@ function StarRating({
   );
 }
 
+/** La nota que trae el enlace del correo (`?calificacion=4`), o 0 si no vale. */
+function notaDelEnlace(valor: string | null): number {
+  const nota = Number(valor);
+  return Number.isInteger(nota) && nota >= 1 && nota <= 5 ? nota : 0;
+}
+
 /** Alta o edicion de la reseña que el cliente deja sobre una cita. */
 export default function ReviewPage() {
   const params = useParams<{ id: string }>();
@@ -117,14 +119,12 @@ export default function ReviewPage() {
   const existente = existentes?.[0] ?? null;
   const [error, setError] = useState<string | null>(null);
 
-  const [rating, setRating] = useState(0);
+  // El correo de reseña lleva cinco estrellas: la que se tocó llega ya puesta.
+  const searchParams = useSearchParams();
+  const [rating, setRating] = useState(() =>
+    notaDelEnlace(searchParams.get("calificacion"))
+  );
   const [comment, setComment] = useState("");
-  // Cada campo lleva un id propio: con la posicion del array como key, borrar
-  // una foto intermedia desplazaba el texto de los inputs siguientes.
-  const [photos, setPhotos] = useState<{ id: number; url: string }[]>([
-    { id: 0, url: "" },
-  ]);
-  const siguienteIdFoto = useRef(1);
   const [submitting, setSubmitting] = useState(false);
   const [borrando, setBorrando] = useState(false);
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
@@ -132,13 +132,6 @@ export default function ReviewPage() {
   const permitirNuevaSiembra = useSeededForm(existente, (resena) => {
     setRating(resena.rating);
     setComment(resena.comment ?? "");
-    const fotos = resena.photos ?? [];
-    setPhotos(
-      fotos.length > 0
-        ? fotos.map((url, i) => ({ id: i, url }))
-        : [{ id: 0, url: "" }]
-    );
-    siguienteIdFoto.current = Math.max(fotos.length, 1);
   });
 
   // Una calificacion baja obliga a explicarla: sin motivo, el negocio no puede
@@ -146,25 +139,6 @@ export default function ReviewPage() {
   const commentRequired = rating > 0 && rating < 4;
   const commentValid = commentRequired ? comment.trim().length > 0 : true;
   const isValid = rating > 0 && commentValid;
-
-  const handlePhotoChange = (id: number, url: string) => {
-    setPhotos((actuales) =>
-      actuales.map((foto) => (foto.id === id ? { ...foto, url } : foto))
-    );
-  };
-
-  const addPhotoField = () => {
-    if (photos.length < 3) {
-      setPhotos((actuales) => [
-        ...actuales,
-        { id: siguienteIdFoto.current++, url: "" },
-      ]);
-    }
-  };
-
-  const removePhotoField = (id: number) => {
-    setPhotos((actuales) => actuales.filter((foto) => foto.id !== id));
-  };
 
   const handleSubmit = async () => {
     if (!appointment || !isValid) return;
@@ -180,16 +154,11 @@ export default function ReviewPage() {
     setSubmitting(true);
     setError(null);
 
-    const cleanPhotos = photos
-      .map((foto) => foto.url.trim())
-      .filter((url) => url.length > 0);
-
     try {
       if (existente) {
         await api.patch(`/marketplace/reviews/${existente.id}`, {
           rating,
           comment: comment.trim(),
-          photos: cleanPhotos,
         });
       } else {
         // Ni el autor ni el profesional se envian: el primero sale del token y
@@ -199,7 +168,6 @@ export default function ReviewPage() {
           appointmentId: appointment.id,
           rating,
           comment: comment.trim(),
-          photos: cleanPhotos,
         });
       }
       await recargarResena();
@@ -225,7 +193,6 @@ export default function ReviewPage() {
       permitirNuevaSiembra();
       setRating(0);
       setComment("");
-      setPhotos([{ id: 0, url: "" }]);
     } catch (err: unknown) {
       logger.error(err);
       setError(mensajeDeError(err));
@@ -264,7 +231,7 @@ export default function ReviewPage() {
         <p className="text-muted-foreground mt-2">
           Gracias por compartir tu experiencia
         </p>
-        <div className="mt-6 flex gap-3">
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Button asChild variant="outline" className="gap-2">
             <Link href={`/dashboard/client/appointments/${appointment.id}`}>
               <ArrowLeft className="h-4 w-4" />
@@ -317,7 +284,7 @@ export default function ReviewPage() {
                 <span>{formatDate(appointment.date)}</span>
               </div>
 
-              <div className="text-muted-foreground text-xs">
+              <div className="text-muted-foreground break-all text-xs">
                 Profesional: {appointment.professionalId}
               </div>
             </CardContent>
@@ -367,67 +334,20 @@ export default function ReviewPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-flat border-0">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ImageIcon className="h-4 w-4" />
-                Fotos (opcional)
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {photos.map((foto, idx) => (
-                <div key={foto.id} className="flex items-center gap-2">
-                  <Input
-                    placeholder="URL de la imagen (ej. https://...)"
-                    aria-label={`URL de la foto ${idx + 1}`}
-                    value={foto.url}
-                    onChange={(e) => handlePhotoChange(foto.id, e.target.value)}
-                  />
-                  {photos.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Quitar la foto ${idx + 1}`}
-                      onClick={() => removePhotoField(foto.id)}
-                      className="shrink-0"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-              {photos.length < 3 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addPhotoField}
-                  className="gap-1"
-                >
-                  <Plus className="h-3 w-3" />
-                  Agregar otra foto
-                </Button>
-              )}
-              <p className="text-muted-foreground text-xs">
-                Maximo 3 fotos. Pega la URL de cada imagen.
-              </p>
-            </CardContent>
-          </Card>
-
           {error && (
             <div className="bg-destructive/10 text-destructive rounded-lg px-4 py-3 text-sm">
               {error}
             </div>
           )}
 
-          <div className="flex justify-end gap-3">
+          {/* En movil los botones se apilan a lo ancho, el principal arriba. */}
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             {existente && (
               <Button
                 variant="outline"
                 onClick={() => setConfirmandoBorrado(true)}
                 disabled={borrando || submitting}
-                className="text-destructive mr-auto gap-2"
+                className="text-destructive gap-2 sm:mr-auto"
               >
                 {borrando ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

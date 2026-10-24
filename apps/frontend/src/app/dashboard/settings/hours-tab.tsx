@@ -4,9 +4,8 @@
 import { Loader2, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { HoraDeCierre } from "@/components/ui/hora-de-cierre";
+import { RangoDeHoras } from "@/components/ui/rango-de-horas";
 import { canDo } from "@/lib/permissions";
 import { useAuthStore } from "@/lib/store";
 import { DAYS, type BusinessHourForm } from "./schemas";
@@ -55,27 +54,14 @@ export function HoursTab({ hours, onUpdate, onSave, saving }: HoursTabProps) {
                   aria-labelledby={`business-day-${day.value}`}
                 />
                 {hour?.active ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="time"
-                      value={hour.openTime}
-                      onChange={(e) =>
-                        onUpdate(day.value, "openTime", e.target.value)
-                      }
-                      className="h-8 w-28 text-sm"
-                      aria-label={`Hora de apertura, ${day.label}`}
-                    />
-                    <span className="text-muted-foreground">a</span>
-                    <HoraDeCierre
-                      value={hour.closeTime}
-                      apertura={hour.openTime}
-                      onValueChange={(hora) =>
-                        onUpdate(day.value, "closeTime", hora)
-                      }
-                      className="h-8 w-40 text-sm"
-                      aria-label={`Hora de cierre, ${day.label}`}
-                    />
-                  </div>
+                  <RangoDeHoras
+                    desde={hour.openTime}
+                    hasta={hour.closeTime}
+                    onDesde={(hora) => onUpdate(day.value, "openTime", hora)}
+                    onHasta={(hora) => onUpdate(day.value, "closeTime", hora)}
+                    etiquetaDesde={`Hora de apertura, ${day.label}`}
+                    etiquetaHasta={`Hora de cierre, ${day.label}`}
+                  />
                 ) : (
                   <span className="text-muted-foreground text-sm">Cerrado</span>
                 )}

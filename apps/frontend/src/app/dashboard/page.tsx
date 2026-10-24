@@ -256,7 +256,7 @@ export default function DashboardPage() {
     <div>
       <PageHeader
         className="mb-8"
-        titulo="Dashboard"
+        titulo="Resumen"
         descripcion="Resumen de tu negocio"
       />
 

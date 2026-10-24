@@ -1,0 +1,111 @@
+{{!--
+  Base de todos los correos: banda violeta con la marca, icono del tipo de
+  correo a caballo entre la banda y la tarjeta, el cuerpo y el pie.
+  Parámetros: preheader, icono, negocio (vacío = firma BeautySpot), motivo,
+  direccion, telefono. Todo va en estilos en línea y tablas: es lo único que
+  respetan Gmail y Outlook a la vez.
+--}}
+<!DOCTYPE html>
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>{{titulo}}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; padding: 0; }
+  a { color: #6D28D9; }
+  @media (max-width: 520px) {
+    .bs-cuerpo { padding: 20px 20px 28px !important; }
+    .bs-banda { padding: 24px 20px 12px !important; }
+    .bs-titulo { font-size: 24px !important; }
+    .bs-columna { display: block !important; width: 100% !important; box-sizing: border-box; }
+    .bs-boton { display: block !important; }
+  }
+</style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #EEEAF7;">
+<div style="display: none; max-height: 0; overflow: hidden; mso-hide: all; font-size: 1px; line-height: 1px; color: #EEEAF7;">{{preheader}}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #EEEAF7;">
+<tr>
+<td align="center" style="padding: 28px 12px;">
+<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; font-family: Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0F172A;">
+
+  <!-- Banda de marca -->
+  <tr>
+    <td class="bs-banda" bgcolor="#7C3AED" align="center" style="background-color: #7C3AED; border-radius: 20px 20px 0 0; padding: 28px 32px 12px; text-align: center;">
+      {{#if negocio}}
+        <div style="font-size: 20px; line-height: 28px; font-weight: 700; color: #FFFFFF;">{{negocio}}</div>
+        <div style="font-size: 12px; line-height: 18px; color: #E9DDFF;">Reserva gestionada con BeautySpot</div>
+      {{else}}
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+          <tr>
+            <td style="padding-right: 10px; vertical-align: middle;"><img src="{{@root.recursos}}/isotipo-blanco.png" width="30" height="30" alt="" style="display: block; border: 0;"></td>
+            <td style="vertical-align: middle; font-family: Archivo, Arial, sans-serif; font-size: 24px; line-height: 30px; letter-spacing: -0.8px; color: #FFFFFF;">Beauty<strong>Spot</strong></td>
+          </tr>
+        </table>
+      {{/if}}
+    </td>
+  </tr>
+
+  <!-- Icono del tipo de correo: la imagen ya trae el corte violeta / blanco -->
+  <tr>
+    <td style="padding: 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td bgcolor="#7C3AED" style="background-color: #7C3AED; height: 42px; font-size: 0; line-height: 0;">&nbsp;</td>
+          <td rowspan="2" width="84" style="width: 84px; padding: 0;"><img src="{{@root.recursos}}/cabecera-{{icono}}.png" width="84" height="84" alt="" style="display: block; border: 0;"></td>
+          <td bgcolor="#7C3AED" style="background-color: #7C3AED; height: 42px; font-size: 0; line-height: 0;">&nbsp;</td>
+        </tr>
+        <tr>
+          <td bgcolor="#FFFFFF" style="background-color: #FFFFFF; height: 42px; font-size: 0; line-height: 0;">&nbsp;</td>
+          <td bgcolor="#FFFFFF" style="background-color: #FFFFFF; height: 42px; font-size: 0; line-height: 0;">&nbsp;</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- Cuerpo -->
+  <tr>
+    <td class="bs-cuerpo" bgcolor="#FFFFFF" style="background-color: #FFFFFF; padding: 20px 44px 36px;">
+      {{> @partial-block}}
+    </td>
+  </tr>
+
+  <!-- Pie dentro de la tarjeta -->
+  <tr>
+    <td bgcolor="#F8F7FC" align="center" style="background-color: #F8F7FC; border-top: 1px solid #EEEAF7; border-radius: 0 0 20px 20px; padding: 20px 24px; text-align: center; font-size: 13px; line-height: 20px; color: #64748B;">
+      {{#if negocio}}
+        <div style="font-weight: 600; color: #334155;">{{negocio}}</div>
+        {{#if direccion}}<div>{{direccion}}</div>{{/if}}
+        {{#if telefono}}<div>{{telefono}}</div>{{/if}}
+      {{/if}}
+      <div style="padding-top: 6px;">{{motivo}}</div>
+    </td>
+  </tr>
+
+  <!-- Sello -->
+  <tr>
+    <td align="center" style="padding: 18px 12px 0; font-size: 12px; line-height: 18px; color: #64748B;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+        <tr>
+          {{#if negocio}}<td style="padding-right: 6px; vertical-align: middle; font-size: 12px; color: #64748B;">Enviado con</td>{{/if}}
+          <td style="padding-right: 6px; vertical-align: middle;"><img src="{{@root.recursos}}/isotipo.png" width="14" height="14" alt="" style="display: block; border: 0;"></td>
+          <td style="vertical-align: middle; font-family: Archivo, Arial, sans-serif; font-size: 13px; letter-spacing: -0.4px; color: #334155;">Beauty<strong style="color: #7C3AED;">Spot</strong></td>
+        </tr>
+      </table>
+      <div style="padding-top: 6px;">© {{@root.anio}} BeautySpot · <a href="{{@root.appUrl}}" style="color: #64748B;">{{dominio @root.appUrl}}</a></div>
+    </td>
+  </tr>
+
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+</td>
+</tr>
+</table>
+</body>
+</html>

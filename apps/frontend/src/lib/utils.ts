@@ -130,6 +130,17 @@ export function formatTimeStamp(isoTimestamp: string): string {
   });
 }
 
+/**
+ * Duración legible: "45 min", "2 h", "1 h 30 min". Es la única forma en que la
+ * interfaz escribe una duración.
+ */
+export function formatDuracion(minutos: number): string {
+  if (minutos < 60) return `${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  const resto = minutos % 60;
+  return resto ? `${horas} h ${resto} min` : `${horas} h`;
+}
+
 /** Años de experiencia en singular o plural: "1 año", "4 años". */
 export function formatAniosExperiencia(anios: number): string {
   return `${anios} ${anios === 1 ? "año" : "años"} de experiencia`;

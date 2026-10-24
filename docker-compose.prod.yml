@@ -88,6 +88,10 @@ services:
     image: beautyspot-core-service:${VERSION}
     restart: unless-stopped
     env_file: ./env/core-service.env
+    # Las imágenes que suben los negocios. Sin volumen se perderían con cada
+    # despliegue, y van en las copias de seguridad junto a la base (DEPLOY.md).
+    volumes:
+      - media_data:/data/media
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -169,5 +173,6 @@ services:
 
 volumes:
   postgres_data:
+  media_data:
   redis_data:
   rabbitmq_data:

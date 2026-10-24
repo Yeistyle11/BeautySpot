@@ -150,6 +150,33 @@ describe("InternalHttpClient", () => {
     });
   });
 
+  describe("pedirBinario", () => {
+    it("devuelve el cuerpo tal cual, sin buscar un sobre JSON", async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        arrayBuffer: async () => new TextEncoder().encode("%PDF-1.7").buffer,
+      } as unknown as Response);
+
+      const pdf = await clienteCon({
+        PAYMENT_SERVICE_URL: "http://payment:3004",
+      }).pedirBinario("payment", "/internal/invoices/f-1/pdf");
+
+      expect(pdf.toString()).toBe("%PDF-1.7");
+      expect(fetchMock.mock.calls[0][0]).toBe(
+        "http://payment:3004/internal/invoices/f-1/pdf"
+      );
+    });
+
+    it("falla con el estado del otro servicio si no da un 2xx", async () => {
+      fetchMock.mockResolvedValue(respuesta(null, { status: 404 }));
+
+      await expect(
+        clienteCon().pedirBinario("payment", "/internal/invoices/x/pdf")
+      ).rejects.toMatchObject({ estado: 404 });
+    });
+  });
+
   describe("pedirONulo", () => {
     it("devuelve null en lugar de fallar cuando el servicio no responde", async () => {
       fetchMock.mockRejectedValue(new Error("ECONNREFUSED"));

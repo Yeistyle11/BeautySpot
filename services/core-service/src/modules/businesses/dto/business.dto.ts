@@ -14,12 +14,13 @@ export class ResolveBusinessNamesDto {
   @IsArray() @ArrayNotEmpty() @IsUUID("4", { each: true }) ids!: string[];
 }
 
-/** Datos para crear un negocio: nombre, contacto, ubicación y preferencias regionales. */
+/**
+ * Datos para crear un negocio: nombre, contacto, ubicación y preferencias
+ * regionales. Sin logo ni portada: se suben cuando el negocio ya existe.
+ */
 export class CreateBusinessDto {
   @IsString() @MaxLength(200) name!: string;
   @IsOptional() @IsString() @MaxLength(1000) description?: string;
-  @IsOptional() @IsString() @MaxLength(255) logo?: string;
-  @IsOptional() @IsString() @MaxLength(255) coverImage?: string;
   @IsOptional() @IsString() @MaxLength(30) phone?: string;
   @IsOptional() @IsString() @MaxLength(255) email?: string;
   @IsOptional() @IsString() @MaxLength(255) website?: string;
@@ -44,8 +45,9 @@ export class CreateBusinessDto {
 export class UpdateBusinessDto {
   @IsOptional() @IsString() @MaxLength(200) name?: string;
   @IsOptional() @IsString() @MaxLength(1000) description?: string;
-  @IsOptional() @IsString() @MaxLength(255) logo?: string;
-  @IsOptional() @IsString() @MaxLength(255) coverImage?: string;
+  /** Imagen subida desde el panel; `null` la quita. */
+  @IsOptional() @IsString() @MaxLength(255) logo?: string | null;
+  @IsOptional() @IsString() @MaxLength(255) coverImage?: string | null;
   @IsOptional() @IsString() @MaxLength(30) phone?: string;
   @IsOptional() @IsString() @MaxLength(255) email?: string;
   @IsOptional() @IsString() @MaxLength(255) website?: string;

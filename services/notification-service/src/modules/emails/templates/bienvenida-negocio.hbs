@@ -1,0 +1,16 @@
+{{!-- Bienvenida del dueño, al dar de alta su negocio. --}}
+{{#> layout
+  titulo=(concat businessName " ya está en BeautySpot")
+  preheader="Tres pasos para recibir tu primera reserva."
+  icono="brillo"
+  motivo=(concat "Recibes este correo porque diste de alta " businessName " en BeautySpot.")
+}}
+  {{> titulo texto="Tu negocio ya está en BeautySpot"}}
+  {{#> parrafo}}Hola {{primerNombre clientName}}, {{businessName}} ya tiene su panel. Deja listos estos tres pasos y empezarás a recibir reservas.{{/parrafo}}
+  {{#> pasos}}
+    {{> paso icono="reloj" titulo="Horario" texto="Los días y horas en que atiendes."}}
+    {{> paso icono="tijeras" titulo="Servicios" texto="Qué ofreces, cuánto dura y cuánto cuesta."}}
+    {{> paso icono="equipo" titulo="Equipo" texto="Quién atiende y en qué horario."}}
+  {{/pasos}}
+  {{> boton texto="Ir a mi panel" url=enlacePanel}}
+{{/layout}}

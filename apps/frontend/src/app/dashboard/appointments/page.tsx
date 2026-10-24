@@ -342,8 +342,10 @@ export default function AppointmentsPage() {
         titulo="Agenda"
         descripcion="Gestiona tus citas"
         accion={
-          <div className="flex items-center gap-2">
-            <div className="flex overflow-hidden rounded-md border">
+          // En movil el selector de vista ocupa su fila y los botones se
+          // reparten la siguiente.
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto [&>button]:flex-1 sm:[&>button]:flex-none">
+            <div className="flex w-full overflow-hidden rounded-md border sm:w-auto">
               {VISTAS.map(({ id, etiqueta, icono: Icono }) => (
                 <FilterChip
                   key={id}
@@ -449,6 +451,11 @@ export default function AppointmentsPage() {
                 clientNames={clientMap}
                 bloqueos={bloqueos ?? []}
                 diasAbiertos={diasAbiertos}
+                horarioDelDia={horarios?.find(
+                  (h) =>
+                    h.active &&
+                    h.dayOfWeek === new Date(`${dia}T12:00:00`).getDay()
+                )}
                 onBloquearHueco={puedeBloquear ? bloqueo.abrir : undefined}
               />
             )}
@@ -483,7 +490,7 @@ export default function AppointmentsPage() {
         <div className="space-y-3">
           {pestanas.length > 1 && (
             <Tabs value={estado} onValueChange={setEstado}>
-              <TabsList className="flex-wrap">
+              <TabsList>
                 {pestanas.map((p) => (
                   <TabsTrigger key={p.valor || "todas"} value={p.valor}>
                     {p.etiqueta} ({p.n})

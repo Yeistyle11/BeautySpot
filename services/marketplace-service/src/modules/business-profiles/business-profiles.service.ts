@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ConflictException,
@@ -26,10 +27,14 @@ import {
   UpdateGalleryImageDto,
 } from "./dto/profile.dto";
 import {
+  asegurarImagenPropia,
   esViolacionDeUnicidad,
+  imagenesQueSobran,
+  InternalHttpClient,
   rechazarSiOtroGuardoAntes,
   RedisCacheService,
 } from "@beautyspot/nest-common";
+import { MAXIMO_IMAGENES_GALERIA } from "@beautyspot/shared-constants";
 import { ProfessionalProfilesService } from "../professional-profiles/professional-profiles.service";
 
 /**
@@ -63,11 +68,14 @@ const MAXIMO_POR_PAGINA = 50;
  */
 @Injectable()
 export class BusinessProfilesService {
+  private readonly logger = new Logger(BusinessProfilesService.name);
+
   constructor(
     @InjectRepository(BusinessProfileEntity)
     private readonly repo: Repository<BusinessProfileEntity>,
     private readonly professionalProfilesService: ProfessionalProfilesService,
-    private readonly cache: RedisCacheService
+    private readonly cache: RedisCacheService,
+    private readonly http: InternalHttpClient
   ) {}
 
   /** Prefijo de las claves de caché de este servicio, para poder invalidarlas juntas. */
@@ -107,9 +115,21 @@ export class BusinessProfilesService {
     }
 
     const slug = await this.resolverEnlace(dto.name, dto.slug);
+    // El logo y la portada viven en core y aquí solo llegan sus cambios: los
+    // que ya tenía el negocio se copian al nacer el escaparate.
+    const imagenes = await this.http.pedirONulo<{
+      logo: string | null;
+      coverImage: string | null;
+    }>("core", `/internal/businesses/${businessId}/imagenes`);
 
     try {
-      return await this.createOrUpdate({ ...dto, businessId, slug });
+      return await this.createOrUpdate({
+        ...dto,
+        businessId,
+        slug,
+        ...(imagenes?.logo ? { logo: imagenes.logo } : {}),
+        ...(imagenes?.coverImage ? { coverImage: imagenes.coverImage } : {}),
+      });
     } catch (error) {
       // Las comprobaciones de arriba no son atomicas: la de dos altas a la vez
       // que pierde llega aqui, y el mensaje distingue que unicidad salto.
@@ -253,6 +273,30 @@ export class BusinessProfilesService {
     dto: Omit<UpdateProfileConfigDto, "updatedAt">,
     versionCargada?: Date
   ): Promise<BusinessProfileEntity> {
+    let historiaAnterior: string | null = null;
+    const guardado = await this.escribirConfig(
+      businessId,
+      dto,
+      versionCargada,
+      (perfil) => (historiaAnterior = perfil.storyImage ?? null)
+    );
+    await this.descartarImagenes(
+      imagenesQueSobran([historiaAnterior], [guardado.storyImage]),
+      businessId
+    );
+    return guardado;
+  }
+
+  /**
+   * Escribe la configuración, condicionada a la versión cargada si la hay.
+   * `alLeer` recibe el perfil antes de cambiarlo.
+   */
+  private async escribirConfig(
+    businessId: string,
+    dto: Omit<UpdateProfileConfigDto, "updatedAt">,
+    versionCargada: Date | undefined,
+    alLeer: (perfil: BusinessProfileEntity) => void
+  ): Promise<BusinessProfileEntity> {
     if (versionCargada) {
       return this.repo.manager.transaction(async (manager) => {
         const actual = await manager
@@ -265,11 +309,14 @@ export class BusinessProfilesService {
           throw new NotFoundException("Perfil de negocio no encontrado");
         }
         rechazarSiOtroGuardoAntes(actual.updatedAt, versionCargada);
+        alLeer(actual);
         return this.aplicarConfig(actual, dto);
       });
     }
 
-    return this.aplicarConfig(await this.findByBusinessId(businessId), dto);
+    const perfil = await this.findByBusinessId(businessId);
+    alLeer(perfil);
+    return this.aplicarConfig(perfil, dto);
   }
 
   /** Vuelca los campos que vengan sobre el perfil y lo guarda. */
@@ -280,7 +327,14 @@ export class BusinessProfilesService {
     if (dto.tagline !== undefined) profile.tagline = dto.tagline;
     if (dto.storyTitle !== undefined) profile.storyTitle = dto.storyTitle;
     if (dto.storyText !== undefined) profile.storyText = dto.storyText;
-    if (dto.storyImage !== undefined) profile.storyImage = dto.storyImage;
+    if (dto.storyImage !== undefined) {
+      asegurarImagenPropia(
+        dto.storyImage,
+        profile.storyImage,
+        profile.businessId
+      );
+      profile.storyImage = dto.storyImage;
+    }
     if (dto.foundedYear !== undefined) profile.foundedYear = dto.foundedYear;
     if (dto.founders !== undefined) profile.founders = dto.founders;
     if (dto.socialLinks !== undefined) profile.socialLinks = dto.socialLinks;
@@ -299,6 +353,15 @@ export class BusinessProfilesService {
   ): Promise<BusinessProfileEntity> {
     const profile = await this.findByBusinessId(businessId);
     const current = profile.galleryImages || [];
+    if (current.length + dto.images.length > MAXIMO_IMAGENES_GALERIA) {
+      throw new BadRequestException(
+        `La galería admite hasta ${MAXIMO_IMAGENES_GALERIA} imágenes`
+      );
+    }
+    const guardadas = current.map((imagen) => imagen.url);
+    for (const imagen of dto.images) {
+      asegurarImagenPropia(imagen.url, guardadas, businessId);
+    }
     profile.galleryImages = [...current, ...dto.images];
     profile.profileCompleteness = await this.calculateCompleteness(profile);
     return this.guardar(profile);
@@ -336,10 +399,39 @@ export class BusinessProfilesService {
       throw new BadRequestException("Indice de imagen invalido");
     }
 
-    images.splice(index, 1);
+    const [quitada] = images.splice(index, 1);
     profile.galleryImages = images;
     profile.profileCompleteness = await this.calculateCompleteness(profile);
-    return this.guardar(profile);
+    const guardado = await this.guardar(profile);
+    await this.descartarImagenes(
+      imagenesQueSobran(
+        [quitada.url],
+        images.map((imagen) => imagen.url)
+      ),
+      businessId
+    );
+    return guardado;
+  }
+
+  /**
+   * Pide a core que borre las imágenes que el escaparate dejó de usar. Mejor
+   * esfuerzo: el cambio ya está guardado y un archivo de más no rompe nada.
+   */
+  private async descartarImagenes(
+    urls: string[],
+    businessId: string
+  ): Promise<void> {
+    if (urls.length === 0) return;
+    try {
+      await this.http.enviar("core", "/internal/images/descartar", {
+        businessId,
+        urls,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `No se pudieron descartar ${urls.length} imágenes de ${businessId}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   /** Publica el perfil (lo hace visible en el marketplace); exige nombre y slug. */

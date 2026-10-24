@@ -212,6 +212,7 @@ export default function PaymentsPage() {
       );
       setCreateDialog(false);
       setCreateForm(emptyCreateForm);
+      toast.exito("Cobro registrado");
       await revalidatePrefix(PAYMENTS_KEY);
     } catch (err) {
       logger.error(err);
@@ -242,6 +243,7 @@ export default function PaymentsPage() {
       );
       setRefundDialog(false);
       setRefundPayment(null);
+      toast.exito("Devolución registrada");
       await revalidatePrefix(PAYMENTS_KEY);
       // El efectivo devuelto sale del cajón: el arqueo cambia con él.
       await revalidatePrefix("/payment/cash-register");
@@ -282,6 +284,7 @@ export default function PaymentsPage() {
       });
       setEditDialog(false);
       setEditId(null);
+      toast.exito("Cobro actualizado");
       await revalidatePrefix(PAYMENTS_KEY);
     } catch (err) {
       logger.error(err);
@@ -324,13 +327,14 @@ export default function PaymentsPage() {
             </FilterChip>
           ))}
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <Calendar className="text-muted-foreground h-4 w-4" />
+        {/* En movil las dos fechas se reparten el ancho. */}
+        <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-sm md:flex md:w-auto">
+          <Calendar className="text-muted-foreground hidden h-4 w-4 md:block" />
           <Input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="h-8 w-36 text-xs"
+            className="md:h-8 md:w-36 md:text-xs"
             aria-label="Filtrar desde"
           />
           <span className="text-muted-foreground">a</span>
@@ -338,7 +342,7 @@ export default function PaymentsPage() {
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="h-8 w-36 text-xs"
+            className="md:h-8 md:w-36 md:text-xs"
             aria-label="Filtrar hasta"
           />
         </div>

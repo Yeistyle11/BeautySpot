@@ -1,4 +1,5 @@
-import { RedisCacheService } from "@beautyspot/nest-common";
+import { InternalHttpClient, RedisCacheService } from "@beautyspot/nest-common";
+import { MAXIMO_IMAGENES_GALERIA } from "@beautyspot/shared-constants";
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -13,6 +14,7 @@ import {
 } from "@nestjs/common";
 
 describe("BusinessProfilesService", () => {
+  let mockHttp: { pedirONulo: jest.Mock; enviar: jest.Mock };
   let service: BusinessProfilesService;
   let mockRepo: jest.Mocked<Repository<BusinessProfileEntity>>;
   let mockProfessionalService: jest.Mocked<any>;
@@ -101,6 +103,11 @@ describe("BusinessProfilesService", () => {
       mockQueryBuilder
     );
 
+    mockHttp = {
+      pedirONulo: jest.fn().mockResolvedValue(null),
+      enviar: jest.fn().mockResolvedValue(null),
+    };
+
     const module = await Test.createTestingModule({
       providers: [
         BusinessProfilesService,
@@ -112,6 +119,7 @@ describe("BusinessProfilesService", () => {
           provide: ProfessionalProfilesService,
           useValue: mockProfessionalService,
         },
+        { provide: InternalHttpClient, useValue: mockHttp },
         {
           // Caché transparente: ejecuta siempre el cargador, de modo que los
           // tests siguen verificando la composición real y no un valor servido.
@@ -294,11 +302,15 @@ describe("BusinessProfilesService", () => {
   });
 
   describe("addGalleryImages", () => {
+    const NEGOCIO = "632f8391-d9ba-4d76-bc2c-1d20dae78ff6";
+    const foto = (n: number) =>
+      `/media/negocios/${NEGOCIO}/galeria/3f1c2b9a-7d4e-4a1b-9c3d-2e5f6a7b8c${String(n).padStart(2, "0")}.webp`;
+
     it("debería agregar imágenes a la galería", async () => {
       const dto = {
         images: [
-          { url: "img2.jpg", title: "Nuevo corte" },
-          { url: "img3.jpg", title: "Barba" },
+          { url: foto(2), title: "Nuevo corte" },
+          { url: foto(3), title: "Barba" },
         ],
       };
 
@@ -306,10 +318,38 @@ describe("BusinessProfilesService", () => {
       mockRepo.save.mockResolvedValue(mockBusinessProfile);
       mockProfessionalService.findVisibleByBusiness.mockResolvedValue([]);
 
-      const result = await service.addGalleryImages("business-123", dto);
+      const result = await service.addGalleryImages(NEGOCIO, dto);
 
       expect(result.galleryImages).toHaveLength(3);
       expect(mockRepo.save).toHaveBeenCalled();
+    });
+
+    it("rechaza una imagen que no se subió desde el panel", async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockBusinessProfile,
+        galleryImages: [],
+      } as never);
+
+      await expect(
+        service.addGalleryImages(NEGOCIO, {
+          images: [{ url: "https://evil.example/x.jpg" }],
+        })
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("no deja pasar del tope de la galería", async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockBusinessProfile,
+        galleryImages: Array.from(
+          { length: MAXIMO_IMAGENES_GALERIA },
+          (_, i) => ({ url: foto(i) })
+        ),
+      } as never);
+
+      await expect(
+        service.addGalleryImages(NEGOCIO, { images: [{ url: foto(99) }] })
+      ).rejects.toThrow(`hasta ${MAXIMO_IMAGENES_GALERIA}`);
     });
   });
 
@@ -329,6 +369,29 @@ describe("BusinessProfilesService", () => {
 
       expect(result.galleryImages).toHaveLength(0);
       expect(mockRepo.save).toHaveBeenCalled();
+    });
+
+    it("pide a core que borre la imagen propia que se quita", async () => {
+      const NEGOCIO = "632f8391-d9ba-4d76-bc2c-1d20dae78ff6";
+      const url = `/media/negocios/${NEGOCIO}/galeria/3f1c2b9a-7d4e-4a1b-9c3d-2e5f6a7b8c9d.webp`;
+      mockRepo.findOne.mockResolvedValue({
+        ...mockBusinessProfile,
+        businessId: NEGOCIO,
+        galleryImages: [{ url }],
+      } as never);
+      mockRepo.save.mockImplementation(async (perfil) => perfil as never);
+      mockProfessionalService.findVisibleByBusiness.mockResolvedValue([]);
+      mockHttp.enviar.mockRejectedValue(new Error("core caído"));
+
+      await expect(
+        service.removeGalleryImage(NEGOCIO, 0)
+      ).resolves.toBeDefined();
+
+      expect(mockHttp.enviar).toHaveBeenCalledWith(
+        "core",
+        "/internal/images/descartar",
+        { businessId: NEGOCIO, urls: [url] }
+      );
     });
 
     it("debería lanzar BadRequestException si el índice es inválido", async () => {
@@ -521,7 +584,6 @@ describe("BusinessProfilesService", () => {
         tagline: "Tu estilo, nuestra pasión",
         storyTitle: "Nuestra historia",
         storyText: "Texto",
-        storyImage: "story.jpg",
         foundedYear: 2015,
         founders: "Juan y Ana",
         socialLinks: { instagram: "@x" },
@@ -533,6 +595,62 @@ describe("BusinessProfilesService", () => {
         sections: [{ id: "story", enabled: true, order: 1 }],
       });
       expect(mockRepo.save).toHaveBeenCalled();
+    });
+
+    describe("imagen de la historia", () => {
+      const NEGOCIO = "632f8391-d9ba-4d76-bc2c-1d20dae78ff6";
+      const HISTORIA = `/media/negocios/${NEGOCIO}/historia/3f1c2b9a-7d4e-4a1b-9c3d-2e5f6a7b8c9d.webp`;
+      const OTRA = HISTORIA.replace("3f1c", "4f1c");
+
+      beforeEach(() => {
+        mockRepo.save.mockImplementation(async (p) => p as any);
+        mockProfessionalService.findVisibleByBusiness.mockResolvedValue([]);
+      });
+
+      it("rechaza una imagen que no se subió desde el panel", async () => {
+        mockRepo.findOne.mockResolvedValue({
+          ...mockBusinessProfile,
+          businessId: NEGOCIO,
+        } as any);
+
+        await expect(
+          service.updateConfig(NEGOCIO, {
+            storyImage: "https://x.example/a.jpg",
+          })
+        ).rejects.toThrow(BadRequestException);
+        expect(mockRepo.save).not.toHaveBeenCalled();
+      });
+
+      it("cambia la imagen y pide borrar la anterior", async () => {
+        mockRepo.findOne.mockResolvedValue({
+          ...mockBusinessProfile,
+          businessId: NEGOCIO,
+          storyImage: HISTORIA,
+        } as any);
+
+        const result = await service.updateConfig(NEGOCIO, {
+          storyImage: OTRA,
+        });
+
+        expect(result.storyImage).toBe(OTRA);
+        expect(mockHttp.enviar).toHaveBeenCalledWith(
+          "core",
+          "/internal/images/descartar",
+          { businessId: NEGOCIO, urls: [HISTORIA] }
+        );
+      });
+
+      it("no pide borrar nada si la imagen no cambia", async () => {
+        mockRepo.findOne.mockResolvedValue({
+          ...mockBusinessProfile,
+          businessId: NEGOCIO,
+          storyImage: HISTORIA,
+        } as any);
+
+        await service.updateConfig(NEGOCIO, { tagline: "Otra" });
+
+        expect(mockHttp.enviar).not.toHaveBeenCalled();
+      });
     });
   });
 
@@ -769,6 +887,23 @@ describe("BusinessProfilesService", () => {
 
       expect(perfil.slug).toBe("barberia-la-noche");
       expect(perfil.businessId).toBe("business-123");
+    });
+
+    it("copia el logo y la portada que el negocio ya tenía en core", async () => {
+      sinNadaCreado();
+      mockHttp.pedirONulo.mockResolvedValue({
+        logo: "/media/negocios/n/logo/a.webp",
+        coverImage: null,
+      });
+
+      const perfil = await service.crearParaNegocio("business-123", alta);
+
+      expect(mockHttp.pedirONulo).toHaveBeenCalledWith(
+        "core",
+        "/internal/businesses/business-123/imagenes"
+      );
+      expect(perfil.logo).toBe("/media/negocios/n/logo/a.webp");
+      expect(perfil.coverImage).toBeUndefined();
     });
 
     it("respeta el enlace que escribe el dueño", async () => {

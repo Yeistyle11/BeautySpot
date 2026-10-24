@@ -6,7 +6,13 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { OutboxService, InternalHttpClient } from "@beautyspot/nest-common";
+import {
+  OutboxService,
+  InternalHttpClient,
+  asegurarImagenPropia,
+  imagenesQueSobran,
+} from "@beautyspot/nest-common";
+import { ImagesService } from "../images/images.service";
 import { EventNames } from "@beautyspot/event-types";
 import { metadataDePaginacion } from "@beautyspot/database";
 import { In, Repository, DataSource, EntityManager } from "typeorm";
@@ -44,7 +50,8 @@ export class BusinessesService {
     private readonly professionalRepo: Repository<Professional>,
     private readonly dataSource: DataSource,
     private readonly outbox: OutboxService,
-    private readonly http: InternalHttpClient
+    private readonly http: InternalHttpClient,
+    private readonly images: ImagesService
   ) {}
 
   /**
@@ -341,6 +348,8 @@ export class BusinessesService {
     callerRole?: Role
   ): Promise<Business> {
     const previo = await this.findById(id, callerBusinessId, callerRole);
+    asegurarImagenPropia(data.logo, previo.logo, id);
+    asegurarImagenPropia(data.coverImage, previo.coverImage, id);
 
     await this.dataSource.transaction(async (manager) => {
       await manager
@@ -359,7 +368,30 @@ export class BusinessesService {
       });
     });
 
-    return this.findById(id, callerBusinessId, callerRole);
+    const actualizado = await this.findById(id, callerBusinessId, callerRole);
+    await this.images.descartar(
+      imagenesQueSobran(
+        [previo.logo, previo.coverImage],
+        [actualizado.logo, actualizado.coverImage]
+      ),
+      id
+    );
+    return actualizado;
+  }
+
+  /** Logo y portada del negocio, que el escaparate copia al crearse. */
+  async imagenes(
+    id: string
+  ): Promise<{ logo: string | null; coverImage: string | null }> {
+    const negocio = await this.repo.findOne({
+      where: { id },
+      select: ["id", "logo", "coverImage"],
+    });
+    if (!negocio) throw new NotFoundException("Negocio no encontrado");
+    return {
+      logo: negocio.logo ?? null,
+      coverImage: negocio.coverImage ?? null,
+    };
   }
 
   /** Da de baja (baja lógica) un negocio tras verificar el acceso del llamante. */

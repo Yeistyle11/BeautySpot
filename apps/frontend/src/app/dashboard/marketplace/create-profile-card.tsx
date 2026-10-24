@@ -86,7 +86,10 @@ export function CreateProfileCard({
               title="Solo minúsculas, números y guiones"
               required
             />
-            <p className="text-muted-foreground mt-1 text-xs" id={`${id}-url`}>
+            <p
+              className="text-muted-foreground mt-1 break-all text-xs"
+              id={`${id}-url`}
+            >
               Tus clientes te encontrarán en /marketplace/business/
               {enlace || "tu-negocio"}
             </p>

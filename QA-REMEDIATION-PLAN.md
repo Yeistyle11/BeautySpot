@@ -1,6 +1,7 @@
 # Plan de remediación — BeautySpot
 
-Rama de trabajo: `fix/tanda-24-auditoria`. Tres campañas, en orden:
+Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
+`fix/responsive-movil` para las cuatro últimas. Siete campañas, en orden:
 
 1. **`QA-REPORT-BeautySpot-2026-08-22`** — 28 hallazgos `BS-001`…`BS-028`
    (1 bloqueante, 5 altos, 15 medios, 7 bajos). Cerrada.
@@ -9,6 +10,14 @@ Rama de trabajo: `fix/tanda-24-auditoria`. Tres campañas, en orden:
 3. **Auditoría de código 2026-09-13** — 16 hallazgos `BS-044`…`BS-059`
    (4 altos, 11 medios, 1 bajo). Al final del documento. Sin informe previo:
    los hallazgos salen de leer el repositorio, no de recorrer la interfaz.
+4. **Uso desde el celular 2026-10-24** — 17 hallazgos `BS-060`…`BS-076`
+   (8 altos, 8 medios, 1 bajo).
+5. **Pendientes del informe UX/UI 2026-09-10 y de las propuestas** — 13
+   hallazgos `BS-077`…`BS-089` (6 medios, 7 bajos).
+6. **Correos 2026-10-24** — 8 hallazgos `BS-090`…`BS-097` (2 altos, 4 medios,
+   2 bajos).
+7. **Imágenes 2026-10-24** — 7 hallazgos `BS-098`…`BS-104` (3 altos, 3 medios,
+   1 bajo). Al final del documento.
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 propuesta `[PM]` (no se implementa) · ❓ necesita aclaración
 
@@ -1143,3 +1152,543 @@ cerraron en la misma tanda.
 cambian respecto a `main`, y la suite completa: **212 suites, 2942 pruebas**. Los
 tests de integración no se han ejecutado en local —Docker no está disponible en
 esta máquina—; los corre CI.
+
+---
+
+# Campaña 2026-10-24 — `BS-060`…`BS-076`
+
+Origen: el negocio que no tiene computador gestiona todo desde el celular, y en
+las pruebas la agenda y la configuración no se dejaban usar. Se mapeó el resto
+leyendo cada pantalla a 360–414 px y midiendo en la demo, a 394 px, qué
+elementos se salían del ancho.
+
+17 hallazgos: **8 Alta, 8 Media, 1 Baja**.
+
+## Decisiones tomadas
+
+| Tema    | Decisión                                                                                                    |
+| ------- | ----------------------------------------------------------------------------------------------------------- |
+| Agenda  | Vista propia en móvil: el día, de un profesional a la vez; la semana, como lista de días                    |
+| Tablas  | En móvil las acciones de cada fila se agrupan en un menú «⋯» con texto (`AccionesDeFila`)                   |
+| Tablas  | Lo secundario de cada fila (estado, cliente, teléfono, fecha) pasa bajo el nombre en móvil                  |
+| Estilos | Todo es mobile-first: la base es el celular y `sm:`/`md:` devuelven lo que ya se veía en escritorio         |
+| Tarjeta | El relleno de `Card` no se toca en la primitiva: muchas pantallas lo sobrescriben y cambiaría el escritorio |
+
+## Agrupación por causa raíz
+
+| Causa                                                                  | Hallazgos                      |
+| ---------------------------------------------------------------------- | ------------------------------ |
+| M1 · La barra de pestañas no sabe desplazarse cuando no cabe           | BS-063, BS-064                 |
+| M2 · Filas de botones o controles que no se parten                     | BS-060, BS-071, BS-072, BS-073 |
+| M3 · Rejillas de tiempo pensadas solo para escritorio                  | BS-061, BS-062                 |
+| M4 · Anchos fijos en píxeles sin base para móvil                       | BS-065, BS-074                 |
+| M5 · Tablas cuyo único formato en móvil es desplazarse de lado         | BS-066                         |
+| M6 · Campos de formulario de menos de 16 px, que iOS amplía al enfocar | BS-067                         |
+| M7 · Capas fijas medidas en `vh`, que el navegador del celular tapa    | BS-068                         |
+| M8 · Controles hechos a mano que no heredan el área táctil de `Button` | BS-069                         |
+| M9 · Acciones que solo aparecen al pasar el ratón                      | BS-070                         |
+| M10 · Texto variable dentro de una capa de altura fija                 | BS-075                         |
+| M11 · Textos de usuario sin corte de palabra                           | BS-076                         |
+
+## Tablero
+
+| ID     | Sev   | Módulo        | Causa | Esfuerzo | Estado |
+| ------ | ----- | ------------- | ----- | -------- | ------ |
+| BS-060 | Alta  | Agenda        | M2    | XS       | ✅     |
+| BS-061 | Alta  | Agenda        | M3    | M        | ✅     |
+| BS-062 | Alta  | Agenda        | M3    | M        | ✅     |
+| BS-063 | Alta  | Configuración | M1    | XS       | ✅     |
+| BS-064 | Media | Marketplace   | M1    | XS       | ✅     |
+| BS-065 | Alta  | Configuración | M4    | S        | ✅     |
+| BS-066 | Alta  | Listados      | M5    | M        | ✅     |
+| BS-067 | Media | Formularios   | M6    | XS       | ✅     |
+| BS-068 | Media | Navegación    | M7    | XS       | ✅     |
+| BS-069 | Media | Varios        | M8    | S        | ✅     |
+| BS-070 | Alta  | Marketplace   | M9    | XS       | ✅     |
+| BS-071 | Media | Pagos y caja  | M2    | S        | ✅     |
+| BS-072 | Alta  | Área cliente  | M2    | XS       | ✅     |
+| BS-073 | Media | Área cliente  | M2    | S        | ✅     |
+| BS-074 | Media | Reserva       | M4    | S        | ✅     |
+| BS-075 | Media | Marketplace   | M10   | S        | ✅     |
+| BS-076 | Baja  | Varios        | M11   | XS       | ✅     |
+
+## Detalle
+
+### BS-060 · La cabecera de la agenda empujaba «Nueva cita» fuera de la pantalla ✅
+
+Lista/Día/Semana, Walk-in y Nueva cita iban en una fila que no se partía: 508 px
+medidos en una pantalla de 394, con toda la página desplazándose de lado.
+
+### BS-061 · La vista Día no dejaba ver más de un profesional y medio ✅
+
+Rejilla con `min-w-[640px]` y columnas de 140 px por profesional, sin cabecera
+ni horas fijas al desplazarse, citas cortas de 18 px de alto y el bloqueo de una
+franja ofrecido solo con el ratón.
+
+### BS-062 · La vista Semana enseñaba menos de la mitad de la semana ✅
+
+`min-w-[700px]` en 300 px visibles: siete columnas de 91 px de las que se veían
+dos y media, con las horas desplazándose junto con los días.
+
+### BS-063 · Tres pestañas de la configuración no se alcanzaban ✅
+
+Las siete pestañas sumaban 780 px y la barra ni se partía ni se desplazaba:
+Fidelidad, Facturación y Reservas quedaban fuera.
+
+### BS-064 · La primera pestaña del marketplace quedaba cortada ✅
+
+La barra se desplazaba, pero centrada: lo que sobraba por la izquierda no se
+podía alcanzar.
+
+### BS-065 · El horario no cabía en su tarjeta ✅
+
+La fila «desde – a – hasta» medía entre 298 y 350 px con anchos fijos, en el
+horario del negocio y en el de cada profesional, y la X de quitar el tramo
+quedaba fuera.
+
+### BS-066 · Las acciones de los listados quedaban fuera de la pantalla ✅
+
+Once tablas (citas, cobros, facturas y su detalle, clientes, servicios, equipo,
+cuentas, categorías, caja, bloqueos) medían entre 470 y 720 px en táctil, con
+los botones de 44 px al final de la fila.
+
+### BS-067 · Enfocar cualquier campo ampliaba la página en iOS ✅
+
+Los campos, selectores y áreas de texto usaban 14 px, y Safari amplía la página
+al enfocar un campo de menos de 16 px.
+
+### BS-068 · El menú lateral y los diálogos quedaban bajo la barra del navegador ✅
+
+Medidos en `vh`, que en el celular incluye lo que tapan las barras del
+navegador: «Cerrar sesión» y el pie de los diálogos quedaban debajo. Los avisos,
+además, se salían 16 px por la izquierda.
+
+### BS-069 · Botones que no se dejaban tocar ✅
+
+Controles hechos a mano con áreas de 12 a 28 px: cerrar el menú y los diálogos,
+los chips de filtro, los interruptores, las flechas de orden de las secciones,
+marcar una notificación como leída, el ojo de la contraseña, «Denunciar» y
+«Dejar reseña».
+
+### BS-070 · En el celular no había forma de borrar una imagen de la galería ✅
+
+El botón solo aparecía al pasar el ratón por encima.
+
+### BS-071 · Barras y formularios del negocio que se salían del ancho ✅
+
+El rango de fechas de los cobros, el reparto del cobro entre métodos, los
+botones de la caja, el formulario de cliente y el de servicio en dos columnas
+fijas, los niveles de fidelidad.
+
+### BS-072 · Guardar una reseña o un reagendamiento quedaba fuera ✅
+
+Las filas de botones del área del cliente no se partían: al editar una reseña
+sumaban 414 px y «Guardar cambios» no se veía.
+
+### BS-073 · El panel del cliente no tenía versión para celular ✅
+
+La tarjeta de la próxima cita, el aviso de «Reservar ahora» y los filtros de
+Mis citas (364 px) estaban pensados para escritorio.
+
+### BS-074 · El paso a paso de la reserva se salía ✅
+
+El indicador de pasos desbordaba a 360 px y la tira de días se partía en dos
+filas desiguales.
+
+### BS-075 · La portada del perfil público tapaba «Volver» ✅
+
+El bloque del nombre iba anclado al pie de una portada de altura fija; en el
+celular el texto ocupa más líneas y crecía hacia arriba hasta tapar el botón.
+
+### BS-076 · Correos y comentarios largos rompían el ancho ✅
+
+Emails en el perfil, la reserva y el acceso, y comentarios de reseñas, sin corte
+de palabra.
+
+## Lo que queda fuera
+
+- `next/image` sin `sizes` en la galería y la historia del perfil público: no
+  rompe el ancho, pero en un celular de alta densidad baja la imagen grande.
+  Es rendimiento, no uso.
+- La reseña de una cita muestra el identificador del profesional en vez de su
+  nombre. Se ve en cualquier ancho; en el celular ahora se corta en vez de
+  salirse.
+
+## Verificación
+
+En el navegador, a 402 px (lo mínimo que deja abrir la ventana), sobre la base
+local sembrada: las 18 rutas del dueño, las 6 del cliente y el marketplace con
+su reserva, midiendo en cada una que ningún elemento pasa del ancho de la
+pantalla salvo las filas que se desplazan a propósito (pestañas, chips de
+categoría y de profesional, carrusel). El día enseña un profesional a la vez
+con citas de 28 px, la semana sale como lista, se llega a la séptima pestaña de
+la configuración y el horario cabe en su tarjeta.
+
+`npm run type-check` y `lint` del frontend, Prettier sobre los ficheros que
+cambian respecto a `main`, y la suite completa con el umbral de cobertura:
+**223 suites, 3048 pruebas**. El modo de escritorio del navegador no emula el
+puntero táctil (`pointer: coarse`): los tamaños de 44 px se ven en un celular
+de verdad.
+
+---
+
+# Campaña 2026-10-24 (2) — `BS-077`…`BS-089`
+
+Origen: el informe `UX-UI-REPORT-BeautySpot-2026-09-10`, que nunca se pasó a
+este tablero, y las tres propuestas `[PM]` de la campaña del 2026-09-04. Se
+cotejó cada hallazgo con el código: de los 64, **54 ya estaban corregidos** de
+paso por otras tandas (sobre todo `719b753`) y quedaban 10 a medias. Aquí van
+esos diez, agrupados, más las dos propuestas sin terminar y un fallo que
+apareció al revisar la agenda.
+
+Correspondencia con el informe: BS-077 ← BS-UI-024 · BS-078 ← BS-UI-015 ·
+BS-079 ← BS-UI-043 · BS-080 ← BS-UI-022 · BS-081 ← BS-UI-026 · BS-082 ←
+BS-UI-027 · BS-083 ← BS-UI-025 · BS-084 ← BS-UI-040 · BS-085 ← BS-UI-036 y
+BS-UI-044 · BS-086 ← P-2 · BS-087 ← P-3 · BS-089 ← BS-UI-049.
+
+13 hallazgos: **6 Media, 7 Baja**.
+
+## Decisiones tomadas
+
+| Tema      | Decisión                                                                                                                                |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| BS-UI-049 | Notificaciones también va en `TablaDeRegistros`, aunque no se gestione: la interfaz lista igual en todas partes (BS-089)                |
+| BS-087    | El descuento mayor que el cobro sigue **bloqueado** (BS-QA-015); lo que falta es decirlo en pantalla                                    |
+| BS-082    | Los diálogos animan también la salida; con `prefers-reduced-motion` no anima nada                                                       |
+| P-1       | Ya hecho: Agenda, Pagos y Walk-in eligen al cliente con `SelectorDeEntidad`, que busca                                                  |
+| BS-086    | Sin fila «sin profesional»: la diferencia mezcla cobros sin cita, descuentos, devoluciones y citas sin cobrar; se explica bajo la tabla |
+
+## Agrupación por causa raíz
+
+| Causa                                                                 | Hallazgos              |
+| --------------------------------------------------------------------- | ---------------------- |
+| N1 · Guardar no confirma nada en la mitad de los módulos              | BS-077                 |
+| N2 · El error de un formulario no se ata al campo que lo provoca      | BS-078, BS-087         |
+| N3 · Cada pantalla escribe la duración a su manera                    | BS-079                 |
+| N4 · Controles que no heredan el área táctil de `Button`              | BS-080                 |
+| N5 · Confirmaciones y acciones que no dicen sobre qué ni cuánto pesan | BS-081, BS-083, BS-084 |
+| N6 · Diálogos que desaparecen sin transición                          | BS-082                 |
+| N7 · Vocabulario que no es el del menú                                | BS-085                 |
+| N8 · Un dato del informe que no se puede leer sin la pieza que falta  | BS-086                 |
+| N9 · Una rejilla que no mira el horario del negocio                   | BS-088                 |
+| N10 · Un listado que no usa la tabla común                            | BS-089                 |
+
+## Tablero
+
+| ID     | Sev   | Módulo         | Causa | Esfuerzo | Estado |
+| ------ | ----- | -------------- | ----- | -------- | ------ |
+| BS-077 | Media | Varios         | N1    | S        | ✅     |
+| BS-078 | Media | Acceso         | N2    | S        | ✅     |
+| BS-079 | Media | Varios         | N3    | S        | ✅     |
+| BS-080 | Media | Varios         | N4    | XS       | ✅     |
+| BS-081 | Baja  | Bloqueos       | N5    | XS       | ✅     |
+| BS-082 | Baja  | Interfaz       | N6    | S        | ✅     |
+| BS-083 | Baja  | Listados       | N5    | XS       | ✅     |
+| BS-084 | Baja  | Caja           | N5    | XS       | ✅     |
+| BS-085 | Baja  | Varios         | N7    | XS       | ✅     |
+| BS-086 | Media | Reportes       | N8    | S        | ✅     |
+| BS-087 | Baja  | Pagos          | N2    | XS       | ✅     |
+| BS-088 | Media | Agenda         | N9    | XS       | ✅     |
+| BS-089 | Baja  | Notificaciones | N10   | S        | ✅     |
+
+## Detalle
+
+### BS-077 · Guardar no avisaba de que se había guardado ✅
+
+Caja, Pagos, Profesionales, Cuentas, el alta del negocio, el perfil del cliente
+y el alta y la edición de servicios cerraban el diálogo sin decir nada: quien
+guarda no sabe si se guardó o si se le cerró la ventana.
+
+### BS-078 · El error del acceso no decía qué campo fallaba ✅
+
+Un solo mensaje encima del botón, y todos los campos en rojo a la vez aunque
+solo uno estuviera mal.
+
+### BS-079 · Las duraciones se leían en minutos sueltos ✅
+
+«90 min», «150 min»: cada pantalla escribía la duración por su cuenta y ninguna
+la pasaba a horas.
+
+### BS-080 · Campos y enlaces del acceso por debajo de 44 px ✅
+
+Los campos de texto, los enlaces «Regístrate» y «¿Olvidaste tu contraseña?» y
+los chips de filtro no llegaban al mínimo táctil.
+
+### BS-081 · Borrar un bloqueo no decía cuál ✅
+
+El único diálogo destructivo que no nombraba el registro ni seguía el patrón de
+`ConfirmDialog`.
+
+### BS-082 · Los diálogos se cerraban de golpe ✅
+
+Entraban animados y salían sin transición; los avisos no animaban.
+
+### BS-083 · Las acciones de cada fila iban a 4 px ✅
+
+Editar y desactivar quedaban pegados en escritorio.
+
+### BS-084 · «Cerrar caja» se pintaba como borrar ✅
+
+Es el cierre normal del día, no una acción destructiva.
+
+### BS-085 · Textos que no decían lo mismo que el menú ✅
+
+«Dashboard» donde el menú dice «Resumen», «Agregar» sin decir qué, «No hay datos
+disponibles», «Nuestro Equipo» y «Gestiona tus profesionales».
+
+### BS-086 · Reportes no explicaba los ingresos sin profesional ✅
+
+El total del periodo no cuadraba con la suma del ranking y nada decía que la
+diferencia son cobros sin cita.
+
+### BS-087 · El tope del descuento no se explicaba ✅
+
+El formulario frenaba un descuento mayor que el importe con el `max` del campo,
+sin decir por qué no se podía cobrar.
+
+### BS-088 · La vista Día no seguía el horario del negocio ✅
+
+Pintaba siempre de 7:00 a 21:00; un negocio que abre de 20:00 a 02:00 veía una
+rejilla que no era su jornada. La semana sí lo tenía en cuenta.
+
+### BS-089 · Las notificaciones no se listaban como el resto ✅
+
+Era la única pantalla que seguía con tarjetas sueltas. Pasa a la tabla común
+con aviso, fecha, estado y la acción de marcar como leído; el mensaje se lee
+entero y en el celular la fecha y el estado van bajo el aviso.
+
+## Verificación
+
+En el navegador, contra la base local: el acceso vacío marca solo el email
+con su mensaje 8 px por debajo; un diálogo cerrado sigue en pantalla unos
+150 ms con la animación de salida y se vuelve a abrir limpio; la vista Día de
+un sábado de 09:00 a 20:00 pinta de 08:00 a 21:00; Reportes explica una
+diferencia de $91.000 entre lo atendido y lo cobrado; las notificaciones caben
+en la tabla a 422 px sin desplazarse de lado.
+
+`type-check` y `lint` del frontend, Prettier sobre lo que cambia respecto a
+`main`, y la suite con el umbral de cobertura: **223 suites, 3057 pruebas**.
+
+---
+
+# Campaña 2026-10-24 (3) — `BS-090`…`BS-097` · Correos
+
+Origen: con el dominio de correo ya activo, el usuario probó los correos y
+llegaban genéricos, con colores ajenos al sistema y la bienvenida sin estilo. Se
+bocetaron los 13 en dos direcciones y se eligió la **B · De marca** para todos.
+
+8 hallazgos: **2 Alta, 4 Media, 2 Baja**.
+
+## Decisiones tomadas
+
+| Tema     | Decisión                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Diseño   | Dirección B: banda violeta con la marca, icono del tipo de correo a caballo y pie dentro de la tarjeta                    |
+| Firma    | Los correos de una cita los firma el negocio («Barbería La Noche vía BeautySpot»); los de cuenta, BeautySpot              |
+| Imágenes | PNG a doble resolución en `apps/frontend/public/correo`, generados por `scripts/iconos-de-correo.mjs`: Gmail no pinta SVG |
+| Reservar | «Reservar otra cita» busca el negocio por su nombre en el marketplace: aún no hay un enlace público estable que dar       |
+| Factura  | Lleva adjunto el PDF de la factura emitida, pedido a payment al enviar; el recibo de un cobro no tiene PDF                |
+| Reporte  | El reporte mensual queda diseñado; activar su envío se decide aparte                                                      |
+
+## Agrupación por causa raíz
+
+| Causa                                                                 | Hallazgos              |
+| --------------------------------------------------------------------- | ---------------------- |
+| C1 · Cada plantilla repetía su HTML y su CSS, sin base ni marca común | BS-090, BS-092, BS-094 |
+| C2 · Plantillas que piden ayudantes o datos que nadie registra o pasa | BS-091, BS-094, BS-097 |
+| C3 · El correo no distingue a quién le escribe                        | BS-093, BS-095         |
+| C4 · Los correos informaban sin dar nada que hacer                    | BS-096                 |
+
+## Tablero
+
+| ID     | Sev   | Módulo  | Causa | Esfuerzo | Estado |
+| ------ | ----- | ------- | ----- | -------- | ------ |
+| BS-090 | Alta  | Correos | C1    | XS       | ✅     |
+| BS-091 | Alta  | Correos | C2    | S        | ✅     |
+| BS-092 | Media | Correos | C1    | L        | ✅     |
+| BS-093 | Media | Correos | C3    | M        | ✅     |
+| BS-094 | Media | Correos | C1    | S        | ✅     |
+| BS-095 | Baja  | Correos | C3    | XS       | ✅     |
+| BS-096 | Baja  | Correos | C4    | S        | ✅     |
+| BS-097 | Media | Correos | C2    | S        | ✅     |
+
+## Detalle
+
+### BS-090 · La bienvenida llegaba sin ningún estilo ✅
+
+`welcome-email.hbs` tenía `box      shadow` en vez de `box-shadow`, y Gmail
+descarta el `<style>` entero ante un CSS inválido.
+
+### BS-091 · La factura no llegaba nunca ✅
+
+Usaba los ayudantes `formatPrice` y `formatCurrency`, que no estaban
+registrados: el render fallaba siempre y el trabajo acababa en
+`notification.email.failed`. Tampoco recibía la fecha, el subtotal ni el
+impuesto.
+
+### BS-092 · Los correos no se parecían al producto ✅
+
+Trece plantillas con unas ocho paletas distintas, ninguna con el violeta de la
+marca ni su logo; degradados que Outlook pinta en blanco, `display:flex` y
+emojis como iconos.
+
+### BS-093 · Todos recibían la misma bienvenida ✅
+
+Le hablaba de «dashboard y reportes» a quien solo viene a reservar, y quien se
+sumaba al equipo de un negocio recibía la de un cliente. El dueño no recibía
+nada al crear su negocio.
+
+### BS-094 · Datos que salían mal en el correo ✅
+
+El año del pie no se pasaba nunca, la dirección y el teléfono vacíos dejaban
+filas sin valor, el pie enlazaba a un dominio que no es el de producción y el
+texto plano llevaba el CSS dentro.
+
+### BS-095 · La reseña de un invitado llevaba a un panel cerrado ✅
+
+Quien reservó sin cuenta recibía un enlace al panel del cliente, que lo dejaba
+en la pantalla de acceso.
+
+### BS-096 · Los correos no daban nada que hacer ✅
+
+Ni ver la cita, ni añadirla al calendario, ni cómo llegar, ni volver a reservar;
+y los de una cita los firmaba la plataforma, no el negocio.
+
+### BS-097 · La factura llegaba sin su PDF ✅
+
+El correo daba el total y los conceptos, pero no el documento. Ahora lo pide a
+payment al enviarse (`GET /internal/invoices/:id/pdf`) y lo adjunta; si payment
+no responde se reintenta, y en el último intento sale sin él antes que no
+llegar.
+
+## Lo que queda fuera
+
+- El reporte mensual no lo envía ningún proceso; queda diseñado.
+- La bienvenida sale al crear la cuenta, no al confirmar el correo: auth no
+  emite un evento al confirmarlo.
+
+## Verificación
+
+Los quince correos, con datos completos y con los mínimos de un invitado sin
+dirección ni teléfono, se pintan sin marcas sueltas, enlaces vacíos ni filas
+huecas (`plantillas.render.spec.ts`); se revisaron en el navegador con
+`npm run correos:vista-previa`. Suite completa con el umbral de cobertura:
+**226 suites, 3107 pruebas**.
+
+Pendiente de ver en un buzón real, tras desplegar: las imágenes se sirven desde
+`APP_URL/correo` y hasta entonces responden 404.
+
+---
+
+# Campaña 2026-10-24 (4) — `BS-098`…`BS-104` · Imágenes
+
+Origen: el usuario pidió que las imágenes del escaparate y las fotos del equipo
+se adjunten como archivo y no como una URL pegada. Al revisarlo apareció que el
+código de subida de core existía a medias y que nadie podía llegar a él.
+
+7 hallazgos: **3 Alta, 3 Media, 1 Baja**.
+
+## Decisiones tomadas
+
+| Tema      | Decisión                                                                                                        |
+| --------- | --------------------------------------------------------------------------------------------------------------- |
+| Alcance   | Se suben logo, portada, galería, historia y foto del profesional                                                |
+| Reseñas   | Solo estrellas y comentario: el almacén es de los negocios, no de los clientes                                  |
+| Almacén   | En el VPS, volumen `media_data` de core-service; `MEDIA_DRIVER=s3` lo lleva a R2/S3 sin tocar código            |
+| Procesado | Se valida por contenido, se gira, se reduce al tamaño de su uso y se guarda en WebP sin metadatos               |
+| Servicio  | Mismo origen, `/media/…` reescrito al gateway, con caché inmutable: next/image no necesita declarar ningún host |
+| Antiguas  | Las URLs externas ya guardadas se siguen viendo y se aceptan sin cambios; solo se impide poner una nueva        |
+| Galería   | Hasta 24 fotos                                                                                                  |
+| Vídeos    | Se dejan para una entrega aparte: conversión con ffmpeg en cola y servidos por Caddy, sin pasar por el gateway  |
+
+## Agrupación por causa raíz
+
+| Causa                                                              | Hallazgos      |
+| ------------------------------------------------------------------ | -------------- |
+| I1 · No había forma de subir un archivo de punta a punta           | BS-098, BS-099 |
+| I2 · Lo que se guarda como imagen no se comprobaba                 | BS-100, BS-101 |
+| I3 · Copias de las imágenes en marketplace que no se ponían al día | BS-102, BS-103 |
+| I4 · La imagen de producción del frontend no llevaba lo estático   | BS-104         |
+
+## Tablero
+
+| ID     | Sev   | Módulo                 | Causa | Esfuerzo | Estado |
+| ------ | ----- | ---------------------- | ----- | -------- | ------ |
+| BS-098 | Alta  | Escaparate · Equipo    | I1    | L        | ✅     |
+| BS-099 | Alta  | Gateway                | I1    | S        | ✅     |
+| BS-100 | Alta  | Escaparate · Seguridad | I2    | M        | ✅     |
+| BS-101 | Media | Escaparate · Reseñas   | I2    | S        | ✅     |
+| BS-102 | Media | Escaparate             | I3    | S        | ✅     |
+| BS-103 | Media | Escaparate             | I3    | XS       | ✅     |
+| BS-104 | Baja  | Despliegue             | I4    | XS       | ✅     |
+
+## Detalle
+
+### BS-098 · Las imágenes se pegaban como URL ✅
+
+Logo, portada, galería, historia y foto del profesional pedían una dirección
+`https://…`: un negocio no tiene dónde alojar sus fotos, así que no las ponía.
+Ahora cada campo es un selector de archivo que se puede tocar, arrastrar o, en
+el celular, abrir la cámara (`CampoDeImagen`). El navegador reduce las fotos
+pesadas y convierte las HEIC del iPhone antes de subirlas; core las valida por
+su contenido, las gira, las reduce al tamaño de su uso y las guarda en WebP sin
+metadatos (`POST /core/images`).
+
+### BS-099 · El gateway no dejaba pasar un archivo ✅
+
+El proxy serializaba siempre el cuerpo como JSON y forzaba
+`content-type: application/json`, así que un multipart llegaba destrozado. Lo
+reenvía en streaming con su tipo, corta con 413 lo que declare más de 6 MB,
+espera 30 s a la subida y la cuenta en un presupuesto de subidas propio.
+Además devuelve `Cache-Control` y `ETag`, que antes se perdían.
+
+### BS-100 · Cualquier URL llegaba al optimizador de imágenes ✅
+
+Logo, portada e historia solo exigían texto, y la galería cualquier URL. Al
+guardar, los servicios aceptan solo imágenes subidas por el propio negocio
+(400 si es externa, 403 si es de otro negocio). Las imágenes se sirven desde el
+mismo origen, de modo que `next/image` no necesita abrir ningún host.
+
+### BS-101 · La galería no tenía tope y las reseñas pedían URLs ✅
+
+La galería admitía imágenes sin límite: ahora hasta 24, comprobado en el DTO y
+en el servicio. Las reseñas dejaban pegar tres URLs de fotos: pasan a ser solo
+estrellas y comentario, y las fotos ya guardadas dejan de mostrarse.
+
+### BS-102 · La foto del profesional no llegaba al escaparate ✅
+
+`professional_profiles` copia nombre y foto de core, pero ningún proceso la
+actualizaba. Core emite `core.professional.updated` por el outbox al editar un
+profesional y marketplace actualiza la copia.
+
+### BS-103 · El logo puesto antes de crear el escaparate no aparecía ✅
+
+Marketplace solo recibe los cambios del negocio, así que el logo y la portada
+que ya existían al dar de alta el perfil se quedaban fuera. El alta los pide a
+core (`GET /internal/businesses/:id/imagenes`).
+
+### BS-104 · La imagen del frontend no llevaba `public/` ✅
+
+El Dockerfile copiaba `.next` pero no `public/`: en producción respondían 404
+los iconos y las imágenes de los correos.
+
+## Lo que queda fuera
+
+- Las subidas que se abandonan sin guardar quedan como archivos sueltos en el
+  almacén; las acotan el tamaño máximo y el límite de subidas.
+- Vídeos en la galería: entrega aparte.
+
+## Verificación
+
+Unitarias de almacén (disco y S3), procesado con sharp real (EXIF girado,
+metadatos fuera, archivos falsos y dañados), reglas de propiedad, proxy
+multipart, límite de subidas, galería, historia, listener del profesional,
+`api.upload`, `imagenes.ts` y `CampoDeImagen`. Suite completa con el umbral de
+cobertura: **233 suites, 3155 pruebas**.
+
+En el stack local, con el owner de Barbería La Noche: subida de portada desde
+Configuración y de dos fotos a la galería, vistas en el escaparate público por
+`/_next/image`; URL externa rechazada con 400, imagen de Spa Aurora con 403; el
+logo reemplazado responde 404; un HTML renombrado a `.jpg` se rechaza; la foto
+de un profesional llega a `professional_profiles` por el evento. A 375 px el
+formulario no desborda.

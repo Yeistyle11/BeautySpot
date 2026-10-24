@@ -10,7 +10,7 @@ import {
   RotateCcw,
   Smartphone,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AccionesDeFila } from "@/components/ui/acciones-de-fila";
 import { Badge } from "@/components/ui/badge";
 import {
   FilaDeTabla,
@@ -40,7 +40,8 @@ export const COLUMNAS_DE_PAGOS: ColumnaDeTabla[] = [
   { label: "Fecha", ocultaEnMovil: true },
   { label: "Medio", ocultaEnMovil: true },
   { label: "Importe", alineacion: "right" },
-  { label: "Estado" },
+  // En movil el estado va bajo el cliente.
+  { label: "Estado", ocultaEnMovil: true },
 ];
 
 interface PaymentCardProps {
@@ -69,6 +70,11 @@ export const PaymentCard = memo(function PaymentCard({
   const descuento = payment.descuentoComercial ?? 0;
   const propina = payment.propina ?? 0;
   const reparto = payment.splits ?? [];
+  const estadoVariante =
+    payment.status === "COMPLETED"
+      ? ("success" as const)
+      : ("secondary" as const);
+  const estadoEtiqueta = STATUS_LABELS[payment.status] ?? payment.status;
 
   /*
     El importe de la columna son los servicios. El descuento, la propina, el
@@ -101,43 +107,42 @@ export const PaymentCard = memo(function PaymentCard({
   return (
     <FilaDeTabla
       acciones={
-        <>
-          <span className="flex h-8 w-8 items-center justify-center">
-            {canEdit && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => onEdit(payment)}
-                aria-label={`Editar el cobro de ${amount}`}
-                title="Editar"
-              >
-                <Edit className="text-muted-foreground h-4 w-4" />
-              </Button>
-            )}
-          </span>
-          <span className="flex h-8 w-8 items-center justify-center">
-            {canRefund && devolucion.puede && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => onRefund(payment)}
-                aria-label={`Devolver el cobro de ${amount}`}
-                title="Devolver"
-              >
-                <RotateCcw className="text-muted-foreground h-4 w-4" />
-              </Button>
-            )}
-          </span>
-        </>
+        <AccionesDeFila
+          sobre={`el cobro de ${amount}`}
+          acciones={[
+            {
+              etiqueta: "Editar",
+              descripcion: `Editar el cobro de ${amount}`,
+              icono: Edit,
+              alElegir: () => onEdit(payment),
+              visible: canEdit,
+            },
+            {
+              etiqueta: "Devolver",
+              descripcion: `Devolver el cobro de ${amount}`,
+              icono: RotateCcw,
+              alElegir: () => onRefund(payment),
+              visible: canRefund && devolucion.puede,
+            },
+          ]}
+        />
       }
     >
       <CeldaPrincipal
         icono={Icon}
         // Hay fichas cuyo nombre son espacios.
         titulo={clientName?.trim() || "Cobro en mostrador"}
-        subtitulo={detalle || undefined}
+        subtitulo={
+          <>
+            <Badge
+              variant={estadoVariante}
+              className="mr-1.5 align-middle md:hidden"
+            >
+              {estadoEtiqueta}
+            </Badge>
+            {detalle}
+          </>
+        }
       />
       <CeldaDeTabla apagada ocultaEnMovil>
         <span className="whitespace-nowrap">
@@ -152,12 +157,8 @@ export const PaymentCard = memo(function PaymentCard({
       <CeldaDeTabla alineacion="right" className="font-semibold">
         {amount}
       </CeldaDeTabla>
-      <CeldaDeTabla>
-        <Badge
-          variant={payment.status === "COMPLETED" ? "success" : "secondary"}
-        >
-          {STATUS_LABELS[payment.status] ?? payment.status}
-        </Badge>
+      <CeldaDeTabla ocultaEnMovil>
+        <Badge variant={estadoVariante}>{estadoEtiqueta}</Badge>
       </CeldaDeTabla>
     </FilaDeTabla>
   );

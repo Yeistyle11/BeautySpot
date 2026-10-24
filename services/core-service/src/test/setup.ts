@@ -53,20 +53,6 @@ jest.mock("@beautyspot/nest-common", () => ({
   })),
 }));
 
-// Mock de AWS S3
-jest.mock("@aws-sdk/client-s3", () => ({
-  S3Client: jest.fn().mockImplementation(() => ({
-    send: jest.fn(),
-  })),
-  PutObjectCommand: jest.fn(),
-  DeleteObjectCommand: jest.fn(),
-  GetObjectCommand: jest.fn(),
-}));
-
-jest.mock("@aws-sdk/s3-request-presigner", () => ({
-  getSignedUrl: jest.fn().mockResolvedValue("https://test-signed-url.com"),
-}));
-
 // Configuración global de timeouts
 jest.setTimeout(10000);
 
