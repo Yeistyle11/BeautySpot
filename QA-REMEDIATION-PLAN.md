@@ -1,7 +1,7 @@
 # Plan de remediación — BeautySpot
 
 Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
-`fix/responsive-movil` para las dos últimas. Cinco campañas, en orden:
+`fix/responsive-movil` para las tres últimas. Seis campañas, en orden:
 
 1. **`QA-REPORT-BeautySpot-2026-08-22`** — 28 hallazgos `BS-001`…`BS-028`
    (1 bloqueante, 5 altos, 15 medios, 7 bajos). Cerrada.
@@ -13,7 +13,9 @@ Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
 4. **Uso desde el celular 2026-10-24** — 17 hallazgos `BS-060`…`BS-076`
    (8 altos, 8 medios, 1 bajo).
 5. **Pendientes del informe UX/UI 2026-09-10 y de las propuestas** — 13
-   hallazgos `BS-077`…`BS-089` (6 medios, 7 bajos). Al final del documento.
+   hallazgos `BS-077`…`BS-089` (6 medios, 7 bajos).
+6. **Correos 2026-10-24** — 7 hallazgos `BS-090`…`BS-096` (2 altos, 3 medios,
+   2 bajos). Al final del documento.
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 propuesta `[PM]` (no se implementa) · ❓ necesita aclaración
 
@@ -1464,3 +1466,87 @@ en la tabla a 422 px sin desplazarse de lado.
 
 `type-check` y `lint` del frontend, Prettier sobre lo que cambia respecto a
 `main`, y la suite con el umbral de cobertura: **223 suites, 3057 pruebas**.
+
+---
+
+# Campaña 2026-10-24 (3) — `BS-090`…`BS-096` · Correos
+
+Origen: con el dominio de correo ya activo, el usuario probó los correos y
+llegaban genéricos, con colores ajenos al sistema y la bienvenida sin estilo. Se
+bocetaron los 13 en dos direcciones y se eligió la **B · De marca** para todos.
+
+7 hallazgos: **2 Alta, 3 Media, 2 Baja**.
+
+## Decisiones tomadas
+
+| Tema     | Decisión                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Diseño   | Dirección B: banda violeta con la marca, icono del tipo de correo a caballo y pie dentro de la tarjeta                    |
+| Firma    | Los correos de una cita los firma el negocio («Barbería La Noche vía BeautySpot»); los de cuenta, BeautySpot              |
+| Imágenes | PNG a doble resolución en `apps/frontend/public/correo`, generados por `scripts/iconos-de-correo.mjs`: Gmail no pinta SVG |
+| Reservar | «Reservar otra cita» busca el negocio por su nombre en el marketplace: aún no hay un enlace público estable que dar       |
+| Factura  | El PDF no se adjunta; quien tiene cuenta tiene «Ver mis facturas»                                                         |
+| Reporte  | El reporte mensual queda diseñado; activar su envío se decide aparte                                                      |
+
+## Agrupación por causa raíz
+
+| Causa                                                                 | Hallazgos              |
+| --------------------------------------------------------------------- | ---------------------- |
+| C1 · Cada plantilla repetía su HTML y su CSS, sin base ni marca común | BS-090, BS-092, BS-094 |
+| C2 · Plantillas que piden ayudantes o datos que nadie registra o pasa | BS-091, BS-094         |
+| C3 · El correo no distingue a quién le escribe                        | BS-093, BS-095         |
+| C4 · Los correos informaban sin dar nada que hacer                    | BS-096                 |
+
+## Tablero
+
+| ID     | Sev   | Módulo  | Causa | Esfuerzo | Estado |
+| ------ | ----- | ------- | ----- | -------- | ------ |
+| BS-090 | Alta  | Correos | C1    | XS       | ⬜     |
+| BS-091 | Alta  | Correos | C2    | S        | ⬜     |
+| BS-092 | Media | Correos | C1    | L        | ⬜     |
+| BS-093 | Media | Correos | C3    | M        | ⬜     |
+| BS-094 | Media | Correos | C1    | S        | ⬜     |
+| BS-095 | Baja  | Correos | C3    | XS       | ⬜     |
+| BS-096 | Baja  | Correos | C4    | S        | ⬜     |
+
+## Detalle
+
+### BS-090 · La bienvenida llegaba sin ningún estilo ⬜
+
+`welcome-email.hbs` tenía `box      shadow` en vez de `box-shadow`, y Gmail
+descarta el `<style>` entero ante un CSS inválido.
+
+### BS-091 · La factura no llegaba nunca ⬜
+
+Usaba los ayudantes `formatPrice` y `formatCurrency`, que no estaban
+registrados: el render fallaba siempre y el trabajo acababa en
+`notification.email.failed`. Tampoco recibía la fecha, el subtotal ni el
+impuesto.
+
+### BS-092 · Los correos no se parecían al producto ⬜
+
+Trece plantillas con unas ocho paletas distintas, ninguna con el violeta de la
+marca ni su logo; degradados que Outlook pinta en blanco, `display:flex` y
+emojis como iconos.
+
+### BS-093 · Todos recibían la misma bienvenida ⬜
+
+Le hablaba de «dashboard y reportes» a quien solo viene a reservar, y quien se
+sumaba al equipo de un negocio recibía la de un cliente. El dueño no recibía
+nada al crear su negocio.
+
+### BS-094 · Datos que salían mal en el correo ⬜
+
+El año del pie no se pasaba nunca, la dirección y el teléfono vacíos dejaban
+filas sin valor, el pie enlazaba a un dominio que no es el de producción y el
+texto plano llevaba el CSS dentro.
+
+### BS-095 · La reseña de un invitado llevaba a un panel cerrado ⬜
+
+Quien reservó sin cuenta recibía un enlace al panel del cliente, que lo dejaba
+en la pantalla de acceso.
+
+### BS-096 · Los correos no daban nada que hacer ⬜
+
+Ni ver la cita, ni añadirla al calendario, ni cómo llegar, ni volver a reservar;
+y los de una cita los firmaba la plataforma, no el negocio.
