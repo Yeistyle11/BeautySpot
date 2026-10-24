@@ -6,6 +6,7 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main",
+    "correos:vista-previa": "node -r ts-node/register scripts/vista-previa-correos.ts",
     "migration:run": "node -r ts-node/register ../../node_modules/typeorm/cli.js -d src/data-source.ts migration:run",
     "migration:revert": "node -r ts-node/register ../../node_modules/typeorm/cli.js -d src/data-source.ts migration:revert",
     "migration:generate": "node -r ts-node/register ../../node_modules/typeorm/cli.js -d src/data-source.ts migration:generate",

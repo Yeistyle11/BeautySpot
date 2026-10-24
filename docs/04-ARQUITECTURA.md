@@ -390,7 +390,7 @@ de los que hoy circulan 30.
 | `auth.email-verification.requested` | Auth             | Notification                             |
 | `auth.membership.created`           | Auth             | —                                        |
 | `auth.membership.role-changed`      | Auth             | —                                        |
-| `core.business.created`             | Core             | —                                        |
+| `core.business.created`             | Core             | Notification                             |
 | `core.business.updated`             | Core             | Marketplace, Booking                     |
 | `core.business-hours.updated`       | Core             | Booking                                  |
 | `core.business-config.updated`      | Core             | Booking                                  |

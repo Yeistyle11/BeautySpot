@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { InternalHttpClient } from "@beautyspot/nest-common";
+import { ZONA_POR_DEFECTO } from "@beautyspot/shared-utils";
 
 /** Datos legibles de los participantes de una cita, listos para plantillas de correo. */
 export interface EnrichedProfileData {
@@ -11,13 +12,20 @@ export interface EnrichedProfileData {
   businessName: string;
   businessAddress: string;
   businessPhone: string;
+  /** Huso del negocio, para dar las horas donde son. */
+  businessTimezone: string;
 }
 
 /** Respuesta cruda del core al resolver ids a nombres; cada campo es null si no se pudo. */
 interface ProfileResolution {
   client: { name: string; email: string; userId?: string | null } | null;
   professional: { name: string } | null;
-  business: { name: string; address: string; phone: string } | null;
+  business: {
+    name: string;
+    address: string;
+    phone: string;
+    timezone?: string;
+  } | null;
 }
 
 /** Valores por defecto cuando el core no puede resolver un perfil, para no romper el correo. */
@@ -60,6 +68,7 @@ export class DataEnricherService {
       businessName: resolution.business?.name ?? FALLBACK.businessName,
       businessAddress: resolution.business?.address ?? FALLBACK.businessAddress,
       businessPhone: resolution.business?.phone ?? FALLBACK.businessPhone,
+      businessTimezone: resolution.business?.timezone ?? ZONA_POR_DEFECTO,
     };
   }
 
@@ -92,6 +101,16 @@ export class DataEnricherService {
       businessAddress: resolution.business?.address ?? FALLBACK.businessAddress,
       businessPhone: resolution.business?.phone ?? FALLBACK.businessPhone,
     };
+  }
+
+  /** Correo y nombre de una cuenta, o null si auth no la encuentra o no responde. */
+  async enrichUserContact(
+    userId: string
+  ): Promise<{ email: string; name: string } | null> {
+    return this.http.pedirONulo<{ email: string; name: string }>(
+      "auth",
+      `/internal/users/${userId}/contacto`
+    );
   }
 
   /** Llama al endpoint interno del core para resolver los ids indicados; devuelve nulls ante error. */

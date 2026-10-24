@@ -1,4 +1,5 @@
 import { EmailService } from "../emails/email.service";
+import { DataEnricherService } from "../data-enricher/data-enricher.service";
 import { CuentaListeners } from "./cuenta.listeners";
 import { crearEntornoDeListeners } from "./listeners.fixtures";
 
@@ -6,6 +7,7 @@ describe("CuentaListeners", () => {
   let listeners: CuentaListeners;
   let mockEmailService: jest.Mocked<EmailService>;
   let mockAmqpConnection: { publish: jest.Mock };
+  let mockDataEnricher: jest.Mocked<DataEnricherService>;
 
   const mockUserRegisteredEvent = {
     eventType: "auth.user.registered",
@@ -63,6 +65,71 @@ describe("CuentaListeners", () => {
     listeners = entorno.modulo.get(CuentaListeners);
     mockEmailService = entorno.emails;
     mockAmqpConnection = entorno.amqp as unknown as { publish: jest.Mock };
+    mockDataEnricher = entorno.enricher;
+  });
+
+  describe("bienvenidas", () => {
+    // Quien entra por un negocio no viene a reservar: su bienvenida es la del
+    // equipo, con el nombre del negocio que le dio acceso.
+    it("da la bienvenida de equipo a quien dio de alta un negocio", async () => {
+      await listeners.handleUserRegistered({
+        ...mockUserRegisteredEvent,
+        payload: {
+          ...mockUserRegisteredEvent.payload,
+          businessId: "business-123",
+        },
+      });
+
+      expect(mockEmailService.queueBienvenidaEquipo).toHaveBeenCalledWith(
+        "newuser@example.com",
+        { clientName: "New User", businessName: "EliteBarbers" }
+      );
+      expect(mockEmailService.queueWelcomeEmail).not.toHaveBeenCalled();
+    });
+
+    it("da la bienvenida del negocio a su dueño al crearlo", async () => {
+      await listeners.handleBusinessCreated({
+        eventType: "core.business.created",
+        eventId: "evt-200",
+        correlationId: "corr-200",
+        timestamp: new Date(),
+        payload: {
+          businessId: "business-200",
+          slug: "barberia-la-noche",
+          name: "Barbería La Noche",
+          businessType: "BARBERSHOP",
+          ownerId: "user-dueno",
+        },
+      });
+
+      expect(mockDataEnricher.enrichUserContact).toHaveBeenCalledWith(
+        "user-dueno"
+      );
+      expect(mockEmailService.queueBienvenidaNegocio).toHaveBeenCalledWith(
+        "dueno@example.com",
+        { clientName: "Yeison García", businessName: "Barbería La Noche" }
+      );
+    });
+
+    it("sin el correo del dueño no envía nada", async () => {
+      mockDataEnricher.enrichUserContact.mockResolvedValue(null);
+
+      await listeners.handleBusinessCreated({
+        eventType: "core.business.created",
+        eventId: "evt-201",
+        correlationId: "corr-201",
+        timestamp: new Date(),
+        payload: {
+          businessId: "business-201",
+          slug: "spa",
+          name: "Spa",
+          businessType: "SPA",
+          ownerId: "user-x",
+        },
+      });
+
+      expect(mockEmailService.queueBienvenidaNegocio).not.toHaveBeenCalled();
+    });
   });
 
   describe("handleUserRegistered", () => {

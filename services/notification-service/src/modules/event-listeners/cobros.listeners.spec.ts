@@ -53,30 +53,29 @@ describe("CobrosListeners", () => {
   });
 
   describe("handleInvoiceGenerated", () => {
-    it("usa el vencimiento y las líneas que emitió payment", async () => {
+    it("lleva los conceptos, el subtotal y el impuesto que emitió payment", async () => {
       await listeners.handleInvoiceGenerated(mockInvoiceGeneratedEvent);
 
       expect(mockEmailService.queueInvoice).toHaveBeenCalledWith(
         "juan@example.com",
         expect.objectContaining({
-          dueDate: "2026-09-10",
           services: [{ name: "Corte", price: 67227 }],
+          subtotal: 67227,
+          tax: 12773,
+          amount: 80000,
         })
       );
     });
 
-    it("no inventa un vencimiento si el evento no lo trae", async () => {
-      const { dueDate: _sinVencimiento, ...payload } =
-        mockInvoiceGeneratedEvent.payload;
+    // Las facturas se ven desde la cuenta: al invitado no se le ofrece el enlace.
+    it("solo enlaza a las facturas a quien tiene cuenta", async () => {
+      mockDataEnricher.enrichClientUserId.mockResolvedValue(null);
 
-      await listeners.handleInvoiceGenerated({
-        ...mockInvoiceGeneratedEvent,
-        payload,
-      } as never);
+      await listeners.handleInvoiceGenerated(mockInvoiceGeneratedEvent);
 
       expect(mockEmailService.queueInvoice).toHaveBeenCalledWith(
         "juan@example.com",
-        expect.objectContaining({ dueDate: "" })
+        expect.objectContaining({ conCuenta: false })
       );
     });
 
@@ -121,7 +120,8 @@ describe("CobrosListeners", () => {
       expect(mockEmailService.queueInvoice).toHaveBeenCalledWith(
         "juan@example.com",
         expect.objectContaining({
-          invoiceNumber: "REC-payment-123",
+          esRecibo: true,
+          invoiceNumber: "REC-PAYMENT-",
           amount: 80000,
           // El nombre sale del cliente resuelto, no de un literal.
           clientName: "Juan Cliente",

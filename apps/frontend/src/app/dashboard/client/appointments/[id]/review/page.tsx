@@ -5,7 +5,7 @@
 import { useRef, useState } from "react";
 import { LoadingState } from "@/components/ui/loading-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -92,6 +92,12 @@ function StarRating({
   );
 }
 
+/** La nota que trae el enlace del correo (`?calificacion=4`), o 0 si no vale. */
+function notaDelEnlace(valor: string | null): number {
+  const nota = Number(valor);
+  return Number.isInteger(nota) && nota >= 1 && nota <= 5 ? nota : 0;
+}
+
 /** Alta o edicion de la reseña que el cliente deja sobre una cita. */
 export default function ReviewPage() {
   const params = useParams<{ id: string }>();
@@ -117,7 +123,11 @@ export default function ReviewPage() {
   const existente = existentes?.[0] ?? null;
   const [error, setError] = useState<string | null>(null);
 
-  const [rating, setRating] = useState(0);
+  // El correo de reseña lleva cinco estrellas: la que se tocó llega ya puesta.
+  const searchParams = useSearchParams();
+  const [rating, setRating] = useState(() =>
+    notaDelEnlace(searchParams.get("calificacion"))
+  );
   const [comment, setComment] = useState("");
   // Cada campo lleva un id propio: con la posicion del array como key, borrar
   // una foto intermedia desplazaba el texto de los inputs siguientes.

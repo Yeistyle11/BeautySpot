@@ -10,6 +10,17 @@ export interface MensajeSmtp {
   /** Alternativa en texto plano; si no se da, se deriva del HTML. */
   text?: string;
   attachments?: { filename: string; path: string }[];
+  /**
+   * Nombre con el que firma, sobre la misma dirección de `EMAIL_FROM`: los
+   * correos de una cita los firma el negocio («Barbería La Noche vía
+   * BeautySpot»), no la plataforma.
+   */
+  remitente?: string;
+}
+
+/** La dirección de `EMAIL_FROM`, venga sola o como «Nombre <dirección>». */
+export function direccionDe(remitente: string): string {
+  return /<([^>]+)>/.exec(remitente)?.[1] ?? remitente.trim();
 }
 
 /**
@@ -37,8 +48,15 @@ export class SmtpTransport {
 
   /** Entrega el mensaje y devuelve el identificador que dio el servidor. */
   async enviar(mensaje: MensajeSmtp): Promise<{ messageId: string }> {
+    const from =
+      mensaje.remitente && this.remitente
+        ? {
+            name: `${mensaje.remitente} vía BeautySpot`,
+            address: direccionDe(this.remitente),
+          }
+        : this.remitente;
     const info = await this.transporter.sendMail({
-      from: this.remitente,
+      from,
       to: mensaje.to,
       subject: mensaje.subject,
       html: mensaje.html,

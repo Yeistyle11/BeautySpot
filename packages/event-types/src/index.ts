@@ -19,6 +19,11 @@ export interface UserRegisteredPayload {
   userId: string;
   email: string;
   name: string;
+  /**
+   * Negocio que dio de alta la cuenta para su equipo. Falta en el registro
+   * público, que es de quien viene a reservar: la bienvenida no es la misma.
+   */
+  businessId?: string;
 }
 
 export type UserRegisteredEvent = IBaseEvent<UserRegisteredPayload>;

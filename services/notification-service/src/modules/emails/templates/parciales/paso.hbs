@@ -1,0 +1,37 @@
+{{! Un paso de la bienvenida. Parámetros: icono, titulo, texto. }}
+<td
+  class="bs-columna"
+  width="33%"
+  valign="top"
+  style="width: 33%; padding: 4px; vertical-align: top;"
+>
+  <table
+    role="presentation"
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+  >
+    <tr>
+      <td
+        bgcolor="#F8F7FC"
+        align="center"
+        style="background-color: #F8F7FC; border-radius: 14px; padding: 18px 12px; text-align: center;"
+      >
+        <img
+          src="{{@root.recursos}}/icono-{{icono}}.png"
+          width="24"
+          height="24"
+          alt=""
+          style="display: inline-block; border: 0;"
+        />
+        <div
+          style="padding-top: 8px; font-size: 15px; line-height: 20px; font-weight: 600; color: #0F172A;"
+        >{{titulo}}</div>
+        <div
+          style="padding-top: 4px; font-size: 13px; line-height: 19px; color: #475569;"
+        >{{texto}}</div>
+      </td>
+    </tr>
+  </table>
+</td>

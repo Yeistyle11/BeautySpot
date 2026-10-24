@@ -1,10 +1,12 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
-import * as fs from "fs";
-import { formatearDinero } from "@beautyspot/shared-utils";
-import { PlantillasService } from "./plantillas.service";
+import { aTextoPlano, PlantillasService } from "./plantillas.service";
 import { SmtpTransport } from "./smtp.transport";
+import { diaCompleto, primerNombre } from "./ayudantes-de-plantilla";
+import { horaEnCastellano } from "./fechas-en-castellano";
+import { enlacesDeCita, type CitaEnlazable } from "./enlaces-de-correo";
 
 type EmailPriority = "low" | "normal" | "high";
 
@@ -15,22 +17,70 @@ interface QueueEmailInput {
   data: Record<string, unknown>;
   subject: string;
   priority?: EmailPriority;
-  pdfPath?: string;
-  currencyFields?: string[];
+  /** Nombre con el que firma: el del negocio en los correos de sus citas. */
+  remitente?: string;
+}
+
+/** Lo que devuelve encolar: el trabajo y el asunto con que saldrá. */
+export interface CorreoEncolado {
+  jobId: string;
+  subject: string;
+}
+
+/** Los datos de una cita que llevan sus correos. */
+export interface DatosDeCita extends CitaEnlazable {
+  clientName: string;
+  professionalName: string;
+  serviceName: string;
+  /** Minutos que dura lo reservado. */
+  duration?: number;
+  appointmentDate: string;
+  appointmentTime: string;
+  businessName: string;
+  businessAddress?: string;
+  businessPhone?: string;
+}
+
+/** Datos de una factura emitida o del recibo de un cobro. */
+export interface DatosDeFactura {
+  clientName: string;
+  invoiceNumber: string;
+  /** Día de la factura o del cobro, `YYYY-MM-DD`. */
+  invoiceDate?: string;
+  businessName: string;
+  businessAddress?: string;
+  businessPhone?: string;
+  services: { name: string; price: number }[];
+  /** Total cobrado. */
+  amount: number;
+  subtotal?: number;
+  tax?: number;
+  /** Recibo de un cobro, no factura emitida. */
+  esRecibo?: boolean;
+  /** Si el cliente tiene cuenta y puede ver sus facturas en el panel. */
+  conCuenta?: boolean;
 }
 
 /**
  * Compone los correos transaccionales del producto: qué plantilla lleva cada
- * aviso y con qué asunto sale. Renderizar y entregar son de {@link
- * PlantillasService} y {@link SmtpTransport}.
+ * aviso, con qué asunto sale, quién lo firma y a dónde llevan sus botones.
+ * Renderizar y entregar son de {@link PlantillasService} y {@link SmtpTransport}.
  */
 @Injectable()
 export class EmailService {
   constructor(
     private readonly plantillas: PlantillasService,
     private readonly smtp: SmtpTransport,
-    @InjectQueue("emails") private readonly emailQueue: Queue
+    @InjectQueue("emails") private readonly emailQueue: Queue,
+    @Optional() private readonly config?: ConfigService
   ) {}
+
+  /** Dirección de la aplicación, sin barra final. */
+  private appUrl(): string {
+    return (
+      this.config?.get<string>("APP_URL") ?? "http://localhost:8080"
+    ).replace(/\/$/, "");
+  }
 
   /** Renderiza la plantilla indicada y envía el correo por SMTP de inmediato. */
   async sendEmail(
@@ -38,407 +88,285 @@ export class EmailService {
     templateName: string,
     context: Record<string, unknown> = {}
   ): Promise<{ messageId: string }> {
+    const html = this.plantillas.render(templateName, context);
     return this.smtp.enviar({
       to,
       subject:
         (context.subject as string | undefined) ||
         `BeautySpot - ${templateName}`,
-      html: this.plantillas.render(templateName, context),
+      html,
+      text: aTextoPlano(html),
+      remitente: context.remitente as string | undefined,
     });
   }
 
   /** Encola el correo en BullMQ para que el worker lo envíe de forma asíncrona. */
-  private async queueEmail(input: QueueEmailInput): Promise<{ jobId: string }> {
-    const context = { ...input.data, subject: input.subject };
+  private async queueEmail(input: QueueEmailInput): Promise<CorreoEncolado> {
+    const context = {
+      ...input.data,
+      subject: input.subject,
+      ...(input.remitente ? { remitente: input.remitente } : {}),
+    };
     const job = await this.emailQueue.add("send", {
       to: input.to,
       template: input.template,
+      subject: input.subject,
       context,
-      pdfPath: input.pdfPath,
       priority: input.priority ?? "normal",
     });
-    return { jobId: job.id! };
+    return { jobId: job.id!, subject: input.subject };
   }
 
-  async sendAppointmentConfirmation(
-    to: string,
-    data: {
-      clientName: string;
-      professionalName: string;
-      serviceName: string;
-      appointmentDate: string;
-      appointmentTime: string;
-      businessName: string;
-      businessAddress: string;
-      businessPhone: string;
-    }
-  ): Promise<void> {
-    await this.sendEmail(to, "appointment-confirmed", {
-      ...data,
-      subject: `Confirmación de cita en ${data.businessName}`,
-    });
+  /** Los datos de una cita con los enlaces que le corresponden. */
+  private conEnlaces(cita: DatosDeCita): Record<string, unknown> {
+    return { ...cita, ...enlacesDeCita(this.appUrl(), cita) };
   }
 
-  /** Envía el recordatorio de cita con 24 horas de antelación. */
-  async sendAppointmentReminder24h(
-    to: string,
-    data: {
-      clientName: string;
-      professionalName: string;
-      serviceName: string;
-      appointmentDate: string;
-      appointmentTime: string;
-      businessName: string;
-      businessAddress: string;
-    }
-  ): Promise<void> {
-    await this.sendEmail(to, "appointment-reminder-24h", {
-      ...data,
-      subject: `Recordatorio - Cita mañana en ${data.businessName}`,
-    });
+  /** «domingo 25 de octubre», para el asunto. */
+  private dia(fecha: string): string {
+    return diaCompleto(fecha).toLowerCase();
   }
 
-  /** Envía el recordatorio de cita con 1 hora de antelación. */
-  async sendAppointmentReminder1h(
-    to: string,
-    data: {
-      clientName: string;
-      professionalName: string;
-      serviceName: string;
-      appointmentTime: string;
-      businessName: string;
-    }
-  ): Promise<void> {
-    await this.sendEmail(to, "appointment-reminder-1h", {
-      ...data,
-      subject: `Recordatorio - Cita en 1 hora en ${data.businessName}`,
-    });
-  }
-
-  async sendAppointmentCancelled(
-    to: string,
-    data: {
-      clientName: string;
-      professionalName: string;
-      serviceName: string;
-      cancelledDate: string;
-      reason: string;
-      businessName: string;
-    }
-  ): Promise<void> {
-    await this.sendEmail(to, "appointment-cancelled", {
-      ...data,
-      subject: `Cita cancelada - ${data.businessName}`,
-    });
-  }
-
-  /** Envía la factura por correo, adjuntando el PDF si se proporciona una ruta válida. */
-  async sendInvoice(
-    to: string,
-    data: {
-      clientName: string;
-      invoiceNumber: string;
-      amount: number;
-      dueDate: string;
-      businessName: string;
-      services: { name: string; price: number }[];
-    },
-    pdfPath?: string
-  ): Promise<{ messageId: string }> {
-    const context = {
-      ...data,
-      amount: formatearDinero(data.amount),
-      subject: `Factura #${data.invoiceNumber} - ${data.businessName}`,
-    };
-
-    if (pdfPath && fs.existsSync(pdfPath)) {
-      return this.smtp.enviar({
-        to,
-        subject: context.subject,
-        html: this.plantillas.render("invoice-generated", context),
-        text: "",
-        attachments: [
-          { filename: `Factura_${data.invoiceNumber}.pdf`, path: pdfPath },
-        ],
-      });
-    }
-    return this.sendEmail(to, "invoice-generated", context);
-  }
-
-  /** Envía el correo con el enlace para restablecer la contraseña. */
-  async sendPasswordReset(
-    to: string,
-    data: { clientName: string; resetLink: string; expiryHours: number }
-  ): Promise<void> {
-    await this.sendEmail(to, "password-reset", {
-      ...data,
-      subject: "Restablecer contraseña - BeautySpot",
-    });
-  }
-
-  async sendWelcomeEmail(
-    to: string,
-    data: { clientName: string; businessName?: string }
-  ): Promise<void> {
-    await this.sendEmail(to, "welcome-email", {
-      ...data,
-      subject: "Bienvenido a BeautySpot",
-    });
-  }
-
-  /** Envía el reporte mensual del negocio (ingresos, citas y servicio top). */
-  async sendMonthlyReport(
-    to: string,
-    data: {
-      businessName: string;
-      month: string;
-      year: string;
-      totalRevenue: number;
-      totalAppointments: number;
-      topService: string;
-      topServiceRevenue: number;
-      clientName: string;
-    }
-  ): Promise<void> {
-    await this.sendEmail(to, "monthly-report", {
-      ...data,
-      totalRevenue: formatearDinero(data.totalRevenue),
-      topServiceRevenue: formatearDinero(data.topServiceRevenue),
-      subject: `Reporte mensual - ${data.businessName} (${data.month} ${data.year})`,
-    });
-  }
-
-  /**
-   * Encola el acuse de la cita recien solicitada, distinto del correo de
-   * confirmacion: la cita nace PENDING.
-   */
+  /** Acuse de la cita recién pedida, que nace pendiente de confirmar. */
   async queueAppointmentCreated(
     to: string,
-    data: {
-      clientName: string;
-      professionalName: string;
-      appointmentDate: string;
-      appointmentTime: string;
-      businessName: string;
-      businessAddress: string;
-      businessPhone: string;
-    }
-  ): Promise<{ jobId: string }> {
+    cita: DatosDeCita
+  ): Promise<CorreoEncolado> {
     return this.queueEmail({
       to,
       template: "appointment-created",
-      data,
-      subject: `Recibimos tu solicitud de cita en ${data.businessName}`,
+      data: this.conEnlaces(cita),
+      subject: `Recibimos tu solicitud para el ${this.dia(cita.appointmentDate)}`,
       priority: "high",
+      remitente: cita.businessName,
     });
   }
 
-  /** Encola el correo de confirmación de cita (prioridad alta). */
+  /** Confirmación de la cita (prioridad alta). */
   async queueAppointmentConfirmation(
     to: string,
-    data: {
-      clientName: string;
-      professionalName: string;
-      serviceName: string;
-      appointmentDate: string;
-      appointmentTime: string;
-      businessName: string;
-      businessAddress: string;
-      businessPhone: string;
-    }
-  ): Promise<{ jobId: string }> {
+    cita: DatosDeCita
+  ): Promise<CorreoEncolado> {
     return this.queueEmail({
       to,
       template: "appointment-confirmed",
-      data,
-      subject: `Confirmación de cita en ${data.businessName}`,
+      data: this.conEnlaces(cita),
+      subject: `Tu cita del ${this.dia(cita.appointmentDate)} está confirmada`,
       priority: "high",
+      remitente: cita.businessName,
     });
   }
 
+  /** Recordatorio del día antes. */
   async queueAppointmentReminder24h(
     to: string,
-    data: {
-      clientName: string;
-      professionalName: string;
-      serviceName: string;
-      appointmentDate: string;
-      appointmentTime: string;
-      businessName: string;
-      businessAddress: string;
-    }
-  ): Promise<{ jobId: string }> {
+    cita: DatosDeCita
+  ): Promise<CorreoEncolado> {
     return this.queueEmail({
       to,
       template: "appointment-reminder-24h",
-      data,
-      subject: `Recordatorio - Cita mañana en ${data.businessName}`,
+      data: this.conEnlaces(cita),
+      subject: `Mañana a las ${horaEnCastellano(cita.appointmentTime)} te esperamos`,
       priority: "normal",
+      remitente: cita.businessName,
     });
   }
 
-  /** Encola el recordatorio de cita de 1 hora (prioridad alta). */
+  /** Recordatorio de una hora antes (prioridad alta). */
   async queueAppointmentReminder1h(
     to: string,
-    data: {
-      clientName: string;
-      professionalName: string;
-      serviceName: string;
-      appointmentTime: string;
-      businessName: string;
-    }
-  ): Promise<{ jobId: string }> {
+    cita: DatosDeCita
+  ): Promise<CorreoEncolado> {
     return this.queueEmail({
       to,
       template: "appointment-reminder-1h",
-      data,
-      subject: `Recordatorio - Cita en 1 hora en ${data.businessName}`,
+      data: this.conEnlaces(cita),
+      subject: "Tu cita es en una hora",
       priority: "high",
+      remitente: cita.businessName,
     });
   }
 
+  /** Aviso de cita cancelada, con el motivo que se le puede decir al cliente. */
   async queueAppointmentCancelled(
     to: string,
-    data: {
-      clientName: string;
-      professionalName: string;
-      serviceName: string;
-      /** Fecha y hora de la cita que se cancela. */
-      appointmentDate: string;
-      appointmentTime: string;
-      /** Cuándo se canceló, que no es cuándo era la cita. */
-      cancelledDate: string;
+    cita: DatosDeCita & {
       /** Motivo tipificado y redactado para el cliente, nunca la nota interna. */
-      reason: string;
-      businessName: string;
+      reason?: string;
     }
-  ): Promise<{ jobId: string }> {
+  ): Promise<CorreoEncolado> {
     return this.queueEmail({
       to,
       template: "appointment-cancelled",
-      data,
-      subject: `Cita cancelada - ${data.businessName}`,
+      data: this.conEnlaces(cita),
+      subject: `Tu cita del ${this.dia(cita.appointmentDate)} se canceló`,
       priority: "normal",
+      remitente: cita.businessName,
     });
   }
 
-  /** Encola el envío de una factura (con su PDF opcional). */
+  /** Factura emitida o recibo de un cobro sin comprobante propio. */
   async queueInvoice(
     to: string,
-    data: {
-      clientName: string;
-      invoiceNumber: string;
-      amount: number;
-      dueDate: string;
-      businessName: string;
-      services: { name: string; price: number }[];
-    },
-    pdfPath?: string
-  ): Promise<{ jobId: string }> {
+    factura: DatosDeFactura
+  ): Promise<CorreoEncolado> {
+    const items = factura.services.map((s) => ({
+      name: s.name,
+      amount: s.price,
+    }));
     return this.queueEmail({
       to,
       template: "invoice-generated",
-      data: { ...data, amount: formatearDinero(data.amount) },
-      subject: `Factura #${data.invoiceNumber} - ${data.businessName}`,
+      data: {
+        ...factura,
+        items,
+        total: factura.amount,
+        ...(factura.conCuenta
+          ? { enlaceFacturas: `${this.appUrl()}/dashboard/client/invoices` }
+          : {}),
+      },
+      subject: factura.esRecibo
+        ? `Tu recibo de ${factura.businessName}`
+        : `Tu factura ${factura.invoiceNumber} de ${factura.businessName}`,
       priority: "normal",
-      pdfPath,
+      remitente: factura.businessName,
     });
   }
 
-  /** Encola el correo de restablecimiento de contraseña (prioridad alta). */
+  /** Enlace para restablecer la contraseña (prioridad alta). */
   async queuePasswordReset(
     to: string,
     data: { clientName: string; resetLink: string; expiryHours: number }
-  ): Promise<{ jobId: string }> {
+  ): Promise<CorreoEncolado> {
     return this.queueEmail({
       to,
       template: "password-reset",
       data,
-      subject: "Restablecer contraseña - BeautySpot",
+      subject: "Restablece tu contraseña de BeautySpot",
       priority: "high",
     });
   }
 
-  /** Encola el correo de confirmación de cuenta (prioridad alta). */
+  /** Confirmación del correo al crear la cuenta (prioridad alta). */
   async queueEmailVerification(
     to: string,
     data: { clientName: string; verificationLink: string; expiryHours: number }
-  ): Promise<{ jobId: string }> {
+  ): Promise<CorreoEncolado> {
     return this.queueEmail({
       to,
       template: "email-verification",
       data,
-      subject: "Confirma tu cuenta - BeautySpot",
+      subject: "Confirma tu correo para entrar en BeautySpot",
       priority: "high",
     });
   }
 
-  /** Encola la solicitud de reseña tras la cita (prioridad baja). */
+  /** Petición de reseña tras la cita (prioridad baja). */
   async queueReviewRequest(
     to: string,
     data: {
       clientName: string;
       businessName: string;
+      businessAddress?: string;
+      businessPhone?: string;
       professionalName: string;
       reviewLink: string;
     }
-  ): Promise<{ jobId: string }> {
+  ): Promise<CorreoEncolado> {
     return this.queueEmail({
       to,
       template: "review-request",
       data,
-      subject: `¿Qué tal tu visita a ${data.businessName}?`,
+      subject: `¿Qué tal tu visita, ${primerNombre(data.clientName)}?`,
       priority: "low",
+      remitente: data.businessName,
     });
   }
 
-  /** Encola la felicitación de cumpleaños (prioridad baja). */
+  /** Felicitación de cumpleaños de parte del negocio (prioridad baja). */
   async queueBirthdayGreeting(
     to: string,
-    data: { clientName: string; businessName: string; year: number }
-  ): Promise<{ jobId: string }> {
+    data: {
+      clientName: string;
+      businessName: string;
+      businessAddress?: string;
+      businessPhone?: string;
+    }
+  ): Promise<CorreoEncolado> {
     return this.queueEmail({
       to,
       template: "birthday-greeting",
-      data,
-      subject: `¡Feliz cumpleaños de parte de ${data.businessName}!`,
+      data: {
+        ...data,
+        enlaceReservar: enlacesDeCita(this.appUrl(), data).enlaceReservar,
+      },
+      subject: `Feliz cumpleaños, ${primerNombre(data.clientName)}`,
+      priority: "low",
+      remitente: data.businessName,
+    });
+  }
+
+  /** Bienvenida de quien se registra para reservar (prioridad baja). */
+  async queueWelcomeEmail(
+    to: string,
+    data: { clientName: string }
+  ): Promise<CorreoEncolado> {
+    return this.queueEmail({
+      to,
+      template: "welcome-email",
+      data: { ...data, enlaceExplorar: `${this.appUrl()}/marketplace` },
+      subject: "Te damos la bienvenida a BeautySpot",
       priority: "low",
     });
   }
 
-  /** Encola el correo de bienvenida (prioridad baja). */
-  async queueWelcomeEmail(
+  /** Bienvenida del dueño al dar de alta su negocio (prioridad baja). */
+  async queueBienvenidaNegocio(
     to: string,
-    data: { clientName: string; businessName?: string }
-  ): Promise<{ jobId: string }> {
+    data: { clientName: string; businessName: string }
+  ): Promise<CorreoEncolado> {
     return this.queueEmail({
       to,
-      template: "welcome-email",
-      data,
-      subject: "Bienvenido a BeautySpot",
+      template: "bienvenida-negocio",
+      data: { ...data, enlacePanel: `${this.appUrl()}/dashboard` },
+      subject: `${data.businessName} ya está en BeautySpot`,
+      priority: "low",
+    });
+  }
+
+  /** Bienvenida de quien un negocio da de alta en su equipo (prioridad baja). */
+  async queueBienvenidaEquipo(
+    to: string,
+    data: { clientName: string; businessName: string }
+  ): Promise<CorreoEncolado> {
+    return this.queueEmail({
+      to,
+      template: "bienvenida-equipo",
+      data: { ...data, enlacePanel: `${this.appUrl()}/login` },
+      subject: `Ya tienes acceso al equipo de ${data.businessName}`,
       priority: "low",
     });
   }
 
   /**
-   * Encola el aviso de que alguien intentó darse de alta con un correo que ya
-   * tiene cuenta. Va con prioridad alta: es un aviso de seguridad y quien lo
-   * recibe puede estar esperándolo delante de la pantalla.
+   * Aviso de que alguien intentó darse de alta con un correo que ya tiene
+   * cuenta. Va con prioridad alta: es un aviso de seguridad y quien lo recibe
+   * puede estar esperándolo delante de la pantalla.
    */
   async queueRegistroDuplicado(
     to: string,
     data: { clientName: string; recoveryLink: string }
-  ): Promise<{ jobId: string }> {
+  ): Promise<CorreoEncolado> {
     return this.queueEmail({
       to,
       template: "registro-duplicado",
-      data,
+      data: { ...data, loginLink: `${this.appUrl()}/login` },
       subject: "Ya tienes una cuenta en BeautySpot",
       priority: "high",
     });
   }
 
-  /** Encola el reporte mensual del negocio (prioridad baja). */
+  /** Resumen del mes del negocio (prioridad baja). Los importes van en número. */
   async queueMonthlyReport(
     to: string,
     data: {
@@ -451,16 +379,12 @@ export class EmailService {
       topServiceRevenue: number;
       clientName: string;
     }
-  ): Promise<{ jobId: string }> {
+  ): Promise<CorreoEncolado> {
     return this.queueEmail({
       to,
       template: "monthly-report",
-      data: {
-        ...data,
-        totalRevenue: formatearDinero(data.totalRevenue),
-        topServiceRevenue: formatearDinero(data.topServiceRevenue),
-      },
-      subject: `Reporte mensual - ${data.businessName} (${data.month} ${data.year})`,
+      data: { ...data, enlaceReportes: `${this.appUrl()}/dashboard/analytics` },
+      subject: `Así fue ${data.month} en ${data.businessName}`,
       priority: "low",
     });
   }

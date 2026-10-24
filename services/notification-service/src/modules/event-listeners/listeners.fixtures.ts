@@ -24,6 +24,7 @@ export const DATOS_ENRIQUECIDOS = {
   businessName: "EliteBarbers",
   businessAddress: "Calle 123",
   businessPhone: "+57 300 123 4567",
+  businessTimezone: "America/Bogota",
 };
 
 /** Los dobles del entorno, más el módulo del que sacar cada listener. */
@@ -43,26 +44,48 @@ export interface EntornoDeListeners {
  */
 export async function crearEntornoDeListeners(): Promise<EntornoDeListeners> {
   const emails = {
-    queueWelcomeEmail: jest.fn().mockResolvedValue({ jobId: "job-123" }),
-    queuePasswordReset: jest.fn().mockResolvedValue({ jobId: "job-129" }),
-    queueEmailVerification: jest.fn().mockResolvedValue({ jobId: "job-130" }),
-    queueRegistroDuplicado: jest.fn().mockResolvedValue({ jobId: "job-131" }),
-    queueReviewRequest: jest.fn().mockResolvedValue({ jobId: "job-131" }),
+    queueWelcomeEmail: jest
+      .fn()
+      .mockResolvedValue({ jobId: "job-123", subject: "Asunto" }),
+    queuePasswordReset: jest
+      .fn()
+      .mockResolvedValue({ jobId: "job-129", subject: "Asunto" }),
+    queueEmailVerification: jest
+      .fn()
+      .mockResolvedValue({ jobId: "job-130", subject: "Asunto" }),
+    queueRegistroDuplicado: jest
+      .fn()
+      .mockResolvedValue({ jobId: "job-131", subject: "Asunto" }),
+    queueReviewRequest: jest
+      .fn()
+      .mockResolvedValue({ jobId: "job-131", subject: "Asunto" }),
     queueAppointmentConfirmation: jest
       .fn()
-      .mockResolvedValue({ jobId: "job-124" }),
+      .mockResolvedValue({ jobId: "job-124", subject: "Asunto" }),
     queueAppointmentCancelled: jest
       .fn()
-      .mockResolvedValue({ jobId: "job-125" }),
+      .mockResolvedValue({ jobId: "job-125", subject: "Asunto" }),
     queueAppointmentReminder24h: jest
       .fn()
-      .mockResolvedValue({ jobId: "job-126" }),
+      .mockResolvedValue({ jobId: "job-126", subject: "Asunto" }),
     queueAppointmentReminder1h: jest
       .fn()
-      .mockResolvedValue({ jobId: "job-127" }),
-    queueInvoice: jest.fn().mockResolvedValue({ jobId: "job-128" }),
-    queueAppointmentCreated: jest.fn().mockResolvedValue({ jobId: "job-130" }),
-    queueBirthdayGreeting: jest.fn().mockResolvedValue({ jobId: "job-132" }),
+      .mockResolvedValue({ jobId: "job-127", subject: "Asunto" }),
+    queueInvoice: jest
+      .fn()
+      .mockResolvedValue({ jobId: "job-128", subject: "Asunto" }),
+    queueAppointmentCreated: jest
+      .fn()
+      .mockResolvedValue({ jobId: "job-130", subject: "Asunto" }),
+    queueBienvenidaEquipo: jest
+      .fn()
+      .mockResolvedValue({ jobId: "job-133", subject: "Asunto" }),
+    queueBienvenidaNegocio: jest
+      .fn()
+      .mockResolvedValue({ jobId: "job-134", subject: "Asunto" }),
+    queueBirthdayGreeting: jest
+      .fn()
+      .mockResolvedValue({ jobId: "job-132", subject: "Asunto" }),
   } as unknown as jest.Mocked<EmailService>;
 
   const amqp = {
@@ -82,6 +105,9 @@ export async function crearEntornoDeListeners(): Promise<EntornoDeListeners> {
     enrichClientEmail: jest.fn().mockResolvedValue("juan@example.com"),
     enrichClientName: jest.fn().mockResolvedValue("Juan Cliente"),
     enrichClientUserId: jest.fn().mockResolvedValue("user-cliente"),
+    enrichUserContact: jest
+      .fn()
+      .mockResolvedValue({ email: "dueno@example.com", name: "Yeison García" }),
     enrichBusinessData: jest.fn().mockResolvedValue({
       businessName: "EliteBarbers",
       businessAddress: "Calle 123",

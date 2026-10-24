@@ -1,0 +1,36 @@
+{{!
+  Botón principal y, si se da, un enlace secundario debajo. Parámetros: texto,
+  url, secundario, urlSecundaria. El fondo va en la celda para que Outlook lo
+  pinte aunque no respete el del enlace.
+}}
+<table
+  role="presentation"
+  cellpadding="0"
+  cellspacing="0"
+  border="0"
+  align="center"
+  style="margin: 4px auto 0;"
+>
+  <tr>
+    <td
+      class="bs-boton"
+      bgcolor="#7C3AED"
+      align="center"
+      style="background-color: #7C3AED; border-radius: 999px;"
+    >
+      <a
+        href="{{url}}"
+        target="_blank"
+        style="display: inline-block; padding: 15px 32px; font-size: 16px; line-height: 20px; font-weight: 600; color: #FFFFFF; text-decoration: none; border-radius: 999px;"
+      >{{texto}}</a>
+    </td>
+  </tr>
+</table>
+{{#if secundario}}
+  <p style="margin: 12px 0 0; text-align: center;"><a
+      href="{{urlSecundaria}}"
+      target="_blank"
+      style="font-size: 15px; font-weight: 600; color: #6D28D9; text-decoration: none;"
+    >{{secundario}}</a></p>
+{{/if}}
+<div style="height: 24px; line-height: 24px; font-size: 0;">&nbsp;</div>

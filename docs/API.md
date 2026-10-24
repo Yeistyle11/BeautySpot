@@ -285,6 +285,7 @@ entra hasta confirmar el correo.
 | POST   | `/internal/memberships`                      | Crea membresía; valida el DTO y rechaza `SUPER_ADMIN` |
 | GET    | `/internal/memberships/business/:businessId` | Quién trabaja en el negocio y con qué rol             |
 | GET    | `/internal/users/:id/token-version`          | Versión de token vigente, para validar sesiones       |
+| GET    | `/internal/users/:id/contacto`               | Correo y nombre de la cuenta, para escribirle         |
 
 `POST /internal/memberships` acepta `invitedBy`, que por defecto es el propio
 `userId`. El rol va contra la misma lista asignable que las rutas con sesión, así

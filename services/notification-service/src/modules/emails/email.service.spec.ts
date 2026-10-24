@@ -1,37 +1,48 @@
 import { Test } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
 import { Queue } from "bullmq";
 import { EmailService } from "./email.service";
 import { PlantillasService } from "./plantillas.service";
 import { SmtpTransport } from "./smtp.transport";
 
-jest.mock("fs");
+const APP = "https://appbeautyspot.com";
+
+/** Una cita como la arman los listeners. */
+const CITA = {
+  appointmentId: "cita-1",
+  conCuenta: true,
+  clientName: "Pedro Gómez",
+  professionalName: "Ana",
+  serviceName: "Tinte",
+  duration: 90,
+  appointmentDate: "2026-10-25",
+  appointmentTime: "14:00",
+  endTime: "15:30",
+  businessName: "EliteBarbers",
+  businessAddress: "Av. 456",
+  businessPhone: "555-5678",
+  timezone: "America/Bogota",
+};
 
 describe("EmailService", () => {
   let service: EmailService;
   let mockQueue: jest.Mocked<Queue>;
-  let mockFs: any;
   let plantillas: { render: jest.Mock; disponibles: string[] };
   let smtp: { enviar: jest.Mock };
 
   beforeEach(async () => {
     mockQueue = {
-      add: jest.fn().mockResolvedValue({ id: "job-123" }),
-    } as any;
+      add: jest.fn().mockResolvedValue({ id: "job-1" }),
+    } as unknown as jest.Mocked<Queue>;
 
-    // La plantilla renderizada devuelve el contexto, para poder mirarlo.
     plantillas = {
       render: jest.fn(
-        (nombre: string, contexto: Record<string, unknown>) =>
-          `HTML(${nombre}): ${JSON.stringify(contexto)}`
+        (nombre: string) =>
+          `<html><head><style>.x{}</style></head><body><p>Correo ${nombre}</p></body></html>`
       ),
-      disponibles: ["welcome-email", "invoice-generated"],
+      disponibles: [],
     };
-    smtp = {
-      enviar: jest.fn().mockResolvedValue({ messageId: "msg-123" }),
-    };
-
-    mockFs = require("fs");
-    mockFs.existsSync = jest.fn().mockReturnValue(true);
+    smtp = { enviar: jest.fn().mockResolvedValue({ messageId: "msg-1" }) };
 
     const module = await Test.createTestingModule({
       providers: [
@@ -39,413 +50,264 @@ describe("EmailService", () => {
         { provide: PlantillasService, useValue: plantillas },
         { provide: SmtpTransport, useValue: smtp },
         { provide: "BullQueue_emails", useValue: mockQueue },
+        {
+          provide: ConfigService,
+          useValue: new ConfigService({ APP_URL: APP }),
+        },
       ],
     }).compile();
 
-    service = module.get<EmailService>(EmailService);
+    service = module.get(EmailService);
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
+  /** El contexto con que se encoló el último correo. */
+  const encolado = () =>
+    (
+      mockQueue.add.mock.calls.at(-1) as [
+        string,
+        {
+          template: string;
+          priority: string;
+          context: Record<string, unknown>;
+        },
+      ]
+    )[1];
 
   describe("sendEmail", () => {
-    it("renderiza la plantilla y la entrega por SMTP", async () => {
-      const result = await service.sendEmail(
-        "client@example.com",
-        "welcome-email",
-        { clientName: "Juan" }
-      );
-
-      expect(result).toEqual({ messageId: "msg-123" });
-      expect(plantillas.render).toHaveBeenCalledWith("welcome-email", {
-        clientName: "Juan",
+    it("renderiza, entrega y manda un texto plano sin los estilos", async () => {
+      const result = await service.sendEmail("c@example.com", "welcome-email", {
+        subject: "Hola",
       });
+
+      expect(result).toEqual({ messageId: "msg-1" });
       expect(smtp.enviar).toHaveBeenCalledWith(
         expect.objectContaining({
-          to: "client@example.com",
-          subject: "BeautySpot - welcome-email",
+          to: "c@example.com",
+          subject: "Hola",
+          text: "Correo welcome-email",
         })
       );
     });
 
-    it("usa el asunto del contexto cuando lo trae", async () => {
-      await service.sendEmail("client@example.com", "password-reset", {
-        clientName: "Juan",
-        subject: "Recupera tu cuenta",
+    it("firma con el negocio cuando el correo es de una cita suya", async () => {
+      await service.sendEmail("c@example.com", "appointment-confirmed", {
+        subject: "Confirmada",
+        remitente: "EliteBarbers",
       });
 
       expect(smtp.enviar).toHaveBeenCalledWith(
-        expect.objectContaining({ subject: "Recupera tu cuenta" })
+        expect.objectContaining({ remitente: "EliteBarbers" })
       );
     });
 
     it("propaga el fallo de una plantilla que no existe", async () => {
       plantillas.render.mockImplementation(() => {
-        throw new Error("Template non-existent not found");
+        throw new Error("Template no-existe not found");
       });
 
       await expect(
-        service.sendEmail("client@example.com", "non-existent", {})
-      ).rejects.toThrow("Template non-existent not found");
+        service.sendEmail("c@example.com", "no-existe", {})
+      ).rejects.toThrow("Template no-existe not found");
       expect(smtp.enviar).not.toHaveBeenCalled();
     });
   });
 
-  describe("sendAppointmentConfirmation", () => {
-    it("debería enviar email de confirmación de cita", async () => {
-      await service.sendAppointmentConfirmation("maria@example.com", {
-        clientName: "Maria",
-        professionalName: "Carlos",
-        serviceName: "Corte de cabello",
-        appointmentDate: "2026-06-16",
-        appointmentTime: "10:00",
-        businessName: "EliteBarbers",
-        businessAddress: "Calle 123",
-        businessPhone: "555-1234",
-      });
-
-      expect(smtp.enviar).toHaveBeenCalledWith(
-        expect.objectContaining({
-          to: "maria@example.com",
-          subject: "Confirmación de cita en EliteBarbers",
-        })
-      );
-    });
-  });
-
-  describe("sendInvoice", () => {
-    const factura = {
-      clientName: "Juan",
-      invoiceNumber: "INV-001",
-      amount: 50000,
-      dueDate: "2026-07-01",
-      businessName: "EliteBarbers",
-      services: [{ name: "Corte", price: 50000 }],
-    };
-
-    it("debería enviar factura con attachment si existe el PDF", async () => {
-      mockFs.existsSync.mockReturnValue(true);
-
-      await service.sendInvoice(
-        "juan@example.com",
-        factura,
-        "/path/to/invoice.pdf"
-      );
-
-      expect(smtp.enviar).toHaveBeenCalledWith(
-        expect.objectContaining({
-          subject: "Factura #INV-001 - EliteBarbers",
-          attachments: [
-            { filename: "Factura_INV-001.pdf", path: "/path/to/invoice.pdf" },
-          ],
-        })
-      );
-    });
-
-    it("debería enviar factura sin attachment si no existe el PDF", async () => {
-      mockFs.existsSync.mockReturnValue(false);
-
-      await service.sendInvoice("juan@example.com", factura, "/no/esta.pdf");
-
-      const [mensaje] = smtp.enviar.mock.calls[0];
-      expect(mensaje.attachments).toBeUndefined();
-    });
-  });
-
-  describe("queueAppointmentConfirmation", () => {
-    it("debería agregar trabajo a la cola con prioridad alta", async () => {
-      const result = await service.queueAppointmentConfirmation(
-        "pedro@example.com",
-        {
-          clientName: "Pedro",
-          professionalName: "Ana",
-          serviceName: "Tinte",
-          appointmentDate: "2026-06-17",
-          appointmentTime: "14:00",
-          businessName: "BeautySpot",
-          businessAddress: "Av. 456",
-          businessPhone: "555-5678",
-        }
-      );
-
-      expect(result).toEqual({ jobId: "job-123" });
-      expect(mockQueue.add).toHaveBeenCalledWith(
-        "send",
-        expect.objectContaining({
-          to: "pedro@example.com",
-          template: "appointment-confirmed",
-          priority: "high",
-        })
-      );
-    });
-  });
-
-  describe("alta repetida", () => {
-    it("sale con prioridad alta: es un aviso de seguridad", async () => {
-      const result = await service.queueRegistroDuplicado("ya@example.com", {
-        clientName: "Dueña",
-        recoveryLink: "http://localhost:8080/forgot-password",
-      });
-
-      expect(result).toEqual({ jobId: "job-123" });
-      expect(mockQueue.add).toHaveBeenCalledWith(
-        "send",
-        expect.objectContaining({
-          to: "ya@example.com",
-          template: "registro-duplicado",
-          priority: "high",
-        })
-      );
-    });
-  });
-
-  describe("importes", () => {
-    it("el correo lleva el dinero escrito, no el numero crudo", async () => {
-      mockFs.existsSync.mockReturnValue(false);
-
-      await service.sendInvoice("juan@example.com", {
-        clientName: "Juan",
-        invoiceNumber: "INV-002",
-        amount: 50000,
-        dueDate: "2026-07-01",
-        businessName: "EliteBarbers",
-        services: [{ name: "Corte", price: 50000 }],
-      });
-
-      const [, contexto] = plantillas.render.mock.calls.at(-1)!;
-      expect(contexto.amount).toContain("50.000");
-      expect(contexto.amount).not.toBe(50000);
-    });
-  });
-});
-
-/** Cada aviso encolado con su plantilla y su prioridad. */
-describe("EmailService · avisos encolados", () => {
-  let service: EmailService;
-  let mockQueue: jest.Mocked<Queue>;
-
-  const CITA = {
-    clientName: "Pedro",
-    professionalName: "Ana",
-    serviceName: "Tinte",
-    appointmentDate: "2026-06-17",
-    appointmentTime: "14:00",
-    businessName: "BeautySpot",
-    businessAddress: "Av. 456",
-    businessPhone: "555-5678",
-  };
-
-  beforeEach(async () => {
-    mockQueue = { add: jest.fn().mockResolvedValue({ id: "job-1" }) } as any;
-
-    const module = await Test.createTestingModule({
-      providers: [
-        EmailService,
-        {
-          provide: PlantillasService,
-          useValue: { render: jest.fn(() => "HTML"), disponibles: [] },
-        },
-        {
-          provide: SmtpTransport,
-          useValue: { enviar: jest.fn().mockResolvedValue({}) },
-        },
-        { provide: "BullQueue_emails", useValue: mockQueue },
+  describe("correos de una cita", () => {
+    it.each([
+      [
+        "queueAppointmentCreated",
+        "appointment-created",
+        "high",
+        "Recibimos tu solicitud para el domingo 25 de octubre",
       ],
-    }).compile();
+      [
+        "queueAppointmentConfirmation",
+        "appointment-confirmed",
+        "high",
+        "Tu cita del domingo 25 de octubre está confirmada",
+      ],
+      [
+        "queueAppointmentReminder24h",
+        "appointment-reminder-24h",
+        "normal",
+        "Mañana a las 14:00 te esperamos",
+      ],
+      [
+        "queueAppointmentReminder1h",
+        "appointment-reminder-1h",
+        "high",
+        "Tu cita es en una hora",
+      ],
+      [
+        "queueAppointmentCancelled",
+        "appointment-cancelled",
+        "normal",
+        "Tu cita del domingo 25 de octubre se canceló",
+      ],
+    ] as const)(
+      "%s usa %s con prioridad %s y su asunto",
+      async (metodo, plantilla, prioridad, asunto) => {
+        const resultado = await service[metodo]("p@example.com", CITA);
 
-    service = module.get<EmailService>(EmailService);
-  });
-
-  it.each([
-    ["queueAppointmentCreated", CITA, "appointment-created", "high"],
-    [
-      "queueAppointmentCancelled",
-      { ...CITA, reason: "El profesional no está" },
-      "appointment-cancelled",
-      "normal",
-    ],
-    ["queueAppointmentReminder24h", CITA, "appointment-reminder-24h", "normal"],
-    ["queueAppointmentReminder1h", CITA, "appointment-reminder-1h", "high"],
-    [
-      "queuePasswordReset",
-      { clientName: "Pedro", resetLink: "https://x/y", expiryHours: 2 },
-      "password-reset",
-      "high",
-    ],
-    [
-      "queueEmailVerification",
-      { clientName: "Pedro", verificationLink: "https://x/y", expiryHours: 24 },
-      "email-verification",
-      "high",
-    ],
-    [
-      "queueReviewRequest",
-      {
-        clientName: "Pedro",
-        businessName: "BeautySpot",
-        professionalName: "Ana",
-        reviewLink: "https://x/y",
-      },
-      "review-request",
-      "low",
-    ],
-    [
-      "queueBirthdayGreeting",
-      { clientName: "Pedro", businessName: "BeautySpot", year: 2026 },
-      "birthday-greeting",
-      "low",
-    ],
-    [
-      "queueWelcomeEmail",
-      { clientName: "Pedro", businessName: "BeautySpot" },
-      "welcome-email",
-      "low",
-    ],
-  ])("%s usa la plantilla %s", async (metodo, datos, plantilla, prioridad) => {
-    const encolar = service[metodo as keyof EmailService] as (
-      to: string,
-      data: unknown
-    ) => Promise<{ jobId: string }>;
-
-    expect(await encolar.call(service, "pedro@example.com", datos)).toEqual({
-      jobId: "job-1",
-    });
-    expect(mockQueue.add).toHaveBeenCalledWith(
-      "send",
-      expect.objectContaining({
-        to: "pedro@example.com",
-        template: plantilla,
-        priority: prioridad,
-      })
+        expect(resultado).toEqual({ jobId: "job-1", subject: asunto });
+        expect(encolado()).toEqual(
+          expect.objectContaining({ template: plantilla, priority: prioridad })
+        );
+        // Lo firma el negocio, no la plataforma.
+        expect(encolado().context.remitente).toBe("EliteBarbers");
+      }
     );
-  });
 
-  // El importe viaja ya escrito, no como número.
-  it("el reporte mensual encola los importes ya escritos", async () => {
-    await service.queueMonthlyReport("dueno@example.com", {
-      businessName: "BeautySpot",
-      month: "agosto",
-      year: "2026",
-      totalRevenue: 1250000,
-      totalAppointments: 42,
-      topService: "Tinte",
-      topServiceRevenue: 450000,
-      clientName: "Dueño",
+    it("lleva los enlaces de la cita", async () => {
+      await service.queueAppointmentConfirmation("p@example.com", CITA);
+
+      const contexto = encolado().context;
+      expect(contexto.enlaceCita).toBe(
+        `${APP}/dashboard/client/appointments/cita-1`
+      );
+      expect(String(contexto.enlaceCalendario)).toContain(
+        "dates=20261025T140000%2F20261025T153000"
+      );
+      expect(String(contexto.enlaceMapa)).toContain("Av.%20456");
     });
-
-    const [, trabajo] = mockQueue.add.mock.calls[0] as [
-      string,
-      { context: Record<string, unknown> },
-    ];
-    expect(String(trabajo.context.totalRevenue)).toContain("1.250.000");
-    expect(String(trabajo.context.topServiceRevenue)).toContain("450.000");
-    expect(String(trabajo.context.subject)).toContain("agosto 2026");
   });
 
-  it("la factura encolada lleva el número en el asunto", async () => {
-    await service.queueInvoice("cliente@example.com", {
+  describe("factura y recibo", () => {
+    const FACTURA = {
       clientName: "Pedro",
       invoiceNumber: "FA-0001",
-      businessName: "BeautySpot",
-      total: 30000,
-      issueDate: "2026-09-12",
-      pdfPath: "/tmp/fa-0001.pdf",
-    } as never);
+      invoiceDate: "2026-10-25",
+      businessName: "EliteBarbers",
+      services: [{ name: "Corte", price: 50000 }],
+      amount: 59500,
+      subtotal: 50000,
+      tax: 9500,
+      conCuenta: true,
+    };
 
-    expect(mockQueue.add).toHaveBeenCalledWith(
-      "send",
-      expect.objectContaining({
-        template: "invoice-generated",
-        context: expect.objectContaining({
-          subject: expect.stringContaining("FA-0001"),
-        }),
-      })
-    );
+    it("pasa los importes como números para que la plantilla los escriba", async () => {
+      await service.queueInvoice("p@example.com", FACTURA);
+
+      const contexto = encolado().context;
+      expect(contexto.items).toEqual([{ name: "Corte", amount: 50000 }]);
+      expect(contexto.total).toBe(59500);
+      expect(contexto.enlaceFacturas).toBe(`${APP}/dashboard/client/invoices`);
+      expect(contexto.subject).toBe("Tu factura FA-0001 de EliteBarbers");
+    });
+
+    it("el recibo se llama recibo y no ofrece facturas a quien no tiene cuenta", async () => {
+      await service.queueInvoice("p@example.com", {
+        ...FACTURA,
+        esRecibo: true,
+        conCuenta: false,
+      });
+
+      const contexto = encolado().context;
+      expect(contexto.subject).toBe("Tu recibo de EliteBarbers");
+      expect(contexto.enlaceFacturas).toBeUndefined();
+    });
   });
-});
 
-/** Los envíos inmediatos, que no pasan por la cola. */
-describe("EmailService · envíos directos", () => {
-  let service: EmailService;
-  let smtp: { enviar: jest.Mock };
-
-  beforeEach(async () => {
-    smtp = { enviar: jest.fn().mockResolvedValue({ messageId: "msg-1" }) };
-
-    const module = await Test.createTestingModule({
-      providers: [
-        EmailService,
-        {
-          provide: PlantillasService,
-          useValue: { render: jest.fn(() => "HTML"), disponibles: [] },
-        },
-        { provide: SmtpTransport, useValue: smtp },
-        {
-          provide: "BullQueue_emails",
-          useValue: { add: jest.fn().mockResolvedValue({ id: "job-1" }) },
-        },
+  describe("correos de cuenta", () => {
+    it.each([
+      [
+        "queuePasswordReset",
+        { clientName: "Pedro", resetLink: "https://x/y", expiryHours: 1 },
+        "password-reset",
+        "high",
+        "Restablece tu contraseña de BeautySpot",
       ],
-    }).compile();
+      [
+        "queueEmailVerification",
+        {
+          clientName: "Pedro",
+          verificationLink: "https://x/y",
+          expiryHours: 24,
+        },
+        "email-verification",
+        "high",
+        "Confirma tu correo para entrar en BeautySpot",
+      ],
+      [
+        "queueRegistroDuplicado",
+        { clientName: "Pedro", recoveryLink: "https://x/y" },
+        "registro-duplicado",
+        "high",
+        "Ya tienes una cuenta en BeautySpot",
+      ],
+      [
+        "queueWelcomeEmail",
+        { clientName: "Pedro" },
+        "welcome-email",
+        "low",
+        "Te damos la bienvenida a BeautySpot",
+      ],
+      [
+        "queueBienvenidaNegocio",
+        { clientName: "Pedro", businessName: "EliteBarbers" },
+        "bienvenida-negocio",
+        "low",
+        "EliteBarbers ya está en BeautySpot",
+      ],
+      [
+        "queueBienvenidaEquipo",
+        { clientName: "Pedro", businessName: "EliteBarbers" },
+        "bienvenida-equipo",
+        "low",
+        "Ya tienes acceso al equipo de EliteBarbers",
+      ],
+    ] as const)(
+      "%s usa %s",
+      async (metodo, datos, plantilla, prioridad, asunto) => {
+        const encolar = service[metodo] as (
+          to: string,
+          data: unknown
+        ) => Promise<{ jobId: string; subject: string }>;
 
-    service = module.get<EmailService>(EmailService);
+        expect(await encolar.call(service, "p@example.com", datos)).toEqual({
+          jobId: "job-1",
+          subject: asunto,
+        });
+        expect(encolado()).toEqual(
+          expect.objectContaining({ template: plantilla, priority: prioridad })
+        );
+        // Los firma BeautySpot: no llevan remitente de negocio.
+        expect(encolado().context.remitente).toBeUndefined();
+      }
+    );
+
+    it("el registro duplicado ofrece entrar además de recuperar la contraseña", async () => {
+      await service.queueRegistroDuplicado("p@example.com", {
+        clientName: "Pedro",
+        recoveryLink: `${APP}/forgot-password`,
+      });
+
+      expect(encolado().context.loginLink).toBe(`${APP}/login`);
+    });
   });
 
-  it.each([
-    ["sendAppointmentReminder24h", "Recordatorio - Cita mañana en BeautySpot"],
-    [
-      "sendAppointmentReminder1h",
-      "Recordatorio - Cita en 1 hora en BeautySpot",
-    ],
-    ["sendAppointmentCancelled", "Cita cancelada - BeautySpot"],
-  ])("%s escribe su asunto", async (metodo, asunto) => {
-    const enviar = service[metodo as keyof EmailService] as (
-      to: string,
-      data: unknown
-    ) => Promise<void>;
-
-    await enviar.call(service, "pedro@example.com", {
-      clientName: "Pedro",
+  it("la reseña y el cumpleaños saludan por el nombre de pila", async () => {
+    await service.queueReviewRequest("p@example.com", {
+      clientName: "Pedro Gómez",
+      businessName: "EliteBarbers",
       professionalName: "Ana",
-      serviceName: "Tinte",
-      appointmentDate: "2026-06-17",
-      appointmentTime: "14:00",
-      cancelledDate: "2026-06-16",
-      reason: "El profesional no está",
-      businessName: "BeautySpot",
-      businessAddress: "Av. 456",
+      reviewLink: "https://x/y",
     });
+    expect(encolado().context.subject).toBe("¿Qué tal tu visita, Pedro?");
 
-    expect(smtp.enviar).toHaveBeenCalledWith(
-      expect.objectContaining({ subject: asunto })
+    await service.queueBirthdayGreeting("p@example.com", {
+      clientName: "Pedro Gómez",
+      businessName: "EliteBarbers",
+    });
+    expect(encolado().context.subject).toBe("Feliz cumpleaños, Pedro");
+    expect(encolado().context.enlaceReservar).toBe(
+      `${APP}/marketplace?q=EliteBarbers`
     );
   });
 
-  it("el restablecimiento y la bienvenida nombran BeautySpot", async () => {
-    await service.sendPasswordReset("pedro@example.com", {
-      clientName: "Pedro",
-      resetLink: "https://x/y",
-      expiryHours: 2,
-    });
-    await service.sendWelcomeEmail("pedro@example.com", {
-      clientName: "Pedro",
-    });
-
-    expect(smtp.enviar).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        subject: "Restablecer contraseña - BeautySpot",
-      })
-    );
-    expect(smtp.enviar).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ subject: "Bienvenido a BeautySpot" })
-    );
-  });
-
-  it("el reporte mensual directo escribe los importes", async () => {
-    await service.sendMonthlyReport("dueno@example.com", {
-      businessName: "BeautySpot",
+  it("el reporte mensual deja los importes en número y enlaza a Reportes", async () => {
+    await service.queueMonthlyReport("dueno@example.com", {
+      businessName: "EliteBarbers",
       month: "agosto",
       year: "2026",
       totalRevenue: 1250000,
@@ -455,10 +317,9 @@ describe("EmailService · envíos directos", () => {
       clientName: "Dueño",
     });
 
-    expect(smtp.enviar).toHaveBeenCalledWith(
-      expect.objectContaining({
-        subject: "Reporte mensual - BeautySpot (agosto 2026)",
-      })
-    );
+    const contexto = encolado().context;
+    expect(contexto.totalRevenue).toBe(1250000);
+    expect(contexto.enlaceReportes).toBe(`${APP}/dashboard/analytics`);
+    expect(contexto.subject).toBe("Así fue agosto en EliteBarbers");
   });
 });

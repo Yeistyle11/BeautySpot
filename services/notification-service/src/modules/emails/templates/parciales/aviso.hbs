@@ -1,0 +1,13 @@
+{{!-- Aviso con icono en el color de su tono. Parámetros: tono, icono; el texto va como contenido. --}}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 16px;">
+  <tr>
+    <td style="background-color: {{color tono "fondo"}}; border-radius: 12px; padding: 14px 16px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td width="30" style="width: 30px; vertical-align: top; padding-top: 1px;"><img src="{{@root.recursos}}/aviso-{{tono}}-{{icono}}.png" width="18" height="18" alt="" style="display: block; border: 0;"></td>
+          <td style="font-size: 14px; line-height: 21px; color: {{color tono "texto"}};">{{> @partial-block}}</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
