@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 import { Edit, Power, PowerOff } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AccionesDeFila } from "@/components/ui/acciones-de-fila";
 import { CategoryBadge } from "@/components/ui/category-badge";
 import {
   CeldaDeTabla,
@@ -55,46 +55,35 @@ export const ServiceRow = memo(function ServiceRow({
   return (
     <FilaDeTabla
       acciones={
-        <>
-          {puedeEditar && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onEditar(service)}
-              aria-label={`Editar el servicio ${service.name}`}
-              title="Editar servicio"
-            >
-              <Edit className="text-muted-foreground h-4 w-4" />
-            </Button>
-          )}
-          {/* Desactiva, no borra: al servicio lo referencian citas y cobros. */}
-          {puedeDesactivar &&
-            (service.active ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                onClick={() => onDesactivar(service)}
-                aria-label={`Desactivar el servicio ${service.name}`}
-                title="Desactivar servicio"
-              >
-                <PowerOff className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="hover:text-success h-8 w-8"
-                onClick={() => onReactivar(service)}
-                disabled={reactivando}
-                aria-label={`Activar el servicio ${service.name}`}
-                title="Activar servicio"
-              >
-                <Power className="h-4 w-4" />
-              </Button>
-            ))}
-        </>
+        <AccionesDeFila
+          sobre={service.name}
+          acciones={[
+            puedeEditar && {
+              etiqueta: "Editar servicio",
+              descripcion: `Editar el servicio ${service.name}`,
+              icono: Edit,
+              alElegir: () => onEditar(service),
+            },
+            // Desactiva, no borra: al servicio lo referencian citas y cobros.
+            puedeDesactivar &&
+              (service.active
+                ? {
+                    etiqueta: "Desactivar servicio",
+                    descripcion: `Desactivar el servicio ${service.name}`,
+                    icono: PowerOff,
+                    tono: "destructivo",
+                    alElegir: () => onDesactivar(service),
+                  }
+                : {
+                    etiqueta: "Activar servicio",
+                    descripcion: `Activar el servicio ${service.name}`,
+                    icono: Power,
+                    tono: "exito",
+                    alElegir: () => onReactivar(service),
+                    deshabilitada: reactivando,
+                  }),
+          ]}
+        />
       }
     >
       <CeldaPrincipal titulo={service.name} subtitulo={service.description} />

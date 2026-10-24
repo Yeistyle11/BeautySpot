@@ -15,10 +15,11 @@ import type { BlockedSlot } from "./schemas";
 
 export const COLUMNAS_DE_BLOQUEOS: ColumnaDeTabla[] = [
   { label: "Profesional" },
-  { label: "Día" },
-  { label: "Franja" },
+  // En movil el dia, la franja y la repeticion van bajo el nombre.
+  { label: "Día", ocultaEnMovil: true },
+  { label: "Franja", ocultaEnMovil: true },
   { label: "Motivo", ocultaEnMovil: true },
-  { label: "Repetición" },
+  { label: "Repetición", ocultaEnMovil: true },
 ];
 
 interface BlockedSlotRowProps {
@@ -55,9 +56,21 @@ export const BlockedSlotRow = memo(function BlockedSlotRow({
         )
       }
     >
-      <CeldaPrincipal inicial={nombre.charAt(0)} titulo={nombre} />
-      <CeldaDeTabla apagada>{formatDate(bloqueo.date)}</CeldaDeTabla>
-      <CeldaDeTabla apagada>
+      <CeldaPrincipal
+        inicial={nombre.charAt(0)}
+        titulo={nombre}
+        subtitulo={
+          <span className="md:hidden">
+            {formatDate(bloqueo.date)} · {formatTime(bloqueo.startTime)}–
+            {formatTime(bloqueo.endTime)}
+            {bloqueo.serieId && " · Se repite"}
+          </span>
+        }
+      />
+      <CeldaDeTabla apagada ocultaEnMovil>
+        {formatDate(bloqueo.date)}
+      </CeldaDeTabla>
+      <CeldaDeTabla apagada ocultaEnMovil>
         <span className="whitespace-nowrap">
           {formatTime(bloqueo.startTime)}–{formatTime(bloqueo.endTime)}
         </span>
@@ -65,7 +78,7 @@ export const BlockedSlotRow = memo(function BlockedSlotRow({
       <CeldaDeTabla apagada ocultaEnMovil>
         {bloqueo.reason || "—"}
       </CeldaDeTabla>
-      <CeldaDeTabla>
+      <CeldaDeTabla ocultaEnMovil>
         {bloqueo.serieId && (
           <Badge variant="secondary">
             <Repeat className="mr-1 h-3 w-3" />

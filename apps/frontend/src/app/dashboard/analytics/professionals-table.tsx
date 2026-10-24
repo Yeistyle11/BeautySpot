@@ -28,8 +28,8 @@ const COLUMNAS_DE_RENDIMIENTO = [
   { label: "Profesional" },
   { label: "Citas", alineacion: "right" as const },
   { label: "Ingresos", alineacion: "right" as const },
-  { label: "Valoración", alineacion: "right" as const },
-  { label: "Días activos", alineacion: "right" as const },
+  { label: "Valoración", alineacion: "right" as const, ocultaEnMovil: true },
+  { label: "Días activos", alineacion: "right" as const, ocultaEnMovil: true },
 ];
 
 /** Cruza el reporte con el equipo para dar a cada fila el nombre del profesional. */
@@ -77,10 +77,12 @@ export function ProfessionalsTable({ filas }: { filas: FilaDeProfesional[] }) {
                 </CeldaDeTabla>
                 {/* Sin valoraciones no hay nota, que no es lo mismo que un
                     cero. */}
-                <CeldaDeTabla alineacion="right">
+                <CeldaDeTabla alineacion="right" ocultaEnMovil>
                   {p.avgRating > 0 ? p.avgRating.toFixed(2) : "—"}
                 </CeldaDeTabla>
-                <CeldaDeTabla alineacion="right">{p.days}</CeldaDeTabla>
+                <CeldaDeTabla alineacion="right" ocultaEnMovil>
+                  {p.days}
+                </CeldaDeTabla>
               </FilaDeTabla>
             ))}
           </TablaDeRegistros>

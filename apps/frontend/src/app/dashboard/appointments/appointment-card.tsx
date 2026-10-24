@@ -2,7 +2,8 @@
 
 // Fila de una cita en la vista lista, con su estado y sus acciones.
 import { memo } from "react";
-import { Ban, CalendarClock, UserX } from "lucide-react";
+import { Ban, CalendarClock, Check, CheckCircle2, UserX } from "lucide-react";
+import { AccionesDeFila } from "@/components/ui/acciones-de-fila";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,10 +26,11 @@ import { etiquetaDeMotivo, type Appointment } from "./schemas";
 export const COLUMNAS_DE_AGENDA: ColumnaDeTabla<"date">[] = [
   { label: "Cliente" },
   { label: "Servicio", ocultaEnMovil: true },
-  { label: "Cuándo", campo: "date" },
+  // En movil el cuando y el estado van bajo el nombre del cliente.
+  { label: "Cuándo", campo: "date", ocultaEnMovil: true },
   { label: "Profesional", ocultaEnMovil: true },
-  { label: "Importe", alineacion: "right" },
-  { label: "Estado" },
+  { label: "Importe", alineacion: "right", ocultaEnMovil: true },
+  { label: "Estado", ocultaEnMovil: true },
 ];
 
 interface AppointmentCardProps {
@@ -73,94 +75,104 @@ export const AppointmentCard = memo(function AppointmentCard({
     yaEmpezo &&
     (appointment.status === "PENDING" || appointment.status === "CONFIRMED");
   const anulable = ANULABLES.includes(appointment.status);
+  const confirmable =
+    appointment.status === "PENDING" && canConfirm && !yaEmpezo;
+  const completable = canConfirm && cerrable;
 
   return (
     <FilaDeTabla
       acciones={
-        /* Cada accion ocupa siempre su hueco; solo la principal lleva texto. */
-        <>
-          <span className="flex w-[104px] justify-end">
-            {appointment.status === "PENDING" && canConfirm && !yaEmpezo && (
-              <Button size="sm" onClick={() => onConfirm(appointment.id)}>
-                Confirmar
-              </Button>
-            )}
-            {canConfirm && cerrable && (
-              <Button size="sm" onClick={() => onComplete(appointment)}>
-                Atendida
-              </Button>
-            )}
-          </span>
-
-          <span className="flex h-8 w-8 items-center justify-center">
-            {canConfirm && cerrable && (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8"
-                onClick={() => onNoShow(appointment.id)}
-                aria-label={`Marcar que ${clientName || "el cliente"} no asistió`}
-                title="No asistió"
-              >
-                <UserX className="h-4 w-4" />
-              </Button>
-            )}
-          </span>
-
-          <span className="flex h-8 w-8 items-center justify-center">
-            {anulable && canReschedule && (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8"
-                onClick={() => onReschedule(appointment)}
-                aria-label={`Reagendar la cita de ${clientName || "el cliente"}`}
-                title="Reagendar"
-              >
-                <CalendarClock className="h-4 w-4" />
-              </Button>
-            )}
-          </span>
-
-          {/* El rojo de cancelar aparece solo al apuntarla. */}
-          <span className="flex h-8 w-8 items-center justify-center">
-            {anulable && canCancel && (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                onClick={() => onCancel(appointment.id)}
-                aria-label={`Cancelar la cita de ${clientName || "el cliente"}`}
-                title="Cancelar"
-              >
-                <Ban className="h-4 w-4" />
-              </Button>
-            )}
-          </span>
-        </>
+        <AccionesDeFila
+          sobre={`la cita de ${clientName || "el cliente"}`}
+          principal={
+            /* Cada accion ocupa siempre su hueco; solo la principal lleva texto. */
+            <span className="flex w-[104px] justify-end">
+              {confirmable && (
+                <Button size="sm" onClick={() => onConfirm(appointment.id)}>
+                  Confirmar
+                </Button>
+              )}
+              {completable && (
+                <Button size="sm" onClick={() => onComplete(appointment)}>
+                  Atendida
+                </Button>
+              )}
+            </span>
+          }
+          acciones={[
+            confirmable && {
+              etiqueta: "Confirmar",
+              descripcion: `Confirmar la cita de ${clientName || "el cliente"}`,
+              icono: Check,
+              alElegir: () => onConfirm(appointment.id),
+              soloEnMenu: true,
+            },
+            completable && {
+              etiqueta: "Atendida",
+              descripcion: `Marcar como atendida la cita de ${clientName || "el cliente"}`,
+              icono: CheckCircle2,
+              alElegir: () => onComplete(appointment),
+              soloEnMenu: true,
+            },
+            {
+              etiqueta: "No asistió",
+              descripcion: `Marcar que ${clientName || "el cliente"} no asistió`,
+              icono: UserX,
+              alElegir: () => onNoShow(appointment.id),
+              visible: completable,
+            },
+            {
+              etiqueta: "Reagendar",
+              descripcion: `Reagendar la cita de ${clientName || "el cliente"}`,
+              icono: CalendarClock,
+              alElegir: () => onReschedule(appointment),
+              visible: anulable && canReschedule,
+            },
+            // El rojo de cancelar aparece solo al apuntarla.
+            {
+              etiqueta: "Cancelar",
+              descripcion: `Cancelar la cita de ${clientName || "el cliente"}`,
+              icono: Ban,
+              tono: "destructivo",
+              alElegir: () => onCancel(appointment.id),
+              visible: anulable && canCancel,
+            },
+          ]}
+        />
       }
     >
       <CeldaPrincipal
         inicial={(clientName || "C").charAt(0)}
         titulo={clientName || "Cliente"}
         subtitulo={
-          appointment.status === "CANCELLED" ? (
-            <span className="flex items-start gap-1">
-              <Ban className="mt-0.5 h-3 w-3 shrink-0" />
-              <span>
-                {etiquetaDeMotivo(appointment.cancelReasonType)}
-                {appointment.cancelReason && `: ${appointment.cancelReason}`}
-                {appointment.cancelledAt &&
-                  ` · ${formatDateTimeStamp(appointment.cancelledAt)}`}
+          <>
+            <span className="flex items-center gap-1.5 md:hidden">
+              <span className="truncate">
+                {formatDate(appointment.date)} ·{" "}
+                {formatTime(appointment.startTime)}
               </span>
+              <Badge variant={status.variant} className="shrink-0">
+                {status.label}
+              </Badge>
             </span>
-          ) : undefined
+            {appointment.status === "CANCELLED" && (
+              <span className="flex items-start gap-1">
+                <Ban className="mt-0.5 h-3 w-3 shrink-0" />
+                <span>
+                  {etiquetaDeMotivo(appointment.cancelReasonType)}
+                  {appointment.cancelReason && `: ${appointment.cancelReason}`}
+                  {appointment.cancelledAt &&
+                    ` · ${formatDateTimeStamp(appointment.cancelledAt)}`}
+                </span>
+              </span>
+            )}
+          </>
         }
       />
       <CeldaDeTabla apagada ocultaEnMovil>
         {serviceNames || "—"}
       </CeldaDeTabla>
-      <CeldaDeTabla apagada>
+      <CeldaDeTabla apagada ocultaEnMovil>
         <span className="whitespace-nowrap">
           {formatDate(appointment.date)}
         </span>
@@ -172,10 +184,10 @@ export const AppointmentCard = memo(function AppointmentCard({
       <CeldaDeTabla apagada ocultaEnMovil>
         {professionalName}
       </CeldaDeTabla>
-      <CeldaDeTabla alineacion="right" className="font-semibold">
+      <CeldaDeTabla alineacion="right" className="font-semibold" ocultaEnMovil>
         {formatCurrency(appointment.totalAmount)}
       </CeldaDeTabla>
-      <CeldaDeTabla>
+      <CeldaDeTabla ocultaEnMovil>
         <Badge variant={status.variant}>{status.label}</Badge>
       </CeldaDeTabla>
     </FilaDeTabla>

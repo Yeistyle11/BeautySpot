@@ -33,8 +33,9 @@ interface InvoiceDetailDialogProps {
 
 const COLUMNAS_DE_LINEA = [
   { label: "Concepto" },
-  { label: "Cantidad", alineacion: "right" as const },
-  { label: "Precio", alineacion: "right" as const },
+  // En movil la cantidad y el precio van bajo el concepto.
+  { label: "Cantidad", alineacion: "right" as const, ocultaEnMovil: true },
+  { label: "Precio", alineacion: "right" as const, ocultaEnMovil: true },
   { label: "Total", alineacion: "right" as const },
 ];
 
@@ -113,9 +114,16 @@ export function InvoiceDetailDialog({
         >
           {invoice.items.map((linea, i) => (
             <FilaDeTabla key={linea.id ?? i}>
-              <CeldaDeTabla>{linea.description}</CeldaDeTabla>
-              <CeldaDeTabla alineacion="right">{linea.quantity}</CeldaDeTabla>
-              <CeldaDeTabla alineacion="right">
+              <CeldaDeTabla>
+                {linea.description}
+                <span className="text-muted-foreground block text-xs md:hidden">
+                  {linea.quantity} × {formatCurrency(linea.unitPrice)}
+                </span>
+              </CeldaDeTabla>
+              <CeldaDeTabla alineacion="right" ocultaEnMovil>
+                {linea.quantity}
+              </CeldaDeTabla>
+              <CeldaDeTabla alineacion="right" ocultaEnMovil>
                 {formatCurrency(linea.unitPrice)}
               </CeldaDeTabla>
               <CeldaDeTabla alineacion="right">

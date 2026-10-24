@@ -7,6 +7,7 @@ import { mensajeDeError } from "@/lib/error-message";
 import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { AccionesDeFila } from "@/components/ui/acciones-de-fila";
 import { LoadingState } from "@/components/ui/loading-state";
 import { PageHeader } from "@/components/ui/page-header";
 import {
@@ -189,6 +190,7 @@ export default function ProfessionalsPage() {
   }, [professionals]);
 
   /** El equipo, con el mismo formato para activos e inactivos. */
+  const editable = canDo(role, "professionals_edit");
   const tablaDe = (items: Professional[], titulo: string) => (
     <TablaDeRegistros titulo={titulo} columnas={COLUMNAS_EQUIPO}>
       {items.map((p) => {
@@ -197,64 +199,42 @@ export default function ProfessionalsPage() {
           <FilaDeTabla
             key={p.id}
             acciones={
-              <>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  onClick={() => setViewId(p.id)}
-                  aria-label={`Ver la ficha de ${nombre}`}
-                  title="Ver ficha"
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
-                {canDo(role, "professionals_edit") && (
-                  <>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8"
-                      onClick={() => startEdit(p)}
-                      aria-label={`Editar a ${nombre}`}
-                      title="Editar"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8"
-                      onClick={() => horario.abrir(p)}
-                      aria-label={`Horarios de ${nombre}`}
-                      title="Horarios"
-                    >
-                      <Clock className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8"
-                      onClick={() => serviciosDelPro.abrir(p)}
-                      aria-label={`Servicios de ${nombre}`}
-                      title="Servicios"
-                    >
-                      <Scissors className="h-4 w-4" />
-                    </Button>
-                  </>
-                )}
-                {canDo(role, "professionals_delete") && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                    onClick={() => setDeleteConfirm(p.id)}
-                    aria-label={`Inactivar a ${nombre}`}
-                    title="Inactivar"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </>
+              <AccionesDeFila
+                sobre={nombre}
+                acciones={[
+                  {
+                    etiqueta: "Ver ficha",
+                    descripcion: `Ver la ficha de ${nombre}`,
+                    icono: Eye,
+                    alElegir: () => setViewId(p.id),
+                  },
+                  editable && {
+                    etiqueta: "Editar",
+                    descripcion: `Editar a ${nombre}`,
+                    icono: Pencil,
+                    alElegir: () => startEdit(p),
+                  },
+                  editable && {
+                    etiqueta: "Horarios",
+                    descripcion: `Horarios de ${nombre}`,
+                    icono: Clock,
+                    alElegir: () => horario.abrir(p),
+                  },
+                  editable && {
+                    etiqueta: "Servicios",
+                    descripcion: `Servicios de ${nombre}`,
+                    icono: Scissors,
+                    alElegir: () => serviciosDelPro.abrir(p),
+                  },
+                  canDo(role, "professionals_delete") && {
+                    etiqueta: "Inactivar",
+                    descripcion: `Inactivar a ${nombre}`,
+                    icono: Trash2,
+                    tono: "destructivo",
+                    alElegir: () => setDeleteConfirm(p.id),
+                  },
+                ]}
+              />
             }
           >
             <CeldaPrincipal

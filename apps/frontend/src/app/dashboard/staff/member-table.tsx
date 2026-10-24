@@ -2,11 +2,18 @@
 
 // Tabla de miembros del equipo, con ordenamiento, exportacion a CSV y acciones por fila.
 import { useState, useMemo } from "react";
-import { Pencil, Trash2, Download, ArrowUpDown } from "lucide-react";
+import { Pencil, Power, PowerOff, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { AccionesDeFila } from "@/components/ui/acciones-de-fila";
+import {
+  CeldaDeTabla,
+  CeldaPrincipal,
+  FilaDeTabla,
+  TablaDeRegistros,
+  type ColumnaDeTabla,
+} from "@/components/ui/tabla-de-registros";
 import { canDo } from "@/lib/permissions";
 import { nombreDelRol } from "@/lib/auth";
 import { downloadCsv } from "@/lib/export-csv";
@@ -18,32 +25,12 @@ import {
   type StaffMember,
 } from "./schemas";
 
-/** Flecha de orden de una columna, resaltada si ordena por ella. */
-function SortIcon({
-  field,
-  sortField,
-}: {
-  field: SortField;
-  sortField: SortField;
-}) {
-  return (
-    <ArrowUpDown
-      className={`ml-1 inline h-3 w-3 ${sortField === field ? "text-primary" : "text-muted-foreground/40"}`}
-    />
-  );
-}
-
-// Orden de columnas de la tabla. `sortable: false` para las que solo se
-// muestran; `hiddenOnMobile` para las que se ocultan por debajo de md.
-const COLUMNS: {
-  label: string;
-  field?: SortField;
-  hiddenOnMobile?: boolean;
-}[] = [
-  { label: "Nombre", field: "name" },
-  { label: "Email", field: "email" },
-  { label: "Teléfono", hiddenOnMobile: true },
-  { label: "Rol", field: "role" },
+// En movil el email y el rol van bajo el nombre.
+const COLUMNAS: ColumnaDeTabla<SortField>[] = [
+  { label: "Nombre", campo: "name" },
+  { label: "Email", campo: "email", ocultaEnMovil: true },
+  { label: "Teléfono", ocultaEnMovil: true },
+  { label: "Rol", campo: "role", ocultaEnMovil: true },
 ];
 
 /** Descarga el equipo como CSV. */
@@ -100,7 +87,7 @@ export function MemberTable({
 
   return (
     <div className="mb-8">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-base font-semibold">
           <span className={`h-2.5 w-2.5 rounded-full ${dotColor}`} />
           {icon} {title} ({members.length})
@@ -108,7 +95,7 @@ export function MemberTable({
         <Button
           size="sm"
           variant="outline"
-          className="h-7 gap-1 text-xs"
+          className="gap-1 text-xs"
           // Se exporta la pestaña que se esta viendo, no el total.
           onClick={() =>
             exportMembers(
@@ -140,108 +127,67 @@ export function MemberTable({
             : "Ninguna cuenta desactivada en este grupo."}
         </p>
       ) : (
-        <div className="bg-card overflow-hidden rounded-lg border">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <caption className="sr-only">{title}</caption>
-              <thead>
-                <tr className="bg-muted/50 border-b">
-                  {COLUMNS.map((col) => (
-                    <th
-                      key={col.label}
-                      scope="col"
-                      // La flecha solo la ve quien mira; esto lo anuncia.
-                      aria-sort={
-                        col.field && col.field === sortField
-                          ? sortDir === "asc"
-                            ? "ascending"
-                            : "descending"
-                          : undefined
-                      }
-                      className={`px-4 py-3 text-left font-medium ${col.hiddenOnMobile ? "hidden md:table-cell" : ""}`}
+        <TablaDeRegistros
+          titulo={title}
+          columnas={COLUMNAS}
+          orden={{ campo: sortField, direccion: sortDir }}
+          onOrdenar={onToggleSort}
+        >
+          {visibles.map((s) => (
+            <FilaDeTabla
+              key={s.id}
+              className={s.active ? undefined : "opacity-50"}
+              acciones={
+                <AccionesDeFila
+                  sobre={`la cuenta de ${s.name}`}
+                  acciones={[
+                    canDo(role, "staff_edit") && {
+                      etiqueta: "Editar cuenta",
+                      descripcion: `Editar la cuenta de ${s.name}`,
+                      icono: Pencil,
+                      alElegir: () => onEdit(s),
+                    },
+                    canDo(role, "staff_deactivate") &&
+                      s.role !== "OWNER" && {
+                        etiqueta: s.active ? "Desactivar" : "Activar",
+                        descripcion: `${s.active ? "Desactivar" : "Activar"} la cuenta de ${s.name}`,
+                        icono: s.active ? PowerOff : Power,
+                        tono: s.active ? "destructivo" : "exito",
+                        alElegir: () => onRequestToggle(s.id),
+                      },
+                  ]}
+                />
+              }
+            >
+              <CeldaPrincipal
+                inicial={s.name?.charAt(0) || "U"}
+                titulo={s.name}
+                subtitulo={
+                  <span className="flex items-center gap-1.5 md:hidden">
+                    <Badge
+                      variant={ROLE_BADGE[s.role] ?? "muted"}
+                      className="shrink-0"
                     >
-                      {col.field ? (
-                        <button
-                          className="hover:text-foreground focus-visible:ring-ring flex items-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2"
-                          onClick={() => onToggleSort(col.field!)}
-                        >
-                          {col.label}{" "}
-                          <SortIcon field={col.field} sortField={sortField} />
-                        </button>
-                      ) : (
-                        col.label
-                      )}
-                    </th>
-                  ))}
-                  <th scope="col" className="px-4 py-3 text-right font-medium">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibles.map((s) => (
-                  <tr
-                    key={s.id}
-                    className={`hover:bg-muted/30 border-b transition-colors last:border-0 ${!s.active ? "opacity-50" : ""}`}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                            {s.name?.charAt(0) || "U"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="max-w-[180px] truncate font-medium">
-                          {s.name}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="text-muted-foreground max-w-[200px] truncate px-4 py-3">
-                      {s.email}
-                    </td>
-                    <td className="text-muted-foreground hidden px-4 py-3 md:table-cell">
-                      {s.phone || "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={ROLE_BADGE[s.role] ?? "muted"}>
-                        {nombreDelRol(s.role)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        {canDo(role, "staff_edit") && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2 text-xs"
-                            onClick={() => onEdit(s)}
-                            aria-label={`Editar la cuenta de ${s.name}`}
-                            title="Editar cuenta"
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                        )}
-                        {canDo(role, "staff_deactivate") &&
-                          s.role !== "OWNER" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive h-7 px-2 text-xs"
-                              onClick={() => onRequestToggle(s.id)}
-                              aria-label={`${s.active ? "Desactivar" : "Activar"} la cuenta de ${s.name}`}
-                              title={s.active ? "Desactivar" : "Activar"}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                      {nombreDelRol(s.role)}
+                    </Badge>
+                    <span className="truncate">{s.email}</span>
+                  </span>
+                }
+              />
+              <CeldaDeTabla apagada ocultaEnMovil>
+                <span className="block max-w-[200px] truncate">{s.email}</span>
+              </CeldaDeTabla>
+              <CeldaDeTabla apagada ocultaEnMovil>
+                {s.phone || "—"}
+              </CeldaDeTabla>
+              <CeldaDeTabla ocultaEnMovil>
+                <Badge variant={ROLE_BADGE[s.role] ?? "muted"}>
+                  {nombreDelRol(s.role)}
+                </Badge>
+              </CeldaDeTabla>
+            </FilaDeTabla>
+          ))}
+        </TablaDeRegistros>
       )}
     </div>
   );

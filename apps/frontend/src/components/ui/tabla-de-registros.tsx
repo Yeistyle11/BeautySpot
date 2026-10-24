@@ -81,7 +81,7 @@ export function TablaDeRegistros<C extends string>({
                         : undefined
                     }
                     className={cn(
-                      "px-4 py-3 font-medium",
+                      "px-3 py-3 font-medium md:px-4",
                       col.alineacion === "right" ? "text-right" : "text-left",
                       col.ocultaEnMovil && "hidden md:table-cell"
                     )}
@@ -104,7 +104,10 @@ export function TablaDeRegistros<C extends string>({
                 );
               })}
               {conAcciones && (
-                <th scope="col" className="px-4 py-3 text-right font-medium">
+                <th
+                  scope="col"
+                  className="px-2 py-3 text-right font-medium md:px-4"
+                >
                   Acciones
                 </th>
               )}
@@ -120,17 +123,24 @@ export function TablaDeRegistros<C extends string>({
 /** Una fila del listado, con sus acciones en la ultima columna. */
 export function FilaDeTabla({
   acciones,
+  className,
   children,
 }: {
-  /** Botones de icono; se alinean a la derecha en su propia columna. */
+  /** Normalmente un `AccionesDeFila`; se alinea a la derecha en su columna. */
   acciones?: React.ReactNode;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <tr className="hover:bg-muted/30 border-b transition-colors last:border-0">
+    <tr
+      className={cn(
+        "hover:bg-muted/30 border-b transition-colors last:border-0",
+        className
+      )}
+    >
       {children}
       {acciones !== undefined && (
-        <td className="px-4 py-3">
+        <td className="px-2 py-3 md:px-4">
           <div className="flex items-center justify-end gap-1">{acciones}</div>
         </td>
       )}
@@ -156,8 +166,8 @@ export function CeldaDeTabla({
   return (
     <td
       className={cn(
-        "px-4 py-3",
-        alineacion === "right" && "text-right tabular-nums",
+        "px-3 py-3 md:px-4",
+        alineacion === "right" && "whitespace-nowrap text-right tabular-nums",
         ocultaEnMovil && "hidden md:table-cell",
         apagada && "text-muted-foreground",
         className
@@ -194,7 +204,7 @@ export function CeldaPrincipal({
 }) {
   const medida = grande ? "h-12 w-12" : "h-8 w-8";
   return (
-    <td className="px-4 py-3">
+    <td className="px-3 py-3 md:px-4">
       <div className="flex items-center gap-3">
         {/* El distintivo es opcional: sin icono ni inicial, la fila empieza
             por el nombre. */}
@@ -235,9 +245,11 @@ export function CeldaPrincipal({
           </Avatar>
         )}
         <div className="min-w-0">
-          <div className="max-w-[220px] truncate font-medium">{titulo}</div>
+          <div className="max-w-[45vw] truncate font-medium md:max-w-[220px]">
+            {titulo}
+          </div>
           {subtitulo && (
-            <div className="text-muted-foreground max-w-[220px] truncate text-xs">
+            <div className="text-muted-foreground max-w-[45vw] truncate text-xs md:max-w-[220px]">
               {subtitulo}
             </div>
           )}

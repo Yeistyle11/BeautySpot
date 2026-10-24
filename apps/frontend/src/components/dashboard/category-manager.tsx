@@ -6,6 +6,7 @@ import { mensajeDeError } from "@/lib/error-message";
 import { mutate } from "swr";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { AccionesDeFila } from "@/components/ui/acciones-de-fila";
 import type { LucideIcon } from "lucide-react";
 import { ToggleRight, ToggleLeft, Edit, Trash2 } from "lucide-react";
 import { resolveCategoryIcon } from "@/components/dashboard/category-icons";
@@ -227,6 +228,8 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
     }
   };
 
+  const editable = canDo(role, actions.edit);
+
   /** Las categorias, con el mismo formato para activas e inactivas. */
   const tablaDe = (items: CategoryEntity[], titulo: string) => (
     <TablaDeRegistros titulo={titulo} columnas={COLUMNAS_CATEGORIA}>
@@ -236,51 +239,42 @@ export function CategoryManager({ config }: { config: CategoryManagerConfig }) {
           <FilaDeTabla
             key={category.id}
             acciones={
-              <>
-                {canDo(role, actions.edit) && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleToggle(category)}
-                      aria-label={`${category.active ? "Desactivar" : "Activar"} la categoría ${category.name}`}
-                      title={category.active ? "Desactivar" : "Activar"}
-                    >
-                      {category.active ? (
-                        <ToggleRight className="text-success h-4 w-4" />
-                      ) : (
-                        <ToggleLeft className="text-muted-foreground h-4 w-4" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => openEdit(category)}
-                      aria-label={`Editar la categoría ${category.name}`}
-                      title="Editar"
-                    >
-                      <Edit className="text-muted-foreground h-4 w-4" />
-                    </Button>
-                  </>
-                )}
-                {canDo(role, actions.delete) && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                    onClick={() => {
+              <AccionesDeFila
+                sobre={`la categoría ${category.name}`}
+                acciones={[
+                  editable &&
+                    (category.active
+                      ? {
+                          etiqueta: "Desactivar",
+                          descripcion: `Desactivar la categoría ${category.name}`,
+                          icono: ToggleRight,
+                          alElegir: () => handleToggle(category),
+                        }
+                      : {
+                          etiqueta: "Activar",
+                          descripcion: `Activar la categoría ${category.name}`,
+                          icono: ToggleLeft,
+                          tono: "exito",
+                          alElegir: () => handleToggle(category),
+                        }),
+                  editable && {
+                    etiqueta: "Editar",
+                    descripcion: `Editar la categoría ${category.name}`,
+                    icono: Edit,
+                    alElegir: () => openEdit(category),
+                  },
+                  canDo(role, actions.delete) && {
+                    etiqueta: "Eliminar",
+                    descripcion: `Eliminar la categoría ${category.name}`,
+                    icono: Trash2,
+                    tono: "destructivo",
+                    alElegir: () => {
                       setDeleteId(category.id);
                       setDeleteError("");
-                    }}
-                    aria-label={`Eliminar la categoría ${category.name}`}
-                    title="Eliminar"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </>
+                    },
+                  },
+                ]}
+              />
             }
           >
             <CeldaPrincipal

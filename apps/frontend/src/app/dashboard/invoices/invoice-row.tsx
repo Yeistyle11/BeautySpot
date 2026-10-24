@@ -15,10 +15,11 @@ import { ESTADOS, type Invoice } from "./schemas";
 
 export const COLUMNAS_DE_FACTURAS: ColumnaDeTabla[] = [
   { label: "Factura" },
-  { label: "Cliente" },
+  // En movil el cliente y el estado van bajo el numero.
+  { label: "Cliente", ocultaEnMovil: true },
   { label: "Fecha", ocultaEnMovil: true },
   { label: "Total", alineacion: "right" },
-  { label: "Estado" },
+  { label: "Estado", ocultaEnMovil: true },
 ];
 
 interface InvoiceRowProps {
@@ -69,15 +70,25 @@ export const InvoiceRow = memo(function InvoiceRow({
             {invoice.number}
           </button>
         }
+        subtitulo={
+          <span className="flex items-center gap-1.5 md:hidden">
+            <span className="truncate">{cliente || "Cliente"}</span>
+            <Badge variant={badge.variant} className="shrink-0">
+              {badge.label}
+            </Badge>
+          </span>
+        }
       />
-      <CeldaDeTabla apagada>{cliente || "Cliente"}</CeldaDeTabla>
+      <CeldaDeTabla apagada ocultaEnMovil>
+        {cliente || "Cliente"}
+      </CeldaDeTabla>
       <CeldaDeTabla apagada ocultaEnMovil>
         <span className="whitespace-nowrap">{formatDate(invoice.date)}</span>
       </CeldaDeTabla>
       <CeldaDeTabla alineacion="right" className="font-semibold">
         {formatCurrency(invoice.total)}
       </CeldaDeTabla>
-      <CeldaDeTabla>
+      <CeldaDeTabla ocultaEnMovil>
         <Badge variant={badge.variant}>{badge.label}</Badge>
       </CeldaDeTabla>
     </FilaDeTabla>
