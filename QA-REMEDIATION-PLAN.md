@@ -1188,113 +1188,138 @@ elementos se salían del ancho.
 
 | ID     | Sev   | Módulo        | Causa | Esfuerzo | Estado |
 | ------ | ----- | ------------- | ----- | -------- | ------ |
-| BS-060 | Alta  | Agenda        | M2    | XS       | ⬜     |
-| BS-061 | Alta  | Agenda        | M3    | M        | ⬜     |
-| BS-062 | Alta  | Agenda        | M3    | M        | ⬜     |
-| BS-063 | Alta  | Configuración | M1    | XS       | ⬜     |
-| BS-064 | Media | Marketplace   | M1    | XS       | ⬜     |
-| BS-065 | Alta  | Configuración | M4    | S        | ⬜     |
-| BS-066 | Alta  | Listados      | M5    | M        | ⬜     |
-| BS-067 | Media | Formularios   | M6    | XS       | ⬜     |
-| BS-068 | Media | Navegación    | M7    | XS       | ⬜     |
-| BS-069 | Media | Varios        | M8    | S        | ⬜     |
-| BS-070 | Alta  | Marketplace   | M9    | XS       | ⬜     |
-| BS-071 | Media | Pagos y caja  | M2    | S        | ⬜     |
-| BS-072 | Alta  | Área cliente  | M2    | XS       | ⬜     |
-| BS-073 | Media | Área cliente  | M2    | S        | ⬜     |
-| BS-074 | Media | Reserva       | M4    | S        | ⬜     |
-| BS-075 | Media | Marketplace   | M10   | S        | ⬜     |
-| BS-076 | Baja  | Varios        | M11   | XS       | ⬜     |
+| BS-060 | Alta  | Agenda        | M2    | XS       | ✅     |
+| BS-061 | Alta  | Agenda        | M3    | M        | ✅     |
+| BS-062 | Alta  | Agenda        | M3    | M        | ✅     |
+| BS-063 | Alta  | Configuración | M1    | XS       | ✅     |
+| BS-064 | Media | Marketplace   | M1    | XS       | ✅     |
+| BS-065 | Alta  | Configuración | M4    | S        | ✅     |
+| BS-066 | Alta  | Listados      | M5    | M        | ✅     |
+| BS-067 | Media | Formularios   | M6    | XS       | ✅     |
+| BS-068 | Media | Navegación    | M7    | XS       | ✅     |
+| BS-069 | Media | Varios        | M8    | S        | ✅     |
+| BS-070 | Alta  | Marketplace   | M9    | XS       | ✅     |
+| BS-071 | Media | Pagos y caja  | M2    | S        | ✅     |
+| BS-072 | Alta  | Área cliente  | M2    | XS       | ✅     |
+| BS-073 | Media | Área cliente  | M2    | S        | ✅     |
+| BS-074 | Media | Reserva       | M4    | S        | ✅     |
+| BS-075 | Media | Marketplace   | M10   | S        | ✅     |
+| BS-076 | Baja  | Varios        | M11   | XS       | ✅     |
 
 ## Detalle
 
-### BS-060 · La cabecera de la agenda empujaba «Nueva cita» fuera de la pantalla ⬜
+### BS-060 · La cabecera de la agenda empujaba «Nueva cita» fuera de la pantalla ✅
 
 Lista/Día/Semana, Walk-in y Nueva cita iban en una fila que no se partía: 508 px
 medidos en una pantalla de 394, con toda la página desplazándose de lado.
 
-### BS-061 · La vista Día no dejaba ver más de un profesional y medio ⬜
+### BS-061 · La vista Día no dejaba ver más de un profesional y medio ✅
 
 Rejilla con `min-w-[640px]` y columnas de 140 px por profesional, sin cabecera
 ni horas fijas al desplazarse, citas cortas de 18 px de alto y el bloqueo de una
 franja ofrecido solo con el ratón.
 
-### BS-062 · La vista Semana enseñaba menos de la mitad de la semana ⬜
+### BS-062 · La vista Semana enseñaba menos de la mitad de la semana ✅
 
 `min-w-[700px]` en 300 px visibles: siete columnas de 91 px de las que se veían
 dos y media, con las horas desplazándose junto con los días.
 
-### BS-063 · Tres pestañas de la configuración no se alcanzaban ⬜
+### BS-063 · Tres pestañas de la configuración no se alcanzaban ✅
 
 Las siete pestañas sumaban 780 px y la barra ni se partía ni se desplazaba:
 Fidelidad, Facturación y Reservas quedaban fuera.
 
-### BS-064 · La primera pestaña del marketplace quedaba cortada ⬜
+### BS-064 · La primera pestaña del marketplace quedaba cortada ✅
 
 La barra se desplazaba, pero centrada: lo que sobraba por la izquierda no se
 podía alcanzar.
 
-### BS-065 · El horario no cabía en su tarjeta ⬜
+### BS-065 · El horario no cabía en su tarjeta ✅
 
 La fila «desde – a – hasta» medía entre 298 y 350 px con anchos fijos, en el
 horario del negocio y en el de cada profesional, y la X de quitar el tramo
 quedaba fuera.
 
-### BS-066 · Las acciones de los listados quedaban fuera de la pantalla ⬜
+### BS-066 · Las acciones de los listados quedaban fuera de la pantalla ✅
 
 Once tablas (citas, cobros, facturas y su detalle, clientes, servicios, equipo,
 cuentas, categorías, caja, bloqueos) medían entre 470 y 720 px en táctil, con
 los botones de 44 px al final de la fila.
 
-### BS-067 · Enfocar cualquier campo ampliaba la página en iOS ⬜
+### BS-067 · Enfocar cualquier campo ampliaba la página en iOS ✅
 
 Los campos, selectores y áreas de texto usaban 14 px, y Safari amplía la página
 al enfocar un campo de menos de 16 px.
 
-### BS-068 · El menú lateral y los diálogos quedaban bajo la barra del navegador ⬜
+### BS-068 · El menú lateral y los diálogos quedaban bajo la barra del navegador ✅
 
 Medidos en `vh`, que en el celular incluye lo que tapan las barras del
 navegador: «Cerrar sesión» y el pie de los diálogos quedaban debajo. Los avisos,
 además, se salían 16 px por la izquierda.
 
-### BS-069 · Botones que no se dejaban tocar ⬜
+### BS-069 · Botones que no se dejaban tocar ✅
 
 Controles hechos a mano con áreas de 12 a 28 px: cerrar el menú y los diálogos,
 los chips de filtro, los interruptores, las flechas de orden de las secciones,
 marcar una notificación como leída, el ojo de la contraseña, «Denunciar» y
 «Dejar reseña».
 
-### BS-070 · En el celular no había forma de borrar una imagen de la galería ⬜
+### BS-070 · En el celular no había forma de borrar una imagen de la galería ✅
 
 El botón solo aparecía al pasar el ratón por encima.
 
-### BS-071 · Barras y formularios del negocio que se salían del ancho ⬜
+### BS-071 · Barras y formularios del negocio que se salían del ancho ✅
 
 El rango de fechas de los cobros, el reparto del cobro entre métodos, los
 botones de la caja, el formulario de cliente y el de servicio en dos columnas
 fijas, los niveles de fidelidad.
 
-### BS-072 · Guardar una reseña o un reagendamiento quedaba fuera ⬜
+### BS-072 · Guardar una reseña o un reagendamiento quedaba fuera ✅
 
 Las filas de botones del área del cliente no se partían: al editar una reseña
 sumaban 414 px y «Guardar cambios» no se veía.
 
-### BS-073 · El panel del cliente no tenía versión para celular ⬜
+### BS-073 · El panel del cliente no tenía versión para celular ✅
 
 La tarjeta de la próxima cita, el aviso de «Reservar ahora» y los filtros de
 Mis citas (364 px) estaban pensados para escritorio.
 
-### BS-074 · El paso a paso de la reserva se salía ⬜
+### BS-074 · El paso a paso de la reserva se salía ✅
 
 El indicador de pasos desbordaba a 360 px y la tira de días se partía en dos
 filas desiguales.
 
-### BS-075 · La portada del perfil público tapaba «Volver» ⬜
+### BS-075 · La portada del perfil público tapaba «Volver» ✅
 
 El bloque del nombre iba anclado al pie de una portada de altura fija; en el
 celular el texto ocupa más líneas y crecía hacia arriba hasta tapar el botón.
 
-### BS-076 · Correos y comentarios largos rompían el ancho ⬜
+### BS-076 · Correos y comentarios largos rompían el ancho ✅
 
 Emails en el perfil, la reserva y el acceso, y comentarios de reseñas, sin corte
 de palabra.
+
+## Lo que queda fuera
+
+- `next/image` sin `sizes` en la galería y la historia del perfil público: no
+  rompe el ancho, pero en un celular de alta densidad baja la imagen grande.
+  Es rendimiento, no uso.
+- La reseña de una cita muestra el identificador del profesional en vez de su
+  nombre. Se ve en cualquier ancho; en el celular ahora se corta en vez de
+  salirse.
+
+## Verificación
+
+En el navegador, a 402 px (lo mínimo que deja abrir la ventana), sobre la base
+local sembrada: las 18 rutas del dueño, las 6 del cliente y el marketplace con
+su reserva, midiendo en cada una que ningún elemento pasa del ancho de la
+pantalla salvo las filas que se desplazan a propósito (pestañas, chips de
+categoría y de profesional, carrusel). El día enseña un profesional a la vez
+con citas de 28 px, la semana sale como lista, se llega a la séptima pestaña de
+la configuración y el horario cabe en su tarjeta.
+
+`npm run type-check` y `lint` del frontend, Prettier sobre los ficheros que
+cambian respecto a `main`, y la suite completa con el umbral de cobertura:
+**223 suites, 3048 pruebas**. El modo de escritorio del navegador no emula el
+puntero táctil (`pointer: coarse`): los tamaños de 44 px se ven en un celular
+de verdad.
