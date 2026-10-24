@@ -1501,52 +1501,70 @@ bocetaron los 13 en dos direcciones y se eligió la **B · De marca** para todos
 
 | ID     | Sev   | Módulo  | Causa | Esfuerzo | Estado |
 | ------ | ----- | ------- | ----- | -------- | ------ |
-| BS-090 | Alta  | Correos | C1    | XS       | ⬜     |
-| BS-091 | Alta  | Correos | C2    | S        | ⬜     |
-| BS-092 | Media | Correos | C1    | L        | ⬜     |
-| BS-093 | Media | Correos | C3    | M        | ⬜     |
-| BS-094 | Media | Correos | C1    | S        | ⬜     |
-| BS-095 | Baja  | Correos | C3    | XS       | ⬜     |
-| BS-096 | Baja  | Correos | C4    | S        | ⬜     |
+| BS-090 | Alta  | Correos | C1    | XS       | ✅     |
+| BS-091 | Alta  | Correos | C2    | S        | ✅     |
+| BS-092 | Media | Correos | C1    | L        | ✅     |
+| BS-093 | Media | Correos | C3    | M        | ✅     |
+| BS-094 | Media | Correos | C1    | S        | ✅     |
+| BS-095 | Baja  | Correos | C3    | XS       | ✅     |
+| BS-096 | Baja  | Correos | C4    | S        | ✅     |
 
 ## Detalle
 
-### BS-090 · La bienvenida llegaba sin ningún estilo ⬜
+### BS-090 · La bienvenida llegaba sin ningún estilo ✅
 
 `welcome-email.hbs` tenía `box      shadow` en vez de `box-shadow`, y Gmail
 descarta el `<style>` entero ante un CSS inválido.
 
-### BS-091 · La factura no llegaba nunca ⬜
+### BS-091 · La factura no llegaba nunca ✅
 
 Usaba los ayudantes `formatPrice` y `formatCurrency`, que no estaban
 registrados: el render fallaba siempre y el trabajo acababa en
 `notification.email.failed`. Tampoco recibía la fecha, el subtotal ni el
 impuesto.
 
-### BS-092 · Los correos no se parecían al producto ⬜
+### BS-092 · Los correos no se parecían al producto ✅
 
 Trece plantillas con unas ocho paletas distintas, ninguna con el violeta de la
 marca ni su logo; degradados que Outlook pinta en blanco, `display:flex` y
 emojis como iconos.
 
-### BS-093 · Todos recibían la misma bienvenida ⬜
+### BS-093 · Todos recibían la misma bienvenida ✅
 
 Le hablaba de «dashboard y reportes» a quien solo viene a reservar, y quien se
 sumaba al equipo de un negocio recibía la de un cliente. El dueño no recibía
 nada al crear su negocio.
 
-### BS-094 · Datos que salían mal en el correo ⬜
+### BS-094 · Datos que salían mal en el correo ✅
 
 El año del pie no se pasaba nunca, la dirección y el teléfono vacíos dejaban
 filas sin valor, el pie enlazaba a un dominio que no es el de producción y el
 texto plano llevaba el CSS dentro.
 
-### BS-095 · La reseña de un invitado llevaba a un panel cerrado ⬜
+### BS-095 · La reseña de un invitado llevaba a un panel cerrado ✅
 
 Quien reservó sin cuenta recibía un enlace al panel del cliente, que lo dejaba
 en la pantalla de acceso.
 
-### BS-096 · Los correos no daban nada que hacer ⬜
+### BS-096 · Los correos no daban nada que hacer ✅
 
 Ni ver la cita, ni añadirla al calendario, ni cómo llegar, ni volver a reservar;
 y los de una cita los firmaba la plataforma, no el negocio.
+
+## Lo que queda fuera
+
+- El reporte mensual no lo envía ningún proceso; queda diseñado.
+- La bienvenida sale al crear la cuenta, no al confirmar el correo: auth no
+  emite un evento al confirmarlo.
+- La factura no adjunta el PDF.
+
+## Verificación
+
+Los quince correos, con datos completos y con los mínimos de un invitado sin
+dirección ni teléfono, se pintan sin marcas sueltas, enlaces vacíos ni filas
+huecas (`plantillas.render.spec.ts`); se revisaron en el navegador con
+`npm run correos:vista-previa`. Suite completa con el umbral de cobertura:
+**226 suites, 3107 pruebas**.
+
+Pendiente de ver en un buzón real, tras desplegar: las imágenes se sirven desde
+`APP_URL/correo` y hasta entonces responden 404.
