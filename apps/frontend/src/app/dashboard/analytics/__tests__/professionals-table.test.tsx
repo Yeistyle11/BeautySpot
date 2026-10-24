@@ -85,6 +85,30 @@ describe("ProfessionalsTable", () => {
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
+  it("explica por qué la suma del equipo no da el total cobrado", () => {
+    render(
+      <ProfessionalsTable
+        filas={filasDeProfesionales(reporte([ANA]), EQUIPO)}
+        ingresosDelPeriodo={1000000}
+      />
+    );
+
+    expect(screen.getByText(/cobros\s+sin cita/)).toHaveTextContent(
+      /La diferencia \(\$\s?100\.000\)/
+    );
+  });
+
+  it("no añade nada cuando la suma cuadra con el total", () => {
+    render(
+      <ProfessionalsTable
+        filas={filasDeProfesionales(reporte([ANA]), EQUIPO)}
+        ingresosDelPeriodo={900000}
+      />
+    );
+
+    expect(screen.queryByText(/cobros\s+sin cita/)).not.toBeInTheDocument();
+  });
+
   it("dice que no hubo actividad en vez de una tabla vacía", () => {
     render(<ProfessionalsTable filas={[]} />);
 

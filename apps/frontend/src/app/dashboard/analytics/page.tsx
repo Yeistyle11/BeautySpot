@@ -312,7 +312,10 @@ export default function AnalyticsPage() {
             </CardContent>
           </Card>
 
-          <ProfessionalsTable filas={filasDeEquipo} />
+          <ProfessionalsTable
+            filas={filasDeEquipo}
+            ingresosDelPeriodo={data.periodo.totalRevenue}
+          />
           {filasDeEquipo.length > 0 && (
             <div className="-mt-4 lg:col-span-2">
               <Button
