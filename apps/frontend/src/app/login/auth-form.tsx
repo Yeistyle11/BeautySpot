@@ -145,7 +145,10 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
   const setRole = useAuthStore((s) => s.setRole);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  /** Error que no es de un campo: lo que responde el servidor. */
   const [error, setError] = useState("");
+  /** Campo mal rellenado: su mensaje va debajo de el y solo el se marca. */
+  const [problema, setProblema] = useState<Problema | null>(null);
   const [registrado, setRegistrado] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
@@ -155,11 +158,12 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const problema = validar(form, modo);
-    if (problema) {
-      setError(problema.mensaje);
+    const encontrado = validar(form, modo);
+    setProblema(encontrado);
+    if (encontrado) {
+      setError("");
       // Lleva el foco al primer campo con error.
-      document.getElementById(problema.campo)?.focus();
+      document.getElementById(encontrado.campo)?.focus();
       return;
     }
 
@@ -202,6 +206,31 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
       setLoading(false);
     }
   };
+
+  /** Escribe en un campo y, si era el que fallaba, le quita la marca. */
+  const cambiar = (campo: keyof typeof emptyForm, valor: string) => {
+    setForm((actual) => ({ ...actual, [campo]: valor }));
+    if (problema?.campo === campo) setProblema(null);
+  };
+
+  /** Marca de invalido y enlace al mensaje, solo en el campo que falla. */
+  const marcaDe = (campo: Problema["campo"], pista?: string) => {
+    const falla = problema?.campo === campo;
+    return {
+      "aria-invalid": falla ? true : undefined,
+      "aria-describedby":
+        [falla ? `${campo}-error` : null, pista].filter(Boolean).join(" ") ||
+        undefined,
+    };
+  };
+
+  /** Mensaje de un campo, justo debajo de el. */
+  const errorDe = (campo: Problema["campo"]) =>
+    problema?.campo === campo ? (
+      <p id={`${campo}-error`} className="text-destructive text-xs">
+        {problema.mensaje}
+      </p>
+    ) : null;
 
   return (
     <main className="from-primary/5 via-background to-primary/10 flex min-h-screen items-center justify-center bg-gradient-to-br p-4">
@@ -251,10 +280,10 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                         maxLength={120}
                         placeholder="Tu nombre"
                         value={form.name}
-                        onChange={(e) =>
-                          setForm({ ...form, name: e.target.value })
-                        }
+                        onChange={(e) => cambiar("name", e.target.value)}
+                        {...marcaDe("name")}
                       />
+                      {errorDe("name")}
                     </div>
                   )}
                   <div className="space-y-2">
@@ -266,12 +295,10 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                       type="email"
                       placeholder="tu@email.com"
                       value={form.email}
-                      onChange={(e) =>
-                        setForm({ ...form, email: e.target.value })
-                      }
-                      aria-invalid={error ? true : undefined}
-                      aria-describedby={error ? ERROR_ID : undefined}
+                      onChange={(e) => cambiar("email", e.target.value)}
+                      {...marcaDe("email")}
                     />
+                    {errorDe("email")}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="password">Contraseña</Label>
@@ -286,17 +313,11 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                         placeholder="********"
                         className="pr-12"
                         value={form.password}
-                        onChange={(e) =>
-                          setForm({ ...form, password: e.target.value })
-                        }
-                        aria-invalid={error ? true : undefined}
-                        aria-describedby={
-                          error
-                            ? ERROR_ID
-                            : esLogin
-                              ? undefined
-                              : "pista-password"
-                        }
+                        onChange={(e) => cambiar("password", e.target.value)}
+                        {...marcaDe(
+                          "password",
+                          esLogin ? undefined : "pista-password"
+                        )}
                       />
                       <button
                         type="button"
@@ -316,6 +337,7 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                         )}
                       </button>
                     </div>
+                    {errorDe("password")}
                     {!esLogin && (
                       <p
                         id="pista-password"
@@ -336,11 +358,11 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                         placeholder="********"
                         value={form.confirmacion}
                         onChange={(e) =>
-                          setForm({ ...form, confirmacion: e.target.value })
+                          cambiar("confirmacion", e.target.value)
                         }
-                        aria-invalid={error ? true : undefined}
-                        aria-describedby={error ? ERROR_ID : undefined}
+                        {...marcaDe("confirmacion")}
                       />
+                      {errorDe("confirmacion")}
                     </div>
                   )}
                   {esLogin && (
@@ -370,7 +392,8 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                       />
                     </div>
                   )}
-                  {/* El hueco está siempre reservado para que el botón no se
+                  {/* Lo que responde el servidor, que no es de un campo. El
+                  hueco está siempre reservado para que el botón no se
                   desplace al aparecer el mensaje. */}
                   <p
                     id={ERROR_ID}

@@ -69,9 +69,17 @@ describe("RegistroPage", () => {
 
     rellenarAlta("todominusculas");
 
+    // El aviso va bajo la contraseña y solo ella queda marcada.
     await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent(/mayúsculas/)
+      expect(screen.getByLabelText("Contraseña")).toHaveAttribute(
+        "aria-invalid",
+        "true"
+      )
     );
+    expect(document.getElementById("password-error")).toHaveTextContent(
+      /mayúsculas/
+    );
+    expect(screen.getByLabelText("Email")).not.toHaveAttribute("aria-invalid");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
