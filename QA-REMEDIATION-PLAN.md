@@ -1,7 +1,7 @@
 # Plan de remediación — BeautySpot
 
 Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
-`fix/responsive-movil` para las tres últimas. Seis campañas, en orden:
+`fix/responsive-movil` para las cuatro últimas. Siete campañas, en orden:
 
 1. **`QA-REPORT-BeautySpot-2026-08-22`** — 28 hallazgos `BS-001`…`BS-028`
    (1 bloqueante, 5 altos, 15 medios, 7 bajos). Cerrada.
@@ -15,7 +15,9 @@ Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
 5. **Pendientes del informe UX/UI 2026-09-10 y de las propuestas** — 13
    hallazgos `BS-077`…`BS-089` (6 medios, 7 bajos).
 6. **Correos 2026-10-24** — 8 hallazgos `BS-090`…`BS-097` (2 altos, 4 medios,
-   2 bajos). Al final del documento.
+   2 bajos).
+7. **Imágenes 2026-10-24** — 7 hallazgos `BS-098`…`BS-104` (3 altos, 3 medios,
+   1 bajo). Al final del documento.
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 propuesta `[PM]` (no se implementa) · ❓ necesita aclaración
 
@@ -1575,3 +1577,118 @@ huecas (`plantillas.render.spec.ts`); se revisaron en el navegador con
 
 Pendiente de ver en un buzón real, tras desplegar: las imágenes se sirven desde
 `APP_URL/correo` y hasta entonces responden 404.
+
+---
+
+# Campaña 2026-10-24 (4) — `BS-098`…`BS-104` · Imágenes
+
+Origen: el usuario pidió que las imágenes del escaparate y las fotos del equipo
+se adjunten como archivo y no como una URL pegada. Al revisarlo apareció que el
+código de subida de core existía a medias y que nadie podía llegar a él.
+
+7 hallazgos: **3 Alta, 3 Media, 1 Baja**.
+
+## Decisiones tomadas
+
+| Tema      | Decisión                                                                                                        |
+| --------- | --------------------------------------------------------------------------------------------------------------- |
+| Alcance   | Se suben logo, portada, galería, historia y foto del profesional                                                |
+| Reseñas   | Solo estrellas y comentario: el almacén es de los negocios, no de los clientes                                  |
+| Almacén   | En el VPS, volumen `media_data` de core-service; `MEDIA_DRIVER=s3` lo lleva a R2/S3 sin tocar código            |
+| Procesado | Se valida por contenido, se gira, se reduce al tamaño de su uso y se guarda en WebP sin metadatos               |
+| Servicio  | Mismo origen, `/media/…` reescrito al gateway, con caché inmutable: next/image no necesita declarar ningún host |
+| Antiguas  | Las URLs externas ya guardadas se siguen viendo y se aceptan sin cambios; solo se impide poner una nueva        |
+| Galería   | Hasta 24 fotos                                                                                                  |
+| Vídeos    | Se dejan para una entrega aparte: conversión con ffmpeg en cola y servidos por Caddy, sin pasar por el gateway  |
+
+## Agrupación por causa raíz
+
+| Causa                                                              | Hallazgos      |
+| ------------------------------------------------------------------ | -------------- |
+| I1 · No había forma de subir un archivo de punta a punta           | BS-098, BS-099 |
+| I2 · Lo que se guarda como imagen no se comprobaba                 | BS-100, BS-101 |
+| I3 · Copias de las imágenes en marketplace que no se ponían al día | BS-102, BS-103 |
+| I4 · La imagen de producción del frontend no llevaba lo estático   | BS-104         |
+
+## Tablero
+
+| ID     | Sev   | Módulo                 | Causa | Esfuerzo | Estado |
+| ------ | ----- | ---------------------- | ----- | -------- | ------ |
+| BS-098 | Alta  | Escaparate · Equipo    | I1    | L        | ✅     |
+| BS-099 | Alta  | Gateway                | I1    | S        | ✅     |
+| BS-100 | Alta  | Escaparate · Seguridad | I2    | M        | ✅     |
+| BS-101 | Media | Escaparate · Reseñas   | I2    | S        | ✅     |
+| BS-102 | Media | Escaparate             | I3    | S        | ✅     |
+| BS-103 | Media | Escaparate             | I3    | XS       | ✅     |
+| BS-104 | Baja  | Despliegue             | I4    | XS       | ✅     |
+
+## Detalle
+
+### BS-098 · Las imágenes se pegaban como URL ✅
+
+Logo, portada, galería, historia y foto del profesional pedían una dirección
+`https://…`: un negocio no tiene dónde alojar sus fotos, así que no las ponía.
+Ahora cada campo es un selector de archivo que se puede tocar, arrastrar o, en
+el celular, abrir la cámara (`CampoDeImagen`). El navegador reduce las fotos
+pesadas y convierte las HEIC del iPhone antes de subirlas; core las valida por
+su contenido, las gira, las reduce al tamaño de su uso y las guarda en WebP sin
+metadatos (`POST /core/images`).
+
+### BS-099 · El gateway no dejaba pasar un archivo ✅
+
+El proxy serializaba siempre el cuerpo como JSON y forzaba
+`content-type: application/json`, así que un multipart llegaba destrozado. Lo
+reenvía en streaming con su tipo, corta con 413 lo que declare más de 6 MB,
+espera 30 s a la subida y la cuenta en un presupuesto de subidas propio.
+Además devuelve `Cache-Control` y `ETag`, que antes se perdían.
+
+### BS-100 · Cualquier URL llegaba al optimizador de imágenes ✅
+
+Logo, portada e historia solo exigían texto, y la galería cualquier URL. Al
+guardar, los servicios aceptan solo imágenes subidas por el propio negocio
+(400 si es externa, 403 si es de otro negocio). Las imágenes se sirven desde el
+mismo origen, de modo que `next/image` no necesita abrir ningún host.
+
+### BS-101 · La galería no tenía tope y las reseñas pedían URLs ✅
+
+La galería admitía imágenes sin límite: ahora hasta 24, comprobado en el DTO y
+en el servicio. Las reseñas dejaban pegar tres URLs de fotos: pasan a ser solo
+estrellas y comentario, y las fotos ya guardadas dejan de mostrarse.
+
+### BS-102 · La foto del profesional no llegaba al escaparate ✅
+
+`professional_profiles` copia nombre y foto de core, pero ningún proceso la
+actualizaba. Core emite `core.professional.updated` por el outbox al editar un
+profesional y marketplace actualiza la copia.
+
+### BS-103 · El logo puesto antes de crear el escaparate no aparecía ✅
+
+Marketplace solo recibe los cambios del negocio, así que el logo y la portada
+que ya existían al dar de alta el perfil se quedaban fuera. El alta los pide a
+core (`GET /internal/businesses/:id/imagenes`).
+
+### BS-104 · La imagen del frontend no llevaba `public/` ✅
+
+El Dockerfile copiaba `.next` pero no `public/`: en producción respondían 404
+los iconos y las imágenes de los correos.
+
+## Lo que queda fuera
+
+- Las subidas que se abandonan sin guardar quedan como archivos sueltos en el
+  almacén; las acotan el tamaño máximo y el límite de subidas.
+- Vídeos en la galería: entrega aparte.
+
+## Verificación
+
+Unitarias de almacén (disco y S3), procesado con sharp real (EXIF girado,
+metadatos fuera, archivos falsos y dañados), reglas de propiedad, proxy
+multipart, límite de subidas, galería, historia, listener del profesional,
+`api.upload`, `imagenes.ts` y `CampoDeImagen`. Suite completa con el umbral de
+cobertura: **233 suites, 3155 pruebas**.
+
+En el stack local, con el owner de Barbería La Noche: subida de portada desde
+Configuración y de dos fotos a la galería, vistas en el escaparate público por
+`/_next/image`; URL externa rechazada con 400, imagen de Spa Aurora con 403; el
+logo reemplazado responde 404; un HTML renombrado a `.jpg` se rechaza; la foto
+de un profesional llega a `professional_profiles` por el evento. A 375 px el
+formulario no desborda.
