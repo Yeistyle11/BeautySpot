@@ -409,19 +409,23 @@ function PublicBookingPageInner() {
       </h1>
 
       {/* Tres estados: hecho con su check, actual marcado y pendiente en gris.
-          Los hechos vuelven a su paso al pulsarlos. */}
+          Los hechos vuelven a su paso al pulsarlos. En movil solo el actual
+          lleva su nombre a la vista; los demas, el numero. */}
       <ol className="mb-8 flex gap-2">
         {pasosDeReserva(variasSedes).map((s) => {
           const hecho = step > s.n;
           const actual = step === s.n;
           return (
-            <li key={s.n} className="flex-1">
+            <li
+              key={s.n}
+              className={actual ? "min-w-0 flex-[2]" : "min-w-0 flex-1"}
+            >
               <button
                 type="button"
                 onClick={() => hecho && setStep(s.n)}
                 disabled={!hecho}
                 aria-current={actual ? "step" : undefined}
-                className={`focus-visible:ring-ring flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${
+                className={`focus-visible:ring-ring flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${
                   hecho
                     ? "bg-primary/15 text-primary hover:bg-primary/25 cursor-pointer"
                     : actual
@@ -434,7 +438,13 @@ function PublicBookingPageInner() {
                 ) : (
                   <span>{s.n}.</span>
                 )}
-                {s.label}
+                <span
+                  className={
+                    actual ? "truncate" : "sr-only sm:not-sr-only sm:truncate"
+                  }
+                >
+                  {s.label}
+                </span>
               </button>
             </li>
           );

@@ -144,7 +144,7 @@ export default function ReschedulePage() {
         <p className="text-muted-foreground mt-2">
           Tu cita ha sido reagendada exitosamente
         </p>
-        <div className="mt-6 flex gap-3">
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Button asChild variant="outline" className="gap-2">
             <Link href={`/dashboard/client/appointments/${appointment.id}`}>
               <ArrowLeft className="h-4 w-4" />
@@ -185,9 +185,11 @@ export default function ReschedulePage() {
             <CardContent className="space-y-3">
               <div className="bg-muted/50 space-y-2 rounded-lg px-4 py-3">
                 {appointment.appointmentServices.map((svc, idx) => (
-                  <div key={idx} className="flex justify-between text-sm">
-                    <span>{svc.serviceName}</span>
-                    <span className="font-medium">
+                  <div key={idx} className="flex justify-between gap-3 text-sm">
+                    <span className="min-w-0 break-words">
+                      {svc.serviceName}
+                    </span>
+                    <span className="shrink-0 font-medium">
                       {formatCurrency(svc.price)}
                     </span>
                   </div>
@@ -291,7 +293,8 @@ export default function ReschedulePage() {
           )}
 
           {selectedDate && selectedSlot && (
-            <div className="flex justify-end gap-3">
+            // En movil los botones se apilan a lo ancho, el principal arriba.
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <Button asChild variant="outline">
                 <Link href={`/dashboard/client/appointments/${id}`}>
                   Cancelar

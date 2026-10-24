@@ -65,9 +65,9 @@ export default function ForgotPasswordPage() {
               <div className="space-y-4 text-center">
                 <MailCheck className="text-primary mx-auto h-12 w-12" />
                 <p className="text-sm">
-                  Si <span className="font-medium">{email}</span> tiene una
-                  cuenta, recibira un enlace para restablecer su contraseña. El
-                  enlace caduca en unas horas.
+                  Si <span className="break-all font-medium">{email}</span>{" "}
+                  tiene una cuenta, recibira un enlace para restablecer su
+                  contraseña. El enlace caduca en unas horas.
                 </p>
                 <Link
                   href="/login"

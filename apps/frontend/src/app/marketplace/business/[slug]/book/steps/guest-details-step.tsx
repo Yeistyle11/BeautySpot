@@ -90,9 +90,13 @@ export function GuestDetailsStep({
             <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
               <User className="h-5 w-5" />
             </div>
-            <div>
-              <p className="font-medium">Reservando como {user.name}</p>
-              <p className="text-muted-foreground text-sm">{user.email}</p>
+            <div className="min-w-0">
+              <p className="break-words font-medium">
+                Reservando como {user.name}
+              </p>
+              <p className="text-muted-foreground break-all text-sm">
+                {user.email}
+              </p>
             </div>
           </div>
         ) : (

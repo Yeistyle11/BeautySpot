@@ -165,7 +165,9 @@ export default function BusinessProfile({
 
   return (
     <div className="bg-background min-h-screen">
-      <div className="from-primary/30 to-primary/10 relative h-72 bg-gradient-to-br sm:h-80">
+      {/* En movil el nombre ocupa mas lineas: la portada crece hacia abajo en
+          vez de que el bloque suba y tape «Volver». */}
+      <div className="from-primary/30 to-primary/10 relative flex min-h-72 flex-col justify-end bg-gradient-to-br pt-16 sm:block sm:h-80 sm:min-h-0 sm:pt-0">
         {coverImg && (
           <Image
             src={coverImg}
@@ -198,7 +200,7 @@ export default function BusinessProfile({
           </Button>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-6">
+        <div className="relative p-4 sm:absolute sm:bottom-0 sm:left-0 sm:right-0 sm:p-6">
           <div className="mx-auto max-w-4xl">
             <div className="flex items-end gap-4">
               {profile.logo ? (
@@ -208,16 +210,16 @@ export default function BusinessProfile({
                   width={80}
                   height={80}
                   unoptimized={imageUnoptimized(profile.logo)}
-                  className="shadow-flat h-20 w-20 shrink-0 rounded-2xl border-4 border-white object-cover"
+                  className="shadow-flat h-16 w-16 shrink-0 rounded-2xl border-4 border-white object-cover sm:h-20 sm:w-20"
                 />
               ) : (
-                <div className="bg-primary text-primary-foreground shadow-flat flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border-4 border-white text-3xl font-bold">
+                <div className="bg-primary text-primary-foreground shadow-flat flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-4 border-white text-2xl font-bold sm:h-20 sm:w-20 sm:text-3xl">
                   {profile.name.charAt(0)}
                 </div>
               )}
               <div className="min-w-0 flex-1 text-white">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-3xl font-bold drop-shadow-lg">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="break-words text-2xl font-bold drop-shadow-lg sm:text-3xl">
                     {profile.name}
                   </h1>
                   {profile.verified && (
@@ -227,11 +229,11 @@ export default function BusinessProfile({
                   )}
                 </div>
                 {profile.tagline && (
-                  <p className="mt-1 text-lg text-white/90 drop-shadow">
+                  <p className="mt-1 text-base text-white/90 drop-shadow sm:text-lg">
                     {profile.tagline}
                   </p>
                 )}
-                <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-white/80">
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/80">
                   {Number(profile.rating) > 0 && (
                     <span className="flex items-center gap-1">
                       <Star className="fill-rating text-rating h-4 w-4" />

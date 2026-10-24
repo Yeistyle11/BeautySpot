@@ -131,7 +131,8 @@ export default function AppointmentsPage() {
       <div
         role="group"
         aria-label="Filtrar citas por estado"
-        className="bg-muted mb-6 flex gap-1 rounded-lg p-1"
+        // Si los cuatro filtros no caben, la barra se desplaza de lado.
+        className="bg-muted mb-6 flex gap-1 overflow-x-auto rounded-lg p-1"
       >
         {tabs.map((tab) => (
           <FilterChip
@@ -139,6 +140,7 @@ export default function AppointmentsPage() {
             variante="segment"
             activo={activeTab === tab.key}
             onClick={() => setActiveTab(tab.key)}
+            className="shrink-0 whitespace-nowrap"
           >
             {tab.label}
           </FilterChip>
@@ -231,7 +233,7 @@ export default function AppointmentsPage() {
                       {canReview && (
                         <Link
                           href={`/dashboard/client/appointments/${appt.id}/review`}
-                          className="text-warning relative ml-1 inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                          className="text-warning relative ml-1 inline-flex min-h-11 items-center gap-1 px-1 text-xs font-medium hover:underline"
                         >
                           <Star className="h-3 w-3" />
                           Dejar reseña

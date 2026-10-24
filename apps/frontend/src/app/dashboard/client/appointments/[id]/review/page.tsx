@@ -264,7 +264,7 @@ export default function ReviewPage() {
         <p className="text-muted-foreground mt-2">
           Gracias por compartir tu experiencia
         </p>
-        <div className="mt-6 flex gap-3">
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Button asChild variant="outline" className="gap-2">
             <Link href={`/dashboard/client/appointments/${appointment.id}`}>
               <ArrowLeft className="h-4 w-4" />
@@ -317,7 +317,7 @@ export default function ReviewPage() {
                 <span>{formatDate(appointment.date)}</span>
               </div>
 
-              <div className="text-muted-foreground text-xs">
+              <div className="text-muted-foreground break-all text-xs">
                 Profesional: {appointment.professionalId}
               </div>
             </CardContent>
@@ -421,13 +421,14 @@ export default function ReviewPage() {
             </div>
           )}
 
-          <div className="flex justify-end gap-3">
+          {/* En movil los botones se apilan a lo ancho, el principal arriba. */}
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             {existente && (
               <Button
                 variant="outline"
                 onClick={() => setConfirmandoBorrado(true)}
                 disabled={borrando || submitting}
-                className="text-destructive mr-auto gap-2"
+                className="text-destructive gap-2 sm:mr-auto"
               >
                 {borrando ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

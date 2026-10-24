@@ -174,11 +174,13 @@ export default function ClientProfilePage() {
                 <div className="bg-primary/10 text-primary flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-2xl font-bold">
                   {(form.name || user?.name || "U").charAt(0)}
                 </div>
-                <div>
-                  <p className="text-lg font-medium">
+                <div className="min-w-0">
+                  <p className="break-words text-lg font-medium">
                     {form.name || user?.name || "Cliente"}
                   </p>
-                  <p className="text-muted-foreground text-sm">{user?.email}</p>
+                  <p className="text-muted-foreground break-all text-sm">
+                    {user?.email}
+                  </p>
                 </div>
               </div>
 

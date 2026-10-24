@@ -104,8 +104,9 @@ function ConfirmacionPendiente({ email }: { email: string }) {
   return (
     <div className="space-y-4 text-center text-sm">
       <p className="text-muted-foreground">
-        Enviamos un enlace de confirmación a <strong>{email}</strong>. Ábrelo
-        para activar tu cuenta y poder entrar.
+        Enviamos un enlace de confirmación a{" "}
+        <strong className="break-all">{email}</strong>. Ábrelo para activar tu
+        cuenta y poder entrar.
       </p>
       {estado === "enviado" ? (
         <p
@@ -283,6 +284,7 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                         }
                         type={showPassword ? "text" : "password"}
                         placeholder="********"
+                        className="pr-12"
                         value={form.password}
                         onChange={(e) =>
                           setForm({ ...form, password: e.target.value })
@@ -305,7 +307,7 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                             : "Mostrar contraseña"
                         }
                         aria-pressed={showPassword}
-                        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute right-3 top-1/2 -translate-y-1/2 rounded-sm focus-visible:outline-none focus-visible:ring-2"
+                        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
                       >
                         {showPassword ? (
                           <EyeOff className="h-4 w-4" />

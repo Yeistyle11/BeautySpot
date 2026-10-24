@@ -92,8 +92,8 @@ export default function ClientDashboardPage() {
 
       <StatGrid stats={stats} loading={loading} />
 
-      <div className="from-primary mt-6 rounded-xl bg-gradient-to-r to-purple-700 p-6 text-white">
-        <div className="flex items-center justify-between">
+      <div className="from-primary mt-6 rounded-xl bg-gradient-to-r to-purple-700 p-5 text-white sm:p-6">
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="flex items-center gap-2 text-lg font-bold">
               <Sparkles className="h-5 w-5" /> Listo para tu próxima cita?
@@ -102,7 +102,11 @@ export default function ClientDashboardPage() {
               Encuentra el mejor lugar y reserva en segundos
             </p>
           </div>
-          <Button asChild variant="secondary" className="gap-2">
+          <Button
+            asChild
+            variant="secondary"
+            className="w-full gap-2 sm:w-auto"
+          >
             <Link href="/marketplace">
               Reservar ahora <ArrowRight className="h-4 w-4" />
             </Link>
@@ -154,19 +158,19 @@ export default function ClientDashboardPage() {
                   href={`/dashboard/client/appointments/${appt.id}`}
                 >
                   <Card className="shadow-flat hover:shadow-flat cursor-pointer border-0 transition-shadow">
-                    <CardContent className="p-5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-xl">
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex min-w-0 items-center gap-4">
+                          <div className="bg-primary/10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl">
                             <Scissors className="text-primary h-5 w-5" />
                           </div>
-                          <div>
-                            <p className="font-semibold">
+                          <div className="min-w-0">
+                            <p className="break-words font-semibold">
                               {appt.appointmentServices
                                 .map((s) => s.serviceName)
                                 .join(", ")}
                             </p>
-                            <div className="text-muted-foreground mt-1 flex items-center gap-3 text-sm">
+                            <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                               <span className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
                                 {formatDate(appt.date)}
@@ -179,7 +183,7 @@ export default function ClientDashboardPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 sm:shrink-0">
                           <span className="font-semibold">
                             {formatCurrency(appt.totalAmount)}
                           </span>

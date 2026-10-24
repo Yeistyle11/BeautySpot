@@ -128,16 +128,16 @@ export default function MarketplaceFeed({
   return (
     <div className="from-background to-muted/30 min-h-screen bg-gradient-to-b">
       <div className="from-primary/10 via-background to-primary/5 relative overflow-hidden bg-gradient-to-br">
-        <div className="mx-auto max-w-6xl px-4 py-16 pb-10">
+        <div className="mx-auto max-w-6xl px-4 py-8 pb-8 sm:py-16 sm:pb-10">
           <div className="text-center">
             <div className="bg-primary/10 text-primary mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium">
               <Sparkles className="h-4 w-4" />
               Descubre tu próximo lugar favorito
             </div>
-            <h1 className="text-5xl font-bold tracking-tight">
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
               Beauty<span className="text-primary">Spot</span>
             </h1>
-            <p className="text-muted-foreground mx-auto mt-3 max-w-lg text-lg">
+            <p className="text-muted-foreground mx-auto mt-3 max-w-lg text-base sm:text-lg">
               Explora los mejores centros de belleza, salones y spas. Encuentra,
               compara y agenda tu cita en segundos.
             </p>
@@ -158,7 +158,8 @@ export default function MarketplaceFeed({
           </div>
 
           {feed && feed.categories.length > 0 && (
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            // En movil las categorias van en una fila que se desplaza.
+            <div className="-mx-4 mt-6 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:px-0 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
               <button
                 onClick={() => escribirEnLaUrl(busquedaDiferida, null, true)}
                 aria-pressed={!activeCategory}
