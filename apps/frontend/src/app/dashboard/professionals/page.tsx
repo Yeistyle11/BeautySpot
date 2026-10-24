@@ -291,7 +291,7 @@ export default function ProfessionalsPage() {
     <div>
       <PageHeader
         titulo="Equipo"
-        descripcion="Gestiona tus profesionales"
+        descripcion="Gestiona a quienes atienden en tu negocio"
         accion={
           canDo(role, "professionals_create") && (
             <Button
@@ -300,7 +300,7 @@ export default function ProfessionalsPage() {
                 setForm(emptyForm);
               }}
             >
-              <Plus className="mr-2 h-4 w-4" /> Agregar
+              <Plus className="mr-2 h-4 w-4" /> Nuevo profesional
             </Button>
           )
         }

@@ -21,6 +21,7 @@ import { canDo } from "@/lib/permissions";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { mensajeDeError } from "@/lib/error-message";
+import { formatDate, formatTime } from "@/lib/utils";
 import { BlockedSlotFormDialog } from "./blocked-slot-form-dialog";
 import { BlockedSlotRow, COLUMNAS_DE_BLOQUEOS } from "./blocked-slot-row";
 import {
@@ -243,24 +244,28 @@ export default function BlockedSlotsPage() {
         variant="destructive"
         title="Eliminar bloqueo"
         confirmLabel={borrarSerie ? "Eliminar la serie" : "Eliminar este día"}
+        registro={
+          aBorrar
+            ? `${nombreDeProfesional[aBorrar.professionalId] ?? "Profesional"}, ${formatDate(aBorrar.date)} de ${formatTime(aBorrar.startTime)} a ${formatTime(aBorrar.endTime)}:`
+            : undefined
+        }
+        consecuencias={
+          aBorrar?.serieId
+            ? "este bloqueo se repite. Puedes quitar solo este día o la serie completa."
+            : "la franja vuelve a quedar reservable."
+        }
       >
-        <div className="space-y-3">
-          <p>
-            {aBorrar?.serieId
-              ? "Este bloqueo se repite. Puedes quitar solo este día o la serie completa."
-              : "¿Eliminar este bloqueo? La franja vuelve a quedar reservable."}
-          </p>
-          {aBorrar?.serieId && (
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={borrarSerie}
-                onChange={(e) => setBorrarSerie(e.target.checked)}
-              />
-              Eliminar toda la serie
-            </label>
-          )}
-        </div>
+        {aBorrar?.serieId && (
+          <label className="flex min-h-11 items-center gap-2">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={borrarSerie}
+              onChange={(e) => setBorrarSerie(e.target.checked)}
+            />
+            Eliminar toda la serie
+          </label>
+        )}
       </ConfirmDialog>
     </div>
   );

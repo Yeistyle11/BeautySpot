@@ -68,7 +68,7 @@ export function AccionesDeFila({
       )}
       <div
         className={cn(
-          "items-center gap-1",
+          "items-center gap-2",
           conMenu ? "hidden md:flex" : "flex"
         )}
       >

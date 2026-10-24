@@ -180,7 +180,7 @@ export type RatingDistribution = z.infer<typeof ratingDistributionSchema>;
 export const SECTION_TITLES: Record<string, string> = {
   story: "Nuestra Historia",
   services: "Servicios",
-  team: "Nuestro Equipo",
+  team: "Nuestro equipo",
   gallery: "Galería",
   reviews: "Reseñas",
   location: "Ubicación",

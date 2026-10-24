@@ -393,7 +393,7 @@ export default function AnalyticsPage() {
       ) : (
         <EmptyState
           icon={TrendingUp}
-          titulo="No hay datos disponibles"
+          titulo="Aún no hay datos en este periodo"
           descripcion="Los reportes se llenan a medida que se registran citas y pagos."
         />
       )}
