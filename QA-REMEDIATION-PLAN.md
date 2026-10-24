@@ -1,6 +1,7 @@
 # Plan de remediación — BeautySpot
 
-Rama de trabajo: `fix/tanda-24-auditoria`. Tres campañas, en orden:
+Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
+`fix/responsive-movil` para la cuarta. Cuatro campañas, en orden:
 
 1. **`QA-REPORT-BeautySpot-2026-08-22`** — 28 hallazgos `BS-001`…`BS-028`
    (1 bloqueante, 5 altos, 15 medios, 7 bajos). Cerrada.
@@ -9,6 +10,8 @@ Rama de trabajo: `fix/tanda-24-auditoria`. Tres campañas, en orden:
 3. **Auditoría de código 2026-09-13** — 16 hallazgos `BS-044`…`BS-059`
    (4 altos, 11 medios, 1 bajo). Al final del documento. Sin informe previo:
    los hallazgos salen de leer el repositorio, no de recorrer la interfaz.
+4. **Uso desde el celular 2026-10-24** — 17 hallazgos `BS-060`…`BS-076`
+   (8 altos, 8 medios, 1 bajo). Al final del documento.
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 propuesta `[PM]` (no se implementa) · ❓ necesita aclaración
 
@@ -1143,3 +1146,155 @@ cerraron en la misma tanda.
 cambian respecto a `main`, y la suite completa: **212 suites, 2942 pruebas**. Los
 tests de integración no se han ejecutado en local —Docker no está disponible en
 esta máquina—; los corre CI.
+
+---
+
+# Campaña 2026-10-24 — `BS-060`…`BS-076`
+
+Origen: el negocio que no tiene computador gestiona todo desde el celular, y en
+las pruebas la agenda y la configuración no se dejaban usar. Se mapeó el resto
+leyendo cada pantalla a 360–414 px y midiendo en la demo, a 394 px, qué
+elementos se salían del ancho.
+
+17 hallazgos: **8 Alta, 8 Media, 1 Baja**.
+
+## Decisiones tomadas
+
+| Tema    | Decisión                                                                                                    |
+| ------- | ----------------------------------------------------------------------------------------------------------- |
+| Agenda  | Vista propia en móvil: el día, de un profesional a la vez; la semana, como lista de días                    |
+| Tablas  | En móvil las acciones de cada fila se agrupan en un menú «⋯» con texto (`AccionesDeFila`)                   |
+| Tablas  | Lo secundario de cada fila (estado, cliente, teléfono, fecha) pasa bajo el nombre en móvil                  |
+| Estilos | Todo es mobile-first: la base es el celular y `sm:`/`md:` devuelven lo que ya se veía en escritorio         |
+| Tarjeta | El relleno de `Card` no se toca en la primitiva: muchas pantallas lo sobrescriben y cambiaría el escritorio |
+
+## Agrupación por causa raíz
+
+| Causa                                                                  | Hallazgos                      |
+| ---------------------------------------------------------------------- | ------------------------------ |
+| M1 · La barra de pestañas no sabe desplazarse cuando no cabe           | BS-063, BS-064                 |
+| M2 · Filas de botones o controles que no se parten                     | BS-060, BS-071, BS-072, BS-073 |
+| M3 · Rejillas de tiempo pensadas solo para escritorio                  | BS-061, BS-062                 |
+| M4 · Anchos fijos en píxeles sin base para móvil                       | BS-065, BS-074                 |
+| M5 · Tablas cuyo único formato en móvil es desplazarse de lado         | BS-066                         |
+| M6 · Campos de formulario de menos de 16 px, que iOS amplía al enfocar | BS-067                         |
+| M7 · Capas fijas medidas en `vh`, que el navegador del celular tapa    | BS-068                         |
+| M8 · Controles hechos a mano que no heredan el área táctil de `Button` | BS-069                         |
+| M9 · Acciones que solo aparecen al pasar el ratón                      | BS-070                         |
+| M10 · Texto variable dentro de una capa de altura fija                 | BS-075                         |
+| M11 · Textos de usuario sin corte de palabra                           | BS-076                         |
+
+## Tablero
+
+| ID     | Sev   | Módulo        | Causa | Esfuerzo | Estado |
+| ------ | ----- | ------------- | ----- | -------- | ------ |
+| BS-060 | Alta  | Agenda        | M2    | XS       | ⬜     |
+| BS-061 | Alta  | Agenda        | M3    | M        | ⬜     |
+| BS-062 | Alta  | Agenda        | M3    | M        | ⬜     |
+| BS-063 | Alta  | Configuración | M1    | XS       | ⬜     |
+| BS-064 | Media | Marketplace   | M1    | XS       | ⬜     |
+| BS-065 | Alta  | Configuración | M4    | S        | ⬜     |
+| BS-066 | Alta  | Listados      | M5    | M        | ⬜     |
+| BS-067 | Media | Formularios   | M6    | XS       | ⬜     |
+| BS-068 | Media | Navegación    | M7    | XS       | ⬜     |
+| BS-069 | Media | Varios        | M8    | S        | ⬜     |
+| BS-070 | Alta  | Marketplace   | M9    | XS       | ⬜     |
+| BS-071 | Media | Pagos y caja  | M2    | S        | ⬜     |
+| BS-072 | Alta  | Área cliente  | M2    | XS       | ⬜     |
+| BS-073 | Media | Área cliente  | M2    | S        | ⬜     |
+| BS-074 | Media | Reserva       | M4    | S        | ⬜     |
+| BS-075 | Media | Marketplace   | M10   | S        | ⬜     |
+| BS-076 | Baja  | Varios        | M11   | XS       | ⬜     |
+
+## Detalle
+
+### BS-060 · La cabecera de la agenda empujaba «Nueva cita» fuera de la pantalla ⬜
+
+Lista/Día/Semana, Walk-in y Nueva cita iban en una fila que no se partía: 508 px
+medidos en una pantalla de 394, con toda la página desplazándose de lado.
+
+### BS-061 · La vista Día no dejaba ver más de un profesional y medio ⬜
+
+Rejilla con `min-w-[640px]` y columnas de 140 px por profesional, sin cabecera
+ni horas fijas al desplazarse, citas cortas de 18 px de alto y el bloqueo de una
+franja ofrecido solo con el ratón.
+
+### BS-062 · La vista Semana enseñaba menos de la mitad de la semana ⬜
+
+`min-w-[700px]` en 300 px visibles: siete columnas de 91 px de las que se veían
+dos y media, con las horas desplazándose junto con los días.
+
+### BS-063 · Tres pestañas de la configuración no se alcanzaban ⬜
+
+Las siete pestañas sumaban 780 px y la barra ni se partía ni se desplazaba:
+Fidelidad, Facturación y Reservas quedaban fuera.
+
+### BS-064 · La primera pestaña del marketplace quedaba cortada ⬜
+
+La barra se desplazaba, pero centrada: lo que sobraba por la izquierda no se
+podía alcanzar.
+
+### BS-065 · El horario no cabía en su tarjeta ⬜
+
+La fila «desde – a – hasta» medía entre 298 y 350 px con anchos fijos, en el
+horario del negocio y en el de cada profesional, y la X de quitar el tramo
+quedaba fuera.
+
+### BS-066 · Las acciones de los listados quedaban fuera de la pantalla ⬜
+
+Once tablas (citas, cobros, facturas y su detalle, clientes, servicios, equipo,
+cuentas, categorías, caja, bloqueos) medían entre 470 y 720 px en táctil, con
+los botones de 44 px al final de la fila.
+
+### BS-067 · Enfocar cualquier campo ampliaba la página en iOS ⬜
+
+Los campos, selectores y áreas de texto usaban 14 px, y Safari amplía la página
+al enfocar un campo de menos de 16 px.
+
+### BS-068 · El menú lateral y los diálogos quedaban bajo la barra del navegador ⬜
+
+Medidos en `vh`, que en el celular incluye lo que tapan las barras del
+navegador: «Cerrar sesión» y el pie de los diálogos quedaban debajo. Los avisos,
+además, se salían 16 px por la izquierda.
+
+### BS-069 · Botones que no se dejaban tocar ⬜
+
+Controles hechos a mano con áreas de 12 a 28 px: cerrar el menú y los diálogos,
+los chips de filtro, los interruptores, las flechas de orden de las secciones,
+marcar una notificación como leída, el ojo de la contraseña, «Denunciar» y
+«Dejar reseña».
+
+### BS-070 · En el celular no había forma de borrar una imagen de la galería ⬜
+
+El botón solo aparecía al pasar el ratón por encima.
+
+### BS-071 · Barras y formularios del negocio que se salían del ancho ⬜
+
+El rango de fechas de los cobros, el reparto del cobro entre métodos, los
+botones de la caja, el formulario de cliente y el de servicio en dos columnas
+fijas, los niveles de fidelidad.
+
+### BS-072 · Guardar una reseña o un reagendamiento quedaba fuera ⬜
+
+Las filas de botones del área del cliente no se partían: al editar una reseña
+sumaban 414 px y «Guardar cambios» no se veía.
+
+### BS-073 · El panel del cliente no tenía versión para celular ⬜
+
+La tarjeta de la próxima cita, el aviso de «Reservar ahora» y los filtros de
+Mis citas (364 px) estaban pensados para escritorio.
+
+### BS-074 · El paso a paso de la reserva se salía ⬜
+
+El indicador de pasos desbordaba a 360 px y la tira de días se partía en dos
+filas desiguales.
+
+### BS-075 · La portada del perfil público tapaba «Volver» ⬜
+
+El bloque del nombre iba anclado al pie de una portada de altura fija; en el
+celular el texto ocupa más líneas y crecía hacia arriba hasta tapar el botón.
+
+### BS-076 · Correos y comentarios largos rompían el ancho ⬜
+
+Emails en el perfil, la reserva y el acceso, y comentarios de reseñas, sin corte
+de palabra.
