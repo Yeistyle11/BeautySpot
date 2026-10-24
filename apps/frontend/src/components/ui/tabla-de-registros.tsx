@@ -204,7 +204,9 @@ export function CeldaPrincipal({
 }) {
   const medida = grande ? "h-12 w-12" : "h-8 w-8";
   return (
-    <td className="px-3 py-3 md:px-4">
+    // En movil la celda se queda con el ancho que dejan las demas columnas
+    // (`w-full` con `max-w-0`) y el nombre se corta ahi.
+    <td className="w-full max-w-0 px-3 py-3 md:w-auto md:max-w-none md:px-4">
       <div className="flex items-center gap-3">
         {/* El distintivo es opcional: sin icono ni inicial, la fila empieza
             por el nombre. */}
@@ -245,11 +247,9 @@ export function CeldaPrincipal({
           </Avatar>
         )}
         <div className="min-w-0">
-          <div className="max-w-[45vw] truncate font-medium md:max-w-[220px]">
-            {titulo}
-          </div>
+          <div className="truncate font-medium md:max-w-[220px]">{titulo}</div>
           {subtitulo && (
-            <div className="text-muted-foreground max-w-[45vw] truncate text-xs md:max-w-[220px]">
+            <div className="text-muted-foreground truncate text-xs md:max-w-[220px]">
               {subtitulo}
             </div>
           )}

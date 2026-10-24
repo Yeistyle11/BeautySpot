@@ -78,7 +78,7 @@ export function AccionesDeFila({
             accion.visible === false ? (
               <span
                 key={accion.etiqueta}
-                className="h-8 w-8 [@media(pointer:coarse)]:w-11"
+                className="hidden h-8 w-8 md:block [@media(pointer:coarse)]:w-11"
                 aria-hidden
               />
             ) : (

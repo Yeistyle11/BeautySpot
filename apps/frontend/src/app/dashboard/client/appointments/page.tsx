@@ -140,7 +140,7 @@ export default function AppointmentsPage() {
             variante="segment"
             activo={activeTab === tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className="shrink-0 whitespace-nowrap"
+            className="shrink-0 whitespace-nowrap px-2.5 text-xs sm:px-3 sm:text-sm"
           >
             {tab.label}
           </FilterChip>

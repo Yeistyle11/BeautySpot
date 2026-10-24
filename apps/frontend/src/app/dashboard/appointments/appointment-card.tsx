@@ -86,7 +86,7 @@ export const AppointmentCard = memo(function AppointmentCard({
           sobre={`la cita de ${clientName || "el cliente"}`}
           principal={
             /* Cada accion ocupa siempre su hueco; solo la principal lleva texto. */
-            <span className="flex w-[104px] justify-end">
+            <span className="flex justify-end md:w-[104px]">
               {confirmable && (
                 <Button size="sm" onClick={() => onConfirm(appointment.id)}>
                   Confirmar
