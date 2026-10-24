@@ -6,7 +6,7 @@ import { Clock } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDuracion } from "@/lib/utils";
 import type { Service } from "../schemas";
 
 interface SelectServicesStepProps {
@@ -53,7 +53,7 @@ export function SelectServicesStep({
                 <p className="font-medium">{s.name}</p>
                 <p className="text-muted-foreground flex items-center gap-1 text-sm">
                   <Clock className="h-3 w-3" />
-                  {s.duration} min
+                  {formatDuracion(s.duration)}
                 </p>
               </div>
               <span className="text-primary font-semibold">
@@ -70,7 +70,7 @@ export function SelectServicesStep({
           <div className="bg-muted mt-4 rounded-lg p-3 text-sm">
             <p>
               {conCantidad(selected.length, "servicio", "servicios")} ·{" "}
-              {totalDuration} min ·{" "}
+              {formatDuracion(totalDuration)} ·{" "}
               <span className="font-semibold">
                 {formatCurrency(totalAmount)}
               </span>

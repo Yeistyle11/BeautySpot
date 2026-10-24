@@ -26,7 +26,12 @@ import {
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { mensajeDeError } from "@/lib/error-message";
-import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatDate,
+  formatTime,
+  formatDuracion,
+} from "@/lib/utils";
 import { getAppointmentStatus } from "@/lib/status";
 import { useApi } from "@/lib/swr";
 import Link from "next/link";
@@ -173,7 +178,7 @@ export default function AppointmentDetailPage() {
                     <div>
                       <p className="font-medium">{svc.serviceName}</p>
                       <p className="text-muted-foreground text-sm">
-                        {svc.duration} min
+                        {formatDuracion(svc.duration)}
                       </p>
                     </div>
                     <span className="font-semibold">
@@ -184,7 +189,7 @@ export default function AppointmentDetailPage() {
               </div>
               <div className="mt-4 flex items-center justify-between border-t pt-4">
                 <span className="text-muted-foreground text-sm font-medium">
-                  Total ({totalDuration} min)
+                  Total ({formatDuracion(totalDuration)})
                 </span>
                 <span className="text-lg font-bold">
                   {formatCurrency(appointment.totalAmount)}

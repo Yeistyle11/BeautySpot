@@ -5,7 +5,7 @@ import { Clock, Scissors } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDuracion } from "@/lib/utils";
 import type { ServicioPublico } from "../schemas";
 
 /** Catalogo publico del negocio, agrupado por categoria. */
@@ -43,7 +43,7 @@ export function ServicesSection({
                   )}
                   <p className="text-muted-foreground mt-2 flex items-center gap-1 text-sm">
                     <Clock className="h-3 w-3" />
-                    {s.duration} min
+                    {formatDuracion(s.duration)}
                   </p>
                 </div>
                 <div className="text-right">

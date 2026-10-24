@@ -10,7 +10,7 @@ import {
   FilaDeTabla,
   type ColumnaDeTabla,
 } from "@/components/ui/tabla-de-registros";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDuracion } from "@/lib/utils";
 import type { Service } from "./schemas";
 
 /** Campos por los que se puede ordenar el catalogo. */
@@ -94,7 +94,7 @@ export const ServiceRow = memo(function ServiceRow({
         />
       </CeldaDeTabla>
       <CeldaDeTabla alineacion="right" apagada ocultaEnMovil>
-        {service.duration} min
+        {formatDuracion(service.duration)}
       </CeldaDeTabla>
       <CeldaDeTabla alineacion="right" className="text-primary font-semibold">
         {formatCurrency(service.price)}

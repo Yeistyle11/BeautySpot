@@ -5,7 +5,12 @@ import { Calendar, CheckCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { BotonDeCancelar, Dialog } from "@/components/ui/dialog";
-import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatDate,
+  formatTime,
+  formatDuracion,
+} from "@/lib/utils";
 import { CamposDelCobro } from "../payments/campos-del-cobro";
 import {
   cobroListo,
@@ -114,7 +119,7 @@ export function CompleteAppointmentDialog({
                   className="flex justify-between text-sm"
                 >
                   <span>
-                    {s.serviceName} ({s.duration} min)
+                    {s.serviceName} ({formatDuracion(s.duration)})
                   </span>
                   <span className="font-medium">{formatCurrency(s.price)}</span>
                 </div>
