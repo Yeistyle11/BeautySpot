@@ -109,8 +109,13 @@ export function Dialog({
   );
 }
 
-/** El dialogo; Radix lo desmonta al acabar la animacion de salida. */
+/**
+ * El dialogo; Radix lo desmonta al acabar la animacion de salida. Para saber
+ * cuando acaba necesita el nodo, asi que el `ref` que le pasa el portal se
+ * entrega al contenido.
+ */
 function CuerpoDelDialogo({
+  ref,
   ancho,
   onClose,
   title,
@@ -120,6 +125,7 @@ function CuerpoDelDialogo({
   pie,
   sinAvisoDeDescarte,
 }: {
+  ref?: React.Ref<HTMLDivElement>;
   ancho: string;
   onClose: () => void;
   sinAvisoDeDescarte?: boolean;
@@ -142,6 +148,7 @@ function CuerpoDelDialogo({
   return (
     <CierreDelDialogo.Provider value={intentarCerrar}>
       <DialogPrimitive.Content
+        ref={ref}
         className={cn(
           "bg-background data-[state=open]:animate-aparecer-dialogo data-[state=closed]:animate-desaparecer-dialogo shadow-overlay fixed left-1/2 top-1/2 z-50 flex max-h-[90dvh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border focus:outline-none",
           ancho
