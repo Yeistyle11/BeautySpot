@@ -367,7 +367,7 @@ export default function ServicesPage() {
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
             aria-label="Filtrar los servicios por categoría"
-            className="h-9 w-auto min-w-[260px]"
+            className="h-9 w-full sm:w-auto sm:min-w-[260px]"
           >
             <option value="all">
               Todas las categorías (

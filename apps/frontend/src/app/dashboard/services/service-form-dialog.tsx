@@ -138,7 +138,7 @@ export function ServiceFormDialog({
               minutos en que actúa un tinte—, indícalo aquí y la agenda podrá
               vender ese hueco.
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field label="El hueco empieza en el minuto">
                 <Input
                   type="number"

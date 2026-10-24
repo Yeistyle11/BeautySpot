@@ -171,7 +171,7 @@ export default function BlockedSlotsPage() {
             value={filtroProfesional}
             onChange={(e) => setFiltroProfesional(e.target.value)}
             aria-label="Filtrar los bloqueos por profesional"
-            className="h-9 w-auto min-w-[260px]"
+            className="h-9 w-full sm:w-auto sm:min-w-[260px]"
           >
             <option value="">Todo el equipo ({todos.length})</option>
             {(profesionales ?? []).map((p) => (

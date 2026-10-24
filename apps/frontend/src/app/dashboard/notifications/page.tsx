@@ -5,6 +5,7 @@ import { useCallback } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { mutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Bell, CheckCheck } from "lucide-react";
 import { z } from "zod";
@@ -102,10 +103,10 @@ export default function NotificationsPage() {
               className={`shadow-flat border-0 ${!n.read ? "bg-primary/5" : ""}`}
             >
               <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-medium">{n.title}</p>
-                    <p className="text-muted-foreground mt-1 text-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="break-words font-medium">{n.title}</p>
+                    <p className="text-muted-foreground mt-1 break-words text-sm">
                       {n.message}
                     </p>
                     <p className="text-muted-foreground mt-2 text-xs">
@@ -113,13 +114,15 @@ export default function NotificationsPage() {
                     </p>
                   </div>
                   {!n.read && (
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => markRead(n.id)}
                       aria-label="Marcar el aviso como leido"
-                      className="text-primary hover:text-primary/80 focus-visible:ring-ring rounded-sm focus-visible:outline-none focus-visible:ring-2"
+                      className="text-primary hover:text-primary/80 -m-2 shrink-0"
                     >
                       <CheckCheck className="h-5 w-5" />
-                    </button>
+                    </Button>
                   )}
                 </div>
               </CardContent>

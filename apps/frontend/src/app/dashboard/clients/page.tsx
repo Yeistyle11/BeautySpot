@@ -315,19 +315,23 @@ export default function ClientsPage() {
         {selectedClient && (
           <div className="space-y-6">
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16">
+              <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                <Avatar className="h-12 w-12 shrink-0 sm:h-16 sm:w-16">
                   <AvatarFallback className="bg-info-soft text-info-soft-foreground text-2xl font-bold">
                     {selectedClient.name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                <div>
-                  <h3 className="text-lg font-bold">{selectedClient.name}</h3>
+                <div className="min-w-0">
+                  <h3 className="break-words text-lg font-bold">
+                    {selectedClient.name}
+                  </h3>
                   <div className="mt-1 space-y-0.5">
                     {selectedClient.email && (
                       <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
-                        <Mail className="h-3 w-3" />
-                        {selectedClient.email}
+                        <Mail className="h-3 w-3 shrink-0" />
+                        <span className="break-all">
+                          {selectedClient.email}
+                        </span>
                       </p>
                     )}
                     {selectedClient.phone && (
@@ -382,14 +386,14 @@ export default function ClientsPage() {
                   No hay citas registradas
                 </p>
               ) : (
-                <div className="max-h-60 space-y-2 overflow-y-auto">
+                <div className="space-y-2 sm:max-h-60 sm:overflow-y-auto">
                   {(clientAppointments ?? []).map((a) => (
                     <div
                       key={a.id}
-                      className="flex items-center justify-between rounded-lg border p-3"
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"
                     >
-                      <div>
-                        <p className="text-sm font-medium">
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words text-sm font-medium">
                           {a.appointmentServices
                             .map((s) => s.serviceName)
                             .join(", ")}

@@ -108,7 +108,7 @@ export function CategoryFormDialog({
               aria-label="Color personalizado"
             />
             <div
-              className="flex flex-wrap gap-1.5"
+              className="flex flex-wrap gap-2"
               role="group"
               aria-label="Colores sugeridos"
             >
@@ -119,7 +119,7 @@ export function CategoryFormDialog({
                   onClick={() => set({ color: c })}
                   aria-label={`Usar el color ${c}`}
                   aria-pressed={form.color === c}
-                  className={`h-6 w-6 rounded-full border-2 transition-all ${
+                  className={`h-8 w-8 rounded-full border-2 transition-all ${
                     form.color === c
                       ? "border-foreground scale-110"
                       : "hover:border-muted-foreground border-transparent"

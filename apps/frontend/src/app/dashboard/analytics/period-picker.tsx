@@ -41,8 +41,10 @@ export function PeriodPicker({
   const invertido = !periodoValido(periodo);
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <div>
+    // En movil el periodo ocupa una fila y las dos fechas se reparten la
+    // siguiente.
+    <div className="grid grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap">
+      <div className="col-span-2">
         <label
           htmlFor={`${id}-atajo`}
           className="text-muted-foreground mb-1 block text-xs"
@@ -51,7 +53,7 @@ export function PeriodPicker({
         </label>
         <Select
           id={`${id}-atajo`}
-          className="w-[180px]"
+          className="w-full sm:w-[180px]"
           value={seleccionado}
           onChange={(e) => onSeleccionar(e.target.value as PeriodoId)}
         >
@@ -78,7 +80,7 @@ export function PeriodPicker({
         <Input
           id={`${id}-desde`}
           type="date"
-          className="w-[170px]"
+          className="w-full sm:w-[170px]"
           value={periodo.from}
           max={periodo.to || undefined}
           onChange={(e) => onPersonalizar({ ...periodo, from: e.target.value })}
@@ -94,7 +96,7 @@ export function PeriodPicker({
         <Input
           id={`${id}-hasta`}
           type="date"
-          className="w-[170px]"
+          className="w-full sm:w-[170px]"
           value={periodo.to}
           min={periodo.from || undefined}
           onChange={(e) => onPersonalizar({ ...periodo, to: e.target.value })}
@@ -103,11 +105,11 @@ export function PeriodPicker({
 
       {/* El rango invertido se avisa, no se corrige. */}
       {invertido ? (
-        <p role="alert" className="text-destructive pb-2 text-sm">
+        <p role="alert" className="text-destructive col-span-2 pb-2 text-sm">
           La fecha de inicio tiene que ser anterior a la de fin.
         </p>
       ) : (
-        <p className="text-muted-foreground pb-2.5 text-sm">
+        <p className="text-muted-foreground col-span-2 pb-2.5 text-sm">
           {diasDelPeriodo(periodo)} días
         </p>
       )}

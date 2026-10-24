@@ -314,7 +314,7 @@ export default function CashRegisterPage() {
             </Card>
           )}
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3 [&>button]:flex-1 sm:[&>button]:flex-none">
             <Button onClick={movimiento.abrir}>
               <Plus className="mr-2 h-4 w-4" /> Registrar movimiento
             </Button>

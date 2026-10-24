@@ -32,7 +32,7 @@ export function GalleryTab({
   return (
     <Card className="shadow-flat border-0">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-lg">
             Galería ({gallery.length} imagenes)
           </CardTitle>
@@ -73,9 +73,10 @@ export function GalleryTab({
                   </div>
                 )}
                 {canEdit && (
-                  // La capa de acciones aparece al pasar el raton, pero el
-                  // boton sigue siendo alcanzable con teclado (focus-within).
-                  <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                  // La capa de acciones aparece al pasar el raton y sigue
+                  // siendo alcanzable con teclado (focus-within). En tactil no
+                  // hay raton: el boton se queda siempre en la esquina.
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(pointer:coarse)]:items-start [@media(pointer:coarse)]:justify-end [@media(pointer:coarse)]:bg-transparent [@media(pointer:coarse)]:p-1 [@media(pointer:coarse)]:opacity-100">
                     <Button
                       size="sm"
                       variant="destructive"

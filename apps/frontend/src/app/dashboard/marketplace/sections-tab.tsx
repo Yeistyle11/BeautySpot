@@ -30,20 +30,24 @@ function SectionRow({
   return (
     <div className="flex flex-wrap items-center gap-4 rounded-lg border p-3">
       <div className="flex flex-col gap-0.5">
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => onMove("up")}
-          className="text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground h-7 w-8"
           aria-label={`Subir ${label}`}
         >
-          <ChevronUp className="h-3 w-3" />
-        </button>
-        <button
+          <ChevronUp className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => onMove("down")}
-          className="text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground h-7 w-8"
           aria-label={`Bajar ${label}`}
         >
-          <ChevronDown className="h-3 w-3" />
-        </button>
+          <ChevronDown className="h-4 w-4" />
+        </Button>
       </div>
       <Switch
         checked={section.enabled}
@@ -56,7 +60,7 @@ function SectionRow({
         placeholder="Título personalizado (opcional)"
         value={section.customTitle || ""}
         onChange={(e) => onRename(e.target.value)}
-        className="h-8 max-w-48 text-sm"
+        className="w-full sm:h-8 sm:max-w-48"
         aria-label={`Título personalizado de ${label}`}
       />
     </div>
