@@ -83,7 +83,7 @@ export function LoyaltyTab({
                 onChange={(e) => actualizar(indice, { label: e.target.value })}
                 placeholder="Nombre del nivel"
                 maxLength={30}
-                className="h-8 w-40 text-sm"
+                className="min-w-0 flex-1 sm:h-8 sm:w-40 sm:flex-none"
                 aria-label={`Nombre del nivel ${indice + 1}`}
                 disabled={!puedeEditar}
               />
@@ -98,7 +98,7 @@ export function LoyaltyTab({
                   onChange={(e) =>
                     actualizar(indice, { min: Number(e.target.value) })
                   }
-                  className="h-8 w-24 text-sm"
+                  className="w-20 sm:h-8 sm:w-24"
                   aria-label={`Puntos del nivel ${indice + 1}`}
                 />
                 <span className="text-muted-foreground text-sm">puntos</span>
@@ -110,7 +110,7 @@ export function LoyaltyTab({
                     color: e.target.value as Nivel["color"],
                   })
                 }
-                className="h-8 w-32 text-sm"
+                className="min-w-0 flex-1 sm:h-8 sm:w-32 sm:flex-none"
                 aria-label={`Color del nivel ${indice + 1}`}
                 disabled={!puedeEditar}
               >
@@ -135,7 +135,7 @@ export function LoyaltyTab({
         </div>
 
         {puedeEditar && (
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button onClick={onSave} disabled={saving}>
               {saving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
