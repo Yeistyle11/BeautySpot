@@ -140,6 +140,7 @@ export default function ProfessionalsPage() {
       await createProfessional(toProfessionalPayload(form, categories));
       setShowCreate(false);
       setForm(emptyForm);
+      toast.exito("Profesional dado de alta");
     } catch (err) {
       logger.error(err);
       toast.error(mensajeDeError(err));
@@ -156,6 +157,7 @@ export default function ProfessionalsPage() {
       );
       setEditId(null);
       setForm(emptyForm);
+      toast.exito("Cambios guardados");
     } catch (err) {
       logger.error(err);
       toast.error(mensajeDeError(err));
@@ -168,6 +170,7 @@ export default function ProfessionalsPage() {
       await removeProfessional(deleteConfirm);
       setDeleteConfirm(null);
       setDeleteError("");
+      toast.exito("Profesional inactivado");
     } catch (err) {
       setDeleteError(
         mensajeDeError(err, "No se pudo inactivar el profesional")

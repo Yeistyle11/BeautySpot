@@ -212,6 +212,7 @@ export default function PaymentsPage() {
       );
       setCreateDialog(false);
       setCreateForm(emptyCreateForm);
+      toast.exito("Cobro registrado");
       await revalidatePrefix(PAYMENTS_KEY);
     } catch (err) {
       logger.error(err);
@@ -242,6 +243,7 @@ export default function PaymentsPage() {
       );
       setRefundDialog(false);
       setRefundPayment(null);
+      toast.exito("Devolución registrada");
       await revalidatePrefix(PAYMENTS_KEY);
       // El efectivo devuelto sale del cajón: el arqueo cambia con él.
       await revalidatePrefix("/payment/cash-register");
@@ -282,6 +284,7 @@ export default function PaymentsPage() {
       });
       setEditDialog(false);
       setEditId(null);
+      toast.exito("Cobro actualizado");
       await revalidatePrefix(PAYMENTS_KEY);
     } catch (err) {
       logger.error(err);

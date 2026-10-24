@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorDeCarga } from "@/components/ui/error-de-carga";
+import { useToast } from "@/components/ui/toast";
 import { Plus, Search, Users, UserCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
@@ -77,6 +78,7 @@ export default function StaffPage() {
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
   const [error, setError] = useState("");
 
   const reload = () => Promise.all([reloadStaff(), mutate(PROFESSIONALS_KEY)]);
@@ -128,6 +130,7 @@ export default function StaffPage() {
       await createMember(createForm);
       setShowCreate(false);
       setCreateForm(emptyCreateForm);
+      toast.exito("Cuenta creada");
       await reload();
     } catch (err) {
       setError(mensajeDeError(err, "Error al crear la cuenta"));
@@ -164,6 +167,7 @@ export default function StaffPage() {
         getLinkedPro(editMember.id)
       );
       setEditMember(null);
+      toast.exito("Cambios guardados");
       await reload();
     } catch (err) {
       setError(mensajeDeError(err, "Error al guardar los cambios"));
@@ -183,9 +187,13 @@ export default function StaffPage() {
         active: !confirmMember.active,
       });
       setConfirmId(null);
+      toast.exito(
+        confirmMember.active ? "Cuenta desactivada" : "Cuenta activada"
+      );
       await reload();
     } catch (err) {
       logger.error(mensajeDeError(err));
+      toast.error(mensajeDeError(err));
     } finally {
       setSaving(false);
     }

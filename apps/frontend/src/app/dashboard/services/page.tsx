@@ -161,6 +161,7 @@ export default function ServicesPage() {
       await createService(toServicePayload(createForm, categories ?? []));
       setCreateForm(emptyForm);
       setCreateDialog(false);
+      toast.exito("Servicio creado");
     } catch (err) {
       logger.error(err);
       toast.error(mensajeDeError(err));
@@ -241,6 +242,7 @@ export default function ServicesPage() {
       );
       setEditDialog(false);
       setEditId(null);
+      toast.exito("Cambios guardados");
     } catch (err) {
       logger.error(err);
       repartirFalloAlGuardar(err, setConflicto, toast.error);

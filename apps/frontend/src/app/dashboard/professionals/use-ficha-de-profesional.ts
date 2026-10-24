@@ -5,6 +5,7 @@ import { z } from "zod";
 import { api } from "@/lib/api";
 import { mensajeDeError } from "@/lib/error-message";
 import { logger } from "@/lib/logger";
+import { useToast } from "@/components/ui/toast";
 import { useApi } from "@/lib/swr";
 import { useSeededForm } from "@/lib/use-seeded-form";
 import {
@@ -58,6 +59,7 @@ function semanaDeTramos(slots: AvailabilitySlot[]): Record<number, DayHours> {
  * el formulario con la respuesta del anterior.
  */
 export function useHorarioDeProfesional() {
+  const toast = useToast();
   const [profesional, setProfesional] = useState<Professional | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [semana, setSemana] = useState<Record<number, DayHours>>({});
@@ -117,6 +119,9 @@ export function useHorarioDeProfesional() {
         slots,
       });
       cerrar();
+      toast.exito(
+        `Horario de ${profesional.name ?? "el profesional"} guardado`
+      );
     } catch (err) {
       logger.error(err);
       // El motivo se muestra en el dialogo, junto a los campos a corregir.
@@ -124,7 +129,7 @@ export function useHorarioDeProfesional() {
     } finally {
       setGuardando(false);
     }
-  }, [cerrar, profesional, semana]);
+  }, [cerrar, profesional, semana, toast]);
 
   return {
     profesional,
@@ -145,6 +150,7 @@ export function useHorarioDeProfesional() {
  * como clave; las filas solo se pueden armar con las dos.
  */
 export function useServiciosDeProfesional() {
+  const toast = useToast();
   const [profesional, setProfesional] = useState<Professional | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [filas, setFilas] = useState<FilaDeTarifa[]>([]);
@@ -229,13 +235,16 @@ export function useServiciosDeProfesional() {
         await api.delete(`${ruta}/${serviceId}`);
       }
       cerrar();
+      toast.exito(
+        `Servicios de ${profesional.name ?? "el profesional"} guardados`
+      );
     } catch (err) {
       logger.error(err);
       setError(mensajeDeError(err));
     } finally {
       setGuardando(false);
     }
-  }, [cerrar, filas, filasCargadas, profesional]);
+  }, [cerrar, filas, filasCargadas, profesional, toast]);
 
   return {
     profesional,
