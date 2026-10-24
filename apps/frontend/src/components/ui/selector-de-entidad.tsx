@@ -242,7 +242,7 @@ export function SelectorDeEntidad({
                   aria-activedescendant={
                     items.length ? idDeOpcion(resaltada) : undefined
                   }
-                  className="border-input bg-background focus-visible:ring-ring h-9 w-full rounded-md border pl-8 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2"
+                  className="border-input bg-background focus-visible:ring-ring h-9 w-full rounded-md border pl-8 pr-3 text-base focus-visible:outline-none focus-visible:ring-2 md:text-sm"
                 />
               </div>
             </div>

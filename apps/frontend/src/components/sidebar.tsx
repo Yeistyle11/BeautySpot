@@ -141,7 +141,7 @@ export function Sidebar() {
         <button
           ref={disparador}
           onClick={() => setOpen(true)}
-          className="hover:bg-accent rounded-lg p-2 transition-colors"
+          className="hover:bg-accent -ml-2 rounded-lg p-2.5 transition-colors"
           aria-label="Abrir menú de navegación"
           aria-expanded={open}
           aria-controls="sidebar-nav"
@@ -171,7 +171,7 @@ export function Sidebar() {
         aria-label={esModal && open ? "Menú de navegación" : undefined}
         onKeyDown={atraparFoco}
         className={cn(
-          "bg-card fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r transition-transform lg:z-40 lg:translate-x-0",
+          "bg-card fixed left-0 top-0 z-50 flex h-dvh w-64 flex-col border-r transition-transform lg:z-40 lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -185,7 +185,7 @@ export function Sidebar() {
           <button
             ref={botonDeCerrar}
             onClick={() => setOpen(false)}
-            className="hover:bg-accent rounded-lg p-1 transition-colors lg:hidden"
+            className="hover:bg-accent -mr-2 rounded-lg p-2.5 transition-colors lg:hidden"
             aria-label="Cerrar menú de navegación"
           >
             <X className="h-4 w-4" />
@@ -233,7 +233,7 @@ export function Sidebar() {
                 {nombreDelRol(role)}
               </p>
             </div>
-            <ThemeToggle className="p-1" />
+            <ThemeToggle />
             <Button
               variant="ghost"
               size="icon"

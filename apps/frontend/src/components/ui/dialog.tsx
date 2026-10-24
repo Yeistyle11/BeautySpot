@@ -135,7 +135,7 @@ function CuerpoDelDialogo({
     <CierreDelDialogo.Provider value={intentarCerrar}>
       <DialogPrimitive.Content
         className={cn(
-          "bg-background data-[state=open]:animate-aparecer-dialogo shadow-overlay fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border focus:outline-none",
+          "bg-background data-[state=open]:animate-aparecer-dialogo shadow-overlay fixed left-1/2 top-1/2 z-50 flex max-h-[90dvh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border focus:outline-none",
           ancho
         )}
         // Los contenidos varian y no tienen una descripcion unica que anunciar.
@@ -158,7 +158,7 @@ function CuerpoDelDialogo({
         onChangeCapture={() => setSucio(true)}
       >
         {title ? (
-          <div className="flex items-start gap-3 border-b px-6 py-4">
+          <div className="flex items-start gap-3 border-b px-4 py-4 sm:px-6">
             {Icono && (
               <span className="bg-primary/10 text-primary mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
                 <Icono className="h-[18px] w-[18px]" aria-hidden />
@@ -178,7 +178,7 @@ function CuerpoDelDialogo({
               type="button"
               onClick={intentarCerrar}
               aria-label="Cerrar"
-              className="text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-ring -mr-1 rounded-lg p-1 transition-colors focus-visible:outline-none focus-visible:ring-2"
+              className="text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-ring -mr-2 shrink-0 rounded-lg p-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2"
             >
               <X className="h-5 w-5" />
             </button>
@@ -190,12 +190,14 @@ function CuerpoDelDialogo({
 
         {/* El cuerpo es lo unico que se desplaza: la cabecera y el pie se
               quedan quietos, asi que las acciones siempre estan a la vista. */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
           {children}
         </div>
 
+        {/* En movil los botones del pie se reparten el ancho, y el que no cabe
+              baja a su propia fila en vez de salirse del dialogo. */}
         {pie && (
-          <div className="bg-muted/30 flex flex-wrap items-center justify-end gap-2 rounded-b-2xl border-t px-6 py-3">
+          <div className="bg-muted/30 flex flex-wrap items-center justify-end gap-2 rounded-b-2xl border-t px-4 py-3 sm:px-6 [&>button]:flex-1 sm:[&>button]:flex-none">
             {pie}
           </div>
         )}

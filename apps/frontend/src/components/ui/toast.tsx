@@ -80,7 +80,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <Contexto.Provider value={valor}>
       {children}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-2">
+      <div className="pointer-events-none fixed inset-x-4 bottom-4 z-[100] flex flex-col gap-2 sm:left-auto sm:w-full sm:max-w-sm">
         {/* Cada tono tiene su region: un error interrumpe la lectura en curso,
             pero un «guardado» que hiciera lo mismo cortaria al usuario sin
             necesidad, asi que espera a que haya una pausa. */}
@@ -155,7 +155,7 @@ function ToastItem({
         type="button"
         onClick={() => onCerrar(aviso.id)}
         aria-label="Cerrar aviso"
-        className="opacity-60 transition-opacity hover:opacity-100"
+        className="-m-2 shrink-0 p-2 opacity-60 transition-opacity hover:opacity-100"
       >
         <X className="h-4 w-4" />
       </button>

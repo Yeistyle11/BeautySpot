@@ -483,7 +483,7 @@ export default function AppointmentsPage() {
         <div className="space-y-3">
           {pestanas.length > 1 && (
             <Tabs value={estado} onValueChange={setEstado}>
-              <TabsList className="flex-wrap">
+              <TabsList>
                 {pestanas.map((p) => (
                   <TabsTrigger key={p.valor || "todas"} value={p.valor}>
                     {p.etiqueta} ({p.n})

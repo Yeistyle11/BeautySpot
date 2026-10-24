@@ -370,12 +370,9 @@ export default function MarketplacePage() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList
-          aria-label="Secciones del marketplace"
-          className="mb-6 flex max-w-full gap-1 overflow-x-auto"
-        >
+        <TabsList aria-label="Secciones del marketplace" className="mb-6 gap-1">
           {TAB_IDS.map((tab) => (
-            <TabsTrigger key={tab} value={tab} className="whitespace-nowrap">
+            <TabsTrigger key={tab} value={tab}>
               {TAB_LABELS[tab]}
             </TabsTrigger>
           ))}
