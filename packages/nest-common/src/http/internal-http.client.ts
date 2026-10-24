@@ -98,6 +98,29 @@ export class InternalHttpClient {
   }
 
   /**
+   * Un fichero de otro servicio (un PDF): el cuerpo tal cual, sin sobre JSON.
+   * Falla igual que {@link pedir} si el servicio no responde o no da un 2xx.
+   */
+  async pedirBinario(
+    servicio: ServicioInterno,
+    ruta: string,
+    opciones: OpcionesLlamada = {}
+  ): Promise<Buffer> {
+    const respuesta = await this.llamar(
+      servicio,
+      `${this.urlDe(servicio)}${ruta}`,
+      opciones
+    );
+    if (!respuesta.ok) {
+      throw new ErrorDeServicioInterno(
+        respuesta.status,
+        `${servicio}-service respondió ${respuesta.status} en ${ruta}`
+      );
+    }
+    return Buffer.from(await respuesta.arrayBuffer());
+  }
+
+  /**
    * Igual que {@link pedir} pero devuelve null si el otro servicio falla, en
    * lugar de propagar el error. Para datos accesorios, no para comprobaciones.
    */

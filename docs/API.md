@@ -831,6 +831,12 @@ El tipo impositivo sale de `facturacion.tasaDeImpuesto` del negocio (en
 porcentaje; sin configurar, el IVA colombiano) y **cada factura lo congela**: una
 factura de ayer no se reimprime con el impuesto de mañana.
 
+Internas (`x-internal-secret`):
+
+| Método | Ruta                                              | Descripción                                            |
+| ------ | ------------------------------------------------- | ------------------------------------------------------ |
+| GET    | `/internal/invoices/:id/pdf?businessId=<negocio>` | PDF de la factura, que el correo de la factura adjunta |
+
 ### Caja — `/api/v1/payment/cash-register`
 
 Roles a nivel de clase: **OWNER, ADMIN, RECEPTIONIST**.

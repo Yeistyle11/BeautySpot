@@ -9,7 +9,13 @@ export interface MensajeSmtp {
   html: string;
   /** Alternativa en texto plano; si no se da, se deriva del HTML. */
   text?: string;
-  attachments?: { filename: string; path: string }[];
+  /** Adjuntos, desde un fichero (`path`) o ya en memoria (`content`). */
+  attachments?: {
+    filename: string;
+    path?: string;
+    content?: Buffer;
+    contentType?: string;
+  }[];
   /**
    * Nombre con el que firma, sobre la misma dirección de `EMAIL_FROM`: los
    * correos de una cita los firma el negocio («Barbería La Noche vía

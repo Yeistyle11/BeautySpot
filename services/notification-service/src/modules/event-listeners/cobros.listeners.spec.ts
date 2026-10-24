@@ -63,6 +63,9 @@ describe("CobrosListeners", () => {
           subtotal: 67227,
           tax: 12773,
           amount: 80000,
+          // Con ellos se le adjunta el PDF.
+          invoiceId: mockInvoiceGeneratedEvent.payload.invoiceId,
+          businessId: "business-123",
         })
       );
     });

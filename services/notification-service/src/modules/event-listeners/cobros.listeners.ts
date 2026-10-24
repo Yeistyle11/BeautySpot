@@ -108,6 +108,9 @@ export class CobrosListeners {
                 price: i.total,
               })),
               conCuenta: !!clientUserId,
+              // Con ellos el correo pide a payment el PDF y lo adjunta.
+              invoiceId,
+              businessId,
             }
           );
 

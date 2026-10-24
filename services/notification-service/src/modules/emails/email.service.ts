@@ -1,7 +1,8 @@
-import { Injectable, Optional } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
+import { InternalHttpClient } from "@beautyspot/nest-common";
 import { aTextoPlano, PlantillasService } from "./plantillas.service";
 import { SmtpTransport } from "./smtp.transport";
 import { diaCompleto, primerNombre } from "./ayudantes-de-plantilla";
@@ -9,6 +10,20 @@ import { horaEnCastellano } from "./fechas-en-castellano";
 import { enlacesDeCita, type CitaEnlazable } from "./enlaces-de-correo";
 
 type EmailPriority = "low" | "normal" | "high";
+
+/**
+ * El PDF de una factura emitida, que se pide a payment al enviar y no al
+ * encolar: el trabajo guarda solo la referencia, no el fichero.
+ */
+export interface AdjuntoDeFactura {
+  invoiceId: string;
+  businessId: string;
+  /** Nombre del fichero adjunto. */
+  nombre: string;
+}
+
+/** Cuánto se espera al PDF: generarlo pide datos a core y lleva su tiempo. */
+const ESPERA_DEL_PDF_MS = 15000;
 
 /** Parámetros para encolar un correo: destinatario, plantilla, datos, asunto y prioridad. */
 interface QueueEmailInput {
@@ -19,6 +34,7 @@ interface QueueEmailInput {
   priority?: EmailPriority;
   /** Nombre con el que firma: el del negocio en los correos de sus citas. */
   remitente?: string;
+  adjunto?: AdjuntoDeFactura;
 }
 
 /** Lo que devuelve encolar: el trabajo y el asunto con que saldrá. */
@@ -59,6 +75,9 @@ export interface DatosDeFactura {
   esRecibo?: boolean;
   /** Si el cliente tiene cuenta y puede ver sus facturas en el panel. */
   conCuenta?: boolean;
+  /** Factura emitida y su negocio: con ellos se le adjunta el PDF. */
+  invoiceId?: string;
+  businessId?: string;
 }
 
 /**
@@ -68,11 +87,14 @@ export interface DatosDeFactura {
  */
 @Injectable()
 export class EmailService {
+  private readonly logger = new Logger(EmailService.name);
+
   constructor(
     private readonly plantillas: PlantillasService,
     private readonly smtp: SmtpTransport,
     @InjectQueue("emails") private readonly emailQueue: Queue,
-    @Optional() private readonly config?: ConfigService
+    @Optional() private readonly config?: ConfigService,
+    @Optional() private readonly http?: InternalHttpClient
   ) {}
 
   /** Dirección de la aplicación, sin barra final. */
@@ -82,13 +104,23 @@ export class EmailService {
     ).replace(/\/$/, "");
   }
 
-  /** Renderiza la plantilla indicada y envía el correo por SMTP de inmediato. */
+  /**
+   * Renderiza la plantilla indicada y envía el correo por SMTP de inmediato.
+   * Con `adjunto`, pide antes el PDF de la factura. Si no llega, falla para
+   * que la cola reintente, salvo con `sinAdjuntoSiFalla`: en el último intento
+   * vale más que la factura llegue sin PDF a que no llegue.
+   */
   async sendEmail(
     to: string,
     templateName: string,
-    context: Record<string, unknown> = {}
+    context: Record<string, unknown> = {},
+    adjunto?: AdjuntoDeFactura,
+    sinAdjuntoSiFalla = false
   ): Promise<{ messageId: string }> {
     const html = this.plantillas.render(templateName, context);
+    const attachments = adjunto
+      ? await this.pdfDe(adjunto, sinAdjuntoSiFalla)
+      : undefined;
     return this.smtp.enviar({
       to,
       subject:
@@ -97,7 +129,36 @@ export class EmailService {
       html,
       text: aTextoPlano(html),
       remitente: context.remitente as string | undefined,
+      ...(attachments?.length ? { attachments } : {}),
     });
+  }
+
+  /** El PDF de la factura listo para adjuntar; vacío si falla y se tolera. */
+  private async pdfDe(
+    adjunto: AdjuntoDeFactura,
+    sinAdjuntoSiFalla: boolean
+  ): Promise<{ filename: string; content: Buffer; contentType: string }[]> {
+    try {
+      if (!this.http) throw new Error("Sin cliente interno para pedir el PDF");
+      const pdf = await this.http.pedirBinario(
+        "payment",
+        `/internal/invoices/${adjunto.invoiceId}/pdf?businessId=${adjunto.businessId}`,
+        { timeoutMs: ESPERA_DEL_PDF_MS }
+      );
+      return [
+        {
+          filename: adjunto.nombre,
+          content: pdf,
+          contentType: "application/pdf",
+        },
+      ];
+    } catch (error) {
+      if (!sinAdjuntoSiFalla) throw error;
+      this.logger.warn(
+        `La factura ${adjunto.invoiceId} sale sin PDF: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return [];
+    }
   }
 
   /** Encola el correo en BullMQ para que el worker lo envíe de forma asíncrona. */
@@ -113,6 +174,7 @@ export class EmailService {
       subject: input.subject,
       context,
       priority: input.priority ?? "normal",
+      ...(input.adjunto ? { adjunto: input.adjunto } : {}),
     });
     return { jobId: job.id!, subject: input.subject };
   }
@@ -230,6 +292,16 @@ export class EmailService {
         : `Tu factura ${factura.invoiceNumber} de ${factura.businessName}`,
       priority: "normal",
       remitente: factura.businessName,
+      // Solo la factura emitida tiene PDF; el recibo de un cobro no.
+      ...(!factura.esRecibo && factura.invoiceId && factura.businessId
+        ? {
+            adjunto: {
+              invoiceId: factura.invoiceId,
+              businessId: factura.businessId,
+              nombre: `Factura-${factura.invoiceNumber}.pdf`,
+            },
+          }
+        : {}),
     });
   }
 

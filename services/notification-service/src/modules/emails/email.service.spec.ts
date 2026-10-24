@@ -1,5 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
+import { InternalHttpClient } from "@beautyspot/nest-common";
 import { Queue } from "bullmq";
 import { EmailService } from "./email.service";
 import { PlantillasService } from "./plantillas.service";
@@ -29,6 +30,7 @@ describe("EmailService", () => {
   let mockQueue: jest.Mocked<Queue>;
   let plantillas: { render: jest.Mock; disponibles: string[] };
   let smtp: { enviar: jest.Mock };
+  let http: { pedirBinario: jest.Mock };
 
   beforeEach(async () => {
     mockQueue = {
@@ -43,6 +45,7 @@ describe("EmailService", () => {
       disponibles: [],
     };
     smtp = { enviar: jest.fn().mockResolvedValue({ messageId: "msg-1" }) };
+    http = { pedirBinario: jest.fn().mockResolvedValue(Buffer.from("%PDF")) };
 
     const module = await Test.createTestingModule({
       providers: [
@@ -50,6 +53,7 @@ describe("EmailService", () => {
         { provide: PlantillasService, useValue: plantillas },
         { provide: SmtpTransport, useValue: smtp },
         { provide: "BullQueue_emails", useValue: mockQueue },
+        { provide: InternalHttpClient, useValue: http },
         {
           provide: ConfigService,
           useValue: new ConfigService({ APP_URL: APP }),
@@ -169,6 +173,98 @@ describe("EmailService", () => {
         "dates=20261025T140000%2F20261025T153000"
       );
       expect(String(contexto.enlaceMapa)).toContain("Av.%20456");
+    });
+  });
+
+  describe("PDF de la factura", () => {
+    const ADJUNTO = {
+      invoiceId: "f-1",
+      businessId: "b-1",
+      nombre: "Factura-FA-0001.pdf",
+    };
+
+    it("la factura emitida se encola con la referencia a su PDF", async () => {
+      await service.queueInvoice("p@example.com", {
+        clientName: "Pedro",
+        invoiceNumber: "FA-0001",
+        businessName: "EliteBarbers",
+        services: [],
+        amount: 1000,
+        invoiceId: "f-1",
+        businessId: "b-1",
+      });
+
+      expect(mockQueue.add.mock.calls.at(-1)?.[1]).toEqual(
+        expect.objectContaining({ adjunto: ADJUNTO })
+      );
+    });
+
+    // Un cobro suelto no tiene factura emitida detrás: no hay PDF que pedir.
+    it("el recibo no lleva PDF", async () => {
+      await service.queueInvoice("p@example.com", {
+        clientName: "Pedro",
+        invoiceNumber: "REC-1",
+        businessName: "EliteBarbers",
+        services: [],
+        amount: 1000,
+        esRecibo: true,
+        invoiceId: "f-1",
+        businessId: "b-1",
+      });
+
+      expect(mockQueue.add.mock.calls.at(-1)?.[1]).not.toHaveProperty(
+        "adjunto"
+      );
+    });
+
+    it("al enviar pide el PDF a payment y lo adjunta", async () => {
+      await service.sendEmail(
+        "p@example.com",
+        "invoice-generated",
+        {},
+        ADJUNTO
+      );
+
+      expect(http.pedirBinario).toHaveBeenCalledWith(
+        "payment",
+        "/internal/invoices/f-1/pdf?businessId=b-1",
+        expect.objectContaining({ timeoutMs: expect.any(Number) })
+      );
+      expect(smtp.enviar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          attachments: [
+            {
+              filename: "Factura-FA-0001.pdf",
+              content: Buffer.from("%PDF"),
+              contentType: "application/pdf",
+            },
+          ],
+        })
+      );
+    });
+
+    it("si el PDF no llega, falla para que la cola reintente", async () => {
+      http.pedirBinario.mockRejectedValue(new Error("payment caído"));
+
+      await expect(
+        service.sendEmail("p@example.com", "invoice-generated", {}, ADJUNTO)
+      ).rejects.toThrow("payment caído");
+      expect(smtp.enviar).not.toHaveBeenCalled();
+    });
+
+    it("en el último intento la factura sale aunque sea sin PDF", async () => {
+      http.pedirBinario.mockRejectedValue(new Error("payment caído"));
+
+      await service.sendEmail(
+        "p@example.com",
+        "invoice-generated",
+        {},
+        ADJUNTO,
+        true
+      );
+
+      const [mensaje] = smtp.enviar.mock.calls[0];
+      expect(mensaje.attachments).toBeUndefined();
     });
   });
 

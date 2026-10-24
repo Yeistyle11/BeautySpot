@@ -1,7 +1,7 @@
 import { Processor, WorkerHost, OnWorkerEvent } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import { Job } from "bullmq";
-import { EmailService } from "../email.service";
+import { AdjuntoDeFactura, EmailService } from "../email.service";
 import { AmqpConnection } from "@golevelup/nestjs-rabbitmq";
 import { EVENTS_EXCHANGE } from "@beautyspot/event-types";
 
@@ -13,6 +13,8 @@ export interface EmailJobData {
   context?: Record<string, unknown>;
   priority?: "high" | "normal" | "low";
   retryCount?: number;
+  /** PDF de la factura, que se pide al enviar. */
+  adjunto?: AdjuntoDeFactura;
 }
 
 /** Worker de BullMQ que envía los correos encolados y publica eventos de éxito o fallo. */
@@ -70,14 +72,23 @@ export class SendEmailProcessor extends WorkerHost {
 
   /** Procesa un trabajo de la cola enviando el correo; relanza el error para que BullMQ reintente. */
   async process(job: Job<EmailJobData>) {
-    const { to, subject, template, context } = job.data;
+    const { to, subject, template, context, adjunto } = job.data;
+    // En el último intento la factura sale aunque el PDF no llegue: sin él
+    // sigue valiendo, y reintentarla ya no es posible.
+    const ultimoIntento = job.attemptsMade + 1 >= (job.opts?.attempts ?? 1);
 
     this.logger.log(
       `Procesando email para ${to} con plantilla ${template} (Job ID: ${job.id})`
     );
 
     try {
-      const result = await this.emailService.sendEmail(to, template, context);
+      const result = await this.emailService.sendEmail(
+        to,
+        template,
+        context,
+        adjunto,
+        ultimoIntento
+      );
 
       this.logger.log(
         `Email enviado exitosamente para ${to} (Job ID: ${job.id}, Message ID: ${result.messageId})`

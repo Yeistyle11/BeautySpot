@@ -10,6 +10,7 @@ import { InvoiceItemEntity } from "./invoice-item.entity";
 import { PaymentEntity } from "../payments/payment.entity";
 import { InvoicesService } from "./invoices.service";
 import { InvoicesController } from "./invoices.controller";
+import { InternalInvoicesController } from "./internal-invoices.controller";
 import { PdfModule } from "./pdf/pdf.module";
 
 @Module({
@@ -21,7 +22,7 @@ import { PdfModule } from "./pdf/pdf.module";
     FichasDelUsuarioModule,
     PdfModule,
   ],
-  controllers: [InvoicesController],
+  controllers: [InvoicesController, InternalInvoicesController],
   providers: [InvoicesService],
   exports: [InvoicesService],
 })
