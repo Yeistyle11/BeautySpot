@@ -14,7 +14,7 @@ Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
    (8 altos, 8 medios, 1 bajo).
 5. **Pendientes del informe UX/UI 2026-09-10 y de las propuestas** — 13
    hallazgos `BS-077`…`BS-089` (6 medios, 7 bajos).
-6. **Correos 2026-10-24** — 7 hallazgos `BS-090`…`BS-096` (2 altos, 3 medios,
+6. **Correos 2026-10-24** — 8 hallazgos `BS-090`…`BS-097` (2 altos, 4 medios,
    2 bajos). Al final del documento.
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 propuesta `[PM]` (no se implementa) · ❓ necesita aclaración
@@ -1469,13 +1469,13 @@ en la tabla a 422 px sin desplazarse de lado.
 
 ---
 
-# Campaña 2026-10-24 (3) — `BS-090`…`BS-096` · Correos
+# Campaña 2026-10-24 (3) — `BS-090`…`BS-097` · Correos
 
 Origen: con el dominio de correo ya activo, el usuario probó los correos y
 llegaban genéricos, con colores ajenos al sistema y la bienvenida sin estilo. Se
 bocetaron los 13 en dos direcciones y se eligió la **B · De marca** para todos.
 
-7 hallazgos: **2 Alta, 3 Media, 2 Baja**.
+8 hallazgos: **2 Alta, 4 Media, 2 Baja**.
 
 ## Decisiones tomadas
 
@@ -1485,7 +1485,7 @@ bocetaron los 13 en dos direcciones y se eligió la **B · De marca** para todos
 | Firma    | Los correos de una cita los firma el negocio («Barbería La Noche vía BeautySpot»); los de cuenta, BeautySpot              |
 | Imágenes | PNG a doble resolución en `apps/frontend/public/correo`, generados por `scripts/iconos-de-correo.mjs`: Gmail no pinta SVG |
 | Reservar | «Reservar otra cita» busca el negocio por su nombre en el marketplace: aún no hay un enlace público estable que dar       |
-| Factura  | El PDF no se adjunta; quien tiene cuenta tiene «Ver mis facturas»                                                         |
+| Factura  | Lleva adjunto el PDF de la factura emitida, pedido a payment al enviar; el recibo de un cobro no tiene PDF                |
 | Reporte  | El reporte mensual queda diseñado; activar su envío se decide aparte                                                      |
 
 ## Agrupación por causa raíz
@@ -1493,7 +1493,7 @@ bocetaron los 13 en dos direcciones y se eligió la **B · De marca** para todos
 | Causa                                                                 | Hallazgos              |
 | --------------------------------------------------------------------- | ---------------------- |
 | C1 · Cada plantilla repetía su HTML y su CSS, sin base ni marca común | BS-090, BS-092, BS-094 |
-| C2 · Plantillas que piden ayudantes o datos que nadie registra o pasa | BS-091, BS-094         |
+| C2 · Plantillas que piden ayudantes o datos que nadie registra o pasa | BS-091, BS-094, BS-097 |
 | C3 · El correo no distingue a quién le escribe                        | BS-093, BS-095         |
 | C4 · Los correos informaban sin dar nada que hacer                    | BS-096                 |
 
@@ -1508,6 +1508,7 @@ bocetaron los 13 en dos direcciones y se eligió la **B · De marca** para todos
 | BS-094 | Media | Correos | C1    | S        | ✅     |
 | BS-095 | Baja  | Correos | C3    | XS       | ✅     |
 | BS-096 | Baja  | Correos | C4    | S        | ✅     |
+| BS-097 | Media | Correos | C2    | S        | ✅     |
 
 ## Detalle
 
@@ -1551,12 +1552,18 @@ en la pantalla de acceso.
 Ni ver la cita, ni añadirla al calendario, ni cómo llegar, ni volver a reservar;
 y los de una cita los firmaba la plataforma, no el negocio.
 
+### BS-097 · La factura llegaba sin su PDF ✅
+
+El correo daba el total y los conceptos, pero no el documento. Ahora lo pide a
+payment al enviarse (`GET /internal/invoices/:id/pdf`) y lo adjunta; si payment
+no responde se reintenta, y en el último intento sale sin él antes que no
+llegar.
+
 ## Lo que queda fuera
 
 - El reporte mensual no lo envía ningún proceso; queda diseñado.
 - La bienvenida sale al crear la cuenta, no al confirmar el correo: auth no
   emite un evento al confirmarlo.
-- La factura no adjunta el PDF.
 
 ## Verificación
 
