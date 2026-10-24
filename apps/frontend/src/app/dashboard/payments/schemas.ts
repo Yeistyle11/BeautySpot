@@ -119,9 +119,22 @@ export function mediosDelCobro(form: CreateForm): string[] {
     : [form.method];
 }
 
-/** Si el cobro se puede enviar: el reparto cuadra y el descuento lleva motivo. */
+/**
+ * Si el descuento pasa del importe cobrado. El servidor lo rechaza, asi que el
+ * formulario lo dice antes de enviarlo.
+ */
+export function descuentoExcesivo(form: CreateForm): boolean {
+  const importe = Number(form.amount) || 0;
+  return importe > 0 && (Number(form.descuentoComercial) || 0) > importe;
+}
+
+/**
+ * Si el cobro se puede enviar: el reparto cuadra, el descuento no pasa del
+ * importe y lleva motivo.
+ */
 export function cobroListo(form: CreateForm): boolean {
   if (form.metodos.length > 0 && faltaPorRepartir(form) !== 0) return false;
+  if (descuentoExcesivo(form)) return false;
   if (Number(form.descuentoComercial) > 0 && !form.motivoDescuento.trim()) {
     return false;
   }

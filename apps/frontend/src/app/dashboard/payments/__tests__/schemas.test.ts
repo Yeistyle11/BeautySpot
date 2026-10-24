@@ -10,6 +10,7 @@ import {
   PAYMENTS_KEY,
   CLIENTS_KEY,
   cobroListo,
+  descuentoExcesivo,
   cobroParaEnviar,
   importeACobrar,
   mediosDelCobro,
@@ -197,5 +198,19 @@ describe("importe del cobro", () => {
         motivoDescuento: "Cumpleaños",
       })
     ).toBe(true);
+  });
+
+  it("no está listo con un descuento mayor que el importe", () => {
+    const conMotivo = { ...deUnaCita, motivoDescuento: "Cortesía" };
+    const tope = Number(deUnaCita.amount);
+    expect(
+      descuentoExcesivo({ ...conMotivo, descuentoComercial: String(tope) })
+    ).toBe(false);
+    expect(
+      descuentoExcesivo({ ...conMotivo, descuentoComercial: String(tope + 1) })
+    ).toBe(true);
+    expect(
+      cobroListo({ ...conMotivo, descuentoComercial: String(tope + 1) })
+    ).toBe(false);
   });
 });

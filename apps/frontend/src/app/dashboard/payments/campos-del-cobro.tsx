@@ -13,6 +13,7 @@ import { VALOR_DEL_PUNTO } from "@beautyspot/shared-constants";
 import { formatCurrency } from "@/lib/utils";
 import { nombreDelMetodo } from "@/lib/metodos-de-pago";
 import {
+  descuentoExcesivo,
   faltaPorRepartir,
   importeACobrar,
   totalDelCobro,
@@ -119,6 +120,11 @@ export function CamposDelCobro({
         <Field
           label="Descuento (COP)"
           hint="Lo que rebaja el negocio de su margen. Queda escrito con su motivo."
+          error={
+            descuentoExcesivo(form)
+              ? `No puede pasar del importe cobrado (${formatCurrency(Number(form.amount))})`
+              : undefined
+          }
         >
           {/* El descuento no pasa del importe. */}
           <Input
