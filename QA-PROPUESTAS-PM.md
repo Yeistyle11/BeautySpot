@@ -417,13 +417,16 @@ código**, no lo que el informe supuso.
 
 ### Resumen
 
-| #   | Mejora                                     | Impacto  | Esfuerzo | Estado       |
-| --- | ------------------------------------------ | -------- | -------- | ------------ |
-| P-1 | Buscador en el selector de cliente         | **Alto** | S        | 📋 propuesta |
-| P-2 | Explicar los ingresos no atribuibles       | Medio    | XS       | 📋 propuesta |
-| P-3 | Avisar cuando el descuento supera al cobro | Medio    | XS       | 📋 propuesta |
+| #   | Mejora                                     | Impacto  | Esfuerzo | Estado   |
+| --- | ------------------------------------------ | -------- | -------- | -------- |
+| P-1 | Buscador en el selector de cliente         | **Alto** | S        | ✅ hecha |
+| P-2 | Explicar los ingresos no atribuibles       | Medio    | XS       | ✅ hecha |
+| P-3 | Avisar cuando el descuento supera al cobro | Medio    | XS       | ✅ hecha |
 
-### P-1 · Buscador en el selector de cliente 📋
+### P-1 · Buscador en el selector de cliente ✅
+
+**Hecho.** Agenda, Pagos y Walk-in eligen al cliente con `SelectorDeEntidad`,
+que busca contra el servidor en vez de cargar la cartera entera.
 
 **Lo que hay hoy.** En _Agenda_ y en _Pagos_ el cliente se elige en un `<select>`
 plano que carga la cartera entera y solo se recorre con el desplegable. La
@@ -441,7 +444,14 @@ delante esperando. Y arrastra un coste de red que hoy no se ve, porque el
 **Coste.** S. El endpoint ya pagina y ya busca; el trabajo es un componente de
 selección con búsqueda, reutilizable en las dos pantallas.
 
-### P-2 · Explicar los ingresos no atribuibles 📋
+### P-2 · Explicar los ingresos no atribuibles ✅
+
+**Hecho (BS-086), con un cambio sobre la propuesta.** No hay fila «Sin
+profesional asignado»: el ingreso de cada profesional es el precio de lo que
+atendió y el total es lo cobrado, así que la diferencia mezcla cobros sin cita,
+descuentos, devoluciones y citas sin cobrar, y puede ir en los dos sentidos.
+Bajo la tabla se dice cuánto suma el equipo, cuánto se cobró y de dónde sale
+la diferencia.
 
 **Lo que hay hoy.** El informe del periodo muestra «Total del periodo $686.000»
 junto a «Ana Restrepo · $30.000» sin decir que la diferencia son cobros sin cita.
@@ -459,7 +469,11 @@ que deje de parecer roto.
 
 **Coste.** XS.
 
-### P-3 · Avisar cuando el descuento supera al cobro 📋
+### P-3 · Avisar cuando el descuento supera al cobro ✅
+
+**Hecho (BS-087), como regla y no como aviso.** Desde BS-QA-015 el servidor
+rechaza el descuento mayor que el importe; el formulario ahora lo dice bajo el
+campo, con el tope, y no deja enviar hasta corregirlo.
 
 **Lo que hay hoy.** Se acepta un descuento de $50.000 sobre un cobro de $10.000.
 El cálculo es correcto y está bien modelado: el importe es lo que se cobró y el

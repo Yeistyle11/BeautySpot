@@ -1346,12 +1346,13 @@ BS-UI-044 · BS-086 ← P-2 · BS-087 ← P-3.
 
 ## Decisiones tomadas
 
-| Tema      | Decisión                                                                                             |
-| --------- | ---------------------------------------------------------------------------------------------------- |
-| BS-UI-049 | Notificaciones se queda como lista de tarjetas: es un feed que se lee, no un listado que se gestiona |
-| BS-087    | El descuento mayor que el cobro sigue **bloqueado** (BS-QA-015); lo que falta es decirlo en pantalla |
-| BS-082    | Los diálogos animan también la salida; con `prefers-reduced-motion` no anima nada                    |
-| P-1       | Ya hecho: Agenda, Pagos y Walk-in eligen al cliente con `SelectorDeEntidad`, que busca               |
+| Tema      | Decisión                                                                                                                                |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| BS-UI-049 | Notificaciones se queda como lista de tarjetas: es un feed que se lee, no un listado que se gestiona                                    |
+| BS-087    | El descuento mayor que el cobro sigue **bloqueado** (BS-QA-015); lo que falta es decirlo en pantalla                                    |
+| BS-082    | Los diálogos animan también la salida; con `prefers-reduced-motion` no anima nada                                                       |
+| P-1       | Ya hecho: Agenda, Pagos y Walk-in eligen al cliente con `SelectorDeEntidad`, que busca                                                  |
+| BS-086    | Sin fila «sin profesional»: la diferencia mezcla cobros sin cita, descuentos, devoluciones y citas sin cobrar; se explica bajo la tabla |
 
 ## Agrupación por causa raíz
 
@@ -1371,75 +1372,86 @@ BS-UI-044 · BS-086 ← P-2 · BS-087 ← P-3.
 
 | ID     | Sev   | Módulo   | Causa | Esfuerzo | Estado |
 | ------ | ----- | -------- | ----- | -------- | ------ |
-| BS-077 | Media | Varios   | N1    | S        | ⬜     |
-| BS-078 | Media | Acceso   | N2    | S        | ⬜     |
-| BS-079 | Media | Varios   | N3    | S        | ⬜     |
-| BS-080 | Media | Varios   | N4    | XS       | ⬜     |
-| BS-081 | Baja  | Bloqueos | N5    | XS       | ⬜     |
-| BS-082 | Baja  | Interfaz | N6    | S        | ⬜     |
-| BS-083 | Baja  | Listados | N5    | XS       | ⬜     |
-| BS-084 | Baja  | Caja     | N5    | XS       | ⬜     |
-| BS-085 | Baja  | Varios   | N7    | XS       | ⬜     |
-| BS-086 | Media | Reportes | N8    | S        | ⬜     |
-| BS-087 | Baja  | Pagos    | N2    | XS       | ⬜     |
-| BS-088 | Media | Agenda   | N9    | XS       | ⬜     |
+| BS-077 | Media | Varios   | N1    | S        | ✅     |
+| BS-078 | Media | Acceso   | N2    | S        | ✅     |
+| BS-079 | Media | Varios   | N3    | S        | ✅     |
+| BS-080 | Media | Varios   | N4    | XS       | ✅     |
+| BS-081 | Baja  | Bloqueos | N5    | XS       | ✅     |
+| BS-082 | Baja  | Interfaz | N6    | S        | ✅     |
+| BS-083 | Baja  | Listados | N5    | XS       | ✅     |
+| BS-084 | Baja  | Caja     | N5    | XS       | ✅     |
+| BS-085 | Baja  | Varios   | N7    | XS       | ✅     |
+| BS-086 | Media | Reportes | N8    | S        | ✅     |
+| BS-087 | Baja  | Pagos    | N2    | XS       | ✅     |
+| BS-088 | Media | Agenda   | N9    | XS       | ✅     |
 
 ## Detalle
 
-### BS-077 · Guardar no avisaba de que se había guardado ⬜
+### BS-077 · Guardar no avisaba de que se había guardado ✅
 
 Caja, Pagos, Profesionales, Cuentas, el alta del negocio, el perfil del cliente
 y el alta y la edición de servicios cerraban el diálogo sin decir nada: quien
 guarda no sabe si se guardó o si se le cerró la ventana.
 
-### BS-078 · El error del acceso no decía qué campo fallaba ⬜
+### BS-078 · El error del acceso no decía qué campo fallaba ✅
 
 Un solo mensaje encima del botón, y todos los campos en rojo a la vez aunque
 solo uno estuviera mal.
 
-### BS-079 · Las duraciones se leían en minutos sueltos ⬜
+### BS-079 · Las duraciones se leían en minutos sueltos ✅
 
 «90 min», «150 min»: cada pantalla escribía la duración por su cuenta y ninguna
 la pasaba a horas.
 
-### BS-080 · Campos y enlaces del acceso por debajo de 44 px ⬜
+### BS-080 · Campos y enlaces del acceso por debajo de 44 px ✅
 
 Los campos de texto, los enlaces «Regístrate» y «¿Olvidaste tu contraseña?» y
 los chips de filtro no llegaban al mínimo táctil.
 
-### BS-081 · Borrar un bloqueo no decía cuál ⬜
+### BS-081 · Borrar un bloqueo no decía cuál ✅
 
 El único diálogo destructivo que no nombraba el registro ni seguía el patrón de
 `ConfirmDialog`.
 
-### BS-082 · Los diálogos se cerraban de golpe ⬜
+### BS-082 · Los diálogos se cerraban de golpe ✅
 
 Entraban animados y salían sin transición; los avisos no animaban.
 
-### BS-083 · Las acciones de cada fila iban a 4 px ⬜
+### BS-083 · Las acciones de cada fila iban a 4 px ✅
 
 Editar y desactivar quedaban pegados en escritorio.
 
-### BS-084 · «Cerrar caja» se pintaba como borrar ⬜
+### BS-084 · «Cerrar caja» se pintaba como borrar ✅
 
 Es el cierre normal del día, no una acción destructiva.
 
-### BS-085 · Textos que no decían lo mismo que el menú ⬜
+### BS-085 · Textos que no decían lo mismo que el menú ✅
 
 «Dashboard» donde el menú dice «Resumen», «Agregar» sin decir qué, «No hay datos
 disponibles», «Nuestro Equipo» y «Gestiona tus profesionales».
 
-### BS-086 · Reportes no explicaba los ingresos sin profesional ⬜
+### BS-086 · Reportes no explicaba los ingresos sin profesional ✅
 
 El total del periodo no cuadraba con la suma del ranking y nada decía que la
 diferencia son cobros sin cita.
 
-### BS-087 · El tope del descuento no se explicaba ⬜
+### BS-087 · El tope del descuento no se explicaba ✅
 
 El formulario frenaba un descuento mayor que el importe con el `max` del campo,
 sin decir por qué no se podía cobrar.
 
-### BS-088 · La vista Día no seguía el horario del negocio ⬜
+### BS-088 · La vista Día no seguía el horario del negocio ✅
 
 Pintaba siempre de 7:00 a 21:00; un negocio que abre de 20:00 a 02:00 veía una
 rejilla que no era su jornada. La semana sí lo tenía en cuenta.
+
+## Verificación
+
+En el navegador, contra la base local: el acceso vacío marca solo el email
+con su mensaje 8 px por debajo; un diálogo cerrado sigue en pantalla unos
+150 ms con la animación de salida y se vuelve a abrir limpio; la vista Día de
+un sábado de 09:00 a 20:00 pinta de 08:00 a 21:00; Reportes explica una
+diferencia de $91.000 entre lo atendido y lo cobrado.
+
+`type-check` y `lint` del frontend, Prettier sobre lo que cambia respecto a
+`main`, y la suite con el umbral de cobertura: **223 suites, 3057 pruebas**.
