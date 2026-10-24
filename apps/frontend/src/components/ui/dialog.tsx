@@ -73,6 +73,15 @@ export function Dialog({
 }: DialogProps) {
   const ancho = ANCHOS[size ?? (wide ? "lg" : "md")];
 
+  // Cada apertura estrena cuerpo, para que no arrastre lo escrito la vez
+  // anterior. El cuerpo sigue montado mientras dura la animacion de salida.
+  const [apertura, setApertura] = useState(0);
+  const [estabaAbierto, setEstabaAbierto] = useState(open);
+  if (open !== estabaAbierto) {
+    setEstabaAbierto(open);
+    if (open) setApertura((n) => n + 1);
+  }
+
   return (
     <DialogPrimitive.Root
       open={open}
@@ -82,26 +91,25 @@ export function Dialog({
       }}
     >
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="data-[state=open]:animate-aparecer-fondo fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px]" />
-        {open && (
-          <CuerpoDelDialogo
-            ancho={ancho}
-            onClose={onClose}
-            sinAvisoDeDescarte={sinAvisoDeDescarte}
-            title={title}
-            descripcion={descripcion}
-            icono={Icono}
-            pie={pie}
-          >
-            {children}
-          </CuerpoDelDialogo>
-        )}
+        <DialogPrimitive.Overlay className="data-[state=open]:animate-aparecer-fondo data-[state=closed]:animate-desaparecer-fondo fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px]" />
+        <CuerpoDelDialogo
+          key={apertura}
+          ancho={ancho}
+          onClose={onClose}
+          sinAvisoDeDescarte={sinAvisoDeDescarte}
+          title={title}
+          descripcion={descripcion}
+          icono={Icono}
+          pie={pie}
+        >
+          {children}
+        </CuerpoDelDialogo>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   );
 }
 
-/** El dialogo, montado solo mientras esta abierto. */
+/** El dialogo; Radix lo desmonta al acabar la animacion de salida. */
 function CuerpoDelDialogo({
   ancho,
   onClose,
@@ -135,7 +143,7 @@ function CuerpoDelDialogo({
     <CierreDelDialogo.Provider value={intentarCerrar}>
       <DialogPrimitive.Content
         className={cn(
-          "bg-background data-[state=open]:animate-aparecer-dialogo shadow-overlay fixed left-1/2 top-1/2 z-50 flex max-h-[90dvh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border focus:outline-none",
+          "bg-background data-[state=open]:animate-aparecer-dialogo data-[state=closed]:animate-desaparecer-dialogo shadow-overlay fixed left-1/2 top-1/2 z-50 flex max-h-[90dvh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border focus:outline-none",
           ancho
         )}
         // Los contenidos varian y no tienen una descripcion unica que anunciar.
