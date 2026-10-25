@@ -4,7 +4,7 @@
     "module": "commonjs",
     "moduleResolution": "node10",
     "ignoreDeprecations": "5.0",
-    "lib": ["ES2022"],
+    "lib": ["ES2023"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

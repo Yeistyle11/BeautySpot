@@ -6,7 +6,7 @@ import {
   DEAD_LETTER_EXCHANGE,
   DEAD_LETTER_QUEUE,
 } from "@beautyspot/event-types";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import type { ChannelModel, Channel } from "amqplib";
 
 /** Mensaje enviado a la Dead Letter Queue: el evento original más el detalle del fallo. */
@@ -114,10 +114,10 @@ export class EventBusService implements OnModuleDestroy {
     }
 
     const message: IBaseEvent<T> = {
-      eventId: eventId || uuidv4(),
+      eventId: eventId || randomUUID(),
       eventType,
       timestamp: new Date(),
-      correlationId: correlationId || uuidv4(),
+      correlationId: correlationId || randomUUID(),
       payload,
     };
 
