@@ -4,7 +4,7 @@
 //
 // Las fotos del negocio se suben a la propia app y se sirven en /media, que es
 // del mismo origen y no necesita estar aqui. Esta lista cubre las URLs externas
-// que algunos negocios guardaron antes y las que declare cada despliegue. Next
+// que hay guardadas y los hosts que declare cada despliegue. Next
 // solo optimiza hosts declarados y falla en el resto, asi que es la unica
 // fuente de verdad: se usa para `remotePatterns` y se expone al cliente para
 // decidir, imagen a imagen, si se puede optimizar o hay que servirla tal cual

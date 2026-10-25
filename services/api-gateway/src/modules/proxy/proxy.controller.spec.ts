@@ -621,7 +621,6 @@ describe("ProxyController (reenvío)", () => {
       expect(breakerFallos).toBe(1);
     });
 
-    // AbortSignal.timeout rechaza con TimeoutError; un aborto manual, con AbortError.
     it.each(["TimeoutError", "AbortError"])(
       "convierte el %s del tiempo límite en 504",
       async (nombre) => {
