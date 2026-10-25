@@ -1,7 +1,7 @@
 # Plan de remediación — BeautySpot
 
 Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
-`fix/responsive-movil` para las cuatro últimas. Siete campañas, en orden:
+`fix/responsive-movil` para las cuatro últimas. Nueve campañas, en orden:
 
 1. **`QA-REPORT-BeautySpot-2026-08-22`** — 28 hallazgos `BS-001`…`BS-028`
    (1 bloqueante, 5 altos, 15 medios, 7 bajos). Cerrada.
@@ -17,7 +17,11 @@ Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
 6. **Correos 2026-10-24** — 8 hallazgos `BS-090`…`BS-097` (2 altos, 4 medios,
    2 bajos).
 7. **Imágenes 2026-10-24** — 7 hallazgos `BS-098`…`BS-104` (3 altos, 3 medios,
-   1 bajo). Al final del documento.
+   1 bajo).
+8. **Seguridad del runtime 2026-10-24** — `BS-105`…`BS-106`, en la rama
+   `chore/node-26`.
+9. **Cumpleaños del cliente 2026-10-25** — 1 hallazgo `BS-107` (medio), en la
+   rama `feat/cumpleanos-del-cliente`. Al final del documento.
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 propuesta `[PM]` (no se implementa) · ❓ necesita aclaración
 
@@ -1692,3 +1696,63 @@ Configuración y de dos fotos a la galería, vistas en el escaparate público po
 logo reemplazado responde 404; un HTML renombrado a `.jpg` se rechaza; la foto
 de un profesional llega a `professional_profiles` por el evento. A 375 px el
 formulario no desborda.
+
+---
+
+# Campaña 2026-10-25 — `BS-107` · Cumpleaños del cliente
+
+Origen: el usuario vio que se envía una felicitación de cumpleaños pero el
+registro del cliente nunca pide la fecha de nacimiento.
+
+## Decisiones tomadas
+
+| Tema     | Decisión                                                                               |
+| -------- | -------------------------------------------------------------------------------------- |
+| Registro | Opcional, con el motivo a la vista: «Solo la usamos para felicitarte en tu cumpleaños» |
+| Dónde    | En el registro y en «Mi perfil»; la reserva como invitado no la pide                   |
+| Dueño    | Es un dato de la cuenta (auth) que se copia a sus fichas en cada negocio               |
+
+## Tablero
+
+| ID     | Sev   | Módulo   | Causa | Esfuerzo | Estado |
+| ------ | ----- | -------- | ----- | -------- | ------ |
+| BS-107 | Media | Clientes | —     | M        | ✅     |
+
+## Detalle
+
+### BS-107 · La felicitación de cumpleaños no tenía de dónde salir ✅
+
+El sondeo de core felicita a las fichas con `birth_date`, pero solo el personal
+podía ponerla desde la ficha: ni el registro, ni la reserva, ni «Mi perfil» la
+pedían, y la cuenta de auth no tenía dónde guardarla. Ahora:
+
+- `users.birth_date` en auth, con migración, se pide opcional en el registro y
+  se edita en «Mi perfil». Un validador compartido (`@EsFechaDeNacimiento`)
+  rechaza días que no existen, futuros o de hace más de 120 años, igual en auth
+  y en core.
+- `PATCH /auth/users/me` publica `auth.user.profile-updated` y core copia
+  nombre, teléfono y fecha a todas las fichas de la cuenta. La que cambia de
+  fecha vuelve a poder recibir la felicitación del año; la que chocaría por
+  teléfono con otra del negocio conserva el suyo.
+- La ficha que nace al reservar, o la que se vincula sin fecha, toma la de la
+  cuenta.
+- «Mi perfil» guarda en la cuenta, que es la fuente, y deja de escribir primero
+  en la ficha.
+
+## Verificación
+
+Unitarias del validador, del registro y el perfil en auth, de la copia a las
+fichas y del listener en core, y del campo en el frontend. Suite completa con el
+umbral de cobertura: **235 suites, 3173 pruebas**.
+
+En el stack local: el registro rechaza una fecha futura y guarda una válida; la
+ficha que nace al reservar trae la fecha de la cuenta; cambiarla en «Mi perfil»
+la copia a la ficha; con la fecha de hoy, el sondeo publica
+`core.client.birthday` y llega el aviso en la app. A 375 px el formulario no
+desborda.
+
+## Visto de paso
+
+Tras una caída de la conexión con RabbitMQ, un servicio que confirma un mensaje
+por el canal ya cerrado se cae (`IllegalOperationError: Channel closed`). Pasó
+en notification durante la prueba; queda para revisarlo aparte.
