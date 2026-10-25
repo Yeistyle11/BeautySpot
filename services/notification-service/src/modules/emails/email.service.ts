@@ -105,10 +105,8 @@ export class EmailService {
   }
 
   /**
-   * Renderiza la plantilla indicada y envía el correo por SMTP de inmediato.
-   * Con `adjunto`, pide antes el PDF de la factura. Si no llega, falla para
-   * que la cola reintente, salvo con `sinAdjuntoSiFalla`: en el último intento
-   * vale más que la factura llegue sin PDF a que no llegue.
+   * Renderiza la plantilla y envía el correo por SMTP. Con `adjunto`, adjunta el
+   * PDF de la factura; si no llega, falla salvo con `sinAdjuntoSiFalla`.
    */
   async sendEmail(
     to: string,
@@ -219,7 +217,7 @@ export class EmailService {
     });
   }
 
-  /** Recordatorio del día antes. */
+  /** Recordatorio de la víspera. */
   async queueAppointmentReminder24h(
     to: string,
     cita: DatosDeCita
@@ -234,7 +232,7 @@ export class EmailService {
     });
   }
 
-  /** Recordatorio de una hora antes (prioridad alta). */
+  /** Recordatorio una hora antes de la cita (prioridad alta). */
   async queueAppointmentReminder1h(
     to: string,
     cita: DatosDeCita
@@ -420,11 +418,7 @@ export class EmailService {
     });
   }
 
-  /**
-   * Aviso de que alguien intentó darse de alta con un correo que ya tiene
-   * cuenta. Va con prioridad alta: es un aviso de seguridad y quien lo recibe
-   * puede estar esperándolo delante de la pantalla.
-   */
+  /** Aviso de alta con un correo que ya tiene cuenta (prioridad alta). */
   async queueRegistroDuplicado(
     to: string,
     data: { clientName: string; recoveryLink: string }

@@ -43,8 +43,7 @@ export class ImagesService {
     }
 
     const imagen = await procesarImagen(archivo, proposito);
-    // Un nombre nuevo en cada subida: el archivo nunca cambia, así que se puede
-    // cachear para siempre, y no dice nada de quien lo subió.
+    // Nombre nuevo en cada subida.
     const clave = `negocios/${businessId}/${proposito}/${randomUUID()}.webp`;
     await this.almacen.guardar(clave, imagen.datos);
 
@@ -63,11 +62,7 @@ export class ImagesService {
     return datos;
   }
 
-  /**
-   * Borra las imágenes que ya no usa el negocio. Solo toca las suyas, y un
-   * fallo se registra sin propagarse: el cambio que las dejó sin uso ya está
-   * guardado, y un archivo de más no rompe nada.
-   */
+  /** Borra las imágenes del negocio indicadas; un fallo se registra sin propagarse. */
   async descartar(urls: string[], businessId: string): Promise<void> {
     for (const url of urls) {
       const propia = claveDeImagenPropia(url);

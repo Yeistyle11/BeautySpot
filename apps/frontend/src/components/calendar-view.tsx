@@ -279,9 +279,7 @@ export function CalendarView({
                           esDiaCerrado(d, diasAbiertos) ? "bg-muted/40" : ""
                         }`}
                       >
-                        {/* Los bloqueos van antes que las citas: la tarde de quien
-                        esta de vacaciones se veia libre justo en la pantalla
-                        con la que se responde al telefono. */}
+                        {/* Los bloqueos se pintan delante de las citas. */}
                         {hourBloqueos.map((bloqueo) => (
                           <p
                             key={bloqueo.id}

@@ -30,9 +30,8 @@ export function esImagenPropia(url: string, businessId: string): boolean {
 }
 
 /**
- * Exige que una imagen que se guarda la haya subido el propio negocio. Se deja
- * pasar la que ya estaba guardada, aunque sea una URL externa, para que editar
- * otro campo no obligue a cambiarla.
+ * Exige que la imagen que se guarda la haya subido el propio negocio, salvo que
+ * sea la que ya estaba guardada.
  */
 export function asegurarImagenPropia(
   nueva: string | null | undefined,
@@ -52,10 +51,7 @@ export function asegurarImagenPropia(
   }
 }
 
-/**
- * Las imágenes propias que había y ya no están: las que se pueden borrar del
- * almacén después de guardar el cambio.
- */
+/** Imágenes propias de `antes` que no siguen en `despues`. */
 export function imagenesQueSobran(
   antes: ReadonlyArray<string | null | undefined>,
   despues: ReadonlyArray<string | null | undefined>

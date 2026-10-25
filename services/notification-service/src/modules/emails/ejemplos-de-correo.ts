@@ -1,8 +1,4 @@
-/**
- * Un contexto completo por plantilla, con los mismos campos que les pasan los
- * listeners. Lo usan las pruebas del render y la vista previa
- * (`npm run correos:vista-previa`), que pinta cada correo a un fichero.
- */
+/** Un contexto completo por plantilla, con los campos que pasan los listeners. */
 
 const NEGOCIO = {
   businessName: "Barbería La Noche",
@@ -100,11 +96,7 @@ export const EJEMPLOS_DE_CORREO: Record<string, Record<string, unknown>> = {
   },
 };
 
-/**
- * Los mismos correos con solo lo imprescindible: sin dirección ni teléfono,
- * sin cuenta (invitado) y sin enlaces opcionales. Es lo que tiene que aguantar
- * cada plantilla sin dejar filas vacías.
- */
+/** Los mismos correos con lo mínimo: invitado, sin dirección, teléfono ni enlaces. */
 export const EJEMPLOS_MINIMOS: Record<
   string,
   Record<string, unknown>

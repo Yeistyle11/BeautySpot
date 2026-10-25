@@ -119,10 +119,7 @@ export function mediosDelCobro(form: CreateForm): string[] {
     : [form.method];
 }
 
-/**
- * Si el descuento pasa del importe cobrado. El servidor lo rechaza, asi que el
- * formulario lo dice antes de enviarlo.
- */
+/** Si el descuento pasa del importe cobrado. */
 export function descuentoExcesivo(form: CreateForm): boolean {
   const importe = Number(form.amount) || 0;
   return importe > 0 && (Number(form.descuentoComercial) || 0) > importe;

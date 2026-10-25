@@ -10,15 +10,14 @@ import {
 import { ConfigService } from "@nestjs/config";
 
 /**
- * Dónde viven los archivos de las imágenes. Lo demás del sistema solo conoce
- * claves (`negocios/{id}/{propósito}/{archivo}.webp`), así que cambiar de disco
- * a un almacén S3 es cuestión de configuración.
+ * Almacén de los archivos de imagen, por clave
+ * (`negocios/{id}/{propósito}/{archivo}.webp`).
  */
 export abstract class AlmacenDeImagenes {
   abstract guardar(clave: string, datos: Buffer): Promise<void>;
   /** El archivo, o null si no existe. */
   abstract leer(clave: string): Promise<Buffer | null>;
-  /** Borra el archivo; no falla si ya no estaba. */
+  /** Borra el archivo; no falla si no existe. */
   abstract borrar(clave: string): Promise<void>;
 }
 

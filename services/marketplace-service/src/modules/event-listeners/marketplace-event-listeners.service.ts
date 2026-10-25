@@ -91,10 +91,7 @@ export class MarketplaceEventListeners {
     );
   }
 
-  /**
-   * Copia nombre y foto del profesional a su perfil del escaparate, si lo
-   * tiene. El evento trae el valor actual, así que repetirlo no cambia nada.
-   */
+  /** Copia nombre y foto del profesional a su perfil del escaparate, si lo tiene. */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
     routingKey: EventNames.CORE_PROFESSIONAL_UPDATED,

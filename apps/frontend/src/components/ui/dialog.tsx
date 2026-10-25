@@ -73,8 +73,7 @@ export function Dialog({
 }: DialogProps) {
   const ancho = ANCHOS[size ?? (wide ? "lg" : "md")];
 
-  // Cada apertura estrena cuerpo, para que no arrastre lo escrito la vez
-  // anterior. El cuerpo sigue montado mientras dura la animacion de salida.
+  // Cada apertura monta un cuerpo nuevo, que sigue montado durante la salida.
   const [apertura, setApertura] = useState(0);
   const [estabaAbierto, setEstabaAbierto] = useState(open);
   if (open !== estabaAbierto) {
@@ -109,11 +108,7 @@ export function Dialog({
   );
 }
 
-/**
- * El dialogo; Radix lo desmonta al acabar la animacion de salida. Para saber
- * cuando acaba necesita el nodo, asi que el `ref` que le pasa el portal se
- * entrega al contenido.
- */
+/** El dialogo; el `ref` del portal se entrega al contenido. */
 function CuerpoDelDialogo({
   ref,
   ancho,

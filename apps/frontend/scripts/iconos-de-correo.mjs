@@ -1,7 +1,4 @@
-// Genera los PNG que usan los correos (public/correo/). Los correos no pueden
-// llevar SVG —Gmail no los pinta—, así que los iconos del sistema se rasterizan
-// a doble resolución y se sirven desde la propia web.
-//
+// Genera a doble resolución los PNG de los correos (public/correo/).
 // Uso, desde apps/frontend: node scripts/iconos-de-correo.mjs
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -65,11 +62,7 @@ function svgDeIcono(nombre, color, lado) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${lado}" height="${lado}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${TRAZOS[nombre]}</svg>`;
 }
 
-/**
- * El icono de cabecera: un círculo blanco con aro lila, montado a caballo
- * entre la banda violeta y la tarjeta blanca. El corte de colores va dentro de
- * la imagen porque un correo no puede solapar dos celdas.
- */
+/** Icono de cabecera: círculo blanco con aro lila, con la banda violeta detrás. */
 function svgDeCabecera(nombre) {
   const lado = 168;
   const mitad = lado / 2;

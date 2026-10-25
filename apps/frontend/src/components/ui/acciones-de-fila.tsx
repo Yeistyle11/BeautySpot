@@ -16,15 +16,9 @@ export interface AccionDeFila {
   alElegir: () => void;
   tono?: "destructivo" | "exito";
   deshabilitada?: boolean;
-  /**
-   * `false` deja el hueco vacio en escritorio, para que los iconos de todas
-   * las filas caigan en la misma columna, y la saca del menu.
-   */
+  /** `false` deja su hueco vacio en escritorio y la saca del menu. */
   visible?: boolean;
-  /**
-   * Accion que en escritorio ya se ve como `principal`, con texto; aqui solo
-   * se lista para que en movil entre en el menu.
-   */
+  /** Solo en el menu movil: en escritorio ya se ve como `principal`. */
   soloEnMenu?: boolean;
 }
 
@@ -34,9 +28,8 @@ const TONO_DEL_ICONO = {
 } as const;
 
 /**
- * Las acciones de una fila. Con una sola, el icono se ve en todos los anchos;
- * con mas, por debajo de `md` se agrupan en un menu que dice cada una con
- * palabras, porque en tactil no hay `title` que explique un icono.
+ * Las acciones de una fila: iconos en escritorio y, con mas de una, un menu con
+ * texto por debajo de `md`.
  */
 export function AccionesDeFila({
   sobre,
@@ -47,10 +40,7 @@ export function AccionesDeFila({
   sobre: string;
   /** Las que no apliquen pueden pasarse como `false` y no ocupan sitio. */
   acciones: (AccionDeFila | false | null | undefined)[];
-  /**
-   * Boton con texto delante de los iconos. Si hay menu, en movil se oculta:
-   * para que siga a mano, se repite en `acciones` con `soloEnMenu`.
-   */
+  /** Boton con texto delante de los iconos; con menu, se oculta en movil. */
   principal?: React.ReactNode;
 }) {
   const aplicables = acciones.filter((a): a is AccionDeFila => !!a);

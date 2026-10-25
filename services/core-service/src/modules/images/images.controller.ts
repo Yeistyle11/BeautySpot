@@ -22,10 +22,7 @@ import {
 import { ImagesService, ImagenSubida } from "./images.service";
 import { DescartarImagenesDto, SubirImagenDto } from "./images.dto";
 
-/**
- * Recepción del archivo en memoria, cortada por multer en cuanto supera el
- * tamaño máximo en vez de leerlo entero.
- */
+/** Recepción del archivo en memoria, con el tamaño máximo. */
 const SUBIDA_DE_IMAGEN = FileInterceptor("archivo", {
   limits: { fileSize: MAXIMO_BYTES_IMAGEN, files: 1, fields: 5 },
 });

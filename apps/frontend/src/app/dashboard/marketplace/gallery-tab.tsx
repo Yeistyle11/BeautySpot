@@ -78,9 +78,8 @@ export function GalleryTab({
                   </div>
                 )}
                 {canEdit && (
-                  // La capa de acciones aparece al pasar el raton y sigue
-                  // siendo alcanzable con teclado (focus-within). En tactil no
-                  // hay raton: el boton se queda siempre en la esquina.
+                  // Acciones al pasar el raton o con foco; en tactil, fijas en
+                  // la esquina.
                   <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(pointer:coarse)]:items-start [@media(pointer:coarse)]:justify-end [@media(pointer:coarse)]:bg-transparent [@media(pointer:coarse)]:p-1 [@media(pointer:coarse)]:opacity-100">
                     <Button
                       size="sm"
