@@ -18,7 +18,8 @@ Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
    2 bajos).
 7. **Imágenes 2026-10-24** — 7 hallazgos `BS-098`…`BS-104` (3 altos, 3 medios,
    1 bajo).
-8. **Seguridad del runtime 2026-10-24** — 1 hallazgo `BS-105` (alto), en la rama
+8. **Seguridad del runtime 2026-10-24** — 2 hallazgos `BS-105`…`BS-106` (1 alto,
+   1 bajo), en la rama
    `chore/node-26`. Al final del documento.
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 propuesta `[PM]` (no se implementa) · ❓ necesita aclaración
@@ -1697,7 +1698,7 @@ formulario no desborda.
 
 ---
 
-# Campaña 2026-10-24 (5) — `BS-105` · Seguridad del runtime
+# Campaña 2026-10-24 (5) — `BS-105`…`BS-106` · Seguridad del runtime
 
 Origen: el 21 de octubre de 2026 Node.js publicó parches para 10 CVE, cuatro
 altos (Brotli con posible ejecución remota, dos saltos de la validación de
@@ -1716,6 +1717,7 @@ pidió subir a la versión con el parche.
 | ID     | Sev  | Módulo     | Causa | Esfuerzo | Estado |
 | ------ | ---- | ---------- | ----- | -------- | ------ |
 | BS-105 | Alta | Plataforma | —     | S        | ✅     |
+| BS-106 | Baja | Plataforma | —     | S        | ✅     |
 
 ## Detalle
 
@@ -1730,10 +1732,20 @@ todos los workspaces. Ninguna dependencia usa las APIs que Node 26 retiró
 (`http.writeHeader()`, los módulos `_stream_*`); la única nativa, sharp, va por
 N-API.
 
+### BS-106 · Dependencias que Node ya trae de serie ✅
+
+`uuid` y `dotenv` hacían lo que Node ya trae: `crypto.randomUUID()` y
+`process.loadEnvFile()` / `util.parseEnv()`. Salen de siete y nueve workspaces
+respectivamente; cada dependencia de menos es una vía menos para la próxima
+vulnerabilidad. El proxy del gateway pasa a `AbortSignal.timeout` y los
+servicios compilan con `lib` ES2023. Los paquetes que comparte el navegador
+siguen en ES2022, y el frontend no usa `toSorted` porque Next 16 aún soporta
+Firefox 111–114.
+
 ## Verificación
 
 Con Node 26.12.1 y npm 11.20.0 en local, instalación limpia: `format:check`,
-`build`, `lint` y `type-check` en verde, y **233 suites, 3155 pruebas** con el
+`build`, `lint` y `type-check` en verde, y **233 suites, 3157 pruebas** con el
 umbral de cobertura. Los 8 servicios y el frontend arrancan; login, subida de
 imagen (sharp), PDF de factura, agenda y escaparate público responden bien.
 
