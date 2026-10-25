@@ -136,11 +136,6 @@ export class ProxyController {
     const subida = this.proxyService.esSubida(req);
     if (subida) this.proxyService.validarSubida(req);
 
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      subida ? PROXY_TIMEOUT_SUBIDA_MS : PROXY_TIMEOUT_MS
-    );
     // Se mide solo el salto al backend, no lo que el gateway tarda en resolver
     // ruta y cabeceras.
     const comienzo = Date.now();
@@ -159,10 +154,12 @@ export class ProxyController {
             ? // El archivo pasa en streaming: el gateway no lo carga entero.
               (Readable.toWeb(req) as unknown as BodyInit)
             : JSON.stringify(cuerpo),
-        signal: controller.signal,
+        // Cubre también la lectura del cuerpo, no solo la espera de cabeceras.
+        signal: AbortSignal.timeout(
+          subida ? PROXY_TIMEOUT_SUBIDA_MS : PROXY_TIMEOUT_MS
+        ),
         ...(subida ? { duplex: "half" } : {}),
       } as RequestInit);
-      clearTimeout(timeout);
       this.medirSalto(service, req, response.status, comienzo);
 
       const binario = await this.proxyService.leerBinario(response);
@@ -189,7 +186,6 @@ export class ProxyController {
 
       return respuesta;
     } catch (error) {
-      clearTimeout(timeout);
       // Un servicio que agota el timeout es el caso de latencia por excelencia:
       // dejarlo sin medir esconde justo al que peor se está portando.
       if (!(error instanceof ErrorDeServicio)) {

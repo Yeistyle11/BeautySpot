@@ -621,15 +621,30 @@ describe("ProxyController (reenvío)", () => {
       expect(breakerFallos).toBe(1);
     });
 
-    it("convierte el aborto por timeout en 504", async () => {
-      const abort = new Error("abortado");
-      abort.name = "AbortError";
-      fetchMock.mockRejectedValue(abort);
+    // AbortSignal.timeout rechaza con TimeoutError; un aborto manual, con AbortError.
+    it.each(["TimeoutError", "AbortError"])(
+      "convierte el %s del tiempo límite en 504",
+      async (nombre) => {
+        const abort = new Error("abortado");
+        abort.name = nombre;
+        fetchMock.mockRejectedValue(abort);
+        const { res } = fakeResponseOut();
+
+        await expect(
+          controller.proxyRequest("core-service", fakeRequest(), res)
+        ).rejects.toMatchObject({ status: HttpStatus.GATEWAY_TIMEOUT });
+      }
+    );
+
+    it("pone un tiempo límite a cada llamada al servicio", async () => {
+      fetchMock.mockResolvedValue(fakeResponse(200, "{}"));
       const { res } = fakeResponseOut();
 
-      await expect(
-        controller.proxyRequest("core-service", fakeRequest(), res)
-      ).rejects.toMatchObject({ status: HttpStatus.GATEWAY_TIMEOUT });
+      await controller.proxyRequest("core-service", fakeRequest(), res);
+
+      const { signal } = fetchMock.mock.calls[0][1];
+      expect(signal).toBeInstanceOf(AbortSignal);
+      expect(signal.aborted).toBe(false);
     });
 
     it("convierte un fallo de red en 503", async () => {
