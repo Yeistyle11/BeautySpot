@@ -7,6 +7,9 @@ import {
   procesarImagen,
 } from "./procesado-de-imagen";
 
+// Margen para la primera carga de sharp con la suite completa en paralelo.
+jest.setTimeout(30_000);
+
 /** Una foto de prueba como la que saldría de una cámara. */
 function foto(
   ancho: number,
