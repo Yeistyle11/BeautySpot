@@ -27,12 +27,14 @@ describe("UsersService", () => {
   let mockHttpUsers: { enviar: jest.Mock };
   let mockAuditLogRepository: jest.Mocked<any>;
   let mockTokenVersionStore: jest.Mocked<TokenVersionStore>;
+  let mockOutboxUsers: { enqueue: jest.Mock };
 
   const mockUser: User = {
     id: "user-123",
     email: "test@example.com",
     name: "Test User",
     phone: "+573001234567",
+    birthDate: null,
     password: "hashed-password",
     active: true,
     avatar: "",
@@ -99,7 +101,7 @@ describe("UsersService", () => {
       bumpVersion: jest.fn().mockResolvedValue(1),
     } as any;
 
-    const mockOutboxUsers = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    mockOutboxUsers = { enqueue: jest.fn().mockResolvedValue(undefined) };
     // Los nombres de negocio los resuelve core; por defecto no devuelve ninguno.
     mockHttpUsers = { enviar: jest.fn().mockResolvedValue([]) };
 
@@ -185,20 +187,22 @@ describe("UsersService", () => {
   });
 
   describe("contacto", () => {
-    it("da solo el correo y el nombre, nada de la contraseña", async () => {
+    it("da correo, nombre y nacimiento, nada de la contraseña", async () => {
       mockUserRepository.findOne.mockResolvedValue({
         id: "user-123",
         email: "dueno@example.com",
         name: "Yeison",
+        birthDate: "1990-05-17",
       });
 
       await expect(service.contacto("user-123")).resolves.toEqual({
         email: "dueno@example.com",
         name: "Yeison",
+        birthDate: "1990-05-17",
       });
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({
         where: { id: "user-123" },
-        select: { id: true, email: true, name: true },
+        select: { id: true, email: true, name: true, birthDate: true },
       });
     });
 
@@ -491,6 +495,30 @@ describe("UsersService", () => {
 
       await expect(service.findById("user-123")).rejects.toThrow(
         "Database connection failed"
+      );
+    });
+
+    it("avisa a las fichas con el nombre, el teléfono y el nacimiento actuales", async () => {
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        birthDate: "1990-05-17",
+      });
+
+      await service.updateProfile("user-123", { birthDate: "1990-05-17" });
+
+      expect(mockOutboxUsers.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          eventType: "auth.user.profile-updated",
+          aggregateId: "user-123",
+          payload: {
+            userId: "user-123",
+            name: mockUser.name,
+            phone: mockUser.phone,
+            birthDate: "1990-05-17",
+          },
+        })
       );
     });
 

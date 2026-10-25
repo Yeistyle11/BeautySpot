@@ -28,7 +28,10 @@ export interface MembresiaConNegocio {
   role: string;
   businessName: string;
 }
-import { EventNames } from "@beautyspot/event-types";
+import {
+  EventNames,
+  type UserProfileUpdatedPayload,
+} from "@beautyspot/event-types";
 
 /**
  * Gestiona las cuentas de usuario y el staff de cada negocio: consultas,
@@ -63,13 +66,19 @@ export class UsersService {
     return row?.tokenVersion ?? 0;
   }
 
-  /** Correo y nombre de una cuenta, para escribirle; null si no existe. */
-  async contacto(id: string): Promise<{ email: string; name: string } | null> {
+  /** Correo, nombre y fecha de nacimiento de una cuenta; null si no existe. */
+  async contacto(id: string): Promise<{
+    email: string;
+    name: string;
+    birthDate: string | null;
+  } | null> {
     const row = await this.userRepository.findOne({
       where: { id },
-      select: { id: true, email: true, name: true },
+      select: { id: true, email: true, name: true, birthDate: true },
     });
-    return row ? { email: row.email, name: row.name } : null;
+    return row
+      ? { email: row.email, name: row.name, birthDate: row.birthDate ?? null }
+      : null;
   }
 
   /** Busca un usuario por id; lanza 404 si no existe. */
@@ -135,14 +144,37 @@ export class UsersService {
     };
   }
 
-  /** Actualiza el perfil del propio usuario (nombre, teléfono, avatar). */
+  /** Actualiza el perfil propio y lo publica por el outbox. */
   async updateProfile(
     id: string,
-    data: { name?: string; phone?: string; avatar?: string }
+    data: {
+      name?: string;
+      phone?: string;
+      avatar?: string;
+      birthDate?: string | null;
+    }
   ): Promise<SafeUser> {
-    await this.userRepository.update(id, data);
-    const user = await this.findById(id);
-    return toSafeUser(user);
+    const guardado = await this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(User);
+      await repo.update(id, data);
+      const user = await repo.findOne({ where: { id } });
+      if (!user) throw new NotFoundException("Usuario no encontrado");
+
+      const payload: UserProfileUpdatedPayload = {
+        userId: user.id,
+        name: user.name,
+        phone: user.phone ?? null,
+        birthDate: user.birthDate ?? null,
+      };
+      await this.outboxService.enqueue(manager, {
+        eventType: EventNames.AUTH_USER_PROFILE_UPDATED,
+        aggregateType: "users",
+        aggregateId: user.id,
+        payload: { ...payload },
+      });
+      return user;
+    });
+    return toSafeUser(guardado);
   }
 
   /** Desactiva la propia cuenta (baja lógica). */

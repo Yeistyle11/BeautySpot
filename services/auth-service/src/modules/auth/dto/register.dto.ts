@@ -11,9 +11,10 @@ import {
   PATRON_TELEFONO,
   MENSAJE_TELEFONO,
 } from "@beautyspot/shared-constants";
+import { EsFechaDeNacimiento } from "@beautyspot/nest-common";
 import { EsContrasenaValida } from "./contrasena.decorator";
 
-/** Datos para registrar una cuenta nueva: email, contraseña, nombre y teléfono. */
+/** Datos para registrar una cuenta nueva. */
 export class RegisterDto {
   @IsEmail({}, { message: "El email no tiene un formato válido" })
   email!: string;
@@ -32,4 +33,8 @@ export class RegisterDto {
   @ValidateIf((o: { phone?: string }) => !!o.phone)
   @Matches(PATRON_TELEFONO, { message: MENSAJE_TELEFONO })
   phone?: string;
+
+  /** Para felicitar al cliente en su cumpleaños. */
+  @EsFechaDeNacimiento()
+  birthDate?: string | null;
 }

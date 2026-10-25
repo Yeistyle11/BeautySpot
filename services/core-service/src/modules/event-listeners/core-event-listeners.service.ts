@@ -5,6 +5,7 @@ import {
   AppointmentCompletedEvent,
   AppointmentNoShowedEvent,
   PointsRedeemedEvent,
+  UserProfileUpdatedEvent,
   EventNames,
   EVENTS_EXCHANGE,
   DEAD_LETTER_EXCHANGE,
@@ -21,6 +22,25 @@ export class CoreEventListeners {
     private readonly clients: ClientsService,
     private readonly processedEvents: ProcessedEventsStore
   ) {}
+
+  /** Copia a todas las fichas de la cuenta los datos de su perfil. */
+  @RabbitSubscribe({
+    exchange: EVENTS_EXCHANGE,
+    routingKey: EventNames.AUTH_USER_PROFILE_UPDATED,
+    queue: nombreDeCola("core", EventNames.AUTH_USER_PROFILE_UPDATED),
+    queueOptions: { deadLetterExchange: DEAD_LETTER_EXCHANGE },
+  })
+  async handleUserProfileUpdated(
+    event: UserProfileUpdatedEvent
+  ): Promise<void> {
+    const { userId, name, phone, birthDate } = event.payload;
+    const fichas = await this.clients.copiarDatosDeLaCuenta(userId, {
+      name,
+      phone,
+      birthDate,
+    });
+    this.logger.log(`Datos de la cuenta ${userId} copiados a ${fichas} fichas`);
+  }
 
   /**
    * Acredita al cliente los puntos que la cita atendida genero, dentro de

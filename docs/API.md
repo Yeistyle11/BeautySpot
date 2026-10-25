@@ -237,7 +237,7 @@ Autenticación, usuarios, personal y membresías. Base de datos `beautyspot_auth
 
 | Método | Ruta                      | Roles       | Descripción                                    |
 | ------ | ------------------------- | ----------- | ---------------------------------------------- |
-| POST   | `/register`               | PÚBLICA     | Registra usuario y negocio                     |
+| POST   | `/register`               | PÚBLICA     | Registra la cuenta de quien reserva            |
 | POST   | `/login`                  | PÚBLICA     | Devuelve access y refresh token                |
 | POST   | `/refresh`                | PÚBLICA     | Canjea el refresh token por uno nuevo          |
 | POST   | `/forgot-password`        | PÚBLICA     | Dispara el correo de recuperación              |
@@ -253,7 +253,10 @@ Autenticación, usuarios, personal y membresías. Base de datos `beautyspot_auth
 correo**: distinguir los dos casos delataría qué correos están registrados. Si
 ya existe no se crea nada y se le avisa por correo a su dueño, con el enlace
 para recuperar la contraseña. Tampoco devuelve el usuario creado: la cuenta no
-entra hasta confirmar el correo.
+entra hasta confirmar el correo. Además de `email`, `password` y `name` acepta
+`phone` y `birthDate` (`YYYY-MM-DD`), ambos opcionales: la fecha de nacimiento
+es para felicitar al cliente, y se rechaza un día que no existe, futuro o de
+hace más de 120 años.
 
 ### Usuarios y personal — `/api/v1/auth/users`
 
@@ -268,6 +271,13 @@ entra hasta confirmar el correo.
 | PATCH  | `/:id/staff`          | OWNER, ADMIN, SUPER_ADMIN | Actualiza un miembro                |
 | POST   | `/:id/reset-password` | OWNER, ADMIN, SUPER_ADMIN | Resetea la contraseña de un miembro |
 | PATCH  | `/:id/status`         | OWNER, ADMIN, SUPER_ADMIN | Activa o desactiva un miembro       |
+
+`PATCH /me` acepta `name`, `phone`, `avatar` y `birthDate` (`null` la quita),
+validados como en el registro. Publica `auth.user.profile-updated` con el nombre,
+el teléfono y la fecha de nacimiento actuales, y core los copia a todas las
+fichas de esa cuenta: es el perfil del cliente el que manda sobre sus datos.
+Una ficha cuyo teléfono chocaría con otra del mismo negocio conserva el suyo, y
+la que cambia de fecha vuelve a poder recibir la felicitación de ese año.
 
 ### Membresías — `/api/v1/auth/memberships`
 
@@ -285,7 +295,7 @@ entra hasta confirmar el correo.
 | POST   | `/internal/memberships`                      | Crea membresía; valida el DTO y rechaza `SUPER_ADMIN` |
 | GET    | `/internal/memberships/business/:businessId` | Quién trabaja en el negocio y con qué rol             |
 | GET    | `/internal/users/:id/token-version`          | Versión de token vigente, para validar sesiones       |
-| GET    | `/internal/users/:id/contacto`               | Correo y nombre de la cuenta, para escribirle         |
+| GET    | `/internal/users/:id/contacto`               | Correo, nombre y fecha de nacimiento de la cuenta     |
 
 `POST /internal/memberships` acepta `invitedBy`, que por defecto es el propio
 `userId`. El rol va contra la misma lista asignable que las rutas con sesión, así
@@ -595,6 +605,10 @@ cuerpo dicen cómo avisar y nada más; sin `userId` —reserva de invitado— so
 único que hay y la ficha se busca por ellos. El **409** por contacto ya
 registrado sale sin decir de quién es la ficha que estorba: quien reserva solo
 necesita saber que ese contacto no le sirve.
+
+Con `userId`, la ficha que nace o la que se vincula sin fecha de nacimiento toma
+la de la cuenta (`GET /internal/users/:id/contacto` de auth). Si auth no
+responde, la reserva sigue sin ella.
 
 ---
 
@@ -1130,7 +1144,7 @@ patrón `{servicio}.{agregado}.{acción}`:
 
 | Familia          | Eventos                                                                                                                                                                                                         |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth.*`         | `user.registered`, `registro.duplicado`, `user.logged-in`, `password-reset.requested`, `email-verification.requested`, `membership.created`, `membership.role-changed`                                          |
+| `auth.*`         | `user.registered`, `user.profile-updated`, `registro.duplicado`, `user.logged-in`, `password-reset.requested`, `email-verification.requested`, `membership.created`, `membership.role-changed`                  |
 | `core.*`         | `business.created`, `business.updated`, `business-hours.updated`, `business-config.updated`, `professional.created`, `service.created`, `service.updated`, `client.created`, `client.birthday`, `client.merged` |
 | `booking.*`      | `appointment.created`, `.confirmed`, `.cancelled`, `.completed`, `.no-showed`, `.rescheduled`, `.reminder-due`                                                                                                  |
 | `payment.*`      | `payment.registered`, `payment.corrected`, `invoice.generated`, `points.redeemed`, `refund.processed`, `cash.session.closed`                                                                                    |

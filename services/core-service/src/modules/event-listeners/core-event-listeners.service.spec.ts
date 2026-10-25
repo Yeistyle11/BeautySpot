@@ -12,6 +12,7 @@ describe("CoreEventListeners", () => {
     addLoyaltyPoints: jest.Mock;
     redeemLoyaltyPoints: jest.Mock;
     addNoShow: jest.Mock;
+    copiarDatosDeLaCuenta: jest.Mock;
   };
   let mockProcessedEvents: { once: jest.Mock };
   /** El manager que `once` entrega dentro de su transacción. */
@@ -45,6 +46,7 @@ describe("CoreEventListeners", () => {
       addLoyaltyPoints: jest.fn().mockResolvedValue(undefined),
       redeemLoyaltyPoints: jest.fn().mockResolvedValue(true),
       addNoShow: jest.fn().mockResolvedValue(undefined),
+      copiarDatosDeLaCuenta: jest.fn().mockResolvedValue(2),
     };
 
     // Reproduce el contrato del store real: el trabajo corre una sola vez por
@@ -181,6 +183,27 @@ describe("CoreEventListeners", () => {
       await expect(
         service.handlePointsRedeemed(canje())
       ).resolves.toBeUndefined();
+    });
+  });
+
+  it("copia a las fichas los datos que el cliente cambió en su cuenta", async () => {
+    await service.handleUserProfileUpdated({
+      eventType: "auth.user.profile-updated",
+      eventId: "evt-300",
+      correlationId: "corr-300",
+      timestamp: new Date(),
+      payload: {
+        userId: "user-1",
+        name: "Ana",
+        phone: null,
+        birthDate: "1990-05-17",
+      },
+    });
+
+    expect(mockClients.copiarDatosDeLaCuenta).toHaveBeenCalledWith("user-1", {
+      name: "Ana",
+      phone: null,
+      birthDate: "1990-05-17",
     });
   });
 });

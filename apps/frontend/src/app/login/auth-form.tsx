@@ -23,6 +23,7 @@ import { apiPublic } from "@/lib/api";
 import { canAccess, getDefaultPath } from "@/lib/permissions";
 import { authResponseSchema } from "@/lib/auth";
 import { mensajeDeError } from "@/lib/error-message";
+import { CampoFechaDeNacimiento } from "@/components/campo-fecha-de-nacimiento";
 import {
   LONGITUD_MINIMA_CONTRASENA,
   REQUISITOS_DE_CONTRASENA,
@@ -40,6 +41,7 @@ const emptyForm = {
   confirmacion: "",
   name: "",
   phone: "",
+  birthDate: "",
 };
 
 /**
@@ -177,6 +179,7 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
           password: form.password,
           name: form.name,
           phone: form.phone || undefined,
+          birthDate: form.birthDate || undefined,
         });
         setRegistrado(true);
         return;
@@ -391,6 +394,12 @@ export function AuthForm({ modo }: { modo: ModoAuth }) {
                         }
                       />
                     </div>
+                  )}
+                  {!esLogin && (
+                    <CampoFechaDeNacimiento
+                      value={form.birthDate}
+                      onChange={(birthDate) => setForm({ ...form, birthDate })}
+                    />
                   )}
                   {/* Lo que responde el servidor, que no es de un campo. El
                   hueco está siempre reservado para que el botón no se

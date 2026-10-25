@@ -114,3 +114,8 @@ export {
   esImagenPropia,
   imagenesQueSobran,
 } from "./imagenes/imagen-propia";
+export {
+  EsFechaDeNacimiento,
+  EsNacimientoPosible,
+  EDAD_MAXIMA,
+} from "./decorators/es-fecha-de-nacimiento.decorator";

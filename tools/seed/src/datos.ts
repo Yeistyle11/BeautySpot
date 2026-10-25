@@ -33,6 +33,8 @@ export interface Cuenta {
   /** Rol de su membresía, o `null` si es un cliente final sin negocio. */
   rol: Role | null;
   negocioId: string | null;
+  /** Fecha de nacimiento de la cuenta (`YYYY-MM-DD`), si la ha dado. */
+  nacimiento?: string;
 }
 
 export interface Sede {
@@ -296,6 +298,7 @@ export const CUENTAS: Cuenta[] = [
     email: "cliente@beautyspot.local",
     nombre: "Sofía Herrera",
     telefono: "+573001110005",
+    nacimiento: "1994-03-12",
     rol: null,
     negocioId: null,
   },
@@ -403,8 +406,12 @@ function clientesDe(
         ? cuenta.telefono
         : `+5730020${String(i).padStart(5, "0")}`,
       usuarioId: ligado,
-      // Un puñado con cumpleaños para que el aviso tenga a quién felicitar.
-      cumple: i % 4 === 0 ? `199${i % 10}-0${(i % 9) + 1}-1${i % 9}` : null,
+      // Un puñado con cumpleaños; la ficha de una cuenta lleva la de la cuenta.
+      cumple: cuenta
+        ? (cuenta.nacimiento ?? null)
+        : i % 4 === 0
+          ? `199${i % 10}-0${(i % 9) + 1}-1${i % 9}`
+          : null,
       puntos: entero(azar, 0, 240),
     };
   });

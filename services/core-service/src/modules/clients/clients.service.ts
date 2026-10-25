@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import {
@@ -14,6 +15,7 @@ import { EventNames } from "@beautyspot/event-types";
 import {
   Repository,
   In,
+  IsNull,
   Not,
   Brackets,
   DataSource,
@@ -91,6 +93,8 @@ export interface DatosDeReserva {
 /** CRUD de la cartera de clientes de un negocio, incluida su fidelización por puntos. */
 @Injectable()
 export class ClientsService extends TenantCrudService<Client> {
+  private readonly logger = new Logger(ClientsService.name);
+
   constructor(
     @InjectRepository(Client) repo: Repository<Client>,
     @InjectRepository(CampoDeFicha)
@@ -174,17 +178,85 @@ export class ClientsService extends TenantCrudService<Client> {
           normalizarContacto(datos)
         );
 
-    if (existente) return this.vincularUsuario(existente, datos.userId);
+    if (existente) {
+      const vinculada = await this.vincularUsuario(existente, datos.userId);
+      return this.completarNacimiento(vinculada, datos.userId);
+    }
 
     return this.create(datos.businessId, {
       name: datos.name,
       email: datos.email,
       phone: datos.phone,
       userId: datos.userId ?? null,
+      birthDate: datos.userId
+        ? await this.nacimientoDeLaCuenta(datos.userId)
+        : null,
       tags: [],
     }).catch((error: unknown) => {
       throw this.sinDelatarAlTitular(error);
     });
+  }
+
+  /** Fecha de nacimiento de la cuenta, o null si no la tiene o auth no responde. */
+  private async nacimientoDeLaCuenta(userId: string): Promise<string | null> {
+    const cuenta = await this.http.pedirONulo<{ birthDate?: string | null }>(
+      "auth",
+      `/internal/users/${userId}/contacto`
+    );
+    return cuenta?.birthDate ?? null;
+  }
+
+  /** Pone en la ficha la fecha de nacimiento de la cuenta, si le falta. */
+  private async completarNacimiento(
+    ficha: Client,
+    userId?: string
+  ): Promise<Client> {
+    if (!userId || ficha.birthDate) return ficha;
+    const birthDate = await this.nacimientoDeLaCuenta(userId);
+    if (!birthDate) return ficha;
+    ficha.birthDate = birthDate;
+    return this.repo.save(ficha);
+  }
+
+  /**
+   * Copia nombre, teléfono y fecha de nacimiento de la cuenta a sus fichas. La
+   * ficha cuyo teléfono chocaría en su negocio conserva el suyo.
+   */
+  async copiarDatosDeLaCuenta(
+    userId: string,
+    datos: { name: string; phone: string | null; birthDate: string | null }
+  ): Promise<number> {
+    const fichas = await this.repo.find({
+      where: { userId, active: true, anonymizedAt: IsNull() },
+    });
+
+    for (const ficha of fichas) {
+      const cambios: Partial<Client> = {
+        name: datos.name,
+        birthDate: datos.birthDate,
+        ...(ficha.birthDate !== datos.birthDate
+          ? { birthdayGreetedYear: null }
+          : {}),
+      };
+      // Sin teléfono en la cuenta, la ficha conserva el suyo.
+      const conTelefono = datos.phone
+        ? { ...cambios, phone: datos.phone }
+        : cambios;
+
+      try {
+        await this.update(ficha.id, ficha.businessId, conTelefono);
+      } catch (error) {
+        if (!(error instanceof ConflictException) || conTelefono === cambios) {
+          throw error;
+        }
+        this.logger.warn(
+          `La ficha ${ficha.id} conserva su teléfono: el de la cuenta ya es de otra ficha del negocio`
+        );
+        await this.update(ficha.id, ficha.businessId, cambios);
+      }
+    }
+
+    return fichas.length;
   }
 
   /**

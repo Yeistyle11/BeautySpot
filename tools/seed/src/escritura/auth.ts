@@ -30,6 +30,7 @@ export async function sembrarAuth(dataSource: DataSource, siembra: Siembra) {
     usuario.password = clave;
     usuario.name = cuenta.nombre;
     usuario.phone = cuenta.telefono;
+    usuario.birthDate = cuenta.nacimiento ?? null;
     usuario.emailVerified = true;
     usuario.active = true;
     usuario.currentBusinessId = cuenta.negocioId as string;

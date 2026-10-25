@@ -59,9 +59,9 @@ describe("CreateClientDto", () => {
 
   // Dias con la forma correcta que no existen en el calendario.
   it.each(["2026-02-30", "1990-04-31", "1990-13-01"])(
-    "rechaza %s, que no existe en el calendario",
+    "rechaza %s, que no es un día posible",
     async (fecha) => {
-      expect(await motivosDe(fecha)).toContain("no existe en el calendario");
+      expect(await motivosDe(fecha)).toContain("ese día no es posible");
     }
   );
 
@@ -69,12 +69,12 @@ describe("CreateClientDto", () => {
     const motivos = await motivosDe("13-08-1990");
 
     expect(motivos).toContain("formato AAAA-MM-DD");
-    expect(motivos).not.toContain("no existe en el calendario");
+    expect(motivos).not.toContain("ese día no es posible");
   });
 
   it("aplica la misma regla al actualizar la ficha", async () => {
     expect(await motivosDe("2026-02-30", UpdateClientDto)).toContain(
-      "no existe en el calendario"
+      "ese día no es posible"
     );
   });
 

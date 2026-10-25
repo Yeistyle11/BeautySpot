@@ -213,6 +213,30 @@ describe("AuthService", () => {
   });
 
   describe("register", () => {
+    it("guarda la fecha de nacimiento que da el cliente, o nada", async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockUserRepository.create.mockReturnValue(mockUser);
+      mockUserRepository.save.mockResolvedValue(mockUser);
+      (bcrypt.hash as jest.Mock).mockResolvedValue("hashed-password");
+      const alta = {
+        email: "new@example.com",
+        password: "Password123",
+        name: "New User",
+      };
+
+      await service.register({ ...alta, birthDate: "1990-05-17" });
+      await service.register(alta);
+
+      expect(mockUserRepository.create).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ birthDate: "1990-05-17" })
+      );
+      expect(mockUserRepository.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ birthDate: null })
+      );
+    });
+
     it("debería registrar un nuevo usuario exitosamente", async () => {
       const registerDto = {
         email: "new@example.com",

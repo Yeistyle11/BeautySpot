@@ -24,7 +24,7 @@ describe("ClientsService", () => {
   let mockCamposRepo: jest.Mocked<Repository<CampoDeFicha>>;
   let mockConfig: { leer: jest.Mock };
   let mockProfessionals: { findByUserId: jest.Mock };
-  let mockHttp: { pedir: jest.Mock };
+  let mockHttp: { pedir: jest.Mock; pedirONulo: jest.Mock };
 
   const mockClient: Client = {
     id: "client-123",
@@ -80,7 +80,11 @@ describe("ClientsService", () => {
     // Sin escala guardada, el nivel sale de los niveles por defecto.
     mockConfig = { leer: jest.fn().mockResolvedValue({}) };
     mockProfessionals = { findByUserId: jest.fn() };
-    mockHttp = { pedir: jest.fn() };
+    // Por defecto la cuenta no tiene fecha de nacimiento.
+    mockHttp = {
+      pedir: jest.fn(),
+      pedirONulo: jest.fn().mockResolvedValue(null),
+    };
     // La transacción entrega el mismo repositorio simulado del test.
     const mockDataSource = {
       transaction: jest.fn((cb: (m: unknown) => unknown) =>
@@ -474,6 +478,86 @@ describe("ClientsService", () => {
 
       await expect(service.findMineConNivel("user-456")).resolves.toBeNull();
       expect(mockConfig.leer).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("copiarDatosDeLaCuenta", () => {
+    const fichaDe = (id: string, birthDate: string | null) =>
+      ({
+        ...mockClient,
+        id,
+        businessId: `negocio-${id}`,
+        userId: "user-1",
+        birthDate,
+      }) as Client;
+
+    // Cada ficha se escribe con `update`, que ya prueba sus propias reglas.
+    let update: jest.SpyInstance;
+    beforeEach(() => {
+      update = jest.spyOn(service, "update").mockResolvedValue(mockClient);
+    });
+
+    it("copia nombre, teléfono y nacimiento a todas las fichas de la cuenta", async () => {
+      mockRepo.find.mockResolvedValue([
+        fichaDe("a", null),
+        fichaDe("b", "1990-05-17"),
+      ]);
+
+      const copiadas = await service.copiarDatosDeLaCuenta("user-1", {
+        name: "Ana",
+        phone: "+573001112233",
+        birthDate: "1990-05-17",
+      });
+
+      expect(copiadas).toBe(2);
+      expect(mockRepo.find).toHaveBeenCalledWith({
+        where: expect.objectContaining({ userId: "user-1", active: true }),
+      });
+      // La que cambia de fecha vuelve a poder recibir la felicitación del año.
+      expect(update).toHaveBeenCalledWith(
+        "a",
+        "negocio-a",
+        expect.objectContaining({
+          name: "Ana",
+          phone: "+573001112233",
+          birthDate: "1990-05-17",
+          birthdayGreetedYear: null,
+        })
+      );
+      expect(update.mock.calls[1][2]).not.toHaveProperty("birthdayGreetedYear");
+    });
+
+    it("no borra el teléfono de la ficha si la cuenta no tiene", async () => {
+      mockRepo.find.mockResolvedValue([fichaDe("a", null)]);
+
+      await service.copiarDatosDeLaCuenta("user-1", {
+        name: "Ana",
+        phone: null,
+        birthDate: null,
+      });
+
+      expect(update.mock.calls[0][2]).not.toHaveProperty("phone");
+    });
+
+    it("conserva el teléfono de la ficha si chocaría con otra del negocio", async () => {
+      mockRepo.find.mockResolvedValue([fichaDe("a", null)]);
+      update
+        .mockReset()
+        .mockRejectedValueOnce(new ConflictException("ya existe"))
+        .mockResolvedValueOnce(mockClient);
+      jest.spyOn(service["logger"], "warn").mockImplementation(() => undefined);
+
+      await service.copiarDatosDeLaCuenta("user-1", {
+        name: "Ana",
+        phone: "+573001112233",
+        birthDate: "1990-05-17",
+      });
+
+      expect(update).toHaveBeenLastCalledWith(
+        "a",
+        "negocio-a",
+        expect.not.objectContaining({ phone: expect.anything() })
+      );
     });
   });
 
@@ -1288,6 +1372,52 @@ describe("ClientsService", () => {
 
       expect(ficha.id).toBe("ficha-victima");
       expect(ficha.userId).toBeNull();
+    });
+
+    it("la ficha nueva de una cuenta nace con su fecha de nacimiento", async () => {
+      mockHttp.pedirONulo.mockResolvedValue({ birthDate: "1990-05-17" });
+
+      const ficha = await service.resolverFichaDeReserva({
+        businessId: NEGOCIO,
+        name: "Quien reserva",
+        userId: ATACANTE,
+        userEmail: CORREO_ATACANTE,
+      });
+
+      expect(mockHttp.pedirONulo).toHaveBeenCalledWith(
+        "auth",
+        `/internal/users/${ATACANTE}/contacto`
+      );
+      expect(ficha.birthDate).toBe("1990-05-17");
+    });
+
+    it("completa la fecha de la ficha que ya tenía y no la tenía", async () => {
+      tabla.push({
+        ...mockClient,
+        id: "ficha-propia",
+        userId: ATACANTE,
+        birthDate: null,
+      });
+      mockHttp.pedirONulo.mockResolvedValue({ birthDate: "1990-05-17" });
+
+      const ficha = await service.resolverFichaDeReserva({
+        businessId: NEGOCIO,
+        name: "Quien reserva",
+        userId: ATACANTE,
+        userEmail: CORREO_ATACANTE,
+      });
+
+      expect(ficha.birthDate).toBe("1990-05-17");
+    });
+
+    it("no pregunta a auth por la fecha del invitado", async () => {
+      await service.resolverFichaDeReserva({
+        businessId: NEGOCIO,
+        name: "Invitado",
+        email: "invitado@example.com",
+      });
+
+      expect(mockHttp.pedirONulo).not.toHaveBeenCalled();
     });
 
     it("publica el alta de la ficha que crea", async () => {

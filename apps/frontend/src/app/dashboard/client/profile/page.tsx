@@ -21,6 +21,7 @@ import { CLASE_DE_COLOR, nivelSchema } from "@/lib/niveles";
 import { PROPORCION_PUNTOS_FIDELIDAD } from "@beautyspot/shared-constants";
 import { formatCurrency } from "@/lib/utils";
 import { CambiarContrasena } from "@/components/cambiar-contrasena";
+import { CampoFechaDeNacimiento } from "@/components/campo-fecha-de-nacimiento";
 
 const clientProfileSchema = z.object({
   id: z.string(),
@@ -34,6 +35,14 @@ const clientProfileSchema = z.object({
   siguienteNivel: nivelSchema.nullable(),
 });
 type ClientProfile = z.infer<typeof clientProfileSchema>;
+
+/** Los datos personales de la cuenta, que son los que se editan aquí. */
+const cuentaSchema = z.object({
+  name: z.string(),
+  phone: z.string().nullish(),
+  birthDate: z.string().nullish(),
+});
+type Cuenta = z.infer<typeof cuentaSchema>;
 
 /** Lo que hay que gastar para ganar un punto, en la moneda del negocio. */
 const GASTO_POR_PUNTO = Math.round(1 / PROPORCION_PUNTOS_FIDELIDAD);
@@ -51,41 +60,45 @@ export default function ClientProfilePage() {
     undefined,
     clientProfileSchema.nullable()
   );
+  const {
+    data: cuenta,
+    isLoading: cargandoCuenta,
+    mutate: mutateCuenta,
+  } = useApi<Cuenta>("/auth/users/me", undefined, cuentaSchema);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "" });
+  const [form, setForm] = useState({ name: "", phone: "", birthDate: "" });
 
-  // El perfil del backend manda; si el cliente reservo como invitado y no
-  // tiene ficha, sirven los datos de la sesion.
-  useSeededForm(client ?? user, (datos) =>
-    setForm({ name: datos.name || "", phone: datos.phone || "" })
+  useSeededForm(cuenta ?? null, (datos) =>
+    setForm({
+      name: datos.name || "",
+      phone: datos.phone || "",
+      birthDate: datos.birthDate || "",
+    })
   );
 
-  // Si core-service no tiene ficha del cliente (reservo como invitado), los
-  // datos se guardan contra su usuario de auth-service. El fallback salta
-  // ante cualquier fallo de la primera llamada, tambien una caida de red.
+  // Los datos son de la cuenta: se guardan en ella y sus fichas en cada
+  // negocio los copian después.
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
     try {
-      await api.patch("/core/clients/me", form);
-      await mutateClient();
+      await api.patch("/auth/users/me", {
+        name: form.name,
+        phone: form.phone,
+        birthDate: form.birthDate || null,
+      });
+      await Promise.all([mutateCuenta(), mutateClient()]);
       setSaved(true);
-    } catch (errClientes: unknown) {
-      logger.error(errClientes);
-      try {
-        await api.patch("/auth/users/me", form);
-        setSaved(true);
-      } catch (errUsuarios: unknown) {
-        logger.error(errUsuarios);
-        toast.error(mensajeDeError(errUsuarios));
-      }
+    } catch (err: unknown) {
+      logger.error(err);
+      toast.error(mensajeDeError(err));
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
+  if (loading || cargandoCuenta) {
     return (
       <div className="flex justify-center py-20">
         <Spinner variant="inline" className="h-8 w-8 border-4" />
@@ -186,11 +199,12 @@ export default function ClientProfilePage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
+                  <Label htmlFor="name" className="flex items-center gap-2">
                     <User className="h-3 w-3" />
                     Nombre completo
                   </Label>
                   <Input
+                    id="name"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     placeholder="Tu nombre"
@@ -212,12 +226,13 @@ export default function ClientProfilePage() {
                   </p>
                 </div>
 
-                <div className="space-y-2 sm:col-span-2">
-                  <Label className="flex items-center gap-2">
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="flex items-center gap-2">
                     <Phone className="h-3 w-3" />
                     Teléfono
                   </Label>
                   <Input
+                    id="phone"
                     type="tel"
                     value={form.phone}
                     onChange={(e) =>
@@ -226,6 +241,11 @@ export default function ClientProfilePage() {
                     placeholder="+57 300 1234567"
                   />
                 </div>
+
+                <CampoFechaDeNacimiento
+                  value={form.birthDate}
+                  onChange={(birthDate) => setForm({ ...form, birthDate })}
+                />
               </div>
 
               <div className="flex items-center gap-3 pt-2">

@@ -28,6 +28,17 @@ export interface UserRegisteredPayload {
 
 export type UserRegisteredEvent = IBaseEvent<UserRegisteredPayload>;
 
+/** Datos del perfil que copian las fichas de la cuenta, con su valor actual. */
+export interface UserProfileUpdatedPayload {
+  userId: string;
+  name: string;
+  phone: string | null;
+  /** `YYYY-MM-DD`, o null si no la ha dado. */
+  birthDate: string | null;
+}
+
+export type UserProfileUpdatedEvent = IBaseEvent<UserProfileUpdatedPayload>;
+
 export interface UserLoggedInPayload {
   userId: string;
   email: string;
@@ -447,6 +458,7 @@ export function nombreDeCola(servicio: string, evento: string): string {
  */
 export const EventNames = {
   AUTH_USER_REGISTERED: "auth.user.registered",
+  AUTH_USER_PROFILE_UPDATED: "auth.user.profile-updated",
   AUTH_REGISTRO_DUPLICADO: "auth.registro.duplicado",
   AUTH_USER_LOGGED_IN: "auth.user.logged-in",
   AUTH_PASSWORD_RESET_REQUESTED: "auth.password-reset.requested",
