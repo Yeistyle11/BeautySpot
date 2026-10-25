@@ -4,7 +4,7 @@ import {
   UpdateDateColumn,
   BeforeInsert,
 } from "typeorm";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 
 /**
  * Entidad base común: id UUID generado en la aplicación antes del INSERT y
@@ -25,7 +25,7 @@ export abstract class BaseEntity {
   @BeforeInsert()
   generateId(): void {
     if (!this.id) {
-      this.id = uuidv4();
+      this.id = randomUUID();
     }
   }
 }

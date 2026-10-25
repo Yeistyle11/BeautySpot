@@ -400,7 +400,7 @@ Todos los microservicios comparten la misma estructura de Dockerfile, parametriz
 # ─────────────────────────────────────────────────────────────
 
 # Etapa 1: Dependencias de produccion
-FROM node:20-alpine AS deps
+FROM node:26.12.1-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -427,7 +427,7 @@ WORKDIR /app
 RUN npx turbo run build --filter=api-gateway
 
 # Etapa 3: Produccion (imagen minima)
-FROM node:20-alpine AS runner
+FROM node:26.12.1-alpine AS runner
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 

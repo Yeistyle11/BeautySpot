@@ -16,14 +16,13 @@
     "@beautyspot/shared-types": "*",
     "@beautyspot/shared-utils": "*",
     "bcryptjs": "^2.4.3",
-    "dotenv": "^16.4.5",
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.2",
     "typeorm": "^0.3.20"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^20.17.6",
+    "@types/node": "^26.6.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3"
   }

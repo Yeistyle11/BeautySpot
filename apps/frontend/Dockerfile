@@ -2,7 +2,7 @@
 # Construir con:
 #   docker build -f apps/frontend/Dockerfile #     --build-arg NEXT_PUBLIC_SITE_URL=https://appbeautyspot.com -t frontend .
 
-FROM node:20-alpine AS builder
+FROM node:26.12.1-alpine AS builder
 # Next las escribe en el build: el rewrite de /api hacia GATEWAY_URL queda en el
 # manifiesto de rutas y las NEXT_PUBLIC_* en el JavaScript del navegador, así
 # que el env_file del contenedor llega tarde para ellas.
@@ -15,7 +15,7 @@ COPY . .
 RUN npm install --legacy-peer-deps
 RUN npx turbo run build --filter=@beautyspot/frontend
 
-FROM node:20-alpine
+FROM node:26.12.1-alpine
 WORKDIR /app/apps/frontend
 ENV NODE_ENV=production
 ENV PORT=8080
