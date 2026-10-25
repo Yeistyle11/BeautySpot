@@ -406,8 +406,7 @@ function clientesDe(
         ? cuenta.telefono
         : `+5730020${String(i).padStart(5, "0")}`,
       usuarioId: ligado,
-      // Un puñado con cumpleaños para que el aviso tenga a quién felicitar; la
-      // ficha de una cuenta lleva la fecha que dio la cuenta.
+      // Un puñado con cumpleaños; la ficha de una cuenta lleva la de la cuenta.
       cumple: cuenta
         ? (cuenta.nacimiento ?? null)
         : i % 4 === 0

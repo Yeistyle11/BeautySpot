@@ -12,10 +12,7 @@ import {
 } from "@beautyspot/shared-constants";
 import { EsFechaDeNacimiento } from "@beautyspot/nest-common";
 
-/**
- * Campos editables del perfil propio: nombre, teléfono, avatar y fecha de
- * nacimiento. Se validan como en el registro.
- */
+/** Campos editables del perfil propio. */
 export class UpdateProfileDto {
   @IsOptional()
   @IsString({ message: "El nombre es obligatorio" })

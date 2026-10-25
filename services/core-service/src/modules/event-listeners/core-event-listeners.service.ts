@@ -23,10 +23,7 @@ export class CoreEventListeners {
     private readonly processedEvents: ProcessedEventsStore
   ) {}
 
-  /**
-   * El cliente cambió sus datos en su cuenta: pasan a todas sus fichas. El
-   * evento trae el valor actual, así que repetirlo deja lo mismo.
-   */
+  /** Copia a todas las fichas de la cuenta los datos de su perfil. */
   @RabbitSubscribe({
     exchange: EVENTS_EXCHANGE,
     routingKey: EventNames.AUTH_USER_PROFILE_UPDATED,

@@ -14,10 +14,7 @@ import {
 import { EsFechaDeNacimiento } from "@beautyspot/nest-common";
 import { EsContrasenaValida } from "./contrasena.decorator";
 
-/**
- * Datos para registrar una cuenta nueva: email, contraseña, nombre, y teléfono
- * y fecha de nacimiento opcionales.
- */
+/** Datos para registrar una cuenta nueva. */
 export class RegisterDto {
   @IsEmail({}, { message: "El email no tiene un formato válido" })
   email!: string;

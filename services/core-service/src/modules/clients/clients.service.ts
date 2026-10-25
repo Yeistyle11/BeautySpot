@@ -197,10 +197,7 @@ export class ClientsService extends TenantCrudService<Client> {
     });
   }
 
-  /**
-   * Fecha de nacimiento que el cliente dio en su cuenta, o null. Si auth no
-   * responde, la reserva sigue: la fecha llegará cuando edite su perfil.
-   */
+  /** Fecha de nacimiento de la cuenta, o null si no la tiene o auth no responde. */
   private async nacimientoDeLaCuenta(userId: string): Promise<string | null> {
     const cuenta = await this.http.pedirONulo<{ birthDate?: string | null }>(
       "auth",
@@ -222,10 +219,8 @@ export class ClientsService extends TenantCrudService<Client> {
   }
 
   /**
-   * Copia a las fichas de una cuenta lo que su titular cambió en su perfil:
-   * nombre, teléfono y fecha de nacimiento. Una ficha cuyo teléfono chocaría
-   * con otra del mismo negocio conserva el suyo y recibe lo demás. Si cambia la
-   * fecha, la felicitación de este año vuelve a quedar pendiente.
+   * Copia nombre, teléfono y fecha de nacimiento de la cuenta a sus fichas. La
+   * ficha cuyo teléfono chocaría en su negocio conserva el suyo.
    */
   async copiarDatosDeLaCuenta(
     userId: string,
@@ -243,8 +238,7 @@ export class ClientsService extends TenantCrudService<Client> {
           ? { birthdayGreetedYear: null }
           : {}),
       };
-      // Sin teléfono en la cuenta no se borra el de la ficha: puede ser el
-      // único contacto que el negocio tiene.
+      // Sin teléfono en la cuenta, la ficha conserva el suyo.
       const conTelefono = datos.phone
         ? { ...cambios, phone: datos.phone }
         : cambios;

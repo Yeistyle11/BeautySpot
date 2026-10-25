@@ -28,10 +28,7 @@ export interface UserRegisteredPayload {
 
 export type UserRegisteredEvent = IBaseEvent<UserRegisteredPayload>;
 
-/**
- * La persona cambió sus datos en su perfil. Lleva el valor actual de lo que sus
- * fichas copian de la cuenta, no solo lo que cambió.
- */
+/** Datos del perfil que copian las fichas de la cuenta, con su valor actual. */
 export interface UserProfileUpdatedPayload {
   userId: string;
   name: string;

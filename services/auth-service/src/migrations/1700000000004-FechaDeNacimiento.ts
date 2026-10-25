@@ -1,9 +1,6 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-/**
- * Fecha de nacimiento de la cuenta, que el cliente da al registrarse o en su
- * perfil y que se copia a sus fichas para felicitarlo.
- */
+/** Añade la fecha de nacimiento de la cuenta. */
 export class FechaDeNacimiento1700000000004 implements MigrationInterface {
   name = "FechaDeNacimiento1700000000004";
 

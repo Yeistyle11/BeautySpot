@@ -66,10 +66,7 @@ export class UsersService {
     return row?.tokenVersion ?? 0;
   }
 
-  /**
-   * Correo, nombre y fecha de nacimiento de una cuenta, para escribirle y para
-   * completar sus fichas; null si no existe.
-   */
+  /** Correo, nombre y fecha de nacimiento de una cuenta; null si no existe. */
   async contacto(id: string): Promise<{
     email: string;
     name: string;
@@ -147,10 +144,7 @@ export class UsersService {
     };
   }
 
-  /**
-   * Actualiza el perfil del propio usuario y lo publica por el outbox, para que
-   * sus fichas en cada negocio copien nombre, teléfono y fecha de nacimiento.
-   */
+  /** Actualiza el perfil propio y lo publica por el outbox. */
   async updateProfile(
     id: string,
     data: {

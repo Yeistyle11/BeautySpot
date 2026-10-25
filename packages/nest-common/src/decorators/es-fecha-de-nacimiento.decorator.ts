@@ -9,22 +9,19 @@ import {
 import type { ValidatorConstraintInterface } from "class-validator";
 import { PATRON_FECHA, esFechaValida } from "@beautyspot/shared-utils";
 
-/** Edad máxima que se acepta: por encima, es un error al escribir el año. */
+/** Edad máxima que se acepta. */
 export const EDAD_MAXIMA = 120;
 
-/** Mañana en UTC (`YYYY-MM-DD`): el día de margen cubre el huso de quien escribe. */
+/** Mañana en UTC (`YYYY-MM-DD`), con margen para el huso de quien escribe. */
 function mananaUtc(): string {
   return new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 }
 
-/**
- * Una fecha de nacimiento posible: que el día exista, que no sea futura y que
- * no sea de hace más de {@link EDAD_MAXIMA} años.
- */
+/** Fecha que existe, no futura y de hace como mucho {@link EDAD_MAXIMA} años. */
 @ValidatorConstraint({ name: "esNacimientoPosible" })
 export class EsNacimientoPosible implements ValidatorConstraintInterface {
   validate(valor: unknown): boolean {
-    // Del formato responde el otro decorador.
+    // El formato lo valida `Matches`.
     if (typeof valor !== "string" || !PATRON_FECHA.test(valor)) return true;
     if (!esFechaValida(valor)) return false;
 
@@ -38,10 +35,7 @@ export class EsNacimientoPosible implements ValidatorConstraintInterface {
   }
 }
 
-/**
- * Fecha de nacimiento opcional en `YYYY-MM-DD`. Una cadena vacía cuenta como no
- * darla, y `null` la quita.
- */
+/** Fecha de nacimiento opcional en `YYYY-MM-DD`; vacía cuenta como `null`. */
 export function EsFechaDeNacimiento(): PropertyDecorator {
   return applyDecorators(
     Transform(({ value }) => (value === "" ? null : value)),
