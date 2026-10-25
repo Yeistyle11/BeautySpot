@@ -1,7 +1,7 @@
 # Plan de remediación — BeautySpot
 
 Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
-`fix/responsive-movil` para las cuatro últimas. Nueve campañas, en orden:
+`fix/responsive-movil` para las cuatro siguientes. Diez campañas, en orden:
 
 1. **`QA-REPORT-BeautySpot-2026-08-22`** — 28 hallazgos `BS-001`…`BS-028`
    (1 bloqueante, 5 altos, 15 medios, 7 bajos). Cerrada.
@@ -22,7 +22,9 @@ Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
    1 bajo), en la rama
    `chore/node-26`.
 9. **Cumpleaños del cliente 2026-10-25** — 1 hallazgo `BS-107` (medio), en la
-   rama `feat/cumpleanos-del-cliente`. Al final del documento.
+   rama `feat/cumpleanos-del-cliente`.
+10. **Fondo del diálogo 2026-10-25** — 1 hallazgo `BS-108` (alto), en la rama
+    `fix/fondo-del-dialogo`. Al final del documento.
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 propuesta `[PM]` (no se implementa) · ❓ necesita aclaración
 
@@ -1811,3 +1813,38 @@ desborda.
 Tras una caída de la conexión con RabbitMQ, un servicio que confirma un mensaje
 por el canal ya cerrado se cae (`IllegalOperationError: Channel closed`). Pasó
 en notification durante la prueba; queda para revisarlo aparte.
+
+# Campaña 2026-10-25 (2) — `BS-108` · Fondo del diálogo
+
+Origen: el usuario vio en `demo.appbeautyspot.com` todos los formularios en
+diálogo oscurecidos y borrosos, sin poder usarlos.
+
+## Tablero
+
+| ID     | Sev  | Módulo   | Causa | Esfuerzo | Estado |
+| ------ | ---- | -------- | ----- | -------- | ------ |
+| BS-108 | Alta | Interfaz | N6    | XS       | ✅     |
+
+## Detalle
+
+### BS-108 · El fondo del diálogo tapaba el formulario ✅
+
+Radix envuelve cada hijo del portal en su propio `Presence` y toma la clave de
+ese hijo. La clave por apertura de BS-082 iba en el cuerpo del diálogo, así que
+cada apertura estrenaba un `Presence` ya montado, mientras el del fondo tenía
+que pasar de desmontado a montado: el formulario entraba en el `body` un render
+antes que el fondo y, con los dos en `z-50`, el fondo quedaba encima. Ahora el
+hijo del portal tiene clave estable y la clave de cada apertura va un nivel por
+dentro, en el contenido, que sigue estrenando estado y animando la salida.
+
+## Verificación
+
+Prueba nueva que pinta el diálogo cerrado, lo abre dos veces y exige que el
+fondo vaya antes que el formulario en el documento: falla sin el arreglo y pasa
+con él. Otra comprueba que al reabrir no queda lo escrito. Frontend completo:
+**84 suites, 729 pruebas**, con `lint` y `type-check` en verde.
+
+En local, «Nuevo servicio» abierto, cerrado y reabierto: el formulario se ve
+nítido y `elementsFromPoint` en el centro da el formulario, no el fondo.
+
+Pendiente en el servidor: desplegar el frontend para que llegue a demo.
