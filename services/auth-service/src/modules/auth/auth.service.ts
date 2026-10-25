@@ -107,6 +107,7 @@ export class AuthService {
         password: hashedPassword,
         name: dto.name,
         phone: dto.phone,
+        birthDate: dto.birthDate ?? null,
       });
       const saved = await userRepo.save(created);
       await this.logAction(

@@ -12,6 +12,7 @@ describe("AuthController", () => {
     id: "user-123",
     email: "test@example.com",
     name: "Test User",
+    birthDate: null,
     password: "hashed-password",
     phone: "+573001234567",
     avatar: "",

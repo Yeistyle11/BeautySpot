@@ -27,6 +27,13 @@ export class User extends BaseEntity {
   @Column({ nullable: true })
   avatar!: string;
 
+  /**
+   * Fecha de nacimiento (`YYYY-MM-DD`), que el cliente da para que lo
+   * feliciten. Se copia a sus fichas en cada negocio.
+   */
+  @Column({ type: "date", name: "birth_date", nullable: true })
+  birthDate!: string | null;
+
   @Column({ default: false, name: "email_verified" })
   emailVerified!: boolean;
 

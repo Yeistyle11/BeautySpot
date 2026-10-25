@@ -12,15 +12,12 @@ import {
   Matches,
   ValidateIf,
   MaxLength,
-  Validate,
-  ValidatorConstraint,
 } from "class-validator";
-import type { ValidatorConstraintInterface } from "class-validator";
 import {
   PATRON_TELEFONO,
   MENSAJE_TELEFONO,
 } from "@beautyspot/shared-constants";
-import { PATRON_FECHA, esFechaValida } from "@beautyspot/shared-utils";
+import { EsFechaDeNacimiento } from "@beautyspot/nest-common";
 
 /**
  * Recorta los espacios de los extremos antes de validar. Un nombre de solo
@@ -29,19 +26,6 @@ import { PATRON_FECHA, esFechaValida } from "@beautyspot/shared-utils";
  */
 const recortado = ({ value }: { value: unknown }): unknown =>
   typeof value === "string" ? value.trim() : value;
-
-/** Un nacimiento en un dia que no existe, como `2026-02-30`. */
-@ValidatorConstraint({ name: "esDiaDeNacimiento" })
-class EsDiaDeNacimiento implements ValidatorConstraintInterface {
-  validate(valor: unknown): boolean {
-    if (typeof valor !== "string" || !PATRON_FECHA.test(valor)) return true;
-    return esFechaValida(valor);
-  }
-
-  defaultMessage(): string {
-    return "Esa fecha de nacimiento no existe en el calendario";
-  }
-}
 
 /**
  * Datos para registrar un cliente: nombre, contacto, notas y etiquetas. El
@@ -75,11 +59,7 @@ export class CreateClientDto {
   @MaxLength(1000, { message: "Las notas no pueden pasar de 1000 caracteres" })
   notes?: string;
   /** Fecha de nacimiento, de la que sale la felicitación de cumpleaños. */
-  @IsOptional()
-  @Matches(PATRON_FECHA, {
-    message: "La fecha de nacimiento debe tener el formato AAAA-MM-DD",
-  })
-  @Validate(EsDiaDeNacimiento)
+  @EsFechaDeNacimiento()
   birthDate?: string | null;
   @IsOptional() @IsString() userId?: string;
   @IsOptional() @IsArray() tags?: string[];
@@ -142,11 +122,7 @@ export class UpdateClientDto {
   @MaxLength(1000, { message: "Las notas no pueden pasar de 1000 caracteres" })
   notes?: string;
   /** Fecha de nacimiento, de la que sale la felicitación de cumpleaños. */
-  @IsOptional()
-  @Matches(PATRON_FECHA, {
-    message: "La fecha de nacimiento debe tener el formato AAAA-MM-DD",
-  })
-  @Validate(EsDiaDeNacimiento)
+  @EsFechaDeNacimiento()
   birthDate?: string | null;
   @IsOptional() @IsArray() tags?: string[];
   /**
