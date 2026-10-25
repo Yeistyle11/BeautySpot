@@ -873,3 +873,17 @@ cuentas externas; el coste es respaldar el volumen junto a la base (DEPLOY.md), 
 pasar a un bucket es cuestion de configuracion porque el resto del sistema solo
 conoce claves. Las subidas abandonadas sin guardar quedan como archivos sueltos,
 acotados por el tamano maximo y el limite de subidas del gateway.
+
+### ADR-010: Una sola version de Node, exacta y con soporte
+
+**Contexto**: El sistema corria sobre Node 20 cuando esa linea ya no recibia
+parches, y los avisos de seguridad de octubre de 2026 (Brotli, validacion TLS,
+DNS) solo se corrigieron en 22, 24 y 26.
+**Decision**: La version de Node es una, exacta y de una linea con soporte:
+`.nvmrc` (26.12.1) la fija para desarrollo y CI, y las 9 imagenes usan la misma
+etiqueta exacta (`node:26.12.1-alpine`). `engines` en el `package.json` raiz
+avisa a quien instale con otra.
+**Rationale**: Una etiqueta flotante (`node:26-alpine`) toma el ultimo parche al
+reconstruir, pero no deja ver cual corre en produccion ni garantiza que dos
+builds sean iguales. Con la version exacta, aplicar un parche de seguridad es un
+commit que cambia `.nvmrc` y los Dockerfiles, y se ve en el historial.

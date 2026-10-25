@@ -132,14 +132,14 @@ El endpoint es público por diseño: `@Public()` lo exime de `JwtAuthGuard` y de
 
 ## 1. Requisitos del servidor
 
-| Componente | Versión mínima | Notas                                        |
-| ---------- | -------------- | -------------------------------------------- |
-| Node.js    | 20.x           | Es la versión con la que se construye en CI  |
-| npm        | 10.x           | El repo declara `packageManager: npm@10.8.0` |
-| Docker     | 24+            | Con Compose v2 (`docker compose`)            |
-| PostgreSQL | 16             | Gestionado sirve, con `pg_trgm` disponible   |
-| Redis      | 7              | Sesiones, caché de tenants y rate limiting   |
-| RabbitMQ   | 3              | Bus de eventos entre servicios               |
+| Componente | Versión mínima | Notas                                         |
+| ---------- | -------------- | --------------------------------------------- |
+| Node.js    | 26.12.1        | La fija `.nvmrc`; la usan CI y las imágenes   |
+| npm        | 11.x           | El repo declara `packageManager: npm@11.20.0` |
+| Docker     | 24+            | Con Compose v2 (`docker compose`)             |
+| PostgreSQL | 16             | Gestionado sirve, con `pg_trgm` disponible    |
+| Redis      | 7              | Sesiones, caché de tenants y rate limiting    |
+| RabbitMQ   | 3              | Bus de eventos entre servicios                |
 
 Recursos orientativos para un despliegue de un solo nodo: 4 vCPU y 8 GB de RAM.
 Son 9 contenedores de aplicación más tres de infraestructura; el build del

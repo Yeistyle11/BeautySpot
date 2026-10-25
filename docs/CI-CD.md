@@ -34,7 +34,7 @@ cada commit de la rama principal conserve su propio run concluido.
 
 ### `quality`
 
-Node 20, `npm install --legacy-peer-deps`, y después Prettier, build de turbo, ESLint
+Node de `.nvmrc`, `npm install --legacy-peer-deps`, y después Prettier, build de turbo, ESLint
 y TypeScript. Es el job que bloquea `docker-build`: si el código no compila, no tiene
 sentido construir imágenes.
 

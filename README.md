@@ -59,8 +59,8 @@ Detalle en [docs/04-ARQUITECTURA.md](docs/04-ARQUITECTURA.md).
 
 | Herramienta | Versión            |
 | ----------- | ------------------ |
-| Node.js     | 20.x               |
-| npm         | 10.x               |
+| Node.js     | 26.12.1 (`.nvmrc`) |
+| npm         | 11.x               |
 | Docker      | 24+ con Compose v2 |
 
 Docker sólo aporta la **infraestructura**; los servicios corren en el host con
