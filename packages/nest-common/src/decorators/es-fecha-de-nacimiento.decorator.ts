@@ -12,7 +12,7 @@ import { PATRON_FECHA, esFechaValida } from "@beautyspot/shared-utils";
 /** Edad máxima que se acepta: por encima, es un error al escribir el año. */
 export const EDAD_MAXIMA = 120;
 
-/** Día de hoy (`YYYY-MM-DD`) con un día de margen por el huso de quien escribe. */
+/** Mañana en UTC (`YYYY-MM-DD`): el día de margen cubre el huso de quien escribe. */
 function mananaUtc(): string {
   return new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 }

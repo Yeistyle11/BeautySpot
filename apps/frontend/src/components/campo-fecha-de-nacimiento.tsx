@@ -1,6 +1,6 @@
 "use client";
 
-// Fecha de nacimiento que el cliente da, opcional, con el motivo a la vista.
+// Campo de la fecha de nacimiento del cliente.
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toLocalDateKey } from "@/lib/utils";
@@ -13,10 +13,7 @@ interface CampoFechaDeNacimientoProps {
   disabled?: boolean;
 }
 
-/**
- * Campo de la fecha de nacimiento. Es un dato personal, así que dice para qué
- * se usa y no deja elegir un día que aún no ha llegado.
- */
+/** Opcional y con el motivo a la vista: es un dato personal. */
 export function CampoFechaDeNacimiento({
   id = "birthDate",
   value,

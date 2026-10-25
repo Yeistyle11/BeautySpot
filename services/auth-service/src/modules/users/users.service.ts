@@ -148,9 +148,8 @@ export class UsersService {
   }
 
   /**
-   * Actualiza el perfil del propio usuario (nombre, teléfono, avatar y fecha
-   * de nacimiento). El cambio sale por el outbox para que sus fichas en cada
-   * negocio copien nombre, teléfono y fecha de nacimiento.
+   * Actualiza el perfil del propio usuario y lo publica por el outbox, para que
+   * sus fichas en cada negocio copien nombre, teléfono y fecha de nacimiento.
    */
   async updateProfile(
     id: string,
