@@ -41,7 +41,7 @@ interface DayViewProps {
   bloqueos?: BloqueoDeAgenda[];
   /** Dias de la semana (0 domingo … 6 sabado) en los que el negocio abre. */
   diasAbiertos?: number[];
-  /** Horario del negocio ese dia, para que la rejilla sea su jornada. */
+  /** Horario del negocio ese dia. */
   horarioDelDia?: HorarioDelNegocio;
   /** Bloquear desde un hueco; sin este prop la rejilla no es pulsable. */
   onBloquearHueco?: (professionalId: string, hora: string) => void;
@@ -178,10 +178,8 @@ function bloquesDe(appt: Appointment): BloqueDeCita[] {
 }
 
 /**
- * Vista de un dia con una columna por profesional. Cada cita se posiciona por
- * minutos y se pinta partida en los tramos que ocupan al profesional. En movil
- * se ve un profesional a la vez, elegido con chips: dos columnas de 140 px ya
- * no caben.
+ * Vista de un dia con una columna por profesional; en movil, un profesional a
+ * la vez, elegido con chips.
  */
 export function DayView({
   appointments,
@@ -269,7 +267,7 @@ export function DayView({
     ];
   }, [bloquesPorProfesional, professionals]);
 
-  // Sin eleccion, o si el elegido ya no tiene columna, se ve el primero.
+  // Sin eleccion valida, se ve el primero.
   const elegido = columnas.find((p) => p.id === elegidoId) ?? columnas[0];
   const visibles = esEscritorio || !elegido ? columnas : [elegido];
   const citasDe = (id: string) =>

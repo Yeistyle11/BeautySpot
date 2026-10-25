@@ -2,10 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { Edit, Trash2 } from "lucide-react";
 import { AccionesDeFila } from "@/components/ui/acciones-de-fila";
 
-/**
- * Abre el menú «⋯». Se abre con teclado porque jsdom no tiene PointerEvent y
- * Radix descarta el pointerdown sin botón.
- */
+/** Abre el menú «⋯» con el teclado. */
 function abrirMenu(nombre: string) {
   fireEvent.keyDown(screen.getByRole("button", { name: nombre }), {
     key: "Enter",

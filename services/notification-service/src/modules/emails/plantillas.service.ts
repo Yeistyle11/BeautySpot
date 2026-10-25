@@ -28,7 +28,7 @@ export class PlantillasService implements OnModuleInit {
 
   constructor(@Optional() private readonly config?: ConfigService) {}
 
-  /** Compila los parciales y todas las `.hbs` de la carpeta; sin ellas no se arranca. */
+  /** Compila los parciales y todas las `.hbs` de la carpeta. */
   async onModuleInit(): Promise<void> {
     for (const [nombre, ayudante] of Object.entries(AYUDANTES)) {
       this.hbs.registerHelper(nombre, ayudante);

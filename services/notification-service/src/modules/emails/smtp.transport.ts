@@ -16,11 +16,7 @@ export interface MensajeSmtp {
     content?: Buffer;
     contentType?: string;
   }[];
-  /**
-   * Nombre con el que firma, sobre la misma dirección de `EMAIL_FROM`: los
-   * correos de una cita los firma el negocio («Barbería La Noche vía
-   * BeautySpot»), no la plataforma.
-   */
+  /** Nombre con el que firma, sobre la dirección de `EMAIL_FROM` («X vía BeautySpot»). */
   remitente?: string;
 }
 

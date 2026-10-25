@@ -1,9 +1,5 @@
 /**
- * Pinta cada correo con sus datos de ejemplo a un .html, más un índice, para
- * revisarlos en el navegador sin enviar nada. Las imágenes se copian de
- * apps/frontend/public/correo, las mismas que se sirven en producción, para
- * que la carpeta se pueda abrir o servir tal cual.
- *
+ * Pinta cada correo de ejemplo a un .html, con un índice y sus imágenes.
  * Uso: npm run correos:vista-previa -- [carpeta de salida]
  */
 import { cpSync, mkdirSync, writeFileSync } from "fs";

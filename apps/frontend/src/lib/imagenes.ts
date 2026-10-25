@@ -1,5 +1,4 @@
-// Subida de imágenes del negocio: comprobación y reducción en el navegador
-// antes de enviarlas, para que una foto del celular no tarde en subir.
+// Subida de imágenes del negocio, con comprobación y reducción en el navegador.
 import {
   MAXIMO_BYTES_IMAGEN,
   TIPOS_DE_IMAGEN,
@@ -16,10 +15,7 @@ export interface ImagenSubida {
   alto: number;
 }
 
-/**
- * Lado mayor con el que sale una foto del navegador. El servidor la deja aún
- * más pequeña según su uso; esto solo evita mandar 12 MP para nada.
- */
+/** Lado mayor con el que sale una foto del navegador. */
 export const LADO_MAXIMO_ENVIO = 2560;
 
 /** Calidad del JPEG con que se reencoda en el navegador. */
@@ -56,11 +52,7 @@ function sirveTalCual(archivo: File): boolean {
   );
 }
 
-/**
- * Redibuja la imagen en un lienzo a un tamaño razonable y la exporta a JPEG.
- * Así entran también las fotos HEIC de un iPhone, que el navegador sabe leer
- * aunque el servidor no.
- */
+/** Redibuja la imagen en un lienzo al lado máximo y la exporta a JPEG. */
 async function reducir(archivo: File): Promise<Blob> {
   if (typeof createImageBitmap !== "function") {
     throw new ErrorDeImagen("Este navegador no puede preparar la imagen");

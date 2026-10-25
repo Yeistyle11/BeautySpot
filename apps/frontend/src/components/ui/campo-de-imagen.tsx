@@ -48,11 +48,7 @@ interface ZonaDeImagenesProps {
   describedBy?: string;
 }
 
-/**
- * Zona donde se suelta o se elige el archivo. El control es un input de
- * archivo de verdad, así que funciona con teclado, lector de pantalla y, en el
- * celular, abre la cámara o la galería.
- */
+/** Zona donde se suelta o se elige el archivo, sobre un input de archivo. */
 export function ZonaDeImagenes({
   id,
   proposito,

@@ -19,9 +19,8 @@ import { DataEnricherService } from "../data-enricher/data-enricher.service";
 import { AvisosService } from "./avisos.service";
 
 /**
- * Correos de la cuenta: las tres bienvenidas (cliente, equipo y negocio),
- * restablecer contrasena, confirmar el correo y avisar de un alta repetida.
- * Todos son solo correo.
+ * Correos de la cuenta: bienvenidas, restablecer contrasena, confirmar el correo
+ * y alta repetida.
  */
 @Injectable()
 export class CuentaListeners {

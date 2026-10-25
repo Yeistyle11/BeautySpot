@@ -2,13 +2,8 @@
 
 // Hosts externos desde los que se permite optimizar imagenes.
 //
-// Las fotos del negocio se suben a la propia app y se sirven en /media, que es
-// del mismo origen y no necesita estar aqui. Esta lista cubre las URLs externas
-// que hay guardadas y los hosts que declare cada despliegue. Next
-// solo optimiza hosts declarados y falla en el resto, asi que es la unica
-// fuente de verdad: se usa para `remotePatterns` y se expone al cliente para
-// decidir, imagen a imagen, si se puede optimizar o hay que servirla tal cual
-// (ver lib/image.ts).
+// Se usa para `remotePatterns` y se expone al cliente (ver lib/image.ts). Las
+// imagenes subidas se sirven en /media, del mismo origen.
 //
 // Va sin comodines a proposito. Un `*.amazonaws.com` deja que cualquiera sirva
 // cualquier cosa desde su propio bucket, y el optimizador la descarga, la

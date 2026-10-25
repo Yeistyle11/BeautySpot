@@ -48,10 +48,8 @@ export function filasDeProfesionales(
 }
 
 /**
- * Tabla de citas, ingresos y valoración de cada profesional en el periodo. El
- * ingreso de cada uno es el precio de lo que atendió, no lo cobrado, así que
- * la suma no tiene por qué dar el total del periodo; debajo se dice cuánto y
- * por qué.
+ * Citas, ingresos y valoración de cada profesional en el periodo, con la nota
+ * de lo que su suma no cubre del total.
  */
 export function ProfessionalsTable({
   filas,

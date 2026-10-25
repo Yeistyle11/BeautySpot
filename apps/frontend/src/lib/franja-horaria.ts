@@ -77,9 +77,8 @@ export function franjaDeJornada(horarios: HorarioDelNegocio[] = []): number[] {
 }
 
 /**
- * Horas de un día concreto: su jornada, con una hora de margen, y lo que haya
- * fuera de ella. Sin horario ese día (cerrado o sin cargar) vale la rejilla
- * de siempre.
+ * Horas de un día: su jornada con una hora de margen y lo que haya fuera. Sin
+ * horario, la rejilla por defecto.
  */
 export function franjaDelDia(
   tramos: Tramo[],

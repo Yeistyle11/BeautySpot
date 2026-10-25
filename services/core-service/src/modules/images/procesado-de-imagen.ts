@@ -54,10 +54,8 @@ export function formatoSegunContenido(
 }
 
 /**
- * Convierte lo que se sube en la imagen que se guarda: la gira según la
- * cámara, la reduce al tamaño de su propósito y la reencoda a WebP sin
- * metadatos (ni EXIF ni GPS). Reencodar asegura además que lo guardado es solo
- * una imagen, traiga lo que traiga el archivo.
+ * Gira la imagen según la cámara, la reduce al tamaño de su propósito y la
+ * reencoda a WebP sin metadatos.
  */
 export async function procesarImagen(
   datos: Buffer,

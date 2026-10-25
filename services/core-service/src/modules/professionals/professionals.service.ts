@@ -97,9 +97,8 @@ export class ProfessionalsService extends TenantCrudService<Professional> {
   }
 
   /**
-   * Actualiza la ficha de un profesional, validando antes su categoría y su
-   * foto. El cambio sale por el outbox para que el escaparate copie nombre y
-   * foto, y la foto que deja de usarse se borra del almacén.
+   * Actualiza la ficha de un profesional, la publica por el outbox y borra del
+   * almacén la foto que deja de usarse.
    */
   async update(
     id: string,

@@ -5,10 +5,7 @@ import { cn } from "@/lib/utils";
 
 const Tabs = TabsPrimitive.Root;
 
-/**
- * Barra con los disparadores de las pestañas. Si no caben en el ancho, se
- * desplaza de lado en vez de empujar la pagina.
- */
+/** Barra de pestañas, con desplazamiento lateral si no caben. */
 const TabsList = ({
   className,
   ...props
@@ -22,11 +19,7 @@ const TabsList = ({
   />
 );
 
-/**
- * Disparador de una pestaña. Al elegirla se desplaza la barra hasta dejarla
- * entera a la vista: en movil las pestañas no caben y la elegida podria quedar
- * cortada en el borde.
- */
+/** Disparador de una pestaña; al elegirla, la barra la deja entera a la vista. */
 const TabsTrigger = ({
   className,
   onClick,

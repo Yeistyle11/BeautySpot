@@ -73,8 +73,7 @@ export class SendEmailProcessor extends WorkerHost {
   /** Procesa un trabajo de la cola enviando el correo; relanza el error para que BullMQ reintente. */
   async process(job: Job<EmailJobData>) {
     const { to, subject, template, context, adjunto } = job.data;
-    // En el último intento la factura sale aunque el PDF no llegue: sin él
-    // sigue valiendo, y reintentarla ya no es posible.
+    // En el último intento la factura sale aunque falte el PDF.
     const ultimoIntento = job.attemptsMade + 1 >= (job.opts?.attempts ?? 1);
 
     this.logger.log(

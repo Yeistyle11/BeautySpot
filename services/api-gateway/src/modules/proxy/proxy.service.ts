@@ -18,10 +18,7 @@ export interface CuerpoBinario {
   disposicion?: string;
 }
 
-/**
- * Cabeceras de la respuesta que se devuelven tal cual: sin ellas el navegador
- * no cachearía las imágenes ni sabría si la suya sigue valiendo.
- */
+/** Cabeceras de caché de la respuesta que se devuelven tal cual. */
 const CABECERAS_DE_CACHE = ["cache-control", "etag", "x-content-type-options"];
 
 /** Indica si el contenido es texto (JSON incluido) y puede leerse como tal. */
@@ -154,10 +151,7 @@ export class ProxyService {
     );
   }
 
-  /**
-   * Corta una subida antes de leerla si declara más de lo permitido, o si no
-   * declara cuánto trae: sin longitud no hay forma de acotarla.
-   */
+  /** Rechaza la subida sin `content-length` o que declara más del máximo. */
   validarSubida(req: Request): void {
     const longitud = Number(req.headers["content-length"]);
     if (!Number.isFinite(longitud) || longitud <= 0) {

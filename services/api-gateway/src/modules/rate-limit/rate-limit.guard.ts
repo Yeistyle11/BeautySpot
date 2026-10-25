@@ -60,10 +60,7 @@ const RUTAS_DE_CREDENCIALES = [
  */
 const RUTAS_DE_RESERVA_PUBLICA = ["/booking/public/appointments"];
 
-/**
- * Subida de imágenes: cada una se decodifica y reencoda, así que se cuenta
- * aparte del tráfico general y con un presupuesto menor.
- */
+/** Subida de imágenes, que se cuenta con su propio presupuesto. */
 const RUTA_DE_SUBIDAS = "/core/images";
 
 @Injectable()
@@ -151,9 +148,7 @@ export class RateLimitGuard implements CanActivate {
       }
     }
 
-    // Sin Redis no hay forma de contar. El trafico con sesion pasa, porque
-    // cerrar tumbaria el producto por una caida de la cache; lo que se escribe
-    // sin token se cierra, que es donde no contar equivale a no tener limite.
+    // Sin Redis, credenciales y reserva publica se cierran; el resto pasa.
     if (
       sinContador &&
       (trafico === "credenciales" || trafico === "reservaPublica")

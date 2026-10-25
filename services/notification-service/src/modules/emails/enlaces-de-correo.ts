@@ -3,7 +3,7 @@
 /** Lo que hace falta saber de una cita para enlazarla. */
 export interface CitaEnlazable {
   appointmentId?: string;
-  /** Si el cliente tiene cuenta: sin ella no puede abrir su cita en el panel. */
+  /** Si el cliente tiene cuenta. */
   conCuenta?: boolean;
   serviceName?: string;
   businessName: string;
@@ -11,14 +11,13 @@ export interface CitaEnlazable {
   appointmentDate?: string;
   appointmentTime?: string;
   endTime?: string;
-  /** Huso del negocio, para que el calendario ponga la hora donde es. */
+  /** Huso del negocio. */
   timezone?: string;
 }
 
 /**
- * Fecha "YYYY-MM-DD" y hora "HH:MM" como "YYYYMMDDTHHMMSS", el formato de
- * Google Calendar. Las horas de madrugada se guardan pasadas de 24 («24:30»),
- * así que se suman al día siguiente.
+ * Fecha y hora como "YYYYMMDDTHHMMSS" (Google Calendar); las horas pasadas de 24
+ * caen en el día siguiente.
  */
 export function fechaHoraCompacta(fecha: string, hora: string): string {
   const [anio, mes, dia] = fecha.split("-").map(Number);

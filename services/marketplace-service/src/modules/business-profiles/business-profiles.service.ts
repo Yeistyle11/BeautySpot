@@ -287,10 +287,7 @@ export class BusinessProfilesService {
     return guardado;
   }
 
-  /**
-   * Escribe la configuración, condicionada a la versión cargada si la hay.
-   * `alLeer` recibe el perfil antes de cambiarlo.
-   */
+  /** Escribe la configuración; `alLeer` recibe el perfil sin cambiar. */
   private async escribirConfig(
     businessId: string,
     dto: Omit<UpdateProfileConfigDto, "updatedAt">,

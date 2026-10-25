@@ -18,12 +18,7 @@ export const SERVICIOS = [
 
 export type Servicio = (typeof SERVICIOS)[number];
 
-/**
- * Lee el `DATABASE_URL` de un servicio de su propio `.env`, el mismo del que lo
- * lee al arrancar. No se toca `process.env`: son seis bases distintas y cargar
- * un `.env` no pisa lo ya cargado, así que la primera lectura ganaría para
- * todas. Por eso solo se analiza el archivo.
- */
+/** `DATABASE_URL` del `.env` de un servicio, sin cargarlo en `process.env`. */
 function urlDeLaBase(servicio: Servicio): string {
   const ruta = join(RAIZ, "services", `${servicio}-service`, ".env");
   if (!existsSync(ruta)) {
