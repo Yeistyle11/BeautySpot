@@ -92,7 +92,7 @@ export function Dialog({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="data-[state=open]:animate-aparecer-fondo data-[state=closed]:animate-desaparecer-fondo fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px]" />
         <CuerpoDelDialogo
-          key={apertura}
+          apertura={apertura}
           ancho={ancho}
           onClose={onClose}
           sinAvisoDeDescarte={sinAvisoDeDescarte}
@@ -108,18 +108,7 @@ export function Dialog({
   );
 }
 
-/** El dialogo; el `ref` del portal se entrega al contenido. */
-function CuerpoDelDialogo({
-  ref,
-  ancho,
-  onClose,
-  title,
-  descripcion,
-  icono: Icono,
-  children,
-  pie,
-  sinAvisoDeDescarte,
-}: {
+type PropsDelCuerpo = {
   ref?: React.Ref<HTMLDivElement>;
   ancho: string;
   onClose: () => void;
@@ -129,7 +118,31 @@ function CuerpoDelDialogo({
   icono?: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
   children: React.ReactNode;
   pie?: React.ReactNode;
-}) {
+};
+
+/**
+ * Hijo directo del portal, con clave estable para que Radix lo monte a la vez
+ * que el fondo; la clave de cada apertura va en el contenido.
+ */
+function CuerpoDelDialogo({
+  apertura,
+  ...props
+}: PropsDelCuerpo & { apertura: number }) {
+  return <ContenidoDelDialogo key={apertura} {...props} />;
+}
+
+/** El dialogo; el `ref` del portal se entrega al contenido. */
+function ContenidoDelDialogo({
+  ref,
+  ancho,
+  onClose,
+  title,
+  descripcion,
+  icono: Icono,
+  children,
+  pie,
+  sinAvisoDeDescarte,
+}: PropsDelCuerpo) {
   /** Lo que el usuario haya escrito aqui dentro y no este guardado. */
   const [sucio, setSucio] = useState(false);
   const [preguntando, setPreguntando] = useState(false);

@@ -104,6 +104,48 @@ describe("Dialog", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("el fondo queda debajo del formulario cada vez que se abre", () => {
+    const dialogo = (open: boolean) => (
+      <Dialog open={open} onClose={jest.fn()} title="Nuevo servicio">
+        <p>Contenido</p>
+      </Dialog>
+    );
+    const { rerender } = render(dialogo(false));
+
+    for (let vez = 0; vez < 2; vez++) {
+      rerender(dialogo(true));
+      const formulario = screen.getByRole("dialog");
+      const fondo = [...document.querySelectorAll('[data-state="open"]')].find(
+        (nodo) => nodo !== formulario && !formulario.contains(nodo)
+      );
+
+      // Con el mismo z-index, lo que va después en el documento queda encima.
+      expect(fondo).toBeDefined();
+      expect(
+        fondo!.compareDocumentPosition(formulario) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+
+      rerender(dialogo(false));
+    }
+  });
+
+  it("al reabrirlo no conserva lo escrito la vez anterior", () => {
+    const dialogo = (open: boolean) => (
+      <Dialog open={open} onClose={jest.fn()} title="Nuevo cliente">
+        <label htmlFor="nombre">Nombre</label>
+        <input id="nombre" defaultValue="" />
+      </Dialog>
+    );
+    const { rerender } = render(dialogo(true));
+    escribirComoUsuario(screen.getByLabelText("Nombre"), "Camila");
+
+    rerender(dialogo(false));
+    rerender(dialogo(true));
+
+    expect(screen.getByLabelText("Nombre")).toHaveValue("");
+  });
+
   it("no cuenta como escrito lo que llega ya puesto", () => {
     const onClose = jest.fn();
     render(
