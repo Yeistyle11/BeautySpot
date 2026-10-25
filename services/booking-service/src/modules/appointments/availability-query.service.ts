@@ -678,7 +678,7 @@ export class AvailabilityQueryService {
   ): Franja[] {
     const franjas = new Map<string, Franja>();
 
-    for (const tramo of [...tramos].sort(porHora)) {
+    for (const tramo of tramos.toSorted(porHora)) {
       const finDelTramo = timeToMinutes(tramo.endTime);
 
       for (const slotStart of this.iniciosCandidatos(tramo, iniciosExtra)) {

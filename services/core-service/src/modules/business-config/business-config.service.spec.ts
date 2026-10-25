@@ -5,7 +5,6 @@ import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { BusinessConfigService } from "./business-config.service";
 import { BusinessConfig } from "../../entities/business-config.entity";
-import { v4 as uuidv4 } from "uuid";
 
 describe("BusinessConfigService", () => {
   let service: BusinessConfigService;
@@ -92,11 +91,11 @@ describe("BusinessConfigService", () => {
     });
 
     it("pone el id de la fila que inserta", async () => {
-      (uuidv4 as jest.Mock).mockReturnValue("config-1");
-
       await service.guardar("business-123", "facturacion", { serie: "FA" });
 
-      expect(valoresInsertados.id).toBe("config-1");
+      expect(valoresInsertados.id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+      );
     });
 
     it("al chocar solo pisa el valor, no el id de la fila", async () => {

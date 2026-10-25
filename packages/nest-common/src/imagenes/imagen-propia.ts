@@ -31,8 +31,8 @@ export function esImagenPropia(url: string, businessId: string): boolean {
 
 /**
  * Exige que una imagen que se guarda la haya subido el propio negocio. Se deja
- * pasar la que ya estaba guardada, aunque sea una URL de antes de poder subir
- * archivos, para que editar otro campo no obligue a cambiarla.
+ * pasar la que ya estaba guardada, aunque sea una URL externa, para que editar
+ * otro campo no obligue a cambiarla.
  */
 export function asegurarImagenPropia(
   nueva: string | null | undefined,

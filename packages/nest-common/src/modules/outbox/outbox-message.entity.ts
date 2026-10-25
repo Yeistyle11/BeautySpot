@@ -6,7 +6,7 @@ import {
   CreateDateColumn,
   BeforeInsert,
 } from "typeorm";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 
 /** Estado de un mensaje del outbox: pendiente, ya publicado o descartado tras agotar reintentos. */
 export enum OutboxStatus {
@@ -67,7 +67,7 @@ export class OutboxMessageEntity {
   @BeforeInsert()
   generateId(): void {
     if (!this.id) {
-      this.id = uuidv4();
+      this.id = randomUUID();
     }
   }
 }

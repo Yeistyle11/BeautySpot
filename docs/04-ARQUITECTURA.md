@@ -857,9 +857,9 @@ cruce la medianoche se deduce de que su fin venga antes que su inicio.
 
 ### ADR-009: Las imagenes se suben a la app, detras de un almacen intercambiable
 
-**Contexto**: Logo, portada, galeria, historia y foto de cada profesional se
-guardaban como una URL que tecleaba el negocio: no tenia donde alojar sus fotos,
-y cualquier dominio llegaba al optimizador de `next/image`.
+**Contexto**: Logo, portada, galeria, historia y foto de cada profesional son
+imagenes que el negocio no tiene donde alojar, y una URL tecleada llevaria
+cualquier dominio al optimizador de `next/image`.
 **Decision**: Las imagenes se suben a core-service (`POST /images`), que las
 valida por su contenido, las reencoda a WebP sin metadatos y las guarda en un
 `AlmacenDeImagenes`: disco (un volumen del VPS) por defecto, o un bucket
@@ -873,3 +873,16 @@ cuentas externas; el coste es respaldar el volumen junto a la base (DEPLOY.md), 
 pasar a un bucket es cuestion de configuracion porque el resto del sistema solo
 conoce claves. Las subidas abandonadas sin guardar quedan como archivos sueltos,
 acotados por el tamano maximo y el limite de subidas del gateway.
+
+### ADR-010: Una sola version de Node, exacta y con soporte
+
+**Contexto**: Node solo publica parches de seguridad para sus lineas con
+soporte; una linea fuera de soporte queda expuesta a cada vulnerabilidad nueva.
+**Decision**: La version de Node es una, exacta y de una linea con soporte:
+`.nvmrc` (26.12.1) la fija para desarrollo y CI, y las 9 imagenes usan la misma
+etiqueta exacta (`node:26.12.1-alpine`). `engines` en el `package.json` raiz
+avisa a quien instale con otra.
+**Rationale**: Una etiqueta flotante (`node:26-alpine`) toma el ultimo parche al
+reconstruir, pero no deja ver cual corre en produccion ni garantiza que dos
+builds sean iguales. Con la version exacta, aplicar un parche de seguridad es un
+commit que cambia `.nvmrc` y los Dockerfiles, y se ve en el historial.

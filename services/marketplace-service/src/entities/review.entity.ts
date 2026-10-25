@@ -54,8 +54,8 @@ export class ReviewEntity extends TenantEntity {
   professionalName!: string;
 
   /**
-   * Fotos que traen algunas reseñas antiguas. Las reseñas no llevan fotos: la
-   * columna no se escribe ni se muestra, y se conserva para no perder datos.
+   * Fotos guardadas en algunas reseñas. Las reseñas no llevan fotos: la columna
+   * no se escribe ni se muestra, y se conserva para no perder datos.
    */
   @Column({ type: "jsonb", nullable: true })
   photos!: string[] | null;

@@ -9,11 +9,6 @@ jest.mock("bcryptjs", () => ({
   compare: jest.fn(),
 }));
 
-// Mock de uuid
-jest.mock("uuid", () => ({
-  v4: jest.fn(),
-}));
-
 // Mock de JwtService
 jest.mock("@nestjs/jwt", () => ({
   JwtService: jest.fn().mockImplementation(() => ({

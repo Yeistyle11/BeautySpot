@@ -4,7 +4,7 @@ import { DataSource, Repository } from "typeorm";
 import { OutboxService } from "@beautyspot/nest-common";
 import { EventNames } from "@beautyspot/event-types";
 import { QueryDeepPartialEntity } from "typeorm/query-builder/QueryPartialEntity";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { BusinessConfig } from "../../entities/business-config.entity";
 
 /** Clave de los datos fiscales dentro de `business_config`. */
@@ -51,7 +51,7 @@ export class BusinessConfigService {
         .insert()
         .into(BusinessConfig)
         .values({
-          id: uuidv4(),
+          id: randomUUID(),
           businessId,
           key,
           value: value as QueryDeepPartialEntity<Record<string, unknown>>,

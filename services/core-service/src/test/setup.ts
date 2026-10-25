@@ -3,11 +3,6 @@ import "reflect-metadata";
 // Configuracion global de Jest: mockea dependencias externas (Redis, RabbitMQ,
 // config y SDKs) para que las pruebas unitarias corran aisladas de la infraestructura.
 
-// Mock de uuid
-jest.mock("uuid", () => ({
-  v4: jest.fn(),
-}));
-
 // Mock de ConfigService
 jest.mock("@nestjs/config", () => ({
   ConfigService: jest.fn().mockImplementation(() => ({

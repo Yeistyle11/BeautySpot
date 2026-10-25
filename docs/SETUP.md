@@ -9,8 +9,8 @@ Para producción, ver [../DEPLOY.md](../DEPLOY.md).
 
 | Herramienta | Versión | Comprobar con      |
 | ----------- | ------- | ------------------ |
-| Node.js     | 20.x    | `node --version`   |
-| npm         | 10.x    | `npm --version`    |
+| Node.js     | 26.12.1 | `node --version`   |
+| npm         | 11.x    | `npm --version`    |
 | Docker      | 24+     | `docker --version` |
 | Git         | —       | `git --version`    |
 

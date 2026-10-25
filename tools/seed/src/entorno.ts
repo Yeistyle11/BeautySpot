@@ -1,6 +1,6 @@
-import { config } from "dotenv";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join, resolve } from "path";
+import { parseEnv } from "util";
 import { DataSource, DataSourceOptions } from "typeorm";
 
 /** Raíz del monorepo, subiendo desde `tools/seed/src`. */
@@ -20,8 +20,9 @@ export type Servicio = (typeof SERVICIOS)[number];
 
 /**
  * Lee el `DATABASE_URL` de un servicio de su propio `.env`, el mismo del que lo
- * lee al arrancar. No se toca `process.env`: son seis bases distintas y `dotenv`
- * no pisa lo ya cargado, así que la primera lectura ganaría para todas.
+ * lee al arrancar. No se toca `process.env`: son seis bases distintas y cargar
+ * un `.env` no pisa lo ya cargado, así que la primera lectura ganaría para
+ * todas. Por eso solo se analiza el archivo.
  */
 function urlDeLaBase(servicio: Servicio): string {
   const ruta = join(RAIZ, "services", `${servicio}-service`, ".env");
@@ -32,7 +33,7 @@ function urlDeLaBase(servicio: Servicio): string {
     );
   }
 
-  const url = config({ processEnv: {}, path: ruta }).parsed?.DATABASE_URL;
+  const url = parseEnv(readFileSync(ruta, "utf8")).DATABASE_URL;
   if (!url) {
     throw new Error(
       `services/${servicio}-service/.env no define DATABASE_URL.`

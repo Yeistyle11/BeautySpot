@@ -1,7 +1,7 @@
 # Plan de remediación — BeautySpot
 
 Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
-`fix/responsive-movil` para las cuatro últimas. Siete campañas, en orden:
+`fix/responsive-movil` para las cuatro últimas. Ocho campañas, en orden:
 
 1. **`QA-REPORT-BeautySpot-2026-08-22`** — 28 hallazgos `BS-001`…`BS-028`
    (1 bloqueante, 5 altos, 15 medios, 7 bajos). Cerrada.
@@ -17,7 +17,10 @@ Rama de trabajo: `fix/tanda-24-auditoria` para las tres primeras campañas y
 6. **Correos 2026-10-24** — 8 hallazgos `BS-090`…`BS-097` (2 altos, 4 medios,
    2 bajos).
 7. **Imágenes 2026-10-24** — 7 hallazgos `BS-098`…`BS-104` (3 altos, 3 medios,
-   1 bajo). Al final del documento.
+   1 bajo).
+8. **Seguridad del runtime 2026-10-24** — 2 hallazgos `BS-105`…`BS-106` (1 alto,
+   1 bajo), en la rama
+   `chore/node-26`. Al final del documento.
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ corregido y verificado · 📋 propuesta `[PM]` (no se implementa) · ❓ necesita aclaración
 
@@ -1692,3 +1695,59 @@ Configuración y de dos fotos a la galería, vistas en el escaparate público po
 logo reemplazado responde 404; un HTML renombrado a `.jpg` se rechaza; la foto
 de un profesional llega a `professional_profiles` por el evento. A 375 px el
 formulario no desborda.
+
+---
+
+# Campaña 2026-10-24 (5) — `BS-105`…`BS-106` · Seguridad del runtime
+
+Origen: el 21 de octubre de 2026 Node.js publicó parches para 10 CVE, cuatro
+altos (Brotli con posible ejecución remota, dos saltos de la validación de
+hostname TLS y DNS con bytes NUL), solo para las líneas 22, 24 y 26. El usuario
+pidió subir a la versión con el parche.
+
+## Decisiones tomadas
+
+| Tema    | Decisión                                                                                          |
+| ------- | ------------------------------------------------------------------------------------------------- |
+| Versión | Node **26.12.1** (LTS desde el 28 de octubre de 2026) y npm 11.20.0                               |
+| Fijado  | Versión exacta en `.nvmrc` y en las 9 imágenes `node:26.12.1-alpine`; `engines` avisa al instalar |
+
+## Tablero
+
+| ID     | Sev  | Módulo     | Causa | Esfuerzo | Estado |
+| ------ | ---- | ---------- | ----- | -------- | ------ |
+| BS-105 | Alta | Plataforma | —     | S        | ✅     |
+| BS-106 | Baja | Plataforma | —     | S        | ✅     |
+
+## Detalle
+
+### BS-105 · El sistema corría en Node 20, sin soporte ni parches ✅
+
+Node 20 terminó su soporte en marzo de 2026 y no recibió los parches de octubre.
+Las 9 imágenes de producción, la integración continua y la documentación lo
+usaban. Ahora todo sale de `.nvmrc` (26.12.1): las imágenes usan
+`node:26.12.1-alpine`, CI lee `node-version-file`, el `package.json` raíz declara
+`engines` y `packageManager: npm@11.20.0`, y `@types/node` pasa a la línea 26 en
+todos los workspaces. Ninguna dependencia usa las APIs que Node 26 retiró
+(`http.writeHeader()`, los módulos `_stream_*`); la única nativa, sharp, va por
+N-API.
+
+### BS-106 · Dependencias que Node ya trae de serie ✅
+
+`uuid` y `dotenv` hacían lo que Node ya trae: `crypto.randomUUID()` y
+`process.loadEnvFile()` / `util.parseEnv()`. Salen de siete y nueve workspaces
+respectivamente; cada dependencia de menos es una vía menos para la próxima
+vulnerabilidad. El proxy del gateway pasa a `AbortSignal.timeout` y los
+servicios compilan con `lib` ES2023. Los paquetes que comparte el navegador
+siguen en ES2022, y el frontend no usa `toSorted` porque Next 16 aún soporta
+Firefox 111–114.
+
+## Verificación
+
+Con Node 26.12.1 y npm 11.20.0 en local, instalación limpia: `format:check`,
+`build`, `lint` y `type-check` en verde, y **233 suites, 3157 pruebas** con el
+umbral de cobertura. Los 8 servicios y el frontend arrancan; login, subida de
+imagen (sharp), PDF de factura, agenda y escaparate público responden bien.
+
+Pendiente en el servidor: reconstruir las 9 imágenes con `--pull` y comprobar
+`node -v` en cada contenedor.

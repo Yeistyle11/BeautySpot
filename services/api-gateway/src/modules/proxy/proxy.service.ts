@@ -218,7 +218,11 @@ export class ProxyService {
   mapProxyError(service: string, error: unknown): HttpException {
     if (error instanceof HttpException) return error;
 
-    if (error instanceof Error && error.name === "AbortError") {
+    // AbortSignal.timeout rechaza con TimeoutError; un aborto manual, con AbortError.
+    if (
+      error instanceof Error &&
+      (error.name === "TimeoutError" || error.name === "AbortError")
+    ) {
       return new HttpException(
         `Servicio ${service} excedió el tiempo límite`,
         HttpStatus.GATEWAY_TIMEOUT

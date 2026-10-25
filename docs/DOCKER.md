@@ -73,7 +73,7 @@ test las crea `infra/docker/postgres/init-test.sql`. Ver [TESTING.md](TESTING.md
 ## Imágenes de la aplicación
 
 Hay 9 Dockerfile: uno por microservicio y uno para el frontend. Todos son
-multi-stage sobre `node:20-alpine`.
+multi-stage sobre `node:26.12.1-alpine`, la misma versión que `.nvmrc`.
 
 **El contexto de build tiene que ser la raíz del monorepo**, siempre:
 
